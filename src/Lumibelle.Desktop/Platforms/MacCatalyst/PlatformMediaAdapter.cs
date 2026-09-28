@@ -25,7 +25,8 @@ internal sealed class PlatformMediaAdapter(MediaResources media) : NSObject, IWK
         {
             var headers = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
             if (task.Request.Headers is { } h) foreach (var k in h.Keys) headers[k.ToString()] = h[k].ToString();
-            await using var response = await media.GetAsync(task.Request.Url!.AbsoluteString, task.Request.HttpMethod ?? "GET", headers, cancellation.Token);
+            if (task.Request.Url?.AbsoluteString is not { } url) throw new InvalidOperationException("The media request has no URL.");
+            await using var response = await media.GetAsync(url, task.Request.HttpMethod ?? "GET", headers, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             using var nativeHeaders = new NSMutableDictionary();
             foreach (var header in response.Headers) nativeHeaders.Add((NSString)header.Key, (NSString)header.Value);
