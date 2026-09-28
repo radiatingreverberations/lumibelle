@@ -82,19 +82,9 @@ jobs:
 
       - run: dotnet workload install maui-windows --skip-manifest-update
 
-      - name: Publish unsigned MSIX
-        shell: pwsh
-        run: ./build/publish-windows.ps1
-
       - name: Publish self-contained folder
         shell: pwsh
         run: ./build/publish-windows.ps1 -Unpackaged
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: lumibelle-windows-msix-unsigned
-          path: src/Lumibelle.Desktop/bin/Release/**/AppPackages/**/*.msix
-          if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
