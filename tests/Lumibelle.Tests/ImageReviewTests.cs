@@ -28,22 +28,25 @@ public sealed partial class AssetComponentTests
     private Task ClickReview(string name) => ClickInReview(() => ReviewButton(name));
     private async Task ClickReviewSelector(string selector)
     {
-        _dialogs.WaitForElement(selector, TimeSpan.FromSeconds(10));
+        _dialogs.WaitForElement(selector, BunitDefaults.WaitTimeout(10));
         await ClickInReview(() => _dialogs.Find(selector));
         if (selector == "[aria-label='Close image review']")
             _dialogs.WaitForAssertion(() => Assert.Empty(_dialogs.FindAll(".image-review-dialog")));
     }
     private Task ClickReviewAsync(string name) => ClickInReview(() => ReviewButton(name));
-    // Takes still generating in the background re-render the review. A stale handler means the
-    // dialog's DOM lags the renderer and nothing was dispatched, so re-render and try again.
-    private async Task ClickInReview(Func<AngleSharp.Dom.IElement> find)
+    private Task ClickInReview(Func<AngleSharp.Dom.IElement> find) => ClickCurrent(_dialogs, find);
+    // Background work keeps re-rendering these pages. A stale handler means the DOM lags the
+    // renderer and nothing was dispatched, so re-render and try again.
+    private static async Task ClickCurrent<TComponent>(IRenderedComponent<TComponent> rendered, Func<AngleSharp.Dom.IElement> find)
+        where TComponent : Microsoft.AspNetCore.Components.IComponent
     {
         for (var attempt = 0; ; attempt++)
         {
-            try { await _dialogs.InvokeAsync(() => find().ClickAsync(new())); return; }
-            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { _dialogs.Render(); }
+            try { await rendered.InvokeAsync(() => find().ClickAsync(new())); return; }
+            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { rendered.Render(); }
         }
     }
+    private Task ApplyDialogChanges() => ClickCurrent(_dialogs, () => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes"));
 
     private async Task QueueOneMoreImage()
     {
@@ -168,7 +171,7 @@ public sealed partial class AssetComponentTests
     {
         var (page, _) = PrepareEdit(); _editor.HoldAfterFirst = true;
         var running = RunButton(page).ClickAsync(new());
-        _dialogs.WaitForElement("[aria-label='View Take 1']", TimeSpan.FromSeconds(5));
+        _dialogs.WaitForElement("[aria-label='View Take 1']", BunitDefaults.WaitTimeout(5));
         await QueueOneMoreImage();
         await ClickReview("Cancel remaining"); await running;
         _dialogs.WaitForAssertion(() => Assert.Equal(new[] { "Cancelled", "Cancelled" }, _dialogs.FindAll(".review-pending-row small").Select(e => e.TextContent)));
@@ -298,7 +301,7 @@ public sealed partial class AssetComponentTests
     {
         var (page, _) = PrepareEdit(4); RunButton(page).Click();
         // Discarding before later takes arrive leaves no next take to select.
-        _dialogs.WaitForElement("[aria-label='View Take 4']", TimeSpan.FromSeconds(10));
+        _dialogs.WaitForElement("[aria-label='View Take 4']", BunitDefaults.WaitTimeout(10));
         await ClickReviewSelector("[aria-label='View Take 2']");
         await ClickReviewSelector("[aria-label='Discard Take 1']");
         await ClickReviewSelector("[aria-label='Discard Take 2']");

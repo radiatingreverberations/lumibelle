@@ -7,6 +7,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ImageMoveComponentTests : BunitContext
 {
     public ImageMoveComponentTests() { Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose; }

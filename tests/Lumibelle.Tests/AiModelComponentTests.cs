@@ -11,6 +11,7 @@ using MudBlazor;
 using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
+[Trait("Category", "Component")]
 public sealed partial class AiModelComponentTests : BunitContext
 {
     private readonly ModelTestQueueFixture _modelQueue = new();
@@ -40,7 +41,7 @@ public sealed partial class AiModelComponentTests : BunitContext
     private IRenderedComponent<MudDialogProvider> PickerDialog(IRenderedComponent<TextModelPicker> picker) {
         _pickerDialogs ??= Render<MudDialogProvider>();
         picker.InvokeAsync(picker.Instance.OpenAsync).GetAwaiter().GetResult();
-        _pickerDialogs.WaitForElement("select[id^=text-model-]", TimeSpan.FromSeconds(10)); return _pickerDialogs;
+        _pickerDialogs.WaitForElement("select[id^=text-model-]", BunitDefaults.WaitTimeout(10)); return _pickerDialogs;
     }
     private void AvailableModels()
     {
@@ -203,12 +204,14 @@ public sealed partial class AiModelComponentTests : BunitContext
         page.FindAll(".text-model-row").Single(row => row.TextContent.Contains(Local.Name)).QuerySelector(".text-model-expand")!.Click(); Button(page, "Details & test").Click();
         var dialog = host.FindComponent<ComfyModelDialog>(); _settings.SaveError = new WorkspaceStoreException("Disk unavailable");
         await dialog.InvokeAsync(() => Button(dialog, "Test selected model · 256 tokens").ClickAsync(new()));
-        dialog.WaitForAssertion(() => Assert.Contains("could not be saved", dialog.Markup), TimeSpan.FromSeconds(5));
+        dialog.WaitForAssertion(() => Assert.Contains("could not be saved", dialog.Markup), BunitDefaults.WaitTimeout(5));
         Assert.Empty(_settings.Value.ComfyTextModelVerifications); Assert.Equal(1, _providers.VerificationCalls);
+        // The save failure can surface before the dialog finishes enqueueing; Retry stays disabled until then.
+        dialog.WaitForAssertion(() => Assert.False(Button(dialog, "Retry saving test result").HasAttribute("disabled")));
         _settings.SaveError = null; await dialog.InvokeAsync(() => Button(dialog, "Retry saving test result").ClickAsync(new()));
-        dialog.WaitForAssertion(() => Assert.Contains("Test result saved.", dialog.Markup), TimeSpan.FromSeconds(5));
+        dialog.WaitForAssertion(() => Assert.Contains("Test result saved.", dialog.Markup), BunitDefaults.WaitTimeout(5));
         Assert.Single(_settings.Value.ComfyTextModelVerifications); Assert.Equal(1, _providers.VerificationCalls);
-        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), TimeSpan.FromSeconds(5));
+        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());
         page.WaitForAssertion(() => Assert.False(page.Find("button[aria-label='Star Local model']").HasAttribute("disabled")));
         page.Find("button[aria-label='Star Local model']").Click(); page.WaitForAssertion(() => Assert.Single(_settings.Value.StarredTextModels));
@@ -228,12 +231,12 @@ public sealed partial class AiModelComponentTests : BunitContext
         }
         var page = Render<AiSettingsPage>(); var dialog = Open(page);
         await dialog.InvokeAsync(() => Button(dialog, "Test selected model · 256 tokens").ClickAsync(new()));
-        page.WaitForAssertion(() => Assert.Contains("Model test saved.", page.Markup), TimeSpan.FromSeconds(5));
-        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Contains("Model test saved.", page.Markup), BunitDefaults.WaitTimeout(5));
+        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());
         // A later visit shows the finished test again; it is not a new save.
         var later = Render<AiSettingsPage>(); var reopened = Open(later);
-        reopened.WaitForAssertion(() => Assert.Contains("Test result saved.", reopened.Markup), TimeSpan.FromSeconds(5));
+        reopened.WaitForAssertion(() => Assert.Contains("Test result saved.", reopened.Markup), BunitDefaults.WaitTimeout(5));
         Assert.DoesNotContain("Model test saved.", later.Markup);
         Assert.Equal(1, _providers.VerificationCalls);
     }

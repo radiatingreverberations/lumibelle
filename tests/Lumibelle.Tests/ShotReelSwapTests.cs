@@ -9,6 +9,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ShotReelSwapTests : BunitContext
 {
     public ShotReelSwapTests() { Services.AddMudServices(); Services.AddSingleton<IReferenceVideoStore>(new ReferenceEditorMediaFake()); Services.AddSingleton<IAiSettingsStore>(new FakeAiSettingsStore()); JSInterop.Mode = JSRuntimeMode.Loose; }

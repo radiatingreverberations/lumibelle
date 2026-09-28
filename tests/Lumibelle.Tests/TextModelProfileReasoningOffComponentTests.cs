@@ -5,6 +5,7 @@ using lumibelle.Services.AI;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class TextModelProfileReasoningOffComponentTests : BunitContext
 {
     private static readonly TextModelReference Model = new(AiBackend.OpenRouter, "deepseek/deepseek-v4-flash", "DeepSeek V4 Flash");

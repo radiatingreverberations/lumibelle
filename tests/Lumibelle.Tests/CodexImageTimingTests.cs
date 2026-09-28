@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class CodexImageTimingTests
 {
     private static DateTimeOffset At(int seconds) => DateTimeOffset.FromUnixTimeSeconds(seconds);

@@ -6,6 +6,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class LoraPickerTests : BunitContext
 {
     public LoraPickerTests() { Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose; Render<MudPopoverProvider>(); }

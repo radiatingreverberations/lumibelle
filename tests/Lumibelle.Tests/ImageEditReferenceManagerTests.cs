@@ -7,6 +7,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ImageEditReferenceManagerTests : BunitContext
 {
     private readonly ReferenceAsset _asset = new() { Id = Guid.NewGuid(), Name = "Character", Images = [Image("Front"), Image("Side"), Image("Back")] };

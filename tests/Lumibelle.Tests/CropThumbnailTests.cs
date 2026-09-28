@@ -4,6 +4,7 @@ using lumibelle.Models;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class CropThumbnailTests : BunitContext
 {
     [Fact]

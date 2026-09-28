@@ -8,6 +8,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class H3HyperFlowSettingsTests : BunitContext
 {
     private readonly HyperFlowSettingsGenerator _generator = new();

@@ -11,6 +11,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class UnifiedReferenceEditorTests : BunitContext
 {
     public UnifiedReferenceEditorTests() { Services.AddMudServices(); Services.AddSingleton<IReferenceVideoStore>(new ReferenceEditorMediaFake()); Services.AddSingleton<IAiSettingsStore>(new FakeAiSettingsStore()); JSInterop.Mode = JSRuntimeMode.Loose; }

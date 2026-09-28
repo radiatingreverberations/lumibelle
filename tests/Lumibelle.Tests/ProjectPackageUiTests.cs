@@ -10,6 +10,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ProjectPackageUiTests : BunitContext
 {
     private readonly PackageFake packages = new();

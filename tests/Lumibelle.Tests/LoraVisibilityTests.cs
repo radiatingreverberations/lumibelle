@@ -152,13 +152,13 @@ public sealed partial class AssetComponentTests
         Assert.True(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
         Assert.Single(await _dialogs.InvokeAsync(async () => (await _dialogs.FindComponent<MudBlazor.MudAutocomplete<LoraDefinition>>().Instance.SearchFunc!("", default)!)!));
         _dialogs.Find(".lora-row input[type=checkbox]").Change(false);
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         Assert.False(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
         page.Find(".media-select").Click();
         page.Find("#image-prompt").Input("Change the background");
         await page.Find(".image-loras-button").ClickAsync(new());
         _dialogs.Find(".lora-row input[type=checkbox]").Change(true);
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         Assert.True(page.FindAll("button").Single(b => b.TextContent == "Generate edited images").HasAttribute("disabled"));
         settingsPage.Find("#lora-hidden-tags").Input("");
         settingsPage.FindAll("button").Single(b => b.TextContent == "Save project visibility").Click();

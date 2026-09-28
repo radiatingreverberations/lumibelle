@@ -6,6 +6,7 @@ using lumibelle.Services.Assets;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class CharacterReelCaptureComponentTests
 {
     private static ReferenceReelDraft Recipe()

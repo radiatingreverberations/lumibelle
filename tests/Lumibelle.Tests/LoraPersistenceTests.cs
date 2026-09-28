@@ -158,12 +158,12 @@ public sealed partial class AssetComponentTests
         await page.Find(".image-loras-button").ClickAsync(new());
         Assert.Equal("1", _dialogs.Find("input[aria-label='Strength for Character']").GetAttribute("value"));
         _dialogs.Find("input[aria-label='Strength for Character']").Input("0.6");
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         Assert.Equal("LoRAs, 1 active", page.Find(".image-loras-button").GetAttribute("aria-label"));
         await page.Find(".image-loras-button").ClickAsync(new());
         Assert.Equal("0.6", _dialogs.Find("input[aria-label='Strength for Character']").GetAttribute("value"));
         _dialogs.Find(".lora-row input[type=checkbox]").Change(false);
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         Assert.Equal("LoRAs, 0 active", page.Find(".image-loras-button").GetAttribute("aria-label"));
         Assert.False(page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
     }
@@ -223,12 +223,12 @@ public sealed partial class AssetComponentTests
         await page.Find(".image-loras-button").ClickAsync(new());
         await _dialogs.InvokeAsync(() => _dialogs.FindComponent<MudBlazor.MudAutocomplete<LoraDefinition>>().Instance.SelectOptionAsync(krea));
         _dialogs.Find("input[aria-label='Strength for Character']").Input("0.45");
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         Assert.Equal(prompt, page.Find("#image-prompt").TextContent);
         page.Find("#asset-image-workflow").Change("Flux2Klein9bKv"); Assert.Empty(page.FindAll(".lora-row"));
         await page.Find(".image-loras-button").ClickAsync(new());
         await _dialogs.InvokeAsync(() => _dialogs.FindComponent<MudBlazor.MudAutocomplete<LoraDefinition>>().Instance.SelectOptionAsync(klein));
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         page.Find("#asset-image-workflow").Change("Krea2");
         await page.Find(".image-loras-button").ClickAsync(new());
         Assert.Equal("0.45", _dialogs.Find("input[aria-label='Strength for Character']").GetAttribute("value"));
@@ -237,8 +237,9 @@ public sealed partial class AssetComponentTests
         Assert.True(page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
         Assert.Contains("exact LoRA file is missing", page.Markup);
         _dialogs.Find(".lora-row input[type=checkbox]").Change(false);
-        await _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
+        await ApplyDialogChanges();
         _actions.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.True(_assets.Library.Assets[0].Loras.ContainsKey(ImageWorkflow.Krea2)));
         var preferences = _assets.Library.Assets[0].Loras;
         Assert.False(Assert.Single(preferences[ImageWorkflow.Krea2]).Enabled); Assert.Single(preferences[ImageWorkflow.Flux2Klein9bKv]);
         Assert.Empty(_assets.Library.Assets[1].Loras);

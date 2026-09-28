@@ -9,6 +9,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ProjectImageDefaultComponentTests : BunitContext
 {
     private readonly FakeProjectAiPreferencesStore _preferences = new();

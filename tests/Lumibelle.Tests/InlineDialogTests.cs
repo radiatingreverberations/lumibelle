@@ -6,6 +6,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class InlineDialogTests : BunitContext
 {
     public InlineDialogTests() { Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose; Render<MudPopoverProvider>(); }

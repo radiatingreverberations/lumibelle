@@ -3,6 +3,7 @@ using lumibelle.Components.Shots;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ShotPickerTests : BunitContext
 {
     [Fact]

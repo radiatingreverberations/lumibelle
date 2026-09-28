@@ -4,6 +4,7 @@ using lumibelle.Models;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ShotWorkspacePreviewTests : BunitContext
 {
     public ShotWorkspacePreviewTests() => JSInterop.Mode = JSRuntimeMode.Loose;

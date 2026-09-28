@@ -16,6 +16,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed partial class AssetComponentTests : BunitContext
 {
     private readonly Guid _projectId = Guid.NewGuid();
@@ -134,7 +135,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _dialogs.WaitForElement("#asset-description");
         _assets.SaveError = new WorkspaceStoreException("Disk unavailable");
         _dialogs.Find("#asset-description").Input("Keep this visual note 🌲");
-        page.WaitForAssertion(() => Assert.Contains("Disk unavailable", page.Markup), TimeSpan.FromSeconds(2));
+        page.WaitForAssertion(() => Assert.Contains("Disk unavailable", page.Markup), BunitDefaults.WaitTimeout(2));
         Assert.Equal("Keep this visual note 🌲", _dialogs.Find("#asset-description").GetAttribute("value"));
         _assets.SaveError = null; page.FindAll("button").Single(button => button.TextContent.Trim() == "Retry").Click();
         Assert.Equal("Keep this visual note 🌲", _assets.Library.Assets[0].Description); Assert.Contains("Saved", _actions.Markup);
@@ -471,7 +472,7 @@ public sealed partial class AssetComponentTests : BunitContext
         providers.Success = true; _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability").Click();
         _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Done").Click();
         await ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.NotNull(_extractor.LastRequest), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.NotNull(_extractor.LastRequest), BunitDefaults.WaitTimeout(5));
         Assert.Equal(cloud.Model, _extractor.LastRequest!.Model); Assert.Equal(cloud.Backend, _extractor.LastRequest.Backend);
         Assert.Equal(cloud, _extractor.LastRequest.Selection);
         Assert.Equal("test/model", settings.Value.OpenRouterModel);
@@ -484,7 +485,7 @@ public sealed partial class AssetComponentTests : BunitContext
         var page = Page(); page.WaitForElement(".asset-empty");
         await ExtractionClick(page, "Extract from script"); _dialogs.WaitForElement(".ai-assist-dialog");
         Assert.Contains("Approximate input", _dialogs.Markup); Assert.Empty(_assets.Library.Assets);
-        await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", TimeSpan.FromSeconds(5));
+        await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
         Assert.Empty(_assets.Library.Assets);
         page.Find(".apply-extraction").Click();
         page.WaitForAssertion(() => Assert.Equal("Mira", Assert.Single(_assets.Library.Assets).Name));
@@ -500,7 +501,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _dialogs.WaitForElement(".ai-assist-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
         Assert.Contains("Cancel request", page.Markup);
         _extractor.Release();
         await extracting;
@@ -515,7 +516,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _dialogs.WaitForElement(".ai-assist-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
         await page.InvokeAsync(() => page.FindAll(".extraction-dialog button").Single(button => button.TextContent.Trim() == "Cancel request").ClickAsync(new()));
         await extracting;
 
@@ -554,7 +555,7 @@ public sealed partial class AssetComponentTests : BunitContext
         // The running request is listed on its own; the composer is clear and ready for the next one.
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".asset-image-request")));
         Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled"));
-        await page.InvokeAsync(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel").ClickAsync(new())); await running;
+        await ClickCurrent(page, () => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await running;
         Assert.Equal(1, _generator.Calls); page.WaitForAssertion(() => Assert.Contains("cancel", page.Markup, StringComparison.OrdinalIgnoreCase));
     }
 

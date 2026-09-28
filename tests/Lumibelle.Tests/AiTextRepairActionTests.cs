@@ -10,6 +10,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class AiTextRepairActionTests : BunitContext, IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.RepairActionTests", Guid.NewGuid().ToString("N"));

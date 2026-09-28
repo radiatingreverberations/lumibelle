@@ -16,6 +16,7 @@ namespace Lumibelle.Tests;
 
 // Uses the repository's existing script-store, queue-handler and review-gate fakes.
 // The reprocess path must never invoke that queue handler or the Apply callback itself.
+[Trait("Category", "Component")]
 public sealed class ScriptEditNormalizationComponentTests : BunitContext
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.ScriptNormalization", Guid.NewGuid().ToString("N"));

@@ -16,7 +16,7 @@ public sealed partial class AssetComponentTests
         if (text is "View request" or "Review assets") { await page.InvokeAsync(() => page.Find(".asset-library-extraction .request-action-button").ClickAsync(new())); return; }
         await page.InvokeAsync(() => page.FindAll("button").Concat(_dialogs.FindAll("button")).First(b => b.TextContent.Trim() == text).ClickAsync(new()));
         if (text == "Find assets") {
-            page.WaitForAssertion(() => Assert.NotEmpty(_queue.View.Jobs), TimeSpan.FromSeconds(5));
+            page.WaitForAssertion(() => Assert.NotEmpty(_queue.View.Jobs), BunitDefaults.WaitTimeout(5));
             if (page.FindAll(".extraction-dialog").Count == 0)
                 await page.InvokeAsync(() => page.Find(".asset-library-extraction .request-action-button").ClickAsync(new()));
         }
@@ -25,7 +25,7 @@ public sealed partial class AssetComponentTests
     {
         _extractor.Result = new([new() { Name = "Mira", Description = "A quiet traveller.", Category = AssetCategory.Character }], "mock extraction");
         var page = Page(); await ExtractionClick(page, "Extract from script"); await ExtractionClick(page, "Find assets");
-        page.WaitForElement(".extraction-proposal", TimeSpan.FromSeconds(5)); return page;
+        page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5)); return page;
     }
     [Fact]
     public async Task FailedReviewPublicationKeepsDecisionsAndBlocksImportUntilExplicitRetry()

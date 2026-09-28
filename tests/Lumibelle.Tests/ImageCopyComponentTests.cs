@@ -7,6 +7,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ImageCopyComponentTests : BunitContext
 {
     public ImageCopyComponentTests() { Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose; }

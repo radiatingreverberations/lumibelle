@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed partial class AiSettingsComponentTests : BunitContext
 {
     private readonly ModelTestQueueFixture _modelQueue = new();

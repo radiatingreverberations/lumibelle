@@ -52,7 +52,12 @@ jobs:
         run: npm run test:unit
 
       - name: .NET tests
-        run: dotnet test lumibelle.slnx -c Release
+        run: dotnet test lumibelle.slnx -c Release --filter "Category!=Component"
+
+      # bUnit component tests race their own background renders when the runner is busy,
+      # so they run one class at a time after the rest of the suite.
+      - name: .NET component tests
+        run: dotnet test lumibelle.slnx -c Release --no-build --filter "Category=Component" -- xUnit.ParallelizeTestCollections=false
 
       - name: Shared studio browser flows
         env:

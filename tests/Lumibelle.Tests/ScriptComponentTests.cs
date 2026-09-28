@@ -15,6 +15,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ScriptComponentTests : BunitContext
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.ScriptComponents", Guid.NewGuid().ToString("N"));
@@ -72,7 +73,7 @@ public sealed class ScriptComponentTests : BunitContext
         await p.InvokeAsync(() => p.FindAll("button").Concat(_dialogs.FindAll("button")).First(b => (b.GetAttribute("aria-label") == label || b.TextContent.Trim() == label)).ClickAsync(new()));
     }
     private async Task<AssistantRun> LastRun() => (await _history.LoadAsync(_store.Document.ProjectId, _ct)).Runs.Last();
-    private void Reviewed() => _dialogs.WaitForElement(".script-review", TimeSpan.FromSeconds(5));
+    private void Reviewed() => _dialogs.WaitForElement(".script-review", BunitDefaults.WaitTimeout(5));
 
     [Fact]
     public async Task DraftRequiresReviewAndReopeningKeepsHistory()
@@ -91,7 +92,7 @@ public sealed class ScriptComponentTests : BunitContext
         _providers.Models = [new(model.Model, model.Name), new("test/model", "Default")];
         var panel = Panel(); await panel.InvokeAsync(() => ModelControls(panel).Find("select[id^=text-model-]").ChangeAsync(new() { Value = TextModelPolicy.Key(model) })); await Click(panel, "Done");
         await panel.InvokeAsync(() => Controls(panel).Find("#script-scope").ChangeAsync(new() { Value = "Scene" })); await Click(panel, "Revise");
-        panel.WaitForAssertion(() => Assert.True(_assistant.Calls == 1, _queue.Error ?? panel.Markup), TimeSpan.FromSeconds(5)); Reviewed();
+        panel.WaitForAssertion(() => Assert.True(_assistant.Calls == 1, _queue.Error ?? panel.Markup), BunitDefaults.WaitTimeout(5)); Reviewed();
         Assert.Equal(model, _assistant.LastRequest!.Selection); Assert.Equal(model.Model, (await LastRun()).Model);
         var changed = _store.Document.Copy(); changed.Blocks[1] = changed.Blocks[1] with { Spans = [new("Changed scene action.")] }; _store.Document = changed;
         panel.Render(p => p.Add(c => c.Document, changed));
@@ -139,14 +140,14 @@ public sealed class ScriptComponentTests : BunitContext
     {
         _providers.Models = []; var panel = Panel(); Assert.True(Controls(panel).Find(".request-action-button").HasAttribute("disabled")); Assert.Equal(0, _assistant.Calls);
         await panel.Instance.DisposeAsync(); panel.Dispose(); _providers.Models = null; _assistant.Invalid = true; panel = Panel(); await Click(panel, "Draft replacement"); await Click(panel, "Draft script");
-        panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), TimeSpan.FromSeconds(5)); Assert.Empty(_dialogs.FindAll(".script-review"));
+        panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), BunitDefaults.WaitTimeout(5)); Assert.Empty(_dialogs.FindAll(".script-review"));
     }
     [Fact]
     public async Task InvalidResponseCanBeDismissedAndReturnsTheActionToIdle()
     {
         _assistant.Invalid = true; var panel = Panel();
         await Click(panel, "Draft replacement"); await Click(panel, "Draft script");
-        panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), TimeSpan.FromSeconds(5));
+        panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), BunitDefaults.WaitTimeout(5));
         Assert.Empty(_dialogs.FindAll(".script-review"));
         await Click(panel, "Review latest response");
         _dialogs.WaitForElement(".script-review-dialog");

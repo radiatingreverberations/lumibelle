@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ContentProbeComponentTests
 {
     private static IElement Button<T>(IRenderedComponent<T> view, string label) where T : IComponent =>

@@ -49,6 +49,7 @@ public sealed class ReelUsageDefaultsTests
     }
 }
 
+[Trait("Category", "Component")]
 public sealed class RefModOnDemandComponentTests : BunitContext
 {
     private readonly RefModOnDemandFixture _fixture = new();
@@ -193,6 +194,7 @@ public sealed class RefModOnDemandComponentTests : BunitContext
     }
 }
 
+[Trait("Category", "Component")]
 public sealed class ReelUsageDefaultSelectTests : BunitContext
 {
     [Fact]

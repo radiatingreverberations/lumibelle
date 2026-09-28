@@ -11,6 +11,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class AutomaticReelVoiceComponentTests : BunitContext
 {
     public AutomaticReelVoiceComponentTests()

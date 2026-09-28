@@ -9,6 +9,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed partial class AiActivityTests : BunitContext
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.ActivityTests", Guid.NewGuid().ToString("N"));
@@ -48,8 +49,8 @@ public sealed partial class AiActivityTests : BunitContext
         var initial = ui.Find(".generation-progress-meta").TextContent;
         var imageTime = ui.FindAll(".codex-timing-values dd")[1].TextContent;
         Assert.Contains("2m", initial);
-        ui.WaitForAssertion(() => Assert.NotEqual(initial, ui.Find(".generation-progress-meta").TextContent), TimeSpan.FromSeconds(3));
-        ui.WaitForAssertion(() => Assert.NotEqual(imageTime, ui.FindAll(".codex-timing-values dd")[1].TextContent), TimeSpan.FromSeconds(3));
+        ui.WaitForAssertion(() => Assert.NotEqual(initial, ui.Find(".generation-progress-meta").TextContent), BunitDefaults.WaitTimeout(3));
+        ui.WaitForAssertion(() => Assert.NotEqual(imageTime, ui.FindAll(".codex-timing-values dd")[1].TextContent), BunitDefaults.WaitTimeout(3));
         Assert.Equal("≈10s", ui.FindAll(".codex-timing-values dd")[0].TextContent);
         Assert.Equal(TimeSpan.Zero, progress.Progress.Elapsed); // Display time never mutates a provider checkpoint.
         ui.Render(p => p.Add(c => c.Job, running with { State = AiJobState.Completed }));

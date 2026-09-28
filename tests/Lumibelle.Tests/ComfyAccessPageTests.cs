@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ComfyAccessPageTests
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;

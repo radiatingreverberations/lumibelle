@@ -4,6 +4,7 @@ using lumibelle.Services.Production;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class PromptReferenceBadgeTests : BunitContext
 {
     [Theory]

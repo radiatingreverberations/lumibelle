@@ -92,7 +92,7 @@ public sealed partial class AiModelComponentTests
             var options = dialog.FindAll("option").Select(o => o.GetAttribute("value")).ToArray();
             Assert.Contains(TextModelProfiles.ChoiceKey(first), options); Assert.Contains(TextModelProfiles.ChoiceKey(edited), options);
             Assert.Contains(TextModelProfiles.ChoiceKey(second), options);
-        }, TimeSpan.FromSeconds(5));
+        }, BunitDefaults.WaitTimeout(5));
         dialog.Find("select[id^='text-model-']").Change(TextModelProfiles.ChoiceKey(edited));
         Assert.Equal(edited, states.Last().Model); Assert.Equal(first, _preferences.Values[id].TextDefault);
         Assert.True(await picker.InvokeAsync(picker.Instance.PrepareSubmitAsync));

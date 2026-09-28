@@ -146,6 +146,7 @@ public sealed partial class ShotTests
     }
 }
 
+[Trait("Category", "Component")]
 public sealed class CharacterVoiceComponentTests : BunitContext
 {
     [Fact] public void EachCharacterSummaryShowsItsOwnResolvedAudioNumber()

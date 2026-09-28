@@ -111,7 +111,7 @@ public sealed partial class AssetComponentTests
         _assets.Library = _assets.Library with { Assets = [Asset("Mouse") with { Description = "Original" }] };
         var page = Page();
         await StartEnhancement(page);
-        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), BunitDefaults.WaitTimeout(5));
         Assert.True(page.FindComponent<PromptEnhancementPanel>().FindComponent<lumibelle.Components.TextModelPicker>().Instance.Disabled);
         Assert.True(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled"));
         await page.InvokeAsync(() => { page.Render(); page.Find("#image-prompt").Input("Newer typing"); });
@@ -134,7 +134,7 @@ public sealed partial class AssetComponentTests
         _assets.Library = _assets.Library with { Assets = [Asset("Mouse") with { Description = "Original" }] };
         var page = Page();
         var operation = StartEnhancement(page);
-        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), BunitDefaults.WaitTimeout(5));
         await page.InvokeAsync(() => page.FindAll("button").Single(b => b.ClassList.Contains("request-action-button") && b.Closest(".prompt-enhancement") is not null).ClickAsync(new()));
         _dialogs.WaitForElement("#enhancement-original");
         await _dialogs.InvokeAsync(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Cancel enhancement").Click());
@@ -161,7 +161,7 @@ public sealed partial class AssetComponentTests
         var image = new AssetImage { Id = Guid.NewGuid(), FileName = "base.png", ContentType = "image/png", Width = 12, Height = 8 };
         _assets.Library = _assets.Library with { Assets = [Asset("Mouse") with { Description = "Original", Images = [image] }] };
         var page = Page(); await StartEnhancement(page);
-        _dialogs.WaitForAssertion(() => Assert.Contains("More detail needed", _dialogs.Markup), TimeSpan.FromSeconds(5));
+        _dialogs.WaitForAssertion(() => Assert.Contains("More detail needed", _dialogs.Markup), BunitDefaults.WaitTimeout(5));
         Assert.True(_dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").HasAttribute("disabled"));
         page.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, _queue.View.Jobs.Single().State));
         _dialogs.Render();
@@ -207,7 +207,7 @@ public sealed partial class AssetComponentTests
         await controls.InvokeAsync(() => controls.Find(".enhance-button").ClickAsync(new()));
     }
     private void EnhancementReady() => _dialogs.WaitForAssertion(() =>
-        Assert.False(_dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").HasAttribute("disabled")), TimeSpan.FromSeconds(5));
+        Assert.False(_dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").HasAttribute("disabled")), BunitDefaults.WaitTimeout(5));
 
     [Fact]
     public async Task QueuedEnhancementRestoresAfterReloadWithoutCallingProviderAndSurvivesDisposal()
@@ -243,11 +243,11 @@ public sealed partial class AssetComponentTests
         var enhancer = (FakePromptEnhancer)Services.GetRequiredService<IPromptEnhancer>(); enhancer.Wait = true;
         _assets.Library = _assets.Library with { Assets = [Asset("Mouse") with { Description = "Original" }] };
         var page = Page(); await StartEnhancement(page);
-        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), BunitDefaults.WaitTimeout(5));
         await page.InvokeAsync(() => page.FindAll("button").Single(b => b.ClassList.Contains("request-action-button") && b.Closest(".prompt-enhancement") is not null).ClickAsync(new()));
         await _dialogs.InvokeAsync(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Close").Click());
         Assert.False(enhancer.Token.IsCancellationRequested); enhancer.Release.TrySetResult();
-        page.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, _queue.View.Jobs.Single().State), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, _queue.View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
         Assert.Empty(_dialogs.FindAll("#enhancement-original"));
         page.WaitForAssertion(() => Assert.Contains("Review changes", page.Markup));
         await page.InvokeAsync(() => page.FindAll("button").Single(b => b.ClassList.Contains("request-action-button") && b.Closest(".prompt-enhancement") is not null).ClickAsync(new()));
@@ -263,11 +263,11 @@ public sealed partial class AssetComponentTests
         var mouse = Asset("Mouse") with { Description = "Mouse prompt" }; var room = Asset("Room", "A small room");
         _assets.Library = _assets.Library with { Assets = [mouse, room] };
         var page = Page(); await StartEnhancement(page);
-        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), TimeSpan.FromSeconds(5));
+        page.WaitForAssertion(() => Assert.Equal(1, enhancer.Calls), BunitDefaults.WaitTimeout(5));
         await page.InvokeAsync(() => page.Find("#image-prompt").Input("Newer authored instructions"));
         await page.InvokeAsync(() => page.FindAll(".asset-choice").Single(b => b.TextContent.Contains("Room")).Click());
         page.WaitForAssertion(() => Assert.False(EnhancementControls(page).Find(".enhance-button").HasAttribute("disabled")));
-        enhancer.Release.TrySetResult(); page.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, _queue.View.Jobs.Single().State), TimeSpan.FromSeconds(5));
+        enhancer.Release.TrySetResult(); page.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, _queue.View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
         Assert.Empty(_dialogs.FindAll("#enhancement-original"));
         await page.InvokeAsync(() => page.FindAll(".asset-choice").Single(b => b.TextContent.Contains("Mouse")).Click());
         page.WaitForAssertion(() => Assert.Contains("Review changes", page.Markup));

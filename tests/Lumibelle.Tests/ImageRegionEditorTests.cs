@@ -8,6 +8,7 @@ using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class ImageRegionEditorTests : BunitContext
 {
     private readonly Guid _project = Guid.NewGuid();

@@ -66,7 +66,7 @@ public sealed partial class AssetComponentTests
         for (var i = 1; i <= lumibelle.Models.AiJobLocks.MaxActiveImageBatchesPerAsset; i++)
         {
             page.Find("#image-prompt").Input($"Variation {i}");
-            await page.InvokeAsync(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").ClickAsync(new()));
+            await ClickCurrent(page, () => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
             page.WaitForAssertion(() => Assert.Equal(i, page.FindAll(".asset-image-request").Count));
             Assert.Equal("", page.Find("#image-prompt").GetAttribute("value"));
         }

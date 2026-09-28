@@ -4,6 +4,7 @@ using lumibelle.Models;
 
 namespace Lumibelle.Tests;
 
+[Trait("Category", "Component")]
 public sealed class OpenRouterBenchmarkDisplayTests : BunitContext
 {
     private static OpenRouterTextModelBenchmark Sample() => new(Guid.NewGuid(), "liquid/lfm-2.5-2.6b:free", DateTimeOffset.UtcNow,
