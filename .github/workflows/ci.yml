@@ -96,6 +96,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      # The pinned MacCatalyst SDK requires Xcode 26.0; the runner defaults to a newer Xcode.
+      - run: sudo xcode-select -s /Applications/Xcode_26.0.1.app
+
       - run: dotnet workload install maui-maccatalyst --skip-manifest-update
 
       - name: Publish unsigned package

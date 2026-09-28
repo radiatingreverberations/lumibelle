@@ -287,6 +287,8 @@ public sealed partial class AssetComponentTests
     public async Task RemovingEarlierAndSelectedTakesSelectsTheNextStableTake()
     {
         var (page, _) = PrepareEdit(4); RunButton(page).Click();
+        // Discarding before later takes arrive leaves no next take to select.
+        _dialogs.WaitForElement("[aria-label='View Take 4']", TimeSpan.FromSeconds(10));
         await ClickReviewSelector("[aria-label='View Take 2']");
         await ClickReviewSelector("[aria-label='Discard Take 1']");
         await ClickReviewSelector("[aria-label='Discard Take 2']");
