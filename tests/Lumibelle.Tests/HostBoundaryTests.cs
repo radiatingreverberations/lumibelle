@@ -23,8 +23,8 @@ public sealed class HostBoundaryTests : IDisposable
         var core = typeof(ScriptDocument).Assembly; var ui = typeof(UiAssets).Assembly;
         Assert.Equal("Lumibelle.Core", core.GetName().Name);
         Assert.Equal("Lumibelle.UI", ui.GetName().Name);
-        Assert.DoesNotContain(core.GetReferencedAssemblies(), a => a.Name!.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) || a.Name.StartsWith("Microsoft.Maui", StringComparison.Ordinal) || a.Name is "Lumibelle.UI" or "Lumibelle.Web" or "Lumibelle.Desktop");
-        Assert.DoesNotContain(ui.GetReferencedAssemblies(), a => a.Name!.StartsWith("Microsoft.Maui", StringComparison.Ordinal) || a.Name is "Lumibelle.Web" or "Lumibelle.Desktop" || a.Name.StartsWith("Microsoft.AspNetCore.Http", StringComparison.Ordinal) || a.Name.StartsWith("Microsoft.AspNetCore.Hosting", StringComparison.Ordinal));
+        Assert.DoesNotContain(core.GetReferencedAssemblies(), a => a.Name!.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) || a.Name.StartsWith("Microsoft.Maui", StringComparison.Ordinal) || a.Name is "Lumibelle.UI" or "Lumibelle.Web" or "Lumibelle");
+        Assert.DoesNotContain(ui.GetReferencedAssemblies(), a => a.Name!.StartsWith("Microsoft.Maui", StringComparison.Ordinal) || a.Name is "Lumibelle.Web" or "Lumibelle" || a.Name.StartsWith("Microsoft.AspNetCore.Http", StringComparison.Ordinal) || a.Name.StartsWith("Microsoft.AspNetCore.Hosting", StringComparison.Ordinal));
     }
 
     [Fact]

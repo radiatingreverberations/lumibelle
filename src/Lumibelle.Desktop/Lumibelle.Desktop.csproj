@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.19041.0</TargetFrameworks>
     <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('windows'))">net10.0-maccatalyst</TargetFrameworks>
-    <OutputType>Exe</OutputType><RootNamespace>Lumibelle.Desktop</RootNamespace>
+    <OutputType>Exe</OutputType><AssemblyName>Lumibelle</AssemblyName><RootNamespace>Lumibelle.Desktop</RootNamespace>
     <UseMaui>true</UseMaui><SingleProject>true</SingleProject><EnableDefaultCssItems>false</EnableDefaultCssItems>
     <ApplicationTitle>Lumibelle</ApplicationTitle><ApplicationId>app.lumibelle.desktop</ApplicationId>
     <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion><ApplicationVersion>1</ApplicationVersion>

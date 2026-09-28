@@ -1,7 +1,7 @@
 param([Parameter(Mandatory=$true)][int]$DesktopProcessId)
 $ErrorActionPreference = 'Stop'
 $process = Get-Process -Id $DesktopProcessId
-if ($process.ProcessName -ne 'Lumibelle.Desktop') { throw 'Expected the disposable Lumibelle.Desktop process.' }
+if ($process.ProcessName -ne 'Lumibelle') { throw 'Expected the disposable Lumibelle desktop process.' }
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;

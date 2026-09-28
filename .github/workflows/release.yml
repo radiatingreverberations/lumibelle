@@ -67,4 +67,4 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           gh release create "v$VERSION" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Lumibelle $VERSION" --generate-notes --notes "**Windows:** extract \`Lumibelle-$VERSION-windows-x64.zip\` and run \`Lumibelle.Desktop.exe\`; no installation is needed. The build is unsigned, so Windows may ask you to confirm the first launch."
+            --title "Lumibelle $VERSION" --generate-notes --notes "**Windows:** extract \`Lumibelle-$VERSION-windows-x64.zip\` and run \`Lumibelle.exe\`; no installation is needed. The build is unsigned, so Windows may ask you to confirm the first launch."
