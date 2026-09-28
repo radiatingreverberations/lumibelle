@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Package version, for example 1.2.3
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,6 +19,10 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  # Empty outside releases; the publish scripts then use their development version.
+  LUMIBELLE_VERSION: ${{ inputs.version }}
 
 jobs:
   test:

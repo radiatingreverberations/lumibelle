@@ -1,4 +1,4 @@
-param([string]$Version = '0.1.0', [ValidateSet('win-x64','win-arm64')][string]$Runtime = 'win-x64', [string]$SigningProperties, [switch]$Unpackaged)
+param([string]$Version = $(if ($env:LUMIBELLE_VERSION) { $env:LUMIBELLE_VERSION } else { '0.1.0' }), [ValidateSet('win-x64','win-arm64')][string]$Runtime = 'win-x64', [string]$SigningProperties, [switch]$Unpackaged)
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'Windows publishing requires Windows and the maui-windows workload.' }
 $repository = Split-Path $PSScriptRoot -Parent

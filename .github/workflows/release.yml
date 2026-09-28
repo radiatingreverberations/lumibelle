@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 1.2.3
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check version and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::Releases are made from main, not $GITHUB_REF."; exit 1
+          fi
+          # Windows package versions allow three numeric parts of at most 65535.
+          if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$ ]] ||
+             (( BASH_REMATCH[1] > 65535 || BASH_REMATCH[2] > 65535 || BASH_REMATCH[3] > 65535 )); then
+            echo "::error::Version must be three numbers such as 1.2.3, got '$VERSION'."; exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --silent 2>/dev/null; then
+            echo "::error::Tag v$VERSION already exists."; exit 1
+          fi
+
+  build:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: ${{ inputs.version }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: lumibelle-*
+          path: dist
+
+      - name: Collect packages
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Sets $found to the single file matching $2 under $1.
+          one() {
+            local matches; mapfile -t matches < <(find "$1" -name "$2")
+            if [ "${#matches[@]}" -ne 1 ]; then echo "::error::Expected one $2 in $1, found ${#matches[@]}."; exit 1; fi
+            found=${matches[0]}
+          }
+          mkdir release
+          one dist/lumibelle-windows-msix-unsigned '*.msix'; cp "$found" "release/Lumibelle-$VERSION-windows-x64-unsigned.msix"
+          (cd dist/lumibelle-windows-x64 && zip -qr "../../release/Lumibelle-$VERSION-windows-x64.zip" .)
+          one dist/lumibelle-mac-unsigned '*.pkg'; cp "$found" "release/Lumibelle-$VERSION-mac-unsigned.pkg"
+          ls -l release
+
+      - name: Tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Lumibelle $VERSION" --generate-notes --notes "Unsigned packages for testing.
+
+          - **Windows:** \`windows-x64.zip\` runs without installation. The MSIX must be signed before it can be installed.
+          - **Mac:** the universal package is unsigned and not notarized."
