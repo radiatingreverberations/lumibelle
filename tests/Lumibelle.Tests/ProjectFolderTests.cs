@@ -144,6 +144,89 @@ public sealed class ProjectFolderTests : IDisposable
         Assert.Contains("open in another Lumibelle library", Assert.Single((await first.Projects.ListAsync(_ct)).Issues).Message);
     }
 
+    [Fact]
+    public async Task ARunningLibraryPreventsLinkingItsInternalProjects()
+    {
+        var source = NewLibrary(lease: true); var destination = NewLibrary(lease: true);
+        using var owner = new WorkspaceOwnership(source.Paths);
+        await owner.StartAsync(_ct);
+        var project = await source.Projects.CreateAsync(new("Owned project"), _ct);
+        var error = await Assert.ThrowsAsync<WorkspaceStoreException>(() => destination.Folders.OpenAsync(source.Root(project), _ct));
+        Assert.Contains("open in another Lumibelle library", error.Message);
+        Assert.Empty(await destination.Folders.ListAsync(_ct));
+        Assert.Equal("Still owned", (await source.Projects.UpdateAsync(project, new("Still owned"), _ct)).Name);
+        await owner.StopAsync(_ct);
+        Assert.Equal(project.Id, (await destination.Folders.OpenAsync(source.Root(project), _ct)).Id);
+    }
+
+    [Fact]
+    public async Task ALinkedInternalProjectPreventsItsOriginalLibraryStarting()
+    {
+        var source = NewLibrary(lease: true); var destination = NewLibrary(lease: true);
+        var project = await source.Projects.CreateAsync(new("Linked first"), _ct);
+        await destination.Folders.OpenAsync(source.Root(project), _ct);
+        using var owner = new WorkspaceOwnership(source.Paths);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => owner.StartAsync(_ct));
+        await destination.Folders.RemoveAsync(project.Id, _ct);
+        await owner.StartAsync(_ct);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => destination.Folders.OpenAsync(source.Root(project), _ct));
+    }
+
+    [Fact]
+    public async Task RestartedLinkedLibrariesRecheckTheOriginalLibraryOwner()
+    {
+        var source = NewLibrary(lease: true); var destination = NewLibrary(lease: true);
+        var project = await source.Projects.CreateAsync(new("Reopened link"), _ct);
+        await destination.Folders.OpenAsync(source.Root(project), _ct);
+        destination.Locations.Dispose();
+        using var owner = new WorkspaceOwnership(source.Paths);
+        await owner.StartAsync(_ct);
+        await Assert.ThrowsAsync<ProjectStoreException>(() => destination.Projects.GetAsync(project.Id, _ct));
+        Assert.Single((await destination.Projects.ListAsync(_ct)).Issues);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MovingAProjectToAnotherLibraryPreservesItsShotSettings(bool copy)
+    {
+        var source = NewLibrary(lease: true, copy: copy); var destination = NewLibrary(lease: true);
+        using var sourceOwner = new WorkspaceOwnership(source.Paths);
+        await sourceOwner.StartAsync(_ct);
+        var project = await source.Projects.CreateAsync(new("Portable shots"), _ct);
+        var shot = new Shot { Title = "Platform" };
+        await source.Shots.SaveAsync(project.Id, [shot], 0, ct: _ct);
+        var composition = (await source.Production.InitializeAsync(project.Id, _ct)).Compositions.Single();
+        composition.Name = "Evening"; composition.TakeCount = 3; composition.Seed = 42;
+        composition.Shot.Resolution = VideoResolution.Quick;
+        composition.Prompt = "The train pulls in."; composition.DirectingNotes = "Keep the wide view.";
+        composition = (await source.Production.SaveAsync(project.Id, composition, composition.Version, _ct)).Compositions.Single();
+        var settings = GenerationSettings.From(composition);
+        var content = ShotProductionContent.From(composition);
+        var unrelated = (await destination.Setups.SaveAsync(new() { Name = "Evening", Settings = new() { TakeCount = 1 } }, 0, _ct)).Setups.Single();
+        // A prior import mapping must not reconnect this project's foreign preset to unrelated settings.
+        var previous = composition.Copy(); previous.GenerationSetupId = null; previous.TakeCount = 1;
+        previous.Seed = null; previous.Shot.Resolution = null;
+        await destination.Setups.ImportAsync(new() { ProjectId = project.Id, Compositions = [previous] }, _ct);
+
+        var moved = await source.Folders.MoveOutAsync(project.Id, Outside("moved shots"), ct: _ct);
+        await source.Folders.RemoveAsync(project.Id, _ct);
+        await destination.Folders.OpenAsync(moved.Path, _ct);
+        var opened = (await destination.Production.InitializeAsync(project.Id, _ct)).Compositions.Single();
+        Assert.Equal(composition.Id, opened.Id); Assert.Equal(shot.Id, opened.ShotId);
+        Assert.True(FileGenerationSetupStore.SameSettings(settings, GenerationSettings.From(opened)));
+        Assert.Equal(ReferenceSetups.Hash(content), ReferenceSetups.Hash(ShotProductionContent.From(opened)));
+        Assert.NotEqual(unrelated.Id, opened.GenerationSetupId);
+        Assert.Equal(1, (await destination.Setups.LoadAsync(_ct)).Setups.Single(s => s.Id == unrelated.Id).Settings.TakeCount);
+        var productionPath = Path.Combine(moved.Path, "production.json");
+        var saved = await File.ReadAllBytesAsync(productionPath, _ct);
+        await destination.Folders.RemoveAsync(project.Id, _ct);
+        await destination.Folders.OpenAsync(moved.Path, _ct);
+        Assert.Equal(opened.GenerationSetupId, (await destination.Production.InitializeAsync(project.Id, _ct)).Compositions.Single().GenerationSetupId);
+        Assert.Equal(saved, await File.ReadAllBytesAsync(productionPath, _ct));
+        Assert.Equal(2, (await destination.Setups.LoadAsync(_ct)).Setups.Count);
+    }
+
     [Theory]
     [InlineData("Night train", "Night train")]
     [InlineData("A/B: c?", "A B c")]
@@ -174,6 +257,9 @@ public sealed class ProjectFolderTests : IDisposable
         internal FileAiJobStore Jobs { get; }
         internal ProjectFolders Folders { get; }
         internal ProjectPackageService Packages { get; }
+        internal FileGenerationSetupStore Setups { get; }
+        internal FileShotStore Shots { get; }
+        internal FileProductionStore Production { get; }
         internal Library(string directory, bool lease, bool copy = false)
         {
             Paths = new(directory); Directory.CreateDirectory(Paths.Projects);
@@ -181,6 +267,9 @@ public sealed class ProjectFolderTests : IDisposable
             Projects = new(Paths, TimeProvider.System, NullLogger<FileProjectStore>.Instance, Locations);
             Files = new(Paths, Projects, null, Locations);
             Jobs = new(Paths.Jobs, TimeProvider.System);
+            Setups = new(Paths);
+            Shots = new(Files, TimeProvider.System);
+            Production = new(Files, Shots, new FileAssetStore(Files, TimeProvider.System), Projects, TimeProvider.System, Jobs, generationSetups: Setups);
             Folders = new(Paths, Locations, Projects, TimeProvider.System, Jobs) { CopyAcrossDrives = copy };
             Packages = new(Paths, Files, Projects, new NoSetups(), TimeProvider.System, Jobs);
         }

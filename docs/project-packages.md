@@ -32,6 +32,12 @@ remove a linked folder from the library without touching its files. The same pro
 can be in a library only once, whether in the library folder or a linked one, so opening
 the export of a project that is still in the library is refused.
 
+Opening a folder from another library recreates missing generation presets from the
+settings saved with its shots. Existing presets in the destination are preserved;
+the project keeps its prompts, references and takes. Reopening that folder reuses its
+resolved presets. A project inside a running library cannot also be opened as a
+linked folder elsewhere; close the owning library first.
+
 ## Contents
 
 The package contains the saved script, script source/approved/recovery versions,

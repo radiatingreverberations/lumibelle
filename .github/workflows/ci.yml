@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Several store tests simulate failed publication with Windows file sharing locks.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check editor bundles are current
+        run: node build/check-editor-bundles.mjs
+
+      - name: JavaScript unit tests
+        run: npm run test:unit
+
+      - name: .NET tests
+        run: dotnet test lumibelle.slnx -c Release
+
+      - name: Shared studio browser flows
+        env:
+          LUMIBELLE_BROWSER_CONFIGURATION: Release
+        run: npx playwright test script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet workload install maui-windows --skip-manifest-update
+
+      - name: Publish unsigned MSIX
+        shell: pwsh
+        run: ./build/publish-windows.ps1
+
+      - name: Publish self-contained folder
+        shell: pwsh
+        run: ./build/publish-windows.ps1 -Unpackaged
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lumibelle-windows-msix-unsigned
+          path: src/Lumibelle.Desktop/bin/Release/**/AppPackages/**/*.msix
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lumibelle-windows-x64
+          path: artifacts/packages/windows-win-x64/
+          if-no-files-found: error
+
+  mac:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet workload install maui-maccatalyst --skip-manifest-update
+
+      - name: Publish unsigned package
+        run: bash build/publish-macos.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lumibelle-mac-unsigned
+          path: src/Lumibelle.Desktop/bin/Release/**/*.pkg
+          if-no-files-found: error

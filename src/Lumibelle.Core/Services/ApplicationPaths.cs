@@ -30,6 +30,14 @@ public sealed class WorkspaceOwnership(ApplicationPaths paths) : IHostedService,
                 ct.ThrowIfCancellationRequested(); Directory.CreateDirectory(directory);
                 leases.Add(new FileStream(Path.Combine(directory, ".lumibelle.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
             }
+            // A project may have been linked into another library while this one was
+            // closed. Hold the root locks before probing projects: new links check
+            // these roots after acquiring their own lease.
+            foreach (var directory in Directory.EnumerateDirectories(paths.Projects))
+            {
+                ct.ThrowIfCancellationRequested();
+                if (Guid.TryParseExact(Path.GetFileName(directory), "D", out _)) ProjectLocations.CheckAvailable(directory);
+            }
             return Task.CompletedTask;
         }
         catch (Exception e) { Dispose(); throw new Story.WorkspaceStoreException("This library is already open in another Lumibelle process, or its folder is not writable. Close the other app or choose another library.", e); }

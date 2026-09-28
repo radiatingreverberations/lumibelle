@@ -28,13 +28,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     private async Task<ProductionDocument> Read(string dir, Guid project, CancellationToken ct)
     {
         var d = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(dir, "production.json"), ct) ?? new() { ProjectId = project };
-        if (d.SchemaVersion is not (2 or 3) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
-            d.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 ||
-                string.IsNullOrWhiteSpace(c.Name) || c.History is null || c.Prompt is null || c.DirectingNotes is null || c.RevisionNotes is null || c.ReferenceUsage is null ||
-                c.History.Any(r => r is null) || c.History.Select(r => r.Id).Distinct().Count() != c.History.Count || c.AcceptedRevisionId is not null && c.Accepted is null) ||
-            d.Compositions.Select(c => c.Id).Distinct().Count() != d.Compositions.Count)
-            throw new WorkspaceStoreException("The production document is invalid. It has not been replaced.");
-        HydrateSharedContent(d);
+        ValidateDocument(d, project);
         var coverage = await shots.LoadAsync(project, ct);
         foreach (var c in d.Compositions) if (coverage.Shots.FirstOrDefault(s => s.Id == c.ShotId) is { } source)
             ProductionPolicy.CopyCoverage(source, c.Shot);
@@ -45,6 +39,16 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
                     ?? throw new WorkspaceStoreException("A global generation setup is missing. Your saved shot settings have been retained.")).Apply(c);
         }
         return d;
+    }
+    private static void ValidateDocument(ProductionDocument d, Guid project)
+    {
+        if (d.SchemaVersion is not (2 or 3) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
+            d.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 ||
+                string.IsNullOrWhiteSpace(c.Name) || c.History is null || c.Prompt is null || c.DirectingNotes is null || c.RevisionNotes is null || c.ReferenceUsage is null ||
+                c.History.Any(r => r is null) || c.History.Select(r => r.Id).Distinct().Count() != c.History.Count || c.AcceptedRevisionId is not null && c.Accepted is null) ||
+            d.Compositions.Select(c => c.Id).Distinct().Count() != d.Compositions.Count)
+            throw new WorkspaceStoreException("The production document is invalid. It has not been replaced.");
+        HydrateSharedContent(d);
     }
     public async Task<ProductionDocument> InitializeAsync(Guid project, CancellationToken ct = default)
     {

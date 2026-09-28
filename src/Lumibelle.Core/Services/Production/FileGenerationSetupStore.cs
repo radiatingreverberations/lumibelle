@@ -33,11 +33,15 @@ public sealed class FileGenerationSetupStore(ApplicationPaths paths) : IGenerati
     {
         using var gate = await ProjectFiles.LockAsync(_path, ct);
         var d = await LoadAsync(ct); var changed = false;
-        foreach (var c in document.Compositions.Where(c => c.GenerationSetupId is null))
+        foreach (var c in document.Compositions.Where(c => c.GenerationSetupId is null || d.Setups.All(s => s.Id != c.GenerationSetupId)))
         {
-            if (d.Imports.Any(i => i.ProjectId == document.ProjectId && i.CompositionId == c.Id)) continue;
+            // A missing foreign preset must use its captured settings, even if this
+            // library remembers an earlier import of the same project/composition.
+            if (c.GenerationSetupId is null && d.Imports.Any(i => i.ProjectId == document.ProjectId && i.CompositionId == c.Id)) continue;
             var name = c.Name.Trim();
             var settings = GenerationSettings.From(c);
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 200 || settings.TakeCount is < 1 or > 4 || settings.Seed < 0)
+                throw new WorkspaceStoreException("The project's captured generation setup is invalid. No presets were imported.");
             var setup = d.Setups.FirstOrDefault(s => (s.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
                 d.Imports.Any(i => i.SetupId == s.Id && i.SourceName.Trim().Equals(name, StringComparison.OrdinalIgnoreCase))) &&
                 SameSettings(s.Settings, settings) && s.Archived == c.Archived);
@@ -45,6 +49,7 @@ public sealed class FileGenerationSetupStore(ApplicationPaths paths) : IGenerati
                 setup = new() { Name = UniqueName(d, name), Settings = settings, Archived = c.Archived, Version = 1 };
                 d.Setups.Add(setup);
             }
+            d.Imports.RemoveAll(i => i.ProjectId == document.ProjectId && i.CompositionId == c.Id);
             d.Imports.Add(new(document.ProjectId, c.Id, setup.Id, c.Name)); changed = true;
         }
         if (changed) await AtomicJsonFile.WriteAsync(_path, d, ct);

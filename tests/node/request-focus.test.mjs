@@ -7,7 +7,7 @@ async function fixture() {
     const frames = [], dialogs = [];
     const document = { body: {}, querySelectorAll: () => dialogs };
     document.activeElement = document.body;
-    const control = () => ({ isConnected: true, getClientRects: () => [{}], closest: () => null,
+    const control = () => ({ isConnected: true, getClientRects: () => [{}], closest: () => null, matches: () => false,
         focus() { document.activeElement = this; } });
     const button = control();
     const context = vm.createContext({ document, crypto: { randomUUID: () => 'tab' },

@@ -15,7 +15,7 @@ Existing `lumibelle.*` namespaces, JSON formats and embedded resource names are 
 
 The repository pins SDK **10.0.400**, .NET libraries **10.0.11**, and MAUI **10.0.20**. Install the SDK selected by `global.json`. Use its bundled workload manifests with `--skip-manifest-update`; update the SDK, workload baseline and packages together. The verified local workload report is `10.0.400-manifests.b0ae88bd`.
 
-Web builds do not require MAUI workloads. GitHub Actions workflows are removed for now; run builds, tests and packaging locally:
+Web builds do not require MAUI workloads. The `CI` GitHub Actions workflow runs the tests on Windows and publishes unsigned Windows and Mac desktop packages as build artifacts for every pull request and push to `main`. To build, test and run locally:
 
 ```powershell
 dotnet restore lumibelle.slnx
@@ -55,7 +55,7 @@ npm run build
 node build/check-editor-bundles.mjs
 ```
 
-The last command rebuilds in memory and checks byte equality, including license sidecars. It fails when checked-in output is stale.
+The last command rebuilds in memory and checks byte equality, including license sidecars. It fails when checked-in output is stale, and CI runs it on every change.
 
 ## Data and credentials
 
@@ -70,6 +70,11 @@ dotnet src/Lumibelle.Web/bin/Release/net10.0/Lumibelle.Web.dll --Lumibelle:DataD
 Desktop accepts the same two roots through `LUMIBELLE_DATA_DIRECTORY` and `LUMIBELLE_PROJECTS_DIRECTORY`. Set them explicitly to reuse a development library; close its Web process first. Do not point smoke tests at a live library.
 
 `WorkspaceOwnership` holds OS file locks in both the data directory and project library before workers start. A second process fails clearly. Multiple browser tabs in one Web process continue to work. Do not delete lock files to bypass this check; the open file handle, not a PID or stale file, owns the lease.
+
+Linked project folders also hold a project lock. Linking checks for a running library
+in the folder's ancestors, and library startup checks whether any of its internal
+projects is already linked elsewhere. These checks run while holding their respective
+locks, so neither startup order permits two libraries to edit the same project.
 
 Settings depend on `ISecretProtector`. Both host adapters retain the existing DataProtection application name `Lumibelle` and purpose `Lumibelle.AiCredentials.v1`; existing account key rings are the compatibility reader. Windows uses DataProtection's account protection. An unreadable saved key remains an error until explicitly replaced, and unrelated settings saves preserve its encrypted value. The `ApplicationPaths.Keys` location is reserved for an explicit future key-ring policy; changing it automatically would strand existing encrypted settings. Mac Keychain protection still needs completion and native validation; the current Mac feasibility adapter uses the existing account DataProtection key ring and must not be described as Keychain protected.
 
@@ -110,7 +115,7 @@ $env:LUMIBELLE_BROWSER_CONFIGURATION='Release'
 npx playwright test script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
 ```
 
-The current shared studio suite uses mocked providers. The broad legacy browser suite also contains expectations from retired workflows (inline model settings, approval, separate Production); sampled failures reproduce on the pre-extraction commit. Running the focused suite above does not establish that the full legacy suite passes.
+The current shared studio suite uses mocked providers. The broad legacy browser suite also contains expectations from retired workflows (inline model settings, approval, separate Production); sampled failures reproduce on the pre-extraction commit. CI runs the focused suite above; that does not establish that the full legacy suite passes.
 
 `tests/native/desktop-smoke.mjs` attaches to a debug WebView via local CDP and requires an explicitly supplied disposable copied library/project. It edits and undoes Script/Prompt content, verifies stored data, loads references, plays/seeks an existing take, fetches a frame, and plays Cut. Copy the associated completed job records as well as project media: take review depends on captured batch history. Pause every provider in the fixture. Never generate extra live videos for this check.
 

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
+using lumibelle.Services.Production;
 using lumibelle.Services.Story;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -49,7 +50,12 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
         if (Directory.Exists(library) || File.Exists(library))
             throw new WorkspaceStoreException($"This folder holds “{(await projects.GetAsync(project.Id, ct))?.Name ?? project.Name}”, which is already in the library. A project can be in the library only once. Nothing was changed.");
         locations.Lease(root);
-        try { await locations.AddAsync(new(project.Id, root, clock.GetUtcNow()), ct); }
+        try
+        {
+            using var projectLock = await ProjectFiles.LockAsync(root, ct);
+            await FileProductionStore.ReconcileFolderSetupsAsync(root, project.Id, new FileGenerationSetupStore(paths), ct);
+            await locations.AddAsync(new(project.Id, root, clock.GetUtcNow()), ct);
+        }
         catch { locations.Release(root); throw; }
         return project;
     }

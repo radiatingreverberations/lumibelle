@@ -61,3 +61,10 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Generated editor bundles are checked byte for byte and contain newlines
+# inside template literals, so they must never be converted to CRLF.
+###############################################################################
+src/Lumibelle.UI/wwwroot/script-editor.js text eol=lf
+src/Lumibelle.UI/wwwroot/prompt-editor.js text eol=lf

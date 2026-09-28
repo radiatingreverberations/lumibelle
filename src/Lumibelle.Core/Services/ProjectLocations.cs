@@ -67,12 +67,33 @@ public sealed class ProjectLocations(ApplicationPaths paths, bool lease = false)
         lock (_leases)
         {
             if (_leases.ContainsKey(directory)) return;
-            try { _leases.Add(directory, new FileStream(Path.Combine(directory, ".lumibelle.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)); }
+            FileStream? acquired = null;
+            try
+            {
+                acquired = new FileStream(Path.Combine(directory, ".lumibelle.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                // An internal project is owned through its library root. Check ancestors
+                // after taking the project lease; startup performs the inverse check
+                // while holding the root lease, so neither startup order can race past it.
+                for (var parent = Path.GetDirectoryName(Path.GetFullPath(directory)); parent is not null; parent = Path.GetDirectoryName(parent))
+                    CheckAvailable(parent);
+                _leases.Add(directory, acquired);
+            }
             catch (IOException e) when (e is not (DirectoryNotFoundException or FileNotFoundException))
             {
+                acquired?.Dispose();
                 throw new WorkspaceStoreException($"The project folder {directory} is open in another Lumibelle library. Close it there first.", e);
             }
+            catch { acquired?.Dispose(); throw; }
         }
+    }
+
+    internal static void CheckAvailable(string directory)
+    {
+        var path = Path.Combine(directory, ".lumibelle.lock");
+        if (!File.Exists(path)) return;
+        try { using var probe = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None); }
+        catch (FileNotFoundException) { }
+        catch (DirectoryNotFoundException) { }
     }
 
     internal void Release(string directory)
