@@ -25,15 +25,25 @@ public sealed partial class AssetComponentTests
         page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate edited images");
     private AngleSharp.Dom.IElement ReviewButton(string name) => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == name);
 
-    private Task ClickReview(string name) => _dialogs.InvokeAsync(() => ReviewButton(name).ClickAsync(new()));
+    private Task ClickReview(string name) => ClickInReview(() => ReviewButton(name));
     private async Task ClickReviewSelector(string selector)
     {
         _dialogs.WaitForElement(selector, TimeSpan.FromSeconds(10));
-        await _dialogs.InvokeAsync(() => _dialogs.Find(selector).ClickAsync(new()));
+        await ClickInReview(() => _dialogs.Find(selector));
         if (selector == "[aria-label='Close image review']")
             _dialogs.WaitForAssertion(() => Assert.Empty(_dialogs.FindAll(".image-review-dialog")));
     }
-    private Task ClickReviewAsync(string name) => _dialogs.InvokeAsync(() => ReviewButton(name).ClickAsync(new()));
+    private Task ClickReviewAsync(string name) => ClickInReview(() => ReviewButton(name));
+    // Takes still generating in the background re-render the review. A stale handler means the
+    // dialog's DOM lags the renderer and nothing was dispatched, so re-render and try again.
+    private async Task ClickInReview(Func<AngleSharp.Dom.IElement> find)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try { await _dialogs.InvokeAsync(() => find().ClickAsync(new())); return; }
+            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { _dialogs.Render(); }
+        }
+    }
 
     private async Task QueueOneMoreImage()
     {
