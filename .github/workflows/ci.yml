@@ -90,11 +90,10 @@ jobs:
         shell: pwsh
         run: ./build/publish-windows.ps1 -Unpackaged
 
-      # Single packages upload unzipped, named after the file.
       - uses: actions/upload-artifact@v7
         with:
+          name: lumibelle-windows-msix-unsigned
           path: src/Lumibelle.Desktop/bin/Release/**/AppPackages/**/*.msix
-          archive: false
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
@@ -122,6 +121,6 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
+          name: lumibelle-mac-unsigned
           path: src/Lumibelle.Desktop/bin/Release/**/*.pkg
-          archive: false
           if-no-files-found: error

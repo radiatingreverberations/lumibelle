@@ -50,6 +50,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
+          pattern: lumibelle-*
           path: dist
 
       - name: Collect packages
@@ -63,9 +64,9 @@ jobs:
             found=${matches[0]}
           }
           mkdir release
-          one dist '*.msix'; cp "$found" "release/Lumibelle-$VERSION-windows-x64-unsigned.msix"
+          one dist/lumibelle-windows-msix-unsigned '*.msix'; cp "$found" "release/Lumibelle-$VERSION-windows-x64-unsigned.msix"
           (cd dist/lumibelle-windows-x64 && zip -qr "../../release/Lumibelle-$VERSION-windows-x64.zip" .)
-          one dist '*.pkg'; cp "$found" "release/Lumibelle-$VERSION-mac-unsigned.pkg"
+          one dist/lumibelle-mac-unsigned '*.pkg'; cp "$found" "release/Lumibelle-$VERSION-mac-unsigned.pkg"
           ls -l release
 
       - name: Tag and publish release
