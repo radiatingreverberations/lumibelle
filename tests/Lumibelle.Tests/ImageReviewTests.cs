@@ -50,6 +50,8 @@ public sealed partial class AssetComponentTests
 
     private async Task QueueOneMoreImage()
     {
+        // Generate more stays disabled while an earlier cancellation or extra take settles.
+        _dialogs.WaitForAssertion(() => Assert.False(ReviewButton("Generate more…").HasAttribute("disabled")));
         await ClickReviewAsync("Generate more…");
         _dialogs.WaitForElement(".repeat-generation-dialog");
         await ClickReviewAsync("Queue 1 image");
