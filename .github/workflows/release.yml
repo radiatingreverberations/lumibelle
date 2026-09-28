@@ -50,22 +50,15 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: lumibelle-*
-          path: dist
+          name: lumibelle-windows-x64
+          path: dist/lumibelle-windows-x64
 
       - name: Collect packages
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          # Sets $found to the single file matching $2 under $1.
-          one() {
-            local matches; mapfile -t matches < <(find "$1" -name "$2")
-            if [ "${#matches[@]}" -ne 1 ]; then echo "::error::Expected one $2 in $1, found ${#matches[@]}."; exit 1; fi
-            found=${matches[0]}
-          }
           mkdir release
           (cd dist/lumibelle-windows-x64 && zip -qr "../../release/Lumibelle-$VERSION-windows-x64.zip" .)
-          one dist/lumibelle-mac-unsigned '*.pkg'; cp "$found" "release/Lumibelle-$VERSION-mac-unsigned.pkg"
           ls -l release
 
       - name: Tag and publish release
@@ -74,7 +67,4 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           gh release create "v$VERSION" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Lumibelle $VERSION" --generate-notes --notes "Unsigned packages for testing.
-
-          - **Windows:** extract \`windows-x64.zip\` and run \`Lumibelle.Desktop.exe\`; no installation is needed.
-          - **Mac:** the universal package is unsigned and not notarized."
+            --title "Lumibelle $VERSION" --generate-notes --notes "**Windows:** extract \`Lumibelle-$VERSION-windows-x64.zip\` and run \`Lumibelle.Desktop.exe\`; no installation is needed. The build is unsigned, so Windows may ask you to confirm the first launch."
