@@ -31,7 +31,8 @@ project is then edited in place, and the library only records where it is. **Pro
 settings → Storage** can also move a library project into a folder of your choice, and
 remove a linked folder from the library without touching its files. The same project ID
 can be in a library only once, whether in the library folder or a linked one, so opening
-the export of a project that is still in the library is refused.
+the export of a project that is still in the library is refused. The unzipped folder
+opens even after **Compact project** has removed its stale `manifest.json`.
 
 Opening a folder from another library recreates missing generation presets from the
 settings saved with its shots. Existing presets in the destination are preserved;
@@ -85,7 +86,8 @@ Lossless archives** does (`frameArchiveRemoval`, with its size removed from the
 take's total), so take review shows "the lossless archive was removed" and decodes
 paused frames and new stills from the MP4. Reels keep their `frame-archive.json`
 index, because saved keyframes and RefMod recipes use its hash as their source
-identity. Each keyframe chosen from the archive is included as its extracted PNG
+identity. A reel whose archive was removed with **Compact project** exports the same
+way even with the option off. Each keyframe chosen from the archive is included as its extracted PNG
 (`reference-videos/<id>/frame-<source>-<index>.png`), taken from the project's
 prepared picture or extracted from the archive during export. Reel details, keyframe
 previews, prompt references, RefMod rebuilding, take playback and Cut all keep
@@ -144,8 +146,8 @@ there is no fallback to some other image or reel. Unreferenced trash images are
 never copied, including their names and metadata.
 
 Referenced trashed recordings, takes and reels are retained as dependencies; unrelated
-ones are excluded. Included images/recordings/takes remain in **Trash** on import,
-with a fresh 30-day recovery period. This prevents a stored package immediately
+ones are excluded. Included images/recordings/takes/reels remain in **Trash** on import,
+with a fresh 30-day recovery period (a reel removed before reels had one keeps none). This prevents a stored package immediately
 losing its included sources to the destination's expiry cleanup. They are **not**
 restored into the active library, and the original project's retention dates never
 change. Restore an included source explicitly before using it for a new generation.

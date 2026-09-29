@@ -33,7 +33,8 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
     {
         var chosen = Folder(folder);
         var root = File.Exists(Path.Combine(chosen, "project.json")) ? chosen
-            : File.Exists(Path.Combine(chosen, "manifest.json")) && File.Exists(Path.Combine(chosen, "project", "project.json")) ? Path.Combine(chosen, "project")
+            // An unzipped package, which may no longer have its manifest after Compact project.
+            : File.Exists(Path.Combine(chosen, "project", "project.json")) ? Path.Combine(chosen, "project")
             : throw new WorkspaceStoreException("This folder isn’t a Lumibelle project. Choose the folder that contains project.json, or an unzipped project export.");
         ProjectInfo project;
         try { project = await FileProjectStore.ReadManifestAsync(root, ct); }

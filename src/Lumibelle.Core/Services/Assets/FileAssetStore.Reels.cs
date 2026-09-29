@@ -22,6 +22,10 @@ public interface IAssetReelStore
     Task<AssetLibrary> PublishReelAsync(Guid project, AssetReferenceReel reel, CancellationToken ct = default);
     Task<bool> ApplyPairAsync(AiJobHeader job, ReelCompositionRequest request, ReelPromptPair pair, bool initialOnly, CancellationToken ct = default, bool acceptChangedInputs = false);
     Task<string> RunDirectoryAsync(Guid project, Guid batch, CancellationToken ct = default);
+    Task<AssetLibrary> PurgeReelsAsync(Guid project, IReadOnlyCollection<Guid> reels, long expectedRevision, CancellationToken ct = default)
+        => throw new WorkspaceStoreException("Deleting reels permanently is unavailable.");
+    Task<IReadOnlyDictionary<Guid, long>> ReelTrashBytesAsync(Guid project, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<Guid, long>>(new Dictionary<Guid, long>());
 }
 
 public sealed partial class FileAssetStore : IAssetReelStore
@@ -137,7 +141,7 @@ public sealed partial class FileAssetStore : IAssetReelStore
             var owner = generation.Snapshot.Reel?.Owner ?? throw new WorkspaceStoreException("Restore the character, environment or prop before publishing this reel.");
             ReferenceReels.ValidateOwner(generation.Recipe, owner);
             return await PublishAsync(directory, current with {
-                ReelTrash = [.. current.ReelTrash, new(reel, owner with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow())],
+                ReelTrash = [.. current.ReelTrash, TrashedReferenceReel.Removed(reel, owner with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow())],
                 ReelPublications = [.. current.ReelPublications, new(reel.Id, generation.JobId, generation.BatchId, generation.Candidate, fingerprint)]
             }, current.Revision, ct);
         }
@@ -151,13 +155,14 @@ public sealed partial class FileAssetStore : IAssetReelStore
         var current = await ReadAsync(directory, project, ct); EnsureRevision(current, expectedRevision);
         var item = current.Reels.SingleOrDefault(r => r.Id == reel) ?? throw new WorkspaceConflictException();
         return await PublishAsync(directory, current with { Reels = current.Reels.Where(r => r.Id != reel).ToList(),
-            ReelTrash = [.. current.ReelTrash, new(item, ReelOwner(current, item.AssetId, item.LookId, true) with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow())] }, current.Revision, ct);
+            ReelTrash = [.. current.ReelTrash, TrashedReferenceReel.Removed(item, ReelOwner(current, item.AssetId, item.LookId, true) with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow())] }, current.Revision, ct);
     }
     public async Task<AssetLibrary> RestoreReelAsync(Guid project, Guid reel, long expectedRevision, CancellationToken ct = default)
     {
         var directory = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(directory, ct);
         var current = await ReadAsync(directory, project, ct); EnsureRevision(current, expectedRevision);
         var item = current.ReelTrash.SingleOrDefault(r => r.Reel.Id == reel) ?? throw new WorkspaceConflictException();
+        if (item.Purging) throw new WorkspaceStoreException("This reel is being deleted permanently.");
         var owner = current.Assets.FirstOrDefault(a => a.Id == item.Reel.AssetId);
         var restored = owner is null ? item.Owner with { Images = [], DefaultVoiceId = null } : owner with { Looks = LookPolicy.RestoreLooks(owner, item.Owner, item.Reel.LookId) };
         return await PublishAsync(directory, current with { Assets = [.. current.Assets.Where(a => a.Id != restored.Id), restored],
@@ -203,6 +208,8 @@ public sealed partial class FileAssetStore : IAssetReelStore
             var owner = ReelOwner(library, active.AssetId, active.LookId, allowArchived: true);
             if (active.Generation is { } generation) ReferenceReels.ValidateOwner(generation.Recipe, owner with { Id = active.OriginalAssetId ?? active.AssetId });
         }
+        if (library.ReelTrash.Any(t => t.ExpiresUtc is { } expires && expires - t.DeletedUtc != TimeSpan.FromDays(30)))
+            throw new WorkspaceStoreException("Invalid reel Trash expiry.");
         foreach (var r in library.Reels.Concat(library.ReelTrash.Select(t => t.Reel)))
         {
             if (r.Id == Guid.Empty || r.AssetId == Guid.Empty || r.OriginalAssetId == Guid.Empty || r.LookId == Guid.Empty || string.IsNullOrWhiteSpace(r.Name) || r.Name.Length > 500 || r.UseGuidance is null || r.UseGuidance.Length > 20000)

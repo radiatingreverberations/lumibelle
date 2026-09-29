@@ -107,17 +107,24 @@ public sealed partial class FileReferenceVideoStore
             throw new WorkspaceStoreException("This keyframe does not match its immutable reel source.");
         return catalog;
     }
-    private static async Task<Stream> ArchiveFrame(string directory, ReelFrameIdentity frame, CancellationToken ct)
+    // Writes temp/<slot>.png for each frame. Each segment is verified and decoded once, however
+    // many of its frames are needed; decoding one frame at a time re-reads the segment from its start.
+    private static async Task ArchiveFramesAsync(string directory, IReadOnlyList<ReelFrameIdentity> frames, string temp, CancellationToken ct)
     {
         var archive = await AtomicJsonFile.ReadAsync<ReelFrameArchive>(Path.Combine(directory, "frame-archive.json"), ct) ?? throw new WorkspaceStoreException("The lossless reel frames are unavailable.");
-        if (Hash(archive) != frame.Source || frame.Index < 0 || frame.Index >= archive.Frames.Count) throw new WorkspaceStoreException("The reel archive changed.");
-        var entry = archive.Frames[frame.Index]; var segment = frame.Index / 24;
-        var name = LosslessFrameArchive.FileName(segment);
-        var file = archive.Files.SingleOrDefault(f => f.FileName == name) ?? throw new WorkspaceStoreException("The reel archive is incomplete.");
-        var path = Path.Combine(directory, "lossless", name);
-        if (!File.Exists(path)) throw new WorkspaceStoreException("This reel's lossless frames are not in this project. Choose the keyframe again from the video.");
-        if (entry.FileName != name || new FileInfo(path).Length != file.Bytes || await FileHash(path, ct) != file.Sha256) throw new WorkspaceStoreException("The lossless reel archive changed on disk.");
-        return await LosslessFrameArchive.OpenFrameAsync(path, entry.ArchiveFrameIndex, archive.Width, archive.Height, ct);
+        var source = Hash(archive);
+        if (frames.Any(f => f.Source != source || f.Index < 0 || f.Index >= archive.Frames.Count)) throw new WorkspaceStoreException("The reel archive changed.");
+        foreach (var segment in frames.Select((frame, slot) => (Slot: slot, Entry: archive.Frames[frame.Index], Segment: frame.Index / 24)).GroupBy(f => f.Segment))
+        {
+            var name = LosslessFrameArchive.FileName(segment.Key);
+            var file = archive.Files.SingleOrDefault(f => f.FileName == name) ?? throw new WorkspaceStoreException("The reel archive is incomplete.");
+            var path = Path.Combine(directory, "lossless", name);
+            if (!File.Exists(path)) throw new WorkspaceStoreException("This reel's lossless frames are not in this project. Choose the keyframe again from the video.");
+            if (segment.Any(f => f.Entry.FileName != name) || new FileInfo(path).Length != file.Bytes || await FileHash(path, ct) != file.Sha256) throw new WorkspaceStoreException("The lossless reel archive changed on disk.");
+            await LosslessFrameArchive.VisitFramesAsync(path, segment.Select(f => f.Entry.ArchiveFrameIndex).Distinct().ToArray(), archive.Width, archive.Height, (decoded, image) => {
+                foreach (var f in segment.Where(f => f.Entry.ArchiveFrameIndex == decoded)) LosslessFrameArchive.SavePng(image, Path.Combine(temp, $"{f.Slot:D6}.png"));
+            }, ct);
+        }
     }
     internal static string FrameFileName(ReelFrameIdentity frame) => $"frame-{frame.Source}-{frame.Index:D6}.png";
     private static string FramePath(string directory, ReelFrameIdentity frame) => Path.Combine(directory, FrameFileName(frame));
@@ -137,14 +144,11 @@ public sealed partial class FileReferenceVideoStore
             try
             {
                 Directory.CreateDirectory(temp);
-                if (!catalog!.Lossless) await mediaTools.ExtractReelFramesAsync(Path.Combine(directory, "video.mp4"), missing.Select(f => f.Index).ToArray(), temp, 0, settings, ct);
+                if (catalog!.Lossless) await ArchiveFramesAsync(directory, missing, temp, ct);
+                else await mediaTools.ExtractReelFramesAsync(Path.Combine(directory, "video.mp4"), missing.Select(f => f.Index).ToArray(), temp, 0, settings, ct);
                 for (var i = 0; i < missing.Length; i++)
                 {
                     var path = Path.Combine(temp, $"{i:D6}.png");
-                    if (catalog.Lossless) {
-                        await using var source = await ArchiveFrame(directory, missing[i], ct);
-                        await using var target = File.Create(path); await source.CopyToAsync(target, ct);
-                    }
                     ct.ThrowIfCancellationRequested(); DurableFile.Flush(path); File.Move(path, FramePath(directory, missing[i]));
                 }
             }

@@ -21,6 +21,7 @@ public static class LumibelleServices
         services.AddSingleton<IProjectRoutes, FileProjectRoutes>();
         services.AddSingleton(s => new ProjectFiles(paths, s.GetRequiredService<IProjectStore>(), s.GetRequiredService<ILogger<SqliteMediaIndex>>(), s.GetRequiredService<ProjectLocations>()));
         services.AddSingleton<Services.Projects.IProjectFolders, Services.Projects.ProjectFolders>();
+        services.AddSingleton<Services.Projects.IProjectCompaction, Services.Projects.ProjectCompaction>();
         services.AddSingleton<ApplicationSession>();
         services.AddSingleton<IScriptStore, FileScriptStore>();
         services.AddSingleton<IAssistantHistoryStore, FileAssistantHistoryStore>();

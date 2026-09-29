@@ -2,6 +2,7 @@
 @inherits ProjectAwareComponent
 @implements IDisposable
 @inject IProjectFolders Folders
+@inject IProjectCompaction Compaction
 @inject NavigationManager Navigation
 
 <section class="settings-card project-storage" aria-labelledby="project-storage-heading" aria-busy="@_busy">
@@ -18,9 +19,37 @@
         <p>This project is saved in the library folder. Move it to a folder of your choice, such as a synced or external drive, and keep editing it there.</p>
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.DriveFileMove" Disabled="_busy" OnClick="OpenMove">Move to folder…</MudButton>
     }
+    <p>Compacting removes data this project can do without, such as lossless frame archives and discarded media, to make it smaller to keep or share.</p>
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Compress" Disabled="_busy" OnClick="OpenCompactAsync">Compact project…</MudButton>
     @if (_notice is not null) { <p role="status">@_notice</p> }
-    @if (_error is not null && !_moveOpen && !_confirmRemove) { <p class="field-error" role="alert">@_error</p> }
+    @if (_error is not null && !_moveOpen && !_confirmRemove && !_compactOpen) { <p class="field-error" role="alert">@_error</p> }
 </section>
+
+<InlineDialog Visible="_compactOpen" VisibleChanged="value => { if (!_busy) _compactOpen = value; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })"
+              Class="project-compact-dialog" Title="Compact project" Context="@Project.Name" CloseLabel="Close compact project" CloseDisabled="_busy">
+    <DialogContent>
+        @if (_plan is null) { if (_error is null) { <p role="status">Measuring what can be removed…</p> } }
+        else if (!Parts.Any(p => _plan.Count(p) > 0)) { <p>There is nothing to remove. This project has no lossless archives, discarded media or leftover files.</p> }
+        else
+        {
+            <p>Choose what to remove. Removed data cannot be recovered. Close this project in other windows first.</p>
+            @foreach (var part in Parts.Where(p => _plan.Count(p) > 0))
+            {
+                var current = part;
+                <label class="check-row"><input type="checkbox" data-part="@current" checked="@_parts.Contains(current)" disabled="@_busy" @onchange="e => Toggle(current, e.Value is true)" />@Label(current) · @StorageSize.Format(_plan.Bytes(current))</label>
+                <p class="field-hint">@Hint(current)</p>
+            }
+            <p><strong>Frees about @StorageSize.Format(_parts.Sum(p => _plan.Bytes(p)))</strong></p>
+        }
+        @if (_progress is { } progress && _compactOpen) { <p role="status">@progress.Message</p> }
+        @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
+    </DialogContent>
+    <DialogActions>
+        @if (_busy) { <MudButton OnClick="() => _operation?.Cancel()">Stop</MudButton> }
+        else { <MudButton OnClick="() => _compactOpen = false">Cancel</MudButton> }
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(_busy || _plan is null || _parts.Count == 0)" OnClick="CompactAsync">@(_busy ? "Compacting…" : "Remove permanently")</MudButton>
+    </DialogActions>
+</InlineDialog>
 
 <InlineDialog Visible="_moveOpen" VisibleChanged="value => { if (!_busy) _moveOpen = value; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })"
               Class="project-folder-dialog" Title="Move to folder" Context="@Project.Name" CloseLabel="Close move to folder" CloseDisabled="_busy">
@@ -54,7 +83,10 @@
 @code {
     [Parameter, EditorRequired] public ProjectInfo Project { get; set; } = null!;
     private ProjectLocation? _location;
-    private bool _loading = true, _busy, _moveOpen, _confirmRemove, _disposed;
+    private bool _loading = true, _busy, _moveOpen, _confirmRemove, _compactOpen, _disposed;
+    private ProjectCompactionPlan? _plan;
+    private readonly HashSet<CompactionPart> _parts = [];
+    private static readonly CompactionPart[] Parts = Enum.GetValues<CompactionPart>();
     private string _destination = "";
     private string? _error, _notice;
     private ProjectPackageProgress? _progress;
@@ -84,6 +116,49 @@
             _moveOpen = false; _notice = "Moved. Every change is now saved in the new folder.";
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested) { if (!_disposed) _error = "Move cancelled. The project is still in the library folder."; }
+        catch (Exception e) when (e is ProjectStoreException or WorkspaceStoreException) { _error = e.Message; }
+        finally { _operation = null; _busy = false; _progress = null; }
+    }
+
+    private async Task OpenCompactAsync()
+    {
+        _plan = null; _parts.Clear(); _error = null; _notice = null; _progress = null; _compactOpen = true;
+        try
+        {
+            _plan = await Compaction.InspectAsync(Project.Id, _lifetime.Token);
+            _parts.UnionWith(Parts.Where(p => _plan.Count(p) > 0));
+        }
+        catch (Exception e) when (e is ProjectStoreException or WorkspaceStoreException) { _error = e.Message; }
+    }
+    private void Toggle(CompactionPart part, bool selected) { if (selected) _parts.Add(part); else _parts.Remove(part); }
+    private string Label(CompactionPart part) => part switch {
+        CompactionPart.Trash => $"Empty this project's Trash ({Items(_plan!.Count(part), "item")})",
+        CompactionPart.TakeArchives => $"Lossless take archives ({Items(_plan!.Count(part), "take")})",
+        CompactionPart.ReelArchives => $"Lossless reel archives ({Items(_plan!.Count(part), "reel video")})",
+        CompactionPart.Backups => $"Migration backups ({Items(_plan!.Count(part), "file")})",
+        _ => "Package manifest" };
+    private static string Items(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+    private static string Hint(CompactionPart part) => part switch {
+        CompactionPart.Trash => "Deletes this project's discarded images, recordings, takes and reels permanently, as Empty Trash does. A reel's video stays while something still uses it.",
+        CompactionPart.TakeArchives => "Takes keep their MP4 and play as before. Paused frames and new stills are then decoded from the MP4.",
+        CompactionPart.ReelArchives => "Reels keep their MP4 and every keyframe already chosen, saved as a picture. New keyframes are then chosen from frames decoded from the MP4.",
+        CompactionPart.Backups => "Copies of production.json saved before an automatic upgrade. Lumibelle doesn't read them.",
+        _ => "The manifest.json beside this folder describes the original project package and no longer matches it. The folder still opens without it." };
+
+    private async Task CompactAsync()
+    {
+        if (_busy || _plan is null) return;
+        _busy = true; _error = null; _notice = null;
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token); _operation = operation;
+        var progress = new Progress<ProjectPackageProgress>(p => { if (!_disposed) _ = InvokeAsync(() => { _progress = p; StateHasChanged(); }); });
+        try
+        {
+            var result = await Compaction.CompactAsync(_plan, _parts.ToHashSet(), progress, operation.Token);
+            _notice = $"Compacted. Freed {StorageSize.Format(result.ReclaimedBytes)}.";
+            if (result.Issues.Count > 0) _error = "Some items were kept: " + string.Join(" ", result.Issues.Distinct());
+            _compactOpen = false;
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested) { if (!_disposed) _error = "Compaction stopped. What was already removed stays removed; nothing else changed."; }
         catch (Exception e) when (e is ProjectStoreException or WorkspaceStoreException) { _error = e.Message; }
         finally { _operation = null; _busy = false; _progress = null; }
     }

@@ -285,10 +285,9 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
     await page.getByRole('button', { name: 'Application navigation', exact: true }).click();
     await page.getByRole('listbox').locator('a[href="/trash"]').click();
   } else await page.getByRole('link', { name: 'Trash', exact: true }).click();
-  const recovery = page.getByRole('region', { name: 'Reference reel recovery', exact: true });
-  const removed = recovery.locator('.reel-recovery-row').filter({ hasText: original.name });
+  const removed = page.locator('.trash-card').filter({ hasText: original.name });
   await expect(removed).toBeVisible();
-  await removed.getByRole('button', { name: 'Restore reel', exact: true }).click();
+  await removed.getByRole('button', { name: 'Restore', exact: true }).click();
   await expect(removed).not.toBeVisible();
   await expect.poll(async () => (await library(request, id)).reels.length).toBe(2);
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);

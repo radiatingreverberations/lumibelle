@@ -434,10 +434,9 @@
 :is(.reel-dialog,.reel-tools) label { color: var(--muted); font-size:var(--lumi-font-size-meta); font-weight:600; }
 :is(.reel-dialog,.reel-tools) label :is(input,select,textarea) { display:block; margin-top:5px; font-weight:400; font-size:var(--lumi-font-size-ui); color: var(--ink); }
 :is(.reel-dialog,.reel-tools) label input[type=checkbox] { display:inline-block; }
-.reel-dialog button:not(.mud-button-root), .reel-library button, .reel-recovery-row button { padding:7px 10px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); color: var(--plum); background: var(--lumi-surface); font:inherit; font-size:var(--lumi-font-size-meta); }
+.reel-dialog button:not(.mud-button-root), .reel-library button { padding:7px 10px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); color: var(--plum); background: var(--lumi-surface); font:inherit; font-size:var(--lumi-font-size-meta); }
 .reel-library select { padding:7px 10px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); margin-left:6px; }
 .reel-library button:disabled,.reel-dialog button:disabled { opacity:.5; cursor:default; }
 .reel-library button:focus-visible,:is(.reel-dialog,.reel-tools) :is(input,textarea,select,button):focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
-.reel-recovery-row { display:flex; gap:12px; align-items:center; margin:10px 0; }
 @media(max-width:700px) { .mud-dialog.reel-dialog,.mud-dialog.reel-review-dialog,.mud-dialog.reel-pictures-dialog { margin:0; width:100%; max-width:100%; max-height:100dvh; border-radius: 0; } }
 @media(max-width:700px) { .reel-review-dialog.mud-dialog { margin:8px !important; width:calc(100vw - 16px); max-height:calc(100dvh - 16px); border-radius: var(--lumi-radius-surface); } .reel-review-dialog .mud-dialog-content,.reel-review-dialog .mud-dialog-actions { padding:12px 16px; } }

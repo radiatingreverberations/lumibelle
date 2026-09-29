@@ -93,6 +93,9 @@ public static class LosslessFrameArchive
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 
+    // Frames extracted one at a time or several per decode must be byte-identical pictures.
+    private static readonly PngEncoder Png = new() { SkipMetadata = true, ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 };
+    public static void SavePng(Image<Rgba32> frame, string path) => frame.Save(path, Png);
     public static async Task<MemoryStream> OpenFrameAsync(string path, int index, int width, int height, CancellationToken ct)
     {
         await DecodeGate.WaitAsync(ct);
@@ -109,7 +112,7 @@ public static class LosslessFrameArchive
             var output = new MemoryStream();
             try
             {
-                await selected.SaveAsync(output, new PngEncoder { SkipMetadata = true, ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }, ct);
+                await selected.SaveAsync(output, Png, ct);
                 output.Position = 0; return output;
             }
             catch { output.Dispose(); throw; }

@@ -27,3 +27,7 @@ public sealed record ReelFrameCatalog(string Source, bool Lossless, IReadOnlyLis
 public sealed record ReelFrameArchive(string SourceSha256, int Width, int Height, int FrameCount,
     IReadOnlyList<ShotFrame> Frames, IReadOnlyList<ReelArchiveFile> Files);
 public sealed record ReelArchiveFile(string FileName, long Bytes, string Sha256);
+// Written before a reel's lossless segments are deleted. The index stays, because saved keyframes use
+// its hash as their source; the listed keyframe pictures become the only copy of those frames.
+public sealed record ReelArchiveRemoval(DateTimeOffset RequestedUtc, IReadOnlyList<ReelArchiveFile> Files, IReadOnlyList<string> Keyframes,
+    DateTimeOffset? CompletedUtc = null);

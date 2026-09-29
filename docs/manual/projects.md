@@ -57,11 +57,22 @@ Keep complete project folders in backups. Chat and proposals may contain copies 
 
 Invalid, unreadable or unsupported manifests produce warnings while healthy projects remain available. Fix those manifests externally and refresh; Lumibelle does not silently overwrite them. Interrupted project creation is ignored.
 
+## Compact a project
+
+**Project settings → Storage → Compact project…** makes a project smaller in place, for example before publishing its folder. It lists what it found with the space each part frees, and removes only what you select after one confirmation:
+
+- **Empty this project's Trash**: the same as Empty Trash filtered to this project.
+- **Lossless take archives** and **Lossless reel archives**: takes and reels keep their MP4. Every reel keyframe already chosen from lossless frames is saved as a picture first, so reference images, RefMod inputs and prompts are unchanged. Paused frames and new keyframes are then decoded from the MP4.
+- **Migration backups**: copies of `production.json` saved before an automatic upgrade, which Lumibelle does not read.
+- **Package manifest**: an unzipped project package keeps `manifest.json` beside its `project` folder; once the project is edited it no longer matches. The unzipped folder still opens without it.
+
+Removed data cannot be recovered, and the original lossless pixels cannot be rebuilt from the MP4. Close the project in other windows and let queued AI requests finish first. Images are never re-encoded in place; to share smaller images, use **Compress images for sharing** when exporting a package.
+
 ## History and recovery
 
 The Script studio's **History** contains snapshots saved before AI application, scene deletion and restoring an older version. Preview and restore a version there; restoring first snapshots the current writing. Autosave is not a snapshot of every keystroke. Closing or reloading before a successful save can lose unsaved text; the editor warns when navigating away with unsaved text. Interrupted generation is marked after an application restart and is not automatically resumed.
 
-Deleted images go to **Trash** for 30 days; see [Assets studio](assets.md#trash).
+Deleted images and reels go to **Trash** for 30 days; see [Assets studio](assets.md#trash).
 
 ## Settings and API keys
 

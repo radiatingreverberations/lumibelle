@@ -88,6 +88,8 @@ public static class ReferenceVideos
 
 public interface IReferenceVideoStore
 {
+    Task<long> RemoveArchiveAsync(Guid project, Guid media, IReadOnlyCollection<ReelFrameIdentity> keep, H3Settings settings, CancellationToken ct = default)
+        => throw new WorkspaceStoreException("Removing reel archives is unavailable.");
     async Task PrepareFramesAsync(Guid project, IEnumerable<ReelFrameIdentity> frames, H3Settings settings, CancellationToken ct = default)
     { foreach (var frame in frames) { await using var png = await OpenFrameAsync(project, frame, settings, ct); } }
     Task PublishArchiveAsync(Guid project, ReferenceVideoMedia media, ShotTake take, string sourceDirectory, CancellationToken ct = default)

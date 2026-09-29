@@ -214,8 +214,7 @@ internal sealed class ProjectPackagePlan
                 if (VideoRecords.TryGetValue(id, out var prior) && prior != record) throw new WorkspaceStoreException("Conflicting captured reel media records.");
                 VideoRecords[id] = record; Videos.Add(id);
             }
-            if (o["frame"] is JsonObject keyframe && o.ContainsKey("notes") && keyframe.ContainsKey("source") && keyframe.ContainsKey("index"))
-                Keyframes.Add(keyframe.Deserialize<ReelFrameIdentity>(AtomicJsonFile.Options)!);
+            if (ReelKeyframeScan.Read(o) is { } keyframe) Keyframes.Add(keyframe);
             if (o["refMod"] is JsonObject mod)
             {
                 var reference = mod.Deserialize<ReelRefModReference>(AtomicJsonFile.Options)!; ReelRefMods.Validate(reference);

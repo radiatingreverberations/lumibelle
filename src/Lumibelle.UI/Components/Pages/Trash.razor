@@ -12,8 +12,7 @@
 }
 else
 {
-<ReferenceReelRecovery />
-<p class="intro-copy">Images, voices, video takes, and saved frames stay here for 30 days. Restore them whenever you need them.</p>
+<p class="intro-copy">Images, voices, video takes, reference reels, and saved frames stay here for 30 days. Restore them whenever you need them. Reels removed before they had a Trash period stay until you delete them.</p>
 <p class="trash-cleanup-hint">Automatic cleanup runs while Lumibelle is open and catches up after restart. Permanently deleted media cannot be recovered.</p>
 <div class="trash-toolbar" data-interactive="@(_interactive ? "true" : "false")">
     <label>Project <select value="@_project" @onchange="FilterChanged"><option value="">All projects</option>@foreach (var project in _library.Items.DistinctBy(r => r.ProjectId)) { <option value="@project.ProjectId">@project.ProjectName</option> }</select></label>
@@ -55,7 +54,7 @@ else
 }
 <InlineDialog Visible="_confirmOpen" VisibleChanged="ConfirmVisibility" Options="ConfirmOptions" CloseLabel="Close delete confirmation"
               Title="@(_emptyAll ? (_project.Length == 0 ? "Empty Trash for all projects?" : "Empty Trash for this project?") : "Delete media permanently?")">
-    <DialogContent><p>This permanently removes @_pending.Count saved media item@(_pending.Count == 1 ? "" : "s") and their metadata, freeing approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>. Deleting a video take also removes its remaining frame archives and refinement data. This cannot be undone.</p>
+    <DialogContent><p>This permanently removes @_pending.Count saved media item@(_pending.Count == 1 ? "" : "s") and their metadata, freeing approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>. Deleting a video take also removes its remaining frame archives and refinement data. A reel's video stays while a shot, take or saved image still uses it. This cannot be undone.</p>
         @if (_emptyAll) { <p>@(_project.Length == 0 ? "All projects are included." : "Only the selected project is included.") Media discarded after this confirmation opened is excluded.</p> }
         <div class="trash-confirm-thumbnails">@foreach (var row in _pending.Take(12)) { <figure>@if (row.ThumbnailUrl is { } thumb) { <img src="@thumb" alt="@row.OwnerName" /> }<figcaption>@row.ProjectName · @row.OwnerName</figcaption></figure> }</div>
     </DialogContent>
@@ -69,7 +68,7 @@ else
             {
                 <ImageComparisonViewer Primary="@(new(new(Guid.Empty, image.Id), "Image in Trash"))" PrimaryImage="@(_previewMissing ? null : image)" PrimaryUrl="@Url(preview)" Unavailable="_ => _previewMissing = true" />
             }
-            else if (preview.Kind == MediaTrashKind.Take) { <video controls playsinline preload="metadata" src="@Url(preview)"></video> }
+            else if (preview.Kind is MediaTrashKind.Take or MediaTrashKind.Reel) { <video controls playsinline preload="metadata" src="@Url(preview)"></video> }
             else if (preview.Kind == MediaTrashKind.Voice) { <audio controls preload="metadata" src="@Url(preview)"></audio> }
             else { <img src="@Url(preview)" alt="@preview.Title" /> }
             @if (preview.Image?.Source?.Frame is { } frame) { <p>Saved from video frame @(frame.FrameIndex + 1) · @frame.Timestamp.ToString("0.000") s · @frame.Width × @frame.Height · @frame.Fps fps</p><p>Shot @frame.ShotId · take @frame.TakeId</p> }

@@ -172,7 +172,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
         {
             Assets = current.Assets.Where(a => !ids.Contains(a.Id)).ToList(),
             Reels = current.Reels.Where(r => !ids.Contains(r.AssetId)).ToList(),
-            ReelTrash = [.. current.ReelTrash, .. current.Reels.Where(r => ids.Contains(r.AssetId)).Select(r => new TrashedReferenceReel(r, selected.Single(a => a.Id == r.AssetId) with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow()))],
+            ReelTrash = [.. current.ReelTrash, .. current.Reels.Where(r => ids.Contains(r.AssetId)).Select(r => TrashedReferenceReel.Removed(r, selected.Single(a => a.Id == r.AssetId) with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow()))],
             Trash = [.. current.Trash, .. selected.SelectMany(asset => asset.Images.Select(i => TrashEntry(asset, i)))],
             Voices = current.Voices.Where(v => !ids.Contains(v.AssetId)).ToList(),
             VoiceTrash = [.. current.VoiceTrash, .. current.Voices.Where(v => ids.Contains(v.AssetId)).Select(v => TrashVoice(current, v))]

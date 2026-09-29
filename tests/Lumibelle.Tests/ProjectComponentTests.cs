@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
 
+using lumibelle.Services.Shots;
+
 namespace Lumibelle.Tests;
 
 [Trait("Category", "Component")]
@@ -17,6 +19,7 @@ public sealed class ProjectComponentTests : BunitContext
 {
     private readonly FakeProjectStore _store = new();
     private readonly FakeProjectFolders _folders = new();
+    private readonly FakeProjectCompaction _compaction = new();
     private readonly IRenderedComponent<SectionOutlet> _navigation;
     private readonly IRenderedComponent<SectionOutlet> _identity;
 
@@ -24,6 +27,7 @@ public sealed class ProjectComponentTests : BunitContext
     {
         Services.AddSingleton<IProjectStore>(_store);
         Services.AddSingleton<lumibelle.Services.Projects.IProjectFolders>(_folders);
+        Services.AddSingleton<lumibelle.Services.Projects.IProjectCompaction>(_compaction);
         Services.AddSingleton<IAiSettingsStore>(new FakeAiSettingsStore());
         Services.AddSingleton<IAiProviderRegistry>(new FakeProviders());
         Services.AddSingleton<IProjectAiPreferencesStore>(new FakeProjectAiPreferencesStore());
@@ -229,6 +233,25 @@ public sealed class ProjectComponentTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("New project title", page.Find(".project-settings-name").TextContent));
         Assert.Equal("nsfw", page.Find("#lora-hidden-tags").GetAttribute("value"));
         Assert.Empty(((FakeProjectAiPreferencesStore)Services.GetRequiredService<IProjectAiPreferencesStore>()).Values);
+    }
+
+    [Fact]
+    public void CompactProjectListsWhatItFindsAndRemovesOnlyTheChosenParts()
+    {
+        var project = FakeProjectStore.Project("Garden", "A quiet world.");
+        _store.Get = _ => Task.FromResult<ProjectInfo?>(project);
+        _compaction.Plan = new(project.Id, [], [], 0, [Guid.NewGuid()], 1200L * 1024 * 1024, ["production-before-global-setups.json"], 1024 * 1024, @"C:\episode\manifest.json", 1024);
+        var dialogs = Render<MudDialogProvider>();
+        var page = Render<ProjectSettings>(p => p.Add(c => c.Id, project.Id));
+        page.FindAll("button").Single(b => b.TextContent.Trim() == "Compact project…").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains($"Lossless reel archives (1 reel video) · {StorageSize.Format(1200L * 1024 * 1024)}", dialogs.Markup));
+        Assert.DoesNotContain("take archives", dialogs.Markup); Assert.DoesNotContain("Trash (", dialogs.Markup);
+        Assert.True(dialogs.Find("input[data-part=PackageManifest]").HasAttribute("checked"));
+        dialogs.Find("input[data-part=Backups]").Change(false);
+        Assert.Contains($"Frees about {StorageSize.Format(1200L * 1024 * 1024 + 1024)}", dialogs.Markup);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Remove permanently").Click();
+        page.WaitForAssertion(() => Assert.Contains("Compacted. Freed", page.Markup));
+        Assert.Equal(new[] { lumibelle.Services.Projects.CompactionPart.ReelArchives, lumibelle.Services.Projects.CompactionPart.PackageManifest }.ToHashSet(), _compaction.Compacted!.ToHashSet());
     }
 
     [Fact]

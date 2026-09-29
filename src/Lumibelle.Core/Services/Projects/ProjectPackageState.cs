@@ -142,7 +142,8 @@ internal sealed class ProjectPackageState
     {
         Assets = Assets with {
             Trash = Assets.Trash.Select(t => t with { DeletedUtc = now, ExpiresUtc = now.AddDays(30) }).ToList(),
-            VoiceTrash = Assets.VoiceTrash.Select(t => t with { DeletedUtc = now, ExpiresUtc = now.AddDays(30) }).ToList()
+            VoiceTrash = Assets.VoiceTrash.Select(t => t with { DeletedUtc = now, ExpiresUtc = now.AddDays(30) }).ToList(),
+            ReelTrash = Assets.ReelTrash.Select(t => t.ExpiresUtc is null ? t : t with { DeletedUtc = now, ExpiresUtc = now.AddDays(30) }).ToList()
         };
         foreach (var t in Shots.Trash) { t.DeletedUtc = now; t.ExpiresUtc = now.AddDays(30); }
     }

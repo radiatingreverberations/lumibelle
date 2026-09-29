@@ -66,6 +66,8 @@ Deleting images from the library moves them to **Trash**, with snackbar Undo and
 
 Sources and references still in Trash remain viewable and comparable in image review, including submitted crops. Their rows show **In Trash** and **Restore source/reference**. Viewing does not extend retention; images must be restored before they can be used for new generation. Missing files and permanent deletions show unavailable states.
 
+Removed reference reels also go to Trash for 30 days, where they can be previewed, restored or deleted permanently. Deleting a reel permanently removes its video only when no shot, take, other reel or saved image still uses it; those keep working. Reels removed before reels had a Trash period stay until you delete them.
+
 Deleting an entire asset asks for confirmation and sends its images to Trash. Restoring an image recreates the original asset if necessary, with its name, notes, category and evidence. Existing covers take precedence over restored covers.
 
 Expired images are purged at startup and hourly while Lumibelle runs; interrupted cleanup resumes safely after restart.

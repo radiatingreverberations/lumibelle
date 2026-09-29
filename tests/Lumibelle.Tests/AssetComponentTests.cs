@@ -37,7 +37,7 @@ public sealed partial class AssetComponentTests : BunitContext
         ComponentFactories.AddStub<lumibelle.Components.Assets.ReferenceReelsPanel>();
         _assets = new(_projectId);
         var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == _projectId ? FakeProjectStore.Project("Asset test") with { Id = id } : null) };
-        Services.AddMudServices(); Services.AddSingleton<IProjectStore>(projects); Services.AddSingleton<lumibelle.Services.Projects.IProjectFolders>(new FakeProjectFolders()); Services.AddSingleton<IAssetStore>(_assets); Services.AddSingleton<IImageTrashStore>(_assets); Services.AddSingleton(TimeProvider.System);
+        Services.AddMudServices(); Services.AddSingleton<IProjectStore>(projects); Services.AddSingleton<lumibelle.Services.Projects.IProjectFolders>(new FakeProjectFolders()); Services.AddSingleton<lumibelle.Services.Projects.IProjectCompaction>(new FakeProjectCompaction()); Services.AddSingleton<IAssetStore>(_assets); Services.AddSingleton<IImageTrashStore>(_assets); Services.AddSingleton(TimeProvider.System);
         Services.AddSingleton<IScriptStore>(new FakeScriptStore { Document = ScriptFixtures.Document(_projectId), Approved = ScriptFixtures.Approved(ScriptFixtures.Document(_projectId).Blocks, _projectId) });
         Services.AddSingleton<IAssetExtractor>(_extractor); Services.AddSingleton<IReferenceImageGenerator>(_generator);
         Services.AddSingleton<IReferenceImageEditor>(_editor);

@@ -91,7 +91,17 @@ public sealed record AssetReferenceReel
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ReelKeyframeSet? Keyframes { get; init; }
 }
-public sealed record TrashedReferenceReel(AssetReferenceReel Reel, ReferenceAsset Owner, DateTimeOffset DeletedUtc);
+public sealed record TrashedReferenceReel(AssetReferenceReel Reel, ReferenceAsset Owner, DateTimeOffset DeletedUtc)
+{
+    // Reels removed before they joined Trash expiry have none and stay until deleted.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ExpiresUtc { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Purging { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Error { get; init; }
+    public static TrashedReferenceReel Removed(AssetReferenceReel reel, ReferenceAsset owner, DateTimeOffset now) => new(reel, owner, now) { ExpiresUtc = now.AddDays(30) };
+}
 public sealed record ReelPublication(Guid ReelId, Guid JobId, Guid BatchId, int Candidate, string Fingerprint);
 public sealed record ReelVideoContext(ReferenceReelDraft Recipe, AssetLookContext Character)
 {
