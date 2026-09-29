@@ -31,7 +31,7 @@ public sealed partial class AssetComponentTests
         Assert.Empty(_assets.Library.ExtractionReviews);
         Assert.Equal(0, _extractor.Calls);
 
-        await _dialogs.Find(".ai-assist-dialog .mud-dialog-actions button").ClickAsync(new());
+        await _dialogs.FindAll(".ai-assist-dialog .mud-dialog-actions button").Single(b => b.TextContent.Trim() == "Close").ClickAsync(new());
         await page.Instance.DisposeAsync(); page.Dispose();
         page = Page(false);
         page.WaitForElement(".asset-library-extraction .request-action-button");

@@ -27,6 +27,7 @@
 .ai-assist-dialog select, .ai-assist-dialog textarea, .ai-assist-dialog input[type=number] { width:100%; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); padding:9px 11px; font:inherit; margin-top:5px; }
 .ai-assist-dialog .field-hint { font-size:var(--lumi-font-size-meta); margin:0; }
 .assist-composer-model { padding-top:12px; border-top: 1px solid var(--lumi-border); }
+.ai-assist-dialog .assist-footer-model { margin-right:auto; padding-top:0; border-top:0; display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
 .assist-model-tools { display:flex; gap:12px; align-items:center; font-size:var(--lumi-font-size-meta); }
 .ai-assist-dialog .check-row { display:flex; align-items:flex-start; gap:8px; padding:5px 0; }
 .ai-assist-dialog fieldset { min-width:0; border: 0; padding:0; margin:0; }

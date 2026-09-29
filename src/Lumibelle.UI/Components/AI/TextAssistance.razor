@@ -23,8 +23,8 @@
 <AiAssistDialog Visible="_open" VisibleChanged="VisibilityChanged" Title="@Title">
     <ChildContent>
         @ChildContent
-        <div class="assist-composer-model"><button type="button" class="model-chip" aria-label="Text model options" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel ▾</button>@ModelNotice</div>
     </ChildContent>
+    <Leading><div class="assist-composer-model assist-footer-model"><button type="button" class="model-chip" aria-label="Text model options" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel ▾</button>@ModelNotice</div></Leading>
     <Actions>@Actions</Actions>
 </AiAssistDialog>
 }

@@ -1,6 +1,6 @@
 <InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="Options" Class="ai-assist-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="@Title" CloseLabel="Close assistance">
     <DialogContent><DialogEscape Pressed="Close" />@ChildContent</DialogContent>
-    <DialogActions><MudButton OnClick="Close">Close</MudButton>@Actions</DialogActions>
+    <DialogActions>@Leading<MudButton OnClick="Close">Close</MudButton>@Actions</DialogActions>
 </InlineDialog>
 @code {
     [Parameter] public bool Visible { get; set; }
@@ -8,6 +8,8 @@
     [Parameter] public string Title { get; set; } = "Text assistance";
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+    // Left-aligned footer content that stays visible however long the dialog's content is.
+    [Parameter] public RenderFragment? Leading { get; set; }
     private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false, CloseOnNavigation = true };
     private Task Close() => VisibleChanged.InvokeAsync(false);
 }
