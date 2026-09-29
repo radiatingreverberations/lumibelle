@@ -4,6 +4,8 @@ Assets are the characters, environments and props of your film. Each one keeps v
 
 ## Create assets
 
+[Creating a prop and generating its first reference images](https://lumibelle.ai/media/manual/assets-create-prop.mp4)
+
 Create Characters, Environments and Props manually, or choose **Extract from script** to inspect all or selected scenes of the latest saved screenplay with the configured text model. Without saved scenes, extraction links back to the [Script studio](script.md). Extraction shows the approximate context size and returns editable proposals. Each proposal must be explicitly created, merged into an existing asset or skipped; extraction never edits accepted assets automatically.
 
 Evidence is tied to the captured script snapshot and scene IDs.
@@ -21,6 +23,8 @@ Write an image prompt or edit instruction, choose an **Enhancement model**, then
 Edit mode also offers **Inspect reference images**, off by default. With an OpenRouter vision model selected, this sends the actual ordered images with their current crops to that provider. ComfyUI enhancement uses text context only. Missing models, unsupported image input and missing or trashed references produce actionable errors instead of silently substituting inputs. A suggestion cannot overwrite a prompt, workflow, asset or set of references that changed after the request.
 
 ## Edit images
+
+[Editing an image: remove the chair, then compare the result with the source](https://lumibelle.ai/media/manual/assets-edit-image.mp4)
 
 Choose **Edit image** on any take to use it as the source for a Krea 2 edit. **Crop source** lets you drag the crop to reposition it and pull its edges to zoom; expandable precise controls provide the same adjustments with sliders. Cropping never changes the stored original. Edit instructions can target a different output aspect ratio. Results are stored beside the source as unapproved takes, and their details retain the sources, crop and edit settings even if a source is later deleted.
 

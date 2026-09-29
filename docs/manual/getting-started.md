@@ -1,8 +1,16 @@
 # Getting started
 
+## Download for Windows
+
+Download `Lumibelle-<version>-windows-x64.zip` from the [latest release](https://github.com/radiatingreverberations/lumibelle/releases/latest), extract it anywhere and run `Lumibelle.exe`. No installation is needed.
+
+The build is not signed yet, so Windows SmartScreen may warn that it comes from an unknown publisher on the first launch. Choose **More info**, then **Run anyway**, to start it.
+
+The downloaded edition keeps its projects in `Lumibelle/Projects` under your local application-data folder. See [Projects and storage](projects.md) to use another library.
+
 ## Run from source
 
-Install the .NET 10 SDK selected by the repository's `global.json`, then run from the repository root:
+On other systems, or to follow development, run Lumibelle from source. Install the .NET 10 SDK selected by the repository's `global.json`, then run from the repository root:
 
 ```powershell
 dotnet restore lumibelle.slnx

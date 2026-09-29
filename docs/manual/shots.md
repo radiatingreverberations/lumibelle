@@ -24,6 +24,8 @@ Reference or shot changes preserve your prompt and show **Check prompt**. **Clea
 
 ## Takes
 
+[Reviewing generated takes](https://lumibelle.ai/media/manual/shots-take-review.mp4)
+
 The dedicated **Takes** view shows large previews, newest first, with a selected badge and an optional setup filter. Retries and **One more take** reuse their batch's captured inputs.
 
 To assemble takes into a sequence, open the [Cut studio](cut.md).

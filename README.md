@@ -4,6 +4,8 @@ A personal video studio for growing an idea into a film. Write a screenplay, tur
 
 **Manual, screenshots and examples: [lumibelle.ai](https://lumibelle.ai)** (sources in [docs/manual](docs/manual/README.md)).
 
+**Download:** a Windows x64 build is attached to the [latest release](https://github.com/radiatingreverberations/lumibelle/releases/latest). It is an unsigned preview, so Windows may ask you to confirm the first launch; see [Getting started](docs/manual/getting-started.md#download-for-windows).
+
 ## Run from source
 
 Install the .NET 10 SDK selected by `global.json`, then run from the repository root:
