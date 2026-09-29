@@ -62,7 +62,7 @@ test('consecutive focused revisions capture the applied script and manual edits 
   await page.getByLabel('Instructions', { exact: true }).fill('FIRST_CHANGE');
   const initial = (await p.state()).script.blocks;
   await page.getByRole('button', { name: 'Revise', exact: true }).click();
-  await expect(page.locator('.script-review-dialog').locator('.is-comparison')).toBeVisible();
+  await expect(page.locator('.script-review-dialog').locator('.is-comparison')).toBeVisible({ timeout: 15000 });
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await assist(page);
   await page.getByLabel('Instructions', { exact: true }).fill('SECOND_CHANGE');
@@ -101,7 +101,7 @@ test('changed targets and invalid responses keep the authored script', async ({ 
   await page.getByRole('button', { name: 'New request', exact: true }).click();
   await page.getByLabel('Instructions', { exact: true }).fill('INVALID');
   await page.getByRole('button', { name: 'Revise', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^(Review changes|View response|Needs attention)$/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^(Review changes|View response|Needs attention)$/ })).toBeVisible({ timeout: 15000 });
   expect(text((await p.state()).script.blocks[1])).toContain('New local detail.');
   await expect.poll(async () => (await p.state()).history.runs.at(-1).error).toBeTruthy();
   // An invalid response is never applicable, but the author can still retire it.

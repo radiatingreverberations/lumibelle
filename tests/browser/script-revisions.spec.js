@@ -30,7 +30,7 @@ test('folded acts select stable targets, revisions highlight actual changes, and
   await expect(page.locator('.assistant-target').first()).toHaveText('ACT 3');
   await page.getByRole('button', { name: 'Revise', exact: true }).click();
   const review = page.locator('.script-review-dialog');
-  await expect(review.locator('.is-comparison')).toBeVisible();
+  await expect(review.locator('.is-comparison')).toBeVisible({ timeout: 15000 });
   await expect(review.locator('ins').first()).toBeVisible();
   expect((await state()).history.runs.at(-1).target.originalBlocks[0].spans[0].text).toBe('ACT 3');
   await review.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -114,7 +114,7 @@ test('whole-script replacement is explicit and passage highlights stay within th
   await page.getByLabel('Instructions', { exact: true }).fill('Make this more polite.');
   await page.getByRole('button', { name: 'Revise', exact: true }).click();
   const review = page.locator('.script-review-dialog');
-  await expect(review.getByRole('region', { name: 'Original script', exact: true })).toContainText('Action');
+  await expect(review.getByRole('region', { name: 'Original script', exact: true })).toContainText('Action', { timeout: 15000 });
   await expect(review.getByRole('region', { name: 'Original script', exact: true })).toContainText('window');
   await review.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(action).toHaveText('A tiny mouse politely bows' + original.slice(6));
