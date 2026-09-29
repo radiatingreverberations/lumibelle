@@ -9,7 +9,8 @@
     @if (!HideTrigger) {
     <button type="button" class="model-chip" @onclick="OpenAsync" disabled="@Disabled" aria-label="Text model options" aria-haspopup="dialog" title="@FullLabel">@ShortLabel <span class="model-source">@SourceLabel</span> ▾</button>
     }
-    @if (_error is not null && !_open) { <span class="model-notice" role="status">@_error</span> }
+    @* An assistant stays disabled while its model has an issue, so say why beside the chip. *@
+    @if (!_open && (_error ?? (_hasLoadedSettings && !_busy ? _session?.Issue : null)) is { } notice) { <span class="model-notice" role="status">@notice</span> }
 </div>
 <AiAssistDialog Visible="_open" VisibleChanged="value => _open = value" Title="@(DefaultEditor ? "Project text model" : "Text model")">
     <ChildContent>
