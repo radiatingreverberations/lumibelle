@@ -178,6 +178,18 @@ public sealed partial class AssetComponentTests
     }
 
     [Fact]
+    public void AnUnavailableModelIsExplainedBesideTheChipInTheDialogOnly()
+    {
+        var settings = (FakeAiSettingsStore)Services.GetRequiredService<IAiSettingsStore>();
+        settings.Value = settings.Value with { HasOpenRouterKey = false };
+        _assets.Library = _assets.Library with { Assets = [Asset("Mouse", "Portrait prompt")] };
+        var page = Page(); var controls = EnhancementControls(page);
+        controls.WaitForAssertion(() => Assert.Contains("Add an OpenRouter key", controls.Find(".assist-composer-model .model-notice").TextContent));
+        Assert.Empty(page.FindAll(".model-notice"));
+        Assert.True(controls.Find(".enhance-button").HasAttribute("disabled"));
+    }
+
+    [Fact]
     public async Task FailedDefaultSavePreservesEnhancementOverrideAndDoesNotStartRequest()
     {
         var settings = (FakeAiSettingsStore)Services.GetRequiredService<IAiSettingsStore>();
