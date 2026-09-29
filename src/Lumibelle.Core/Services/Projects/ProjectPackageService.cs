@@ -29,6 +29,7 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
     public async Task<ProjectPackageExport> ExportAsync(Guid project, ProjectExportOptions options,
         IProgress<ProjectPackageProgress>? progress = null, CancellationToken ct = default)
     {
+        if (options.MaxImageDimension is < 256 or > 32768) throw new WorkspaceStoreException("Choose a maximum image size between 256 and 32768 pixels.");
         await transfer.WaitAsync(ct);
         var id = Guid.NewGuid(); var folder = ExportFolder(id);
         try
@@ -43,14 +44,23 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
             // package schema does not preserve that ownership. Never silently omit them.
             await FileProjectDubbingStore.CheckPortableExportAsync(root, project, ct);
             var state = await ProjectPackageState.ReadAsync(root, project, ct);
+            var leftOutTakes = options.LeaveOutLosslessArchives ? ProjectPackageCompaction.LeaveOutTakeArchives(state, clock.GetUtcNow()) : [];
             state.History = await ProjectPackageHistory.CaptureAsync(project, state.History, jobs, ct);
             // Lock order matches production saves: project, then global setups. Release the
             // global lock after copying only the setups this project's compositions use.
             using (await ProjectFiles.LockAsync(Path.Combine(paths.Data, "generation-setups.json"), ct))
                 state.FlattenSetups(await setups.LoadAsync(ct));
-            var plan = await ProjectPackagePlan.CreateAsync(root, state, options, ct);
+            var plan = await ProjectPackagePlan.CreateAsync(root, state, options, ct, folder);
             var originals = ProjectPackageRefinement.AllTakes(state).ToDictionary(t => t.Id, t => ShotCopy.Of(t));
             var privacy = new ProjectPackagePrivacy(); state.Clean(privacy);
+            var takes = ProjectPackageCompaction.LeftOut(state, leftOutTakes);
+            var (leftOutFiles, leftOutBytes) = (plan.LeftOutLosslessFiles + takes.Files, plan.LeftOutLosslessBytes + takes.Bytes);
+            var (recompressed, resized) = (0, 0);
+            if (options.CompressImages)
+            {
+                progress?.Report(new("Compressing images for sharing…"));
+                (recompressed, resized) = await ProjectPackageCompaction.CompressImagesAsync(plan, root, options, Path.Combine(folder, "images"), ct);
+            }
             progress?.Report(new("Filtering metadata and preparing retained refinement data…"));
             await ProjectPackageRefinement.RewriteAsync(plan, originals, Path.Combine(folder, "refinement"), ct);
             state.Validate();
@@ -92,8 +102,11 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
                     if (entries.Count > ProjectPackageFormat.MaxFiles) throw new WorkspaceStoreException("The package contains too many files.");
                     manifest = new() { ProjectId = project, ExportedUtc = clock.GetUtcNow(),
                         IncludedReferencedTrashImages = options.IncludeReferencedTrashImages, ReferencedTrashImages = plan.ReferencedTrashImages,
-                        IncludedTrashImages = plan.IncludedTrashImages, RemovedLoraSelections = privacy.Removed, Files = entries,
-                        Notices = plan.Notices.Concat(StandardNotices).ToArray() };
+                        IncludedTrashImages = plan.IncludedTrashImages, RemovedLoraSelections = privacy.Removed,
+                        LeftOutLosslessArchives = options.LeaveOutLosslessArchives, LeftOutLosslessFiles = leftOutFiles, LeftOutLosslessBytes = leftOutBytes,
+                        CompressedImages = options.CompressImages, ImageQuality = options.CompressImages ? ProjectExportOptions.ImageQuality : null,
+                        MaxImageDimension = options.CompressImages ? options.MaxImageDimension : null, RecompressedImages = recompressed, ResizedImages = resized,
+                        Files = entries, Notices = plan.Notices.Concat(CompactionNotices(options, leftOutFiles, leftOutBytes, recompressed, resized)).Concat(StandardNotices).ToArray() };
                     using var targetManifest = zip.CreateEntry("manifest.json", CompressionLevel.Fastest).Open();
                     var manifestBytes = ProjectPackageFormat.Json(manifest);
                     if (manifestBytes.Length > ProjectPackageFormat.MaxJsonBytes) throw new WorkspaceStoreException("Package manifest exceeds its size limit.");
@@ -105,7 +118,7 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
             }
             var result = new ProjectPackageExport(id, project, "lumibelle-" + project.ToString("D") + ".zip", new FileInfo(zipPath).Length, manifest);
             await AtomicJsonFile.WriteAsync(Path.Combine(folder, "receipt.json"), result, ct);
-            DeleteOwned(Path.Combine(folder, "refinement"));
+            foreach (var scratch in new[] { "refinement", "keyframes", "images" }) DeleteOwned(Path.Combine(folder, scratch));
             progress?.Report(new("Project package ready.", result.Bytes, entries.Count));
             return result;
         }
@@ -129,6 +142,16 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
         "Saved Script discussion and terminal Script responses are included as local history, without remote job controls. Other queue-only responses and captured generation inputs are not; historical One more/request recovery requires the original queue.",
         "Referenced trash recordings, reels and takes are retained as dependencies. Imported trash images, voices and takes get a fresh 30-day recovery window, without restoration."
     ];
+    private static IEnumerable<string> CompactionNotices(ProjectExportOptions options, int files, long bytes, int recompressed, int resized)
+    {
+        if (options.LeaveOutLosslessArchives)
+            yield return $"Lossless take and reel frame archives were left out ({files} files, {bytes / (1024d * 1024):0.#} MiB). Takes and reels play from their MP4 files, " +
+                "and paused take frames and new reel keyframes are decoded from the MP4. Reel keyframes already chosen from lossless frames are included as PNG pictures.";
+        if (options.CompressImages)
+            yield return $"{recompressed} image(s) were re-encoded for sharing as lossy WebP (PNG sources) or JPEG, quality {ProjectExportOptions.ImageQuality}" +
+                (options.MaxImageDimension is { } max ? $"; {resized} were reduced to at most {max} px. Images whose size is recorded in generation, frame, crop or regional-edit details keep their dimensions." : ".") +
+                " Re-encoded images do not keep their EXIF, XMP or PNG text metadata. Reel keyframes and RefMod inputs stay lossless PNG.";
+    }
     public async Task<AssetMedia?> OpenExportAsync(Guid project, Guid export, CancellationToken ct = default)
     {
         if (project == Guid.Empty || export == Guid.Empty) return null;

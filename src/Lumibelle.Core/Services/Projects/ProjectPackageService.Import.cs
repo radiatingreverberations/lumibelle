@@ -69,7 +69,7 @@ public sealed partial class ProjectPackageService
             var state = await ProjectPackageState.ReadAsync(root, manifest.ProjectId, ct);
             if (state.Production.Compositions.Any(c => c.GenerationSetupId is not null))
                 throw new WorkspaceStoreException("Portable projects must contain captured settings, not live global setup links.");
-            var plan = await ProjectPackagePlan.CreateAsync(root, state, new(manifest.IncludedReferencedTrashImages), ct);
+            var plan = await ProjectPackagePlan.CreateAsync(root, state, new(manifest.IncludedReferencedTrashImages, manifest.LeftOutLosslessArchives), ct);
             var expected = state.Documents().Keys.Concat(plan.Metadata.Keys).Concat(plan.Sources.Keys).ToHashSet(StringComparer.Ordinal);
             if (!expected.SetEquals(manifest.Files.Select(f => f.Path)))
                 throw new WorkspaceStoreException("The package contains unreferenced media, unsupported metadata, or missing required files.");
@@ -118,6 +118,10 @@ public sealed partial class ProjectPackageService
             m.ExportedUtc == default || m.Files is null || m.Files.Count is < 1 or > ProjectPackageFormat.MaxFiles ||
             m.ReferencedTrashImages < 0 || m.IncludedTrashImages < 0 || m.IncludedTrashImages > m.ReferencedTrashImages ||
             !m.IncludedReferencedTrashImages && m.IncludedTrashImages != 0 || m.RemovedLoraSelections < 0 ||
+            m.LeftOutLosslessFiles < 0 || m.LeftOutLosslessBytes < 0 || !m.LeftOutLosslessArchives && (m.LeftOutLosslessFiles != 0 || m.LeftOutLosslessBytes != 0) ||
+            m.RecompressedImages < 0 || m.ResizedImages < 0 || m.ResizedImages > m.RecompressedImages ||
+            (m.CompressedImages ? m.ImageQuality is not (>= 1 and <= 100) || m.MaxImageDimension is < 256 or > 32768 || m.MaxImageDimension is null && m.ResizedImages != 0
+                : m.ImageQuality is not null || m.MaxImageDimension is not null || m.RecompressedImages != 0) ||
             m.Notices is null || m.Notices.Count > 1024 || m.Notices.Any(n => n is null || n.Length > 4096))
             throw new WorkspaceStoreException("Invalid or unsupported project package manifest.");
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase); long total = 0, metadata = 0;

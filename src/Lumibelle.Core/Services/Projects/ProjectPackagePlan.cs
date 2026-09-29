@@ -1,9 +1,11 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using lumibelle.Models;
 using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
+using SixLabors.ImageSharp;
 
 namespace lumibelle.Services.Projects;
 
@@ -15,9 +17,11 @@ internal sealed class ProjectPackagePlan
     internal Dictionary<string, ProjectPackageSource> Sources { get; } = new(StringComparer.OrdinalIgnoreCase);
     internal Dictionary<string, byte[]> Metadata { get; } = new(StringComparer.Ordinal);
     internal List<string> Notices { get; } = [];
-    internal int ReferencedTrashImages, IncludedTrashImages;
+    internal int ReferencedTrashImages, IncludedTrashImages, LeftOutLosslessFiles;
+    internal long LeftOutLosslessBytes;
 
-    internal static async Task<ProjectPackagePlan> CreateAsync(string root, ProjectPackageState state, ProjectExportOptions options, CancellationToken ct)
+    // Scratch receives keyframe pictures extracted for a package that leaves out reel archives.
+    internal static async Task<ProjectPackagePlan> CreateAsync(string root, ProjectPackageState state, ProjectExportOptions options, CancellationToken ct, string? scratch = null)
     {
         var plan = new ProjectPackagePlan { State = state };
         var assets = state.Assets; var shots = state.Shots;
@@ -69,6 +73,8 @@ internal sealed class ProjectPackagePlan
         foreach (var voice in allVoices) plan.Add(root, $"assets/{(voice.StorageAssetId ?? voice.AssetId):D}/voices/{voice.FileName}");
         foreach (var id in references.Voices.Except(allVoices.Select(v => v.Id))) plan.Note($"Referenced recording {id:D} is already unavailable.");
         var allTakes = state.Shots.Takes.Concat(state.Shots.Trash.Where(t => t.Take is not null).Select(t => t.Take!)).ToArray();
+        if (options.LeaveOutLosslessArchives && allTakes.Any(t => t.Frames.Count > 0))
+            throw new WorkspaceStoreException("This package leaves out lossless archives, but a take still lists its archive.");
         foreach (var take in allTakes)
         {
             plan.Add(root, $"shots/takes/{take.Id:D}/video.mp4");
@@ -101,8 +107,18 @@ internal sealed class ProjectPackagePlan
                     archive.Files.Where((f, i) => f.FileName != LosslessFrameArchive.FileName(i) || f.Bytes <= 0 || !ProjectPackageFormat.Hash(f.Sha256)).Any() ||
                     archive.Frames.Where((f, i) => f.Index != i || f.FileName != LosslessFrameArchive.FileName(i / 24) || f.ArchiveFrameIndex is < 0 or >= 24).Any())
                     throw new WorkspaceStoreException("A reference reel's lossless frame archive is invalid.");
+                // The index stays even without its segments: saved keyframes use its hash as their source.
                 plan.Metadata.Add(relative + "/frame-archive.json", ProjectPackageFormat.Json(archive));
-                foreach (var file in archive.Files) plan.Add(root, relative + "/lossless/" + file.FileName, file.Bytes, file.Sha256);
+                var present = archive.Files.Where(f => File.Exists(ProjectPackageFormat.Under(root, relative + "/lossless/" + f.FileName))).ToArray();
+                if (!options.LeaveOutLosslessArchives && present.Length == archive.Files.Count)
+                    foreach (var file in archive.Files) plan.Add(root, relative + "/lossless/" + file.FileName, file.Bytes, file.Sha256);
+                else if (!options.LeaveOutLosslessArchives && present.Length != 0)
+                    throw new WorkspaceStoreException("A reference reel's lossless frame archive is incomplete. Restore it before exporting.");
+                else
+                {
+                    plan.LeftOutLosslessFiles += present.Length; plan.LeftOutLosslessBytes += present.Sum(f => f.Bytes);
+                    await plan.AddKeyframesAsync(root, relative, archive, references.Keyframes.Where(k => k.MediaId == id), scratch, ct);
+                }
             }
         }
         foreach (var reference in references.RefMods.Values)
@@ -129,10 +145,46 @@ internal sealed class ProjectPackagePlan
         } else Sources.Add(path, new(path, full, bytes, hash));
     }
     private void Note(string text) { if (Notices.Count < 1000) Notices.Add(text); }
+    // Without the segments, a keyframe picked from them is only available as its extracted picture.
+    private async Task AddKeyframesAsync(string root, string relative, ReelFrameArchive archive, IEnumerable<ReelFrameIdentity> frames, string? scratch, CancellationToken ct)
+    {
+        var source = Convert.ToHexString(SHA256.HashData(ProjectPackageFormat.Json(archive)));
+        var verified = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var frame in frames.Where(f => f.Source == source).DistinctBy(f => f.Index).OrderBy(f => f.Index))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (frame.Index < 0 || frame.Index >= archive.FrameCount) throw new WorkspaceStoreException("A reel keyframe is outside its lossless archive.");
+            var path = relative + "/" + FileReferenceVideoStore.FrameFileName(frame); var full = ProjectPackageFormat.Under(root, path);
+            if (File.Exists(full))
+            {
+                ProjectPackageFormat.NoLinks(root, full);
+                var info = await Image.IdentifyAsync(full, ct);
+                if (info.Metadata.DecodedImageFormat?.Name != "PNG" || info.Width != archive.Width || info.Height != archive.Height)
+                    throw new WorkspaceStoreException("A reel keyframe picture does not match its lossless archive.");
+                Add(root, path); continue;
+            }
+            var entry = archive.Frames[frame.Index]; var file = archive.Files.Single(f => f.FileName == entry.FileName);
+            var segment = ProjectPackageFormat.Under(root, relative + "/lossless/" + file.FileName);
+            if (scratch is null || !File.Exists(segment)) throw new WorkspaceStoreException("A reel keyframe picture is missing and its lossless frames are unavailable.");
+            ProjectPackageFormat.NoLinks(root, segment);
+            if (verified.Add(file.FileName))
+            {
+                await using var input = File.OpenRead(segment);
+                if (input.Length != file.Bytes || (await ProjectPackageFormat.CopyAsync(input, Stream.Null, file.FileName, file.Bytes, ct)).Sha256 != file.Sha256)
+                    throw new WorkspaceStoreException("A reference reel's lossless archive changed on disk.");
+            }
+            var output = Path.Combine(scratch, "keyframes", Guid.NewGuid().ToString("N") + ".png"); Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            await using (var png = await LosslessFrameArchive.OpenFrameAsync(segment, entry.ArchiveFrameIndex, archive.Width, archive.Height, ct))
+            await using (var target = new FileStream(output, FileMode.CreateNew, FileAccess.Write)) await png.CopyToAsync(target, ct);
+            if (!ProjectPackageFormat.Allowed(path) || Sources.ContainsKey(path)) throw new WorkspaceStoreException("Unsupported reel keyframe path.");
+            Sources.Add(path, new(path, output));
+        }
+    }
 
     private sealed class References(Guid project)
     {
         internal HashSet<Guid> Images = [], Takes = [], Reels = [], Voices = [], Videos = [];
+        internal HashSet<ReelFrameIdentity> Keyframes = [];
         internal Dictionary<Guid, ReferenceVideoMedia> VideoRecords = [];
         internal Dictionary<string, ReelRefModReference> RefMods = new(StringComparer.Ordinal);
         internal void Scan<T>(T source) => Visit(JsonSerializer.SerializeToNode(source, AtomicJsonFile.Options));
@@ -162,6 +214,8 @@ internal sealed class ProjectPackagePlan
                 if (VideoRecords.TryGetValue(id, out var prior) && prior != record) throw new WorkspaceStoreException("Conflicting captured reel media records.");
                 VideoRecords[id] = record; Videos.Add(id);
             }
+            if (o["frame"] is JsonObject keyframe && o.ContainsKey("notes") && keyframe.ContainsKey("source") && keyframe.ContainsKey("index"))
+                Keyframes.Add(keyframe.Deserialize<ReelFrameIdentity>(AtomicJsonFile.Options)!);
             if (o["refMod"] is JsonObject mod)
             {
                 var reference = mod.Deserialize<ReelRefModReference>(AtomicJsonFile.Options)!; ReelRefMods.Validate(reference);

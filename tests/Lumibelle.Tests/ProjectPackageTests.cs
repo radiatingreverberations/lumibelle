@@ -11,7 +11,11 @@ using lumibelle.Services.Production;
 using lumibelle.Services.Projects;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
+using Lumibelle.Testing;
 using Microsoft.Extensions.Logging.Abstractions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using Picture = SixLabors.ImageSharp.Image;
 
 namespace Lumibelle.Tests;
 
@@ -290,6 +294,165 @@ public sealed class ProjectPackageTests
         Assert.Empty((await target.Projects.ListAsync(TestContext.Current.CancellationToken)).Projects);
         Assert.Empty(Directory.EnumerateDirectories(target.Paths.Projects, ".importing-*"));
     }
+    [Fact]
+    public async Task PackageCanLeaveOutLosslessArchivesAndStillOpenTakesAndReelKeyframes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var f = new Fixture(); var project = await f.Create(); var tools = new FrameTools();
+        var reels = new FileReferenceVideoStore(f.Files, new FileShotStore(f.Files, TimeProvider.System), tools);
+        ReferenceVideoMedia media;
+        await using (var input = new MemoryStream([1, 2, 3, 4])) media = await reels.ImportAsync(project.Id, input, "clip.mp4", new(), ct);
+        var archiveSource = Path.Combine(f.Paths.Temporary, "archive-source"); Directory.CreateDirectory(archiveSource);
+        var reelFrames = await MockFrameArchive.WriteAsync(archiveSource, media.Frames, media.Width, media.Height, ct);
+        var reelOutput = new ShotTake { Snapshot = Snapshot(project.Id, "standard") with { FrameCount = media.Frames, OutputPolicy = new(true) },
+            Width = media.Width, Height = media.Height, Frames = reelFrames };
+        await reels.PublishArchiveAsync(project.Id, media, reelOutput, archiveSource, ct);
+        var catalog = await reels.FrameCatalogAsync(project.Id, media, new(), ct); Assert.True(catalog.Lossless);
+        ReelFrameIdentity Pick(int i) => new(media.Id, catalog.Source, i, catalog.Timestamps[i]);
+        // Frame 5 was already prepared in the project; frame 30 must be extracted during export.
+        await reels.PrepareFramesAsync(project.Id, [Pick(5)], new(), ct);
+        var assets = new FileAssetStore(f.Files, TimeProvider.System);
+        var owner = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Room", Category = AssetCategory.Environment };
+        var library = await assets.SaveAsync(new() { ProjectId = project.Id, Assets = [owner] }, 0, ct);
+        library = await assets.SaveReelAsync(project.Id, new AssetReferenceReel { AssetId = owner.Id, Media = media }, library.Revision, ct);
+        await assets.SaveKeyframesAsync(project.Id, library.Reels.Single(),
+            new() { Frames = [new() { Frame = Pick(5), Notes = "Doorway" }, new() { Frame = Pick(30), Notes = "Window" }] }, library.Revision, ct);
+        var snapshot = Snapshot(project.Id, "standard", lossless: true);
+        var take = new ShotTake { Snapshot = snapshot, ShotId = snapshot.Shot.Id, RunId = Guid.NewGuid(), Candidate = 1, Width = snapshot.Width, Height = snapshot.Height,
+            Frames = Enumerable.Range(0, snapshot.FrameCount).Select(i => new ShotFrame(i, LosslessFrameArchive.FileName(i / 24), 7) { ArchiveFrameIndex = i % 24 }).ToList() };
+        var segments = take.Frames.Select(x => x.FileName).Distinct().ToArray();
+        take.Directory = take.Id.ToString("D"); take.Bytes = 5 + 7 * segments.Length;
+        await f.Bytes(project, $"shots/takes/{take.Id:D}/video.mp4", [1, 2, 3, 4, 5]);
+        foreach (var file in segments) await f.Bytes(project, $"shots/takes/{take.Id:D}/{file}", new byte[7]);
+        await f.Save(project, "shots.json", new ShotDocument { ProjectId = project.Id, Shots = [snapshot.Shot], Takes = [take] });
+        Assert.False(File.Exists(Path.Combine(f.Root(project), "reference-videos", media.Id.ToString("D"), FileReferenceVideoStore.FrameFileName(Pick(30)))));
+        var before = Tree(f.Root(project));
+
+        var export = await f.Service.ExportAsync(project.Id, new(LeaveOutLosslessArchives: true), ct: ct);
+        var entries = await f.Unzip(project, export); var reelRoot = $"project/reference-videos/{media.Id:D}/";
+        Assert.DoesNotContain(entries.Keys, k => k.Contains("/lossless/") || k.Contains("archive-"));
+        Assert.Contains(reelRoot + "frame-archive.json", entries.Keys);
+        Assert.Equal(await File.ReadAllBytesAsync(Path.Combine(f.Root(project), "reference-videos", media.Id.ToString("D"), FileReferenceVideoStore.FrameFileName(Pick(5))), ct),
+            entries[reelRoot + FileReferenceVideoStore.FrameFileName(Pick(5))]);
+        using (var extracted = Picture.Load<Rgb24>(entries[reelRoot + FileReferenceVideoStore.FrameFileName(Pick(30))])) Assert.Equal(new Rgb24(30, 0, 200), extracted[0, 0]);
+        var saved = Assert.Single(ProjectPackageFormat.Parse<ShotDocument>(entries["project/shots.json"]).Takes);
+        Assert.Empty(saved.Frames); Assert.False(saved.HasLosslessFrames); Assert.Equal(5, saved.Bytes);
+        Assert.Equal(segments, saved.FrameArchiveRemoval!.Files.Select(x => x.FileName)); Assert.NotNull(saved.FrameArchiveRemoval.CompletedUtc);
+        var manifest = ProjectPackageFormat.Parse<ProjectPackageManifest>(entries["manifest.json"]);
+        Assert.True(manifest.LeftOutLosslessArchives); Assert.False(manifest.CompressedImages);
+        Assert.Equal(segments.Length + reelFrames.Select(x => x.FileName).Distinct().Count(), manifest.LeftOutLosslessFiles);
+        Assert.Equal(before, Tree(f.Root(project)));
+
+        using var target = new Fixture();
+        await using (var zip = (await f.Service.OpenExportAsync(project.Id, export.Id, ct))!) {
+            var staged = await target.Service.StageImportAsync(zip.Content, ct: ct); await target.Service.CommitImportAsync(staged.Token, ct);
+        }
+        Assert.False(Assert.Single((await new FileShotStore(target.Files, TimeProvider.System).LoadAsync(project.Id, ct)).Takes).HasLosslessFrames);
+        var imported = new FileReferenceVideoStore(target.Files, new FileShotStore(target.Files, TimeProvider.System), tools);
+        // Saved keyframes open from their pictures; new picks come from the video.
+        await using (var keyframe = await imported.OpenFrameAsync(project.Id, Pick(30), new(), ct)) {
+            using var image = await Picture.LoadAsync<Rgb24>(keyframe.Content, ct); Assert.Equal(new Rgb24(30, 0, 200), image[0, 0]);
+        }
+        var video = await imported.FrameCatalogAsync(project.Id, media, new(), ct);
+        Assert.False(video.Lossless); Assert.Equal(media.Sha256, video.Source);
+        await using (var pick = await imported.OpenFrameAsync(project.Id, new(media.Id, video.Source, 12, video.Timestamps[12]), new(), ct)) Assert.True(pick.Content.Length > 0);
+        var error = await Assert.ThrowsAsync<WorkspaceStoreException>(() => imported.OpenFrameAsync(project.Id, Pick(40), new(), ct));
+        Assert.Contains("not in this project", error.Message);
+        // Exporting the compact project again keeps the keyframe pictures without asking for the option.
+        var again = await target.Service.ExportAsync(project.Id, new(), ct: ct);
+        Assert.Contains($"reference-videos/{media.Id:D}/{FileReferenceVideoStore.FrameFileName(Pick(30))}", again.Manifest.Files.Select(x => x.Path));
+    }
+    [Fact]
+    public async Task PackageCanCompressImagesAndRewritesEveryFileDescription()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var f = new Fixture(); var project = await f.Create();
+        var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Character" };
+        // The crop records its trashed source's size, so the source keeps it; the free image is reduced.
+        var source = Image() with { Width = 600, Height = 400 }; var free = Image() with { Width = 600, Height = 400 };
+        var cropped = Image() with { Width = 300, Height = 200, Origin = AssetImageOrigin.Cropped,
+            Source = new(Crop: new(project.Id, asset.Id, source.Id, new() { Width = .5, Height = .5 }, 600, 400)) };
+        var id = Guid.NewGuid(); var photo = Image() with { Id = id, FileName = id.ToString("N") + ".jpeg", ContentType = "image/jpeg", Width = 600, Height = 400 };
+        var deleted = DateTimeOffset.UtcNow.AddDays(-1);
+        await f.Save(project, "assets.json", new AssetLibrary { ProjectId = project.Id, Assets = [asset with { Images = [free, cropped, photo] }],
+            Trash = [new() { Image = source, Asset = asset, DeletedUtc = deleted, ExpiresUtc = deleted.AddDays(30) }] });
+        foreach (var image in new[] { source, free, cropped, photo })
+            await f.Bytes(project, $"assets/{asset.Id:D}/images/{image.FileName}", Photo(image.Width, image.Height, image == photo));
+        var before = Tree(f.Root(project));
+
+        var export = await f.Service.ExportAsync(project.Id, new(CompressImages: true, MaxImageDimension: 300), ct: ct);
+        var entries = await f.Unzip(project, export);
+        var library = ProjectPackageFormat.Parse<AssetLibrary>(entries["project/assets.json"]);
+        void Check(AssetImage original, string type, string extension, int width, int height)
+        {
+            var image = library.Assets.SelectMany(a => a.Images).Concat(library.Trash.Select(t => t.Image)).Single(i => i.Id == original.Id);
+            Assert.Equal((Path.GetFileNameWithoutExtension(original.FileName) + extension, type, width, height), (image.FileName, image.ContentType, image.Width, image.Height));
+            var path = $"assets/{asset.Id:D}/images/{image.FileName}"; var bytes = entries["project/" + path];
+            var info = ImageInspector.Inspect(bytes);
+            Assert.Equal((type, extension, width, height), (info.ContentType, info.Extension, info.Width, info.Height));
+            var listed = Assert.Single(export.Manifest.Files, x => x.Path == path);
+            Assert.Equal((bytes.LongLength, Convert.ToHexString(SHA256.HashData(bytes))), (listed.Bytes, listed.Sha256));
+            Assert.DoesNotContain($"project/assets/{asset.Id:D}/images/{original.FileName}", entries.Keys);
+        }
+        Check(source, "image/webp", ".webp", 600, 400);
+        Check(free, "image/webp", ".webp", 300, 200);
+        Check(cropped, "image/webp", ".webp", 300, 200);
+        Check(photo, "image/jpeg", ".jpg", 300, 200);
+        Assert.Equal(cropped.Source, library.Assets[0].Images.Single(i => i.Id == cropped.Id).Source);
+        var m = export.Manifest;
+        Assert.Equal((true, 85, 300, 4, 2, false), (m.CompressedImages, m.ImageQuality!.Value, m.MaxImageDimension!.Value, m.RecompressedImages, m.ResizedImages, m.LeftOutLosslessArchives));
+        Assert.Equal(before, Tree(f.Root(project)));
+
+        using var target = new Fixture();
+        await using (var zip = (await f.Service.OpenExportAsync(project.Id, export.Id, ct))!) {
+            var staged = await target.Service.StageImportAsync(zip.Content, ct: ct); await target.Service.CommitImportAsync(staged.Token, ct);
+        }
+        var store = new FileAssetStore(target.Files, TimeProvider.System); var imported = await store.LoadAsync(project.Id, ct);
+        var reduced = imported.Assets[0].Images.Single(i => i.Id == free.Id);
+        Assert.Equal((300, 200), (reduced.Width, reduced.Height));
+        Assert.Equal(source.Id, Assert.Single(imported.Trash).Image.Id);
+        await using var opened = await store.OpenImageAsync(project.Id, asset.Id, free.Id, ct);
+        Assert.Equal("image/webp", opened!.ContentType);
+    }
+    [Fact]
+    public async Task PackageRejectsCompactionFieldsThatDisagreeWithTheOptions()
+    {
+        using var f = new Fixture(); var project = await f.Create(); var package = await f.Service.ExportAsync(project.Id, new(), ct: TestContext.Current.CancellationToken);
+        var entries = await f.Unzip(project, package);
+        var manifest = ProjectPackageFormat.Parse<ProjectPackageManifest>(entries["manifest.json"]);
+        entries["manifest.json"] = ProjectPackageFormat.Json(manifest with { RecompressedImages = 3 });
+        using var buffer = new MemoryStream();
+        using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, true))
+            foreach (var (name, data) in entries) { using var s = zip.CreateEntry(name).Open(); s.Write(data); }
+        buffer.Position = 0; using var target = new Fixture();
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => target.Service.StageImportAsync(buffer, ct: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Service.ExportAsync(project.Id, new(CompressImages: true, MaxImageDimension: 16), ct: TestContext.Current.CancellationToken));
+    }
+    private static Dictionary<string, string> Tree(string root) => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+        .ToDictionary(p => Path.GetRelativePath(root, p), p => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p))));
+    // A noisy gradient: large as PNG, small as lossy WebP.
+    internal static byte[] Photo(int width, int height, bool jpeg = false)
+    {
+        var random = new Random(width * 31 + height);
+        using var image = new Image<Rgb24>(width, height);
+        image.ProcessPixelRows(rows => { for (var y = 0; y < rows.Height; y++) { var row = rows.GetRowSpan(y);
+            for (var x = 0; x < row.Length; x++) row[x] = new((byte)(x * 255 / width), (byte)(y * 255 / height), (byte)random.Next(96, 160)); } });
+        using var output = new MemoryStream();
+        if (jpeg) image.SaveAsJpeg(output); else image.SaveAsPng(output);
+        return output.ToArray();
+    }
+    private sealed class FrameTools : IProductionMediaTools
+    {
+        public Task<VideoFileInfo> VideoInfoAsync(string path, H3Settings settings, CancellationToken ct) => Task.FromResult(new VideoFileInfo(32, 32, 48, 24, true));
+        public Task<double> AudioDurationAsync(string path, H3Settings settings, CancellationToken ct) => throw new NotSupportedException();
+        public Task PrepareVoiceAsync(string source, string target, double start, double duration, H3Settings settings, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<double>> ReelFrameTimesAsync(string source, H3Settings settings, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<double>>(Enumerable.Range(0, 48).Select(i => i / 24d).ToArray());
+        public async Task ExtractReelFramesAsync(string source, IReadOnlyList<int> indices, string directory, int maximumEdge, H3Settings settings, CancellationToken ct)
+        {
+            for (var i = 0; i < indices.Count; i++) { using var image = new Image<Rgb24>(32, 32); await image.SaveAsPngAsync(Path.Combine(directory, $"{i:D6}.png"), ct); }
+        }
+    }
     private sealed class CancelOnRead(CancellationTokenSource cancellation) : MemoryStream(new byte[32])
     {
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
@@ -297,11 +460,11 @@ public sealed class ProjectPackageTests
     }
     private static AssetImage Image() { var id = Guid.NewGuid(); return new() { Id = id, FileName = id.ToString("N") + ".png", ContentType = "image/png", Width = 1, Height = 1, CreatedUtc = DateTimeOffset.UtcNow }; }
     private static Shot Ready() => new() { Title = "Shot", Description = "A room", Duration = 1, ApprovedScriptId = Guid.NewGuid(), SceneId = Guid.NewGuid() };
-    private static VideoSnapshot Snapshot(Guid project, string key)
+    private static VideoSnapshot Snapshot(Guid project, string key, bool lossless = false)
     {
-        var shot = Ready(); shot.GenerationPreset = key; var settings = new H3Settings(); var size = VideoResolutions.Size(shot);
+        var shot = Ready(); shot.GenerationPreset = key; shot.SaveLosslessFrames = lossless; var settings = new H3Settings(); var size = VideoResolutions.Size(shot);
         return new(project, 1, shot, H3Policy.Compile(shot), H3Policy.Fingerprint(shot), "http://localhost:8188", settings, size.Width, size.Height, H3Policy.Frames(1), H3Policy.Profile) {
-            Preset = H3Presets.Capture(shot, settings), Sampling = H3Policy.Sampling(shot, settings), OutputPolicy = new(false),
+            Preset = H3Presets.Capture(shot, settings), Sampling = H3Policy.Sampling(shot, settings), OutputPolicy = new(lossless),
             Performance = H3Performance.Capture(H3Presets.NewPerformance(settings)) };
     }
     private static async Task<byte[]> TensorPackage(VideoSnapshot snapshot)

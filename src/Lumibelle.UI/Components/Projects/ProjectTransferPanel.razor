@@ -16,10 +16,24 @@
         <label class="check-row"><input type="checkbox" @bind="_trash" disabled="@_busy" />Include referenced images from Trash</label>
         <p class="field-hint">Only deleted images still used by saved references or retained provenance are included. Unreferenced trash is excluded.</p>
         <p class="field-hint">Unused LoRA selections and inactive accelerator paths are removed from project metadata, including refinement packages. Used LoRA names remain. Media and authored text are not anonymized.</p>
+        <label class="check-row"><input id="package-lossless" type="checkbox" @bind="_leaveOutLossless" disabled="@_busy" />Leave out lossless archives</label>
+        <p class="field-hint">For a smaller package to share. Takes and reels still play from their videos; paused frames and new reel keyframes are then decoded from the video.</p>
+        <label class="check-row"><input id="package-compress" type="checkbox" @bind="_compress" disabled="@_busy" />Compress images for sharing</label>
+        <p class="field-hint">PNG images are saved as lossy WebP in the package. The project itself is not changed.</p>
+        @if (_compress) {
+            <label for="package-image-size">Largest image side</label>
+            <select id="package-image-size" @bind="_maxDimension" disabled="@_busy">
+                <option value="0">Keep original size</option>
+                @foreach (var size in ProjectExportOptions.ImageDimensions) { <option value="@size">@size px</option> }
+            </select>
+            <p class="field-hint">Crops, video frames and images whose size is part of their generation details keep their size.</p>
+        }
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || _project == Guid.Empty)" OnClick="Export">Prepare export</MudButton>
         @if (_export is { } package) {
             <div role="status"><strong>Package ready · @Size(package.Bytes)</strong>
                 <p>@package.Manifest.Files.Count files · @package.Manifest.IncludedTrashImages referenced trash images · @package.Manifest.RemovedLoraSelections unused LoRA metadata entries removed</p>
+                @if (package.Manifest.LeftOutLosslessArchives) { <p>Lossless archives left out · @package.Manifest.LeftOutLosslessFiles files · @Size(package.Manifest.LeftOutLosslessBytes)</p> }
+                @if (package.Manifest.CompressedImages) { <p>@package.Manifest.RecompressedImages images compressed@(package.Manifest.ResizedImages > 0 ? $" · {package.Manifest.ResizedImages} reduced in size" : "")</p> }
             </div>
             <MudButton Disabled="_busy" OnClick="Download">Download project package</MudButton>
             <MudButton Disabled="_busy" OnClick="DiscardExport">Remove temporary package</MudButton>
@@ -55,7 +69,8 @@
     [Parameter] public EventCallback<bool> BusyChanged { get; set; }
     private RenderFragment Actions => @<text>@if (_busy) { <MudButton OnClick="Cancel">Cancel transfer</MudButton> }<MudButton Disabled="_busy" OnClick="Close">Close</MudButton></text>;
     private Guid _project;
-    private bool _trash = true, _busy, _disposed;
+    private bool _trash = true, _leaveOutLossless, _compress, _busy, _disposed;
+    private int _maxDimension = 2560;
     private IBrowserFile? _file;
     private ProjectPackageExport? _export;
     private ProjectPackageImport? _import;
@@ -78,7 +93,7 @@
         catch (Exception e) { if (!_disposed) _error = e.Message; }
         finally { _operation = null; _busy = false; if (!_disposed) await BusyChanged.InvokeAsync(false); }
     }
-    private Task Export() => Run(async ct => { var result = await Packages.ExportAsync(_project, new(_trash), Progress(), ct); if (!_disposed) _export = result; });
+    private Task Export() => Run(async ct => { var result = await Packages.ExportAsync(_project, new(_trash, _leaveOutLossless, _compress, _compress && _maxDimension > 0 ? _maxDimension : null), Progress(), ct); if (!_disposed) _export = result; });
     private Task Download() => Run(async ct => { if (_export is { } package) { ct.ThrowIfCancellationRequested(); await HostActions.SaveResourceAsync(package.Name, package.Url); } });
     private Task DiscardExport() => Run(async ct => { if (_export is { } package) { await Packages.DiscardExportAsync(package.ProjectId, package.Id, ct); _export = null; } });
     private async Task ChooseFile(InputFileChangeEventArgs e)

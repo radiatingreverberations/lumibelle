@@ -48,7 +48,7 @@ internal static class ProjectPackageFormat
         if (p.Length == 4 && p[0] == "shots" && p[1] == "takes" && Id(p[2]))
             return p[3] is "video.mp4" or "refinement.safetensors" || ArchiveName(p[3]);
         if (p.Length == 3 && p[0] == "reference-videos" && Id(p[1]))
-            return p[2] is "media.json" or "video.mp4" or "frame-archive.json";
+            return p[2] is "media.json" or "video.mp4" or "frame-archive.json" || KeyframeName(p[2]);
         if (p.Length == 4 && p[0] == "reference-videos" && Id(p[1]) && p[2] == "lossless") return ArchiveName(p[3]);
         return p.Length == 3 && p[0] == "refmod-previews" && Hash(p[1]) &&
             p[2].Length == 12 && p[2].StartsWith("frame-", StringComparison.Ordinal) && p[2].EndsWith(".png", StringComparison.Ordinal) &&
@@ -56,6 +56,9 @@ internal static class ProjectPackageFormat
     }
     private static bool ArchiveName(string name) => name.Length == 17 && name.StartsWith("archive-", StringComparison.Ordinal) &&
         name.EndsWith(".webp", StringComparison.Ordinal) && name.AsSpan(8, 4).ToString().All(char.IsAsciiDigit);
+    // A reel keyframe extracted from a lossless archive that the package leaves out.
+    private static bool KeyframeName(string name) => name.Length == 81 && name.StartsWith("frame-", StringComparison.Ordinal) &&
+        Hash(name[6..70]) && name[70] == '-' && name[71..77].All(char.IsAsciiDigit) && name.EndsWith(".png", StringComparison.Ordinal);
     internal static string Under(string root, string relative)
     {
         Relative(relative);

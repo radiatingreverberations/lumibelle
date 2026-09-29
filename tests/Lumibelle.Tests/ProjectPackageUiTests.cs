@@ -37,6 +37,24 @@ public sealed class ProjectPackageUiTests : BunitContext
         Assert.Equal(0, packages.Imports);
     }
     [Fact]
+    public async Task PackageUiOffersCompactSharingOptionsOffByDefault()
+    {
+        var view = View();
+        await view.InvokeAsync(() => view.Find("#package-project").ChangeAsync(new() { Value = packages.Project.Id.ToString() }));
+        Assert.False(view.Find("#package-lossless").HasAttribute("checked")); Assert.Empty(view.FindAll("#package-image-size"));
+        await Click(view, "Prepare export");
+        Assert.Equal(new ProjectExportOptions(), packages.Options);
+        await view.InvokeAsync(() => view.Find("#package-lossless").ChangeAsync(new() { Value = true }));
+        await view.InvokeAsync(() => view.Find("#package-compress").ChangeAsync(new() { Value = true }));
+        await view.InvokeAsync(() => view.Find("#package-image-size").ChangeAsync(new() { Value = "1920" }));
+        await Click(view, "Prepare export");
+        Assert.Equal(new ProjectExportOptions(true, true, true, 1920), packages.Options);
+        Assert.Contains("Lossless archives left out", view.Markup); Assert.Contains("12 images compressed · 3 reduced in size", view.Markup);
+        await view.InvokeAsync(() => view.Find("#package-image-size").ChangeAsync(new() { Value = "0" }));
+        await Click(view, "Prepare export");
+        Assert.Null(packages.Options!.MaxImageDimension);
+    }
+    [Fact]
     public async Task PackageUiInspectsBeforeExplicitImportAndSurfacesCollision()
     {
         var accepted = 0; var view = View(_ => accepted++);
@@ -75,7 +93,9 @@ public sealed class ProjectPackageUiTests : BunitContext
         internal ProjectPackageExport Export => new(export, Project.Id, "project.zip", 123, new() { ProjectId = Project.Id, ExportedUtc = DateTimeOffset.UtcNow });
         public Task<ProjectPackageExport> ExportAsync(Guid project, ProjectExportOptions options, IProgress<ProjectPackageProgress>? progress = null, CancellationToken ct = default) {
             Exports++; LastProject = project; Options = options;
-            return Fail ? Task.FromException<ProjectPackageExport>(new WorkspaceStoreException("Source image is missing")) : Task.FromResult(Export);
+            var export = Export with { Manifest = Export.Manifest with { LeftOutLosslessArchives = options.LeaveOutLosslessArchives, LeftOutLosslessFiles = options.LeaveOutLosslessArchives ? 4 : 0,
+                CompressedImages = options.CompressImages, RecompressedImages = options.CompressImages ? 12 : 0, ResizedImages = options.CompressImages ? 3 : 0 } };
+            return Fail ? Task.FromException<ProjectPackageExport>(new WorkspaceStoreException("Source image is missing")) : Task.FromResult(export);
         }
         public Task<AssetMedia?> OpenExportAsync(Guid project, Guid export, CancellationToken ct = default) => throw new NotSupportedException();
         public Task DiscardExportAsync(Guid project, Guid export, CancellationToken ct = default) => Task.CompletedTask;
