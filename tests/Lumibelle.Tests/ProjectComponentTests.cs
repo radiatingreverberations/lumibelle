@@ -236,20 +236,20 @@ public sealed class ProjectComponentTests : BunitContext
     }
 
     [Fact]
-    public void CompactProjectListsWhatItFindsAndRemovesOnlyTheChosenParts()
+    public async Task CompactProjectListsWhatItFindsAndRemovesOnlyTheChosenParts()
     {
         var project = FakeProjectStore.Project("Garden", "A quiet world.");
         _store.Get = _ => Task.FromResult<ProjectInfo?>(project);
         _compaction.Plan = new(project.Id, [], [], 0, [Guid.NewGuid()], 1200L * 1024 * 1024, ["production-before-global-setups.json"], 1024 * 1024, @"C:\episode\manifest.json", 1024);
         var dialogs = Render<MudDialogProvider>();
         var page = Render<ProjectSettings>(p => p.Add(c => c.Id, project.Id));
-        page.FindAll("button").Single(b => b.TextContent.Trim() == "Compact project…").Click();
+        await page.InvokeAsync(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Compact project…").ClickAsync(new()));
         dialogs.WaitForAssertion(() => Assert.Contains($"Lossless reel archives (1 reel video) · {StorageSize.Format(1200L * 1024 * 1024)}", dialogs.Markup));
         Assert.DoesNotContain("take archives", dialogs.Markup); Assert.DoesNotContain("Trash (", dialogs.Markup);
         Assert.True(dialogs.Find("input[data-part=PackageManifest]").HasAttribute("checked"));
-        dialogs.Find("input[data-part=Backups]").Change(false);
+        await dialogs.InvokeAsync(() => dialogs.Find("input[data-part=Backups]").ChangeAsync(new() { Value = false }));
         Assert.Contains($"Frees about {StorageSize.Format(1200L * 1024 * 1024 + 1024)}", dialogs.Markup);
-        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Remove permanently").Click();
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Remove permanently").ClickAsync(new()));
         page.WaitForAssertion(() => Assert.Contains("Compacted. Freed", page.Markup));
         Assert.Equal(new[] { lumibelle.Services.Projects.CompactionPart.ReelArchives, lumibelle.Services.Projects.CompactionPart.PackageManifest }.ToHashSet(), _compaction.Compacted!.ToHashSet());
     }

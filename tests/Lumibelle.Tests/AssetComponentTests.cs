@@ -487,7 +487,7 @@ public sealed partial class AssetComponentTests : BunitContext
         Assert.Contains("Approximate input", _dialogs.Markup); Assert.Empty(_assets.Library.Assets);
         await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
         Assert.Empty(_assets.Library.Assets);
-        page.Find(".apply-extraction").Click();
+        await page.InvokeAsync(() => page.Find(".apply-extraction").ClickAsync(new()));
         page.WaitForAssertion(() => Assert.Equal("Mira", Assert.Single(_assets.Library.Assets).Name));
         Assert.Equal(new[] { "face", "full body" }, _assets.Library.Assets[0].SuggestedImageTags); Assert.Single(_assets.Library.Assets[0].Evidence);
     }
