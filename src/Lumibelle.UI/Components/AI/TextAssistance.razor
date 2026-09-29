@@ -5,7 +5,7 @@
             @if (Status is not null) { <div class="text-assist-status">@Status</div> }
             <div class="assist-panel-body">
                 @ChildContent
-                <div class="assist-composer-model"><button type="button" class="model-chip" aria-label="Text model options" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel ▾</button>@ModelNotice</div>
+                <div class="assist-composer-model">@ModelChip</div>
             </div>
             <footer class="assist-panel-actions">@Actions</footer>
         </section>
@@ -24,7 +24,7 @@
     <ChildContent>
         @ChildContent
     </ChildContent>
-    <Leading><div class="assist-composer-model assist-footer-model"><button type="button" class="model-chip" aria-label="Text model options" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel ▾</button>@ModelNotice</div></Leading>
+    <Leading><div class="assist-composer-model assist-footer-model">@ModelChip</div></Leading>
     <Actions>@Actions</Actions>
 </AiAssistDialog>
 }
@@ -100,7 +100,9 @@
     }
     private async Task ReviewAsync() { if (ReviewRequested.HasDelegate) await ReviewRequested.InvokeAsync(); else await OpenRequestAsync(); }
     private string ModelLabel => _picker?.DisplayLabel ?? "Loading model…";
-    private RenderFragment? ModelNotice => _picker?.Notice is { } notice ? @<span class="model-notice" role="status">@notice</span> : null;
+    // Like the request action's notice: a (!) badge with the reason as tooltip and description.
+    private readonly string _modelNoticeId = $"model-notice-{Guid.NewGuid():N}";
+    private RenderFragment ModelChip => @<text><button type="button" class="model-chip" aria-label="Text model options" aria-describedby="@(_picker?.Notice is null ? null : _modelNoticeId)" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel @if (_picker?.Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> } ▾</button>@if (_picker?.Notice is { } notice) { <span id="@_modelNoticeId" class="sr-only">@notice</span> }</text>;
     private async Task Changed(TextModelSelectionState value) { _state = value; await SelectionChanged.InvokeAsync(value); }
     private async Task StartOrResumeAsync() { if (HasError) { _open = !Inline; await InvokeAsync(StateHasChanged); } else await OpenAsync(); }
     public async Task OpenAsync()

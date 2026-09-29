@@ -286,12 +286,13 @@ public sealed partial class AiModelComponentTests : BunitContext
         await picker.InvokeAsync(picker.Instance.RefreshModel); Assert.Equal(Cloud.Model, states.Last().Model.Model);
     }
     [Fact]
-    public void AnUnreadyModelSaysWhyBesideTheClosedChip()
+    public void AnUnreadyModelSaysWhyOnTheClosedChip()
     {
         AvailableModels(); var id = Guid.NewGuid();
         _preferences.Values[id] = new() { ProjectId = id, TextDefault = Local }; _providers.BackendVersion = "new version";
         var states = new List<TextModelSelectionState>(); var picker = Picker(id, TextAssistantStudio.Story, states);
-        picker.WaitForAssertion(() => Assert.Contains("Test this model", picker.Find(".model-notice").TextContent));
+        picker.WaitForAssertion(() => Assert.Contains("Test this model", picker.Find(".model-chip .request-notice-badge").GetAttribute("title")));
+        Assert.Contains("Test this model", picker.Find($"#{picker.Find(".model-chip").GetAttribute("aria-describedby")}").TextContent);
         Assert.False(states.Last().Ready);
     }
     [Fact]
