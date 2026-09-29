@@ -4,6 +4,8 @@ import { expect } from '@playwright/test';
 // Use the same visible tabs and drawer controls as an author; never force hidden inputs.
 async function showTools(page, studio) {
   const root = page.locator(`.studio-workspace[data-studio="${studio}"]`);
+  // After in-app navigation the markup can arrive before its handlers; a click then does nothing.
+  if (studio === 'Shots') await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await expect(root).toHaveAttribute('data-ready', 'true');
   await expect(root).not.toHaveAttribute('data-suspended', 'true');
   const toggle = page.locator(`[data-toggle-pane=right][aria-controls="workspace-${studio}-right"]`);
