@@ -157,6 +157,8 @@ test('delayed and failed next media buffers and retries without skipping',async(
   await expect.poll(async()=> (await state(request,id)).clips.length).toBe(2);
   const cut=await state(request,id);cut.clips[0].endFrameExclusive=1;
   await request.post('/fixtures/'+id+'/cut',{data:cut.clips});await page.reload();
+  // The first frame is drawn by the connected player; clicking Play earlier does nothing.
+  await expect(page.locator('.cut-player')).toHaveAttribute('data-frame-ready','true');
   await page.route('**/takes/'+shots.takes[2].id,async route=>{await new Promise(r=>setTimeout(r,1000));await route.continue();});
   await page.getByRole('button',{name:'Play from beginning',exact:true}).click();
   await expect(page.locator('.cut-buffering')).toBeVisible();
