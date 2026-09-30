@@ -60,21 +60,12 @@ public sealed partial class AiProviderRegistry
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.Test.MaxOutputTokens,
                 recovered ? null : tokens.GeneratedTokens, recovered ? null : tokens.TokensPerSecond, preparation.Cache.ClearConfirmed, request.Advanced);
         if (!request.Advanced) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
-        if (!recovered && !request.Advanced && preparation.Cache.Baseline is { } footprintBaseline && benchmark.PeakTorchAllocatedBytes is { } fullPeak &&
-            ComfyTextCapacity.BytesPerToken(fullPeak, 0, request.Test.MaxOutputTokens) is not null)
+        if (!recovered && !request.Advanced && preparation.Cache.Baseline is { } capacityBaseline)
         {
-            // Same prompt, short limit: the difference in reserved memory is the cost of each additional token.
-            await context.ReportAsync(new(new(GenerationPhase.Finalizing, "Measuring memory per token…")), true);
-            var footprint = new ComfyMemoryTracker(footprintBaseline, preparation.Cache.ClearConfirmed);
-            string? measured;
-            await using (var footprintSampler = new ComfyMemorySampler(http, footprint, caller))
-            {
-                measured = await RunQueuedProbeAsync(context, execution, http, operation + "/footprint", client => ComfyChatClient.BuildWorkflow(request.Model.Model,
-                    ComfyTextBenchmark.Prompt(request.Test.Prompt), ComfyTextCapacity.FootprintTokens, .7f, request.Seed, client), request.Settings.TimeoutSeconds, caller);
-                await footprintSampler.StopAsync();
-            }
-            if (measured is not null)
-                benchmark = benchmark with { BytesPerToken = ComfyTextCapacity.BytesPerToken(fullPeak, footprint.PeakTorchAllocatedBytes, request.Test.MaxOutputTokens) };
+            await context.ReportAsync(new(new(GenerationPhase.Finalizing, "Measuring how large a prompt fits in GPU memory…")), true);
+            benchmark = await ComfyTextCapacity.MeasureAsync(benchmark, request.Model.Model, request.Test.Prompt, request.Seed,
+                (name, workflow, token) => RunQueuedMeasuredAsync(context, execution, http, operation + "/" + name, capacityBaseline,
+                    preparation.Cache.ClearConfirmed, workflow, request.Settings.TimeoutSeconds, token), caller);
         }
         // Probes are new submissions, which recovery never makes; a recovered test records no capabilities.
         ComfyTextModelCapabilities? capabilities = null;
@@ -88,8 +79,25 @@ public sealed partial class AiProviderRegistry
             { Capabilities = capabilities }, request.Advanced ? response ?? "" : null, recovered);
     }
 
+    private async Task<ComfyMeasuredRun> RunQueuedMeasuredAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http, string operation,
+        ComfyMemorySnapshot baseline, bool cleared, Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
+    {
+        var tracker = new ComfyMemoryTracker(baseline, cleared);
+        (string? Text, bool OutOfMemory) outcome;
+        await using (var sampler = new ComfyMemorySampler(http, tracker, caller))
+        {
+            outcome = await RunQueuedProbeOutcomeAsync(context, execution, http, operation, workflow, timeoutSeconds, caller);
+            await sampler.StopAsync();
+        }
+        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes);
+    }
+
     private async Task<string?> RunQueuedProbeAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http, string operation,
-        Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
+        Func<string, object> workflow, int timeoutSeconds, CancellationToken caller) =>
+        (await RunQueuedProbeOutcomeAsync(context, execution, http, operation, workflow, timeoutSeconds, caller)).Text;
+
+    private async Task<(string? Text, bool OutOfMemory)> RunQueuedProbeOutcomeAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http,
+        string operation, Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
     {
         using var inactivity = new TextInactivityWatchdog(timeoutSeconds, caller, context.Clock);
         try
@@ -98,9 +106,9 @@ public sealed partial class AiProviderRegistry
                 inactivity.Token, onProviderCompleted: inactivity.Stop).WithCancellation(inactivity.Token))
             {
                 inactivity.Observe(update.Progress);
-                if (update.Complete && update.Job is { } job) return ComfyChatClient.TryReadText(job, out var text) ? text : null;
+                if (update.Complete && update.Job is { } job) return (ComfyChatClient.TryReadText(job, out var text) ? text : null, false);
             }
-            return null;
+            return (null, false);
         }
         // A rejected, failed or stalled probe means the capability was not observed; it does not fail the test.
         catch (Exception e) when (e is AiGenerationException or AiJobRecoveryException or OperationCanceledException && !caller.IsCancellationRequested)
@@ -113,7 +121,7 @@ public sealed partial class AiProviderRegistry
                 try { await execution.CancelAsync(context, ProbeClient, cancellation.Token); }
                 catch (Exception cancel) when (cancel is HttpRequestException or OperationCanceledException or AiGenerationException or WorkspaceStoreException) { }
             }
-            return null;
+            return (null, e.Message == ComfyChatClient.OutOfMemoryMessage);
         }
     }
 

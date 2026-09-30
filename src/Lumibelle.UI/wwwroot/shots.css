@@ -286,6 +286,8 @@
 @media(max-width:649px) { .shot-video-reference-dialog { margin:8px !important; width:calc(100% - 16px) !important; max-height:calc(100dvh - 16px) !important; } .shot-video-reference-dialog .mud-dialog-content { padding:8px 12px; } }
 .exact-text .tiptap { font-family: ui-monospace, Consolas, monospace; font-size: var(--lumi-font-size-compact); }
 .prompt-validation { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); margin-top: .6rem; }
+.composition-size button { margin-left: .4rem; }
+.composition-size.too-large { padding: .5rem .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); color: inherit; }
 .ai-options { margin: .6rem 0; }
 .unified-take-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 1rem; padding: .7rem 0; }
 .unified-take-card { border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); overflow: hidden; background: var(--lumi-surface); }

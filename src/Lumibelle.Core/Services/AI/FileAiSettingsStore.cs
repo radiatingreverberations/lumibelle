@@ -145,7 +145,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
     private static bool IsInvalidBenchmark(ComfyTextModelBenchmark? benchmark)
     {
         if (benchmark is null || benchmark.MeasuredUtc == default || benchmark.TokenLimit is < 1 or > AiModelTestJobHandler.ComfyAdvancedMaxTokens ||
-            benchmark.BytesPerToken is <= 0 || benchmark.ContextTokens is <= 0 ||
+            benchmark.BytesPerReplyToken is <= 0 || benchmark.BytesPerPromptToken is <= 0 || benchmark.ContextTokens is <= 0 ||
+            benchmark.CapacityContextTokens is <= 0 || benchmark.CapacityPeakVramUsedBytes is < 0 || benchmark.OutOfMemoryContextTokens is <= 0 ||
             benchmark.GeneratedTokens is < 0 || benchmark.TokensPerSecond is { } rate && (!double.IsFinite(rate) || rate <= 0))
             return true;
 

@@ -21,8 +21,8 @@
                     @if (_result?.PartialBenchmark is not null) { <p class="field-hint">Partial measurements · this run has not verified the model.</p> }
                     <p>@BenchmarkMemory(benchmark)</p>
                     <p class="field-hint">Measured @benchmark.MeasuredUtc.ToLocalTime().ToString("g") @BenchmarkEnvironment(benchmark) using @BenchmarkKind(benchmark, ReplyLimit). @CacheStatus(benchmark)</p>
-                    @if (ComfyTextCapacity.FastTokens(benchmark) is { } fast)
-                    { <p class="model-capacity">Fits about @fast.ToString("N0") tokens of prompt and reply in GPU memory (~@((benchmark.BytesPerToken!.Value / 1024d).ToString("N0")) KB per token, keeping @((ComfyTextCapacity.MarginBytes >> 20).ToString("N0")) MB free). Larger requests stream the model from system RAM and become very slow.</p> }
+                    @if (!benchmark.CustomPrompt && ComfyTextCapacity.Summary(Model, SettingsWithVerifications, ReplyLimit, ComfyTextSettings.BatchImageSide(Model, SettingsSnapshot)) is { } capacity)
+                    { <p class="model-capacity">@capacity</p> }
                     @if (BenchmarkIsStale(benchmark, ReplyLimit)) { <p class="field-hint model-benchmark-stale">This model's reply-token setting is now @ReplyLimit.ToString("N0"). Test again to measure VRAM for the current setting.</p> }
                 </div>
                 @if (_result?.PartialBenchmark is null && SelectedVerification?.Capabilities is { } detected)
@@ -115,12 +115,14 @@
     private bool CanTestModel => !Busy && _pending is null && Check?.Success == true && Check.Models.Any(model => model.Id == _comfyModel);
     private bool CanRunAdvancedTest => CanTestModel && !string.IsNullOrWhiteSpace(_advancedTestPrompt) && _advancedTestTokens >= 1 && _advancedTestTokens <= AdvancedTokenLimit;
     private int ReplyLimit => ComfyTextSettings.Resolve(Model, SettingsSnapshot).MaxOutputTokens;
+    // Includes a test finished while the dialog is open.
+    private AiSettings SettingsWithVerifications => SettingsSnapshot with { ComfyTextModelVerifications = [.. _verifications] };
     private string VerificationButtonLabel => IsOpenRouter ? "Run benchmark · 2,048 total tokens" :
-        $"{(SelectedModelVerified ? "Test again" : "Test selected model")} · ~8k-token context, {ReplyLimit:N0}-token replies";
+        $"{(SelectedModelVerified ? "Test again" : "Test selected model")} · {ReplyLimit:N0}-token replies and prompt capacity";
     internal static string BenchmarkKind(ComfyTextModelBenchmark benchmark, int replyLimit) => benchmark.CustomPrompt
         ? $"a {benchmark.TokenLimit:N0}-token advanced test"
         : benchmark.ContextTokens is { } context
-            ? $"a standard benchmark with a ~{context / 1024}k-token context and a {benchmark.TokenLimit:N0}-token reply limit"
+            ? $"a standard benchmark with a ~{context / 1024}k-token prompt and a {benchmark.TokenLimit:N0}-token reply limit"
             : $"a {benchmark.TokenLimit:N0}-token short-prompt benchmark, which understates VRAM for long requests";
     internal static bool BenchmarkIsStale(ComfyTextModelBenchmark benchmark, int replyLimit) =>
         !benchmark.CustomPrompt && (benchmark.ContextTokens is null || benchmark.TokenLimit != replyLimit);

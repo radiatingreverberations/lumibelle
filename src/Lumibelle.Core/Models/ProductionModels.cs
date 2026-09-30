@@ -110,6 +110,9 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public bool? InspectReferenceImages { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<CompositionVisualDescription>? VisualDescriptions { get; init; }
+    // Scene text and neighbouring shots were left out to keep the prompt small.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReducedScriptContext { get; init; }
 }
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {

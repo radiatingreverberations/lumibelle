@@ -22,7 +22,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
     public async Task<AiJobSubmission> ComposeAsync(Guid id, Guid tab, Guid projectId, Guid compositionId, long version,
-        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool inspectReferenceImages = true)
+        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool inspectReferenceImages = true, bool reducedScriptContext = false)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -64,15 +64,17 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var nearbyShots = new List<string>();
         var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
         var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
-        if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
-        if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        // Reduced context keeps the shot itself but leaves out the scene text and neighbouring shots to shorten the prompt.
+        if (previousShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
+        if (nextShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
         var request = new PromptCompositionRequest(projectId, c.Id, c.Version, ProductionPolicy.ContextFingerprint(c, library, source, project), c.SourceFingerprint,
-            effective, ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)),
+            effective, reducedScriptContext ? "" : ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)),
             nearbyShots.ToArray(),
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
             InspectReferenceImages = inspectReferenceImages ? null : false,
+            ReducedScriptContext = reducedScriptContext,
             VisualDescriptions = descriptions.Any(d => !string.IsNullOrWhiteSpace(d.Text)) || !inspectReferenceImages ? descriptions : null
         };
         return await BuildAsync(id, tab, AiJobKind.PromptComposition, new(projectId, ShotId: shot.Id, CompositionId: c.Id),

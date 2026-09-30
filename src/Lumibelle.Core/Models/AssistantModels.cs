@@ -126,9 +126,18 @@ public sealed record ComfyTextModelBenchmark(
     // Approximate prompt tokens of a standard benchmark; null for advanced tests and benchmarks before context was added.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? ContextTokens { get; init; }
-    // GPU memory ComfyUI reserves per prompt or reply token, from a second run with the same prompt and a short limit.
+    // Capacity measurements from follow-up runs of the same prompt (see ComfyTextCapacity). Null when not measured.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public long? BytesPerToken { get; init; }
+    public long? BytesPerReplyToken { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public long? BytesPerPromptToken { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? CapacityContextTokens { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public long? CapacityPeakVramUsedBytes { get; init; }
+    // The smallest measured prompt that ran out of GPU memory.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? OutOfMemoryContextTokens { get; init; }
 }
 public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVersion, string Model, DateTimeOffset VerifiedUtc,
     List<ComfyTextModelBenchmark>? Benchmarks = null)

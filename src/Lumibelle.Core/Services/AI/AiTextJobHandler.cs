@@ -28,8 +28,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             await context.ReportAsync(new(new(GenerationPhase.Preparing, "Checking the captured text model and inputs…")), checkpoint: true);
             await ValidateInputsAsync(context.Job, request, linked.Token);
             // Kept on every progress report, so the warning stays visible while the request runs.
-            var capacityNotice = request.Model.Backend == AiBackend.ComfyUI ? ComfyTextCapacity.Notice(request.Model, request.Settings,
-                ComfyTextVision.Capture(request.Messages.Select(m => m.ToMessage())), TextGenerationOptions.Captured(request).MaxOutputTokens!.Value) : null;
+            var capacityNotice = ComfyTextCapacity.Notice(request);
             await foreach (var update in GenerateAsync(context, request, timeout, linked.Token))
             {
                 timeout.Observe(update);

@@ -372,7 +372,9 @@ sealed class MockProviders(ICodexClient codex) : IAiProviderRegistry
         yield return new(Progress: new(GenerationPhase.Generating, "Generating mock model test", 0, request.MaxOutputTokens, "tokens"));
         await Task.Delay(1600, ct);
         var benchmark = new ComfyTextModelBenchmark(DateTimeOffset.UtcNow, "Mock GPU", 0, 20L << 30, 1L << 30, 9L << 30,
-            256L << 20, 8L << 30, request.MaxOutputTokens, request.MaxOutputTokens, 16, true, advanced) { ContextTokens = advanced ? null : ComfyTextBenchmark.ContextTokens, BytesPerToken = advanced ? null : 80 * 1024 };
+            256L << 20, 8L << 30, request.MaxOutputTokens, request.MaxOutputTokens, 16, true, advanced) { ContextTokens = advanced ? null : ComfyTextBenchmark.ContextTokens, BytesPerReplyToken = advanced ? null : 80 * 1024,
+                BytesPerPromptToken = advanced ? null : 360 * 1024, CapacityContextTokens = advanced ? null : ComfyTextBenchmark.LargeContextTokens,
+                CapacityPeakVramUsedBytes = advanced ? null : 12L << 30 };
         yield return new(Verification: new(settings.ComfyUrl, "mock-version", model, DateTimeOffset.UtcNow, [benchmark]), Response: advanced ? "Mock response: " + request.Prompt : null);
     }
 }

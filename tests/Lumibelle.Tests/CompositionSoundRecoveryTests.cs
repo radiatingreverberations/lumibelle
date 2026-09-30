@@ -55,6 +55,10 @@ public sealed partial class ShotTests
         var messages = PromptComposer.BuildMessages(request, []);
         Assert.Contains("even when there is no dialogue", messages[0].Text);
         Assert.Contains("shot.Atmosphere and shot.Music", messages[0].Text);
+        Assert.DoesNotContain("left out to keep this request small", messages[0].Text);
+        // Reduced script context tells the composer not to invent the scene or neighbouring shots it did not receive.
+        var reduced = PromptComposer.BuildMessages(request with { SceneContext = "", NearbyShots = [], ReducedScriptContext = true }, []);
+        Assert.Contains("left out to keep this request small", reduced[0].Text);
     }
 
     [Theory]

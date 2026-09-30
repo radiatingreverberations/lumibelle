@@ -1,3 +1,4 @@
+using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Production;
@@ -29,6 +30,36 @@ public partial class ProductionStudio
     private bool _compositionBusy;
     // Request-local choice. A queued request freezes this; generation references never change.
     private bool _inspectCompositionImages = true;
+    // Request-local: scene text and neighbouring shots are the part of the prompt that can be dropped safely.
+    private bool _fullCompositionContext = true;
+    private string? _compositionSize;
+    private bool _compositionSizeTooLarge, _compositionSizeBusy;
+    private void CompositionModelChanged(TextModelSelectionState? value) { _compositionModel = value; _compositionSize = null; }
+    private Task RefreshCompositionSize() => _compositionSize is null ? Task.CompletedTask : EstimateCompositionSize();
+    /// <summary>Builds the request the Compose button would send, without queueing it, and sizes it against the model's capacity.</summary>
+    private async Task EstimateCompositionSize()
+    {
+        if (Current is not { } c || _compositionModel is not { } selection || _compositionSizeBusy) return;
+        _compositionSizeBusy = true;
+        try
+        {
+            var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
+                _lifetime.Token, inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
+            var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+            if (ComfyTextCapacity.Assess(request) is not ({ } size, var capacity)) { _compositionSize = null; return; }
+            var model = TextModelPolicy.DisplayName(request.Model, request.Settings);
+            _compositionSizeTooLarge = capacity is { } limit && size.PromptTokens > limit;
+            _compositionSize = $"Prompt ≈ {size.PromptTokens:N0} tokens ({ComfyTextCapacity.Describe(size)}) with up to {size.ReplyTokens:N0} reply tokens. " + capacity switch
+            {
+                null => "Test this model in AI settings to see how large a prompt it reads within GPU memory.",
+                { } fits when size.PromptTokens <= fits => $"Fits: {model} reads about {fits:N0} within GPU memory.",
+                { } over => $"Too large: {model} reads only about {over:N0} within GPU memory. Leave out the scene context, send fewer references, lower the image size in AI settings, or choose a smaller model."
+            };
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
+        { _compositionSize = "The size cannot be estimated right now: " + e.Message; _compositionSizeTooLarge = false; }
+        finally { _compositionSizeBusy = false; }
+    }
     private string? CompositionDescriptionIssue => !_inspectCompositionImages && Selected is { } shot
         ? CompositionDescriptions.MissingIssue(shot, _assets) : null;
     private string? _compositionError;
@@ -104,7 +135,7 @@ public partial class ProductionStudio
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
             _compositionEnqueue = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
-                inspectReferenceImages: _inspectCompositionImages);
+                inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
             _compositionEnqueue = _compositionAssist.Attribute(_compositionEnqueue);
             EditComposition(d => d.ReviewJobId = id);
             if (!await Save()) return;

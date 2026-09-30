@@ -77,6 +77,8 @@ public static class PromptComposer
             "The padded canvas previews are the original build inputs, not a fresh inspection of the remote latent. Do not describe the padding as part of the retained appearance.";
         if (r.VisualDescriptions is not null) instructions += CompositionDescriptions.Instructions;
         if (!inspectImages) instructions += CompositionDescriptions.TextOnlyInstructions;
+        if (r.ReducedScriptContext) instructions += "\nThe scene text and neighbouring shots were left out to keep this request small. " +
+            "Work from the shot, its references and the directing notes; do not invent surrounding scene events or claim continuity with unseen shots.";
         return [new(ChatRole.System, instructions), message];
     }
     public static PromptCompositionResult Parse(string raw, PromptCompositionRequest request)

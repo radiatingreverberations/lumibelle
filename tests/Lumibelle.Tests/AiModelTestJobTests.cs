@@ -20,8 +20,8 @@ public sealed partial class AiTests
         Assert.Equal(advanced ? "An exact model reply." : null, result.Response);
         Assert.Single(f.Settings.Value.ComfyTextModelVerifications); Assert.Equal("http://another.test", f.Settings.Value.ComfyUrl);
         var prompts = f.Http.Requests.Where(r => r.Path == "/prompt").ToArray();
-        // A standard benchmark adds a short run with the same prompt to measure memory per token.
-        Assert.Equal(advanced ? 1 : 2, prompts.Length);
+        // A standard benchmark adds capacity runs: the same prompt with a short limit, then a larger prompt.
+        Assert.Equal(advanced ? 1 : 3, prompts.Length);
         var free = Assert.Single(f.Http.Requests, r => r.Path == "/free"); var prompt = prompts[0];
         Assert.True(f.Http.Requests.IndexOf(free) < f.Http.Requests.IndexOf(prompt));
         using var body = JsonDocument.Parse(prompt.Body); var nodes = body.RootElement.GetProperty("prompt");
@@ -78,10 +78,11 @@ public sealed partial class AiTests
         Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), result.Verification!.Capabilities);
         Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), Assert.Single(f.Settings.Value.ComfyTextModelVerifications).Capabilities);
         var prompts = f.Http.Requests.Where(r => r.Path == "/prompt").ToArray();
-        Assert.Equal(3, prompts.Length);
+        Assert.Equal(4, prompts.Length);
         Assert.DoesNotContain("system_prompt", prompts[0].Body);
         Assert.Contains("\"max_length\":32", prompts[1].Body);
-        Assert.Contains("system_prompt", prompts[2].Body);
+        Assert.True(prompts[2].Body.Length > prompts[1].Body.Length * 3);
+        Assert.Contains("system_prompt", prompts[3].Body);
     }
 
     [Theory] [InlineData(false)] [InlineData(true)]

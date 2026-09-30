@@ -23,6 +23,8 @@ public sealed record ComfyExecutionOptions(
     string ConnectionFailureMessage)
 {
     public IReadOnlyDictionary<string, string> TimingNodes { get; init; } = new Dictionary<string, string>();
+    /// <summary>Replaces the raw failure when ComfyUI reports that the GPU ran out of memory.</summary>
+    public string? OutOfMemoryMessage { get; init; }
 }
 
 public sealed record ComfyExecutionUpdate(
@@ -396,11 +398,15 @@ public sealed class ComfyExecutionMonitor(IComfyWebSocketFactory sockets, TimePr
         if (failure?.NodeType == Shots.H3Performance.SageNode)
             return "The selected SageAttention patch failed. Check KJNodes and a compatible sageattention package in ComfyUI's Python environment, then restart and refresh Video models. No other attention mode was selected.";
         if (failure is null || failure.Message is null && failure.ExceptionType is null) return options.ExecutionErrorMessage;
+        if (options.OutOfMemoryMessage is { } outOfMemory && IsOutOfMemory(failure.ExceptionType + " " + failure.Message)) return outOfMemory;
         var node = failure.NodeType is { } type ? " at " + type : "";
         if (failure.NodeId is { } id) node += " (node " + id + ")";
         var reason = string.Join(": ", new[] { failure.ExceptionType, failure.Message }.Where(s => s is not null));
         return $"ComfyUI failed{node}: {reason}";
     }
+
+    internal static bool IsOutOfMemory(string text) =>
+        text.Contains("OutOfMemoryError", StringComparison.Ordinal) || text.Contains("out of memory", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsComplete(JsonElement job) => job.TryGetProperty("status", out var status) &&
         status.TryGetProperty("completed", out var completed) && completed.ValueKind == JsonValueKind.True;

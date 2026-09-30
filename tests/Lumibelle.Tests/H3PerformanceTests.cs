@@ -133,6 +133,17 @@ public sealed partial class ShotTests
             "execution_error", new { node_type = H3Performance.SageNode, exception_message = "No module named sageattention" } } } } });
         Assert.Contains("sageattention package", ComfyExecutionMonitor.ExecutionFailureMessage(ComfyH3Video.MonitorOptions, failure));
     }
+
+    [Fact]
+    public void TextOutOfMemoryFailuresExplainHowToShrinkTheRequest()
+    {
+        var failure = JsonSerializer.SerializeToElement(new { status = new { messages = new object[] { new object[] {
+            "execution_error", new { node_type = "TextGenerate", exception_type = "torch.OutOfMemoryError",
+                exception_message = "Allocation on device 0 would exceed allowed memory. (out of memory)" } } } } });
+        Assert.Equal(ComfyChatClient.OutOfMemoryMessage, ComfyExecutionMonitor.ExecutionFailureMessage(ComfyChatClient.ExecutionOptions, failure));
+        // Workflows without a specific message keep the raw ComfyUI failure.
+        Assert.Contains("OutOfMemoryError", ComfyExecutionMonitor.ExecutionFailureMessage(ComfyH3Video.MonitorOptions, failure));
+    }
 }
 
 public sealed class ComfyTimingTests

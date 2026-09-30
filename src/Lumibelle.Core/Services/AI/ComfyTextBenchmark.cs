@@ -3,22 +3,26 @@ using System.Text;
 namespace lumibelle.Services.AI;
 
 /// <summary>
-/// The standard ComfyUI benchmark. TextGenerate reserves its KV cache for the prompt plus max_length up front,
-/// so peak VRAM depends on context size, not on how much text the model writes. The benchmark therefore sends a
-/// script-sized context and uses the model's own reply-token setting; the model still stops at its natural end.
+/// Benchmark prompts for ComfyUI text models. TextGenerate reserves its KV cache for prompt plus max_length up front,
+/// and reading the prompt needs working memory for every prompt token at once, so memory depends on prompt size and
+/// reply limit, not on how much text the model writes. The standard benchmark uses a short script context with the
+/// model's own reply limit; capacity runs repeat it with larger contexts. Sizes are approximate: the exact count
+/// depends on the model's tokenizer.
 /// </summary>
 public static class ComfyTextBenchmark
 {
-    /// <summary>Approximate prompt size; the exact count depends on the model's tokenizer.</summary>
-    public const int ContextTokens = 8192;
-    // Calibrated with ComfyUI's bundled tokenizers: 8,283 Qwen and 7,653 Llama 3 tokens.
-    private const int Scenes = 64;
+    public const int ContextTokens = 2048;
+    public const int LargeContextTokens = 8192;
+    // Used when the large context does not fit in GPU memory.
+    public const int FallbackContextTokens = 4096;
+    // Calibrated with ComfyUI's bundled tokenizers: 64 scenes are 8,283 Qwen and 7,653 Llama 3 tokens.
+    private const int TokensPerScene = 128;
 
-    public static string Prompt(string instruction) => Context + "\n\n" + instruction;
+    public static string Prompt(string instruction, int contextTokens = ContextTokens) => Context(contextTokens) + "\n\n" + instruction;
 
-    internal static string Context { get; } = BuildContext();
+    internal static string Context(int contextTokens) => BuildContext(Math.Max(1, contextTokens / TokensPerScene));
 
-    private static string BuildContext()
+    private static string BuildContext(int scenes)
     {
         string[] places = ["KITCHEN", "RAILWAY PLATFORM", "LIGHTHOUSE", "HOSPITAL CORRIDOR", "ROOFTOP GARDEN", "BOOKSHOP", "HARBOUR", "OBSERVATORY", "LAUNDROMAT", "FOREST TRAIL", "MUSEUM ARCHIVE"];
         string[] times = ["DAY", "NIGHT", "DAWN", "DUSK", "LATER"];
@@ -52,7 +56,7 @@ public static class ComfyTextBenchmark
             "I'm not angry. I'm tired. There's a difference, and you used to know it."
         ];
         var text = new StringBuilder("The following draft screenplay is background material. Read it, but do not summarize or continue it.\n\n");
-        for (var scene = 1; scene <= Scenes; scene++)
+        for (var scene = 1; scene <= scenes; scene++)
         {
             text.Append(scene).Append(". ").Append(scene % 3 == 0 ? "EXT. " : "INT. ").Append(places[scene % places.Length])
                 .Append(" – ").Append(times[scene % times.Length]).Append("\n\n");

@@ -22,7 +22,12 @@ public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecuti
         "Text generation timed out before ComfyUI accepted the job.",
         "Text generation timed out.",
         "ComfyUI returned an unreadable response. Check the server version and text workflow.",
-        "The connection to ComfyUI failed during text generation.");
+        "The connection to ComfyUI failed during text generation.")
+    {
+        OutOfMemoryMessage = OutOfMemoryMessage
+    };
+    internal const string OutOfMemoryMessage = "ComfyUI ran out of GPU memory while processing this text request. Make the prompt smaller " +
+        "(fewer references, a smaller image size or reduced script context) or lower the reply limit. The model test shows how large a prompt fits.";
 
     public static object BuildWorkflow(string model, string prompt, int maxTokens, float temperature, long seed, string? clientId = null,
         string? systemPrompt = null)

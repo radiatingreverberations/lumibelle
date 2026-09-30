@@ -177,21 +177,11 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.MaxOutputTokens,
                 tokens.GeneratedTokens, tokens.TokensPerSecond, cache.ClearConfirmed, includeResponse);
         if (!includeResponse) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
-        if (!includeResponse && cache.Baseline is { } baseline && benchmark.PeakTorchAllocatedBytes is { } fullPeak &&
-            ComfyTextCapacity.BytesPerToken(fullPeak, 0, request.MaxOutputTokens) is not null)
+        if (!includeResponse && cache.Baseline is { } baseline)
         {
-            // Same prompt, short limit: the difference in reserved memory is the cost of each additional token.
-            yield return new(Progress: new(GenerationPhase.Finalizing, "Measuring memory per token"));
-            var footprint = new ComfyMemoryTracker(baseline, cache.ClearConfirmed);
-            string? measured;
-            await using (var sampler = new ComfyMemorySampler(http, footprint, cancellationToken))
-            {
-                measured = await RunProbeAsync(http, clientId => ComfyChatClient.BuildWorkflow(model, ComfyTextBenchmark.Prompt(request.Prompt),
-                    ComfyTextCapacity.FootprintTokens, 0.7f, seed, clientId), settings.TimeoutSeconds, cancellationToken);
-                await sampler.StopAsync();
-            }
-            if (measured is not null)
-                benchmark = benchmark with { BytesPerToken = ComfyTextCapacity.BytesPerToken(fullPeak, footprint.PeakTorchAllocatedBytes, request.MaxOutputTokens) };
+            yield return new(Progress: new(GenerationPhase.Finalizing, "Measuring how large a prompt fits in GPU memory"));
+            benchmark = await ComfyTextCapacity.MeasureAsync(benchmark, model, request.Prompt, seed,
+                (_, workflow, ct) => RunMeasuredAsync(http, baseline, cache.ClearConfirmed, workflow, settings.TimeoutSeconds, ct), cancellationToken);
         }
         var verification = new ComfyTextModelVerification(
             NormalizeComfyUrl(settings.ComfyUrl), catalog.Version, model, DateTimeOffset.UtcNow,
@@ -199,7 +189,11 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         yield return new(Verification: verification, Response: includeResponse ? response ?? string.Empty : null);
     }
 
-    private async Task<string?> RunProbeAsync(HttpClient http, Func<string, object> workflow, int timeoutSeconds, CancellationToken cancellationToken)
+    private async Task<string?> RunProbeAsync(HttpClient http, Func<string, object> workflow, int timeoutSeconds, CancellationToken cancellationToken) =>
+        (await RunProbeOutcomeAsync(http, workflow, timeoutSeconds, cancellationToken)).Text;
+
+    private async Task<(string? Text, bool OutOfMemory)> RunProbeOutcomeAsync(HttpClient http, Func<string, object> workflow, int timeoutSeconds,
+        CancellationToken cancellationToken)
     {
         using var deadline = new TextInactivityWatchdog(timeoutSeconds, cancellationToken);
         try
@@ -207,12 +201,26 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             await foreach (var update in comfyMonitor.ExecuteAsync(http, workflow, ComfyChatClient.ExecutionOptions, deadline.Token, cancellationToken))
             {
                 deadline.Observe(update.Progress);
-                if (update.Complete && update.Job is { } job) return ComfyChatClient.TryReadText(job, out var text) ? text : null;
+                if (update.Complete && update.Job is { } job) return (ComfyChatClient.TryReadText(job, out var text) ? text : null, false);
             }
-            return null;
+            return (null, false);
         }
         // A rejected, failed or stalled probe means the capability was not observed; it does not fail the test.
-        catch (Exception e) when (e is AiGenerationException or OperationCanceledException && !cancellationToken.IsCancellationRequested) { return null; }
+        catch (Exception e) when (e is AiGenerationException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        { return (null, e.Message == ComfyChatClient.OutOfMemoryMessage); }
+    }
+
+    private async Task<ComfyMeasuredRun> RunMeasuredAsync(HttpClient http, ComfyMemorySnapshot baseline, bool cleared,
+        Func<string, object> workflow, int timeoutSeconds, CancellationToken cancellationToken)
+    {
+        var tracker = new ComfyMemoryTracker(baseline, cleared);
+        (string? Text, bool OutOfMemory) outcome;
+        await using (var sampler = new ComfyMemorySampler(http, tracker, cancellationToken))
+        {
+            outcome = await RunProbeOutcomeAsync(http, workflow, timeoutSeconds, cancellationToken);
+            await sampler.StopAsync();
+        }
+        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes);
     }
 
     public static string NormalizeComfyUrl(string url) => new Uri(url.Trim().TrimEnd('/') + "/", UriKind.Absolute).AbsoluteUri.TrimEnd('/');
@@ -384,6 +392,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         private long _peakVramUsedBytes = baseline.VramUsedBytes;
         private long? _peakTorchAllocatedBytes = baseline.TorchAllocatedBytes;
         public long? PeakTorchAllocatedBytes => _peakTorchAllocatedBytes;
+        public long PeakVramUsedBytes => _peakVramUsedBytes;
         public void Observe(ComfyMemorySnapshot sample)
         {
             if (sample.DeviceName != baseline.DeviceName || sample.DeviceIndex != baseline.DeviceIndex) return;
