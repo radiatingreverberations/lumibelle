@@ -35,6 +35,15 @@ else
 <ChildContent>        <fieldset disabled="@PlanningComposerLocked"><legend>Script scenes</legend>@foreach (var scene in PlanningScenes) { <label class="check-row"><input type="checkbox" checked="@_sceneSelection.Contains(scene.Id)" @onchange="e => ChooseScene(scene.Id, e.Value is true)" />@scene.Title</label> }</fieldset>
         <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
         <label>Directing instructions (optional)<textarea rows="3" @bind="_instructions" @bind:event="oninput" disabled="@PlanningComposerLocked"></textarea></label>
+        @if (_recentInstructions.Count > 0)
+        {
+            <div class="recent-instructions" role="group" aria-label="Recent directing instructions"><span class="field-hint">Recent instructions</span>
+                @foreach (var recent in _recentInstructions)
+                {
+                    <button type="button" class="recent-instruction" title="@recent" disabled="@PlanningComposerLocked" @onclick="() => UseRecentInstructions(recent)">@recent</button>
+                }
+            </div>
+        }
 @if (_planningError is not null) { <p role="alert">@_planningError</p> }</ChildContent>
 <Actions><MudButton Class="ai-assist-action" OnClick="Draft" Disabled="@(_planning || _planningSubmitting || _pendingPlanning is not null || _model?.Ready != true || _sceneSelection.Count == 0)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shots</MudButton>@if (_pendingPlanning is not null) { <button @onclick="RetryPlanningEnqueueAsync">Retry saving request</button> }</Actions>
 </TextAssistance><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />

@@ -49,6 +49,31 @@ public partial class ProductionStudio
         _sceneSelection = []; _instructions = ""; _maximum = 15;
     }
     private void PlanningQueueChanged() { if (!_disposed && _doc.ProjectId == Id) _ = InvokeAsync(RefreshPlanningJobsAsync); }
+    // Instructions are cleared after each request; earlier drafting requests keep them in their captured input.
+    private IReadOnlyList<string> _recentInstructions = [];
+    private string? _recentInstructionJobs;
+    private const int RecentInstructionLimit = 5;
+    private async Task LoadRecentInstructionsAsync(IReadOnlyList<AiJobHeader> jobs)
+    {
+        var newest = jobs.OrderByDescending(j => j.CreatedUtc).ToArray();
+        var key = Id + ":" + string.Join(",", newest.Select(j => j.Id));
+        if (key == _recentInstructionJobs) return;
+        _recentInstructionJobs = key;
+        var found = new List<string>();
+        foreach (var job in newest)
+        {
+            if (found.Count == RecentInstructionLimit) break;
+            try
+            {
+                var request = AiTextJobHandler.Read(job, await AiJobStore.ReadSnapshotAsync(job.Id));
+                if (request.Payload<ShotPlanningRequest>().Instructions.Trim() is { Length: > 0 } text && !found.Contains(text, StringComparer.Ordinal)) found.Add(text);
+            }
+            // A pruned or unreadable request only means it cannot be offered again.
+            catch (Exception e) when (e is WorkspaceStoreException or JsonException or IOException) { }
+        }
+        _recentInstructions = found;
+    }
+    private void UseRecentInstructions(string text) => _instructions = text;
     private async Task RefreshPlanningJobsAsync()
     {
         if (_disposed) return;
@@ -60,6 +85,7 @@ public partial class ProductionStudio
             {
                 _planningRefreshAgain = false;
                 var matches = AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == Id).ToArray();
+                await LoadRecentInstructionsAsync(matches);
                 _activePlanning = matches.FirstOrDefault(j => j.LocksTarget);
                 _planning = _activePlanning is not null;
                 if (_planningJob is { } selected) _planningJob = matches.FirstOrDefault(j => j.Id == selected.Id);

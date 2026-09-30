@@ -184,3 +184,17 @@ test('an old review offers a new breakdown and clears its job link without submi
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await expect(dialog(page)).not.toBeVisible();
 });
+
+test('recent directing instructions can be reused in a new breakdown', async ({ page, request }) => {
+  await setup(page, request);
+  const instructions = 'Alternate each shot between her stream camera and a phone camera held by the Figure.';
+  await openPlanning(page);
+  await planningComposer(page).getByLabel('Directing instructions (optional)').fill(instructions);
+  await submitPlanning(page);
+  await dialog(page).getByRole('button', { name: 'New breakdown', exact: true }).click();
+  const field = planningComposer(page).getByLabel('Directing instructions (optional)');
+  await expect(field).toHaveValue('');
+  const recent = planningComposer(page).getByRole('group', { name: 'Recent directing instructions', exact: true });
+  await recent.getByRole('button', { name: instructions, exact: true }).click();
+  await expect(field).toHaveValue(instructions);
+});
