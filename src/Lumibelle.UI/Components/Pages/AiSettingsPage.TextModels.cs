@@ -38,6 +38,9 @@ public partial class AiSettingsPage
     private string? ModelIssue(TextModelReference model) => TextModelPolicy.Issue(model, _settings!, _checks.GetValueOrDefault(model.Backend));
     private string? ModelStatus(TextModelReference model) => _checks.GetValueOrDefault(model.Backend) is not { Success: true } ? null
         : ModelIssue(model) ?? (model.Backend == AiBackend.ComfyUI ? "Verified" : null);
+    private bool NeedsComfyTest(TextModelReference model) => model.Backend == AiBackend.ComfyUI &&
+        _checks.GetValueOrDefault(AiBackend.ComfyUI) is { Success: true, BackendVersion: { } version } &&
+        TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) && TextModelPolicy.Verification(model, _settings!, version) is null;
     private List<TextModelReference> FilteredModels
     {
         get

@@ -231,6 +231,14 @@ else
                                             }
                                         </dl>
                                         @if (testStatus is not null) { <p class="field-hint">@testStatus.Detail</p> }
+                                        @if (model.Backend is AiBackend.ComfyUI or AiBackend.OpenRouter)
+                                        {
+                                            var needsTest = NeedsComfyTest(model);
+                                            <div class="text-model-test @(needsTest ? "needs-test" : "")">
+                                                <MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Variant="@(needsTest ? Variant.Filled : Variant.Outlined)" Color="@(needsTest ? Color.Primary : Color.Default)" Size="Size.Small">Details &amp; test</MudButton>
+                                                @if (needsTest) { <p class="field-hint">Required before starring or selecting this model. The test also detects system-prompt and image support.</p> }
+                                            </div>
+                                        }
                                         <form class="model-alias-form" @onsubmit="() => SaveAliasAsync(model)" @onsubmit:preventDefault>
                                             <label for="@(domId + "-alias")">Alias</label><input id="@(domId + "-alias")" maxlength="120" @bind="_aliasDrafts[key]" @bind:event="oninput" disabled="@Busy" placeholder="Use the original name" />
                                             <p class="field-hint">Shown in settings and studio pickers. Clear to restore the original name.</p>
@@ -250,7 +258,6 @@ else
                                                 <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Save model settings</MudButton><MudButton OnClick="() => CancelTextDraft(model)" Disabled="@Busy" Size="Size.Small">Cancel model settings</MudButton><MudButton OnClick="() => SaveTextDraftAsync(model, true)" Disabled="@(Busy || !_settings.ComfyTextModels.ContainsKey(key))" Size="Size.Small">Use ComfyUI defaults</MudButton></div>
                                             </form>
                                         }
-                                        @if (model.Backend is AiBackend.ComfyUI or AiBackend.OpenRouter) { <div class="text-model-actions"><MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Size="Size.Small">Details &amp; test</MudButton></div> }
                                         @if (model.Backend == AiBackend.OpenRouter && _settings.OpenRouterTextModelBenchmarks.Where(b => b.Model == model.Model).OrderBy(b => b.CustomPrompt).ThenByDescending(b => b.MeasuredUtc).FirstOrDefault() is { } hostedBenchmark)
                                         { <OpenRouterBenchmarkDetails Benchmark="hostedBenchmark" /> }
                                         @if (info?.Description is { Length: > 0 } description) { <p class="text-model-description">@description</p> }
