@@ -46,7 +46,7 @@ public static partial class ReferenceReels
     {
         Id = d.Id, Title = d.Name, Description = IsEnvironment(d) ? "Environment reference reel" : IsProp(d) ? "Prop reference reel" : "Character reference reel", Duration = d.Duration, Aspect = d.Aspect,
         GenerationPreset = d.GenerationPreset, NativeResolution = VideoResolutions.Selected(d) == VideoResolution.Native, Turbo = d.Turbo, TurboSteps = d.TurboSteps,
-        Images = ShotCopy.Of(d.Images), Videos = ShotCopy.Of(d.KeyframeReels ?? []), Loras = d.Loras?.ToArray(), SaveLosslessFrames = d.SaveLosslessFrames ?? false,
+        Images = ShotCopy.Of(d.Images), Videos = ShotCopy.Of(d.KeyframeReels ?? []), Loras = d.Loras?.ToArray(), ShotLoras = d.ReelLoras?.ToArray(), SaveLosslessFrames = d.SaveLosslessFrames ?? false,
         UpscalePreview = ReelGenerationSetups.UpscalePreview(d),
         Dialogue = IsCameraReel(d) || d.VoiceMode == ReelVoiceMode.Silent ? [] : [new() { Id = d.Id, Speaker = d.Speaker, Language = d.Language, Text = d.Line }],
         Voices = !IsCameraReel(d) && d.VoiceMode == ReelVoiceMode.ExistingRecording && d.Voice is not null ? [d.Voice with { Speaker = d.Speaker }] : []

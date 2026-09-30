@@ -47,6 +47,9 @@ public sealed record ReferenceReelDraft
     public bool? SaveLosslessFrames { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
+    // This reel's own LoRAs, on top of the preset's Loras; for the same LoRA the reel's entry wins. Null keeps older fingerprints.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<LoraSelection>? ReelLoras { get; set; }
     // Frozen preset identity/settings. Null keeps older recipes and their fingerprints intact.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public GenerationSetup? GenerationSetup { get; set; }

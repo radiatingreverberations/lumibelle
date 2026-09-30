@@ -122,6 +122,20 @@
                         <p class="field-hint">Choose visual modes, crops and use guidance in Manage references. Voice and dialogue are in Prompt.</p>
                     </details>
                 </section>
+                <details class="shot-loras reel-own-loras"><summary>LoRAs · @ReelLoraSummary(_draft)</summary>
+                    <p class="field-hint">LoRAs for this reel, applied on top of the preset's. For a LoRA in both, this reel's strength is used.</p>
+                    @if (PresetLoraNames(_draft) is { Count: > 0 } presetNames) { <p class="field-hint">From the preset: @string.Join(", ", presetNames)</p> }
+                    @if (_loraSettings is { } reelLoraSettings)
+                    {
+                        <LoraPicker @key="@($"reel-{_draft.Id}")" InputId="reel-own-lora-add" Settings="reelLoraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA"
+                            Selections="@(_draft.ReelLoras ?? [])" Check="_loraCheck" Visibility="_loraVisibility" Disabled="@(_busy || _enqueue is not null)"
+                            Changed="ChangeReelLoras" Refresh="RefreshLoras" ValidityChanged="valid => _reelLoraValid = valid"
+                            InsertTrigger="InsertLoraTrigger" TriggerButtonText="Insert trigger into AI instructions"
+                            ManageUrl="@(AiSettingsNavigation.Link(Navigation, "loras", ProjectId, "assets"))" ProjectSettingsUrl="@(ProjectLink(ProjectId, "/settings"))" />
+                    }
+                    else { <button @onclick="RefreshLoras" disabled="@_busy">Refresh LoRAs</button> }
+                    @if (_loraError is not null) { <p role="alert" class="field-error">@_loraError</p> }
+                </details>
             }
             @if (_enqueue is not null) { <p>Request captured. <button @onclick="RetryEnqueue" disabled="@_busy">Retry enqueue</button></p> }
         </ChildContent>
@@ -255,7 +269,7 @@
                         @if (_loraSettings is { } loraSettings) {
                             <LoraPicker @key="_draft.Id" InputId="reel-lora-add" Settings="loraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA"
                                 Selections="@(_draft.Loras ?? [])" Check="_loraCheck" Visibility="_loraVisibility" Disabled="@(_busy || _enqueue is not null)"
-                                Changed="ChangeLoras" Refresh="RefreshLoras" ValidityChanged="valid => _loraValid = valid"
+                                Changed="ChangeLoras" Refresh="RefreshLoras" ValidityChanged="valid => _presetLoraValid = valid"
                                 InsertTrigger="InsertLoraTrigger" TriggerButtonText="Insert trigger into AI instructions"
                                 ManageUrl="@(AiSettingsNavigation.Link(Navigation, "loras", ProjectId, "assets"))" ProjectSettingsUrl="@(ProjectLink(ProjectId, "/settings"))" />
                             <p class="field-hint">LoRAs affect video generation. Adding one leaves your prompt text unchanged.</p>

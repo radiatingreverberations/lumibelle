@@ -105,6 +105,53 @@ public sealed partial class ShotTests
         Assert.Equal(effective, H3Policy.Fingerprint(shot));
     }
     [Fact]
+    public void ShotLorasStackOnThePresetAndReplaceTheSameLora()
+    {
+        var shot = Ready(); var server = Snapshot(Guid.NewGuid(), shot).ComfyUrl;
+        shot.Loras = [VideoLora("h3/style.safetensors", .7f, server), VideoLora("h3/character.safetensors", .5f, server)];
+        var presetOnly = H3Policy.Fingerprint(shot);
+        shot.ShotLoras = [VideoLora("h3/character.safetensors", 1.2f, server), VideoLora("h3/pose.safetensors", .3f, server)];
+
+        Assert.Equal(["h3/style.safetensors", "h3/character.safetensors", "h3/pose.safetensors"], H3Loras.Selections(shot).Select(l => l.Reference.FileName));
+        Assert.Equal([.7f, 1.2f, .3f], H3Loras.Selections(shot).Select(l => l.Strength));
+        Assert.NotEqual(presetOnly, H3Policy.Fingerprint(shot));
+
+        var settings = new AiSettings { ComfyUrl = server, LoraLibrary = [.. H3Loras.Selections(shot).Select(l => new LoraDefinition(l.Reference))] };
+        var applied = H3Loras.Capture(shot, settings, new(), new(true, "Ready", [.. H3Loras.Selections(shot).Select(l => l.Reference.FileName)]))!;
+        Assert.Equal([.7f, 1.2f, .3f], applied.Select(l => l.Strength));
+        var snapshot = Snapshot(Guid.NewGuid(), shot) with { AppliedLoras = applied };
+        H3Loras.ValidateSnapshot(snapshot);
+        Assert.Throws<WorkspaceStoreException>(() => H3Loras.ValidateSnapshot(snapshot with { Shot = snapshot.Shot with { ShotLoras = null } }));
+
+        shot.ShotLoras = [VideoLora("h3/pose.safetensors"), VideoLora("h3/pose.safetensors")];
+        Assert.Throws<WorkspaceStoreException>(() => H3Loras.ValidateSelections(shot));
+    }
+    [Fact]
+    public void ShotAndReelLorasAreSavedWithTheirContentAndAbsentOnesChangeNothing()
+    {
+        var composition = new ProductionComposition { ShotId = Guid.NewGuid() };
+        composition.Shot.Loras = [VideoLora("h3/style.safetensors")];
+        var legacy = JsonSerializer.SerializeToElement(ShotProductionContent.From(composition), AtomicJsonFile.Options);
+        Assert.False(legacy.TryGetProperty("loras", out _));
+        Assert.False(JsonSerializer.SerializeToElement(composition.Shot, AtomicJsonFile.Options).TryGetProperty("shotLoras", out _));
+
+        composition.Shot.ShotLoras = [VideoLora("h3/pose.safetensors", .4f)];
+        var content = ShotProductionContent.From(composition);
+        Assert.Equal("h3/pose.safetensors", Assert.Single(content.Loras!).Reference.FileName);
+        var other = new ProductionComposition { ShotId = composition.ShotId };
+        other.Shot.Loras = [VideoLora("h3/other-preset.safetensors")];
+        content.Apply(other);
+        Assert.Equal("h3/pose.safetensors", Assert.Single(other.Shot.ShotLoras!).Reference.FileName);
+        Assert.Equal("h3/other-preset.safetensors", Assert.Single(other.Shot.Loras!).Reference.FileName);
+
+        var draft = new ReferenceReelDraft { Loras = [VideoLora("h3/style.safetensors")] };
+        var fingerprint = ReferenceReels.Fingerprint(draft);
+        Assert.Null(ReferenceReels.Inputs(draft).ShotLoras);
+        draft.ReelLoras = [VideoLora("h3/style.safetensors", 1.5f)];
+        Assert.NotEqual(fingerprint, ReferenceReels.Fingerprint(draft));
+        Assert.Equal(1.5f, Assert.Single(H3Loras.Selections(ReferenceReels.Inputs(draft))).Strength);
+    }
+    [Fact]
     public void LegacySerializationRetainsImageAssignmentsAndAbsentVideoFields()
     {
         foreach (var workflow in new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv })

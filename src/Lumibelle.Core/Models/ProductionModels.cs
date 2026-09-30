@@ -61,12 +61,15 @@ public sealed record ShotProductionContent
     // Framing belongs to the shot, so every setup renders it at the same aspect. Null follows the project.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AspectOverride { get; set; }
+    // LoRAs chosen for this shot in every setup, on top of each setup's preset LoRAs.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<LoraSelection>? Loras { get; set; }
 
     public static ShotProductionContent From(ProductionComposition c) => ShotCopy.Of(new ShotProductionContent {
         ShotId = c.ShotId, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
         ReferenceUsage = c.ReferenceUsage, AppliedJobId = c.AppliedJobId, ReviewJobId = c.ReviewJobId,
         AcceptedRevisionId = c.AcceptedRevisionId, History = c.History, CharacterVoices = c.Shot.CharacterVoices,
-        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride
+        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras
     });
     public void Apply(ProductionComposition c)
     {
@@ -75,7 +78,7 @@ public sealed record ShotProductionContent
         c.ReferenceUsage = copy.ReferenceUsage; c.AppliedJobId = copy.AppliedJobId; c.ReviewJobId = copy.ReviewJobId;
         c.AcceptedRevisionId = copy.AcceptedRevisionId; c.History = copy.History;
         c.Shot.CharacterVoices = copy.CharacterVoices; c.Shot.Images = copy.Images;
-        c.Shot.Voices = copy.Voices; c.Shot.Videos = copy.Videos; c.Shot.AspectOverride = copy.AspectOverride;
+        c.Shot.Voices = copy.Voices; c.Shot.Videos = copy.Videos; c.Shot.AspectOverride = copy.AspectOverride; c.Shot.ShotLoras = copy.Loras;
     }
 }
 

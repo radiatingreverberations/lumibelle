@@ -352,7 +352,7 @@ public partial class ReferenceReelsPanel
     private Task Generate() => Run(async () =>
     {
         if (ActiveVideo is not null || _resettingDraft) return;
-        if (!_loraValid) { _error = "Enter valid LoRA strengths in Setup before generating."; return; }
+        if (!_loraValid) { _error = "Enter valid LoRA strengths before generating."; return; }
         _preparing = true; _preparation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         try {
             await InvokeAsync(StateHasChanged);

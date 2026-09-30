@@ -17,6 +17,8 @@ public partial class ProductionStudio
     private int _loraRefreshVersion;
     private bool _loraRefreshing;
     private readonly Dictionary<Guid, bool> _loraValidity = [];
+    // Strength validity of each shot's own LoRA picker, by shot.
+    private readonly Dictionary<Guid, bool> _shotLoraValidity = [];
     private bool LorasLocked => _starting || Selected is { } shot && (_videoEnqueues.ContainsKey(shot.Id) ||
         AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.Video && j.Target.ProjectId == Id && j.Target.ShotId == shot.Id && j.LocksTarget));
     private string? LoraIssue
@@ -24,7 +26,8 @@ public partial class ProductionStudio
         get
         {
             if (Selected is not { } shot) return null;
-            if (_loraValidity.GetValueOrDefault(Current!.Id, true) == false) return "Enter valid LoRA strengths before generating.";
+            if (_loraValidity.GetValueOrDefault(Current!.Id, true) == false || _shotLoraValidity.GetValueOrDefault(shot.Id, true) == false)
+                return "Enter valid LoRA strengths before generating.";
             var active = H3Loras.Selections(shot).Where(l => l.Enabled && l.Strength != 0).ToArray();
             if (active.Length == 0) return null;
             if (_loraRefreshing) return "Checking H3 LoRAs…";
@@ -56,6 +59,19 @@ public partial class ProductionStudio
         if (LorasLocked) return;
         Edit(s => s.Loras = selections.Count == 0 ? null : LoraPolicy.Capture(selections));
     }
+    private void ChangeShotLoras(IReadOnlyList<LoraSelection> selections)
+    {
+        if (LorasLocked) return;
+        Edit(s => s.ShotLoras = selections.Count == 0 ? null : LoraPolicy.Capture(selections));
+    }
+    private static string ShotLoraSummary(Shot shot)
+    {
+        var own = (shot.ShotLoras ?? []).Count(l => l.Enabled && l.Strength != 0);
+        var total = H3Loras.Selections(shot).Count(l => l.Enabled && l.Strength != 0);
+        return total == own ? $"{own} active" : $"{own} active · {total} with preset";
+    }
+    private static IReadOnlyList<string> PresetLoraNames(Shot shot) =>
+        [.. (shot.Loras ?? []).Where(p => p.Enabled && p.Strength != 0 && !(shot.ShotLoras ?? []).Any(o => LoraPolicy.Same(o.Reference, p.Reference))).Select(p => p.Reference.Name)];
     private void InsertLoraTrigger(string trigger)
     {
         if (LorasLocked || string.IsNullOrWhiteSpace(trigger)) return;

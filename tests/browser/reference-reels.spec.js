@@ -915,3 +915,37 @@ async function openImport(page) {
   const menu = page.locator('.asset-import-menu'); if (!await menu.evaluate(d => d.open)) await menu.locator('summary').click();
   await menu.getByRole('button', {name:'Import reel',exact:true}).click();
 }
+
+test('a reel keeps its own LoRAs beside its references, apart from the preset', async ({ page, request }) => {
+  test.setTimeout(90000);
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/images`);
+  const owner = (await library(request, id)).assets[0];
+  await page.setViewportSize({ width: 1173, height: 1000 });
+  await page.goto(`/settings/ai?tab=loras&projectId=${id}&returnTo=assets`);
+  await page.getByRole('button', { name: 'Refresh installed LoRAs', exact: true }).click();
+  await page.getByRole('button', { name: 'Add registration', exact: true }).click();
+  await page.locator('#lora-file').selectOption('h3/character.safetensors');
+  await page.locator('#lora-name').fill('Reel own identity');
+  await page.locator('#lora-workflow').selectOption('MiniMaxH3Ref2VA');
+  await page.getByRole('button', { name: 'Save LoRA library', exact: true }).click();
+  await expect(page.locator('.lora-registration')).toHaveCount(0);
+  await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
+  await showTools(page);
+
+  const section = page.locator('details.reel-own-loras');
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 0 active');
+  await section.locator(':scope > summary').click();
+  const picker = page.locator('#reel-own-lora-add');
+  await picker.fill('Reel own identity');
+  await expect(page.getByRole('option').filter({ hasText: 'Reel own identity' })).toBeVisible();
+  await picker.press('ArrowDown'); await picker.press('Enter');
+  await expect(section.getByRole('checkbox', { name: 'Reel own identity', exact: true })).toBeChecked();
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 1 active');
+  const draft = async () => (await library(request, id)).reelDrafts.find(d => d.assetId === owner.id);
+  await expect.poll(async () => ((await draft())?.reelLoras ?? []).map(l => l.reference.fileName)).toEqual(['h3/character.safetensors']);
+  // The shared preset is untouched.
+  expect((await draft())?.loras ?? []).toEqual([]);
+  await page.reload(); await showTools(page);
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 1 active');
+});

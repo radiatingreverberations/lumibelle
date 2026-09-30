@@ -88,6 +88,9 @@ public sealed record Shot
     public List<CharacterVoiceSelection>? CharacterVoices { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
+    // This shot's own LoRAs, applied on top of the preset's Loras; for the same LoRA the shot's entry wins.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<LoraSelection>? ShotLoras { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Title { get; set; } = "Untitled shot";
     public Guid? ApprovedScriptId { get; set; }

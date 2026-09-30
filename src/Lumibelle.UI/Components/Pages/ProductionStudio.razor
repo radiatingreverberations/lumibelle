@@ -255,6 +255,20 @@ else
                         <a href="@(ProjectLink(Id, "/assets?view=voices"))">Manage voice recordings in Assets</a>
                         </details>
                     </section>
+                    <details class="shot-loras"><summary>LoRAs · @ShotLoraSummary(shot)</summary>
+                        <p class="field-hint">LoRAs for this shot in every setup, applied on top of the preset's. For a LoRA in both, this shot's strength is used.</p>
+                        @if (PresetLoraNames(shot) is { Count: > 0 } presetNames) { <p class="field-hint">From the preset: @string.Join(", ", presetNames)</p> }
+                        @if (_loraSettings is { } shotLoraSettings)
+                        {
+                            <LoraPicker @key="@($"shot-{shot.Id}")" InputId="shot-lora-add" Settings="shotLoraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA" Selections="@(shot.ShotLoras ?? [])"
+                                Check="_loraCheck" Visibility="_loraVisibility" Disabled="LorasLocked" Changed="ChangeShotLoras" Refresh="RefreshH3LorasAsync"
+                                InsertTrigger="InsertLoraTrigger" TriggerButtonText="Insert trigger into directing notes"
+                                ValidityChanged="valid => _shotLoraValidity[shot.Id] = valid"
+                                ManageUrl="@(AiSettingsNavigation.Link(Navigation, "loras", Id, "shots"))" ProjectSettingsUrl="@(ProjectLink(Id, "/settings"))" />
+                        }
+                        else { <button @onclick="RefreshH3LorasAsync" disabled="@_loraRefreshing">Refresh LoRAs</button> }
+                        @if (_loraError is not null) { <p role="alert">@_loraError</p> }
+                    </details>
                 }</ChildContent>
                 <Footer>@if (Selected is { } shot) {
                     <fieldset @key="Current?.Id" class="generation-output" disabled="@(_starting || _setupBusy || _selectingShot)" aria-label="Generation output">
@@ -413,7 +427,7 @@ else
 
                         @if (_loraSettings is { } loraSettings)
                         {
-                            <LoraPicker @key="Current!.Id" Settings="loraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA" Selections="H3Loras.Selections(shot)"
+                            <LoraPicker @key="Current!.Id" Settings="loraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA" Selections="@(shot.Loras ?? [])"
                                 Check="_loraCheck" Visibility="_loraVisibility" Disabled="LorasLocked" Changed="ChangeLoras" Refresh="RefreshH3LorasAsync"
                                 InsertTrigger="InsertLoraTrigger" TriggerButtonText="Insert trigger into directing notes"
                                 ValidityChanged="valid => _loraValidity[Current!.Id] = valid"

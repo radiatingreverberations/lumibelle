@@ -117,3 +117,41 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await expect.poll(async () => (await state()).shots.length).toBe(2);
   await expect.poll(async () => (await state()).shots[1].loras).toEqual((await state()).shots[0].loras);
 });
+
+test('a shot keeps its own LoRAs beside its references, on top of the preset', async ({ page, request }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/approved`);
+  await page.goto(`/settings/ai?tab=loras&projectId=${id}&returnTo=shots`);
+  await page.getByRole('button', { name: 'Refresh installed LoRAs', exact: true }).click();
+  await page.getByRole('button', { name: 'Add registration', exact: true }).click();
+  await page.locator('#lora-file').selectOption('h3/character.safetensors');
+  await page.locator('#lora-name').fill('H3 Mouse identity');
+  await page.locator('#lora-workflow').selectOption('MiniMaxH3Ref2VA');
+  await page.getByRole('button', { name: 'Save LoRA library', exact: true }).click();
+  await expect(page.locator('.lora-registration')).toHaveCount(0);
+  await page.getByRole('link', { name: /Back to shots/i }).click();
+  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await submitPlanning(page);
+  await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+
+  const section = page.locator('details.shot-loras');
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 0 active');
+  await section.locator(':scope > summary').click();
+  const picker = page.locator('#shot-lora-add');
+  await picker.fill('H3 Mouse identity');
+  await expect(page.getByRole('option').filter({ hasText: 'H3 Mouse identity' })).toBeVisible();
+  await picker.press('ArrowDown'); await picker.press('Enter');
+  await expect(section.getByRole('checkbox', { name: 'H3 Mouse identity', exact: true })).toBeVisible();
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 1 active');
+  const production = async () => (await request.get(`/fixtures/${id}/production`)).json();
+  await expect.poll(async () => ((await production()).shotContent[0].loras ?? []).map(l => l.reference.fileName)).toEqual(['h3/character.safetensors']);
+  // The shared preset is untouched.
+  expect((await compositionState(request, id)).shots[0].loras ?? []).toEqual([]);
+  await page.reload();
+  await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 1 active');
+  await section.locator(':scope > summary').click();
+  await section.locator('.lora-selections > summary').click();
+  await expect(section.getByRole('checkbox', { name: 'H3 Mouse identity', exact: true })).toBeChecked();
+});

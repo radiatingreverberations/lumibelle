@@ -64,6 +64,8 @@ Register LoRAs and set per-project tag filters as described in [AI setup](ai-set
 
 Character reference reels live in Assets, optionally under a look. Use the right-hand tools column to fill paired generation/use prompts from three presets, start with Custom and Assist, or import a clip. Reuse the saved clip in [Shots](shots.md) with its own guidance and optional soundtrack.
 
+Expand **LoRAs** under a reel's references to choose H3 LoRAs for that reel alone. They apply on top of the LoRAs in the reel's preset; for a LoRA in both, the reel's strength is used.
+
 ## Trash
 
 Deleting images from the library moves them to **Trash**, with snackbar Undo and no confirmation. Trash covers all projects, supports project filtering and pagination, and keeps images for **30 days**. Restore selected images without confirmation; **Delete permanently** and **Empty Trash** require confirmation. Empty Trash applies across all projects and removes exactly the images shown in its confirmation, not later discards.

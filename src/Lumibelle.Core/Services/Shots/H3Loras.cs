@@ -7,11 +7,15 @@ namespace lumibelle.Services.Shots;
 
 public static class H3Loras
 {
-    public static IReadOnlyList<LoraSelection> Selections(Shot shot) => shot.Loras ?? [];
+    /// <summary>The LoRAs a take applies: the preset's, then the shot's own; for the same LoRA the shot's entry replaces the preset's.</summary>
+    public static IReadOnlyList<LoraSelection> Selections(Shot shot) => Merge(shot.Loras, shot.ShotLoras);
+    public static IReadOnlyList<LoraSelection> Merge(IReadOnlyList<LoraSelection>? preset, IReadOnlyList<LoraSelection>? own) =>
+        own is not { Count: > 0 } ? preset ?? [] : [.. (preset ?? []).Where(p => !own.Any(o => LoraPolicy.Same(o.Reference, p.Reference))), .. own];
     public static IReadOnlyList<AppliedLora> Applied(VideoSnapshot snapshot) => snapshot.AppliedLoras ?? [];
     public static void ValidateSelections(Shot shot)
     {
-        if (LoraPolicy.InvalidSelections(Selections(shot)) || Selections(shot).Any(s => s.Reference.Workflow != LoraWorkflow.MiniMaxH3Ref2VA))
+        if (LoraPolicy.InvalidSelections(shot.Loras ?? []) || LoraPolicy.InvalidSelections(shot.ShotLoras ?? []) ||
+            LoraPolicy.InvalidSelections(Selections(shot)) || Selections(shot).Any(s => s.Reference.Workflow != LoraWorkflow.MiniMaxH3Ref2VA))
             throw new WorkspaceStoreException("Use distinct H3 LoRAs with finite strengths between -100 and 100.");
     }
     public static IReadOnlyList<AppliedLora>? Capture(Shot shot, AiSettings settings, LoraVisibility visibility, ComfyLoraCheck? check)

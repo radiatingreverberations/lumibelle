@@ -13,7 +13,8 @@ public partial class ReferenceReelsPanel
     private LoraVisibility _loraVisibility = new();
     private ComfyLoraCheck? _loraCheck;
     private string? _loraError;
-    private bool _loraValid = true;
+    private bool _presetLoraValid = true, _reelLoraValid = true;
+    private bool _loraValid => _presetLoraValid && _reelLoraValid;
 
     protected override async Task OnInitializedAsync() { await LoadPresets(); _presetsReady = true; await LoadLoraOptions(false); }
     private Task RefreshLoras() => LoadLoraOptions(true);
@@ -35,6 +36,20 @@ public partial class ReferenceReelsPanel
     private Task ChangeLoras(IReadOnlyList<LoraSelection> selections) => EditPreset(p =>
         p.Settings.Loras = selections.Count == 0 ? null : LoraPolicy.Capture(selections));
 
+    private Task ChangeReelLoras(IReadOnlyList<LoraSelection> selections) => Run(async () =>
+    {
+        if (_draft is null || _enqueue is not null) return;
+        _draft.ReelLoras = selections.Count == 0 ? null : LoraPolicy.Capture(selections);
+        await Save();
+    });
+    private string ReelLoraSummary(ReferenceReelDraft draft)
+    {
+        var own = (draft.ReelLoras ?? []).Count(l => l.Enabled && l.Strength != 0);
+        var total = lumibelle.Services.Shots.H3Loras.Merge(draft.Loras, draft.ReelLoras).Count(l => l.Enabled && l.Strength != 0);
+        return total == own ? $"{own} active" : $"{own} active · {total} with preset";
+    }
+    private static IReadOnlyList<string> PresetLoraNames(ReferenceReelDraft draft) =>
+        [.. (draft.Loras ?? []).Where(p => p.Enabled && p.Strength != 0 && !(draft.ReelLoras ?? []).Any(o => LoraPolicy.Same(o.Reference, p.Reference))).Select(p => p.Reference.Name)];
     private Task InsertLoraTrigger(string trigger) => Run(async () =>
     {
         if (_draft is null || _enqueue is not null || string.IsNullOrWhiteSpace(trigger)) return;
