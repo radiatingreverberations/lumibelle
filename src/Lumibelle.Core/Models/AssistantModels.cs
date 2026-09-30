@@ -121,7 +121,12 @@ public sealed record ComfyTextModelBenchmark(
     int? GeneratedTokens,
     double? TokensPerSecond,
     bool CacheClearConfirmed,
-    bool CustomPrompt);
+    bool CustomPrompt)
+{
+    // Approximate prompt tokens of a standard benchmark; null for advanced tests and benchmarks before context was added.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? ContextTokens { get; init; }
+}
 public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVersion, string Model, DateTimeOffset VerifiedUtc,
     List<ComfyTextModelBenchmark>? Benchmarks = null)
 {

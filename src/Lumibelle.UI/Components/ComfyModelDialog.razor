@@ -14,13 +14,14 @@
                 <p class="field-hint">Tests send a real request to the selected model and can incur OpenRouter charges, including reasoning tokens. Normal generation defaults are unchanged. <a href="https://openrouter.ai/docs/cookbook/administration/usage-accounting" target="_blank" rel="noopener noreferrer">About reported usage ↗</a></p>
                 @if (LatestOpenRouterBenchmark is { } hosted) { <OpenRouterBenchmarkDetails Benchmark="hosted" /> }
             }
-            else if (LatestBenchmark is { } benchmark)
+            else if (!AdvancedMode && LatestBenchmark is { } benchmark)
             {
                 <div class="model-benchmark" aria-label="Latest model benchmark">
                     <p><strong>@BenchmarkHeadline(benchmark)</strong></p>
                     @if (_result?.PartialBenchmark is not null) { <p class="field-hint">Partial measurements · this run has not verified the model.</p> }
                     <p>@BenchmarkMemory(benchmark)</p>
-                    <p class="field-hint">Measured @benchmark.MeasuredUtc.ToLocalTime().ToString("g") @BenchmarkEnvironment(benchmark) using a @benchmark.TokenLimit-token @(benchmark.CustomPrompt ? "advanced test" : "standard benchmark"). @CacheStatus(benchmark)</p>
+                    <p class="field-hint">Measured @benchmark.MeasuredUtc.ToLocalTime().ToString("g") @BenchmarkEnvironment(benchmark) using @BenchmarkKind(benchmark, ReplyLimit). @CacheStatus(benchmark)</p>
+                    @if (BenchmarkIsStale(benchmark, ReplyLimit)) { <p class="field-hint model-benchmark-stale">This model's reply-token setting is now @ReplyLimit.ToString("N0"). Test again to measure VRAM for the current setting.</p> }
                 </div>
                 @if (_result?.PartialBenchmark is null && SelectedVerification?.Capabilities is { } detected)
                 {
@@ -30,24 +31,12 @@
                     </dl>
                 }
             }
-            <MudButton OnClick="VerifySelectedModelAsync" Disabled="@(!CanTestModel)" Variant="Variant.Outlined">@VerificationButtonLabel</MudButton>
-            <details class="advanced-model-test">
-                <summary>Advanced model test</summary>
-                <p class="field-hint">Send your own message and inspect the complete reply. This can help reveal refusals or other model behavior. The message and response are retained in AI activity. Closing this dialog leaves the test running.</p>
-                <label for="advanced-test-prompt">Test message</label>
-                <textarea id="advanced-test-prompt" rows="4" maxlength="12000" @bind="_advancedTestPrompt" @bind:event="oninput" disabled="@Busy" placeholder="Write a prompt that tests the behavior you care about…"></textarea>
-                <label for="advanced-test-tokens">@(IsOpenRouter ? "Maximum total output tokens" : "Maximum reply tokens")</label>
-                <input id="advanced-test-tokens" type="number" min="1" max="@AdvancedTokenLimit" @bind="_advancedTestTokens" @bind:event="oninput" disabled="@Busy" />
-                @if (IsOpenRouter) { <p class="field-hint">This limit includes reasoning and the answer. Start with 2,048; increase it if reasoning uses the entire budget.</p> }
-                <MudButton OnClick="RunAdvancedModelTestAsync" Disabled="@(!CanRunAdvancedTest)" Variant="Variant.Outlined">Run advanced test</MudButton>
-                @if (!IsOpenRouter && _advancedTestResponse is not null)
-                {
-                    <section class="advanced-model-test-result" aria-live="polite" aria-label="Advanced model test response">
-                        <h3>Model response</h3>
-                        <pre>@(string.IsNullOrEmpty(_advancedTestResponse) ? "The model completed without returning text." : _advancedTestResponse)</pre>
-                    </section>
-                }
-            </details>
+            @if (AdvancedMode) { <div class="advanced-model-test">@AdvancedForm</div> }
+            else
+            {
+                <MudButton OnClick="VerifySelectedModelAsync" Disabled="@(!CanTestModel)" Variant="Variant.Outlined">@VerificationButtonLabel</MudButton>
+                @if (IsOpenRouter) { <details class="advanced-model-test"><summary>Advanced model test</summary>@AdvancedForm</details> }
+            }
             @if (IsOpenRouter && _result is { } testResult)
             {
                 <section class="advanced-model-test-result" aria-live="polite" aria-label="OpenRouter model test response">
@@ -78,6 +67,28 @@
     [Parameter, EditorRequired] public AiSettings SettingsSnapshot { get; set; } = null!;
     [Parameter] public AiConnectionCheck? Check { get; set; }
     [Parameter] public Guid? JobId { get; set; }
+    /// <summary>Starts the standard test on opening unless one is already running for this model.</summary>
+    [Parameter] public bool StartTest { get; set; }
+    /// <summary>ComfyUI only: shows the advanced test instead of the standard benchmark and its results.</summary>
+    [Parameter] public bool Advanced { get; set; }
+    private bool AdvancedMode => Advanced && !IsOpenRouter;
+    private ElementReference _advancedPrompt;
+    private RenderFragment AdvancedForm => @<text>
+        <p class="field-hint">Send your own message and inspect the complete reply. This can help reveal refusals or other model behavior. The message and response are retained in AI activity. Closing this dialog leaves the test running.</p>
+        <label for="advanced-test-prompt">Test message</label>
+        <textarea @ref="_advancedPrompt" id="advanced-test-prompt" rows="4" maxlength="12000" @bind="_advancedTestPrompt" @bind:event="oninput" disabled="@Busy" placeholder="Write a prompt that tests the behavior you care about…"></textarea>
+        <label for="advanced-test-tokens">@(IsOpenRouter ? "Maximum total output tokens" : "Maximum reply tokens")</label>
+        <input id="advanced-test-tokens" type="number" min="1" max="@AdvancedTokenLimit" @bind="_advancedTestTokens" @bind:event="oninput" disabled="@Busy" />
+        @if (IsOpenRouter) { <p class="field-hint">This limit includes reasoning and the answer. Start with 2,048; increase it if reasoning uses the entire budget.</p> }
+        <MudButton OnClick="RunAdvancedModelTestAsync" Disabled="@(!CanRunAdvancedTest)" Variant="Variant.Outlined">Run advanced test</MudButton>
+        @if (!IsOpenRouter && _advancedTestResponse is not null)
+        {
+            <section class="advanced-model-test-result" aria-live="polite" aria-label="Advanced model test response">
+                <h3>Model response</h3>
+                <pre>@(string.IsNullOrEmpty(_advancedTestResponse) ? "The model completed without returning text." : _advancedTestResponse)</pre>
+            </section>
+        }
+    </text>;
     [Parameter] public EventCallback<ComfyTextModelVerification> VerificationSaved { get; set; }
     [Parameter] public EventCallback<OpenRouterTextModelBenchmark> OpenRouterTestSaved { get; set; }
     private readonly List<ComfyTextModelVerification> _verifications = [];
@@ -101,7 +112,16 @@
         TextModelPolicy.SameServer(item.ComfyUrl, _comfyUrl) && item.Model == _comfyModel && item.ComfyVersion == _comfyVersion);
     private bool CanTestModel => !Busy && _pending is null && Check?.Success == true && Check.Models.Any(model => model.Id == _comfyModel);
     private bool CanRunAdvancedTest => CanTestModel && !string.IsNullOrWhiteSpace(_advancedTestPrompt) && _advancedTestTokens >= 1 && _advancedTestTokens <= AdvancedTokenLimit;
-    private string VerificationButtonLabel => IsOpenRouter ? "Run benchmark · 2,048 total tokens" : SelectedModelVerified ? "Test again · 256 tokens" : "Test selected model · 256 tokens";
+    private int ReplyLimit => ComfyTextSettings.Resolve(Model, SettingsSnapshot).MaxOutputTokens;
+    private string VerificationButtonLabel => IsOpenRouter ? "Run benchmark · 2,048 total tokens" :
+        $"{(SelectedModelVerified ? "Test again" : "Test selected model")} · ~8k-token context, {ReplyLimit:N0}-token replies";
+    internal static string BenchmarkKind(ComfyTextModelBenchmark benchmark, int replyLimit) => benchmark.CustomPrompt
+        ? $"a {benchmark.TokenLimit:N0}-token advanced test"
+        : benchmark.ContextTokens is { } context
+            ? $"a standard benchmark with a ~{context / 1024}k-token context and a {benchmark.TokenLimit:N0}-token reply limit"
+            : $"a {benchmark.TokenLimit:N0}-token short-prompt benchmark, which understates VRAM for long requests";
+    internal static bool BenchmarkIsStale(ComfyTextModelBenchmark benchmark, int replyLimit) =>
+        !benchmark.CustomPrompt && (benchmark.ContextTokens is null || benchmark.TokenLimit != replyLimit);
     private string VerificationStatus => IsOpenRouter
         ? Check is null ? "Refresh OpenRouter in Text models to enable a new test." : !Check.Success ? Check.Message : Check.Models.All(m => m.Id != Model.Model) ? "This model is not available on OpenRouter." : "Run a benchmark to check generation before starring. Availability can change between requests."
         : Check is null ? "Refresh ComfyUI in Text models to enable a new test on the saved server." : !Check.Success ? Check.Message : Check.Models.All(model => model.Id != _comfyModel) ? "This model is not available on the saved server." : SelectedModelVerified ? $"Verified with ComfyUI {_comfyVersion}." : "Run a test before starring this model.";
@@ -114,7 +134,9 @@
         }
         _comfyVersion = Check?.BackendVersion; _verifications.AddRange(SettingsSnapshot.ComfyTextModelVerifications);
         Jobs.Changed += Changed;
-        _jobId = JobId ?? ActiveJob?.Id ?? Jobs.View.Jobs.LastOrDefault(j => j.Target.ModelKey == TextModelPolicy.Key(Model))?.Id;
+        // Each dialog restores its own kind of test; a running test of the other kind still shows why it is busy.
+        _jobId = JobId ?? ActiveJob?.Id ?? Jobs.View.Jobs.LastOrDefault(j => j.Target.ModelKey == TextModelPolicy.Key(Model) &&
+            (IsOpenRouter || (j.Kind == AiJobKind.TextAdvancedTest) == AdvancedMode))?.Id;
         if (_jobId is { } id)
         {
             _loadingJob = true;
@@ -129,6 +151,11 @@
             catch (WorkspaceStoreException e) { _verificationError = e.Message; }
             finally { _loadingJob = false; }
         }
+        if (StartTest && !AdvancedMode && ActiveJob is null) await RunModelTestAsync();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && AdvancedMode) await _advancedPrompt.FocusAsync();
     }
     private void Close() => Dialog.Close();
     private void Changed()

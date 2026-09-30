@@ -364,14 +364,15 @@ sealed class MockProviders(ICodexClient codex) : IAiProviderRegistry
         }
         return new(true, "Mock provider ready", [new("mock/script", "Mock script writer"), new("mock/alternate", "Alternate mock model", SupportsImages: true)], backend == AiBackend.ComfyUI ? "mock-version" : null);
     }
-    public IAsyncEnumerable<AiModelVerificationUpdate> VerifyComfyTextModelAsync(string model, AiSettings settings, CancellationToken cancellationToken = default) => Test(model, settings, new(AiProviderRegistry.StandardBenchmarkPrompt, 256), false, cancellationToken);
+    public IAsyncEnumerable<AiModelVerificationUpdate> VerifyComfyTextModelAsync(string model, AiSettings settings, CancellationToken cancellationToken = default) => Test(model, settings, new(AiProviderRegistry.StandardBenchmarkPrompt,
+        ComfyTextSettings.Resolve(new(AiBackend.ComfyUI, model, model, settings.ComfyUrl), settings).MaxOutputTokens), false, cancellationToken);
     public IAsyncEnumerable<AiModelVerificationUpdate> TestComfyTextModelAsync(string model, AiSettings settings, ComfyTextModelTestRequest request, CancellationToken cancellationToken = default) => Test(model, settings, request, true, cancellationToken);
     private static async IAsyncEnumerable<AiModelVerificationUpdate> Test(string model, AiSettings settings, ComfyTextModelTestRequest request, bool advanced, [EnumeratorCancellation] CancellationToken ct)
     {
         yield return new(Progress: new(GenerationPhase.Generating, "Generating mock model test", 0, request.MaxOutputTokens, "tokens"));
         await Task.Delay(1600, ct);
         var benchmark = new ComfyTextModelBenchmark(DateTimeOffset.UtcNow, "Mock GPU", 0, 20L << 30, 1L << 30, 9L << 30,
-            256L << 20, 8L << 30, request.MaxOutputTokens, request.MaxOutputTokens, 16, true, advanced);
+            256L << 20, 8L << 30, request.MaxOutputTokens, request.MaxOutputTokens, 16, true, advanced) { ContextTokens = advanced ? null : ComfyTextBenchmark.ContextTokens };
         yield return new(Verification: new(settings.ComfyUrl, "mock-version", model, DateTimeOffset.UtcNow, [benchmark]), Response: advanced ? "Mock response: " + request.Prompt : null);
     }
 }

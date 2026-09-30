@@ -23,8 +23,8 @@ public sealed partial class AiTests
         Assert.True(f.Http.Requests.IndexOf(free) < f.Http.Requests.IndexOf(prompt));
         using var body = JsonDocument.Parse(prompt.Body); var nodes = body.RootElement.GetProperty("prompt");
         Assert.Equal(ModelJobFixture.Model.Model, nodes.GetProperty("1").GetProperty("inputs").GetProperty("clip_name").GetString());
-        Assert.Equal(request.Test.Prompt, nodes.GetProperty("2").GetProperty("inputs").GetProperty("prompt").GetString());
-        Assert.Equal(advanced ? 80 : 256, nodes.GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
+        Assert.Equal(advanced ? request.Test.Prompt : ComfyTextBenchmark.Prompt(request.Test.Prompt), nodes.GetProperty("2").GetProperty("inputs").GetProperty("prompt").GetString());
+        Assert.Equal(advanced ? 80 : 2048, nodes.GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
         var benchmark = Assert.Single(Assert.IsType<ComfyTextModelVerification>(result.Verification).Benchmarks!); Assert.Equal(advanced, benchmark.CustomPrompt); Assert.True(benchmark.CacheClearConfirmed);
         Assert.DoesNotContain(f.Http.Requests, r => r.Path.Contains("interrupt"));
     }

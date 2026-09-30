@@ -41,7 +41,7 @@ public sealed partial class AiProviderRegistry
         var lastCheckpoint = DateTimeOffset.MinValue;
         var updates = submitted ? execution.ObserveAsync(context, operation, http, ct: ct, onProviderCompleted: inactivity.Stop)
             : execution.ExecuteAsync(context, operation, http, client => ComfyChatClient.BuildWorkflow(request.Model.Model,
-                request.Test.Prompt, request.Test.MaxOutputTokens, request.Advanced ? request.Settings.Temperature : .7f, request.Seed, client), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: inactivity.Stop);
+                request.Advanced ? request.Test.Prompt : ComfyTextBenchmark.Prompt(request.Test.Prompt), request.Test.MaxOutputTokens, request.Advanced ? request.Settings.Temperature : .7f, request.Seed, client), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: inactivity.Stop);
         await foreach (var update in updates.WithCancellation(ct))
         {
             inactivity.Observe(update.Progress); if (update.Complete) inactivity.Stop();
@@ -59,6 +59,7 @@ public sealed partial class AiProviderRegistry
         var benchmark = memory?.Build(request.Test.MaxOutputTokens, tokens.GeneratedTokens, tokens.TokensPerSecond, request.Advanced) ??
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.Test.MaxOutputTokens,
                 recovered ? null : tokens.GeneratedTokens, recovered ? null : tokens.TokensPerSecond, preparation.Cache.ClearConfirmed, request.Advanced);
+        if (!request.Advanced) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
         // Probes are new submissions, which recovery never makes; a recovered test records no capabilities.
         ComfyTextModelCapabilities? capabilities = null;
         if (!recovered)

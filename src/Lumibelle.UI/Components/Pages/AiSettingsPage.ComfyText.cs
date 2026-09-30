@@ -25,7 +25,7 @@ public partial class AiSettingsPage
                 (detected.SystemPrompt ? "instructions use the model's native system prompt." : "instructions are combined into the prompt because the model ignored a native system prompt.") +
                 " Test again after changing the model file or ComfyUI.";
         var legacy = ComfyTextSettings.Resolve(model, _settings!).VisionInput;
-        return "Image input and system-prompt support are detected by the model test (Details & test)." +
+        return "Image input and system-prompt support are detected when you test the model." +
             (legacy == ComfyVisionInput.Disabled ? "" : $" Until then, the previously chosen {VisionLabel(legacy)} applies.");
     }
     private static string VisionLabel(ComfyVisionInput mode) => mode switch

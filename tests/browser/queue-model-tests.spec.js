@@ -2,6 +2,8 @@ import { test, expect } from './fixtures.js';
 
 const activity = page => page.getByRole('dialog', { name: 'AI activity', exact: true });
 const modelDialog = page => page.getByRole('dialog', { name: 'Model details & test', exact: true });
+// ComfyUI advanced tests open in their own dialog, also when reopened from AI activity.
+const advancedDialog = page => page.getByRole('dialog', { name: 'Advanced model test', exact: true });
 async function pause(page, paused, provider = 'ComfyUI') {
   await page.locator('.ai-activity-trigger').click();
   await expect(activity(page)).toBeVisible();
@@ -21,19 +23,18 @@ test('model tests queue, survive closing, reopen with their captured response an
     await page.getByRole('tab', { name: 'Text models', exact: true }).click();
     const row = page.locator('.text-model-row').filter({ has: page.getByRole('button', { name: 'Star Mock script writer', exact: true }) }).first();
     await row.getByRole('button', { name: 'Mock script writer', exact: true }).click();
-    await row.getByRole('button', { name: 'Details & test', exact: true }).click();
-    await modelDialog(page).getByText('Advanced model test', { exact: true }).click();
+    await row.getByRole('button', { name: 'Advanced test', exact: true }).click();
     const prompt = `Queued test ${Date.now()} <plain text>`;
-    await modelDialog(page).getByLabel('Test message', { exact: true }).fill(prompt);
-    await expect(modelDialog(page).getByLabel('Maximum reply tokens')).toHaveAttribute('max', '32768');
-    await modelDialog(page).getByLabel('Maximum reply tokens').fill('32769');
-    await expect(modelDialog(page).getByRole('button', { name: 'Run advanced test', exact: true })).toBeDisabled();
-    await modelDialog(page).getByLabel('Maximum reply tokens').fill('32768');
-    await modelDialog(page).getByRole('button', { name: 'Run advanced test', exact: true }).click();
-    await expect(modelDialog(page)).toContainText('This provider queue is paused');
-    await expect(modelDialog(page).getByRole('button', { name: 'Run advanced test', exact: true })).toBeDisabled();
-    await modelDialog(page).getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(modelDialog(page)).not.toBeVisible();
+    await advancedDialog(page).getByLabel('Test message', { exact: true }).fill(prompt);
+    await expect(advancedDialog(page).getByLabel('Maximum reply tokens')).toHaveAttribute('max', '32768');
+    await advancedDialog(page).getByLabel('Maximum reply tokens').fill('32769');
+    await expect(advancedDialog(page).getByRole('button', { name: 'Run advanced test', exact: true })).toBeDisabled();
+    await advancedDialog(page).getByLabel('Maximum reply tokens').fill('32768');
+    await advancedDialog(page).getByRole('button', { name: 'Run advanced test', exact: true }).click();
+    await expect(advancedDialog(page)).toContainText('This provider queue is paused');
+    await expect(advancedDialog(page).getByRole('button', { name: 'Run advanced test', exact: true })).toBeDisabled();
+    await advancedDialog(page).getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(advancedDialog(page)).not.toBeVisible();
     await page.getByRole('tab', { name: 'Connections', exact: true }).click();
     await expect(page.locator('#comfy-url')).toHaveValue('http://unsaved.invalid:8188');
     await pause(page, false);
@@ -41,25 +42,24 @@ test('model tests queue, survive closing, reopen with their captured response an
     const job = jobs.filter(j => j.kind === 'TextAdvancedTest').at(-1);
     expect(job).toBeTruthy();
     await expect.poll(async () => (await (await request.get('/fixtures/ai-jobs')).json()).find(j => j.id === job.id).state).toBe('Completed');
-    await expect(modelDialog(page)).not.toBeVisible();
+    await expect(advancedDialog(page)).not.toBeVisible();
     await expect(page.locator('#comfy-url')).toHaveValue('http://unsaved.invalid:8188');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.ai-activity-trigger').click();
     await activity(page).getByRole('tab', { name: 'History', exact: true }).click();
     await activity(page).locator(`[data-job-id="${job.id}"]`).getByRole('link', { name: 'Review', exact: true }).click();
-    await expect(modelDialog(page)).toBeVisible();
-    await modelDialog(page).getByText('Advanced model test', { exact: true }).click();
-    await expect(modelDialog(page).getByLabel('Test message', { exact: true })).toHaveValue(prompt);
-    await expect(modelDialog(page).getByLabel('Maximum reply tokens')).toHaveValue('32768');
-    await expect(modelDialog(page).locator('.advanced-model-test-result pre')).toHaveText(`Mock response: ${prompt}`);
-    await expect(modelDialog(page)).toContainText('Test result saved.');
+    await expect(advancedDialog(page)).toBeVisible();
+    await expect(advancedDialog(page).getByLabel('Test message', { exact: true })).toHaveValue(prompt);
+    await expect(advancedDialog(page).getByLabel('Maximum reply tokens')).toHaveValue('32768');
+    await expect(advancedDialog(page).locator('.advanced-model-test-result pre')).toHaveText(`Mock response: ${prompt}`);
+    await expect(advancedDialog(page)).toContainText('Test result saved.');
     await expect.poll(async () => (await (await request.get('/fixtures/ai-jobs')).json()).find(j => j.id === job.id).unread).toBe(false);
-    await expect(modelDialog(page).locator('script')).toHaveCount(0);
+    await expect(advancedDialog(page).locator('script')).toHaveCount(0);
     await page.screenshot({ path: 'test-results/queue-model-test-mobile.png' });
     await page.keyboard.press('Escape');
-    await expect(modelDialog(page)).not.toBeVisible();
+    await expect(advancedDialog(page)).not.toBeVisible();
   } finally {
-    if (await modelDialog(page).isVisible()) await modelDialog(page).getByRole('button', { name: 'Close', exact: true }).click();
+    if (await advancedDialog(page).isVisible()) await advancedDialog(page).getByRole('button', { name: 'Close', exact: true }).click();
     await pause(page, false);
   }
 });

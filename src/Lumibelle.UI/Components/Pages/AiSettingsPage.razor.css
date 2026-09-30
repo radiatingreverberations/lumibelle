@@ -45,6 +45,7 @@
 .text-model-details dd { margin: 0; min-width: 0; }
 .text-model-details code { white-space: normal; overflow-wrap: anywhere; }
 .text-model-test { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 16px; }
+.text-model-test-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .text-model-test .field-hint { margin: 0; flex: 1 1 240px; }
 .text-model-test.needs-test { padding: 12px 14px; border: 1px solid var(--border-color, var(--lumi-border)); border-radius: 8px; }
 .model-alias-form { border-top: 1px solid var(--lumi-border); padding: 14px 0; }

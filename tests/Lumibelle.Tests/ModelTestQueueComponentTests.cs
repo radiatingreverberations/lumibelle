@@ -17,7 +17,7 @@ public sealed partial class AiSettingsComponentTests
         _providers.Models = [new(model, "Queued model")];
         _providers.VerificationRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _providers.TestResponse = "Durable response, <not markup>.";
-        var dialog = TestDialog(model);
+        var dialog = TestDialog(model, advanced: true);
         dialog.Find("#advanced-test-prompt").Input("Captured message");
         await dialog.InvokeAsync(() => dialog.FindAll("button").Single(b => b.TextContent.Trim() == "Run advanced test").ClickAsync(new()));
         dialog.WaitForAssertion(() => Assert.Equal(1, _providers.VerificationCalls));
@@ -45,14 +45,14 @@ public sealed partial class AiSettingsComponentTests
         _providers.Models = [new(model, "Queued model")];
         var queue = Services.GetRequiredService<AiJobCoordinator>();
         await queue.SetPausedAsync(AiBackend.ComfyUI, true, Xunit.TestContext.Current.CancellationToken);
-        var first = TestDialog(model);
+        var first = TestDialog(model, advanced: true);
         first.Find("#advanced-test-prompt").Input("Captured while waiting"); first.Find("#advanced-test-tokens").Input("192");
         await first.InvokeAsync(() => first.FindAll("button").Single(b => b.TextContent.Trim() == "Run advanced test").ClickAsync(new()));
         first.WaitForAssertion(() => Assert.Contains("This provider queue is paused", first.Markup));
         var job = Assert.Single(queue.View.Jobs);
         Assert.Equal(0, _providers.VerificationCalls);
         await first.InvokeAsync(() => first.FindAll("button").Single(b => b.TextContent.Trim() == "Close").ClickAsync(new()));
-        var reopened = TestDialog(model);
+        var reopened = TestDialog(model, advanced: true);
         reopened.WaitForAssertion(() => Assert.Equal("Captured while waiting", reopened.Find("#advanced-test-prompt").GetAttribute("value")));
         Assert.Equal("192", reopened.Find("#advanced-test-tokens").GetAttribute("value"));
         Assert.True(reopened.Find("#advanced-test-prompt").HasAttribute("disabled"));

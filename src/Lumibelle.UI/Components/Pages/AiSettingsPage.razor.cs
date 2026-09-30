@@ -246,7 +246,7 @@ public partial class AiSettingsPage
         _pendingStar = null;
         await OpenModelAsync(model);
     }
-    private async Task OpenModelAsync(TextModelReference model, Guid? jobId = null)
+    private async Task OpenModelAsync(TextModelReference model, Guid? jobId = null, bool startTest = false, bool advanced = false)
     {
         if (Busy) return;
         _dialogOpen = true;
@@ -254,12 +254,15 @@ public partial class AiSettingsPage
         {
             var check = model.Backend == AiBackend.OpenRouter ? _checks.GetValueOrDefault(AiBackend.OpenRouter)
                 : TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? _checks.GetValueOrDefault(AiBackend.ComfyUI) : null;
-            var dialog = await Dialogs.ShowAsync<ComfyModelDialog>("Model details & test", new DialogParameters
+            advanced &= model.Backend == AiBackend.ComfyUI;
+            var dialog = await Dialogs.ShowAsync<ComfyModelDialog>(advanced ? "Advanced model test" : "Model details & test", new DialogParameters
             {
                 [nameof(ComfyModelDialog.Model)] = model,
                 [nameof(ComfyModelDialog.SettingsSnapshot)] = _settings,
                 [nameof(ComfyModelDialog.Check)] = check,
                 [nameof(ComfyModelDialog.JobId)] = jobId,
+                [nameof(ComfyModelDialog.StartTest)] = startTest,
+                [nameof(ComfyModelDialog.Advanced)] = advanced,
                 [nameof(ComfyModelDialog.VerificationSaved)] = EventCallback.Factory.Create<ComfyTextModelVerification>(this, ReloadVerificationAsync),
                 [nameof(ComfyModelDialog.OpenRouterTestSaved)] = EventCallback.Factory.Create<OpenRouterTextModelBenchmark>(this, ReloadOpenRouterTestAsync)
             }, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true });
@@ -304,7 +307,7 @@ public partial class AiSettingsPage
     [Parameter, SupplyParameterFromQuery(Name = "jobId")] public Guid? RequestedJobId { get; set; }
     [Inject] private IServiceProvider Services { get; set; } = null!;
     private Guid? _openedJob;
-    private (TextModelReference Model, Guid JobId)? _pendingModelTest;
+    private (TextModelReference Model, Guid JobId, bool Advanced)? _pendingModelTest;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_tab == "text" && !_loading && _settings is not null && (RequestedJobId is null || _openedJob == RequestedJobId) && !TextState.Attempted && TextState.Loading is not { IsCompleted: false })
@@ -315,7 +318,7 @@ public partial class AiSettingsPage
         if (!_loading && !Busy && !TextState.Refreshing && _pendingModelTest is { } pending && _tab == "text")
         {
             _pendingModelTest = null;
-            await OpenModelAsync(pending.Model, pending.JobId);
+            await OpenModelAsync(pending.Model, pending.JobId, advanced: pending.Advanced);
             return;
         }
         if (_loading || _settings is null || Busy || RequestedJobId is not { } id || _openedJob == id) return;
@@ -325,7 +328,7 @@ public partial class AiSettingsPage
             var store = Services.GetRequiredService<IAiJobStore>();
             var job = (await store.ReadAsync(_token)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("Model test not found.");
             var request = AiModelTestJobHandler.Read(job, await store.ReadSnapshotAsync(id, _token));
-            _pendingModelTest = (request.Model, id);
+            _pendingModelTest = (request.Model, id, request.Advanced);
             SelectProvider(request.Model.Backend == AiBackend.OpenRouter ? "openrouter" : "comfyui");
             await InvokeAsync(StateHasChanged);
         }

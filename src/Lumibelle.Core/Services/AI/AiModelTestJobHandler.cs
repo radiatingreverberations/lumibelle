@@ -27,7 +27,7 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         var hosted = model.Backend == AiBackend.OpenRouter;
         var request = new AiModelTestJobRequest(hosted ? 2 : 1, model, settings, advanced is null
             ? new(hosted ? OpenRouterBenchmarkPrompt : AiProviderRegistry.StandardBenchmarkPrompt,
-                hosted ? OpenRouterBenchmarkTokens : AiProviderRegistry.StandardBenchmarkTokens) : advanced with { }, advanced is not null, Random.Shared.NextInt64(1, long.MaxValue));
+                hosted ? OpenRouterBenchmarkTokens : settings.MaxOutputTokens) : advanced with { }, advanced is not null, Random.Shared.NextInt64(1, long.MaxValue));
         Validate(request);
         return AiJobSubmission.Create(id, advanced is null ? AiJobKind.TextBenchmark : AiJobKind.TextAdvancedTest, model.Backend,
             new(ModelKey: TextModelPolicy.Key(model)), "AI settings", model.Name + (advanced is null ? " · Benchmark" : " · Advanced test"), tab, request);
@@ -51,7 +51,8 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         TextModelPolicy.Validate(request.Model); FileAiSettingsStore.Validate(request.Settings);
         if (request.Model.Backend == AiBackend.ComfyUI && !TextModelPolicy.SameServer(request.Settings.ComfyUrl, request.Model.ComfyUrl) || !request.Advanced &&
             (request.Test.Prompt != (hostedV2 ? OpenRouterBenchmarkPrompt : AiProviderRegistry.StandardBenchmarkPrompt) ||
-             request.Test.MaxOutputTokens != (hostedV2 ? OpenRouterBenchmarkTokens : AiProviderRegistry.StandardBenchmarkTokens)))
+             (hostedV2 ? request.Test.MaxOutputTokens != OpenRouterBenchmarkTokens
+                 : request.Test.MaxOutputTokens != request.Settings.MaxOutputTokens && request.Test.MaxOutputTokens != AiProviderRegistry.LegacyBenchmarkTokens)))
             throw new WorkspaceStoreException("The model test no longer matches its captured server or standard benchmark.");
     }
     private async Task<AiJobOutcome> RunAsync(AiJobContext context, AiModelTestJobRequest request, CancellationToken ct)

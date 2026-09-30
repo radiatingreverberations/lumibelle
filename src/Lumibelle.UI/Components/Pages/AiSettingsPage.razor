@@ -231,14 +231,21 @@ else
                                             }
                                         </dl>
                                         @if (testStatus is not null) { <p class="field-hint">@testStatus.Detail</p> }
-                                        @if (model.Backend is AiBackend.ComfyUI or AiBackend.OpenRouter)
+                                        @if (model.Backend == AiBackend.ComfyUI)
                                         {
                                             var needsTest = NeedsComfyTest(model);
                                             <div class="text-model-test @(needsTest ? "needs-test" : "")">
-                                                <MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Variant="@(needsTest ? Variant.Filled : Variant.Outlined)" Color="@(needsTest ? Color.Primary : Color.Default)" Size="Size.Small">Details &amp; test</MudButton>
-                                                @if (needsTest) { <p class="field-hint">Required before starring or selecting this model. The test also detects system-prompt and image support.</p> }
+                                                <div class="text-model-test-actions">
+                                                    <MudButton OnClick="() => OpenModelAsync(model, startTest: true)" Disabled="@Busy" Variant="@(needsTest ? Variant.Filled : Variant.Outlined)" Color="@(needsTest ? Color.Primary : Color.Default)" Size="Size.Small">@(TextModelPolicy.Verification(model, _settings) is null ? "Test model" : "Test again")</MudButton>
+                                                    <MudButton OnClick="() => OpenModelAsync(model, advanced: true)" Disabled="@Busy" Size="Size.Small">Advanced test</MudButton>
+                                                    <MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Size="Size.Small">Details</MudButton>
+                                                </div>
+                                                @if (needsTest) { <p class="field-hint">Required before starring or selecting this model. The test uses a ~8k-token context with this model's reply-token setting and detects system-prompt and image support.</p> }
+                                                else if (Benchmark(model) is { } measured && ComfyModelDialog.BenchmarkIsStale(measured, ComfyTextSettings.Resolve(model, _settings).MaxOutputTokens))
+                                                { <p class="field-hint">Speed and VRAM were measured with @ComfyModelDialog.BenchmarkKind(measured, 0). Test again to measure the current reply-token setting.</p> }
                                             </div>
                                         }
+                                        else if (model.Backend == AiBackend.OpenRouter) { <div class="text-model-test"><MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Details &amp; test</MudButton></div> }
                                         <form class="model-alias-form" @onsubmit="() => SaveAliasAsync(model)" @onsubmit:preventDefault>
                                             <label for="@(domId + "-alias")">Alias</label><input id="@(domId + "-alias")" maxlength="120" @bind="_aliasDrafts[key]" @bind:event="oninput" disabled="@Busy" placeholder="Use the original name" />
                                             <p class="field-hint">Shown in settings and studio pickers. Clear to restore the original name.</p>

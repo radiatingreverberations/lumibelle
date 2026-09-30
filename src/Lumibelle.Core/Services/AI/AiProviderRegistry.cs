@@ -12,7 +12,8 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSettingsStore settingsStore, IComfyExecutionMonitor comfyMonitor, ICodexClient? codex = null, IClaudeCodeClient? claude = null) : IAiProviderRegistry, IModelTestRunner
 {
-    internal const int StandardBenchmarkTokens = 256;
+    // Reply limit of standard benchmarks captured before they used the model's own setting.
+    internal const int LegacyBenchmarkTokens = 256;
     internal const string StandardBenchmarkPrompt = "Write a continuous fictional description of a quiet forest at dawn in approximately 220 words. Do not use headings or mention this request.";
 
     public async Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default)
@@ -115,7 +116,8 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         string model,
         AiSettings settings,
         CancellationToken cancellationToken = default) =>
-        RunComfyTextModelTestAsync(model, settings, new(StandardBenchmarkPrompt, StandardBenchmarkTokens), includeResponse: false, cancellationToken);
+        RunComfyTextModelTestAsync(model, settings, new(StandardBenchmarkPrompt,
+            ComfyTextSettings.Resolve(new(AiBackend.ComfyUI, model, model, settings.ComfyUrl), settings).MaxOutputTokens), includeResponse: false, cancellationToken);
 
     public IAsyncEnumerable<AiModelVerificationUpdate> TestComfyTextModelAsync(
         string model,
@@ -153,7 +155,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         string? response = null;
         var seed = Random.Shared.NextInt64(1, long.MaxValue);
         await foreach (var update in comfyMonitor.ExecuteAsync(http,
-            clientId => ComfyChatClient.BuildWorkflow(model, request.Prompt, request.MaxOutputTokens,
+            clientId => ComfyChatClient.BuildWorkflow(model, includeResponse ? request.Prompt : ComfyTextBenchmark.Prompt(request.Prompt), request.MaxOutputTokens,
                 includeResponse ? ComfyTextSettings.Resolve(new(AiBackend.ComfyUI, model, model, settings.ComfyUrl), settings).Temperature : 0.7f, seed, clientId),
             ComfyChatClient.ExecutionOptions, deadline.Token, cancellationToken))
         {
@@ -174,6 +176,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         var benchmark = memory?.Build(request.MaxOutputTokens, tokens.GeneratedTokens, tokens.TokensPerSecond, includeResponse) ??
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.MaxOutputTokens,
                 tokens.GeneratedTokens, tokens.TokensPerSecond, cache.ClearConfirmed, includeResponse);
+        if (!includeResponse) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
         var verification = new ComfyTextModelVerification(
             NormalizeComfyUrl(settings.ComfyUrl), catalog.Version, model, DateTimeOffset.UtcNow,
             [benchmark]) { Capabilities = capabilities };

@@ -158,15 +158,17 @@ public sealed partial class AiTests
         Assert.Equal(model, verification.Model);
         Assert.Equal("0.34.0", verification.ComfyVersion);
         var benchmark = Assert.Single(verification.Benchmarks!);
-        Assert.Equal(256, benchmark.TokenLimit);
+        Assert.Equal(2048, benchmark.TokenLimit);
+        Assert.Equal(ComfyTextBenchmark.ContextTokens, benchmark.ContextTokens);
         Assert.False(benchmark.CustomPrompt);
         Assert.True(benchmark.CacheClearConfirmed);
         using var submitted = JsonDocument.Parse(handler.Requests.Single(request => request.Path == "/prompt").Body);
         var workflow = submitted.RootElement.GetProperty("prompt");
         Assert.Equal(model, workflow.GetProperty("1").GetProperty("inputs").GetProperty("clip_name").GetString());
-        Assert.Equal(256, workflow.GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
+        Assert.Equal(2048, workflow.GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
         Assert.False(workflow.GetProperty("2").GetProperty("inputs").GetProperty("thinking").GetBoolean());
-        Assert.Equal(AiProviderRegistry.StandardBenchmarkPrompt, workflow.GetProperty("2").GetProperty("inputs").GetProperty("prompt").GetString());
+        // The benchmark reserves a script-sized context so peak VRAM reflects real requests.
+        Assert.Equal(ComfyTextBenchmark.Prompt(AiProviderRegistry.StandardBenchmarkPrompt), workflow.GetProperty("2").GetProperty("inputs").GetProperty("prompt").GetString());
         Assert.True(Guid.TryParse(submitted.RootElement.GetProperty("client_id").GetString(), out _));
         var free = handler.Requests.Single(request => request.Path == "/free");
         using var freeBody = JsonDocument.Parse(free.Body);
@@ -280,7 +282,7 @@ public sealed partial class AiTests
         Assert.Equal(8L << 30, benchmark.PeakTorchAllocatedBytes);
         Assert.True(benchmark.CacheClearConfirmed);
         using var workflow = JsonDocument.Parse(JsonSerializer.Serialize(monitor.Workflow));
-        Assert.Equal(256, workflow.RootElement.GetProperty("prompt").GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
+        Assert.Equal(2048, workflow.RootElement.GetProperty("prompt").GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
     }
 
     [Fact]
