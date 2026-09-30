@@ -366,7 +366,7 @@ else
         }
     </div>
 }
-<p class="field-hint">Saved visual descriptions are included when available. Turn image sending off to use a text-only model; all visual references then need saved descriptions. This affects only prompt assistance, not the references sent to video generation.</p>
+<p class="field-hint">Turn image sending off to use a text-only model; every reference then needs a saved visual description. This affects only prompt assistance, not the references sent to video generation.</p>
 @if (CompositionDescriptionIssue is { } descriptionIssue) { <p role="status">@descriptionIssue</p> }
 @if (_inspectCompositionImages && (ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a vision model, or turn off image sending and use saved descriptions.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
                         <Actions><MudButton Class="ai-assist-action" @ref="_composeButton" OnClick="ComposePrompt" Disabled="@(!CanCompose)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Revise with AI")</MudButton>@if (_compositionEnqueue is not null) { <button @onclick="RetryCompositionEnqueue">Retry saved request</button> }</Actions>

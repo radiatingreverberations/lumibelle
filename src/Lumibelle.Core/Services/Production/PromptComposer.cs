@@ -10,6 +10,9 @@ public sealed record PromptDraftRecovery(PromptCompositionResult Result, IReadOn
 
 public static class PromptComposer
 {
+    // Task data is read by the model, not by people: indentation only costs prompt tokens. Nulls stay, since some
+    // carry meaning (a video without an Audio input).
+    private static readonly JsonSerializerOptions Compact = new(AtomicJsonFile.Options) { WriteIndented = false };
     public const string BriefProfile = "h3-visual-brief-v1";
     /// <summary>Reply limit of the visual-brief step; a brief is a few hundred words.</summary>
     public const int BriefTokens = 1024;
@@ -64,7 +67,7 @@ public static class PromptComposer
             characterVoices = r.Shot.CharacterVoices?.Select(c => new { c.CharacterName, c.Source, c.SourceName, c.Speaker, c.FromDefault,
                 audio = ResolvedReferences.For(r.Shot).Audio.FirstOrDefault(a => a.CharacterAssetId == c.AssetId)?.Number }),
             voices = ResolvedReferences.For(r.Shot).Audio.Where(a => a.Voice is not null).Select(a => new { audio = a.Number, a.SourceName, a.Speaker, a.Voice!.Start, a.Voice.Duration })
-        }, AtomicJsonFile.Options));
+        }, Compact));
         foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
         foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
         var instructions = reader.ReadToEnd() + "\nBefore returning JSON, verify that all six headings are present exactly once and in order. " +
@@ -146,7 +149,7 @@ public static class PromptComposer
                 ownerType = p.Reel.OwnerCategory?.ToString(), authorProvidedUseGuidance = p.Reel.Description, p.Keyframe!.Crop, p.Keyframe.Notes }),
             refMods = selectedMods.Select(v => new { video = v.Number, v.Reel.Name, authorProvidedDescription = v.Reel.Description }),
             refModPreviewAttachments = modFrames.Select((f, i) => new { attachment = images.Count + i + 1, video = f.VideoNumber, frame = f.FrameNumber })
-        }, AtomicJsonFile.Options));
+        }, Compact));
         foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
         foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
         const string instructions = "You write a compact visual brief for a video-prompt writer who cannot see the images. " +

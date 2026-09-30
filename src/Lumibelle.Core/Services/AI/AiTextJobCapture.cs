@@ -76,7 +76,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         {
             InspectReferenceImages = inspectReferenceImages ? null : false,
             ReducedScriptContext = reducedScriptContext,
-            VisualDescriptions = descriptions.Any(d => !string.IsNullOrWhiteSpace(d.Text)) || !inspectReferenceImages ? descriptions : null
+            // Saved descriptions are the evidence only when no images are sent; next to the images or a visual brief they are redundant.
+            VisualDescriptions = inspectReferenceImages ? null : descriptions
         };
         var configured = Copy(await settings.LoadAsync(ct));
         var attached = inspectReferenceImages ? images.Select(i => i.Bytes).ToArray() : Array.Empty<byte[]>();

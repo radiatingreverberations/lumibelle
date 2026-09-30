@@ -24,7 +24,8 @@ public sealed class LiveTwoStepCompositionTests
         var ct = TestContext.Current.CancellationToken;
         using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "request.json"), ct));
         var original = saved.RootElement.GetProperty("request").Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
-        var composition = original.Payload<PromptCompositionRequest>();
+        // Captured as today: saved descriptions only accompany text-only compositions.
+        var composition = original.Payload<PromptCompositionRequest>() is var payload && payload.InspectReferenceImages == false ? payload : original.Payload<PromptCompositionRequest>() with { VisualDescriptions = null };
         var attached = original.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray();
         var pictures = attached.Take(composition.Images.Count).ToArray();
         var frames = ResolvedReferences.For(composition.Shot).Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.RefMod)
