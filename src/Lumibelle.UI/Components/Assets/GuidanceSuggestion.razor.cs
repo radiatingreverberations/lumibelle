@@ -41,16 +41,15 @@ public partial class GuidanceSuggestion
     private AiJobHeader? InspectionJob => Jobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.Guidance && j.Target.LockKey(j.Kind) == TargetKey && TextRequestPresentation.IsActive(j)) ?? _latest;
     private Guid? _appliedJob;
     private PromptEnhancementResult? _latestResult;
-    private TextRequestPresentation? GuidancePresentation => InspectionJob is { } job ? new(job, IsVisualDescription ? "Describing image…" : "Suggesting guidance…",
+    private TextRequestPresentation? GuidancePresentation => InspectionJob is { } job ? new(job, "Suggesting guidance…",
         _appliedJob == job.Id ? TextRequestOutcome.Resolved : _latestResult is { Kind: not PromptEnhancementKind.Prompt } ? TextRequestOutcome.Response : TextRequestOutcome.Proposal, AssistanceTitle) : null;
     private Task InspectGuidance() => InspectionJob is { } job ? Review(job) : Task.CompletedTask;
-    private bool IsVisualDescription => Context?.Target.Scope == GuidanceScope.ImageDescription;
-    private string AssistanceTitle => IsVisualDescription ? "Describe visual asset" : "Suggest guidance";
-    private string DescriptionField => IsVisualDescription ? "description" : "guidance";
+    private const string AssistanceTitle = "Suggest guidance";
+    private const string DescriptionField = "guidance";
     private bool _busy => _submitting || _active is not null;
     private static string Key(Guid asset, Guid image) => $"{asset}/{image}";
     private AssetImageReference? InspectionImage => Library.Assets.SelectMany(a => a.Images.Select(i => new AssetImageReference(a.Id, i.Id))).FirstOrDefault(i => Key(i.AssetId, i.ImageId) == _imageKey);
-    private string? VisionIssue => !_inspect ? IsVisualDescription ? "Describing an image requires inspection." : null
+    private string? VisionIssue => !_inspect ? null
         : _model is not { SupportsImages: true } || !TextVisionPolicy.SupportsBackend(_model.Model.Backend) ? TextVisionPolicy.SetupHint
         : InspectionImage is null ? "Choose an active image to inspect." : null;
     private bool CanStart => !Disabled && !_busy && !_applying && _savedChanges.Count == 0 && _pending is null && Context is not null && _model?.Ready == true && VisionIssue is null;
@@ -59,7 +58,7 @@ public partial class GuidanceSuggestion
     private IReadOnlyList<string> _savedChanges = [];
     private IReadOnlyList<string> Changes => _request is null || Context is null ? [] : [.. GuidanceAssistant.Changes(_request.Context, Context).Union(_savedChanges)];
     private AssistedInputsChangedException? Changed => Superseded is null && _error is null && _result?.Kind == PromptEnhancementKind.Prompt && Changes is { Count: > 0 } changes
-        ? new(changes, GuidanceAssistant.Subject(_request!.Context.Target.Scope), IsVisualDescription ? "this description" : "this suggestion") : null;
+        ? new(changes, GuidanceAssistant.Subject(_request!.Context.Target.Scope), "this suggestion") : null;
     // Applying anyway replaces the field as it is now, not the captured original.
     private bool ReplacesEdited => _request is not null && Context is not null && Context.Guidance != _request.Context.Guidance;
     // A newer suggestion for the same field supersedes this one, which is then never applied.
@@ -96,11 +95,6 @@ public partial class GuidanceSuggestion
     private void PrepareComposer()
     {
         _open = false; _savedChanges = []; _error = null;
-        if (IsVisualDescription && Context?.Target.ImageId is { } imageId)
-        {
-            _inspect = true;
-            _imageKey = Key(Context.Target.AssetId, imageId);
-        }
     }
     private async Task Start()
     {

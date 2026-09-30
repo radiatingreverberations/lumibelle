@@ -85,6 +85,27 @@ public sealed class AiTextRepairTests
         AiTextJobHandler.Read(header with { Id = Guid.NewGuid(), State = AiJobState.Waiting }, JsonSerializer.SerializeToElement(repair, AtomicJsonFile.Options));
     }
 
+    [Fact]
+    public void TextOnlyCompositionsCapturedBeforeTheirRemovalStillLoad()
+    {
+        var source = ShotRequest();
+        var payload = source.Payload<PromptCompositionRequest>();
+        var legacy = source with {
+            Task = JsonSerializer.SerializeToElement(payload with { InspectReferenceImages = false,
+                VisualDescriptions = [new("<Picture 1>", payload.Shot.Images[0].Id, "Face", "A face.", "Saved full-image visual description")] }, AtomicJsonFile.Options),
+            Messages = [new("user", [new(Text: "Compose from the saved descriptions.")])] };
+        var read = AiTextJobHandler.Read(Header(legacy), JsonSerializer.SerializeToElement(legacy, AtomicJsonFile.Options));
+        Assert.False(read.Payload<PromptCompositionRequest>().InspectReferenceImages);
+    }
+
+    [Fact]
+    public void NewImageDescriptionRequestsAreRefused()
+    {
+        var target = new GuidanceTarget(Guid.NewGuid(), Guid.NewGuid(), GuidanceScope.ImageDescription, ImageId: Guid.NewGuid());
+        var request = new GuidanceRequest(new(target, "Prop", AssetCategory.Prop, "", "Image", "", "", []), Model, new(target.AssetId, target.ImageId!.Value));
+        Assert.Throws<AiGenerationException>(() => GuidanceAssistant.BuildMessages(request, [1, 2, 3]));
+    }
+
     [Theory]
     [InlineData("image")][InlineData("message")][InlineData("raw")][InlineData("contract")][InlineData("source-id")][InlineData("version")][InlineData("marker")]
     public void TamperedRepairCannotBypassTheOriginalImageContract(string tamper)

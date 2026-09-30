@@ -15,12 +15,6 @@ public partial class AssetsStudio
     private string AssetCategoryFilterLabel => _categoryFilter is { } category ? $"Filter assets: {CategoryName(category)}" : "Filter assets";
     private MudBlazor.MudMenu? _assetCategoryMenu;
     private bool _assetCategoryMenuOpen;
-    private bool _showMissingDescriptions;
-    private async Task ToggleDescriptionBadges()
-    {
-        _showMissingDescriptions = !_showMissingDescriptions;
-        await Remember(Id, "assets", "showMissingDescriptions", _showMissingDescriptions);
-    }
     private async Task SetAssetCategory(AssetCategory? category) { _categoryFilter = category; await CloseAssetCategoryMenu(); await RememberAssetPosition(); }
     private async Task CloseAssetCategoryMenu()
     {

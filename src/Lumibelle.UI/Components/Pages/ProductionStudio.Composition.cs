@@ -29,7 +29,6 @@ public partial class ProductionStudio
     private TextModelSelectionState? _compositionModel;
     private bool _compositionBusy;
     // Request-local choice. A queued request freezes this; generation references never change.
-    private bool _inspectCompositionImages = true;
     // Request-local: scene text and neighbouring shots are the part of the prompt that can be dropped safely.
     private bool _fullCompositionContext = true;
     // The last size estimate of the composition request, per step; cleared when the model changes.
@@ -51,7 +50,7 @@ public partial class ProductionStudio
         try
         {
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
-                _lifetime.Token, inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
+                _lifetime.Token, reducedScriptContext: !_fullCompositionContext);
             var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
             _compositionStages = ComfyTextCapacity.Assess(request);
             _compositionSizeModel = TextModelPolicy.DisplayName(request.Model, request.Settings);
@@ -62,8 +61,6 @@ public partial class ProductionStudio
         { _compositionStages = null; _compositionSizeError = "The size cannot be estimated right now: " + e.Message; }
         finally { _compositionSizeBusy = false; }
     }
-    private string? CompositionDescriptionIssue => !_inspectCompositionImages && Selected is { } shot
-        ? CompositionDescriptions.MissingIssue(shot, _assets) : null;
     private string? _compositionError;
     private string? _compositionApplyError;
     private string _compositionRaw = "";
@@ -107,8 +104,8 @@ public partial class ProductionStudio
         finally { _compositionBusy = false; }
     }
     private bool CanCompose => Current is { Archived: false } && !_compositionBusy && _compositionEnqueue is null &&
-        _compositionModel?.Ready == true && CompositionDescriptionIssue is null &&
-        (!_inspectCompositionImages || (Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages) &&
+        _compositionModel?.Ready == true &&
+        ((Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages) &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == Current.ShotId && j.LocksTarget);
     private bool CanClearPrompt => Current is { Archived: false } c && !_compositionBusy && _compositionEnqueue is null &&
         (c.Prompt.Length > 0 || c.RevisionNotes.Length > 0 || c.ReferenceUsage.Length > 0 || c.ReviewJobId is not null) &&
@@ -137,7 +134,7 @@ public partial class ProductionStudio
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
             _compositionEnqueue = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
-                inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
+                reducedScriptContext: !_fullCompositionContext);
             _compositionEnqueue = _compositionAssist.Attribute(_compositionEnqueue);
             EditComposition(d => d.ReviewJobId = id);
             if (!await Save()) return;

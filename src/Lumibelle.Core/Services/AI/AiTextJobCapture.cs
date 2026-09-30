@@ -23,7 +23,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
     public async Task<AiJobSubmission> ComposeAsync(Guid id, Guid tab, Guid projectId, Guid compositionId, long version,
-        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool inspectReferenceImages = true, bool reducedScriptContext = false)
+        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool reducedScriptContext = false)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -35,13 +35,9 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         H3Policy.Validate(effective, true);
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(projectId, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
-        var descriptions = CompositionDescriptions.Capture(effective, library);
-        if (!inspectReferenceImages && CompositionDescriptions.MissingIssue(effective, library) is { } descriptionIssue)
-            throw new AiGenerationException(descriptionIssue);
-        if (inspectReferenceImages && (ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective)) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
-        // Retain media identities for validation and generation; only the LLM attachments are optional.
+        if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective)) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
         var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3);
-        var modFrames = inspectReferenceImages && ReelRefMods.Uses(effective)
+        var modFrames = ReelRefMods.Uses(effective)
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)
             : Array.Empty<RefModInspectionFrame>();
         var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
@@ -74,13 +70,10 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
-            InspectReferenceImages = inspectReferenceImages ? null : false,
-            ReducedScriptContext = reducedScriptContext,
-            // Saved descriptions are the evidence only when no images are sent; next to the images or a visual brief they are redundant.
-            VisualDescriptions = inspectReferenceImages ? null : descriptions
+            ReducedScriptContext = reducedScriptContext
         };
         var configured = Copy(await settings.LoadAsync(ct));
-        var attached = inspectReferenceImages ? images.Select(i => i.Bytes).ToArray() : Array.Empty<byte[]>();
+        var attached = images.Select(i => i.Bytes).ToArray();
         var target = new AiJobTarget(projectId, ShotId: shot.Id, CompositionId: c.Id);
         var label = shot.Title + " · " + c.Name + " · Compose prompt";
         if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0)
@@ -154,7 +147,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     public async Task<AiJobSubmission> GuidanceAsync(Guid id, Guid tab, GuidanceRequest request, CancellationToken ct = default)
     {
         request = Copy(request); var configured = Copy(await settings.LoadAsync(ct)); var target = request.Context.Target;
-        VisualDescriptionAssistance.ValidateTarget(request);
+        GuidanceAssistant.ValidateScope(request);
         var baseline = (await guidance.ReadTargetAsync(target, ct)).Fingerprint();
         byte[]? image = null;
         if (request.InspectionImage is { } reference)
@@ -164,7 +157,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         }
         return await BuildAsync(id, tab, AiJobKind.Guidance, new(target.ProjectId, target.AssetId, GuidanceScope: target.Scope, LookId: target.LookId, ImageId: target.ImageId),
             request.Context.AssetName + " · " + request.Context.Label, request, request.Model, request.FollowsDefault, configured,
-            target.Scope == GuidanceScope.ImageDescription ? VisualDescriptionAssistance.Profile : GuidanceAssistant.Profile,
+            GuidanceAssistant.Profile,
             GuidanceAssistant.BuildMessages(request, image), configured.Temperature, baseline, ct);
     }
     private async Task<byte[]> PrepareImageAsync(Guid project, AssetImageReference reference, ImageCropRegion? crop, CancellationToken ct)

@@ -50,7 +50,7 @@ public static class ProductionPolicy
             : shot.Videos.Count == 0 ? ReferenceSetups.Hash(context) : ReferenceSetups.Hash(new { Context = context, shot.Videos });
         // Shot LoRAs join the context only when chosen, so prompts reviewed before they existed keep their fingerprint.
         if (shot.ShotLoras is { Count: > 0 } own) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ShotLoras = own });
-        return CompositionDescriptions.Fingerprint(fingerprint, shot, assets);
+        return fingerprint;
     }
     // What changed since a composition request, in the author's terms, so a changed
     // response can be applied knowingly instead of silently refused.

@@ -118,8 +118,8 @@ public sealed record AssetImage
     public AssetImageSource? Source { get; init; }
     public Guid? LookId { get; init; }
     public string PreservationGuidance { get; init; } = "";
-    // Observations about this exact image, separate from instructions about what to preserve.
-    // Omit absent descriptions so legacy snapshots and fingerprints remain unchanged.
+    // Retired: descriptions for text-only composition. Nothing reads or edits it; it is kept so saved images and
+    // captured snapshots that have one keep their exact serialized form. Absent descriptions are omitted.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? VisualDescription { get; init; }
     public required Guid Id { get; init; }

@@ -78,11 +78,6 @@ else
                     </div>
                 </div>
                 <div class="asset-reference-heading"><h2>References <small>@AllGalleryItems.Count()</small></h2><div class="asset-gallery-actions">@if (headerAsset.Category == AssetCategory.Character) { <button class="asset-group-toggle" aria-pressed="@(GalleryGrouped ? "true" : "false")" @onclick="ToggleGalleryGrouping">Group by look</button> }<MudButton OnClick="OpenAssetDetails" Size="Size.Small" aria-label="Edit asset details">Edit details</MudButton>
-                    <MudMenu Icon="@Icons.Material.Outlined.Tune" AriaLabel="Gallery options" title="Gallery options" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                        <MudMenuItem role="menuitemcheckbox" aria-label="Highlight missing descriptions" aria-checked="@(_showMissingDescriptions ? "true" : "false")" OnClick="ToggleDescriptionBadges">
-                            <span class="asset-gallery-option"><span aria-hidden="true">@(_showMissingDescriptions ? "✓" : "")</span><span>Highlight missing descriptions<small>Optional reminders when using saved descriptions for prompts.</small></span></span>
-                        </MudMenuItem>
-                    </MudMenu>
                 </div></div>
                 <div class="asset-gallery-toolbar">
                     <label>Show<select aria-label="Filter media" @bind="_presentation.Filter" @bind:after="RememberAssetPosition"><option>All</option><option>Images</option>@if (ReferenceReels.Supports(headerAsset.Category)) { <option>Reels</option> }@if (headerAsset.Category == AssetCategory.Character) { <option>Voices</option> }</select></label>
@@ -133,10 +128,6 @@ else
                                 <span id="@mediaLabelId" class="sr-only">@mediaLabel</span>
                             </span>
                         </button>
-                        @if (_showMissingDescriptions && item.Image is { } describedImage && string.IsNullOrWhiteSpace(describedImage.VisualDescription))
-                        {
-                            <button type="button" class="image-description-needed" aria-label="Add text description for @item.Name" title="Missing text description · Click to add" @onclick="() => OpenDescription(describedImage.Id)"><span aria-hidden="true">!</span></button>
-                        }
                         <div class="reference-card-body">
                             <button class="media-select" aria-pressed="@(selected ? "true" : "false")" aria-label="Select @item.Key.Kind @item.Name" title="@item.Name" @onclick="() => SelectMedia(item.Key)"></button>
                             <div class="media-card-heading">
@@ -467,7 +458,7 @@ else
 </InlineDialog>
 @if (_review is not null && _library is not null)
 {
-    <ImageReviewDialog @key="_review.Id" Session="_review" Library="_library" RegionalSaved="RegionalImageSaved" InitialSelection="_reviewInitial" Visible="_reviewOpen" OpenDetails="_openImageDetails" OpenDescription="_openImageDescription" ApplyDetails="ApplyImageDetails" DetailsDirtyChanged="v => _imageDetailsDirty = v" RequestedGuidanceId="_requestedGuidanceId"
+    <ImageReviewDialog @key="_review.Id" Session="_review" Library="_library" RegionalSaved="RegionalImageSaved" InitialSelection="_reviewInitial" Visible="_reviewOpen" OpenDetails="_openImageDetails" ApplyDetails="ApplyImageDetails" DetailsDirtyChanged="v => _imageDetailsDirty = v" RequestedGuidanceId="_requestedGuidanceId"
         Generating="_generating" Closed="ClosePreview" EditRequested="StartEdit" Discard="DiscardReviewTakeAsync" Restore="RestoreReviewedAsync" CancelRequested="CancelReviewGeneration"
         Queue="AiJobs.View" JobProgress="@(_review.Job is { } reviewJob ? AiJobs.Progress(reviewJob.Id) : null)" RetryOutput="RetryImageOutputAsync" RequestError="@_imageReviewError"
         OneMore="@(_review.IsBatch && _review.Job is not null ? EventCallback.Factory.Create(this, AddOneMoreTake) : default(EventCallback))" OneMoreUnavailable="@OneMoreTakeUnavailable" OneMoreLabel="Generate more…" />
@@ -961,7 +952,6 @@ else
             _selectedAssetId = _library.Assets.FirstOrDefault(a => a.Id == (RequestedAssetId ?? remembered))?.Id ?? _library.Assets.FirstOrDefault()?.Id;
             _search = Place(Id, "assets", "search", ""); _categoryFilter = Place<AssetCategory?>(Id, "assets", "category");
             _ignoreExtractionReminders = Place(Id, "assets", "ignoreExtractionReminders", false);
-            _showMissingDescriptions = Place(Id, "assets", "showMissingDescriptions", false);
             if (RequestedAssetId is not null || RequestedJobId is not null) { _search = ""; _categoryFilter = null; }
             var savedPresentations = Place<Dictionary<Guid, AssetsPresentation>>(Id, "assets", "presentations", []);
             foreach (var item in savedPresentations.Where(p => p.Value is not null && _library.Assets.Any(a => a.Id == p.Key))) {
@@ -1183,10 +1173,10 @@ else
         ClearTrashNotification();
         if (SelectedAsset is not { } asset) return;
         var reference = new AssetImageReference(asset.Id, imageId);
-        if (!_openImageDescription && _latestEditBatch is { } batch && batch.AssetId == asset.Id && batch.Entries.Any(e => e.Reference == reference))
+        if (_latestEditBatch is { } batch && batch.AssetId == asset.Id && batch.Entries.Any(e => e.Reference == reference))
         { await OpenImageBatchAsync(batch, reference); return; }
         if (asset.Images.FirstOrDefault(i => i.Id == imageId) is not { } image) return;
-        if (!_openImageDescription && image.Generation?.BatchId is { } root && AiJobs.View.Jobs.Any(j => j.Id == root && j.Target.ProjectId == Id && j.Target.AssetId == asset.Id))
+        if (image.Generation?.BatchId is { } root && AiJobs.View.Jobs.Any(j => j.Id == root && j.Target.ProjectId == Id && j.Target.AssetId == asset.Id))
         {
             _requestedImageRoot = root; await RefreshImageJobsAsync();
             if (_imageSessions.TryGetValue(root, out var savedBatch)) { await OpenImageBatchAsync(savedBatch, reference); return; }
@@ -1211,7 +1201,7 @@ else
         if (_latestEditBatch is not { } batch || batch.AssetId != _selectedAssetId) return;
         await OpenImageBatchAsync(batch);
     }
-    private async Task ClosePreview() { _openImageDetails = false; _openImageDescription = false; _imageDetailsDirty = false; _reviewOpen = false; _reviewInitial = null; if (_imageReviewOwner is { } owner) { _imageReviewOwner = null; await AiReviews.CloseAsync(owner); } }
+    private async Task ClosePreview() { _openImageDetails = false; _imageDetailsDirty = false; _reviewOpen = false; _reviewInitial = null; if (_imageReviewOwner is { } owner) { _imageReviewOwner = null; await AiReviews.CloseAsync(owner); } }
     private static void KeepPreviewOpen() { }
 
     private async Task<ImageReviewDiscardResult> DiscardReviewTakeAsync(Guid imageId)

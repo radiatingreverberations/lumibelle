@@ -33,10 +33,10 @@ public static class AssetPickCatalog
                 candidates.Add(new() {
                     Id = Id("image", image.Id), Kind = "Image", AssetId = asset.Id, SourceId = image.Id,
                     Name = image.Name ?? "Reference image", LookId = image.LookId,
-                    Description = image.VisualDescription ?? "", Guidance = image.PreservationGuidance,
+                    Description = "", Guidance = image.PreservationGuidance,
                     Tags = image.Tags.ToArray(), Approved = image.IsReference, Cover = image.IsCover,
                     SourceFingerprint = Hash(new { image.Id, image.FileName, image.ContentType, image.Width, image.Height,
-                        image.CreatedUtc, image.LookId, image.VisualDescription, image.PreservationGuidance, image.Tags,
+                        image.CreatedUtc, image.LookId, image.PreservationGuidance, image.Tags,
                         image.IsReference, image.IsCover })
                 });
             }

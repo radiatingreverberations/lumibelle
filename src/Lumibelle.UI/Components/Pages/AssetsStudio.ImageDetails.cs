@@ -7,7 +7,7 @@ namespace lumibelle.Components.Pages;
 
 public partial class AssetsStudio
 {
-    private bool _imageDetailsDirty, _openImageDetails, _openImageDescription;
+    private bool _imageDetailsDirty, _openImageDetails;
     private string? _pendingCenterTab;
     private bool _projectPickerOpen;
     private void AddProjectReferences(IReadOnlyList<AssetImageReference> references)
@@ -19,7 +19,6 @@ public partial class AssetsStudio
     [Parameter] public string? RequestedView { get; set; }
 
     private async Task OpenDetails(Guid imageId) { _openImageDetails = true; await OpenPreview(imageId); }
-    private async Task OpenDescription(Guid imageId) { _openImageDescription = true; await OpenPreview(imageId); }
     private async Task<string?> ApplyImageDetails(ImageMetadataEdit edit)
     {
         if (edit.ProjectId != Id) return "This project is no longer open. Your details were not changed.";

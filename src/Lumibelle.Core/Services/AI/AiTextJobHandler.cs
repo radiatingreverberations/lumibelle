@@ -294,10 +294,6 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         if (imageCount != expectedImages || imageCount > 0 && !TextVisionPolicy.SupportsBackend(job.Backend))
             throw new WorkspaceStoreException("Inspection image content does not match the captured request.");
         ComfyTextVision.ValidateSnapshot(request);
-        if (request.Repair is null && request.Kind == AiJobKind.PromptComposition)
-            CompositionDescriptions.Validate(request.Payload<PromptCompositionRequest>());
-        if (request.Repair is null && request.Kind == AiJobKind.Guidance)
-            VisualDescriptionAssistance.ValidateTarget(request.Payload<GuidanceRequest>());
         return request;
     }
     private static int RefModFrameCount(AiTextJobRequest request) => (request.Kind switch {

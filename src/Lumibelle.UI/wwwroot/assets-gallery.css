@@ -33,9 +33,6 @@
 .asset-reference-heading h2 { margin:0; font-size:var(--lumi-font-size-meta); font-weight:650; }
 .asset-reference-heading h2 small { margin-left:4px; font-weight:400; color:var(--muted); }
 .asset-gallery-actions { display:flex; align-items:center; gap:6px; }
-.asset-gallery-option { display:grid; grid-template-columns:16px minmax(0,240px); align-items:start; gap:8px; font-size:var(--lumi-font-size-meta); white-space:normal; }
-.asset-gallery-option > span:first-child { display:grid; place-items:center; height:16px; margin-top:2px; border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-small); color:var(--plum); line-height:1; }
-.asset-gallery-option small { display:block; margin-top:4px; color:var(--muted); font-size:var(--lumi-font-size-small); line-height:1.5; }
 .asset-group-toggle { padding:5px 8px; min-height:32px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--muted); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; }
 .asset-group-toggle[aria-pressed=true] { background:var(--lumi-surface-selected); color:var(--plum); border-color:var(--lumi-accent); }
 .asset-gallery-groups { display:flex; flex-direction:column; gap:16px; }
@@ -105,10 +102,6 @@
 .asset-import-menu button { text-align:left; background: transparent; border: 0; color: var(--plum); padding:6px; }
 .asset-media-gallery { grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; padding:4px; }
 .asset-media-card { position:relative; }
-.asset-media-card .image-description-needed { position:absolute; top:8px; right:8px; z-index:2; display:grid; place-items:center; width:28px; height:28px; min-height:28px; padding:0; border:1px solid var(--lumi-warning-border); border-radius:50%; background:var(--lumi-warning-surface); color:var(--lumi-warning); font:700 15px/1 var(--lumi-font-ui); cursor:pointer; }
-.asset-media-card .image-description-needed:hover { box-shadow:0 0 0 2px var(--lumi-warning-surface); }
-.asset-media-card .image-description-needed:focus-visible { outline:2px solid var(--lumi-warning); outline-offset:2px; }
-@media (pointer:coarse) { .asset-media-card .image-description-needed { width:44px; height:44px; min-height:44px; } }
 .reference-card.asset-media-card.selected { outline: none; border-color: var(--plum); }
 .asset-media-card.selected::after { content:""; position:absolute; inset:0; border: 2px solid var(--plum); border-radius: inherit; pointer-events:none; z-index:3; }
 .asset-media-card .media-preview { display:block; width:100%; aspect-ratio:4/3; }

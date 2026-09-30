@@ -49,7 +49,7 @@ public sealed class GuidanceAssistant(IAiProviderRegistry providers, IAiSettings
     public async IAsyncEnumerable<PromptEnhancementUpdate> SuggestAsync(GuidanceRequest request, [EnumeratorCancellation] CancellationToken ct = default)
     {
         request = request with { Context = request.Context.Capture() };
-        VisualDescriptionAssistance.ValidateTarget(request);
+        ValidateScope(request);
         TextModelPolicy.Validate(request.Model);
         var settings = await settingsStore.LoadAsync(ct);
         settings = ComfyTextSettings.Capture(request.Model, settings);
@@ -88,11 +88,14 @@ public sealed class GuidanceAssistant(IAiProviderRegistry providers, IAiSettings
         var error = result is null || result.Text.Length > 12000 ? "No complete guidance suggestion was returned. Inspect the response and retry; your guidance is unchanged." : null;
         yield return new(Result: error is null ? result : null, Error: error, Complete: true);
     }
+    // Image descriptions for text-only composition were removed; the scope remains only so earlier requests still load.
+    public static void ValidateScope(GuidanceRequest request)
+    {
+        if (request.Context.Target.Scope == GuidanceScope.ImageDescription) throw new AiGenerationException("Describing images for text-only composition was removed. Compose with a model that can inspect images.");
+    }
     public static List<ChatMessage> BuildMessages(GuidanceRequest request, byte[]? image)
     {
-        VisualDescriptionAssistance.ValidateTarget(request);
-        if (request.Context.Target.Scope == GuidanceScope.ImageDescription)
-            return VisualDescriptionAssistance.BuildMessages(request, image);
+        ValidateScope(request);
         if ((request.InspectionImage is null) != (image is null)) throw new AiGenerationException("The inspection image does not match the request.");
         var scope = request.Context.Target.Scope switch
         {

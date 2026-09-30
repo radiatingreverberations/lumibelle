@@ -380,13 +380,13 @@ public sealed class ComfyTextVisionTests
     private static (AiJobHeader Header, AiTextJobRequest Request) DescriptionRequest(AiSettings settings, byte[] png)
     {
         var project = Guid.NewGuid(); var asset = Guid.NewGuid(); var image = Guid.NewGuid();
-        var target = new GuidanceTarget(project, asset, GuidanceScope.ImageDescription, ImageId: image);
+        var target = new GuidanceTarget(project, asset, GuidanceScope.Image, ImageId: image);
         var context = new GuidanceContext(target, "Prop", AssetCategory.Prop, "", "Image", "", "", []);
         var payload = new GuidanceRequest(context, Model, new(asset, image));
         var header = new AiJobHeader { Id = Guid.NewGuid(), Kind = AiJobKind.Guidance, Backend = AiBackend.ComfyUI,
-            Target = new(project, asset, GuidanceScope: GuidanceScope.ImageDescription, ImageId: image), ProjectName = "Project", TargetName = "Image", OriginTabId = Guid.NewGuid(), RequestFingerprint = "test" };
-        var request = new AiTextJobRequest(2, AiJobKind.Guidance, Model, false, settings, VisualDescriptionAssistance.Profile, .7f, 123,
-            JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), VisualDescriptionAssistance.BuildMessages(payload, png).Select(AiTextMessage.Capture).ToArray());
+            Target = new(project, asset, GuidanceScope: GuidanceScope.Image, ImageId: image), ProjectName = "Project", TargetName = "Image", OriginTabId = Guid.NewGuid(), RequestFingerprint = "test" };
+        var request = new AiTextJobRequest(2, AiJobKind.Guidance, Model, false, settings, GuidanceAssistant.Profile, .7f, 123,
+            JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), GuidanceAssistant.BuildMessages(payload, png).Select(AiTextMessage.Capture).ToArray());
         return (header, request);
     }
 

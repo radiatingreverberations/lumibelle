@@ -179,17 +179,6 @@ else
                 }
                 @if (_detailsOpen && _details is { } guidanceDetails)
                 {
-                    <details class="media-details-disclosure" open="@(OpenDescription || RequestedGuidanceId is not null)">
-                        <summary>Visual description</summary>
-                        <fieldset class="media-details-editor" disabled="@(_busy || !DetailsAvailable)">
-                            <label>Visual description <span class="field-hint">(optional)</span><textarea aria-label="Visual description" rows="10" maxlength="12000" @bind:get="guidanceDetails.Value.VisualDescription" @bind:set="value => ChangeDetails(current => current with { VisualDescription = value })" @bind:event="oninput"></textarea></label>
-                            <p class="field-hint">Describe what this exact image shows: identity, outfit, materials, props, setting and visible details. Write it yourself or use AI assistance. Save image details to make it available to shot prompt composition. This describes the full image, not a later shot-specific crop.</p>
-                        </fieldset>
-                        @if (DetailsAvailable && DetailsAsset is { } descriptionAsset && GuidanceContext.From(new(Session.ProjectId, descriptionAsset.Id, GuidanceScope.ImageDescription, ImageId: guidanceDetails.Reference.ImageId), descriptionAsset) is { } descriptionContext)
-                        {
-                            <GuidanceSuggestion @key="(guidanceDetails.Reference, GuidanceScope.ImageDescription)" Embedded="true" Context="@(descriptionContext with { Guidance = guidanceDetails.Value.VisualDescription })" Library="Library" Disabled="_busy" RequestedJobId="RequestedGuidanceId" Apply="value => ChangeDetails(current => current with { VisualDescription = value })" />
-                        }
-                    </details>
                     <details class="media-details-disclosure" open="@(RequestedGuidanceId is not null)">
                         <summary>Use guidance</summary>
                         <fieldset class="media-details-editor" disabled="@(_busy || !DetailsAvailable)">
@@ -289,7 +278,6 @@ else
             _sideBySide = _useCrop = false; _error = null;
             _primary = InitialSelection ?? VisibleEntries.FirstOrDefault(e => e.IsTake)?.Reference ?? VisibleEntries.FirstOrDefault()?.Reference;
             BeginDetails(focusName: OpenDetails);
-            if (OpenDescription) _focusAfterRender = "Visual description";
         }
         else if (Primary is null && _primary is not null)
         {

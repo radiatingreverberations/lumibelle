@@ -363,7 +363,6 @@ else
                     <div @ref="_compositionReviewOrigin"><TextAssistance Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
                         <ExtraActions><button disabled="@(!CanClearPrompt)" title="Clear the prompt. References, settings, and Direction for AI stay." @onclick="ClearPrompt">Clear prompt</button></ExtraActions>
                         <ChildContent><p class="field-hint">@shot.Title</p>                    <label>Direction for AI<textarea rows="2" maxlength="20000" placeholder="For example: stay closer on her face, then reveal the monitor." @bind:get="composition.DirectingNotes" @bind:set="value => EditComposition(c => c.DirectingNotes = value ?? string.Empty)" @bind:event="oninput"></textarea></label>
-<label class="check-row"><input type="checkbox" @bind="_inspectCompositionImages" @bind:after="RefreshCompositionSize" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)" />Send reference images to the prompt-writing model</label>
 <label class="check-row"><input type="checkbox" @bind="_fullCompositionContext" @bind:after="RefreshCompositionSize" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)" />Include scene text and neighbouring shots</label>
 @if (_compositionModel?.Model.Backend == AiBackend.ComfyUI)
 {
@@ -389,9 +388,7 @@ else
         }
     </div>
 }
-<p class="field-hint">Turn image sending off to use a text-only model; every reference then needs a saved visual description. This affects only prompt assistance, not the references sent to video generation.</p>
-@if (CompositionDescriptionIssue is { } descriptionIssue) { <p role="status">@descriptionIssue</p> }
-@if (_inspectCompositionImages && (ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a vision model, or turn off image sending and use saved descriptions.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
+@if ((ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a model that can inspect images.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
                         <Actions><MudButton Class="ai-assist-action" @ref="_composeButton" OnClick="ComposePrompt" Disabled="@(!CanCompose)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Revise with AI")</MudButton>@if (_compositionEnqueue is not null) { <button @onclick="RetryCompositionEnqueue">Retry saved request</button> }</Actions>
                     </TextAssistance></div>
                     </ToolbarActions></PromptEditor>

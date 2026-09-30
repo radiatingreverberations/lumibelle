@@ -29,9 +29,7 @@ public static class PromptComposer
     public static List<ChatMessage> BuildMessages(PromptCompositionRequest r, IReadOnlyList<byte[]> images, IReadOnlyList<RefModInspectionFrame>? modFrames = null,
         bool visualBrief = false)
     {
-        CompositionDescriptions.Validate(r);
-        var inspectImages = r.InspectReferenceImages != false;
-        var attach = inspectImages && !visualBrief;
+        var attach = !visualBrief;
         modFrames ??= [];
         if (r.Images.Count != ResolvedReferences.For(r.Shot).Pictures.Count || images.Count != (attach ? r.Images.Count : 0))
             throw new WorkspaceStoreException("The inspection images do not match the selected references.");
@@ -51,7 +49,6 @@ public static class PromptComposer
                 mustOpenDifferentlyFromPrevious = true },
             r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.Appearances,
             referenceImagesAttached = images.Count > 0 || modFrames.Count > 0,
-            visualDescriptions = r.VisualDescriptions,
             references = r.Shot.Images.Select((b, i) => new { picture = i + 1, b.Name, b.AiUseHint, b.Crop, purpose = b.Purpose?.ToString(), use = b.Use?.ToString(),
                 guidance = r.Guidance.Single(g => g.BindingId == b.Id).Effective }),
             reelKeyframes = ResolvedReferences.For(r.Shot).Pictures.Where(p => p.Keyframe is not null).Select(p => new { picture = p.Number, reel = p.Reel!.Name,
@@ -87,9 +84,7 @@ public static class PromptComposer
             "Audio remains an independent numbered input. Do not infer voice or target dialogue from these silent previews. State only observed visual detail, not a claim to have watched a video. " +
             "The padded canvas previews are the original build inputs, not a fresh inspection of the remote latent. Do not describe the padding as part of the retained appearance.";
         if (!string.IsNullOrWhiteSpace(r.CurrentPrompt)) instructions += ValidLabels(r.Shot);
-        if (r.VisualDescriptions is not null) instructions += CompositionDescriptions.Instructions;
-        if (!inspectImages) instructions += CompositionDescriptions.TextOnlyInstructions;
-        if (visualBrief && inspectImages) instructions += "\nREFERENCE INPUT MODE: VISUAL BRIEF. The reference images and RefMod previews were inspected by a first step, " +
+        if (visualBrief) instructions += "\nREFERENCE INPUT MODE: VISUAL BRIEF. The reference images and RefMod previews were inspected by a first step, " +
             "which wrote the visual brief at the end of the user message; no images are attached to this request, and that is expected, not missing input. " +
             "Any earlier profile wording asking you to inspect attached references is superseded by this input-mode statement. " +
             "Use the brief as the visual evidence for each <Picture N> and <Video N> label: keep those labels exactly and do not add visual details it does not state. " +

@@ -3,19 +3,15 @@
 <div class="guidance-assistance" @ref="_origin">
     <TextAssistance Request="GuidancePresentation" Preparing="_submitting" HasError="@(_pending is not null)" ReviewRequested="InspectGuidance" CancelRequested="CancelRequest" @ref="_assist" ProjectId="@(Context?.Target.ProjectId ?? Guid.Empty)" Studio="TextAssistantStudio.PromptEnhancement" Title="@AssistanceTitle" Disabled="@(Disabled || Context is null)" ModelLocked="@(_busy || _applying)" SelectionChanged="ModelChanged" Opened="PrepareComposer">
         <ChildContent><p class="field-hint">@Context?.AssetName · @Context?.Label</p>
-        @if (IsVisualDescription)
-        {
-            <p class="field-hint">Inspect this image with a vision model to draft a detailed description. Review and edit it before saving. You can also write the description yourself in image details.</p>
-        }
-        else { <label class="inspection-toggle"><input type="checkbox" @bind="_inspect" disabled="@(_busy || _applying)" /> Inspect an image</label> }
+        <label class="inspection-toggle"><input type="checkbox" @bind="_inspect" disabled="@(_busy || _applying)" /> Inspect an image</label>
         @if (_inspect)
         {
-            <label>Image to inspect<select @bind="_imageKey" disabled="@(_busy || _applying || IsVisualDescription)"><option value="">Choose an active image…</option>@foreach (var asset in Library.Assets) { <optgroup label="@asset.Name">@foreach (var image in asset.Images) { <option value="@Key(asset.Id, image.Id)">@(image.Name ?? string.Join(", ", image.Tags)) · @(asset.Looks.FirstOrDefault(l => l.Id == image.LookId)?.Name ?? "General") · @image.Id.ToString()[..8]</option> }</optgroup> }</select></label>
+            <label>Image to inspect<select @bind="_imageKey" disabled="@(_busy || _applying)"><option value="">Choose an active image…</option>@foreach (var asset in Library.Assets) { <optgroup label="@asset.Name">@foreach (var image in asset.Images) { <option value="@Key(asset.Id, image.Id)">@(image.Name ?? string.Join(", ", image.Tags)) · @(asset.Looks.FirstOrDefault(l => l.Id == image.LookId)?.Name ?? "General") · @image.Id.ToString()[..8]</option> }</optgroup> }</select></label>
             <p class="field-hint">Sends only this explicitly selected image to @_model?.Model.Name through @_model?.Model.Backend. Its original remains unchanged.</p>
             @if (VisionIssue is { } issue) { <p role="status" class="field-error">@issue</p> }
         }
 @if (_error is not null) { <p role="alert">@_error</p> }</ChildContent>
-        <Actions><MudButton Class="ai-assist-action" OnClick="Start" Disabled="@(!CanStart)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />@(IsVisualDescription ? "Describe image" : "Suggest")</MudButton>@if (_pending is not null) { <MudButton OnClick="RetryEnqueue" Disabled="_submitting">Retry saving request</MudButton> }</Actions>
+        <Actions><MudButton Class="ai-assist-action" OnClick="Start" Disabled="@(!CanStart)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Suggest</MudButton>@if (_pending is not null) { <MudButton OnClick="RetryEnqueue" Disabled="_submitting">Retry saving request</MudButton> }</Actions>
     </TextAssistance>
     @if (_inlineError is not null) { <p role="alert" class="field-error">@_inlineError</p> }
 </div>
@@ -33,7 +29,7 @@ else
 }
 @code {
     private RenderFragment ReviewContent => @<div>
-        <p class="field-hint">@(IsVisualDescription ? "A text substitute for inspecting this image during shot composition. Check visual details, omissions and uncertainty before applying." : "Prompt instructions for Shots, not guaranteed constraints. Review and edit the suggestion before applying it to this field.")</p>
+        <p class="field-hint">Prompt instructions for Shots, not guaranteed constraints. Review and edit the suggestion before applying it to this field.</p>
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedResultJob is { } read && read.Id == _job?.Id ? new[] { read } : [])" />
         @if (_job is { } job) { <lumibelle.Components.AI.AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }
         @if (_submitting) { <p role="status">Saving guidance request…</p> }
@@ -45,7 +41,7 @@ else
             @if (_result is { Kind: not PromptEnhancementKind.Prompt } result) { <p role="status">@result.Text</p> }
             @if (Superseded is { } superseded) { <p class="field-hint" role="status">@superseded</p> }
             @if (_savedChanges.Count > 0) { <p class="field-hint">Close this dialog and reload Assets to use the current saved notes.</p> }
-            @if (_raw.Length > 0) { <details><summary>Response details · @(IsVisualDescription ? VisualDescriptionAssistance.Profile : GuidanceAssistant.Profile)</summary><pre>@_raw</pre></details> }
+            @if (_raw.Length > 0) { <details><summary>Response details · @GuidanceAssistant.Profile</summary><pre>@_raw</pre></details> }
         }
         @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }
     </div>;

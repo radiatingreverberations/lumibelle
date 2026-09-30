@@ -71,7 +71,7 @@ public partial class AssetsStudio
         if (_imageReviewOwner is { } owner) await AiReviews.CloseAsync(owner);
         if (_imageOriginJob is { } origin) await AiReviews.CloseAsync(origin);
         _imageReviewOwner = _imageOriginJob = _requestedImageJob = _imageSubmittingAsset = null;
-        _reviewOpen = false; _imageDetailsDirty = false; _openImageDetails = false; _openImageDescription = false; _projectPickerOpen = false; _review = _latestEditBatch = null; _savedLibrary = null;
+        _reviewOpen = false; _imageDetailsDirty = false; _openImageDetails = false; _projectPickerOpen = false; _review = _latestEditBatch = null; _savedLibrary = null;
         _moveSource = null; _moveImages = []; _focusMovedEdit = false;
         _imageRequests.Clear(); _imageSessions.Clear(); _imageDrafts.Clear(); _pendingImages.Clear();
         _submittedImageCreates.Clear(); _clearedImageCreates.Clear();

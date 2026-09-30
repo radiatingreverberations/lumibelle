@@ -8,7 +8,6 @@ public partial class ImageReviewDialog
     [Parameter] public Func<ImageMetadataEdit, Task<string?>>? ApplyDetails { get; set; }
     [Parameter] public EventCallback<bool> DetailsDirtyChanged { get; set; }
     [Parameter] public bool OpenDetails { get; set; }
-    [Parameter] public bool OpenDescription { get; set; }
     [Parameter] public Guid? RequestedGuidanceId { get; set; }
     private ImageMetadataEdit? _details;
     private Func<Task>? _afterDetails;

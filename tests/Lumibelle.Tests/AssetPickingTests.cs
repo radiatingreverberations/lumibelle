@@ -11,11 +11,12 @@ namespace Lumibelle.Tests;
 public sealed class AssetPickingTests
 {
     [Fact]
-    public void CatalogueIncludesDescriptionsLooksReelsAndDefaultRecording()
+    public void CatalogueIncludesLooksReelsAndDefaultRecordingButNoImageDescriptions()
     {
         var f = Fixture(); var catalogue = AssetPickCatalog.Capture(f.Library);
         var image = Assert.Single(catalogue.Candidates, c => c.SourceId == f.Image.Id);
-        Assert.Equal(f.Image.VisualDescription, image.Description);
+        // Retired image descriptions never reach picking, even when an older library still holds one.
+        Assert.Equal("", image.Description);
         Assert.Equal(f.Image.LookId, image.LookId); Assert.True(image.Approved);
         Assert.Single(catalogue.Assets.Single(a => a.Id == f.Hero.Id).Looks);
         var reel = Assert.Single(catalogue.Candidates, c => c.SourceId == f.Reel.Id);
@@ -63,7 +64,8 @@ public sealed class AssetPickingTests
         Assert.Equal(2, messages.Count);
         Assert.All(messages.SelectMany(m => m.Contents), c => Assert.IsType<TextContent>(c));
         var text = messages[1].Text;
-        Assert.Contains("blue coat", text); Assert.Contains("Move through the courtyard", text);
+        Assert.Contains("Blue coat", text); Assert.Contains("Move through the courtyard", text);
+        Assert.DoesNotContain("Full-body front view", text);
         Assert.Contains("Stay wide", text); Assert.Contains("Riley", text);
         Assert.DoesNotContain("private-image.png", text); Assert.DoesNotContain("private-voice.wav", text);
         Assert.DoesNotContain("image_url", text); Assert.DoesNotContain("data:image", text);
@@ -75,7 +77,7 @@ public sealed class AssetPickingTests
     {
         var f = Fixture();
         f.Library.Assets[0] = f.Hero with { Images = Enumerable.Range(0, 70)
-            .Select(_ => Image() with { VisualDescription = new string('x', 12000) }).ToList() };
+            .Select(_ => Image() with { PreservationGuidance = new string('x', 12000) }).ToList() };
         var error = Assert.Throws<WorkspaceStoreException>(() => AssetPicker.BuildMessages(Request(f)));
         Assert.Contains("Nothing was truncated or sent", error.Message);
     }
@@ -318,10 +320,10 @@ public sealed class AssetPickingTests
     }
 
     [Fact]
-    public void ChangedDescriptionAndRemovedMediaInvalidateTheCatalogue()
+    public void ChangedGuidanceAndRemovedMediaInvalidateTheCatalogue()
     {
         var f = Fixture(); var request = Request(f);
-        f.Library.Assets[0] = f.Hero with { Images = [f.Image with { VisualDescription = "Different outfit" }] };
+        f.Library.Assets[0] = f.Hero with { Images = [f.Image with { PreservationGuidance = "Different outfit" }] };
         Assert.Throws<WorkspaceStoreException>(() => Plan(f, request, [Pick("image", f.Image.Id)]));
         f.Library.Assets[0] = f.Hero; f.Library.Voices.Clear();
         Assert.Throws<WorkspaceStoreException>(() => Plan(f, request, [Pick("image", f.Image.Id)]));

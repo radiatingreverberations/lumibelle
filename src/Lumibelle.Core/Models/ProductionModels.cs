@@ -108,7 +108,8 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     bool FollowsDefault = false)
 {
     public string Intent { get; init; } = string.IsNullOrEmpty(CurrentPrompt) ? "Initial" : "Revision";
-    // Null preserves legacy requests: inspect images by default.
+    // Both only in requests captured before text-only composition was removed, so those still load; new requests
+    // always send the references and leave them null.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? InspectReferenceImages { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
