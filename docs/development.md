@@ -65,6 +65,8 @@ After the benchmark, the model test probes capabilities that `TextGenerate` acce
 - **Single image**, when `LoadImage` and the `image` input exist: a rendered dot-matrix number.
 - **Multiple images**, after a passed single-image probe and when `ImageBatch` exists: two numbers that must be read back in order, so a tokenizer that consumes only the first batch image fails.
 
+Image probes accept one misread digit per number, since they test whether the image reached the model rather than OCR accuracy (Qwen3.8 27B read a slashed dot-matrix zero as a nine). A blind guess still matches a four-digit number only 0.37% of the time.
+
 A rejected, failed or stalled probe records the capability as unsupported without failing the test. Results are stored with the verification (`Capabilities`) and are therefore bound to the ComfyUI version. Recovered tests record none. A detected image mode replaces the former manual setting, which only applies to models not yet tested with detection.
 
 With a confirmed system prompt, requests put leading system messages (and the image-inspection instructions) in `system_prompt` and send a single user message as the raw `prompt`; later history keeps `[role]` markers. Immediately before submission, `system_stats` must report a ComfyUI version on which the newest test of that model passed. Otherwise the request uses the historical role-marked transcript unchanged. `use_default_template` stays enabled because ComfyUI ignores `system_prompt` without it ([#16625](https://github.com/Comfy-Org/ComfyUI/issues/16625) may change that).

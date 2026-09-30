@@ -88,7 +88,11 @@ public static class ComfyTextCapabilities
         return new(systemPrompt, mode);
     }
 
-    /// <summary>True when every code appears, in order, among the response's digits.</summary>
+    /// <summary>
+    /// True when every code appears, in order, among the response's digits, with at most one misread digit each.
+    /// The probe asks whether the input reached the model, not how well it reads; a blind guess still matches a
+    /// four-digit code only 0.37% of the time.
+    /// </summary>
     internal static bool Repeats(string? response, params string[] codes)
     {
         if (string.IsNullOrEmpty(response)) return false;
@@ -96,7 +100,8 @@ public static class ComfyTextCapabilities
         var position = 0;
         foreach (var code in codes)
         {
-            var found = digits.IndexOf(code, position, StringComparison.Ordinal);
+            var found = Enumerable.Range(position, Math.Max(0, digits.Length - code.Length - position + 1))
+                .FirstOrDefault(start => code.Where((digit, i) => digits[start + i] != digit).Count() <= 1, -1);
             if (found < 0) return false;
             position = found + code.Length;
         }
@@ -111,7 +116,8 @@ public static class ComfyTextCapabilities
     // 5×7 dot-matrix digits: no font dependency, and legible to vision encoders at this size.
     internal static readonly string[][] Glyphs =
     [
-        ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+        // Unslashed: Qwen3.8 read the slashed dot-matrix zero as a nine.
+        ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
         ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
         ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
         ["11111", "00010", "00100", "00010", "00001", "10001", "01110"],

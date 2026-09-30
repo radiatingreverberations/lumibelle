@@ -80,6 +80,8 @@ public sealed class ComfyTextCapabilitiesTests
     [InlineData("482913", true)]
     [InlineData("The code is 482-913.", true)]
     [InlineData("48291", false)]
+    [InlineData("482918", true)]
+    [InlineData("482988", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
     public void RepeatsFindsTheCodeAmongDigits(string? response, bool expected) => Assert.Equal(expected, ComfyTextCapabilities.Repeats(response, "482913"));
@@ -90,6 +92,8 @@ public sealed class ComfyTextCapabilitiesTests
         Assert.True(ComfyTextCapabilities.Repeats("1. 4829 2. 1734", "4829", "1734"));
         Assert.False(ComfyTextCapabilities.Repeats("1734 4829", "4829", "1734"));
         Assert.False(ComfyTextCapabilities.Repeats("4829 4829", "4829", "1734"));
+        // Qwen3.8 27B's real answer: both images seen, each zero misread as a nine.
+        Assert.True(ComfyTextCapabilities.Repeats("7389 2999", "7380", "2990"));
     }
 
     [Fact]
