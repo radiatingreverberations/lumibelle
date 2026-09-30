@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 namespace lumibelle.Services.AI;
 
 public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecutionMonitor monitor,
-    ComfyVisionInput visionInput = ComfyVisionInput.Disabled) : IChatClient, IProgressReportingChatClient
+    ComfyVisionInput visionInput = ComfyVisionInput.Disabled, IReadOnlyCollection<string>? systemPromptVersions = null) : IChatClient, IProgressReportingChatClient
 {
     internal static readonly ComfyExecutionOptions ExecutionOptions = new(
         new Dictionary<string, ComfyNodeStage>
@@ -23,24 +23,31 @@ public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecuti
         "ComfyUI returned an unreadable response. Check the server version and text workflow.",
         "The connection to ComfyUI failed during text generation.");
 
-    public static object BuildWorkflow(string model, string prompt, int maxTokens, float temperature, long seed, string? clientId = null) => new
+    public static object BuildWorkflow(string model, string prompt, int maxTokens, float temperature, long seed, string? clientId = null,
+        string? systemPrompt = null)
     {
-        prompt = new Dictionary<string, object>
+        var inputs = new Dictionary<string, object>
         {
-            ["1"] = new { class_type = "CLIPLoader", inputs = new { clip_name = model, type = "stable_diffusion", device = "default" } },
-            ["2"] = new { class_type = "TextGenerate", inputs = new Dictionary<string, object>
-                {
-                    ["clip"] = new object[] { "1", 0 }, ["prompt"] = prompt, ["max_length"] = maxTokens,
-                    ["sampling_mode"] = "on", ["sampling_mode.temperature"] = temperature,
-                    ["sampling_mode.top_k"] = 64, ["sampling_mode.top_p"] = 0.95,
-                    ["sampling_mode.min_p"] = 0.05, ["sampling_mode.repetition_penalty"] = 1.05,
-                    ["sampling_mode.seed"] = seed, ["sampling_mode.presence_penalty"] = 0.0,
-                    ["thinking"] = false, ["use_default_template"] = true
-                } },
-            ["3"] = new { class_type = "PreviewAny", inputs = new { source = new object[] { "2", 0 } } }
-        },
-        client_id = clientId ?? Guid.NewGuid().ToString("D")
-    };
+            ["clip"] = new object[] { "1", 0 }, ["prompt"] = prompt, ["max_length"] = maxTokens,
+            ["sampling_mode"] = "on", ["sampling_mode.temperature"] = temperature,
+            ["sampling_mode.top_k"] = 64, ["sampling_mode.top_p"] = 0.95,
+            ["sampling_mode.min_p"] = 0.05, ["sampling_mode.repetition_penalty"] = 1.05,
+            ["sampling_mode.seed"] = seed, ["sampling_mode.presence_penalty"] = 0.0,
+            ["thinking"] = false, ["use_default_template"] = true
+        };
+        // Only honored with the default template, which the model test confirmed for this model and version.
+        if (!string.IsNullOrEmpty(systemPrompt)) inputs["system_prompt"] = systemPrompt;
+        return new
+        {
+            prompt = new Dictionary<string, object>
+            {
+                ["1"] = new { class_type = "CLIPLoader", inputs = new { clip_name = model, type = "stable_diffusion", device = "default" } },
+                ["2"] = new { class_type = "TextGenerate", inputs },
+                ["3"] = new { class_type = "PreviewAny", inputs = new { source = new object[] { "2", 0 } } }
+            },
+            client_id = clientId ?? Guid.NewGuid().ToString("D")
+        };
+    }
 
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -61,7 +68,8 @@ public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecuti
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var input = ComfyTextVision.Capture(messages);
+        var input = ComfyTextVision.Capture(messages,
+            await ComfyTextCapabilities.UseSystemPromptAsync(http, systemPromptVersions ?? [], cancellationToken));
         ComfyTextVision.ValidateCount(visionInput, input.Images.Count);
         if (input.Images.Count > 0) yield return new(Progress: new(GenerationPhase.Preparing, "Preparing ComfyUI vision inputs…"));
         var uploaded = await ComfyTextVision.UploadAsync(http, model, visionInput, input.Images, cancellationToken);
@@ -69,7 +77,7 @@ public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecuti
         var temperature = options?.Temperature ?? 0.7f;
         var seed = Random.Shared.NextInt64(1, long.MaxValue);
         await foreach (var update in monitor.ExecuteAsync(http,
-            clientId => ComfyTextVision.BuildWorkflow(model, input.Transcript, maxTokens, temperature, seed, clientId, uploaded),
+            clientId => ComfyTextVision.BuildWorkflow(model, input.Transcript, maxTokens, temperature, seed, clientId, uploaded, input.SystemPrompt),
             ExecutionOptions, cancellationToken, cancellationToken))
         {
             yield return new(Progress: update.Progress);

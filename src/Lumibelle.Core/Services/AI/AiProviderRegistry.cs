@@ -26,8 +26,9 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             var http = clients.CreateClient("ComfyUI");
             http.BaseAddress = new Uri(NormalizeComfyUrl(settings.ComfyUrl) + "/");
             http.Timeout = Timeout.InfiniteTimeSpan;
-            return new ComfyChatClient(http, model, comfyMonitor,
-                ComfyTextVision.Mode(new(AiBackend.ComfyUI, model, model, settings.ComfyUrl), settings));
+            var reference = new TextModelReference(AiBackend.ComfyUI, model, model, settings.ComfyUrl);
+            return new ComfyChatClient(http, model, comfyMonitor, ComfyTextVision.Mode(reference, settings),
+                ComfyTextCapabilities.SystemPromptVersions(reference, settings));
         }
         if (backend != AiBackend.OpenRouter) throw new AiGenerationException("This AI backend is not available.");
         var key = await settingsStore.ReadOpenRouterKeyAsync(cancellationToken);
@@ -79,7 +80,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
                     .Select(item => item.Model).ToHashSet(StringComparer.Ordinal);
                 var models = comfyCatalog.Models.Select(name => new AiModel(name, name, verified.Contains(name)
                     ? AiModelVerificationState.Verified : AiModelVerificationState.Untested,
-                    SupportsImages: comfyCatalog.Vision.Supports(ComfyTextVision.Mode(new(AiBackend.ComfyUI, name, name, settings.ComfyUrl), settings)))).ToArray();
+                    SupportsImages: comfyCatalog.Vision.Supports(ComfyTextVision.Mode(new(AiBackend.ComfyUI, name, name, settings.ComfyUrl), settings, comfyCatalog.Version)))).ToArray();
                 return new(models.Length > 0,
                     models.Length > 0
                         ? $"Connected to ComfyUI {comfyCatalog.Version}. {models.Length:N0} text-encoder models found."
@@ -167,13 +168,32 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
 
         if (!completed) throw new AiGenerationException("ComfyUI stopped the model test before it completed.");
         if (memorySampler is not null) await memorySampler.StopAsync();
+        yield return new(Progress: new(GenerationPhase.Finalizing, "Checking system prompt and image support"));
+        var capabilities = await ComfyTextCapabilities.ProbeAsync(http, model, catalog.SystemPromptInput, catalog.Vision,
+            (_, workflow, ct) => RunProbeAsync(http, workflow, settings.TimeoutSeconds, ct), _ => Task.CompletedTask, cancellationToken);
         var benchmark = memory?.Build(request.MaxOutputTokens, tokens.GeneratedTokens, tokens.TokensPerSecond, includeResponse) ??
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.MaxOutputTokens,
                 tokens.GeneratedTokens, tokens.TokensPerSecond, cache.ClearConfirmed, includeResponse);
         var verification = new ComfyTextModelVerification(
             NormalizeComfyUrl(settings.ComfyUrl), catalog.Version, model, DateTimeOffset.UtcNow,
-            [benchmark]);
+            [benchmark]) { Capabilities = capabilities };
         yield return new(Verification: verification, Response: includeResponse ? response ?? string.Empty : null);
+    }
+
+    private async Task<string?> RunProbeAsync(HttpClient http, Func<string, object> workflow, int timeoutSeconds, CancellationToken cancellationToken)
+    {
+        using var deadline = new TextInactivityWatchdog(timeoutSeconds, cancellationToken);
+        try
+        {
+            await foreach (var update in comfyMonitor.ExecuteAsync(http, workflow, ComfyChatClient.ExecutionOptions, deadline.Token, cancellationToken))
+            {
+                deadline.Observe(update.Progress);
+                if (update.Complete && update.Job is { } job) return ComfyChatClient.TryReadText(job, out var text) ? text : null;
+            }
+            return null;
+        }
+        // A rejected, failed or stalled probe means the capability was not observed; it does not fail the test.
+        catch (Exception e) when (e is AiGenerationException or OperationCanceledException && !cancellationToken.IsCancellationRequested) { return null; }
     }
 
     public static string NormalizeComfyUrl(string url) => new Uri(url.Trim().TrimEnd('/') + "/", UriKind.Absolute).AbsoluteUri.TrimEnd('/');
@@ -226,7 +246,8 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             : [];
         var version = stats.RootElement.GetProperty("system").GetProperty("comfyui_version").GetString();
         if (string.IsNullOrWhiteSpace(version)) throw new JsonException("ComfyUI did not report its version.");
-        return new(hasNodes, version, models, ReadPrimaryMemory(stats.RootElement), ComfyTextVision.Capabilities(root));
+        return new(hasNodes, version, models, ReadPrimaryMemory(stats.RootElement), ComfyTextVision.Capabilities(root),
+            ComfyTextCapabilities.SupportsSystemPromptInput(root));
     }
 
     private static async Task<CacheBaseline> ClearCachesAndReadBaselineAsync(HttpClient http, ComfyMemorySnapshot? initial,
@@ -328,7 +349,8 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         (previous.TorchReservedBytes is null || current.TorchReservedBytes is null ||
             Math.Abs(previous.TorchReservedBytes.Value - current.TorchReservedBytes.Value) < 16L * 1024 * 1024);
 
-    private sealed record ComfyCatalog(bool HasRequiredNodes, string Version, IReadOnlyList<string> Models, ComfyMemorySnapshot? Memory, ComfyVisionCapabilities Vision);
+    private sealed record ComfyCatalog(bool HasRequiredNodes, string Version, IReadOnlyList<string> Models, ComfyMemorySnapshot? Memory,
+        ComfyVisionCapabilities Vision, bool SystemPromptInput);
     private sealed record CacheBaseline(ComfyMemorySnapshot? Baseline, bool ClearConfirmed);
     private sealed record ComfyMemorySnapshot(string DeviceName, int? DeviceIndex, long VramTotalBytes, long VramFreeBytes,
         long? TorchReservedBytes, long? TorchFreeBytes)

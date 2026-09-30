@@ -57,6 +57,16 @@ Four versioned profiles are embedded in the application; the supplied guides and
 
 The native text-only workflow uses `CLIPLoader` with type `stable_diffusion`, `TextGenerate` with thinking disabled and a fresh seed, and `PreviewAny` to return text. See the [official Gemma 4 workflow](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/llm_gemma4_text_gen.json). Before either model test, Lumibelle verifies that ComfyUI has no running or pending work, then asks it to unload models and free cached memory. Successful checks are stored in ignored `App_Data/ai-settings.json` and match the normalized ComfyUI URL, reported ComfyUI version, and exact filename. Recorded VRAM values are baseline and peak device VRAM plus active PyTorch allocation; they are approximate runtime measurements rather than model file sizes, and other GPU activity can affect them.
 
+After the benchmark, the model test probes capabilities that `TextGenerate` accepts for every model but some tokenizers silently drop. Each probe asks the model to repeat a random code it can only know through the channel under test, at temperature 0.01 with 48 output tokens:
+
+- **System prompt**, when `TextGenerate` advertises the `system_prompt` input ([ComfyUI #16442](https://github.com/Comfy-Org/ComfyUI/pull/16442)): the code is placed only in `system_prompt`. Gemma 4, Qwen3.5 and Qwen3-VL 4B/8B tokenizers honor it; the Krea 2, MiniMax (Qwen3-VL 32B) and other image-encoder tokenizers ignore it.
+- **Single image**, when `LoadImage` and the `image` input exist: a rendered dot-matrix number.
+- **Multiple images**, after a passed single-image probe and when `ImageBatch` exists: two numbers that must be read back in order, so a tokenizer that consumes only the first batch image fails.
+
+A rejected, failed or stalled probe records the capability as unsupported without failing the test. Results are stored with the verification (`Capabilities`) and are therefore bound to the ComfyUI version. Recovered tests record none. A detected image mode replaces the former manual setting, which only applies to models not yet tested with detection.
+
+With a confirmed system prompt, requests put leading system messages (and the image-inspection instructions) in `system_prompt` and send a single user message as the raw `prompt`; later history keeps `[role]` markers. Immediately before submission, `system_stats` must report a ComfyUI version on which the newest test of that model passed. Otherwise the request uses the historical role-marked transcript unchanged. `use_default_template` stays enabled because ComfyUI ignores `system_prompt` without it ([#16625](https://github.com/Comfy-Org/ComfyUI/issues/16625) may change that).
+
 OpenRouter key checks call `GET /api/v1/key` and model discovery calls `GET /api/v1/models`. Requests use OpenRouter's [OpenAI-compatible Chat Completions API](https://openrouter.ai/docs/quickstart).
 
 ### ComfyUI images

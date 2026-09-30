@@ -5,12 +5,15 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiProviderRegistry
 {
-    private sealed record QueuedTestPreparation(string Version, CacheBaseline Cache);
+    // Probe flags default to false so preparations saved by older versions still deserialize.
+    private sealed record QueuedTestPreparation(string Version, CacheBaseline Cache, bool SystemPromptInput = false,
+        ComfyVisionCapabilities? Vision = null);
 
     public async Task<AiModelTestJobResult> RunQueuedTestAsync(AiJobContext context, AiModelTestJobRequest request,
         ComfyJobExecution execution, CancellationToken ct)
     {
         if (request.Model.Backend == AiBackend.OpenRouter) return await RunOpenRouterTestAsync(context, request, ct);
+        var caller = ct;
         using var inactivity = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, context.Clock);
         ct = inactivity.Token;
         const string operation = "model-test";
@@ -25,7 +28,7 @@ public sealed partial class AiProviderRegistry
             await context.ReportAsync(new(new(GenerationPhase.Preparing, "Checking the captured model and ComfyUI queue…")), true);
             var catalog = await PrepareVerificationAsync(http, request.Model.Model, ct, ct);
             await context.ReportAsync(new(new(GenerationPhase.Preparing, "Clearing ComfyUI model cache…")), true);
-            preparation = new(catalog.Version, await ClearCachesAndReadBaselineAsync(http, catalog.Memory, ct, ct));
+            preparation = new(catalog.Version, await ClearCachesAndReadBaselineAsync(http, catalog.Memory, ct, ct), catalog.SystemPromptInput, catalog.Vision);
             await context.SaveOperationAsync(operation, AiOperationArtifact.TestPreparation, preparation, ct);
         }
         else preparation = retainedPreparation ?? throw new WorkspaceStoreException("The original benchmark environment could not be recovered.");
@@ -56,7 +59,51 @@ public sealed partial class AiProviderRegistry
         var benchmark = memory?.Build(request.Test.MaxOutputTokens, tokens.GeneratedTokens, tokens.TokensPerSecond, request.Advanced) ??
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.Test.MaxOutputTokens,
                 recovered ? null : tokens.GeneratedTokens, recovered ? null : tokens.TokensPerSecond, preparation.Cache.ClearConfirmed, request.Advanced);
-        return new(new(NormalizeComfyUrl(request.Model.ComfyUrl!), preparation.Version, request.Model.Model, DateTimeOffset.UtcNow, [benchmark]),
-            request.Advanced ? response ?? "" : null, recovered);
+        // Probes are new submissions, which recovery never makes; a recovered test records no capabilities.
+        ComfyTextModelCapabilities? capabilities = null;
+        if (!recovered)
+        {
+            capabilities = await ComfyTextCapabilities.ProbeAsync(http, request.Model.Model, preparation.SystemPromptInput,
+                preparation.Vision ?? new(false, false), (name, workflow, token) => RunQueuedProbeAsync(context, execution, http, operation + "/" + name, workflow,
+                    request.Settings.TimeoutSeconds, token), message => context.ReportAsync(new(new(GenerationPhase.Finalizing, message)), true), caller);
+        }
+        return new(new(NormalizeComfyUrl(request.Model.ComfyUrl!), preparation.Version, request.Model.Model, DateTimeOffset.UtcNow, [benchmark])
+            { Capabilities = capabilities }, request.Advanced ? response ?? "" : null, recovered);
+    }
+
+    private async Task<string?> RunQueuedProbeAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http, string operation,
+        Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
+    {
+        using var inactivity = new TextInactivityWatchdog(timeoutSeconds, caller, context.Clock);
+        try
+        {
+            await foreach (var update in execution.ExecuteAsync(context, operation, http, workflow, ComfyChatClient.ExecutionOptions,
+                inactivity.Token, onProviderCompleted: inactivity.Stop).WithCancellation(inactivity.Token))
+            {
+                inactivity.Observe(update.Progress);
+                if (update.Complete && update.Job is { } job) return ComfyChatClient.TryReadText(job, out var text) ? text : null;
+            }
+            return null;
+        }
+        // A rejected, failed or stalled probe means the capability was not observed; it does not fail the test.
+        catch (Exception e) when (e is AiGenerationException or AiJobRecoveryException or OperationCanceledException && !caller.IsCancellationRequested)
+        {
+            if (inactivity.Expired)
+            {
+                // Stop the stalled probe so it neither holds the ComfyUI queue nor remains an uncertain submission.
+                using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(caller);
+                cancellation.CancelAfter(TimeSpan.FromSeconds(10));
+                try { await execution.CancelAsync(context, ProbeClient, cancellation.Token); }
+                catch (Exception cancel) when (cancel is HttpRequestException or OperationCanceledException or AiGenerationException or WorkspaceStoreException) { }
+            }
+            return null;
+        }
+    }
+
+    private HttpClient ProbeClient(string server)
+    {
+        var http = clients.CreateClient("ComfyUI");
+        http.BaseAddress = new(NormalizeComfyUrl(server) + "/"); http.Timeout = Timeout.InfiniteTimeSpan;
+        return http;
     }
 }

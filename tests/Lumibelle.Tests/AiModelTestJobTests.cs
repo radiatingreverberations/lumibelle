@@ -61,7 +61,23 @@ public sealed partial class AiTests
         Assert.True(result.Recovered); Assert.True(result.Saved); Assert.Equal("An exact model reply.", result.Response);
         var benchmark = Assert.Single(Assert.IsType<ComfyTextModelVerification>(result.Verification).Benchmarks!);
         Assert.Null(benchmark.PeakVramUsedBytes); Assert.Null(benchmark.TokensPerSecond);
+        Assert.Null(result.Verification!.Capabilities);
         Assert.Single(f.Http.Requests, r => r.Path == "/prompt"); Assert.Single(f.Http.Requests, r => r.Path == "/free");
+    }
+
+    [Fact]
+    public async Task QueuedModelTestProbesAndRecordsSystemPromptSupport()
+    {
+        using var f = new ModelJobFixture { SystemPromptInput = true }; var ct = TestContext.Current.CancellationToken; var submission = f.Capture();
+        await f.Jobs.EnqueueAsync(submission, ct); var context = await f.Claim();
+        await f.Worker.ExecuteAsync(context, submission.Snapshot, ct);
+        var result = (await context.ReadAsync<AiModelTestJobResult>(AiJobArtifact.Result, ct))!;
+        Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), result.Verification!.Capabilities);
+        Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), Assert.Single(f.Settings.Value.ComfyTextModelVerifications).Capabilities);
+        var prompts = f.Http.Requests.Where(r => r.Path == "/prompt").ToArray();
+        Assert.Equal(2, prompts.Length);
+        Assert.DoesNotContain("system_prompt", prompts[0].Body);
+        Assert.Contains("system_prompt", prompts[1].Body);
     }
 
     [Theory] [InlineData(false)] [InlineData(true)]
@@ -122,7 +138,8 @@ public sealed partial class AiTests
         public AiProviderRegistry Registry { get; }
         public ComfyJobExecution Execution { get; } = new(TestComfy.Monitor());
         public AiModelTestJobHandler Worker { get; }
-        public bool NoNetwork, Busy, MissingModel;
+        public bool NoNetwork, Busy, MissingModel, SystemPromptInput;
+        private readonly Dictionary<string, string> _probeAnswers = [];
         public ModelJobFixture()
         {
             Jobs = new(_root, TimeProvider.System);
@@ -130,8 +147,25 @@ public sealed partial class AiTests
             {
                 if (NoNetwork) throw new InvalidOperationException("Recovered model output must not contact ComfyUI");
                 Assert.Equal("model.test", request.RequestUri!.Host);
-                return Task.FromResult(JsonResponse(request.RequestUri.AbsolutePath switch
+                var path = request.RequestUri.AbsolutePath;
+                if (path == "/prompt" && Http!.Requests[^1].Body is var body && body.Contains("system_prompt", StringComparison.Ordinal))
                 {
+                    // A model that honors the system prompt repeats its code.
+                    var id = Guid.NewGuid().ToString("D");
+                    using var workflow = JsonDocument.Parse(body);
+                    _probeAnswers[id] = new(workflow.RootElement.GetProperty("prompt").GetProperty("2").GetProperty("inputs").GetProperty("system_prompt").GetString()!.Where(char.IsAsciiDigit).ToArray());
+                    return Task.FromResult(JsonResponse($"{{\"prompt_id\":\"{id}\"}}"));
+                }
+                if (_probeAnswers.Keys.FirstOrDefault(id => path.Contains(id, StringComparison.Ordinal)) is { } probe)
+                    return Task.FromResult(JsonResponse($"{{\"{probe}\":{{\"status\":{{\"completed\":true,\"status_str\":\"success\"}},\"outputs\":{{\"3\":{{\"text\":[\"{_probeAnswers[probe]}\"]}}}}}}}}"));
+                return Task.FromResult(JsonResponse(path switch
+                {
+                    "/object_info" when SystemPromptInput => JsonSerializer.Serialize(new Dictionary<string, object>
+                    {
+                        ["CLIPLoader"] = new { input = new { required = new { clip_name = new object[] { new[] { Model.Model }, new { } } } } },
+                        ["TextGenerate"] = new { input = new { optional = new { system_prompt = new object[] { "STRING", new { forceInput = true } } } } },
+                        ["PreviewAny"] = new { }
+                    }),
                     "/object_info" => ComfyCatalog(MissingModel ? "different.safetensors" : Model.Model),
                     "/system_stats" => ComfyStats("test-version"),
                     "/queue" => Busy ? "{\"queue_running\":[[1,\"unrelated\"]],\"queue_pending\":[]}" : "{\"queue_running\":[],\"queue_pending\":[]}",

@@ -148,13 +148,14 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         if (request.Model.Backend == AiBackend.ComfyUI)
         {
             using var http = ComfyClient(request.Model.ComfyUrl!);
-            var input = ComfyTextVision.Capture(messages);
+            var input = ComfyTextVision.Capture(messages, await ComfyTextCapabilities.UseSystemPromptAsync(http,
+                ComfyTextCapabilities.SystemPromptVersions(request.Model, request.Settings), ct));
             if (input.Images.Count > 0) yield return new(Progress: new(GenerationPhase.Preparing, "Preparing ComfyUI vision inputs…"));
             var uploaded = await ComfyTextVision.UploadAsync(http, request.Model.Model,
                 ComfyTextVision.Mode(request.Model, request.Settings), input.Images, ct);
             var localOptions = TextGenerationOptions.Captured(request);
             await foreach (var update in comfy.ExecuteAsync(context, Operation, http,
-                client => ComfyTextVision.BuildWorkflow(request.Model.Model, input.Transcript, localOptions.MaxOutputTokens!.Value, localOptions.Temperature!.Value, request.Seed, client, uploaded), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: timeout.Stop))
+                client => ComfyTextVision.BuildWorkflow(request.Model.Model, input.Transcript, localOptions.MaxOutputTokens!.Value, localOptions.Temperature!.Value, request.Seed, client, uploaded, input.SystemPrompt), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: timeout.Stop))
             {
                 yield return new(Progress: update.Progress);
                 if (!update.Complete || update.Job is not { } job) continue;

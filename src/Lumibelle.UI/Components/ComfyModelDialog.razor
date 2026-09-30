@@ -22,6 +22,13 @@
                     <p>@BenchmarkMemory(benchmark)</p>
                     <p class="field-hint">Measured @benchmark.MeasuredUtc.ToLocalTime().ToString("g") @BenchmarkEnvironment(benchmark) using a @benchmark.TokenLimit-token @(benchmark.CustomPrompt ? "advanced test" : "standard benchmark"). @CacheStatus(benchmark)</p>
                 </div>
+                @if (_result?.PartialBenchmark is null && SelectedVerification?.Capabilities is { } detected)
+                {
+                    <dl class="model-capabilities" aria-label="Detected capabilities">
+                        <dt>System prompt</dt><dd>@(detected.SystemPrompt ? "Native" : "Not honored · combined into the prompt")</dd>
+                        <dt>Image input</dt><dd>@(detected.Vision switch { ComfyVisionInput.ImageBatch => "Multiple images", ComfyVisionInput.SingleImage => "Single image", _ => "None" })</dd>
+                    </dl>
+                }
             }
             <MudButton OnClick="VerifySelectedModelAsync" Disabled="@(!CanTestModel)" Variant="Variant.Outlined">@VerificationButtonLabel</MudButton>
             <details class="advanced-model-test">

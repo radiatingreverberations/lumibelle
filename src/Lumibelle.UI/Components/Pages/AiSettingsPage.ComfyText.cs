@@ -18,6 +18,22 @@ public partial class AiSettingsPage
         }
         return draft;
     }
+    private string ComfyCapabilityText(TextModelReference model)
+    {
+        if (TextModelPolicy.Verification(model, _settings!)?.Capabilities is { } detected)
+            return $"Detected by the latest model test: {VisionLabel(detected.Vision)}; " +
+                (detected.SystemPrompt ? "instructions use the model's native system prompt." : "instructions are combined into the prompt because the model ignored a native system prompt.") +
+                " Test again after changing the model file or ComfyUI.";
+        var legacy = ComfyTextSettings.Resolve(model, _settings!).VisionInput;
+        return "Image input and system-prompt support are detected by the model test (Details & test)." +
+            (legacy == ComfyVisionInput.Disabled ? "" : $" Until then, the previously chosen {VisionLabel(legacy)} applies.");
+    }
+    private static string VisionLabel(ComfyVisionInput mode) => mode switch
+    {
+        ComfyVisionInput.ImageBatch => "multiple images",
+        ComfyVisionInput.SingleImage => "single image only",
+        _ => "text only, no image input"
+    };
     private void CancelTextDraft(TextModelReference model) { _comfyTextDrafts.Remove(TextModelPolicy.Key(model)); }
     private async Task SaveTextDraftAsync(TextModelReference model, bool reset = false)
     {

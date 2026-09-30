@@ -123,7 +123,17 @@ public sealed record ComfyTextModelBenchmark(
     bool CacheClearConfirmed,
     bool CustomPrompt);
 public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVersion, string Model, DateTimeOffset VerifiedUtc,
-    List<ComfyTextModelBenchmark>? Benchmarks = null);
+    List<ComfyTextModelBenchmark>? Benchmarks = null)
+{
+    // Null when the test predates capability probes or could not run them (for example after recovery).
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ComfyTextModelCapabilities? Capabilities { get; init; }
+}
+/// <summary>
+/// Observed by the model test: each capability is claimed only when the model repeated a code it could
+/// have received solely through that channel, so a tokenizer that silently drops the input fails.
+/// </summary>
+public sealed record ComfyTextModelCapabilities(bool SystemPrompt, ComfyVisionInput Vision);
 public sealed record ComfyTextModelTestRequest(string Prompt, int MaxOutputTokens = 256);
 public sealed record AiModel(string Id, string Name, AiModelVerificationState Verification = AiModelVerificationState.NotApplicable, bool SupportsImages = false, IReadOnlyList<string>? ReasoningEfforts = null, string? DefaultEffort = null, AiModelCatalogInfo? Catalog = null);
 public sealed record AiModelCatalogInfo(string? Description = null, long? ContextLength = null, long? MaxOutputTokens = null,
