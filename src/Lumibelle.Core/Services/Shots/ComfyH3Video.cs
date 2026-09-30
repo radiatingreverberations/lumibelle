@@ -291,6 +291,13 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         if (!Guid.TryParse(result.RootElement.GetProperty("prompt_id").GetString(), out var id)) throw new AiGenerationException("ComfyUI returned no valid job ID. Check its queue before retrying.");
         return id.ToString("D");
     }
+    // Named by content, so identical references keep one name across batches and ComfyUI can reuse their cached encoding.
+    internal static async Task<string> UploadNameAsync(Stream content, string fileName, CancellationToken ct)
+    {
+        var hash = Convert.ToHexStringLower(await System.Security.Cryptography.SHA256.HashDataAsync(content, ct));
+        content.Position = 0;
+        return "h3-" + hash[..32] + Path.GetExtension(fileName).ToLowerInvariant();
+    }
     internal async Task<IReadOnlyList<PreparedVideoInput>> UploadAsync(VideoRun run, string directory, CancellationToken ct,
         IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null)
     {
@@ -300,7 +307,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         foreach (var input in run.Inputs)
         {
             await using var stream = File.OpenRead(Path.Combine(directory, "inputs", input.FileName));
-            using var body = new MultipartFormDataContent(); body.Add(new StreamContent(stream), "image", run.Id.ToString("N") + "-" + input.FileName);
+            using var body = new MultipartFormDataContent(); body.Add(new StreamContent(stream), "image", await UploadNameAsync(stream, input.FileName, ct));
             body.Add(new StringContent("input"), "type"); body.Add(new StringContent("lumibelle"), "subfolder"); body.Add(new StringContent("true"), "overwrite");
             using var response = await http.PostAsync("upload/image", body, ct); response.EnsureSuccessStatusCode();
             using var receipt = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
