@@ -76,7 +76,11 @@ public partial class AssetsStudio
                 {
                     _extractionAttempted = origin;
                     if (!_extractOpen && !_extractionReviewSuppressed && !complete.CancelRequested && await AiReviews.TryOpenAsync(complete, _extractionOriginElement, automatic: true))
-                        await ShowExtractionJobAsync(complete);
+                    {
+                        // The author can open and close the review while the claim is pending; a closed review stays closed.
+                        if (_extractionReviewSuppressed && !_extractOpen) await AiReviews.CloseAsync(complete.Id);
+                        else if (!_extractOpen) await ShowExtractionJobAsync(complete);
+                    }
                 }
             } while (_extractionRefreshAgain && !_disposed);
         }
