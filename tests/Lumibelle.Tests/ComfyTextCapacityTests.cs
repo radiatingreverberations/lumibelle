@@ -149,7 +149,7 @@ public sealed class ComfyTextCapacityTests
         Assert.Contains("256", summary);
         Assert.Null(ComfyTextCapacity.Summary(Model, Settings(null), 2048, 512));
         var failed = Measured() with { BytesPerPromptToken = null, CapacityContextTokens = null, OutOfMemoryContextTokens = 4096 };
-        Assert.Contains(4096.ToString("N0") + "-token test prompt ran out of GPU memory", ComfyTextCapacity.Summary(Model, Settings(failed), 2048, 512));
+        Assert.Contains(4096.ToString("N0") + "-token test prompt did not fit in GPU memory", ComfyTextCapacity.Summary(Model, Settings(failed), 2048, 512));
     }
 
     [Fact]
@@ -185,6 +185,45 @@ public sealed class ComfyTextCapacityTests
         Assert.Equal(largeFails ? fallbackFails ? 4096 : 8192 : null, measured.OutOfMemoryContextTokens);
         Assert.Equal(fallbackFails ? null : 300_000, measured.BytesPerPromptToken);
         Assert.Equal(fallbackFails ? null : largeFails ? 4096 : 8192, measured.CapacityContextTokens);
+    }
+
+    [Fact]
+    public async Task ACapacityRunThatCrawlsDidNotFit()
+    {
+        // With dynamic VRAM loading an oversized prompt is streamed from system RAM instead of failing.
+        Task<ComfyMeasuredRun> Run(string name, Func<string, object> workflow, CancellationToken _) =>
+            Task.FromResult(new ComfyMeasuredRun(true, false, 1_000_000_000L + (name == "context-8192" ? 8192 : name == "context-4096" ? 4096 : 2048) * 300_000L,
+                15_000_000_000, name == "context-8192" ? 0.6 : 12));
+        var start = Measured() with { BytesPerReplyToken = null, BytesPerPromptToken = null, CapacityContextTokens = null, CapacityPeakVramUsedBytes = null,
+            PeakTorchAllocatedBytes = 1_000_000_000L + 2048 * 300_000L + 2016 * 50_000L };
+        var measured = await ComfyTextCapacity.MeasureAsync(start, File, "Describe.", 7, Run, Ct);
+        Assert.Equal(8192, measured.OutOfMemoryContextTokens);
+        Assert.Equal(4096, measured.CapacityContextTokens);
+    }
+
+    private static GenerationProgress Tokens(double current, double seconds, string stage = "2") =>
+        new(GenerationPhase.Generating, "Generating text", current, 2048, "tokens", TimeSpan.FromSeconds(seconds)) { ExecutionStageId = stage };
+
+    [Fact]
+    public void GenerationWatchNoticesStreamingButNotNormalSpeed()
+    {
+        var normal = new ComfyGenerationWatch(12.6);
+        Assert.All(Enumerable.Range(1, 30).Select(i => normal.Observe(Tokens(i * 12, i))), Assert.Null);
+
+        var slow = new ComfyGenerationWatch(12.6);
+        Assert.Null(slow.Observe(Tokens(1, 1)));
+        Assert.Null(slow.Observe(Tokens(10, 15)));  // too short a window to judge
+        Assert.Contains("far below the " + 12.6.ToString("N1"), slow.Observe(Tokens(15, 25)));
+        // A new generation (the second step of a composition) starts over.
+        Assert.Null(slow.Observe(Tokens(1, 30)));
+
+        var reading = new ComfyGenerationWatch(12.6);
+        Assert.Null(reading.Observe(new(GenerationPhase.Preparing, "Preparing the text model…", Elapsed: TimeSpan.FromSeconds(5)) { ExecutionStageId = "2" }));
+        Assert.Contains("Still reading the prompt after 2 minutes",
+            reading.Observe(new(GenerationPhase.Preparing, "Preparing the text model…", Elapsed: TimeSpan.FromSeconds(126)) { ExecutionStageId = "2" }));
+        // Without a tested speed there is nothing to compare with.
+        Assert.Null(new ComfyGenerationWatch(null).Observe(Tokens(15, 25)));
+        Assert.Equal(12.9, ComfyGenerationWatch.ExpectedTokensPerSecond(Model, Settings(Measured())));
     }
 
     [Fact]

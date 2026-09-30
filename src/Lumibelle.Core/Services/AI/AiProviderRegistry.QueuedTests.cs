@@ -83,13 +83,14 @@ public sealed partial class AiProviderRegistry
         ComfyMemorySnapshot baseline, bool cleared, Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
     {
         var tracker = new ComfyMemoryTracker(baseline, cleared);
+        var rate = new TokenRateTracker();
         (string? Text, bool OutOfMemory) outcome;
         await using (var sampler = new ComfyMemorySampler(http, tracker, caller))
         {
-            outcome = await RunQueuedProbeOutcomeAsync(context, execution, http, operation, workflow, timeoutSeconds, caller);
+            outcome = await RunQueuedProbeOutcomeAsync(context, execution, http, operation, workflow, timeoutSeconds, caller, rate);
             await sampler.StopAsync();
         }
-        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes);
+        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes, rate.TokensPerSecond);
     }
 
     private async Task<string?> RunQueuedProbeAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http, string operation,
@@ -97,7 +98,7 @@ public sealed partial class AiProviderRegistry
         (await RunQueuedProbeOutcomeAsync(context, execution, http, operation, workflow, timeoutSeconds, caller)).Text;
 
     private async Task<(string? Text, bool OutOfMemory)> RunQueuedProbeOutcomeAsync(AiJobContext context, ComfyJobExecution execution, HttpClient http,
-        string operation, Func<string, object> workflow, int timeoutSeconds, CancellationToken caller)
+        string operation, Func<string, object> workflow, int timeoutSeconds, CancellationToken caller, TokenRateTracker? rate = null)
     {
         using var inactivity = new TextInactivityWatchdog(timeoutSeconds, caller, context.Clock);
         try
@@ -106,6 +107,7 @@ public sealed partial class AiProviderRegistry
                 inactivity.Token, onProviderCompleted: inactivity.Stop).WithCancellation(inactivity.Token))
             {
                 inactivity.Observe(update.Progress);
+                rate?.Observe(update.Progress);
                 if (update.Complete && update.Job is { } job) return (ComfyChatClient.TryReadText(job, out var text) ? text : null, false);
             }
             return (null, false);

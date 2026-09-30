@@ -135,7 +135,7 @@ public sealed record ComfyTextModelBenchmark(
     public int? CapacityContextTokens { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public long? CapacityPeakVramUsedBytes { get; init; }
-    // The smallest measured prompt that ran out of GPU memory.
+    // The smallest measured prompt that did not fit: it ran out of GPU memory, or with dynamic VRAM loading it streamed and slowed.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? OutOfMemoryContextTokens { get; init; }
 }

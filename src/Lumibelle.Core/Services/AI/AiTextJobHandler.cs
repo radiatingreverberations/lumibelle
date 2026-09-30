@@ -32,6 +32,10 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             await ValidateInputsAsync(context.Job, request, linked.Token);
             // Kept on every progress report, so the warning stays visible while the request runs.
             var capacityNotice = ComfyTextCapacity.Notice(request);
+            var watch = request.Model.Backend == AiBackend.ComfyUI
+                ? new ComfyGenerationWatch(ComfyGenerationWatch.ExpectedTokensPerSecond(request.Model, request.Settings)) : null;
+            string? Notice(GenerationProgress? progress) =>
+                string.Join(" ", new[] { capacityNotice, progress is null ? null : watch?.Observe(progress) }.Where(n => n is not null)) is { Length: > 0 } text ? text : null;
             await foreach (var update in GenerateAsync(context, request, timeout, linked.Token))
             {
                 timeout.Observe(update);
@@ -43,7 +47,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                     try { await context.SaveObservedUsageAsync(usage); }
                     catch (Exception e) when (e is WorkspaceStoreException or OperationCanceledException) { /* Final publication also retains the report. */ }
                 }
-                if (update.Progress is { } progress) await context.ReportAsync(new(progress, Notice: capacityNotice));
+                if (update.Progress is { } progress) await context.ReportAsync(new(progress, Notice: Notice(progress)));
                 if (update.Response?.FinishReason is { } reason && (finish is null || finish == ChatFinishReason.Stop.ToString())) finish = reason.ToString();
                 if (!string.IsNullOrEmpty(update.Response?.Text))
                 {
@@ -53,14 +57,14 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                     {
                         // Retain the stream in memory and keep observing it. A failed
                         // partial checkpoint must not trigger another paid request.
-                        await context.ReportAsync(new(new(GenerationPhase.Generating, "Response arriving; waiting to save its checkpoint…"), Notice: capacityNotice));
+                        await context.ReportAsync(new(new(GenerationPhase.Generating, "Response arriving; waiting to save its checkpoint…"), Notice: Notice(null)));
                     }
                     var now = clock.GetUtcNow();
                     if (lastTextProgress is null || now - lastTextProgress >= TimeSpan.FromSeconds(2))
                     {
                         // Notify reviews after checkpointing the stream, without publishing every token.
                         await context.ReportAsync(new(new(GenerationPhase.Generating, "Receiving response from " + request.Model.Name + "…",
-                            Current: output.Length, Unit: "characters", Elapsed: now - (context.Job.StartedUtc ?? now)), Notice: capacityNotice));
+                            Current: output.Length, Unit: "characters", Elapsed: now - (context.Job.StartedUtc ?? now)), Notice: Notice(null)));
                         lastTextProgress = now;
                     }
                 }

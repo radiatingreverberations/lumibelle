@@ -16,7 +16,8 @@ public sealed record ComfyTextStageSize(string? Step, ComfyTextRequestSize Size,
 }
 
 /// <summary>One capacity run: whether it finished or ran out of GPU memory, and the peaks observed while it ran.</summary>
-public sealed record ComfyMeasuredRun(bool Completed, bool OutOfMemory, long? PeakTorchAllocatedBytes, long? PeakVramUsedBytes);
+public sealed record ComfyMeasuredRun(bool Completed, bool OutOfMemory, long? PeakTorchAllocatedBytes, long? PeakVramUsedBytes,
+    double? TokensPerSecond = null);
 
 public delegate Task<ComfyMeasuredRun> ComfyMeasuredRunner(string name, Func<string, object> workflowFactory, CancellationToken ct);
 
@@ -56,7 +57,9 @@ public static class ComfyTextCapacity
         foreach (var larger in new[] { ComfyTextBenchmark.LargeContextTokens, ComfyTextBenchmark.FallbackContextTokens })
         {
             var measured = await run("context-" + larger, client => Workflow(client, larger), ct);
-            if (measured.OutOfMemory) { benchmark = benchmark with { OutOfMemoryContextTokens = larger }; continue; }
+            // With dynamic VRAM loading a prompt that does not fit is streamed from system RAM instead of failing.
+            if (measured.OutOfMemory || ComfyGenerationWatch.IsSlow(measured.TokensPerSecond, benchmark.TokensPerSecond))
+            { benchmark = benchmark with { OutOfMemoryContextTokens = larger }; continue; }
             if (measured is { Completed: true, PeakTorchAllocatedBytes: { } largePeak, PeakVramUsedBytes: { } device })
                 benchmark = benchmark with { BytesPerPromptToken = PerToken(largePeak, shortPeak, larger - context),
                     CapacityContextTokens = larger, CapacityPeakVramUsedBytes = device };
@@ -174,7 +177,7 @@ public static class ComfyTextCapacity
     public static string? Summary(TextModelReference model, AiSettings settings, int replyTokens, int imageSide)
     {
         var benchmark = Benchmark(model, settings);
-        var failed = benchmark?.OutOfMemoryContextTokens is { } oom ? $" A {oom:N0}-token test prompt ran out of GPU memory." : "";
+        var failed = benchmark?.OutOfMemoryContextTokens is { } oom ? $" A {oom:N0}-token test prompt did not fit in GPU memory." : "";
         if (PromptCapacity(benchmark, replyTokens) is not { } capacity)
             return failed.Length == 0 ? null : failed.TrimStart() + " Keep prompts well below that, or test again after freeing GPU memory.";
         return $"Prompts up to about {capacity:N0} tokens fit in GPU memory at a {replyTokens:N0}-token reply limit (measured {benchmark!.MeasuredUtc.ToLocalTime():d}): " +

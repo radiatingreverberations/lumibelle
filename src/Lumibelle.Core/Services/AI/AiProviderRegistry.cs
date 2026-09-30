@@ -193,7 +193,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         (await RunProbeOutcomeAsync(http, workflow, timeoutSeconds, cancellationToken)).Text;
 
     private async Task<(string? Text, bool OutOfMemory)> RunProbeOutcomeAsync(HttpClient http, Func<string, object> workflow, int timeoutSeconds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, TokenRateTracker? rate = null)
     {
         using var deadline = new TextInactivityWatchdog(timeoutSeconds, cancellationToken);
         try
@@ -201,6 +201,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             await foreach (var update in comfyMonitor.ExecuteAsync(http, workflow, ComfyChatClient.ExecutionOptions, deadline.Token, cancellationToken))
             {
                 deadline.Observe(update.Progress);
+                rate?.Observe(update.Progress);
                 if (update.Complete && update.Job is { } job) return (ComfyChatClient.TryReadText(job, out var text) ? text : null, false);
             }
             return (null, false);
@@ -214,13 +215,14 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         Func<string, object> workflow, int timeoutSeconds, CancellationToken cancellationToken)
     {
         var tracker = new ComfyMemoryTracker(baseline, cleared);
+        var rate = new TokenRateTracker();
         (string? Text, bool OutOfMemory) outcome;
         await using (var sampler = new ComfyMemorySampler(http, tracker, cancellationToken))
         {
-            outcome = await RunProbeOutcomeAsync(http, workflow, timeoutSeconds, cancellationToken);
+            outcome = await RunProbeOutcomeAsync(http, workflow, timeoutSeconds, cancellationToken, rate);
             await sampler.StopAsync();
         }
-        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes);
+        return new(outcome.Text is not null, outcome.OutOfMemory, tracker.PeakTorchAllocatedBytes, tracker.PeakVramUsedBytes, rate.TokensPerSecond);
     }
 
     public static string NormalizeComfyUrl(string url) => new Uri(url.Trim().TrimEnd('/') + "/", UriKind.Absolute).AbsoluteUri.TrimEnd('/');
@@ -457,41 +459,6 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         {
             await StopAsync();
             _stopping.Dispose();
-        }
-    }
-
-    private sealed class TokenRateTracker
-    {
-        private double? _firstValue, _lastValue;
-        private TimeSpan _firstElapsed, _lastElapsed;
-        public int? GeneratedTokens => _lastValue is { } value ? Math.Max(0, (int)Math.Round(value)) : null;
-        public double? TokensPerSecond
-        {
-            get
-            {
-                if (_firstValue is null || _lastValue is null) return null;
-                var seconds = (_lastElapsed - _firstElapsed).TotalSeconds;
-                var generated = _lastValue.Value - _firstValue.Value;
-                return seconds > 0 && generated > 0 ? generated / seconds : null;
-            }
-        }
-        public void Observe(GenerationProgress progress)
-        {
-            if (!progress.IsDeterminate || !string.Equals(progress.Unit, "tokens", StringComparison.OrdinalIgnoreCase) || progress.Current is null) return;
-            var current = progress.Current.Value;
-            if (_lastValue is not null && current < _lastValue)
-            {
-                _firstValue = null;
-                _lastValue = null;
-            }
-            if (_lastValue is not null && current <= _lastValue) return;
-            if (_firstValue is null && current > 0)
-            {
-                _firstValue = current;
-                _firstElapsed = progress.Elapsed;
-            }
-            _lastValue = current;
-            _lastElapsed = progress.Elapsed;
         }
     }
 
