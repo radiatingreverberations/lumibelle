@@ -259,7 +259,12 @@ else
                                                 <div class="text-generation-fields">
                                                     <label for="@(domId + "-tokens")">Maximum reply tokens<input id="@(domId + "-tokens")" type="number" min="1" max="32768" @bind="draft.Tokens" disabled="@Busy" /></label>
                                                     <label for="@(domId + "-temperature")">Model temperature<input id="@(domId + "-temperature")" type="number" min="0.01" max="2" step="0.01" @bind="draft.Temperature" disabled="@Busy" /></label>
+                                                    <label for="@(domId + "-image-side")">Image size for multiple references<select id="@(domId + "-image-side")" @bind="draft.ImageSide" disabled="@Busy">
+                                                        @foreach (var side in ComfyTextSettings.BatchImageSides) { <option value="@side">@ImageSideLabel(model, side)</option> }
+                                                    </select></label>
                                                 </div>
+                                                @if (CapacityText(model, draft) is { } capacity) { <p class="field-hint comfy-capacity" data-testid="comfy-capacity">@capacity</p> }
+                                                else { <p class="field-hint comfy-capacity">Test the model to estimate how large a request stays fast on this machine.</p> }
                                                 <p class="field-hint">@(_settings.ComfyTextModels.ContainsKey(key) ? "Saved for this model and ComfyUI server." : "Currently using ComfyUI defaults.") Asset extraction uses temperature 0.2; text thinking is disabled.</p>
                                                 <p class="field-hint comfy-capabilities" data-testid="comfy-capabilities">@ComfyCapabilityText(model)</p>
                                                 <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Save model settings</MudButton><MudButton OnClick="() => CancelTextDraft(model)" Disabled="@Busy" Size="Size.Small">Cancel model settings</MudButton><MudButton OnClick="() => SaveTextDraftAsync(model, true)" Disabled="@(Busy || !_settings.ComfyTextModels.ContainsKey(key))" Size="Size.Small">Use ComfyUI defaults</MudButton></div>

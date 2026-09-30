@@ -11,8 +11,9 @@ public static class ComfyTextSettings
         foreach (var (key, value) in settings.ComfyTextModels)
         {
             ValidateKey(key);
-            if (value is null || value.MaxOutputTokens is < 1 or > 32768 || !float.IsFinite(value.Temperature) || value.Temperature is < .01f or > 2 || !Enum.IsDefined(value.VisionInput))
-                throw new lumibelle.Services.Story.WorkspaceStoreException("Model settings require 1–32,768 reply tokens, temperature 0.01–2, and a supported image-input mode.");
+            if (value is null || value.MaxOutputTokens is < 1 or > 32768 || !float.IsFinite(value.Temperature) || value.Temperature is < .01f or > 2 || !Enum.IsDefined(value.VisionInput) ||
+                value.BatchImageSide is { } side && !BatchImageSides.Contains(side))
+                throw new lumibelle.Services.Story.WorkspaceStoreException("Model settings require 1–32,768 reply tokens, temperature 0.01–2, a supported image-input mode and an image size of 512, 768 or 1,024 pixels.");
         }
     }
     private static void ValidateKey(string key)
@@ -23,6 +24,9 @@ public static class ComfyTextSettings
         TextModelPolicy.Validate(model);
         if (TextModelPolicy.Key(model) != key) throw new lumibelle.Services.Story.WorkspaceStoreException("The saved ComfyUI model identity is not normalized.");
     }
+    public static readonly int[] BatchImageSides = [1024, 768, 512];
+    public static int BatchImageSide(TextModelReference model, AiSettings settings) =>
+        Resolve(model, settings).BatchImageSide ?? ComfyTextVision.BatchMaximumSide;
     public static ComfyTextModelSettings Resolve(TextModelReference model, AiSettings settings) =>
         settings.ComfyTextModels.GetValueOrDefault(TextModelPolicy.Key(model)) ?? new(settings.MaxOutputTokens, settings.Temperature);
 

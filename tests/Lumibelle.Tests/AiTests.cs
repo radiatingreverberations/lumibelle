@@ -162,7 +162,8 @@ public sealed partial class AiTests
         Assert.Equal(ComfyTextBenchmark.ContextTokens, benchmark.ContextTokens);
         Assert.False(benchmark.CustomPrompt);
         Assert.True(benchmark.CacheClearConfirmed);
-        using var submitted = JsonDocument.Parse(handler.Requests.Single(request => request.Path == "/prompt").Body);
+        // The benchmark comes first; a second run with the same prompt measures memory per token.
+        using var submitted = JsonDocument.Parse(handler.Requests.First(request => request.Path == "/prompt").Body);
         var workflow = submitted.RootElement.GetProperty("prompt");
         Assert.Equal(model, workflow.GetProperty("1").GetProperty("inputs").GetProperty("clip_name").GetString());
         Assert.Equal(2048, workflow.GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
@@ -281,7 +282,7 @@ public sealed partial class AiTests
         Assert.Equal(9L << 30, benchmark.PeakVramUsedBytes);
         Assert.Equal(8L << 30, benchmark.PeakTorchAllocatedBytes);
         Assert.True(benchmark.CacheClearConfirmed);
-        using var workflow = JsonDocument.Parse(JsonSerializer.Serialize(monitor.Workflow));
+        using var workflow = JsonDocument.Parse(JsonSerializer.Serialize(monitor.Workflows[0]));
         Assert.Equal(2048, workflow.RootElement.GetProperty("prompt").GetProperty("2").GetProperty("inputs").GetProperty("max_length").GetInt32());
     }
 
@@ -472,13 +473,14 @@ public sealed partial class AiTests
 
 internal sealed class BenchmarkComfyMonitor : IComfyExecutionMonitor
 {
-    public object? Workflow { get; private set; }
+    public object? Workflow => Workflows.LastOrDefault();
+    public List<object> Workflows { get; } = [];
 
     public async IAsyncEnumerable<ComfyExecutionUpdate> ExecuteAsync(HttpClient http, Func<string, object> workflowFactory,
         ComfyExecutionOptions options, [EnumeratorCancellation] CancellationToken operationToken,
         CancellationToken callerToken)
     {
-        Workflow = workflowFactory("benchmark-client");
+        Workflows.Add(workflowFactory("benchmark-client"));
         await Task.Yield();
         yield return new(new(GenerationPhase.Generating, "Generating text", 0, 256, "tokens", TimeSpan.FromSeconds(2)));
         yield return new(new(GenerationPhase.Generating, "Generating text", 128, 256, "tokens", TimeSpan.FromSeconds(14)));

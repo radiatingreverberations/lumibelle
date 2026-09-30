@@ -19,7 +19,10 @@ public sealed partial class AiTests
         Assert.True(result!.Saved); Assert.False(result.Recovered);
         Assert.Equal(advanced ? "An exact model reply." : null, result.Response);
         Assert.Single(f.Settings.Value.ComfyTextModelVerifications); Assert.Equal("http://another.test", f.Settings.Value.ComfyUrl);
-        var free = Assert.Single(f.Http.Requests, r => r.Path == "/free"); var prompt = Assert.Single(f.Http.Requests, r => r.Path == "/prompt");
+        var prompts = f.Http.Requests.Where(r => r.Path == "/prompt").ToArray();
+        // A standard benchmark adds a short run with the same prompt to measure memory per token.
+        Assert.Equal(advanced ? 1 : 2, prompts.Length);
+        var free = Assert.Single(f.Http.Requests, r => r.Path == "/free"); var prompt = prompts[0];
         Assert.True(f.Http.Requests.IndexOf(free) < f.Http.Requests.IndexOf(prompt));
         using var body = JsonDocument.Parse(prompt.Body); var nodes = body.RootElement.GetProperty("prompt");
         Assert.Equal(ModelJobFixture.Model.Model, nodes.GetProperty("1").GetProperty("inputs").GetProperty("clip_name").GetString());
@@ -75,9 +78,10 @@ public sealed partial class AiTests
         Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), result.Verification!.Capabilities);
         Assert.Equal(new ComfyTextModelCapabilities(true, ComfyVisionInput.Disabled), Assert.Single(f.Settings.Value.ComfyTextModelVerifications).Capabilities);
         var prompts = f.Http.Requests.Where(r => r.Path == "/prompt").ToArray();
-        Assert.Equal(2, prompts.Length);
+        Assert.Equal(3, prompts.Length);
         Assert.DoesNotContain("system_prompt", prompts[0].Body);
-        Assert.Contains("system_prompt", prompts[1].Body);
+        Assert.Contains("\"max_length\":32", prompts[1].Body);
+        Assert.Contains("system_prompt", prompts[2].Body);
     }
 
     [Theory] [InlineData(false)] [InlineData(true)]

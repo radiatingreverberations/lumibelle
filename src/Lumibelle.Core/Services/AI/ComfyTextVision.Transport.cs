@@ -12,7 +12,7 @@ namespace lumibelle.Services.AI;
 public static partial class ComfyTextVision
 {
     public static async Task<IReadOnlyList<ComfyTextImage>> UploadAsync(HttpClient http, string model,
-        ComfyVisionInput mode, IReadOnlyList<byte[]> images, CancellationToken ct = default)
+        ComfyVisionInput mode, IReadOnlyList<byte[]> images, CancellationToken ct = default, int maximumSide = BatchMaximumSide)
     {
         ValidateCount(mode, images.Count);
         ValidateByteLimits(images);
@@ -36,7 +36,7 @@ public static partial class ComfyTextVision
         // captured PNG. Batches use bounded, aspect-preserving canvases so ImageBatch cannot stretch
         // or crop later images to match the first; order remains the original attachment order.
         var sizes = InspectSizes(images);
-        var canvas = BatchCanvas(sizes);
+        var canvas = BatchCanvas(sizes, maximumSide);
         var group = Guid.NewGuid().ToString("N");
         var uploaded = new List<ComfyTextImage>();
         for (var i = 0; i < images.Count; i++)
@@ -103,14 +103,15 @@ public static partial class ComfyTextVision
         return sizes;
     }
 
-    public static (int Width, int Height) BatchCanvas(IReadOnlyList<(int Width, int Height)> sizes)
+    public static (int Width, int Height) BatchCanvas(IReadOnlyList<(int Width, int Height)> sizes, int maximumSide = BatchMaximumSide)
     {
         if (sizes.Count == 0) return (0, 0);
+        if (maximumSide is < 1 or > BatchMaximumSide) throw new WorkspaceStoreException("Invalid batch image size.");
         if (sizes.Any(s => s.Width <= 0 || s.Height <= 0)) throw new WorkspaceStoreException("Invalid inspection image dimensions.");
         // Do not upscale small images. Each image first fits inside the bounded envelope;
         // the shared canvas is only as large as the largest fitted width and height.
         var fitted = sizes.Select(s => {
-            var scale = Math.Min(1d, BatchMaximumSide / (double)Math.Max(s.Width, s.Height));
+            var scale = Math.Min(1d, maximumSide / (double)Math.Max(s.Width, s.Height));
             return (Width: Math.Max(1, (int)Math.Round(s.Width * scale)), Height: Math.Max(1, (int)Math.Round(s.Height * scale)));
         }).ToArray();
         return (fitted.Max(s => s.Width), fitted.Max(s => s.Height));

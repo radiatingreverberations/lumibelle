@@ -60,6 +60,22 @@ public sealed partial class AiProviderRegistry
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.Test.MaxOutputTokens,
                 recovered ? null : tokens.GeneratedTokens, recovered ? null : tokens.TokensPerSecond, preparation.Cache.ClearConfirmed, request.Advanced);
         if (!request.Advanced) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
+        if (!recovered && !request.Advanced && preparation.Cache.Baseline is { } footprintBaseline && benchmark.PeakTorchAllocatedBytes is { } fullPeak &&
+            ComfyTextCapacity.BytesPerToken(fullPeak, 0, request.Test.MaxOutputTokens) is not null)
+        {
+            // Same prompt, short limit: the difference in reserved memory is the cost of each additional token.
+            await context.ReportAsync(new(new(GenerationPhase.Finalizing, "Measuring memory per token…")), true);
+            var footprint = new ComfyMemoryTracker(footprintBaseline, preparation.Cache.ClearConfirmed);
+            string? measured;
+            await using (var footprintSampler = new ComfyMemorySampler(http, footprint, caller))
+            {
+                measured = await RunQueuedProbeAsync(context, execution, http, operation + "/footprint", client => ComfyChatClient.BuildWorkflow(request.Model.Model,
+                    ComfyTextBenchmark.Prompt(request.Test.Prompt), ComfyTextCapacity.FootprintTokens, .7f, request.Seed, client), request.Settings.TimeoutSeconds, caller);
+                await footprintSampler.StopAsync();
+            }
+            if (measured is not null)
+                benchmark = benchmark with { BytesPerToken = ComfyTextCapacity.BytesPerToken(fullPeak, footprint.PeakTorchAllocatedBytes, request.Test.MaxOutputTokens) };
+        }
         // Probes are new submissions, which recovery never makes; a recovered test records no capabilities.
         ComfyTextModelCapabilities? capabilities = null;
         if (!recovered)

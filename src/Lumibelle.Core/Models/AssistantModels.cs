@@ -126,6 +126,9 @@ public sealed record ComfyTextModelBenchmark(
     // Approximate prompt tokens of a standard benchmark; null for advanced tests and benchmarks before context was added.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? ContextTokens { get; init; }
+    // GPU memory ComfyUI reserves per prompt or reply token, from a second run with the same prompt and a short limit.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public long? BytesPerToken { get; init; }
 }
 public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVersion, string Model, DateTimeOffset VerifiedUtc,
     List<ComfyTextModelBenchmark>? Benchmarks = null)

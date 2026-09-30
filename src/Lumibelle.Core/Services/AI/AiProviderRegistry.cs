@@ -29,7 +29,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             http.Timeout = Timeout.InfiniteTimeSpan;
             var reference = new TextModelReference(AiBackend.ComfyUI, model, model, settings.ComfyUrl);
             return new ComfyChatClient(http, model, comfyMonitor, ComfyTextVision.Mode(reference, settings),
-                ComfyTextCapabilities.SystemPromptVersions(reference, settings));
+                ComfyTextCapabilities.SystemPromptVersions(reference, settings), ComfyTextSettings.BatchImageSide(reference, settings));
         }
         if (backend != AiBackend.OpenRouter) throw new AiGenerationException("This AI backend is not available.");
         var key = await settingsStore.ReadOpenRouterKeyAsync(cancellationToken);
@@ -177,6 +177,22 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             new(DateTimeOffset.UtcNow, null, null, null, null, null, null, null, request.MaxOutputTokens,
                 tokens.GeneratedTokens, tokens.TokensPerSecond, cache.ClearConfirmed, includeResponse);
         if (!includeResponse) benchmark = benchmark with { ContextTokens = ComfyTextBenchmark.ContextTokens };
+        if (!includeResponse && cache.Baseline is { } baseline && benchmark.PeakTorchAllocatedBytes is { } fullPeak &&
+            ComfyTextCapacity.BytesPerToken(fullPeak, 0, request.MaxOutputTokens) is not null)
+        {
+            // Same prompt, short limit: the difference in reserved memory is the cost of each additional token.
+            yield return new(Progress: new(GenerationPhase.Finalizing, "Measuring memory per token"));
+            var footprint = new ComfyMemoryTracker(baseline, cache.ClearConfirmed);
+            string? measured;
+            await using (var sampler = new ComfyMemorySampler(http, footprint, cancellationToken))
+            {
+                measured = await RunProbeAsync(http, clientId => ComfyChatClient.BuildWorkflow(model, ComfyTextBenchmark.Prompt(request.Prompt),
+                    ComfyTextCapacity.FootprintTokens, 0.7f, seed, clientId), settings.TimeoutSeconds, cancellationToken);
+                await sampler.StopAsync();
+            }
+            if (measured is not null)
+                benchmark = benchmark with { BytesPerToken = ComfyTextCapacity.BytesPerToken(fullPeak, footprint.PeakTorchAllocatedBytes, request.MaxOutputTokens) };
+        }
         var verification = new ComfyTextModelVerification(
             NormalizeComfyUrl(settings.ComfyUrl), catalog.Version, model, DateTimeOffset.UtcNow,
             [benchmark]) { Capabilities = capabilities };
@@ -367,6 +383,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
     {
         private long _peakVramUsedBytes = baseline.VramUsedBytes;
         private long? _peakTorchAllocatedBytes = baseline.TorchAllocatedBytes;
+        public long? PeakTorchAllocatedBytes => _peakTorchAllocatedBytes;
         public void Observe(ComfyMemorySnapshot sample)
         {
             if (sample.DeviceName != baseline.DeviceName || sample.DeviceIndex != baseline.DeviceIndex) return;

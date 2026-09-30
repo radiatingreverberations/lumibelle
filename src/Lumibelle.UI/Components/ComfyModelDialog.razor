@@ -21,6 +21,8 @@
                     @if (_result?.PartialBenchmark is not null) { <p class="field-hint">Partial measurements · this run has not verified the model.</p> }
                     <p>@BenchmarkMemory(benchmark)</p>
                     <p class="field-hint">Measured @benchmark.MeasuredUtc.ToLocalTime().ToString("g") @BenchmarkEnvironment(benchmark) using @BenchmarkKind(benchmark, ReplyLimit). @CacheStatus(benchmark)</p>
+                    @if (ComfyTextCapacity.FastTokens(benchmark) is { } fast)
+                    { <p class="model-capacity">Fits about @fast.ToString("N0") tokens of prompt and reply in GPU memory (~@((benchmark.BytesPerToken!.Value / 1024d).ToString("N0")) KB per token, keeping @((ComfyTextCapacity.MarginBytes >> 20).ToString("N0")) MB free). Larger requests stream the model from system RAM and become very slow.</p> }
                     @if (BenchmarkIsStale(benchmark, ReplyLimit)) { <p class="field-hint model-benchmark-stale">This model's reply-token setting is now @ReplyLimit.ToString("N0"). Test again to measure VRAM for the current setting.</p> }
                 </div>
                 @if (_result?.PartialBenchmark is null && SelectedVerification?.Capabilities is { } detected)

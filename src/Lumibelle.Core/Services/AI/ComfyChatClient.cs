@@ -7,7 +7,8 @@ using Microsoft.Extensions.AI;
 namespace lumibelle.Services.AI;
 
 public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecutionMonitor monitor,
-    ComfyVisionInput visionInput = ComfyVisionInput.Disabled, IReadOnlyCollection<string>? systemPromptVersions = null) : IChatClient, IProgressReportingChatClient
+    ComfyVisionInput visionInput = ComfyVisionInput.Disabled, IReadOnlyCollection<string>? systemPromptVersions = null,
+    int batchImageSide = ComfyTextVision.BatchMaximumSide) : IChatClient, IProgressReportingChatClient
 {
     internal static readonly ComfyExecutionOptions ExecutionOptions = new(
         new Dictionary<string, ComfyNodeStage>
@@ -72,7 +73,7 @@ public sealed class ComfyChatClient(HttpClient http, string model, IComfyExecuti
             await ComfyTextCapabilities.UseSystemPromptAsync(http, systemPromptVersions ?? [], cancellationToken));
         ComfyTextVision.ValidateCount(visionInput, input.Images.Count);
         if (input.Images.Count > 0) yield return new(Progress: new(GenerationPhase.Preparing, "Preparing ComfyUI vision inputs…"));
-        var uploaded = await ComfyTextVision.UploadAsync(http, model, visionInput, input.Images, cancellationToken);
+        var uploaded = await ComfyTextVision.UploadAsync(http, model, visionInput, input.Images, cancellationToken, batchImageSide);
         var maxTokens = options?.MaxOutputTokens ?? 2048;
         var temperature = options?.Temperature ?? 0.7f;
         var seed = Random.Shared.NextInt64(1, long.MaxValue);

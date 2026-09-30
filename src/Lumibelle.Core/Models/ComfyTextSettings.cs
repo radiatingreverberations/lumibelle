@@ -9,4 +9,7 @@ public sealed record ComfyTextModelSettings(int MaxOutputTokens, float Temperatu
     // Default omission keeps legacy settings and request snapshots unchanged.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public ComfyVisionInput VisionInput { get; init; }
+    // Longest side of multi-image inspection canvases; null keeps the 1024-pixel default.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? BatchImageSide { get; init; }
 }

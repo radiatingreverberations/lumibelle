@@ -27,6 +27,9 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         {
             await context.ReportAsync(new(new(GenerationPhase.Preparing, "Checking the captured text model and inputs…")), checkpoint: true);
             await ValidateInputsAsync(context.Job, request, linked.Token);
+            // Kept on every progress report, so the warning stays visible while the request runs.
+            var capacityNotice = request.Model.Backend == AiBackend.ComfyUI ? ComfyTextCapacity.Notice(request.Model, request.Settings,
+                ComfyTextVision.Capture(request.Messages.Select(m => m.ToMessage())), TextGenerationOptions.Captured(request).MaxOutputTokens!.Value) : null;
             await foreach (var update in GenerateAsync(context, request, timeout, linked.Token))
             {
                 timeout.Observe(update);
@@ -38,7 +41,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                     try { await context.SaveObservedUsageAsync(usage); }
                     catch (Exception e) when (e is WorkspaceStoreException or OperationCanceledException) { /* Final publication also retains the report. */ }
                 }
-                if (update.Progress is { } progress) await context.ReportAsync(new(progress));
+                if (update.Progress is { } progress) await context.ReportAsync(new(progress, Notice: capacityNotice));
                 if (update.Response?.FinishReason is { } reason && (finish is null || finish == ChatFinishReason.Stop.ToString())) finish = reason.ToString();
                 if (!string.IsNullOrEmpty(update.Response?.Text))
                 {
@@ -48,14 +51,14 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                     {
                         // Retain the stream in memory and keep observing it. A failed
                         // partial checkpoint must not trigger another paid request.
-                        await context.ReportAsync(new(new(GenerationPhase.Generating, "Response arriving; waiting to save its checkpoint…")));
+                        await context.ReportAsync(new(new(GenerationPhase.Generating, "Response arriving; waiting to save its checkpoint…"), Notice: capacityNotice));
                     }
                     var now = clock.GetUtcNow();
                     if (lastTextProgress is null || now - lastTextProgress >= TimeSpan.FromSeconds(2))
                     {
                         // Notify reviews after checkpointing the stream, without publishing every token.
                         await context.ReportAsync(new(new(GenerationPhase.Generating, "Receiving response from " + request.Model.Name + "…",
-                            Current: output.Length, Unit: "characters", Elapsed: now - (context.Job.StartedUtc ?? now))));
+                            Current: output.Length, Unit: "characters", Elapsed: now - (context.Job.StartedUtc ?? now)), Notice: capacityNotice));
                         lastTextProgress = now;
                     }
                 }
@@ -152,7 +155,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                 ComfyTextCapabilities.SystemPromptVersions(request.Model, request.Settings), ct));
             if (input.Images.Count > 0) yield return new(Progress: new(GenerationPhase.Preparing, "Preparing ComfyUI vision inputs…"));
             var uploaded = await ComfyTextVision.UploadAsync(http, request.Model.Model,
-                ComfyTextVision.Mode(request.Model, request.Settings), input.Images, ct);
+                ComfyTextVision.Mode(request.Model, request.Settings), input.Images, ct, ComfyTextSettings.BatchImageSide(request.Model, request.Settings));
             var localOptions = TextGenerationOptions.Captured(request);
             await foreach (var update in comfy.ExecuteAsync(context, Operation, http,
                 client => ComfyTextVision.BuildWorkflow(request.Model.Model, input.Transcript, localOptions.MaxOutputTokens!.Value, localOptions.Temperature!.Value, request.Seed, client, uploaded, input.SystemPrompt), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: timeout.Stop))
