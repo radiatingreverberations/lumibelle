@@ -105,9 +105,10 @@ public sealed class ComfyTextCapacityTests
         // The same request fits at 512 pixels; nothing is claimed before a capacity test.
         Assert.Null(ComfyTextCapacity.Notice(Request(Settings(Measured(), 512), large)));
         Assert.Null(ComfyTextCapacity.Notice(Request(Settings(null), large)));
-        var (size, capacity) = ComfyTextCapacity.Assess(Request(Settings(Measured(), 512), large))!.Value;
-        Assert.Equal(9 * 256, size.ImageTokens);
-        Assert.True(size.PromptTokens < capacity);
+        var stage = Assert.Single(ComfyTextCapacity.Assess(Request(Settings(Measured(), 512), large))!);
+        Assert.Null(stage.Step);
+        Assert.Equal(9 * 256, stage.Size.ImageTokens);
+        Assert.False(stage.TooLarge);
     }
 
     [Fact]

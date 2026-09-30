@@ -10,9 +10,12 @@ using Microsoft.Extensions.AI;
 namespace lumibelle.Services.AI;
 
 public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientFactory clients, ComfyJobExecution comfy,
-    IProjectStore projects, IPromptEnhancer enhancer, IGuidanceAssistant guidance, TimeProvider clock, ICodexClient? codex = null, lumibelle.Services.Production.IProductionStore? production = null, IAssetReelStore? reels = null) : IAiJobHandler
+    IProjectStore projects, IPromptEnhancer enhancer, IGuidanceAssistant guidance, TimeProvider clock, ICodexClient? codex = null, lumibelle.Services.Production.IProductionStore? production = null, IAssetReelStore? reels = null,
+    VisualBriefCache? briefs = null) : IAiJobHandler
 {
     private const string Operation = "text";
+    // First step of a two-step composition; its ComfyUI output is the visual brief.
+    private const string BriefOperation = "brief";
     public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation];
 
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
@@ -82,7 +85,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         var raw = new AiTextJobResult(output.ToString(), true, finish) { OpenRouterUsage = usage };
         if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode)
             await PersistAsync(context, () => context.SaveOperationAsync(Operation, AiOperationArtifact.Output, raw, ct), ct);
-        return await FinishAsync(context, request, raw, ct);
+        return await FinishAsync(context, request, raw with { VisualBrief = await BriefAsync(context, request, ct) }, ct);
     }
     public async Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
@@ -106,6 +109,25 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         using var timeout = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, clock);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         using var http = ComfyClient(request.Model.ComfyUrl!);
+        var submissions = (await context.ExecutionAsync(ct)).Submissions;
+        if (request.TwoStep && submissions.All(s => s.Operation != Operation))
+        {
+            // Recovery never submits new work. Finish observing step one so its brief is cached for the next request.
+            if (submissions.Any(s => s.Operation == BriefOperation))
+                try
+                {
+                    await foreach (var update in comfy.ObserveAsync(context, BriefOperation, http, ct: linked.Token))
+                    {
+                        timeout.Observe(update.Progress);
+                        await context.ReportAsync(new(Step(update.Progress, 1)));
+                        if (update.Complete && update.Job is { } briefJob && ComfyChatClient.TryReadText(briefJob, out var text) &&
+                            PromptComposer.ReadBrief(text) is { } brief && briefs is not null)
+                            await briefs.WriteAsync(request.BriefKey!, brief, ct);
+                    }
+                }
+                catch (Exception e) when (e is AiGenerationException or AiJobRecoveryException) { }
+            return AiJobOutcome.Attention("The request stopped before composing. Generate again; a finished visual brief is reused.", AiJobRecovery.GenerateAgain);
+        }
         try
         {
             await foreach (var update in comfy.ObserveAsync(context, Operation, http, ct: linked.Token, onProviderCompleted: timeout.Stop))
@@ -115,7 +137,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                 if (!update.Complete || update.Job is not { } job) continue;
                 timeout.Stop();
                 if (!ComfyChatClient.TryReadText(job, out var raw)) throw new AiJobRecoveryException("ComfyUI completed without the expected text output. Inspect it and retry explicitly.", AiJobRecovery.GenerateAgain);
-                return await FinishAsync(context, request, new(raw, true), ct);
+                return await FinishAsync(context, request, new(raw, true) { VisualBrief = await BriefAsync(context, request, ct) }, ct);
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -150,8 +172,29 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         if (request.Model.Backend == AiBackend.ComfyUI)
         {
             using var http = ComfyClient(request.Model.ComfyUrl!);
-            var input = ComfyTextVision.Capture(messages, await ComfyTextCapabilities.UseSystemPromptAsync(http,
-                ComfyTextCapabilities.SystemPromptVersions(request.Model, request.Settings), ct));
+            var nativeSystemPrompt = await ComfyTextCapabilities.UseSystemPromptAsync(http, ComfyTextCapabilities.SystemPromptVersions(request.Model, request.Settings), ct);
+            if (request.TwoStep)
+            {
+                var brief = await BriefAsync(context, request, ct);
+                if (brief is null)
+                {
+                    var briefInput = ComfyTextVision.Capture(request.BriefMessages!.Select(m => m.ToMessage()), nativeSystemPrompt);
+                    yield return new(Progress: new(GenerationPhase.Preparing, "Step 1 of 2 · preparing reference images…"));
+                    var briefImages = await ComfyTextVision.UploadAsync(http, request.Model.Model, ComfyTextVision.Mode(request.Model, request.Settings),
+                        briefInput.Images, ct, ComfyTextSettings.BatchImageSide(request.Model, request.Settings));
+                    var briefTokens = Math.Min(PromptComposer.BriefTokens, TextGenerationOptions.Captured(request).MaxOutputTokens!.Value);
+                    await foreach (var update in comfy.ExecuteAsync(context, BriefOperation, http, client => ComfyTextVision.BuildWorkflow(request.Model.Model,
+                        briefInput.Transcript, briefTokens, BriefTemperature, request.Seed, client, briefImages, briefInput.SystemPrompt), ComfyChatClient.ExecutionOptions, ct))
+                    {
+                        yield return new(Progress: Step(update.Progress, 1));
+                        if (update.Complete && update.Job is { } job && ComfyChatClient.TryReadText(job, out var text)) brief = PromptComposer.ReadBrief(text);
+                    }
+                    if (brief is null) throw new AiJobRecoveryException("The first step returned no usable visual brief. Generate again, or turn off image sending and use saved descriptions.", AiJobRecovery.GenerateAgain);
+                    if (briefs is not null) await briefs.WriteAsync(request.BriefKey!, brief, ct);
+                }
+                messages = PromptComposer.WithBrief(request.Messages, brief).Select(m => m.ToMessage()).ToList();
+            }
+            var input = ComfyTextVision.Capture(messages, nativeSystemPrompt);
             if (input.Images.Count > 0) yield return new(Progress: new(GenerationPhase.Preparing, "Preparing ComfyUI vision inputs…"));
             var uploaded = await ComfyTextVision.UploadAsync(http, request.Model.Model,
                 ComfyTextVision.Mode(request.Model, request.Settings), input.Images, ct, ComfyTextSettings.BatchImageSide(request.Model, request.Settings));
@@ -159,7 +202,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             await foreach (var update in comfy.ExecuteAsync(context, Operation, http,
                 client => ComfyTextVision.BuildWorkflow(request.Model.Model, input.Transcript, localOptions.MaxOutputTokens!.Value, localOptions.Temperature!.Value, request.Seed, client, uploaded, input.SystemPrompt), ComfyChatClient.ExecutionOptions, ct, onProviderCompleted: timeout.Stop))
             {
-                yield return new(Progress: update.Progress);
+                yield return new(Progress: request.TwoStep ? Step(update.Progress, 2) : update.Progress);
                 if (!update.Complete || update.Job is not { } job) continue;
                 if (!ComfyChatClient.TryReadText(job, out var raw)) throw new AiJobRecoveryException("ComfyUI completed without the expected text output. Inspect it and retry explicitly.", AiJobRecovery.GenerateAgain);
                 yield return new(new ChatResponseUpdate(ChatRole.Assistant, raw) { ModelId = request.Model.Model, ResponseId = update.PromptId, FinishReason = ChatFinishReason.Stop });
@@ -225,8 +268,17 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             ShotDubbing.ValidateRequest(request.Payload<ShotDubRequest>());
         }
         AiTextRepairs.Validate(job, request);
-        var imageCount = request.Messages.Sum(m => m.Parts.Count(p => p.Image is not null));
-        var expectedImages = request.Repair is not null ? 0 : request.Kind switch
+        if (request.TwoStep && (request.Kind != AiJobKind.PromptComposition || request.Model.Backend != AiBackend.ComfyUI || request.Repair is not null ||
+            request.BriefKey is not { Length: 64 } key || !key.All(char.IsAsciiHexDigit) || (request.BriefMessages is null) == (request.VisualBrief is null) ||
+            request.VisualBrief is not null && PromptComposer.ReadBrief(request.VisualBrief) != request.VisualBrief ||
+            request.Messages.Any(m => m.Parts.Any(p => p.Image is not null)) ||
+            request.BriefMessages is { } briefMessages && (briefMessages.Count != 2 || briefMessages[0].Role != "system" || briefMessages[1].Role != "user" ||
+                briefMessages.Any(m => m.Parts is null || m.Parts.Any(p => p is null || (p.Text is not null) == (p.Image is not null) || p.Image is { Length: 0 } ||
+                    p.Image is not null && p.MediaType != "image/png")))) ||
+            !request.TwoStep && (request.BriefMessages is not null || request.VisualBrief is not null))
+            throw new WorkspaceStoreException("The saved two-step composition is incomplete.");
+        var imageCount = request.Messages.Concat(request.BriefMessages ?? []).Sum(m => m.Parts.Count(p => p.Image is not null));
+        var expectedImages = request.Repair is not null || request.VisualBrief is not null ? 0 : request.Kind switch
         {
             AiJobKind.PromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
             AiJobKind.Guidance => request.Payload<GuidanceRequest>().InspectionImage is null ? 0 : 1,
@@ -251,10 +303,22 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             .Where(binding => binding.EffectiveVisuals == ReelVisuals.RefMod)
             .Sum(binding => binding.RefMod?.Recipe.FrameHashes.Count ?? 0);
 
+    private const float BriefTemperature = 0.3f;
+    private static GenerationProgress Step(GenerationProgress progress, int step) => progress with { Label = $"Step {step} of 2 · {progress.Label}" };
+
+    /// <summary>The brief of a two-step composition: captured from the cache, or written by this job's first step.</summary>
+    private static async Task<string?> BriefAsync(AiJobContext context, AiTextJobRequest request, CancellationToken ct)
+    {
+        if (!request.TwoStep) return null;
+        if (request.VisualBrief is { } captured) return captured;
+        var output = await context.ReadOperationAsync<JsonElement?>(BriefOperation, AiOperationArtifact.Output, ct);
+        return output is { } job && ComfyChatClient.TryReadText(job, out var text) ? PromptComposer.ReadBrief(text) : null;
+    }
+
     private static AiJobTarget GuidanceTarget(GuidanceTarget target) => new(target.ProjectId, target.AssetId, GuidanceScope: target.Scope, LookId: target.LookId, ImageId: target.ImageId);
     private async Task<AiJobOutcome> FinishAsync(AiJobContext context, AiTextJobRequest request, AiTextJobResult raw, CancellationToken ct)
     {
-        var parsed = AiTextResults.Parse(request, raw.Raw, raw.FinishReason) with { OpenRouterUsage = raw.OpenRouterUsage };
+        var parsed = AiTextResults.Parse(request, raw.Raw, raw.FinishReason) with { OpenRouterUsage = raw.OpenRouterUsage, VisualBrief = raw.VisualBrief };
         await PersistAsync(context, () => context.SaveResultAsync(parsed), ct);
         if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && production is not null && parsed.Error is null)
             await PersistAsync(context, async () => { await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct); }, ct);

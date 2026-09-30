@@ -61,6 +61,7 @@ public static class LumibelleServices
         services.AddSingleton<Services.Production.ReelRefModPreparation>();
         services.AddSingleton<ComfyRefModClient>();
         services.AddSingleton<ComfyRefModCache>();
+        services.AddSingleton<VisualBriefCache>();
         services.AddSingleton<AiRefModCapture>();
         services.AddSingleton<IAiJobHandler, AiRefModJobHandler>();
 

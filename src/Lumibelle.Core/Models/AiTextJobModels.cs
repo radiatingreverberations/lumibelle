@@ -33,12 +33,26 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AiTextRepair? Repair { get; init; }
 
+    // Two-step composition: the first step inspects the images and writes a visual brief; Messages are then
+    // the text-only second step, which receives the brief as an extra text part. A cached brief is captured
+    // instead of BriefMessages, so the first step is skipped. BriefKey identifies the brief in the cache.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AiTextMessage>? BriefMessages { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? VisualBrief { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? BriefKey { get; init; }
+    public bool TwoStep => BriefKey is not null;
+
     public T Payload<T>() => Task.Deserialize<T>(AtomicJsonFile.Options) ?? throw new WorkspaceStoreException("The saved text request is incomplete.");
-    public bool InspectsImages => Messages.Any(m => m.Parts.Any(p => p.Image is not null));
+    public bool InspectsImages => Messages.Concat(BriefMessages ?? []).Any(m => m.Parts.Any(p => p.Image is not null));
 }
 public sealed record AiTextJobResult(string Raw, bool Complete = false, string? FinishReason = null, JsonElement? Value = null, string? Error = null)
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public OpenRouterRequestUsage? OpenRouterUsage { get; init; }
+    // The brief a two-step composition was written from.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? VisualBrief { get; init; }
     public T? Read<T>() => Value is { } value ? value.Deserialize<T>(AtomicJsonFile.Options) : default;
 }

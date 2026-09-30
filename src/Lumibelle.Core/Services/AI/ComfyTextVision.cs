@@ -66,7 +66,7 @@ public static partial class ComfyTextVision
     public static void ValidateSnapshot(AiTextJobRequest request)
     {
         if (request.Model.Backend != AiBackend.ComfyUI) return;
-        var images = request.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray();
+        var images = request.Messages.Concat(request.BriefMessages ?? []).SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray();
         ValidateCount(Mode(request.Model, request.Settings), images.Length);
         ValidateByteLimits(images);
     }

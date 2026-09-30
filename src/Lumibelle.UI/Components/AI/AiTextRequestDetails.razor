@@ -13,7 +13,12 @@
         @if (request.Model.ProfileId is not null || request.Model.ReasoningEffort is not null || request.Model.Temperature is not null || request.Model.MaxOutputTokens is not null || request.Model.ReasoningMaxTokens is not null) {
             <p>Requested settings · @TextModelProfiles.Describe(request.Model)</p>
         }
-        <pre class="submitted-input">@string.Join("\n\n", request.Messages.Select(m => m.Role + ":\n" + string.Join("\n", m.Parts.Select(p => p.Text ?? "[Attached image]"))))</pre>
+        @if (request.TwoStep) {
+            <p>Two-step composition · @(request.VisualBrief is not null ? "reused a cached visual brief, so the images were not inspected again." : "step 1 inspected the images and wrote a visual brief; step 2 composed from it.")</p>
+            @if (request.BriefMessages is { } briefMessages) { <details><summary>Step 1 input</summary><pre class="submitted-input">@Describe(briefMessages)</pre></details> }
+            <details><summary>Visual brief</summary><pre>@(_brief ?? "Not written yet.")</pre></details>
+        }
+        <pre class="submitted-input">@Describe(request.Messages)</pre>
     } else { <p>@(_error ?? "Loading captured input…")</p> }
 </details>
 @if (Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
@@ -25,6 +30,9 @@
     [Parameter] public EventCallback<AiJobHeader> RepairReviewRequested { get; set; }
     private Guid? _loaded;
     private AiTextJobRequest? _request;
+    private string? _brief;
+    private static string Describe(IReadOnlyList<AiTextMessage> messages) =>
+        string.Join("\n\n", messages.Select(m => m.Role + ":\n" + string.Join("\n", m.Parts.Select(p => p.Text ?? "[Attached image]"))));
     private string? _error;
     protected override void OnParametersSet() { if (_loaded != JobId) { _request = null; _error = null; } }
     private async Task LoadAsync() {
@@ -34,7 +42,8 @@
             var job = (await Store.ReadAsync()).Jobs.FirstOrDefault(j => j.Id == id);
             if (job is null) throw new WorkspaceStoreException("The captured request is unavailable.");
             var request = AiTextJobHandler.Read(job, await Store.ReadSnapshotAsync(id));
-            if (JobId == id) { _request = request; _loaded = id; _error = null; }
+            var brief = request.VisualBrief ?? (request.TwoStep ? (await Store.ReadArtifactAsync<AiTextJobResult>(id, AiJobArtifact.Result))?.VisualBrief : null);
+            if (JobId == id) { _request = request; _brief = brief; _loaded = id; _error = null; }
         } catch (WorkspaceStoreException e) { _error = e.Message; }
     }
 }

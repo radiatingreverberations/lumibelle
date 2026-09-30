@@ -46,15 +46,18 @@ public partial class ProductionStudio
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
                 _lifetime.Token, inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
             var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
-            if (ComfyTextCapacity.Assess(request) is not ({ } size, var capacity)) { _compositionSize = null; return; }
+            if (ComfyTextCapacity.Assess(request) is not { Count: > 0 } stages) { _compositionSize = null; return; }
             var model = TextModelPolicy.DisplayName(request.Model, request.Settings);
-            _compositionSizeTooLarge = capacity is { } limit && size.PromptTokens > limit;
-            _compositionSize = $"Prompt ≈ {size.PromptTokens:N0} tokens ({ComfyTextCapacity.Describe(size)}) with up to {size.ReplyTokens:N0} reply tokens. " + capacity switch
-            {
-                null => "Test this model in AI settings to see how large a prompt it reads within GPU memory.",
-                { } fits when size.PromptTokens <= fits => $"Fits: {model} reads about {fits:N0} within GPU memory.",
-                { } over => $"Too large: {model} reads only about {over:N0} within GPU memory. Leave out the scene context, send fewer references, lower the image size in AI settings, or choose a smaller model."
-            };
+            var cached = request.TwoStep && request.VisualBrief is not null ? " The visual brief is reused, so the images are not inspected again." : "";
+            var sizes = string.Join(" ", stages.Select(stage => $"{(stage.Step is { } step ? step + ": p" : "P")}rompt ≈ {stage.Size.PromptTokens:N0} tokens " +
+                $"({ComfyTextCapacity.Describe(stage.Size)}) with up to {stage.Size.ReplyTokens:N0} reply tokens" +
+                (stage.Capacity is { } capacity ? $"; {model} reads about {capacity:N0}." : ".")));
+            _compositionSizeTooLarge = stages.Any(stage => stage.TooLarge);
+            _compositionSize = sizes + cached + " " + (stages.All(stage => stage.Capacity is null)
+                ? "Test this model in AI settings to see how large a prompt it reads within GPU memory."
+                : _compositionSizeTooLarge
+                    ? "Too large for GPU memory. Leave out the scene context, send fewer references, lower the image size in AI settings, or choose a smaller model."
+                    : "Fits within GPU memory.");
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
         { _compositionSize = "The size cannot be estimated right now: " + e.Message; _compositionSizeTooLarge = false; }
