@@ -193,6 +193,8 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         }
         catch (JsonException)
         {
+            // A complete answer object after reasoning aloud; the raw response is still kept for review.
+            if (AiJsonReply.Latest(raw, json => Parse(json)) is { } answer) return answer;
             // Some providers follow the guide’s native prompt-only output. Require an explicit
             // successful end of stream; never mistake broken JSON or a cut-off stream for a prompt.
             if (!allowPlainText) return null;

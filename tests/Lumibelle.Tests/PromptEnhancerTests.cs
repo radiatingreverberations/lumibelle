@@ -154,6 +154,26 @@ public sealed class PromptEnhancerTests
         Assert.Null(PromptEnhancer.Parse(raw, allowPlainText: true));
 
     [Fact]
+    public void ReadsTheCompleteAnswerAfterALocalModelReasonsAloud()
+    {
+        const string raw = """
+            The request asks to make the arms visible in a neutral, relaxed pose by his side. I should keep the identity and outfit the same.
+
+            Prompt: "Relax the man's arms so they hang naturally at his sides instead of being tucked behind his back."
+
+            That's faithful. Keep it concise.
+
+            {"kind":"Prompt","text":"Relax the man's arms so they hang naturally at his sides rather than behind his back, keeping his stance, outfit, and background otherwise unchanged."}
+            """;
+        var result = PromptEnhancer.Parse(raw);
+        Assert.Equal(PromptEnhancementKind.Prompt, result!.Kind);
+        Assert.StartsWith("Relax the man's arms so they hang naturally at his sides rather than", result.Text);
+        // An answer cut off by the reply limit is still not a prompt, and an earlier complete answer wins over it.
+        Assert.Null(PromptEnhancer.Parse("I will answer.\n\n{\"kind\":\"Prompt\",\"text\":\"unfinished", allowPlainText: true));
+        Assert.Equal("First", PromptEnhancer.Parse("{\"kind\":\"Prompt\",\"text\":\"First\"}\nWait, let me revise.\n{\"kind\":\"Prompt\",\"text\":\"Sec")!.Text);
+    }
+
+    [Fact]
     public void ParsesJsonWrappedInASingleCodeFence()
     {
         var result = PromptEnhancer.Parse("```json\n{\"kind\":\"Prompt\",\"text\":\"Wrapped description\"}\n```");

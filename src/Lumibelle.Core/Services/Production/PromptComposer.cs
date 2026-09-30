@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using lumibelle.Models;
+using lumibelle.Services.AI;
 using lumibelle.Services.Story;
 using Microsoft.Extensions.AI;
 
@@ -215,28 +216,14 @@ public static class PromptComposer
         var text = raw.Trim();
         if (text.StartsWith("```json") && text.EndsWith("```")) text = text[7..^3].Trim();
         try { return ReadComposition(text); }
-        catch (WorkspaceStoreException) when (FencedJson(text) is { } fenced)
-        {
-            // Local models sometimes reason aloud around a complete answer, and may run out of reply tokens after it.
-            // The latest complete fenced composition is the answer; the raw reply is still kept for review.
-            return ReadComposition(fenced);
-        }
+        // The latest complete composition after reasoning aloud is the answer; the raw reply is still kept for review.
+        catch (WorkspaceStoreException) when (AiJsonReply.Latest(text, TryReadComposition) is { } answer) { return answer; }
     }
 
-    private static string? FencedJson(string text)
+    private static PromptCompositionResult? TryReadComposition(string json)
     {
-        string? last = null;
-        for (var start = text.IndexOf("```json", StringComparison.Ordinal); start >= 0; start = text.IndexOf("```json", start, StringComparison.Ordinal))
-        {
-            start += 7;
-            var end = text.IndexOf("```", start, StringComparison.Ordinal);
-            if (end < 0) break;
-            var block = text[start..end].Trim();
-            start = end + 3;
-            try { ReadComposition(block); last = block; }
-            catch (WorkspaceStoreException) { }
-        }
-        return last;
+        try { return ReadComposition(json); }
+        catch (WorkspaceStoreException) { return null; }
     }
 
     private static PromptCompositionResult ReadComposition(string text)
