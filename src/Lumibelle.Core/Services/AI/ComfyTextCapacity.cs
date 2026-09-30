@@ -77,6 +77,35 @@ public static class ComfyTextCapacity
         return (int)Math.Clamp(tokens, 0, int.MaxValue);
     }
 
+    /// <summary>Upper bound for a raised reply limit: a model that rambles would otherwise run for many minutes.</summary>
+    public const int RaisedReplyCap = 8192;
+
+    /// <summary>The largest reply limit that fits beside a prompt of the given size, or null without a capacity measurement.</summary>
+    public static int? ReplyCapacity(ComfyTextModelBenchmark? benchmark, int promptTokens)
+    {
+        if (benchmark is not { CustomPrompt: false, BytesPerPromptToken: { } perPrompt and > 0, CapacityContextTokens: { } measured,
+            CapacityPeakVramUsedBytes: { } peak, VramTotalBytes: { } total }) return null;
+        if (benchmark.OutOfMemoryContextTokens is { } failed && promptTokens >= failed) return 0;
+        var room = total - peak - MarginBytes - (long)(promptTokens - measured) * perPrompt;
+        return (int)Math.Clamp(FootprintTokens + room / (benchmark.BytesPerReplyToken ?? perPrompt), 0, 32768);
+    }
+
+    /// <summary>
+    /// Raises a ComfyUI request's reply limit to what fits beside its prompt, up to <see cref="RaisedReplyCap"/>. A larger limit
+    /// costs no time, since the model stops at its natural end, only memory. It never lowers the model's configured limit, and
+    /// leaves explicit LLM-profile limits and models set to a fixed limit alone.
+    /// </summary>
+    public static AiTextJobRequest FitReplyLimit(AiTextJobRequest request)
+    {
+        if (request.Model.Backend != AiBackend.ComfyUI || request.Version >= 3 && request.Model.MaxOutputTokens is not null ||
+            ComfyTextSettings.Resolve(request.Model, request.Settings).FixedReplyLimit) return request;
+        // The last step is the one that uses the reply limit; a visual-brief step keeps its own short limit.
+        if (Assess(request)?.LastOrDefault() is not { } stage || ReplyCapacity(Benchmark(request.Model, request.Settings), stage.Size.PromptTokens) is not { } fits)
+            return request;
+        var raised = Math.Min(RaisedReplyCap, fits) / 256 * 256;
+        return raised > request.Settings.MaxOutputTokens ? request with { Settings = request.Settings with { MaxOutputTokens = raised } } : request;
+    }
+
     /// <summary>The newest standard benchmark with capacity measurements for this model and server.</summary>
     public static ComfyTextModelBenchmark? Benchmark(TextModelReference model, AiSettings settings) =>
         TextModelPolicy.Verification(model, settings)?.Benchmarks?

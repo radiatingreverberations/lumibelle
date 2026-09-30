@@ -13,6 +13,9 @@
         @if (request.Model.ProfileId is not null || request.Model.ReasoningEffort is not null || request.Model.Temperature is not null || request.Model.MaxOutputTokens is not null || request.Model.ReasoningMaxTokens is not null) {
             <p>Requested settings · @TextModelProfiles.Describe(request.Model)</p>
         }
+        @if (request.Model.Backend == AiBackend.ComfyUI && request.Model.MaxOutputTokens is null && request.Settings.MaxOutputTokens is var replyLimit) {
+            <p>Reply limit · @replyLimit.ToString("N0") tokens@(replyLimit > ComfyTextSettings.Resolve(request.Model, request.Settings).MaxOutputTokens ? ", raised to fit GPU memory" : "")</p>
+        }
         @if (request.TwoStep) {
             <p>Two-step composition · @(request.VisualBrief is not null ? "reused a cached visual brief, so the images were not inspected again." : "step 1 inspected the images and wrote a visual brief; step 2 composed from it.")</p>
             @if (request.BriefMessages is { } briefMessages) { <details><summary>Step 1 input</summary><pre class="submitted-input">@Describe(briefMessages)</pre></details> }

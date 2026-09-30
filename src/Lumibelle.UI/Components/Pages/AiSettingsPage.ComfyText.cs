@@ -6,7 +6,7 @@ namespace lumibelle.Components.Pages;
 public partial class AiSettingsPage
 {
     private bool _providerDefaultsOpen;
-    private sealed class ComfyTextDraft { public int Tokens { get; set; } public float Temperature { get; set; } public ComfyVisionInput VisionInput { get; set; } public int ImageSide { get; set; } }
+    private sealed class ComfyTextDraft { public int Tokens { get; set; } public float Temperature { get; set; } public ComfyVisionInput VisionInput { get; set; } public int ImageSide { get; set; } public bool RaiseReplyLimit { get; set; } }
     private readonly Dictionary<string, ComfyTextDraft> _comfyTextDrafts = new(StringComparer.Ordinal);
     private ComfyTextDraft TextDraft(TextModelReference model)
     {
@@ -15,7 +15,7 @@ public partial class AiSettingsPage
         {
             var value = ComfyTextSettings.Resolve(model, _settings!);
             _comfyTextDrafts[key] = draft = new() { Tokens = value.MaxOutputTokens, Temperature = value.Temperature, VisionInput = value.VisionInput,
-                ImageSide = value.BatchImageSide ?? ComfyTextVision.BatchMaximumSide };
+                ImageSide = value.BatchImageSide ?? ComfyTextVision.BatchMaximumSide, RaiseReplyLimit = !value.FixedReplyLimit };
         }
         return draft;
     }
@@ -49,7 +49,7 @@ public partial class AiSettingsPage
             var models = new Dictionary<string, ComfyTextModelSettings>(settings.ComfyTextModels, StringComparer.Ordinal);
             if (reset) models.Remove(TextModelPolicy.Key(model));
             else models[TextModelPolicy.Key(model)] = new(draft.Tokens, draft.Temperature)
-            { VisionInput = draft.VisionInput, BatchImageSide = draft.ImageSide == ComfyTextVision.BatchMaximumSide ? null : draft.ImageSide };
+            { VisionInput = draft.VisionInput, BatchImageSide = draft.ImageSide == ComfyTextVision.BatchMaximumSide ? null : draft.ImageSide, FixedReplyLimit = !draft.RaiseReplyLimit };
             return settings with { ComfyTextModels = models };
         }, reset ? "Model now uses ComfyUI defaults." : "Model generation settings saved.")) CancelTextDraft(model);
     }

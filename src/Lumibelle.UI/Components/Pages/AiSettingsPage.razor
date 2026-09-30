@@ -263,6 +263,7 @@ else
                                                         @foreach (var side in ComfyTextSettings.BatchImageSides) { <option value="@side">@ImageSideLabel(model, side)</option> }
                                                     </select></label>
                                                 </div>
+                                                <label class="check-row"><input type="checkbox" @bind="draft.RaiseReplyLimit" disabled="@Busy" />Raise the reply limit when the prompt leaves room in GPU memory (up to @ComfyTextCapacity.RaisedReplyCap.ToString("N0") tokens)</label>
                                                 @if (CapacityText(model, draft) is { } capacity) { <p class="field-hint comfy-capacity" data-testid="comfy-capacity">@capacity</p> }
                                                 else { <p class="field-hint comfy-capacity">Test the model to estimate how large a request stays fast on this machine.</p> }
                                                 <p class="field-hint">@(_settings.ComfyTextModels.ContainsKey(key) ? "Saved for this model and ComfyUI server." : "Currently using ComfyUI defaults.") Asset extraction uses temperature 0.2; text thinking is disabled.</p>

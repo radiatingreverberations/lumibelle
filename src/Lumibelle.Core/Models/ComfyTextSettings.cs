@@ -12,4 +12,7 @@ public sealed record ComfyTextModelSettings(int MaxOutputTokens, float Temperatu
     // Longest side of multi-image inspection canvases; null keeps the 1024-pixel default.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? BatchImageSide { get; init; }
+    // False (the default) lets capture raise the reply limit when the prompt leaves room in GPU memory.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool FixedReplyLimit { get; init; }
 }

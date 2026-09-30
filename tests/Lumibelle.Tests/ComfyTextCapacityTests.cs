@@ -112,6 +112,36 @@ public sealed class ComfyTextCapacityTests
     }
 
     [Fact]
+    public void ReplyCapacityShrinksAsThePromptGrows()
+    {
+        var small = ComfyTextCapacity.ReplyCapacity(Measured(), 2000)!.Value;
+        var large = ComfyTextCapacity.ReplyCapacity(Measured(), 8900)!.Value;
+        Assert.True(small > large);
+        Assert.Equal(ComfyTextCapacity.FootprintTokens + (Vram - 20_200_000_000 - ComfyTextCapacity.MarginBytes - 708L * 360 * 1024) / (80 * 1024), large);
+        Assert.Equal(0, ComfyTextCapacity.ReplyCapacity(Measured() with { OutOfMemoryContextTokens = 6000 }, 6000));
+        Assert.Null(ComfyTextCapacity.ReplyCapacity(Measured() with { BytesPerPromptToken = null }, 2000));
+    }
+
+    [Fact]
+    public void ReplyLimitIsRaisedToWhatFitsButNeverLowered()
+    {
+        // A short prompt leaves room: the limit rises to the cap.
+        var drafting = ComfyTextCapacity.FitReplyLimit(Request(Settings(Measured()), Messages(1300, 6800)));
+        Assert.Equal(ComfyTextCapacity.RaisedReplyCap, drafting.Settings.MaxOutputTokens);
+        // A prompt that leaves less room than the configured limit keeps the configured limit.
+        var crowded = ComfyTextCapacity.FitReplyLimit(Request(Settings(Measured()), Messages(8600, 30000)));
+        Assert.Equal(2048, crowded.Settings.MaxOutputTokens);
+        // Nothing measured, a fixed limit, a profile's explicit limit or another backend: unchanged.
+        Assert.Equal(2048, ComfyTextCapacity.FitReplyLimit(Request(Settings(null), Messages(1300, 6800))).Settings.MaxOutputTokens);
+        var fixedLimit = Settings(Measured()) with { ComfyTextModels = new() { [TextModelPolicy.Key(Model)] = new(2048, .7f) { FixedReplyLimit = true } } };
+        Assert.Equal(2048, ComfyTextCapacity.FitReplyLimit(Request(fixedLimit, Messages(1300, 6800))).Settings.MaxOutputTokens);
+        var profile = Request(Settings(Measured()), Messages(1300, 6800)) with { Version = 3, Model = Model with { MaxOutputTokens = 3000 } };
+        Assert.Equal(2048, ComfyTextCapacity.FitReplyLimit(profile).Settings.MaxOutputTokens);
+        var hosted = Request(Settings(Measured()), Messages(1300, 6800)) with { Model = new(AiBackend.OpenRouter, "hosted", "Hosted") };
+        Assert.Equal(2048, ComfyTextCapacity.FitReplyLimit(hosted).Settings.MaxOutputTokens);
+    }
+
+    [Fact]
     public void SummaryExplainsCapacityOrAnOutOfMemoryResult()
     {
         var summary = ComfyTextCapacity.Summary(Model, Settings(Measured()), 2048, 512)!;

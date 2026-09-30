@@ -186,6 +186,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var snapshot = new AiTextJobRequest(version, kind, model, followsDefault, configured, profile, temperature, Random.Shared.NextInt64(1, long.MaxValue),
             JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), messages.Select(AiTextMessage.Capture).ToArray(), baseline)
         { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key };
+        snapshot = ComfyTextCapacity.FitReplyLimit(snapshot);
         ComfyTextVision.ValidateSnapshot(snapshot);
         if (model.Backend == AiBackend.Codex)
             snapshot = snapshot with { Codex = CodexClient.Capture(await (codex ?? throw new AiGenerationException("Codex is not configured.")).CheckAsync(configured.Codex, ct), model.Model, model.ReasoningEffort) };
