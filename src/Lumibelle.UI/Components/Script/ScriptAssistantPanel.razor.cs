@@ -240,7 +240,10 @@ public partial class ScriptAssistantPanel
                 }
                 if (_queueRevision != view.Revision)
                 {
-                    _runs = (await History.LoadAsync(ProjectId, _lifetime.Token)).Runs;
+                    // Saves take the same gate, so a reload that started before an apply or dismissal cannot replace it with the older run.
+                    await _historyGate.WaitAsync(_lifetime.Token);
+                    try { _runs = (await History.LoadAsync(ProjectId, _lifetime.Token)).Runs; }
+                    finally { _historyGate.Release(); }
                     _observedScriptJobs = view.Jobs;
                     foreach (var unsaved in _unsaved.Values) Put(unsaved);
                     _historyError = _unsaved.Count > 0; _queueRevision = view.Revision;
