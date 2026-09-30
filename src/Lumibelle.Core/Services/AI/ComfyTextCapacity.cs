@@ -10,9 +10,15 @@ public sealed record ComfyTextRequestSize(int InstructionTokens, int ContentToke
 }
 
 /// <summary>One request, or one step of a two-step composition, with the model's prompt capacity at that step's reply limit.</summary>
+public enum ComfyTextFit { Unknown, Fits, AtLimit, TooLarge }
+
 public sealed record ComfyTextStageSize(string? Step, ComfyTextRequestSize Size, int? Capacity)
 {
-    public bool TooLarge => Capacity is { } capacity && Size.PromptTokens > capacity;
+    // The estimate is approximate and keeps a safety margin, so up to 10% over the capacity is only "at the limit".
+    public ComfyTextFit Fit => Capacity is not { } capacity ? ComfyTextFit.Unknown
+        : Size.PromptTokens <= capacity ? ComfyTextFit.Fits
+        : Size.PromptTokens <= capacity * 1.1 ? ComfyTextFit.AtLimit : ComfyTextFit.TooLarge;
+    public bool TooLarge => Fit == ComfyTextFit.TooLarge;
 }
 
 /// <summary>One capacity run: whether it finished or ran out of GPU memory, and the peaks observed while it ran.</summary>

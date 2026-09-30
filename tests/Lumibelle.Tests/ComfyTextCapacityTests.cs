@@ -141,6 +141,18 @@ public sealed class ComfyTextCapacityTests
         Assert.Equal(2048, ComfyTextCapacity.FitReplyLimit(hosted).Settings.MaxOutputTokens);
     }
 
+    [Theory]
+    [InlineData(1000, ComfyTextFit.Fits)]
+    [InlineData(1100, ComfyTextFit.AtLimit)]
+    [InlineData(1101, ComfyTextFit.TooLarge)]
+    public void StagesUpToTenPercentOverAreOnlyAtTheLimit(int promptTokens, ComfyTextFit fit)
+    {
+        var stage = new ComfyTextStageSize(null, new(promptTokens, 0, 0, 0, 2048), 1000);
+        Assert.Equal(fit, stage.Fit);
+        Assert.Equal(fit == ComfyTextFit.TooLarge, stage.TooLarge);
+        Assert.Equal(ComfyTextFit.Unknown, stage with { Capacity = null } is { } unknown ? unknown.Fit : default);
+    }
+
     [Fact]
     public void SummaryExplainsCapacityOrAnOutOfMemoryResult()
     {

@@ -32,10 +32,17 @@ public partial class ProductionStudio
     private bool _inspectCompositionImages = true;
     // Request-local: scene text and neighbouring shots are the part of the prompt that can be dropped safely.
     private bool _fullCompositionContext = true;
-    private string? _compositionSize;
-    private bool _compositionSizeTooLarge, _compositionSizeBusy;
-    private void CompositionModelChanged(TextModelSelectionState? value) { _compositionModel = value; _compositionSize = null; }
-    private Task RefreshCompositionSize() => _compositionSize is null ? Task.CompletedTask : EstimateCompositionSize();
+    // The last size estimate of the composition request, per step; cleared when the model changes.
+    private IReadOnlyList<ComfyTextStageSize>? _compositionStages;
+    private string? _compositionSizeError, _compositionSizeModel;
+    private bool _compositionSizeBusy, _compositionBriefReused;
+    private void CompositionModelChanged(TextModelSelectionState? value)
+    { _compositionModel = value; _compositionStages = null; _compositionSizeError = null; }
+    private Task RefreshCompositionSize() => _compositionStages is null && _compositionSizeError is null ? Task.CompletedTask : EstimateCompositionSize();
+    private static string FitLabel(ComfyTextFit fit) => fit switch
+    {
+        ComfyTextFit.Fits => "Fits", ComfyTextFit.AtLimit => "At the limit", ComfyTextFit.TooLarge => "Too large", _ => "Not measured"
+    };
     /// <summary>Builds the request the Compose button would send, without queueing it, and sizes it against the model's capacity.</summary>
     private async Task EstimateCompositionSize()
     {
@@ -46,21 +53,13 @@ public partial class ProductionStudio
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
                 _lifetime.Token, inspectReferenceImages: _inspectCompositionImages, reducedScriptContext: !_fullCompositionContext);
             var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
-            if (ComfyTextCapacity.Assess(request) is not { Count: > 0 } stages) { _compositionSize = null; return; }
-            var model = TextModelPolicy.DisplayName(request.Model, request.Settings);
-            var cached = request.TwoStep && request.VisualBrief is not null ? " The visual brief is reused, so the images are not inspected again." : "";
-            var sizes = string.Join(" ", stages.Select(stage => $"{(stage.Step is { } step ? step + ": p" : "P")}rompt ≈ {stage.Size.PromptTokens:N0} tokens " +
-                $"({ComfyTextCapacity.Describe(stage.Size)}) with up to {stage.Size.ReplyTokens:N0} reply tokens" +
-                (stage.Capacity is { } capacity ? $"; {model} reads about {capacity:N0}." : ".")));
-            _compositionSizeTooLarge = stages.Any(stage => stage.TooLarge);
-            _compositionSize = sizes + cached + " " + (stages.All(stage => stage.Capacity is null)
-                ? "Test this model in AI settings to see how large a prompt it reads within GPU memory."
-                : _compositionSizeTooLarge
-                    ? "Too large for GPU memory. Leave out the scene context, send fewer references, lower the image size in AI settings, or choose a smaller model."
-                    : "Fits within GPU memory.");
+            _compositionStages = ComfyTextCapacity.Assess(request);
+            _compositionSizeModel = TextModelPolicy.DisplayName(request.Model, request.Settings);
+            _compositionBriefReused = request.TwoStep && request.VisualBrief is not null;
+            _compositionSizeError = null;
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
-        { _compositionSize = "The size cannot be estimated right now: " + e.Message; _compositionSizeTooLarge = false; }
+        { _compositionStages = null; _compositionSizeError = "The size cannot be estimated right now: " + e.Message; }
         finally { _compositionSizeBusy = false; }
     }
     private string? CompositionDescriptionIssue => !_inspectCompositionImages && Selected is { } shot
