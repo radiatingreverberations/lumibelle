@@ -212,10 +212,37 @@ public static class PromptComposer
 
     private static PromptCompositionResult ReadResponse(string raw)
     {
+        var text = raw.Trim();
+        if (text.StartsWith("```json") && text.EndsWith("```")) text = text[7..^3].Trim();
+        try { return ReadComposition(text); }
+        catch (WorkspaceStoreException) when (FencedJson(text) is { } fenced)
+        {
+            // Local models sometimes reason aloud around a complete answer, and may run out of reply tokens after it.
+            // The latest complete fenced composition is the answer; the raw reply is still kept for review.
+            return ReadComposition(fenced);
+        }
+    }
+
+    private static string? FencedJson(string text)
+    {
+        string? last = null;
+        for (var start = text.IndexOf("```json", StringComparison.Ordinal); start >= 0; start = text.IndexOf("```json", start, StringComparison.Ordinal))
+        {
+            start += 7;
+            var end = text.IndexOf("```", start, StringComparison.Ordinal);
+            if (end < 0) break;
+            var block = text[start..end].Trim();
+            start = end + 3;
+            try { ReadComposition(block); last = block; }
+            catch (WorkspaceStoreException) { }
+        }
+        return last;
+    }
+
+    private static PromptCompositionResult ReadComposition(string text)
+    {
         try
         {
-            var text = raw.Trim();
-            if (text.StartsWith("```json") && text.EndsWith("```")) text = text[7..^3].Trim();
             using var json = JsonDocument.Parse(text); var root = json.RootElement;
             // A blank field is not a clarification request. Models sometimes emit needsInput: "" alongside a
             // complete prompt; only a non-blank question should stop the response from being usable.

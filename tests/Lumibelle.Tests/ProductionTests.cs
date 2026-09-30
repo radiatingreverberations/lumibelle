@@ -199,6 +199,24 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public void CompositionReadsTheLatestCompleteFencedAnswerAroundReasoning()
+    {
+        var shot = Ready() with { Duration = 8 };
+        var prompt = H3Policy.Compile(shot);
+        string Fenced(string usage) => "```json\n" + JsonSerializer.Serialize(new PromptCompositionResult(prompt, usage), AtomicJsonFile.Options) + "\n```";
+        // Reasoning aloud, a draft, the final answer, then more checking cut off by the reply limit.
+        var raw = "I need to analyze the shot carefully.\n\n" + Fenced("Draft usage.") + "\n\nWait, let me fix the usage.\n\n" + Fenced("Final usage.") +
+            "\n\nWait, I need to double-check the six sections. Also checking: \"Use <Picture N> for";
+
+        var parsed = PromptComposer.Parse(raw, SoundRequest(shot));
+
+        Assert.Equal(prompt, parsed.Prompt);
+        Assert.Equal("Final usage.", parsed.ReferenceUsage);
+        Assert.Contains("not a complete composition", Assert.Throws<WorkspaceStoreException>(() =>
+            PromptComposer.Parse("I need to analyze the shot.\n\n```json\n{\"prompt\": \"unfinished", SoundRequest(shot))).Message);
+    }
+
+    [Fact]
     public void NumberWordsDoNotReplaceFrameDerivedDurationOrContinuousTakeRequirements()
     {
         var rounded = Ready() with { Duration = 6 };
