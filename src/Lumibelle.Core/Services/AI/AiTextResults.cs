@@ -15,6 +15,23 @@ public static class AiTextResults
         if (string.IsNullOrWhiteSpace(raw)) return result with { Error = "The model returned an empty response. Inspect and retry; nothing has been applied." };
         if (finishReason is not null && finishReason != ChatFinishReason.Stop.ToString() || request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode && finishReason is null)
             return result with { Error = "The response did not finish normally. Inspect it and retry; incomplete output cannot be applied." };
+        var parsed = Content(request, result, raw, finishReason);
+        if (parsed.Error is null || WholeJson(raw)) return parsed;
+        // Local models sometimes reason aloud around a complete JSON answer. The saved raw reply is unchanged for review.
+        return AiJsonReply.Latest(raw, json => Content(request, result, json, finishReason) is { Error: null } answer ? answer : null) ?? parsed;
+    }
+
+    private static bool WholeJson(string raw)
+    {
+        var text = raw.Trim();
+        if (text.StartsWith("```", StringComparison.Ordinal) && text.EndsWith("```", StringComparison.Ordinal) && text.Length > 6)
+            text = text[3..^3].TrimStart() is var body && body.StartsWith("json", StringComparison.OrdinalIgnoreCase) ? body[4..] : body;
+        try { using var _ = JsonDocument.Parse(text); return true; }
+        catch (JsonException) { return false; }
+    }
+
+    private static AiTextJobResult Content(AiTextJobRequest request, AiTextJobResult result, string raw, string? finishReason)
+    {
         switch (request.Kind)
         {
             case AiJobKind.ScriptAssistant:

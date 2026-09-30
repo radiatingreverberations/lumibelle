@@ -114,6 +114,25 @@ public sealed partial class AiTextJobTests : IDisposable
             Assert.Equal(AiJobState.NeedsAttention, outcome.State); Assert.NotNull(result.Error); Assert.Null(result.Value);
         }
     }
+    [Theory] [InlineData(AiJobKind.ScriptAssistant)] [InlineData(AiJobKind.AssetExtraction)] [InlineData(AiJobKind.ShotPlanning)] [InlineData(AiJobKind.PromptEnhancement)] [InlineData(AiJobKind.Guidance)]
+    public async Task ACompleteAnswerAfterReasoningAloudIsReadAndTheRawReplyKept(AiJobKind kind)
+    {
+        var request = await Request(kind);
+        // Reasoning with bracketed prose before the answer, and a revision cut off by the reply limit after it.
+        var reply = "Let me think about this [English] request carefully.\n\n" + Response(kind) + "\n\nWait, let me revise: [{\"kind\":\"Act";
+        _providers.Chat.Output = reply;
+        var outcome = await Handler().ExecuteAsync(await Claim(request), request.Snapshot, _ct);
+        var result = await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct);
+        Assert.Equal(AiJobState.Completed, outcome.State); Assert.Null(result!.Error); Assert.NotNull(result.Value);
+        Assert.Equal(reply, result.Raw);
+    }
+    [Fact]
+    public void ANestedEmptyListInACutOffReplyIsNeverAnAnswer()
+    {
+        var request = Request(AiJobKind.AssetExtraction).GetAwaiter().GetResult().Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var cut = AiTextResults.Parse(request, "Here are the assets:\n[{\"name\":\"Mouse\",\"evidence\":[],\"notes\":\"unfin", "stop");
+        Assert.NotNull(cut.Error); Assert.NotNull(cut.Value!.Value.GetProperty("validationError").GetString());
+    }
     [Theory] [InlineData(AiJobKind.ScriptAssistant)] [InlineData(AiJobKind.AssetExtraction)]
     public async Task LegacyQueuedOpenRouterRequestsKeepCapturedOverrides(AiJobKind kind)
     {
