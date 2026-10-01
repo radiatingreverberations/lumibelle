@@ -22,7 +22,8 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         AiJobKind.RefModBuild => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/refmod",
         AiJobKind.ScriptAssistant => $"{ProjectId}/script",
         AiJobKind.AssetExtraction => $"{ProjectId}/extraction",
-        AiJobKind.ShotPlanning => $"{ProjectId}/planning",
+        // A scene breakdown locks the project's planning; drafting one shot in place locks only that shot.
+        AiJobKind.ShotPlanning => ShotId is { } drafted ? $"{ProjectId}/shots/{drafted}/draft" : $"{ProjectId}/planning",
         AiJobKind.PromptComposition => ShotId is { } shot ? $"{ProjectId}/shots/{shot}/composer" : $"{ProjectId}/production/{CompositionId}/composer",
         AiJobKind.ImageCreate or AiJobKind.ImageEdit or AiJobKind.PromptEnhancement => $"{ProjectId}/assets/{AssetId}/composer",
         AiJobKind.Video => TakeId is { } take ? $"{ProjectId}/shots/{ShotId}/refinement/{take}" : $"{ProjectId}/shots/{ShotId}/video",

@@ -33,6 +33,20 @@ public sealed partial class AiJobStoreTests : IDisposable
     private AiJobSubmission Request(AiJobKind kind = AiJobKind.ScriptAssistant, AiBackend backend = AiBackend.ComfyUI, AiJobTarget? target = null) =>
         AiJobSubmission.Create(Guid.NewGuid(), kind, backend, target ?? new(Guid.NewGuid()), "QA", "A target", Guid.NewGuid(), new { prompt = "Captured instruction", settings = new AiSettings() });
     [Fact]
+    public async Task SingleShotDraftsQueueSideBySideButEachShotTakesOneAtATime()
+    {
+        var project = Guid.NewGuid();
+        AiJobSubmission Draft(Guid? shot) => Request(AiJobKind.ShotPlanning, target: new(project, ShotId: shot));
+        var (first, second) = (Guid.NewGuid(), Guid.NewGuid());
+        await Store.EnqueueAsync(Draft(first), _ct);
+        await Store.EnqueueAsync(Draft(second), _ct);
+        // A scene breakdown is independent of drafts for single shots.
+        await Store.EnqueueAsync(Draft(null), _ct);
+        Assert.Equal(3, (await Store.ReadAsync(_ct)).Jobs.Count);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.EnqueueAsync(Draft(first), _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.EnqueueAsync(Draft(null), _ct));
+    }
+    [Fact]
     public async Task EnqueueIsIdempotentAndCapturesInputsBeforeWaitingForPublication()
     {
         var store = Store; using var json = JsonDocument.Parse("{\"prompt\":\"exact input\"}");
