@@ -28,7 +28,7 @@ public partial class ProductionStudio
     private readonly SemaphoreSlim _planningDraftGate = new(1, 1);
     private bool PlanningApplied => _planningJob is { } job && _doc.PlanningReviews.Any(r => r.JobId == job.Id);
     private bool PlanningComposerLocked => _planning || _planningSubmitting || _pendingPlanning is not null || _applyingProposal;
-    private AiJobHeader? PlanningStatusJob => AiJobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == Id && TextRequestPresentation.IsActive(j)) ?? _activePlanning ?? _planningJob ?? AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == Id).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
+    private AiJobHeader? PlanningStatusJob => AiJobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id && TextRequestPresentation.IsActive(j)) ?? _activePlanning ?? _planningJob ?? AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
     private TextRequestPresentation? PlanningPresentation => PlanningStatusJob is { } job ? new(job, "Drafting shots…",
         _doc.PlanningReviews.Any(r => r.JobId == job.Id) ? TextRequestOutcome.Resolved : TextRequestOutcome.Proposal, "Draft shots") : null;
     private Task InspectPlanning() => PlanningStatusJob is { } job ? ReviewPlanningJobAsync(job) : Task.CompletedTask;
@@ -84,7 +84,7 @@ public partial class ProductionStudio
             do
             {
                 _planningRefreshAgain = false;
-                var matches = AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == Id).ToArray();
+                var matches = AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id).ToArray();
                 await LoadRecentInstructionsAsync(matches);
                 _activePlanning = matches.FirstOrDefault(j => j.LocksTarget);
                 _planning = _activePlanning is not null;
@@ -100,6 +100,7 @@ public partial class ProductionStudio
                         await ShowPlanningJobAsync(complete);
                 }
             } while (_planningRefreshAgain && !_disposed);
+            await RefreshShotDraftAsync();
         }
         catch (OperationCanceledException) when (_disposed) { }
         catch (Exception e) { if (!_disposed) _planningError = e.Message; }
@@ -228,8 +229,14 @@ public partial class ProductionStudio
         _planningRequestedJob = id;
         try
         {
-            var job = AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == Id);
+            var job = AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id);
             if (job is not null) await ReviewPlanningJobAsync(job);
+            else if (AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && SingleShotJob(j) && j.Target.ProjectId == Id) is { Target.ShotId: { } shotId } single &&
+                _doc.Shots.Any(s => s.Id == shotId))
+            {
+                if (_selected != shotId) await Select(shotId);
+                if (_selected == shotId) await InspectShotDraft();
+            }
         }
         catch (Exception e) { _error = e.Message; StateHasChanged(); }
     }

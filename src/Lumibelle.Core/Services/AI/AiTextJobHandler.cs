@@ -254,7 +254,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         {
             AiJobKind.ScriptAssistant => new AiJobTarget(request.Payload<ScriptAssistantRequest>().Script.ProjectId),
             AiJobKind.AssetExtraction => new AiJobTarget(request.Payload<AssetExtractionRequest>().Script.ProjectId),
-            AiJobKind.ShotPlanning => new AiJobTarget(request.Payload<ShotPlanningRequest>().Script.ProjectId),
+            AiJobKind.ShotPlanning => new AiJobTarget(request.Payload<ShotPlanningRequest>().Script.ProjectId, ShotId: request.Payload<ShotPlanningRequest>().SingleShot?.ShotId),
             AiJobKind.ShotTranslation => new AiJobTarget(request.Payload<ShotDubRequest>().ProjectId,
                 ShotId: request.Payload<ShotDubRequest>().ShotId, TakeId: request.Payload<ShotDubRequest>().SourceTakeId),
             AiJobKind.AssetPicking => new AiJobTarget(request.Payload<AssetPickRequest>().ProjectId, ShotId: request.Payload<AssetPickRequest>().Shot.Id),

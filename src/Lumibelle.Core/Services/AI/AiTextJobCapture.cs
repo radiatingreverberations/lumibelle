@@ -118,8 +118,11 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (request.Assets.ProjectId != request.Script.ProjectId) throw new AiGenerationException("The asset library and saved script belong to different projects.");
         if (scripts is not null) await scripts.CaptureSourceAsync(request.Script.ProjectId, request.Script.SourceRevision, ct);
         ValidateScenes(request.Script, request.SceneIds); H3Policy.Frames(request.MaximumSeconds);
-        return await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId), "Draft shots", request, request.Selection,
-            followsDefault, configured, request.CoverageOnly ? "shot-coverage-v3" : "h3-shot-planner-v2", ShotPlanner.BuildMessages(request), configured.Temperature, null, ct);
+        if (request.SingleShot is { } single && (request.SceneIds.Count != 1 || single.ShotId == Guid.Empty || single.Position < 0 || single.Position > single.SceneShots.Count))
+            throw new AiGenerationException("Draft a single shot from exactly one saved scene.");
+        return await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
+            request.SingleShot is null ? "Draft shots" : "Draft shot", request, request.Selection,
+            followsDefault, configured, ShotPlanner.Profile(request), ShotPlanner.BuildMessages(request), configured.Temperature, null, ct);
     }
     public async Task<AiJobSubmission> EnhanceAsync(Guid id, Guid tab, PromptEnhancementRequest request, CancellationToken ct = default)
     {

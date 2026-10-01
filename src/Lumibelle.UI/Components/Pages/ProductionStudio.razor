@@ -23,14 +23,14 @@ else
 {
     <ProjectNavigation Project="_project" CurrentStudio="shots" />
     <StudioPageHeader Title="Shots">
-        <div data-interactive="@(_interactive ? "true" : "false")" class="shots-actions shots-heading"><span role="status">@_saveStatus</span><button disabled="@(!_dirty || _saving)" @onclick="Save">Save</button><button disabled="@(_undo.Count == 0)" @onclick="UndoEdit">Undo</button><button @onclick="() => _recoveryOpen = true">Recovery</button></div>
+        <div data-interactive="@(_interactive && _planningInitialized ? "true" : "false")" class="shots-actions shots-heading"><span role="status">@_saveStatus</span><button disabled="@(!_dirty || _saving)" @onclick="Save">Save</button><button disabled="@(_undo.Count == 0)" @onclick="UndoEdit">Undo</button><button @onclick="() => _recoveryOpen = true">Recovery</button></div>
     </StudioPageHeader>
     @if (_error is not null && _loadFailure is null) { <MudAlert Severity="Severity.Error"><span role="alert">@_error</span>@if (_saveFailed) { <button @onclick="Reload">Reload saved version</button><button @onclick="DownloadDraft">Download unsaved copy</button> }</MudAlert> }
     @if (_loadFailure is not null) { <LoadFailure Title="Couldn’t open Shots" Error="_loadFailure" Retry="RetryLoadAsync" /> }
     else {
     <StudioWorkspace @ref="_workspace" Studio="Shots" ProjectId="Id" LeftLabel="Shots" RightLabel="Shot tools" SelectionKey="@_selected?.ToString()">
         <Left><StudioPane Class="shots-outline" Label="Shots"><Header>
-            <div class="shots-library-heading"><h2>Shots <small>@_doc.Shots.Count</small></h2><button @ref="_addShotButton" @onclick="AddShot">+ Shot</button></div>
+            <div class="shots-library-heading"><h2>Shots <small>@_doc.Shots.Count</small></h2><button @ref="_addShotButton" @onclick="AddShot" disabled="@(!_planningInitialized)" title="@(_planningInitialized ? null : "Loading shots…")">+ Shot</button></div>
             <div class="shots-library-tools" @ref="_planningOriginElement"><TextAssistance @ref="_planningAssist" ProjectId="Id" Studio="TextAssistantStudio.Shots" Request="PlanningPresentation" Preparing="_planningSubmitting" HasError="@(_pendingPlanning is not null)" ReviewRequested="InspectPlanning" CancelRequested="CancelPlanning" Label="Draft shots" Title="Draft shots" Opened="PreparePlanning" SelectionChanged="value => _model = value" ModelLocked="@(_planning || _planningSubmitting)">
 <ChildContent>        <fieldset disabled="@PlanningComposerLocked"><legend>Script scenes</legend>@foreach (var scene in PlanningScenes) { <label class="check-row"><input type="checkbox" checked="@_sceneSelection.Contains(scene.Id)" @onchange="e => ChooseScene(scene.Id, e.Value is true)" />@scene.Title</label> }</fieldset>
         <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
@@ -90,6 +90,27 @@ else
                 <div class="shot-workspace-identity">
                     <span class="shot-number">@((_doc.Shots.IndexOf(identity) + 1).ToString("00"))</span>
                     <input aria-label="Shot title" class="shot-title-input" @bind:get="identity.Title" @bind:set="value => EditCoverage(s => s.Title = value ?? string.Empty)" @bind:event="oninput" />
+                    <div class="shot-draft-assist" @ref="_shotDraftOriginElement">
+                    <TextAssistance @ref="_shotDraftAssist" ProjectId="Id" Studio="TextAssistantStudio.Shots" Request="ShotDraftPresentation" Preparing="_shotDraftSubmitting"
+                        HasError="@(_pendingShotDraft is not null)" ReviewRequested="InspectShotDraft" CancelRequested="CancelShotDraft"
+                        Label="Draft shot" Title="Draft this shot" Opened="PrepareShotDraft" SelectionChanged="value => _shotDraftModel = value" ModelLocked="ShotDraftLocked">
+                        <ChildContent>
+                            <p class="field-hint">@identity.Title · @SceneLabel(identity)</p>
+                            <p class="field-hint">Drafts this shot from its scene in the saved script. The scene's @OtherSceneShots(identity).Count other @(OtherSceneShots(identity).Count == 1 ? "shot is" : "shots are") sent as context, so the draft covers something they don't unless your directions say otherwise.</p>
+                            @if (HasCoverage(identity)) { <p class="field-hint">This shot's current action and dialogue are sent too, for the directions to revise. Applying replaces them; Undo restores them.</p> }
+                            <label>Directions (optional)<textarea rows="3" @bind="_shotDraftDirections" @bind:event="oninput" disabled="@ShotDraftLocked" placeholder="For example: a close-up of the key in her hand as she hesitates."></textarea></label>
+                            @if (_recentInstructions.Count > 0)
+                            {
+                                <div class="recent-instructions" role="group" aria-label="Recent directing instructions"><span class="field-hint">Recent instructions</span>
+                                    @foreach (var recent in _recentInstructions) { <button type="button" class="recent-instruction" title="@recent" disabled="@ShotDraftLocked" @onclick="() => _shotDraftDirections = recent">@recent</button> }
+                                </div>
+                            }
+                            <label>Maximum length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_shotDraftMaximum" disabled="@ShotDraftLocked" /></label>
+                            @if (ShotDraftIssue(identity) is { } draftIssue) { <p role="status">@draftIssue</p> }
+                            @if (_shotDraftError is not null) { <p role="alert">@_shotDraftError</p> }
+                        </ChildContent>
+                        <Actions><MudButton Class="ai-assist-action" OnClick="DraftShot" Disabled="@(ShotDraftLocked || _shotDraftModel?.Ready != true || ShotDraftIssue(identity) is not null)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shot</MudButton>@if (_pendingShotDraft is not null) { <button @onclick="RetryShotDraftEnqueue" disabled="@_shotDraftSubmitting">Retry saving request</button> }</Actions>
+                    </TextAssistance></div>
                 </div>
                 <StudioToolTabs Items="@(new StudioTab[] { new("Shot", "Shot"), new("Takes", "Takes", ShotTakes.Count) })" Label="Shot view" GroupId="center" />
             }
@@ -321,6 +342,39 @@ else
     }
 }
 
+<InlineDialog Visible="_shotDraftOpen" VisibleChanged="async v => { if (!v) await CloseShotDraft(); }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })" Class="shot-draft-dialog"
+              Title="Drafted shot" Context="@_doc.Shots.FirstOrDefault(s => s.Id == _shotDraftReviewJob?.Target.ShotId)?.Title" CloseLabel="Close drafted shot"><DialogContent>
+    @if (_shotDraftReviewJob is { } draftJob) { <AiTextRequestDetails JobId="draftJob.Id" /> }
+    @if (_shotDraftError is not null) { <p role="alert">@_shotDraftError</p> }
+    @if (ShotDraftProposal is { } draft)
+    {
+        <article class="shot-proposal"><h3>@draft.Title · @DurationLabel(draft)</h3><small>@draft.SceneTitle</small><p>@draft.Description</p>
+            @foreach (var line in draft.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }
+            @if (draft.Characters.Count > 0) { <p class="field-hint">Cast: @string.Join(", ", draft.Characters.Select(c => c.Name))</p> }
+            <p class="field-hint">Sound: @draft.Atmosphere · Music: @draft.Music</p>
+        </article>
+        @if (_shotDraftResult!.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count > 0)
+        {
+            <details class="planning-dialogue-notes"><summary>Review notes · @(_shotDraftResult.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count)</summary>
+                @foreach (var note in _shotDraftResult.DialogueNotes.Concat(_shotDraftResult.SourceNotes).Concat(_shotDraftResult.CoverageNotes)) { <p>@note</p> }
+            </details>
+        }
+        @if (_shotDraftResult.UncoveredDialogue.Count > 0)
+        {
+            <details><summary>Lines no shot in this scene speaks yet · @_shotDraftResult.UncoveredDialogue.Count</summary>@foreach (var line in _shotDraftResult.UncoveredDialogue) { <p>@line</p> }</details>
+        }
+        @if (_resolvedShotDrafts.Contains(_shotDraftReviewJob!.Id)) { <p role="status">This draft was already applied or dismissed.</p> }
+        else if (!ShotDraftTargetSelected) { <p role="status">Select the shot this draft is for to apply it.</p> }
+        else if (SourceShot is { } target && HasCoverage(target)) { <p class="field-hint">Applying replaces this shot's title, action, duration, dialogue and sound, and adds any new cast. Undo restores them.</p> }
+    }
+    @if (_shotDraftRaw.Length > 0) { <details><summary>Response details</summary><pre class="shot-source">@_shotDraftRaw</pre></details> }
+</DialogContent><DialogActions><MudButton OnClick="CloseShotDraft">Close</MudButton>
+    @if (ShotDraftProposal is not null && _shotDraftReviewJob is { } reviewed && !_resolvedShotDrafts.Contains(reviewed.Id))
+    {
+        <MudButton OnClick="DismissShotDraft">Dismiss</MudButton>
+        <MudButton OnClick="ApplyShotDraft" Disabled="@(!ShotDraftTargetSelected)" Variant="Variant.Filled" Color="Color.Primary">Apply to this shot</MudButton>
+    }
+</DialogActions></InlineDialog>
 <InlineDialog Visible="_moveShotId is not null" VisibleChanged="v => { if (!v) _moveShotId = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })"
               Title="Move shot" Context="@_doc.Shots.FirstOrDefault(s => s.Id == _moveShotId)?.Title" CloseLabel="Close move shot"><DialogContent>
     @if (_doc.Shots.FirstOrDefault(s => s.Id == _moveShotId) is { } moving)

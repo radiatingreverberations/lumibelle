@@ -286,7 +286,19 @@ public sealed record VideoRun
 }
 public sealed record ShotPlanningRequest(ScriptSourceSnapshot Script, AssetLibrary Assets, IReadOnlyList<Guid> SceneIds,
     double MaximumSeconds, string Instructions, TextModelReference Selection)
-{ public bool CoverageOnly { get; init; } }
+{
+    public bool CoverageOnly { get; init; }
+    // Set when drafting one existing shot in place rather than breaking down whole scenes.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SingleShotDraft? SingleShot { get; init; }
+}
+/// <summary>One shot drafted at its place in a scene. The scene's other shots, in order, are context the new shot should not repeat;
+/// Position is the index among them where this shot sits. Current is the shot's existing content, if any, for the directions to revise.</summary>
+public sealed record SingleShotDraft(Guid ShotId, int Position, IReadOnlyList<SceneShotSummary> SceneShots, SceneShotSummary? Current);
+public sealed record SceneShotSummary(string Title, double? Duration, string Description, IReadOnlyList<ShotDialogue> Dialogue, IReadOnlyList<Guid> SourceBlockIds)
+{
+    public static SceneShotSummary From(Shot shot) => new(shot.Title, shot.Duration, shot.Description, ShotCopy.Of(shot.Dialogue), [.. shot.SourceBlockIds]);
+}
 public sealed record ShotPlanningResult(List<Shot> Shots, string Raw, List<string> UncoveredDialogue, string? Error = null)
 {
     public List<string> DialogueNotes { get; init; } = [];

@@ -41,7 +41,9 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         var asset = reel || kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit or AiJobKind.PromptEnhancement or AiJobKind.Guidance;
         if (test ? ProjectId is not null || string.IsNullOrWhiteSpace(ModelKey) || ModelKey.Length > 2048 : ProjectId is null || ModelKey is not null)
             throw new WorkspaceStoreException("The AI request needs an exact project or model-test target.");
-        if ((AssetId is not null) != asset || (ShotId is not null) != (kind is AiJobKind.Video or AiJobKind.PromptComposition or AiJobKind.AssetPicking or AiJobKind.ShotTranslation)) throw new WorkspaceStoreException("The AI request has an invalid asset or shot target.");
+        // Shot planning targets the project, or one shot when drafting that shot in place.
+        if ((AssetId is not null) != asset || (ShotId is not null) != (kind is AiJobKind.Video or AiJobKind.PromptComposition or AiJobKind.AssetPicking or AiJobKind.ShotTranslation) &&
+            kind != AiJobKind.ShotPlanning) throw new WorkspaceStoreException("The AI request has an invalid asset or shot target.");
         if (kind == AiJobKind.PromptComposition && CompositionId is null || CompositionId is not null && kind is not (AiJobKind.Video or AiJobKind.PromptComposition)) throw new WorkspaceStoreException("Choose an exact composition target.");
         if (kind == AiJobKind.Guidance)
         {

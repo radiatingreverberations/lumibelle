@@ -425,3 +425,6 @@
 .shot-scene-name { flex:1; min-width:0; overflow-wrap:anywhere; }
 .shot-scene-toggle small { flex:none; font-weight:500; }
 @media (pointer:coarse) { .shot-drag { min-height:44px; } .shot-row-menu .mud-icon-button { min-height:44px; } }
+
+/* Draft this shot sits at the end of the shot heading, where Shot options was. */
+.studio-workspace[data-studio=Shots] .shot-workspace-identity .shot-draft-assist { flex:none; margin-left:auto; }

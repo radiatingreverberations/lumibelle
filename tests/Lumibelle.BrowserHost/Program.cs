@@ -479,6 +479,17 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 : prompt.Contains("NEEDS_SETUP") ? "NEEDS_SETUP: Expand the canvas first."
                 : "A carefully composed illustration. " + prompt;
         }
+        else if ((list[0].Text ?? "").Contains("Plan ONE shot", StringComparison.Ordinal))
+        {
+            // Single-shot drafting: one shot for the given scene, echoing the directions so tests can see they arrived.
+            using var context = JsonDocument.Parse(last);
+            var scene = context.RootElement.GetProperty("scene");
+            output = JsonSerializer.Serialize(new[] { new {
+                title = "The missing reaction", sceneId = scene.GetProperty("sceneId").GetString(),
+                sourceBlockIds = scene.GetProperty("blocks").EnumerateArray().Take(1).Select(b => b.GetProperty("id").GetString()).ToArray(),
+                duration = 2.0, description = "Close on Juniper's hands. " + context.RootElement.GetProperty("directions").GetString(),
+                characters = new[] { new { name = "JUNIPER" } }, dialogue = Array.Empty<object>(), atmosphere = "A quiet room", music = "No music" } });
+        }
         else if ((list[0].Text ?? "").Contains("plan cinematic coverage", StringComparison.OrdinalIgnoreCase))
         {
             using var context = JsonDocument.Parse(last);
