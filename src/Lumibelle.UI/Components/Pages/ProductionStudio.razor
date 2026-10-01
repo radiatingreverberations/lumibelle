@@ -55,12 +55,25 @@ else
             else if (PromptAttentionCount is > 0 and var attention) { <small class="shots-attention-summary" role="status">@attention @(attention == 1 ? "shot needs" : "shots need") prompt attention</small> }
         </Header><ChildContent>
             @if (_doc.Shots.Count > 0 && !VisibleGroups.Any()) { <p>No shots match these filters.</p><button @onclick="ClearPromptFilters">Show all shots</button> }
-            @foreach (var group in VisibleGroups) { <h2 class="shot-scene-title">@group.First().SceneTitle</h2>@foreach (var item in group) {
-                <div class="shot-outline-item @(item.Id == _selected ? "selected" : "")">
+            <ShotListOrder Disabled="ShotListLocked" Moved="MoveShotTo">
+            @foreach (var group in VisibleGroups) {
+                var collapsed = SceneCollapsed(group[0]); var sceneCount = SceneShots(group[0]).Count();
+                <h2 class="shot-scene-title"><button class="shot-scene-toggle" aria-expanded="@(collapsed ? "false" : "true")" @onclick="() => ToggleScene(group[0])"><span aria-hidden="true">@(collapsed ? "▸" : "▾")</span><span class="shot-scene-name">@SceneLabel(group[0])</span><small>@(group.Count == sceneCount ? $"{sceneCount}" : $"{group.Count} of {sceneCount}")</small></button></h2>
+                @if (collapsed) { continue; }
+                @foreach (var item in group) {
+                <div class="shot-outline-item @(item.Id == _selected ? "selected" : "")" @key="item.Id" data-shot-row="@item.Id" data-scene="@SceneKey(item)">
+                <button class="shot-drag" data-shot-drag disabled="@ShotListLocked" aria-label="@($"Move shot {_doc.Shots.IndexOf(item) + 1}: {item.Title}")" title="Drag to reorder within the scene; click for Move to…" @onclick="() => OpenShotMove(item.Id)">⠿</button>
                 <button data-shot-id="@item.Id" class="shot-list-row @(item.Id == _selected ? "selected" : "")" aria-pressed="@(item.Id == _selected ? "true" : "false")" @onclick="() => Select(item.Id)">
                     <span class="shot-list-thumbnail">@if (OverviewTake(item) is { } thumbnail) { <img src="@TakeUrl(thumbnail.Id, 0)" alt="" loading="lazy" /> } else { <span aria-hidden="true">@((_doc.Shots.IndexOf(item) + 1).ToString("00"))</span> }</span>
                     <span class="shot-list-copy"><span class="shot-list-title">@(_doc.Shots.IndexOf(item) + 1). @item.Title</span><small>@DurationLabel(item) · @_doc.Takes.Count(t => t.ShotId == item.Id) takes @if (NewTakeCount(item.Id) is > 0 and var fresh) { <span class="shot-new-takes">· @fresh new</span> }</small></span>
                 </button>
+                <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for shot {_doc.Shots.IndexOf(item) + 1}: {item.Title}")" Size="Size.Small" Dense="true" Class="shot-row-menu" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                    <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || SceneNeighbour(item, -1) is null)" OnClick="() => MoveShotInScene(item.Id, -1)">Move up</MudMenuItem>
+                    <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || SceneNeighbour(item, 1) is null)" OnClick="() => MoveShotInScene(item.Id, 1)">Move down</MudMenuItem>
+                    <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || sceneCount < 2)" OnClick="() => OpenShotMove(item.Id)">Move to…</MudMenuItem>
+                    <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => DuplicateShotRow(item.Id)">Duplicate</MudMenuItem>
+                    <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => OpenShotDeletion(item.Id)" Class="danger-link">Delete</MudMenuItem>
+                </MudMenu>
                 @if (PromptReviewReady(item.Id)) {
                     <button @ref="_reviewReadyBadges[item.Id]" class="shot-prompt-review" data-prompt-state="ReviewReady" aria-label="@($"Review the composed prompt for shot {_doc.Shots.IndexOf(item) + 1}: {item.Title}")" title="An AI-composed prompt is ready. Review it, then apply or discard it." @onclick="() => ReviewComposedPrompt(item.Id)">Review ready <span aria-hidden="true">→</span></button>
                 }
@@ -69,6 +82,7 @@ else
                 }
                 </div>
             } }
+            </ShotListOrder>
         </ChildContent></StudioPane></Left>
         <Center><StudioPane Class="shot-editor production-editor" Label="Shot editor"><Header>
             @if (SourceShot is { } identity) {
@@ -77,8 +91,8 @@ else
                     <input aria-label="Shot title" class="shot-title-input" @bind:get="identity.Title" @bind:set="value => EditCoverage(s => s.Title = value ?? string.Empty)" @bind:event="oninput" />
                     <MudMenu Label="Shot options" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                         <div role="menu" aria-label="Shot options">
-                            <MudMenuItem role="menuitem" Disabled="@(_doc.Shots.IndexOf(identity) == 0)" OnClick="() => MoveShot(-1)">Move shot up</MudMenuItem>
-                            <MudMenuItem role="menuitem" Disabled="@(_doc.Shots.IndexOf(identity) == _doc.Shots.Count - 1)" OnClick="() => MoveShot(1)">Move shot down</MudMenuItem>
+                            <MudMenuItem role="menuitem" Disabled="@(SceneNeighbour(identity, -1) is null)" OnClick="() => MoveShot(-1)">Move shot up</MudMenuItem>
+                            <MudMenuItem role="menuitem" Disabled="@(SceneNeighbour(identity, 1) is null)" OnClick="() => MoveShot(1)">Move shot down</MudMenuItem>
                             <MudMenuItem role="menuitem" OnClick="DuplicateShot">Duplicate shot</MudMenuItem>
                             <MudMenuItem role="menuitem" Href="@ProjectLink(Id, "/dubs")">Language versions</MudMenuItem>
                             <MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion(identity.Id)">Delete shot</MudMenuItem>
@@ -315,6 +329,15 @@ else
     }
 }
 
+<InlineDialog Visible="_moveShotId is not null" VisibleChanged="v => { if (!v) _moveShotId = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })"
+              Title="Move shot" Context="@_doc.Shots.FirstOrDefault(s => s.Id == _moveShotId)?.Title" CloseLabel="Close move shot"><DialogContent>
+    @if (_doc.Shots.FirstOrDefault(s => s.Id == _moveShotId) is { } moving)
+    {
+        <p class="field-hint">Shots move within their scene, @SceneLabel(moving).</p>
+        <label>Position<select value="@(_moveShotAfter ? "after" : "before")" @onchange="@(e => _moveShotAfter = e.Value?.ToString() == "after")"><option value="before">Before</option><option value="after">After</option></select></label>
+        <label>Shot<select aria-label="Destination shot" @bind="_moveShotTarget">@foreach (var target in SceneShots(moving).Where(t => t.Id != moving.Id)) { <option value="@target.Id">@(_doc.Shots.IndexOf(target) + 1). @target.Title</option> }</select></label>
+    }
+</DialogContent><DialogActions><MudButton OnClick="() => _moveShotId = null">Cancel</MudButton><MudButton OnClick="ConfirmShotMove" Disabled="ShotListLocked" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogActions></InlineDialog>
 <InlineDialog Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="@(LargeDialog with { MaxWidth = MaxWidth.Large, CloseOnEscapeKey = false })" Class="shot-setup-dialog" DefaultFocus="DefaultFocus.FirstChild"
               Title="Prompt and preset" Context="@SourceShot?.Title" CloseLabel="Close prompt and preset">
     <DialogContent>

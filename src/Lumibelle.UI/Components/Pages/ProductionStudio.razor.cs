@@ -97,7 +97,7 @@ public partial class ProductionStudio
             // Consult the old selection only when importing into an empty global library.
             var earlierSelections = Place<Dictionary<Guid, Guid>>(Id, "shots", "setups", []);
             _compositionId = _selected is { } remembered ? earlierSelections.GetValueOrDefault(remembered) : null;
-            _filter = Place(Id, "shots", "search", "");
+            _filter = Place(Id, "shots", "search", ""); LoadCollapsedScenes();
             _takeSetupFilter = Place(Id, "shots", "takeFilter", "");
             _takeInputFilter = Place(Id, "shots", "takeInputFilter", "all");
             _showArchived = Place(Id, "shots", "archived", false);

@@ -48,7 +48,6 @@ public partial class ProductionStudio
     });
     private void EditLine(Guid id, Action<ShotDialogue> edit) => EditCoverage(s => edit(s.Dialogue.Single(d => d.Id == id)));
     private static void Move<T>(List<T> list, T item, int by) { var i = list.IndexOf(item); var to = i + by; if (to < 0 || to >= list.Count) return; list.RemoveAt(i); list.Insert(to, item); }
-    private void MoveShot(int by) { Remember(); _coverageDirty = true; Move(_doc.Shots, SourceShot!, by); CoverageChanged(); }
     private void MoveLine(Guid id, int by) => EditCoverage(s => Move(s.Dialogue, s.Dialogue.Single(d => d.Id == id), by));
     private async Task AddShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (!await Save() || !await RefreshSavedSource()) return; _openShotView = true; Remember(); _coverageDirty = true; var shot = new Shot(); if (Scenes.FirstOrDefault() is { } scene) SetScene(shot, scene); _doc.Shots.Add(shot); _selected = shot.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
     private async Task DuplicateShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (SourceShot is null || !await Save()) return; _openShotView = true; Remember(); _coverageDirty = true; var s = lumibelle.Services.Production.ProductionPolicy.CoverageCopy(SourceShot); s.Id = Guid.NewGuid(); s.Title += " (copy)"; s.SelectedTakeId = null; _doc.Shots.Insert(_doc.Shots.IndexOf(SourceShot) + 1, s); _selected = s.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
