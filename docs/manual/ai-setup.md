@@ -16,7 +16,7 @@ Text-assistance composers share a compact dialog that becomes a full-width sheet
 
 ## ComfyUI
 
-ComfyUI provides local text generation, reference images and image editing.
+ComfyUI provides local text generation, reference images, image editing and video takes. [Install ComfyUI](comfyui.md) shows how to run it with the Windows portable build or Docker, where to download the node packs and model files below, and how to set up [video models](comfyui.md#video-models).
 
 1. Start an up-to-date ComfyUI with the built-in `CLIPLoader`, `TextGenerate` and `PreviewAny` nodes.
 2. Install a text-generation encoder supported by those nodes. The initial model is `gemma4_e4b_it_fp8_scaled.safetensors` when installed. Lumibelle lists every exact filename that `CLIPLoader` advertises.

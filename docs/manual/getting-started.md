@@ -25,7 +25,7 @@ FFmpeg/FFprobe are external dependencies used for video frames and MP4 export. C
 
 Create a project from the library, then open its **Script** or **Assets** studio. Projects, writing, asset metadata and reference images remain available after restarting the app.
 
-Manual writing, asset editing and cutting require no AI backend. To use AI assistance or generate images and video, see [AI setup](ai-setup.md).
+Manual writing, asset editing and cutting require no AI backend. To use AI assistance or generate images and video, see [AI setup](ai-setup.md). Local generation runs in ComfyUI on your graphics card; [Install ComfyUI](comfyui.md) walks through setting it up.
 
 ## Where your work is saved
 
