@@ -235,7 +235,8 @@ public partial class ProductionStudio
                 _doc.Shots.Any(s => s.Id == shotId))
             {
                 if (_selected != shotId) await Select(shotId);
-                if (_selected == shotId) await InspectShotDraft();
+                // Consume the link, as Draft shots does, so a re-created page does not reopen a review the author closed.
+                if (_selected == shotId) { Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("jobId", (string?)null), replace: true); await InspectShotDraft(); }
             }
         }
         catch (Exception e) { _error = e.Message; StateHasChanged(); }

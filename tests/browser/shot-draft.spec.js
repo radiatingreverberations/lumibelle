@@ -35,4 +35,18 @@ test('an added shot is drafted from its scene with directions, reviewed, applied
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByLabel('Shot title', { exact: true })).toHaveValue('Untitled shot');
   await expect.poll(async () => (await shots()).find(s => s.id === added).title, { timeout: 30000 }).toBe('Untitled shot');
+
+  // A link to the request (as from AI activity) opens its review once; closing it keeps it closed, even after a reload.
+  const job = (await (await request.get('/fixtures/ai-jobs')).json()).find(j => j.kind === 'ShotPlanning' && j.target.shotId === added);
+  await page.goto(`/projects/${id}/shots?jobId=${job.id}&shotId=${added}`);
+  await expect(review).toBeVisible({ timeout: 15000 });
+  await expect(page).not.toHaveURL(/jobId=/);
+  await review.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(review).toBeHidden();
+  await page.waitForTimeout(1500);
+  await expect(review).toBeHidden();
+  await page.reload();
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.waitForTimeout(1500);
+  await expect(review).toBeHidden();
 });
