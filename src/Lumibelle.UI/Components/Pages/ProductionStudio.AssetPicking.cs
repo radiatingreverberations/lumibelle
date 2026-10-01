@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
@@ -9,6 +10,12 @@ public partial class ProductionStudio
 {
     private Guid? _handledAssetPickJob;
     private bool _openingAssetPick;
+    // A request link opens Manage references once; drop it on close so later visits start with the assistant collapsed.
+    private void ConsumeAssetPickRequest()
+    {
+        if (RequestedJobId is { } id && AiJobs.View.Jobs.Any(j => j.Id == id && j.Kind == AiJobKind.AssetPicking))
+            Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("jobId", (string?)null), replace: true);
+    }
     private async Task HandleRequestedAssetPickAsync()
     {
         if (RequestedJobId is null) { _handledAssetPickJob = null; return; }

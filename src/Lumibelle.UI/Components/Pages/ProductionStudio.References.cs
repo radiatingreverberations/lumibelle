@@ -22,7 +22,7 @@ public partial class ProductionStudio
     }
     private Guid? _imageEditorExpanded, _referenceComposition;
     private bool _imageEditorSaving, _referenceUndoRecorded;
-    private void ImageEditorVisibility(bool visible) { if (!_imageEditorSaving) _referenceOpen = visible; }
+    private void ImageEditorVisibility(bool visible) { if (_imageEditorSaving) return; _referenceOpen = visible; if (!visible) ConsumeAssetPickRequest(); }
     private void OpenReferencePicker() => OpenImageEditor(null);
     private void OpenReferenceDetails(ShotImageBinding b) => OpenImageEditor(b.Id);
     private void OpenImageEditor(Guid? expanded)
@@ -118,7 +118,7 @@ public partial class ProductionStudio
                         others += result.Shots.Count(s => s.ShotId != shotId && s.Issue is null);
                     }
                     await ReloadProduction();
-                    _assets = library; _referenceOpen = false;
+                    _assets = library; _referenceOpen = false; ConsumeAssetPickRequest();
                     Notify(others == 0 ? "Reel replaced." : $"Reel replaced in this shot and {(others == 1 ? "1 other shot" : $"{others} other shots")}.");
                     return;
                 }
@@ -132,7 +132,7 @@ public partial class ProductionStudio
                 foreach (var swap in selection.Swaps.Where(s => s.OtherShots))
                     elsewhere += (await Replacements.ApplyAsync(Id, swap.From, swap.To, _lifetime.Token)).Ready;
                 if (elsewhere > 0) await ReloadProduction();
-                _assets = library; _referenceOpen = false;
+                _assets = library; _referenceOpen = false; ConsumeAssetPickRequest();
                 if (_referenceUndoRecorded) Warn("Check prompt · References changed. Check the Picture, Video and Audio labels before generating." +
                     (elsewhere > 0 ? $" The reel was also replaced in {(elsewhere == 1 ? "1 other shot" : $"{elsewhere} other shots")}." : ""));
             }

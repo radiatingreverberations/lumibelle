@@ -1,19 +1,17 @@
 @using lumibelle.Components.AI
 @using lumibelle.Services.Production
 
-<details class="asset-pick-assistant" open="@(RequestedJobId is not null)">
+<details class="asset-pick-assistant" open="@_openForRequest">
     <summary>Assist · choose references</summary>
     <TextAssistance @ref="_assist" Inline="true" ProjectId="Library.ProjectId" Studio="TextAssistantStudio.Production"
                     Title="Suggest references" Disabled="Disabled" ModelLocked="@(Working || _active is not null)"
                     SelectionChanged="value => _model = value">
         <ChildContent>
-            <p class="field-hint">Uses this shot's action, dialogue, prompt and saved asset descriptions. No images, audio or videos are sent to the selecting model.</p>
+            <p class="field-hint">Uses this shot's action, dialogue and prompt, with asset names, tags and guidance. No images, audio or videos are sent to the selecting model.</p>
             @if (_catalogue is { } catalogue)
             {
                 <p class="field-hint">@catalogue.Assets.Count assets · @catalogue.Candidates.Count(c => c.Kind == "Image") images · @catalogue.Candidates.Count(c => c.Kind == "Reel") reels · @catalogue.Candidates.Count(c => c.Kind == "Voice") recordings.</p>
                 @if (catalogue.Candidates.Count == 0) { <p role="status">Add reference media in Assets before asking for a selection.</p> }
-                @if (catalogue.Candidates.Count(c => c.Kind == "Image" && string.IsNullOrWhiteSpace(c.Description)) is var missing && missing > 0)
-                { <p class="field-hint">@missing images have no visual description. Names, tags and guidance remain available, but matching those images is less reliable.</p> }
             }
             <label class="asset-pick-mode"><input type="checkbox" @bind="_replaceExisting" @bind:after="RefreshPlan" disabled="@(Disabled || Working || _active is not null || _pending is not null)" /> Propose a replacement for all current references</label>
             <p class="field-hint">@(_replaceExisting ? "Replacement includes images, reels and voices. Review the full set before staging it." : "Current references, crops and voice choices stay. Suggestions only add missing references.")</p>

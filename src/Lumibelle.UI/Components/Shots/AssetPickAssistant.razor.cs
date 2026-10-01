@@ -36,6 +36,8 @@ public partial class AssetPickAssistant : IAsyncDisposable
     private AiJobHeader? _job, _active, _observed;
     private IReadOnlyList<AiJobHeader> _history = [];
     private Guid? _selectedJob, _loadedJob, _resultJob, _handledRequested;
+    // Starts collapsed so the references stay in view; only a link to this shot's own selection request opens it.
+    private bool _openForRequest;
     private bool _submitting, _staging, _disposed, _refreshing, _refreshAgain, _reviewVisible, _staged;
     private bool _replaceExisting;
     private string _instructions = "", _raw = "";
@@ -140,7 +142,7 @@ public partial class AssetPickAssistant : IAsyncDisposable
                 }
                 if (RequestedJobId is { } requested && _handledRequested != requested && matches.Any(j => j.Id == requested))
                 {
-                    _handledRequested = requested; _selectedJob = requested; _reviewVisible = true;
+                    _handledRequested = requested; _selectedJob = requested; _reviewVisible = true; _openForRequest = true;
                 }
                 var job = matches.FirstOrDefault(j => j.Id == _selectedJob) ?? matches.FirstOrDefault();
                 _job = job;
