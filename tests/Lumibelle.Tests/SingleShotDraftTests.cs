@@ -28,10 +28,14 @@ public sealed class SingleShotDraftTests
     {
         var (request, _) = Fixture();
         var messages = ShotPlanner.BuildMessages(request);
-        Assert.Contains("ONE shot", messages[0].Text);
+        Assert.Contains("ONE new shot", messages[0].Text);
+        Assert.Contains("never include dialogue an existing shot already speaks", messages[0].Text);
         var task = JsonNode.Parse(messages[1].Text)!;
-        Assert.Equal(1, (int)task["newShotPosition"]!);
-        Assert.Equal("Juniper answers", (string)task["existingShots"]![0]!["title"]!);
+        // Position 1 puts the new shot after the existing one, with no shot after it.
+        Assert.Equal("Juniper answers", (string)task["previousShot"]!["title"]!);
+        Assert.Null(task["nextShot"]);
+        Assert.Equal("You called?", (string)task["alreadySpokenDialogue"]![0]!);
+        Assert.DoesNotContain(task["unspokenDialogue"]!.AsArray(), line => (string)line! == "You called?");
         Assert.Equal("A close-up of the key in her hand", (string)task["directions"]!);
         Assert.Equal("single-shot-v1", ShotPlanner.Profile(request));
     }
@@ -47,6 +51,19 @@ public sealed class SingleShotDraftTests
         Assert.Equal("single-shot-v1", shot.Planning!.Profile);
         // "You called?" is spoken by the existing shot, so it is not reported as uncovered.
         Assert.DoesNotContain(result.UncoveredDialogue, line => line.Contains("You called?"));
+    }
+
+    [Fact]
+    public void ReusingAnotherShotsDialogueOrTheSceneHeadingIsFlaggedForReview()
+    {
+        var (request, doc) = Fixture();
+        var reply = JsonNode.Parse(Reply(doc))!.AsArray();
+        reply[0]!["title"] = ScriptStructure.Sections(doc.Blocks).First().Title;
+        reply[0]!["dialogue"] = JsonNode.Parse("[{\"speaker\":\"JUNIPER\",\"language\":\"English\",\"text\":\"You called?\"}]");
+        var result = ShotPlanner.Parse(reply.ToJsonString(), request);
+        Assert.Null(result.Error);
+        Assert.Contains(result.DialogueNotes, note => note.Contains("already spoken in “Juniper answers”"));
+        Assert.Equal("Untitled shot", Assert.Single(result.Shots).Title);
     }
 
     [Fact]

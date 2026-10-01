@@ -34,6 +34,16 @@ public partial class ProductionStudio
         ? new(job, "Drafting shot…", _resolvedShotDrafts.Contains(job.Id) ? TextRequestOutcome.Resolved
             : job.State == AiJobState.NeedsAttention ? TextRequestOutcome.Invalid : TextRequestOutcome.Proposal, "Draft shot") : null;
     private IReadOnlyList<Shot> OtherSceneShots(Shot shot) => SceneShots(shot).Where(s => s.Id != shot.Id).ToList();
+    // Where the draft will sit: it is written to fit between these neighbours.
+    private string ShotDraftPlace(Shot shot)
+    {
+        string Name(Shot s) => $"{_doc.Shots.IndexOf(s) + 1}. {s.Title}";
+        var (previous, next) = (SceneNeighbour(shot, -1), SceneNeighbour(shot, 1));
+        return previous is null && next is null ? "It is the only shot in its scene."
+            : previous is null ? $"It opens the scene, before {Name(next!)}."
+            : next is null ? $"It ends the scene, after {Name(previous)}."
+            : $"It goes between {Name(previous)} and {Name(next)}.";
+    }
     private static bool HasCoverage(Shot shot) => !string.IsNullOrWhiteSpace(shot.Description) || shot.Dialogue.Count > 0;
 
     private void LoadResolvedShotDrafts() => _resolvedShotDrafts = [.. Place<List<Guid>>(Id, "shots", "resolvedShotDrafts", [])];

@@ -479,7 +479,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 : prompt.Contains("NEEDS_SETUP") ? "NEEDS_SETUP: Expand the canvas first."
                 : "A carefully composed illustration. " + prompt;
         }
-        else if ((list[0].Text ?? "").Contains("Plan ONE shot", StringComparison.Ordinal))
+        else if ((list[0].Text ?? "").Contains("Plan ONE new shot", StringComparison.Ordinal))
         {
             // Single-shot drafting: one shot for the given scene, echoing the directions so tests can see they arrived.
             using var context = JsonDocument.Parse(last);

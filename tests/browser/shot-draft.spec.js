@@ -15,6 +15,7 @@ test('an added shot is drafted from its scene with directions, reviewed, applied
   const composer = page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Draft this shot', exact: true }) });
   await expect(composer).toBeVisible();
   await expect(composer).toContainText('1 other shot is sent as context');
+  await expect(composer.locator('.shot-draft-place')).toContainText('It ends the scene, after 1. Production test.');
   await composer.getByLabel('Directions (optional)').fill('Hold on the key as she hesitates.');
   await composer.getByRole('button', { name: 'Draft shot', exact: true }).click();
 
