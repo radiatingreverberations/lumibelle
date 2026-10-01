@@ -97,7 +97,7 @@ public partial class ProductionStudio
             // Consult the old selection only when importing into an empty global library.
             var earlierSelections = Place<Dictionary<Guid, Guid>>(Id, "shots", "setups", []);
             _compositionId = _selected is { } remembered ? earlierSelections.GetValueOrDefault(remembered) : null;
-            _filter = Place(Id, "shots", "search", ""); LoadCollapsedScenes();
+            _filter = Place(Id, "shots", "search", ""); LoadCollapsedScenes(); LoadResolvedShotDrafts();
             _takeSetupFilter = Place(Id, "shots", "takeFilter", "");
             _takeInputFilter = Place(Id, "shots", "takeInputFilter", "all");
             _showArchived = Place(Id, "shots", "archived", false);
@@ -225,7 +225,8 @@ public partial class ProductionStudio
     private async Task RefreshMedia()
     {
         if (_disposed) return;
-        try { var latest = await Store.LoadAsync(Id, _lifetime.Token); if (_coverageDirty) MergeMedia(latest); else { _doc = latest; Baseline(latest); SyncCoverage(); } await RefreshTakeSources(); await LoadVideoRunsAsync(); await OfferVideoReviewAsync(); await RefreshCompositionResult(); }
+        // An edit made while the document loads (such as + Shot, saved meanwhile) must survive: replace it only when nothing changed.
+        try { var version = _version; var latest = await Store.LoadAsync(Id, _lifetime.Token); if (latest.Revision < _doc.Revision) { /* A save landed while loading; this copy is older than the page's. */ } else if (_coverageDirty || version != _version) MergeMedia(latest); else { _doc = latest; Baseline(latest); SyncCoverage(); } await RefreshTakeSources(); await LoadVideoRunsAsync(); await OfferVideoReviewAsync(); await RefreshCompositionResult(); }
         catch (OperationCanceledException) when (_disposed) { }
         catch (Exception e) { _error = e.Message; }
     }
