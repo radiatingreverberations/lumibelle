@@ -2,6 +2,9 @@ import { test, expect } from './fixtures.js';
 import { cropReference, toolsTab } from './workspace-tools.js';
 test.beforeEach(async ({ page }) => page.setDefaultTimeout(15000));
 const library = async (request, id) => (await (await request.get(`/fixtures/${id}`)).json()).assets;
+// The tools pane holds references, output and Generate. Prompt, voice, framing, Assist and preset are in its Prompt and preset dialog.
+const reelTools = page => page.locator('.reel-tools');
+const reelSetup = page => page.locator('.reel-setup-dialog');
 async function fixture(page, request, narrow = false) {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/images`);
@@ -10,7 +13,8 @@ async function fixture(page, request, narrow = false) {
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
   await expect(page.getByLabel('Filter media', { exact: true })).toHaveValue('Reels');
   await expect(page.getByRole('button', { name: 'Create reel', exact: true })).toHaveCount(0);
-  await expect(page.locator('.reel-tools [data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  await expect(reelTools(page).getByRole('button', { name: 'Prompt', exact: true })).toBeAttached();
   return { id, owner };
 }
 async function showTools(page) {
@@ -23,13 +27,36 @@ async function showTools(page) {
     await expect(page.locator('.workspace-right')).toBeVisible();
   }).toPass({ timeout: 10000 });
 }
+// Like openShotSetup: open the Prompt and preset dialog on a tab, or switch to that tab.
+async function openSetup(page, tab = 'Prompt') {
+  const dialog = reelSetup(page), tabButton = dialog.getByRole('tab', { name: tab, exact: true });
+  if (!await dialog.isVisible()) {
+    await showTools(page);
+    await reelTools(page).getByRole('button', { name: tab === 'Preset' ? 'Edit reel preset' : 'Prompt', exact: true }).click();
+  } else if (await tabButton.getAttribute('aria-selected') !== 'true') await tabButton.click();
+  await expect(dialog).toBeVisible();
+  await expect(tabButton).toHaveAttribute('aria-selected', 'true');
+  if (tab === 'Prompt') await expect(dialog.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
+  return dialog;
+}
+async function closeSetup(page) {
+  const dialog = reelSetup(page);
+  if (await dialog.isVisible()) {
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+  }
+}
+async function expand(details) {
+  if (!await details.evaluate(d => d.open)) await details.locator(':scope > summary').click();
+  await expect(details).toHaveAttribute('open');
+}
+const voiceOptions = page => expand(reelSetup(page).locator('.reel-voice-options'));
+const directionOptions = page => expand(reelSetup(page).locator('.reel-direction-options'));
+const referenceDetails = page => expand(reelTools(page).locator('.shot-reference-details'));
+// Leaves the Prompt dialog open with its voice and direction sections expanded.
 async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guidance = null, compose = framing !== "Custom", crop = false) {
   await showTools(page);
-  const dialog = page.locator('.reel-tools');
-  await expect(dialog.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
-
-  await dialog.getByLabel('Voice mode').selectOption(voice);
-  await dialog.getByRole('button', { name: 'Manage reel references' }).click();
+  await reelTools(page).getByRole('button', { name: 'Manage references', exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   if ((crop || guidance) && page.viewportSize().width < 650) await pictures.getByRole('tab', { name: 'Selected references (1)', exact: true }).click();
@@ -37,13 +64,17 @@ async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guida
   if (guidance) { await pictures.getByRole('button', { name: /Customize/ }).click(); await pictures.getByRole('textbox', { name: 'Composition preservation override', exact: true }).fill(guidance); }
   await pictures.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(pictures).not.toBeVisible();
-  await dialog.getByLabel('Reel name', { exact: true }).fill('Riley reel');
 
+  const dialog = await openSetup(page);
+  await dialog.getByLabel('Reel name', { exact: true }).fill('Riley reel');
+  await voiceOptions(page);
+  await dialog.getByLabel('Voice mode').selectOption(voice);
   await expect(dialog.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
   await expect(dialog.getByLabel('Use guidance', { exact: true })).toHaveValue('');
+  await directionOptions(page);
+  await dialog.getByLabel('Framing preset', { exact: true }).selectOption(framing);
   await dialog.getByRole('button', { name: 'Reel assistance', exact: true }).click();
   const assist = page.locator('.ai-assist-dialog');
-  await assist.getByLabel('Framing preset', { exact: true }).selectOption(framing);
   if (compose) {
     await selectVisionModel(page, assist);
     await assist.getByRole('button', { name: 'Compose pair', exact: true }).click();
@@ -61,9 +92,21 @@ async function selectVisionModel(page, assist) {
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
   await page.getByRole('button', { name: 'Set as project default', exact: true }).click();
 }
+// Instructions sit with the framing in the Prompt dialog; Assist then composes or revises the pair.
+async function assistPair(page, instructions) {
+  const dialog = await openSetup(page);
+  await directionOptions(page);
+  await dialog.getByLabel('Instructions', { exact: true }).fill(instructions);
+  await dialog.getByRole('button', { name: 'Reel assistance', exact: true }).click();
+  const assist = page.locator('.ai-assist-dialog');
+  await selectVisionModel(page, assist);
+  await assist.getByRole('button', { name: /^(Compose|Revise) pair$/ }).click();
+  await expect(assist).not.toBeVisible();
+  return dialog;
+}
 
-async function close(dialog) {
-  const page = dialog.page();
+async function close(page) {
+  await closeSetup(page);
   const narrow = page.viewportSize().width < 1100;
   if (narrow) await page.getByRole('button', { name: 'Close Asset tools', exact: true }).click();
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-right-visible', narrow ? 'false' : 'true');
@@ -72,12 +115,13 @@ async function close(dialog) {
 for (const narrow of [false, true]) for (const outcome of ['success', 'edited', 'cancelled']) test(`queued reels prevent duplicates and ${outcome} keeps the correct create draft (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   test.setTimeout(90000);
   const { id, owner } = await fixture(page, request, narrow);
-  const tools = await recipe(page, owner, 'SideRearFace', 'Silent');
-  const prompt = tools.getByRole('textbox', { name: 'H3 prompt', exact: true });
+  await recipe(page, owner, 'SideRearFace', 'Silent');
+  const tools = reelTools(page), setup = reelSetup(page);
+  const prompt = setup.getByRole('textbox', { name: 'H3 prompt', exact: true });
   const originalPrompt = (await library(request, id)).reelDrafts.find(d => d.assetId === owner.id).prompt;
   const jobs = async () => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id && j.kind === 'ReelVideo');
   async function pause(value) {
-    await close(tools);
+    await close(page);
     await page.locator('.ai-activity-trigger').click();
     const activity = page.getByRole('dialog', { name: 'AI activity', exact: true });
     await activity.getByRole('button', { name: `${value ? 'Pause' : 'Resume'} queue ComfyUI`, exact: true }).click();
@@ -91,33 +135,39 @@ for (const narrow of [false, true]) for (const outcome of ['success', 'edited', 
     expect(await jobs()).toHaveLength(1);
     await page.reload(); await showTools(page);
     await expect(tools.getByRole('button', { name: 'Queued…', exact: true })).toBeDisabled();
+    await openSetup(page);
     await expect(prompt).toHaveText(originalPrompt, { useInnerText: true });
+    await closeSetup(page);
     await tools.getByRole('button', { name: 'View request', exact: true }).click();
     const requestDialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Reference reel request', exact: true }) });
     await expect(requestDialog).toBeVisible();
     if (outcome === 'cancelled') await requestDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await requestDialog.getByRole('button', { name: 'Close', exact: true }).click();
-    if (outcome === 'edited') await tools.getByLabel('Use guidance', { exact: true }).fill('My next reel guidance');
+    if (outcome === 'edited') await (await openSetup(page)).getByLabel('Use guidance', { exact: true }).fill('My next reel guidance');
   } finally { await pause(false); }
   await expect.poll(async () => (await jobs())[0]?.state).toBe(outcome === 'cancelled' ? 'Cancelled' : 'Completed');
   if (outcome === 'success') {
-    await expect(prompt).toBeEmpty();
-    await expect(tools.getByLabel('Use guidance', { exact: true })).toHaveValue('');
     await expect(tools.locator('.reel-picture-summary')).toHaveCount(0);
     await expect(tools.getByRole('button', { name: 'Generate reel', exact: true })).toBeDisabled();
-    await page.reload(); await showTools(page);
+    await openSetup(page);
+    await expect(prompt).toBeEmpty();
+    await expect(setup.getByLabel('Use guidance', { exact: true })).toHaveValue('');
+    await closeSetup(page);
+    await page.reload(); await openSetup(page);
     await expect(prompt).toBeEmpty();
     const saved = (await library(request, id)).reels[0];
     expect(saved.generation.recipe.prompt).toBe(originalPrompt);
-    await close(tools);
+    await close(page);
     await page.locator(`[data-media-id="${saved.id}"]`).getByRole('button', { name: `Actions for ${saved.name}` }).click();
     await page.getByRole('menuitem', { name: 'Create similar', exact: true }).click();
-    await expect(prompt).toHaveText(originalPrompt, { useInnerText: true });
     await expect(tools.locator('.reel-picture-summary')).toHaveCount(1);
+    await openSetup(page);
+    await expect(prompt).toHaveText(originalPrompt, { useInnerText: true });
   } else {
-    await expect(prompt).toHaveText(originalPrompt, { useInnerText: true });
     await expect(tools.locator('.reel-picture-summary')).toHaveCount(1);
-    if (outcome === 'edited') await expect(tools.getByLabel('Use guidance', { exact: true })).toHaveValue('My next reel guidance');
+    await openSetup(page);
+    await expect(prompt).toHaveText(originalPrompt, { useInnerText: true });
+    if (outcome === 'edited') await expect(setup.getByLabel('Use guidance', { exact: true })).toHaveValue('My next reel guidance');
   }
   expect(await jobs()).toHaveLength(1);
 });
@@ -126,20 +176,18 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   test.setTimeout(120000);
   await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.copiedReelDirections = text; } } }));
   const { id, owner } = await fixture(page, request, narrow);
-  const tools = await recipe(page, owner, 'Custom', 'Silent', null, false);
-  await tools.getByRole('button', { name: 'Reel assistance', exact: true }).click();
+  await recipe(page, owner, 'Custom', 'Silent', null, false);
+  const tools = reelTools(page), setup = reelSetup(page);
   const assist = page.locator('.ai-assist-dialog');
   const directions = 'Orbit slowly to the left — posé.\nHold the final angle for a moment.';
-  await assist.getByLabel('Instructions', { exact: true }).fill(directions);
-  await selectVisionModel(page, assist);
-  await assist.getByRole('button', { name: 'Compose pair', exact: true }).click();
-  await expect(assist).not.toBeVisible();
+  await assistPair(page, directions);
+  await closeSetup(page);
   await expect(tools.getByRole('button', { name: 'Generate reel', exact: true })).toBeEnabled();
   await tools.getByRole('button', { name: 'Generate reel', exact: true }).click();
   await expect.poll(async () => (await library(request, id)).reels.length, { timeout: 45000 }).toBe(1);
   const saved = (await library(request, id)).reels[0];
   expect(saved.generation.recipe.instructions).toBe(directions);
-  await close(tools);
+  await close(page);
   await page.locator(`[data-media-id="${saved.id}"]`).getByRole('button', { name: `Actions for ${saved.name}` }).click();
   await page.getByRole('menuitem', { name: 'Edit details', exact: true }).click();
   const details = page.locator('.reel-details-dialog');
@@ -175,32 +223,34 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   const target = (await library(request, id)).assets.find(a => a.id !== owner.id);
   await page.goto(`/projects/${id}/assets?assetId=${target.id}&view=reels`);
   await recipe(page, target, 'BodyToFace', 'NewVoice', 'Different picture guidance', false);
-  await tools.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('Keep my authored prompt.');
-  await tools.getByLabel('Use guidance', { exact: true }).fill('Keep my target use guidance.');
+  await setup.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('Keep my authored prompt.');
+  await setup.getByLabel('Use guidance', { exact: true }).fill('Keep my target use guidance.');
+  await closeSetup(page);
   await tools.getByLabel('Requested seconds', { exact: true }).fill('7');
   await tools.getByRole('combobox', { name: 'Aspect', exact: true }).selectOption('16:9');
-  await tools.getByRole('button', { name: 'Reel assistance', exact: true }).click();
-  await assist.getByLabel('Instructions', { exact: true }).fill('Current directions before reuse.');
+  await openSetup(page); await directionOptions(page);
+  await setup.getByLabel('Instructions', { exact: true }).fill('Current directions before reuse.');
   const draft = async () => (await library(request, id)).reelDrafts.find(d => d.assetId === target.id);
   await expect.poll(async () => (await draft()).instructions).toBe('Current directions before reuse.');
   const before = await draft();
-  await assist.getByText('Reuse directions from a reel', { exact: true }).click();
-  await assist.getByLabel('Saved reel', { exact: true }).selectOption(saved.id);
-  await expect(assist.getByLabel('Directions to reuse', { exact: true })).toHaveValue(directions);
-  await expect(assist.getByLabel('Instructions', { exact: true })).toHaveValue(before.instructions);
-  await assist.getByRole('button', { name: 'Use these directions', exact: true }).click();
-  await expect(assist.getByLabel('Instructions', { exact: true })).toHaveValue(directions);
-  await expect(assist.getByLabel('Framing preset', { exact: true })).toHaveValue('Custom');
-  await expect(assist.getByRole('status').filter({ hasText: 'Directions loaded.' })).toBeVisible();
+  await setup.getByText('Reuse directions from a reel', { exact: true }).click();
+  await setup.getByLabel('Saved reel', { exact: true }).selectOption(saved.id);
+  await expect(setup.getByLabel('Directions to reuse', { exact: true })).toHaveValue(directions);
+  await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue(before.instructions);
+  await setup.getByRole('button', { name: 'Use these directions', exact: true }).click();
+  await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue(directions);
+  await expect(setup.getByLabel('Framing preset', { exact: true })).toHaveValue('Custom');
+  await expect(setup.getByRole('status').filter({ hasText: 'Directions loaded.' })).toBeVisible();
   await page.screenshot({ path: `artifacts/reel-directions-${narrow ? 'narrow' : 'desktop'}.png` });
   const after = await draft();
   for (const field of ['images', 'voiceMode', 'speaker', 'line', 'duration', 'aspect', 'prompt', 'useGuidance', 'lookId']) expect(after[field]).toEqual(before[field]);
   expect(after.images[0].assetId).toBe(target.id);
-  await assist.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.reload(); await showTools(page);
-  await tools.getByRole('button', { name: 'Reel assistance', exact: true }).click();
-  await expect(assist.getByLabel('Instructions', { exact: true })).toHaveValue(directions);
+  await closeSetup(page);
+  await page.reload(); await openSetup(page); await directionOptions(page);
+  await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue(directions);
+  await setup.getByRole('button', { name: 'Reel assistance', exact: true }).click();
   await assist.getByRole('button', { name: 'Revise pair', exact: true }).click();
+
   await expect(assist).not.toBeVisible();
   const captures = async () => (await (await request.get('/fixtures/reel-compositions')).json()).filter(c => c.context.request?.projectId === id);
   await expect.poll(async () => (await captures()).length).toBe(2);
@@ -215,17 +265,20 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   test.setTimeout(150000);
   const { id, owner } = await fixture(page, request, narrow);
   await expect(page.getByRole('button', { name: 'Generate images', exact: true })).not.toBeVisible();
-  const dialog = await recipe(page, owner, 'SideRearFace', 'Silent');
+  const dialog = await recipe(page, owner, 'SideRearFace', 'Silent'), tools = reelTools(page);
   await expect(dialog.getByRole('textbox', { name: 'H3 prompt' })).toContainText('[Shot 3]');
-  await expect(dialog.getByText(/Generated duration: 5[,.]167 seconds/)).toBeVisible();
-  await close(dialog);
-  await page.reload(); await showTools(page);
+  // The composed prompt states the generated length: the requested 5 s rounded to whole H3 frames.
+  await expect(dialog.getByRole('textbox', { name: 'H3 prompt' })).toContainText(/5[,.]167 seconds/);
+  await close(page);
+  await page.reload(); await openSetup(page);
   await expect(dialog.getByRole('textbox', { name: 'H3 prompt' })).toContainText('[Shot 3]');
-  await dialog.getByRole('button', { name: 'Generate reel', exact: true }).click();
-  await expect(dialog.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
-  await expect(dialog.getByRole('button', { name: 'Generate reel', exact: true })).toBeDisabled();
+  await closeSetup(page);
+  await tools.getByRole('button', { name: 'Generate reel', exact: true }).click();
+  await expect(tools.getByRole('button', { name: 'Generate reel', exact: true })).toBeDisabled();
   await expect(page.locator('.mud-dialog:visible')).toHaveCount(0);
-  await close(dialog);
+  await openSetup(page);
+  await expect(dialog.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
+  await close(page);
   await expect.poll(async () => (await library(request, id)).reels.length, { timeout: 45000 }).toBe(1);
   await expect(page.locator('.asset-media-card[data-media-kind=Reel]')).toHaveCount(1);
   const original = (await library(request, id)).reels[0];
@@ -272,15 +325,16 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   await actions.getByRole('button', { name: 'Create similar' }).click();
   await expect(details).not.toBeVisible();
 
+  await openSetup(page);
   await expect(dialog.getByLabel('Reel name', { exact: true })).toHaveValue('Riley reel');
 
   await expect(dialog.getByRole('textbox', { name: 'H3 prompt' })).toContainText('[Shot 3]');
-  await close(dialog);
+  await close(page);
   await page.locator(`[data-media-id="${original.id}"]`).getByRole('button', { name: `Actions for ${original.name}` }).click();
   await page.getByRole('menuitem', {name: 'Move to Trash',exact:true}).click();
   await expect.poll(async () => (await library(request, id)).reelTrash.length).toBe(1);
   await expect(page.getByText('Reel recovery', { exact: true })).not.toBeVisible();
-  if (narrow && await page.locator('.workspace-right').isVisible()) await close(dialog);
+  if (narrow && await page.locator('.workspace-right').isVisible()) await close(page);
   if (narrow) {
     await page.getByRole('button', { name: 'Application navigation', exact: true }).click();
     await page.getByRole('listbox').locator('a[href="/trash"]').click();
@@ -311,10 +365,11 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
   test.setTimeout(90000);
   const { id, owner } = await fixture(page, request, narrow);
   const other = await (await request.post(`/fixtures/${id}/media-move-target`)).json();
-  const tools = await recipe(page, owner, 'SideRearFace', 'Silent');
-  await tools.getByRole('button', { name: 'Generate reel', exact: true }).click();
+  await recipe(page, owner, 'SideRearFace', 'Silent');
+  await closeSetup(page);
+  await reelTools(page).getByRole('button', { name: 'Generate reel', exact: true }).click();
   await expect.poll(async () => (await library(request, id)).reels.length, { timeout: 45000 }).toBe(1);
-  await close(tools);
+  await close(page);
   await expect(page.locator('.reel-requests')).toHaveCount(0);
   await expect(page.locator('.reel-library')).toHaveCount(0);
   const jobs = (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
@@ -325,7 +380,7 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
       // Publication and restored selection can open the tools after the API reports
       // completion. Finish dismissing that drawer before using the page header.
       await expect(async () => {
-        if (await page.locator('.workspace-right').isVisible()) await close(tools);
+        if (await page.locator('.workspace-right').isVisible()) await close(page);
         if (!await activity.isVisible()) await page.locator('.ai-activity-trigger').click({ timeout: 1000 });
         await expect(activity).toBeVisible();
       }).toPass({ timeout: 10000 });
@@ -361,7 +416,7 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
     await review.getByRole('button', { name: 'Close', exact: true }).press('Escape');
     await expect(review).not.toBeVisible();
     await expect(page).not.toHaveURL(/jobId=/);
-    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(tools);
+    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(page);
     for (const asset of [other, owner]) {
       const choice = page.locator(`[data-asset-id="${asset.id}"] .asset-choice`);
       if (!await choice.isVisible()) await page.locator('[data-toggle-pane=left]').click();
@@ -372,7 +427,7 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
     await page.reload();
     await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
     await expect(review).not.toBeVisible();
-    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(tools);
+    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(page);
   }
 });
 
@@ -382,14 +437,15 @@ for (const narrow of [false, true]) test(`reel and voice details and moves betwe
   const target = await (await request.post(`/fixtures/${id}/media-move-target`)).json();
   await request.post(`/fixtures/${id}/reference-workspace`);
   await page.reload();
-  const tools = await recipe(page, owner, 'SideRearFace', 'Silent');
-  await tools.getByRole('button', { name: 'Generate reel', exact: true }).click();
+  const setup = await recipe(page, owner, 'SideRearFace', 'Silent');
+  await closeSetup(page);
+  await reelTools(page).getByRole('button', { name: 'Generate reel', exact: true }).click();
   await expect.poll(async () => (await library(request, id)).reels.length, { timeout: 45000 }).toBe(1);
-  await close(tools);
+  await close(page);
   const before = await library(request, id), reel = before.reels[0], voice = before.voices[0];
   const card = item => page.locator(`[data-media-id="${item.id}"]`);
   async function action(item, label) {
-    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(tools);
+    if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(page);
     await card(item).getByRole('button', { name: /^Actions for/ }).click();
     await page.getByRole('menuitem', { name: label, exact: true }).click();
     await expect(page.getByRole('menuitem', { name: label, exact: true })).not.toBeVisible();
@@ -423,7 +479,10 @@ for (const narrow of [false, true]) test(`reel and voice details and moves betwe
   expect(saved.reels[0].assetId).toBe(target.id);
   expect(saved.reels[0].media).toEqual(reel.media); expect(saved.reels[0].generation).toEqual(reel.generation);
   await page.locator('.reel-details-tools').getByRole('button', { name: 'Create similar', exact: true }).click();
-  await expect(tools.getByLabel('Reel name', { exact: true })).toHaveValue('Riley reel');
+  await openSetup(page);
+  await expect(setup.getByLabel('Reel name', { exact: true })).toHaveValue('Riley reel');
+  await closeSetup(page);
+
   // The original draft stays with the first asset; Create similar adds one for the reel's new owner.
   await expect.poll(async () => (await library(request, id)).reelDrafts.some(d => d.name === 'Riley reel' && d.assetId === target.id)).toBe(true);
   // Regeneration retains captured inputs and follows the moved reel to its current asset.
@@ -494,38 +553,32 @@ test('MP4 import and project-take copy keep separate identities without generate
 test('narrow AI pair survives closing, revisions compare both fields, manual edits and changed timing retain text', async ({ page, request }) => {
   test.setTimeout(120000);
   const { id, owner } = await fixture(page, request, true);
-  const dialog = await recipe(page, owner);
-  const assist = page.locator('.ai-assist-dialog');
-  async function submit() {
-    await dialog.getByRole('button', { name: 'Reel assistance', exact: true }).click();
-    await assist.locator('.model-chip').click();
-    await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
-    await page.getByRole('button', { name: 'Set as project default', exact: true }).click();
-    await assist.getByLabel('Instructions', { exact: true }).fill('Focus on hands');
-    await assist.getByRole('button', { name: /Compose pair|Revise pair/ }).click();
-    await expect(assist).not.toBeVisible();
-  }
-  await submit(); await close(dialog);
+  const dialog = await recipe(page, owner), tools = reelTools(page);
+  await assistPair(page, 'Focus on hands'); await close(page);
   await expect.poll(async () => (await library(request, id)).reelDrafts[0].prompt, { timeout: 25000 }).toContain('Focus on the hands.');
   await showTools(page);
   const before = (await library(request, id)).reelDrafts[0].prompt;
-  await submit(); await close(dialog);
+  await assistPair(page, 'Focus on hands'); await close(page);
   await expect.poll(async () => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id && j.kind === 'ReelComposition' && j.state === 'Completed').length, { timeout: 25000 }).toBe(2);
-  await showTools(page);
+  await openSetup(page);
   await dialog.getByRole('button', { name: /Review changes|Needs attention/ }).click();
   const diff = page.locator('.reel-review-dialog');
   await expect(diff.getByRole('heading', { name: 'Use guidance', exact: true })).toBeVisible();
   await diff.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(diff).not.toBeVisible();
   await dialog.getByLabel('Use guidance', { exact: true }).fill('Manual guidance · café 👋');
-  await dialog.getByLabel('Requested seconds').fill('6'); await dialog.getByLabel('Requested seconds').blur();
+  await closeSetup(page);
+  await tools.getByLabel('Requested seconds').fill('6'); await tools.getByLabel('Requested seconds').blur();
+  await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toContainText('Review prompt');
+  await openSetup(page);
   await expect(dialog.getByText(/Check prompts/)).toBeVisible();
   expect((await library(request, id)).reelDrafts[0].prompt).toBe(before);
   await page.screenshot({ path: 'artifacts/reference-reels-narrow.png' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await close(dialog); await page.reload(); await showTools(page);
+  await close(page); await page.reload(); await openSetup(page);
   await expect(dialog.getByLabel('Use guidance', { exact: true })).toHaveValue('Manual guidance · café 👋');
-  await expect(dialog.getByLabel('Requested seconds')).toHaveValue('6');
+  await closeSetup(page);
+  await expect(tools.getByLabel('Requested seconds')).toHaveValue('6');
 });
 
 test('manual writing prevents auto-application and invalid AI responses remain inspectable', async ({ page, request }) => {
@@ -533,18 +586,12 @@ test('manual writing prevents auto-application and invalid AI responses remain i
   const { id, owner } = await fixture(page, request);
   const dialog = await recipe(page, owner), assist = page.locator('.ai-assist-dialog');
   const jobs = async () => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
-  await dialog.getByRole('button', { name: 'Reel assistance' }).click();
-  await assist.locator('.model-chip').click();
-  await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
-  await page.getByRole('button', { name: 'Set as project default', exact: true }).click();
-  await assist.getByLabel('Instructions', { exact: true }).fill('SILENT_START Focus on hands');
-  await assist.getByRole('button', { name: 'Compose pair', exact: true }).click();
-  await expect(assist).not.toBeVisible();
+  await assistPair(page, 'SILENT_START Focus on hands');
   await dialog.getByLabel('Use guidance', { exact: true }).fill('My writing while AI works.');
-  await close(dialog);
+  await close(page);
   await expect.poll(async () => (await jobs())[0]?.state, { timeout: 25000 }).toBe('Completed');
   expect((await library(request, id)).reelDrafts[0].prompt).toBe('');
-  await showTools(page);
+  await openSetup(page);
   await dialog.getByRole('button', { name: /Review changes|Needs attention/ }).click();
   const review = page.locator('.reel-review-dialog');
   await review.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -554,12 +601,13 @@ test('manual writing prevents auto-application and invalid AI responses remain i
   await expect(review.getByRole('button', { name: 'Apply anyway', exact: true })).toBeVisible();
   await review.getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(review).not.toBeVisible();
+  await directionOptions(page);
+  await dialog.getByLabel('Instructions', { exact: true }).fill('INVALID_PAIR');
   await dialog.getByRole('button', { name: 'Reel assistance' }).click();
-  await assist.getByLabel('Instructions', { exact: true }).fill('INVALID_PAIR');
   await assist.getByRole('button', { name: 'Compose pair', exact: true }).click();
-  await expect(assist).not.toBeVisible(); await close(dialog);
+  await expect(assist).not.toBeVisible(); await close(page);
   await expect.poll(async () => (await jobs()).some(j => j.state === 'NeedsAttention'), { timeout: 20000 }).toBe(true);
-  await showTools(page);
+  await openSetup(page);
   await dialog.getByRole('button', { name: /Review changes|Needs attention/ }).click();
   await expect(review.getByRole('alert')).toContainText('JSON pair');
   await expect(review.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
@@ -570,18 +618,12 @@ test('manual writing prevents auto-application and invalid AI responses remain i
 
 for (const narrow of [false,true]) test(`valid JSON with an error is readable and recoverable (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
   const {id,owner}=await fixture(page,request,narrow);
-  const tools=await recipe(page,owner), assist=page.locator('.ai-assist-dialog');
-  await tools.getByRole('button',{name:'Reel assistance',exact:true}).click();
-  await assist.locator('.model-chip').click();
-  await page.getByRole('combobox',{name:'Text model',exact:true}).selectOption({label:'OpenRouter · Alternate mock model'});
-  await page.getByRole('button',{name:'Set as project default',exact:true}).click();
-  await assist.getByLabel('Instructions',{exact:true}).fill(`${narrow ? 'EMPTY_REEL_MUSIC' : 'WRONG_REEL_DURATION'} Focus on hands`);
-  await assist.getByRole('button',{name:'Compose pair',exact:true}).click();
-  await expect(assist).not.toBeVisible();
-  await expect(tools.getByRole('button', {name:'Needs attention',exact:true})).toBeVisible({timeout:25000});
-  await tools.getByRole('textbox',{name:'H3 prompt',exact:true}).fill('My later writing.');
-  await tools.getByLabel('Use guidance',{exact:true}).fill('Keep my later notes.');
-  await tools.getByRole('button',{name:'Needs attention',exact:true}).click();
+  const setup=await recipe(page,owner);
+  await assistPair(page,`${narrow ? 'EMPTY_REEL_MUSIC' : 'WRONG_REEL_DURATION'} Focus on hands`);
+  await expect(setup.getByRole('button', {name:'Needs attention',exact:true})).toBeVisible({timeout:25000});
+  await setup.getByRole('textbox',{name:'H3 prompt',exact:true}).fill('My later writing.');
+  await setup.getByLabel('Use guidance',{exact:true}).fill('Keep my later notes.');
+  await setup.getByRole('button',{name:'Needs attention',exact:true}).click();
   const review=page.locator('.reel-review-dialog');
   await expect(review.getByLabel('Response generation prompt')).toHaveValue(narrow ? /non_diegetic_music:\s*$/ : /5 seconds/);
   await expect(review.getByLabel('Response use guidance')).toHaveValue(/hands/);
@@ -600,26 +642,29 @@ for (const narrow of [false,true]) test(`valid JSON with an error is readable an
   await review.getByRole('button',{name:'Edit response',exact:true}).press('Enter');
   await expect(review).not.toBeVisible();
   await expect(page).not.toHaveURL(/jobId=/);
-  await expect(tools.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
+  await expect(setup.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
   const drafts = (await library(request,id)).reelDrafts;
   expect(drafts.find(d=>d.id===before.id)).toEqual(before);
   expect(drafts.at(-1).id).not.toBe(before.id);
   expect(drafts.at(-1).prompt).toBe(response);
   expect(drafts.at(-1).pendingJobId).toBeNull();
   const corrected = narrow ? response + 'No non-diegetic music.' : response.replaceAll('5 seconds','5.167 seconds');
-  await tools.getByRole('textbox',{name:'H3 prompt',exact:true}).fill(corrected);
-  await tools.getByLabel('Use guidance',{exact:true}).focus();
+  await setup.getByRole('textbox',{name:'H3 prompt',exact:true}).fill(corrected);
+  await setup.getByLabel('Use guidance',{exact:true}).focus();
   await expect.poll(async () => (await library(request,id)).reelDrafts.at(-1).prompt).toBe(corrected);
   await page.reload(); await showTools(page);
   await expect(review).not.toBeVisible();
-  await expect(tools.getByRole('textbox',{name:'H3 prompt',exact:true})).toContainText('No non-diegetic music.');
+  await openSetup(page);
+  await expect(setup.getByRole('textbox',{name:'H3 prompt',exact:true})).toContainText('No non-diegetic music.');
+
   const jobs = (await (await request.get('/fixtures/ai-jobs')).json()).filter(j=>j.target.projectId===id);
   expect(jobs.filter(j=>j.kind==='ReelComposition')).toHaveLength(1);
 });
 
 test('pre-submit failures explain their stage and link to the prompt from Setup', async ({page,request}) => {
   const {id,owner}=await fixture(page,request,true);
-  const tools=await recipe(page,owner,'ContinuousTurn','Silent');
+  const setup=await recipe(page,owner,'ContinuousTurn','Silent'), tools=reelTools(page);
+  await closeSetup(page);
   await tools.getByLabel('Requested seconds').fill('6');
   await tools.getByLabel('Requested seconds').blur();
 
@@ -627,12 +672,15 @@ test('pre-submit failures explain their stage and link to the prompt from Setup'
   await expect(tools.getByRole('alert')).toContainText('Not submitted to ComfyUI');
   await expect(tools.getByRole('alert')).toContainText('generation prompt text');
   await tools.getByRole('button',{name:'Review prompt',exact:true}).click();
-  await expect(tools.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
-  await expect(tools.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
+  await expect(setup.getByRole('tab',{name:'Prompt',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(setup.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
+  await closeSetup(page);
   await tools.getByLabel('Requested seconds').fill('5'); await tools.getByLabel('Requested seconds').blur();
 
-  await tools.getByLabel('Reel name',{exact:true}).fill('MEMORY_FAILURE');
+  await (await openSetup(page)).getByLabel('Reel name',{exact:true}).fill('MEMORY_FAILURE');
+  await closeSetup(page);
   await tools.getByRole('button',{name:'Generate reel',exact:true}).click();
+
   await expect(tools.getByRole('alert')).toContainText('Lumibelle ran out of system memory while preparing');
   await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeEnabled();
   expect((await (await request.get('/fixtures/ai-jobs')).json()).filter(j=>j.target.projectId===id && j.kind==='ReelVideo')).toHaveLength(0);
@@ -668,10 +716,12 @@ test('renaming preserves another tabs guidance correction', async ({page,request
   expect(saved.useGuidance).toBe('Corrected after watching');
 });
 
-for (const narrow of [false, true]) test(`framing belongs in Assist and composes from cropped pictures (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
+for (const narrow of [false, true]) test(`framing belongs with the prompt directions and composes from cropped pictures (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
   const {id,owner}=await fixture(page,request,narrow);
-  const tools=await recipe(page,owner,'SideRearFace','NewVoice','Use the blue gloves.',false,true);
+  const setup=await recipe(page,owner,'SideRearFace','NewVoice','Use the blue gloves.',false,true), tools=reelTools(page);
+  await closeSetup(page);
 
+  await referenceDetails(page);
   const picture=tools.getByRole('button',{name:'Edit Picture 1',exact:true});
   await expect(picture.locator('img')).toBeVisible();
   await expect(picture).toContainText('Auto · Cropped');
@@ -686,36 +736,41 @@ for (const narrow of [false, true]) test(`framing belongs in Assist and composes
   await expect(picture).toBeFocused();
   await expect(picture).toContainText('Use the blue gloves.');
   const voice='Warm, lightly raspy — posé.\nA relaxed pace.';
-  await tools.getByLabel('Voice description (optional)',{exact:true}).fill(voice);
-  await tools.getByLabel('Voice mode').selectOption('Silent');
-  await expect(tools.getByLabel('Voice description (optional)',{exact:true})).not.toBeVisible();
-  await tools.getByLabel('Voice mode').selectOption('NewVoice');
-  await expect(tools.getByLabel('Voice description (optional)',{exact:true})).toHaveValue(voice);
+  await openSetup(page); await voiceOptions(page);
+  await setup.getByLabel('Voice description (optional)',{exact:true}).fill(voice);
+  await setup.getByLabel('Voice mode').selectOption('Silent');
+  await expect(setup.getByLabel('Voice description (optional)',{exact:true})).not.toBeVisible();
+  await setup.getByLabel('Voice mode').selectOption('NewVoice');
+  await expect(setup.getByLabel('Voice description (optional)',{exact:true})).toHaveValue(voice);
   await page.screenshot({path:`artifacts/reel-picture-voice-${narrow ? 'narrow' : 'desktop'}.png`});
-  await tools.getByLabel('Voice description (optional)',{exact:true}).scrollIntoViewIfNeeded();
-  await expect(tools.getByLabel('Voice description (optional)',{exact:true})).toBeInViewport();
-  await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeInViewport();
+  await setup.getByLabel('Voice description (optional)',{exact:true}).scrollIntoViewIfNeeded();
+  await expect(setup.getByLabel('Voice description (optional)',{exact:true})).toBeInViewport();
   await page.screenshot({path:`artifacts/reel-voice-description-${narrow ? 'narrow' : 'desktop'}.png`});
+  await closeSetup(page);
+  await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeInViewport();
 
-  const editor=tools.getByRole('textbox',{name:'H3 prompt',exact:true});
+  const editor=setup.getByRole('textbox',{name:'H3 prompt',exact:true});
   await expect(tools.getByLabel('Framing preset')).toHaveCount(0);
   await expect(tools.getByRole('button',{name:/Build preset prompts|Review preset prompts/})).toHaveCount(0);
   await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeDisabled();
   expect((await library(request,id)).reelDrafts[0].prompt).toBe('');
   const captured=async()=>(await (await request.get('/fixtures/reel-compositions')).json()).filter(c=>c.context.request?.projectId===id);
   expect(await captured()).toHaveLength(0);
-  await tools.getByRole('button',{name:'Reel assistance',exact:true}).click();
+  await openSetup(page); await directionOptions(page);
+  await expect(setup.getByLabel('Framing preset')).toHaveValue('SideRearFace');
+  await expect(setup.locator('.reel-framing-plan')).toContainText('shoulder height');
+  await setup.getByLabel('Instructions',{exact:true}).fill('Focus on the hands and gloves.');
+  await setup.getByRole('button',{name:'Reel assistance',exact:true}).click();
   const assist=page.locator('.ai-assist-dialog');
-  await expect(assist.getByLabel('Framing preset')).toHaveValue('SideRearFace');
-  await expect(assist.locator('.reel-framing-plan')).toContainText('shoulder height');
-  await assist.getByLabel('Instructions',{exact:true}).fill('Focus on the hands and gloves.');
   await selectVisionModel(page,assist);
   await expect(assist.getByRole('button',{name:'Compose pair',exact:true})).toBeInViewport();
   await page.screenshot({path:`artifacts/reel-framing-assist-${narrow ? 'narrow' : 'desktop'}.png`});
   await assist.getByRole('button',{name:'Compose pair',exact:true}).click();
   await expect(assist).not.toBeVisible();
   await expect(editor).toContainText('[Shot 3]');
+  await closeSetup(page);
   await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeEnabled();
+  await openSetup(page);
   const [submitted]=await captured();
   expect(submitted.model).toBe('mock/alternate');
   expect(submitted.context.request.draft.framing).toBe('SideRearFace');
@@ -732,59 +787,67 @@ for (const narrow of [false, true]) test(`framing belongs in Assist and composes
   const before=(await library(request,id)).reelDrafts[0];
   const rendered=await editor.textContent();
 
-  await tools.getByLabel('Voice description (optional)',{exact:true}).fill('Bright and brisk.');
+  await voiceOptions(page);
+  await setup.getByLabel('Voice description (optional)',{exact:true}).fill('Bright and brisk.');
 
   await expect(editor).toHaveText(rendered);
-  await expect(tools.getByText(/Check prompts/)).toBeVisible();
-  await tools.getByRole('button',{name:'Reel assistance',exact:true}).click();
-  await assist.getByLabel('Framing preset').selectOption('Custom');
-  await expect(assist.locator('.reel-framing-plan')).toContainText('No prescribed framing');
-  await assist.getByRole('button',{name:'Close',exact:true}).click();
+  await expect(setup.getByText(/Check prompts/)).toBeVisible();
+  await directionOptions(page);
+  await setup.getByLabel('Framing preset').selectOption('Custom');
+  await expect(setup.locator('.reel-framing-plan')).toContainText('No prescribed framing');
   await expect(editor).toHaveText(rendered);
   expect((await library(request,id)).reelDrafts[0].prompt).toBe(before.prompt);
-  await expect(tools.getByLabel('Use guidance',{exact:true})).toHaveValue(before.useGuidance);
-  await expect(tools.getByText(/Check prompts/)).toBeVisible();
+  await expect(setup.getByLabel('Use guidance',{exact:true})).toHaveValue(before.useGuidance);
+  await expect(setup.getByText(/Check prompts/)).toBeVisible();
   await expect(page.locator('.reel-review-dialog')).not.toBeVisible();
   expect(await captured()).toHaveLength(1);
-  await tools.getByRole('button',{name:'Reel assistance',exact:true}).click();
-  await expect(assist.getByLabel('Framing preset')).toHaveValue('Custom');
+  await expect(setup.getByLabel('Framing preset')).toHaveValue('Custom');
+  await setup.getByRole('button',{name:'Reel assistance',exact:true}).click();
   await assist.getByRole('button',{name:'Revise pair',exact:true}).click();
   await expect(assist).not.toBeVisible();
-  await tools.getByRole('button',{name:'Review changes',exact:true}).click();
+  await setup.getByRole('button',{name:'Review changes',exact:true}).click();
   const review=page.locator('.reel-review-dialog');
   await expect(review.getByRole('button',{name:'Apply changes',exact:true})).toBeEnabled();
   expect((await library(request,id)).reelDrafts[0].prompt).toBe(before.prompt);
   await review.getByRole('button',{name:'Discard',exact:true}).click();
   await expect(review).not.toBeVisible();
-  await page.reload(); await showTools(page);
+  await page.reload(); await openSetup(page); await voiceOptions(page);
 
-  await expect(tools.getByLabel('Voice description (optional)',{exact:true})).toHaveValue('Bright and brisk.');
+  await expect(setup.getByLabel('Voice description (optional)',{exact:true})).toHaveValue('Bright and brisk.');
+  await closeSetup(page); await referenceDetails(page);
   await expect(picture).toContainText('Use the blue gloves.');
   expect((await library(request,id)).reelDrafts[0].prompt).toBe(before.prompt);
 });
 
-test('prompt editor stays mounted with Undo across tool tabs and asset navigation flushes current typing', async ({page,request}) => {
+test('prompt editor keeps its Undo history across setup tabs and reopening, and leaving for another asset keeps current typing', async ({page,request}) => {
   const {id,owner}=await fixture(page,request);
-  const tools=await recipe(page,owner);
-  const editor=tools.getByRole('textbox',{name:'H3 prompt',exact:true});
+  const setup=await recipe(page,owner);
+  const editor=setup.getByRole('textbox',{name:'H3 prompt',exact:true});
   await editor.fill('A manually authored draft.');
   await expect.poll(async()=>(await library(request,id)).reelDrafts[0].prompt).toBe('A manually authored draft.');
   await editor.evaluate(el => { window.reelEditorIdentity=el; });
 
-  await tools.getByLabel('Reel name',{exact:true}).fill('Still my draft');
+  await setup.getByLabel('Reel name',{exact:true}).fill('Still my draft');
+  // The Preset tab keeps the Prompt tab's editor mounted.
+  await openSetup(page,'Preset'); await openSetup(page);
+  expect(await editor.evaluate(el => el===window.reelEditorIdentity)).toBe(true);
+  // Closing the dialog and switching the media type remounts the editor with its history.
+  await closeSetup(page);
   await page.getByLabel('Create media type').selectOption('Image');
   await page.getByLabel('Create media type').selectOption('Reel');
-  expect(await editor.evaluate(el => el===window.reelEditorIdentity)).toBe(true);
-  await tools.getByRole('button',{name:'Undo prompt edit',exact:true}).click();
+  await openSetup(page);
+  await expect(setup.getByLabel('Reel name',{exact:true})).toHaveValue('Still my draft');
+  await setup.getByRole('button',{name:'Undo prompt edit',exact:true}).click();
   await expect(editor).toBeEmpty();
-  await tools.getByRole('button',{name:'Redo prompt edit',exact:true}).click();
+  await setup.getByRole('button',{name:'Redo prompt edit',exact:true}).click();
   await expect(editor).toContainText('A manually authored draft.');
   await editor.fill('Latest writing — café 👋');
+  await closeSetup(page);
   const another=(await library(request,id)).assets.find(a=>a.id!==owner.id);
   await page.locator('.asset-choice').filter({hasText:another.name}).click();
   expect((await library(request,id)).reelDrafts[0].prompt).toBe('Latest writing — café 👋');
   await page.locator('.asset-choice').filter({hasText:owner.name}).click();
-  await showTools(page);
+  await openSetup(page);
   await expect(editor).toContainText('Latest writing — café 👋');
 });
 
@@ -793,32 +856,35 @@ for (const narrow of [false, true]) test(`existing look drafts retain their dest
   await request.post(`/fixtures/${id}/planning-looks`);
   const saved=await (await request.post(`/fixtures/${id}/reel-look-draft`)).json();
   await page.setViewportSize({width:narrow?390:1173,height:narrow?844:1000});
-  await page.goto(`/projects/${id}/assets?assetId=${saved.assetId}&view=reels`); await showTools(page);
-  const tools=page.locator('.reel-tools'), editor=tools.getByRole('textbox',{name:'H3 prompt',exact:true});
+  await page.goto(`/projects/${id}/assets?assetId=${saved.assetId}&view=reels`);
+  const setup=await openSetup(page), editor=setup.getByRole('textbox',{name:'H3 prompt',exact:true});
   await expect(editor).toContainText(saved.prompt);
-  await expect(tools.getByText(/Saved destination/)).toBeVisible();
-  await tools.getByRole('button',{name:'Use unassigned',exact:true}).click();
-  await expect(tools.getByText(/Saved destination/)).toHaveCount(0);
+  await expect(setup.getByText(/Saved destination/)).toBeVisible();
+  await setup.getByRole('button',{name:'Use unassigned',exact:true}).click();
+  await expect(setup.getByText(/Saved destination/)).toHaveCount(0);
   await expect.poll(async()=>(await library(request,id)).reelDrafts.length).toBe(2);
   await editor.fill('General appearance prompt.');
+  await closeSetup(page);
   await page.getByLabel('Create media type').selectOption('Image');
   await page.getByLabel('Create media type').selectOption('Reel');
+  await openSetup(page);
   await expect(editor).toContainText('General appearance prompt.');
   const drafts=(await library(request,id)).reelDrafts;
   expect(drafts.find(d=>d.id===saved.id).prompt).toBe(saved.prompt);
   expect(drafts.find(d=>d.id!==saved.id).lookId).toBeNull();
-  await tools.getByRole('button',{name:'Undo prompt edit',exact:true}).click();
+  await setup.getByRole('button',{name:'Undo prompt edit',exact:true}).click();
   await expect(editor).toContainText(saved.prompt);
 });
 
 test('slow preparation stays dismissible and cancellable in the narrow tools drawer', async ({page,request}) => {
   const {id,owner}=await fixture(page,request,true);
-  const tools=await recipe(page,owner,'ContinuousTurn','Silent');
+  const setup=await recipe(page,owner,'ContinuousTurn','Silent'), tools=reelTools(page);
 
-  await tools.getByLabel('Reel name',{exact:true}).fill('SLOW_PREPARATION reference');
+  await setup.getByLabel('Reel name',{exact:true}).fill('SLOW_PREPARATION reference');
+  await closeSetup(page);
   await tools.getByRole('button',{name:'Generate reel',exact:true}).click();
   await expect(tools.getByRole('button',{name:'Cancel preparation',exact:true})).toBeVisible();
-  await close(tools);
+  await close(page);
   await page.getByRole('button',{name:'Show Asset tools',exact:true}).click();
   await tools.getByRole('button',{name:'Cancel preparation',exact:true}).click();
   await expect(tools.getByRole('button',{name:'Generate reel',exact:true})).toBeEnabled();
@@ -826,10 +892,10 @@ test('slow preparation stays dismissible and cancellable in the narrow tools dra
   expect((await library(request,id)).reelDrafts[0].prompt).toContain('subject_definitions:');
   const jobs=(await (await request.get('/fixtures/ai-jobs')).json()).filter(j=>j.target.projectId===id && j.kind==='ReelVideo');
   expect(jobs).toHaveLength(0);
-  await tools.getByLabel('Reel name',{exact:true}).fill('Responsive after cancellation');
-  await close(tools); await page.reload();
-  await showTools(page);
-  await expect(tools.getByLabel('Reel name',{exact:true})).toHaveValue('Responsive after cancellation');
+  await (await openSetup(page)).getByLabel('Reel name',{exact:true}).fill('Responsive after cancellation');
+  await close(page); await page.reload();
+  await openSetup(page);
+  await expect(setup.getByLabel('Reel name',{exact:true})).toHaveValue('Responsive after cancellation');
 });
 
 for (const narrow of [false, true]) {
@@ -849,27 +915,32 @@ for (const narrow of [false, true]) {
     await page.getByRole('button', { name: 'Save LoRA library', exact: true }).click();
     await expect(page.locator('.lora-registration')).toHaveCount(0);
     await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
-    const tools = await recipe(page, owner, 'ContinuousTurn', 'Silent');
-    const prompt = await tools.getByRole('textbox', { name: 'H3 prompt' }).innerText();
+    const setup = await recipe(page, owner, 'ContinuousTurn', 'Silent'), tools = reelTools(page);
+    const prompt = await setup.getByRole('textbox', { name: 'H3 prompt' }).innerText();
 
-    await tools.locator('.reel-loras > summary').click();
-    const picker = tools.locator('#reel-lora-add');
+    await openSetup(page, 'Preset'); await expand(setup.locator('.reel-loras'));
+    const picker = setup.locator('#reel-lora-add');
     await expect(page.locator('#reel-lora-add')).toHaveCount(1);
     await picker.fill(name);
     await expect(page.getByRole('option').filter({ hasText: name })).toBeVisible();
     await picker.press('ArrowDown'); await picker.press('Enter');
-    await expect(tools.getByRole('checkbox', { name, exact: true })).toBeChecked();
-    const strength = tools.getByRole('spinbutton', { name: `Strength for ${name}` });
+    await expect(setup.getByRole('checkbox', { name, exact: true })).toBeChecked();
+    const strength = setup.getByRole('spinbutton', { name: `Strength for ${name}` });
     await strength.fill('101'); await strength.blur();
-    await expect(tools.getByRole('button', { name: 'Generate reel', exact: true })).toBeDisabled();
+    // Generate stays in the tools pane, behind the open dialog.
+    await expect(tools.getByRole('button', { name: 'Generate reel', exact: true, includeHidden: true })).toBeDisabled();
     await strength.fill('0.55'); await strength.blur();
     await expect.poll(async () => (await library(request, id)).reelDrafts[0].loras?.[0].strength).toBe(.55);
 
-    await expect(tools.getByRole('textbox', { name: 'H3 prompt' })).toHaveText(prompt, { useInnerText: true });
-    await page.reload(); await showTools(page);
+    await openSetup(page);
+    await expect(setup.getByRole('textbox', { name: 'H3 prompt' })).toHaveText(prompt, { useInnerText: true });
+    await closeSetup(page);
+    await page.reload(); await openSetup(page, 'Preset');
 
-    await tools.locator('.reel-loras > summary').click();
+    // A reloaded picker starts with its selected LoRAs collapsed.
+    await expand(setup.locator('.reel-loras')); await expand(setup.locator('.lora-selections'));
     await expect(strength).toHaveValue('0.55');
+    await closeSetup(page);
     // Missing active weights fail before enqueue. Restoring them needs no recipe rewrite.
     await request.post(`/fixtures/lora-file?file=${encodeURIComponent(file)}&missing=true`);
     try {
@@ -883,9 +954,11 @@ for (const narrow of [false, true]) {
     const original = (await library(request, id)).reels[0];
     expect(original.generation.snapshot.appliedLoras[0].strength).toBe(.55);
     expect(original.generation.snapshot.appliedLoras[0].reference.fileName).toBe(file);
-    // Completed generation starts a fresh draft; Regeneration still uses the saved LoRAs.
-    await expect.poll(async () => (await library(request, id)).reelDrafts.at(-1).loras ?? []).toEqual([]);
-    await close(tools);
+    // Completed generation starts a fresh draft. LoRAs belong to the shared preset, so the new draft keeps them;
+    // Regeneration uses the LoRAs captured with the reel.
+    await expect.poll(async () => (await library(request, id)).reelDrafts.at(-1).prompt).toBe('');
+    expect((await library(request, id)).reelDrafts.at(-1).loras?.map(l => l.strength)).toEqual([.55]);
+    await close(page);
     await page.locator(`[data-media-id="${original.id}"] .media-select`).click();
     await page.locator('.reel-details-tools').getByRole('button', { name: 'Regenerate…', exact: true }).click();
     await page.getByRole('button', { name: 'Queue 1 reel', exact: true }).click();
@@ -899,11 +972,11 @@ for (const narrow of [false, true]) {
     await detail.getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.reel-details-tools').getByRole('button', { name: 'Create similar', exact: true }).click();
 
-    if (await tools.locator('.reel-loras').getAttribute('open') === null) await tools.locator('.reel-loras > summary').click();
-    await expect(tools.getByRole('checkbox', { name, exact: true })).toBeChecked();
+    await openSetup(page, 'Preset'); await expand(setup.locator('.reel-loras')); await expand(setup.locator('.lora-selections'));
+    await expect(setup.getByRole('checkbox', { name, exact: true })).toBeChecked();
     await expect(strength).toHaveValue('0.55');
-    await tools.getByRole('button', { name: 'Refresh LoRAs', exact: true }).click();
-    await expect(tools.locator('.lora-row')).not.toContainText('Refresh LoRAs to check availability.');
+    await setup.getByRole('button', { name: 'Refresh LoRAs', exact: true }).click();
+    await expect(setup.locator('.lora-row')).not.toContainText('Refresh LoRAs to check availability.');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `artifacts/reel-loras-${narrow ? 'narrow' : 'desktop'}.png` });
   });

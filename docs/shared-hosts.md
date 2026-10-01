@@ -115,11 +115,12 @@ Architecture tests reject Core references to either host, UI, MAUI or ASP.NET as
 dotnet test lumibelle.slnx -c Release
 $env:LUMIBELLE_BROWSER_CONFIGURATION='Release'
 npx playwright test script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
+npx playwright test reference-reels.spec.js
 ```
 
 bUnit component test classes carry `[Trait("Category", "Component")]`. CI runs them in a separate pass with `xUnit.ParallelizeTestCollections=false`, because they race their own background renders on a busy runner, and bUnit waits allow 30 seconds when `CI` is set. Tag new component test classes the same way.
 
-The current shared studio suite uses mocked providers. The broad legacy browser suite also contains expectations from retired workflows (inline model settings, approval, separate Production); sampled failures reproduce on the pre-extraction commit. CI runs the focused suite above; that does not establish that the full legacy suite passes.
+The current shared studio suite uses mocked providers. The broad legacy browser suite also contains expectations from retired workflows (inline model settings, approval, separate Production); sampled failures reproduce on the pre-extraction commit. CI runs the focused suites above, each browser group on its own runner in parallel with the .NET tests; that does not establish that the full legacy suite passes.
 
 `tests/native/desktop-smoke.mjs` attaches to a debug WebView via local CDP and requires an explicitly supplied disposable copied library/project. It edits and undoes Script/Prompt content, verifies stored data, loads references, plays/seeks an existing take, fetches a frame, and plays Cut. Copy the associated completed job records as well as project media: take review depends on captured batch history. Pause every provider in the fixture. Never generate extra live videos for this check.
 
