@@ -127,9 +127,9 @@ public sealed partial class AiTextJobTests : IDisposable
         Assert.Equal(reply, result.Raw);
     }
     [Fact]
-    public void ANestedEmptyListInACutOffReplyIsNeverAnAnswer()
+    public async Task ANestedEmptyListInACutOffReplyIsNeverAnAnswer()
     {
-        var request = Request(AiJobKind.AssetExtraction).GetAwaiter().GetResult().Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var request = (await Request(AiJobKind.AssetExtraction)).Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
         var cut = AiTextResults.Parse(request, "Here are the assets:\n[{\"name\":\"Mouse\",\"evidence\":[],\"notes\":\"unfin", "stop");
         Assert.NotNull(cut.Error); Assert.NotNull(cut.Value!.Value.GetProperty("validationError").GetString());
     }

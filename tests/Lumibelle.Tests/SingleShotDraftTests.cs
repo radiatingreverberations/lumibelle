@@ -62,8 +62,32 @@ public sealed class SingleShotDraftTests
         reply[0]!["dialogue"] = JsonNode.Parse("[{\"speaker\":\"JUNIPER\",\"language\":\"English\",\"text\":\"You called?\"}]");
         var result = ShotPlanner.Parse(reply.ToJsonString(), request);
         Assert.Null(result.Error);
-        Assert.Contains(result.DialogueNotes, note => note.Contains("already spoken in “Juniper answers”"));
+        Assert.Contains(result.DialogueNotes, note => note.Contains("already spoken in shot 1 of this scene, “Juniper answers”"));
         Assert.Equal("Untitled shot", Assert.Single(result.Shots).Title);
+    }
+
+    [Fact]
+    public void AScriptLineWithAParentheticalCountsAsSpokenByTheShotThatSpeaksIt()
+    {
+        var (request, doc) = Fixture();
+        var line = doc.Blocks.First(b => b.Kind == ScriptBlockKind.Dialogue);
+        var script = doc.Blocks.Select(b => b.Id == line.Id ? ScriptBlock.Create(ScriptBlockKind.Dialogue, "(Into mic, energetic) " + b.Text) : b).ToList();
+        var shot = request.SingleShot!.SceneShots[0] with { Dialogue = [new() { Speaker = "JUNIPER", Language = "English", Text = line.Text }] };
+        request = request with { Script = ScriptFixtures.Approved(script, doc.ProjectId), SingleShot = request.SingleShot with { SceneShots = [shot] } };
+        var task = JsonNode.Parse(ShotPlanner.BuildMessages(request)[1].Text)!;
+        Assert.Empty(task["unspokenDialogue"]!.AsArray());
+        Assert.Contains("they decide what this shot shows", ShotPlanner.BuildMessages(request)[0].Text);
+    }
+
+    [Fact]
+    public void ABareShotObjectWithCharacterNamesIsRead()
+    {
+        var (request, doc) = Fixture();
+        var reply = JsonNode.Parse(Reply(doc))!.AsArray()[0]!.AsObject();
+        reply["characters"] = JsonNode.Parse("[\"JUNIPER\", \"FIGURE\"]");
+        var result = ShotPlanner.Parse(reply.ToJsonString(), request);
+        Assert.Null(result.Error);
+        Assert.Equal(["JUNIPER", "FIGURE"], Assert.Single(result.Shots).Characters.Select(c => c.Name));
     }
 
     [Fact]

@@ -129,6 +129,8 @@ public partial class ProductionStudio
     {
         try
         {
+            // A reply an earlier parser rejected is read again with the current one, without a new request.
+            if (job.State == AiJobState.NeedsAttention) { job = await AiJobStore.ReviewShotPlanningAsync(Id, job.Id, _lifetime.Token); await AiJobs.RefreshAsync(_lifetime.Token); }
             var result = await AiJobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _lifetime.Token);
             // An opening that began before the author closed the review must not show it again.
             if (_disposed || closes != _shotDraftCloses) { if (!_shotDraftOpen) await AiReviews.CloseAsync(job.Id); return; }

@@ -89,12 +89,13 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         var next = single.Position < single.SceneShots.Count ? single.SceneShots[single.Position] : null;
         // What the other shots already use, so the model can see the gaps instead of inferring them.
         var referenced = single.SceneShots.SelectMany(s => s.SourceBlockIds).ToHashSet();
-        var spoken = single.SceneShots.SelectMany(s => s.Dialogue).Select(d => d.Text).ToHashSet(StringComparer.Ordinal);
+        var spoken = single.SceneShots.SelectMany(s => s.Dialogue).Select(d => d.Text).Distinct(StringComparer.Ordinal).ToList();
         return [new(ChatRole.System, "Plan ONE new shot of cinematic coverage from the saved screenplay, inserted between two existing shots of a scene. " +
             "The shot is one continuous camera take without cuts or timestamps. " + CutContinuityGuidance +
             "The new shot happens between previousShot and nextShot in story time: it begins after previousShot ends and ends before nextShot begins. " +
             "Never restage the action of previousShot, nextShot or any other existing shot, and never include dialogue an existing shot already speaks (alreadySpokenDialogue). " +
-            "Follow the author's directions. Prefer the script in uncoveredSourceBlocks and unspokenDialogue; when everything is covered, add a reaction, insert, cutaway or angle " +
+            "When directions are given, they decide what this shot shows; the screenplay and existing shots are then only context for continuity, and its dialogue may be none. " +
+            "Without directions, prefer the script in uncoveredSourceBlocks and unspokenDialogue; when everything is covered, add a reaction, insert, cutaway or angle " +
             "that fits between the neighbouring shots without new story events. If currentShot is given, it is the author's existing version of this shot to revise according to the directions. " +
             "Preserve any spoken dialogue exactly in its original language; do not invent story events or dialogue. The title is a short name for this shot's moment, not the scene heading. " +
             "Choose duration from 1 second to the requested maximum according to action, speech and pacing. Return a JSON array with exactly one shot with title, sceneId, sourceBlockIds, " +
@@ -104,7 +105,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 scene = new { sceneId = scene.Id, scene.Title, blocks = blocks.Select(b => new { b.Id, b.Kind, b.Text }) },
                 directions = r.Instructions, previousShot = Summary(previous), nextShot = Summary(next), currentShot = Summary(single.Current),
                 uncoveredSourceBlocks = blocks.Where(b => !referenced.Contains(b.Id)).Select(b => new { b.Id, b.Kind, b.Text }),
-                unspokenDialogue = blocks.Where(b => b.Kind == ScriptBlockKind.Dialogue && !spoken.Contains(b.Text)).Select(b => b.Text),
+                unspokenDialogue = blocks.Where(b => b.Kind == ScriptBlockKind.Dialogue && !spoken.Any(line => SameLine(line, b.Text))).Select(b => b.Text),
                 alreadySpokenDialogue = spoken,
                 allExistingShotsInOrder = single.SceneShots.Select((s, i) => new { order = i + 1, s.Title, s.Description }),
                 requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds) }, AtomicJsonFile.Options))];
@@ -120,6 +121,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 if (json.StartsWith("json", StringComparison.OrdinalIgnoreCase) && (json.Length == 4 || char.IsWhiteSpace(json[4])))
                     json = json[4..].TrimStart();
             }
+            json = Normalize(json, r.SingleShot is not null);
             var options = new JsonSerializerOptions(AtomicJsonFile.Options);
             options.Converters.Add(new PlanningAppearanceConverter(r.Assets));
             var list = JsonSerializer.Deserialize<List<Shot>>(json, options);
@@ -159,15 +161,15 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 if (r.SingleShot is { } single)
                 {
                     foreach (var line in shot.Dialogue)
-                        if (single.SceneShots.FirstOrDefault(s => s.Dialogue.Any(d => d.Text == line.Text)) is { } speaking)
-                            dialogueNotes.Add($"{line.Speaker}: \"{line.Text}\" is already spoken in “{speaking.Title}”. Remove it from one of the shots, or retry with directions.");
+                        if (single.SceneShots.ToList().FindIndex(s => s.Dialogue.Any(d => SameLine(d.Text, line.Text))) is var at and >= 0)
+                            dialogueNotes.Add($"{line.Speaker}: \"{line.Text}\" is already spoken in shot {at + 1} of this scene, “{single.SceneShots[at].Title}”. Remove it from one of the shots, or retry with directions.");
                     if (string.Equals(shot.Title.Trim(), scene.Title.Trim(), StringComparison.OrdinalIgnoreCase)) shot.Title = "Untitled shot";
                 }
             }
             // For a single shot, the scene's other shots count as coverage, so only lines no shot speaks remain.
             var covered = list.SelectMany(s => s.Dialogue).Concat(r.SingleShot?.SceneShots.SelectMany(s => s.Dialogue) ?? []).ToList();
             var uncovered = sections.SelectMany(scene => r.Script.Blocks.Skip(scene.Start).Take(scene.Count)
-                .Where(b => b.Kind == ScriptBlockKind.Dialogue && !covered.Any(d => d.Text == b.Text))
+                .Where(b => b.Kind == ScriptBlockKind.Dialogue && !covered.Any(d => SameLine(d.Text, b.Text)))
                 .Select(b => scene.Title + ": " + b.Text)).ToList();
             return new(list, raw, uncovered) { DialogueNotes = dialogueNotes, CoverageNotes = coverageNotes, SourceNotes = sourceNotes };
         }
@@ -177,6 +179,24 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         { return new([], raw, [], "The model returned an invalid or incomplete shot list. Nothing was added; inspect it and retry."); }
     }
 
+    // Script dialogue can carry parentheticals such as "(Into mic, energetic)"; shots keep only the spoken words.
+    internal static bool SameLine(string a, string b) => Spoken(a).Equals(Spoken(b), StringComparison.OrdinalIgnoreCase) && Spoken(a).Length > 0;
+    private static string Spoken(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(System.Text.RegularExpressions.Regex.Replace(text, @"\([^)]*\)", " "), @"\s+", " ").Trim();
+
+    // Models sometimes answer one shot as a bare object, or list characters by name only.
+    private static string Normalize(string json, bool single)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(json);
+        if (single && root is System.Text.Json.Nodes.JsonObject one) root = new System.Text.Json.Nodes.JsonArray(one.DeepClone());
+        if (root is not System.Text.Json.Nodes.JsonArray shots) return json;
+        foreach (var shot in shots.OfType<System.Text.Json.Nodes.JsonObject>())
+            if (shot["characters"] is System.Text.Json.Nodes.JsonArray characters)
+                for (var i = 0; i < characters.Count; i++)
+                    if (characters[i] is System.Text.Json.Nodes.JsonValue name && name.TryGetValue<string>(out var text))
+                        characters[i] = new System.Text.Json.Nodes.JsonObject { ["name"] = text };
+        return root.ToJsonString();
+    }
     public static string Profile(ShotPlanningRequest r) => r.SingleShot is not null ? "single-shot-v1" : r.CoverageOnly ? "shot-coverage-v3" : "h3-shot-planner-v2";
 
     // Optional model proposals can name a character without selecting a look. Keep that
