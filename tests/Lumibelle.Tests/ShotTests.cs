@@ -72,11 +72,29 @@ public sealed partial class ShotTests : IDisposable
         obj["MiniMaxH3ReferenceToVideo"]!["input"]!["required"]!.AsObject().Remove("prompt");Assert.False(Check().StandardReady);
     }
     [Fact]
+    public void ModelCatalogSuggestsRef2VaFinetunesAndMergesButNotFl2Va()
+    {
+        var obj=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures/h3-contract.json")))!;
+        var installed=obj["UNETLoader"]!["input"]!["required"]!["unet_name"]![0]!.AsArray();
+        var renamed="h3\\minimax_h3_singularity_v1.3_ref2va_pruned_int8.safetensors";
+        var hybrid="minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors";
+        var fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors";
+        installed.Add(renamed);installed.Add(hybrid);installed.Add(fl2va);installed.Add("flux-2-klein-9b-kv-fp8.safetensors");
+        H3Configuration Check(string model)=>ComfyH3Video.Inspect(JsonSerializer.SerializeToElement(obj),new(){Model=model});
+        var configuration=Check(new H3Settings().Model);
+        Assert.True(configuration.StandardReady,configuration.Message);
+        Assert.Contains(new H3Settings().Model,configuration.Models);Assert.Contains("minimax_h3_ref2va_pruned_int8_convrot.safetensors",configuration.Models);
+        Assert.Contains(renamed,configuration.Models);Assert.Contains(hybrid,configuration.Models);
+        Assert.DoesNotContain(fl2va,configuration.Models);Assert.DoesNotContain("flux-2-klein-9b-kv-fp8.safetensors",configuration.Models);
+        Assert.True(Check(hybrid).StandardReady,Check(hybrid).Message);Assert.True(Check(renamed).StandardReady);
+        Assert.False(Check(fl2va).StandardReady);
+    }
+    [Fact]
     public void EncoderCatalogAcceptsHyphenatedQuantizationsAndPreservesExactPaths()
     {
         var obj=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures/h3-contract.json")))!;
         var installed=obj["CLIPLoader"]!["input"]!["required"]!["clip_name"]![0]!.AsArray();
-        var encoder="h3/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors";
+        var encoder="h3/qwen3vl_32b_minimax_h3-w4a8_mixed.safetensors";
         var unrelated="qwen3vl_32b_minimax_h30-w4a8.safetensors";
         var community="qwen3vl_32b_h3_ultra_uncensored_heretic_int8_convrot.safetensors";
         var tail="qwen3vl_32b_h3_generation_tail_50_63_int8_convrot.safetensors";

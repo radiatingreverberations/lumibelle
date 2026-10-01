@@ -4,7 +4,8 @@
       "required": {
         "unet_name": [
           [
-            "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+            "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors"
           ]
         ],
         "weight_dtype": [
@@ -26,7 +27,8 @@
       "required": {
         "clip_name": [
           [
-            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors"
           ]
         ],
         "type": [

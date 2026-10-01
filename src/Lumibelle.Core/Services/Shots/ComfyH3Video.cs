@@ -112,7 +112,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         var installedEncoders = Options(root, "CLIPLoader", "clip_name");
         var installedVaes = Options(root, "VAELoader", "vae_name");
         var installedLoras = Options(root, "LoraLoaderModelOnly", "lora_name");
-        var models = installedModels.Where(x => Path.GetFileName(x).StartsWith("minimax_h3_ref2va_", StringComparison.OrdinalIgnoreCase)).ToArray();
+        var models = installedModels.Where(IsRef2VaModel).ToArray();
         var encoders = installedEncoders.Where(x => !x.Contains("generation_tail", StringComparison.OrdinalIgnoreCase) &&
             new[] { "qwen3vl_32b_minimax_h3_", "qwen3vl_32b_minimax_h3-", "qwen3vl_32b_h3_", "qwen3vl_32b_h3-" }
                 .Any(prefix => Path.GetFileName(x).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))).ToArray();
@@ -153,7 +153,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         }
         // Filenames suggest choices, but community exports may use different names. Submission
         // checks exact catalog identities and node contracts without claiming to inspect weights.
-        var incompatible = Path.GetFileName(s.Model).Contains("fl2va", StringComparison.OrdinalIgnoreCase) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
+        var incompatible = IsFl2VaOnly(s.Model) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
             : Path.GetFileName(s.Encoder).Contains("generation_tail", StringComparison.OrdinalIgnoreCase) ? "Choose an H3 conditioning encoder. A generation tail is not a standalone encoder." : null;
         var baseIssue = missing.Count > 0 ? "Update ComfyUI: missing " + string.Join(", ", missing) : incompatible ??
             (!installedModels.Contains(s.Model) || !installedEncoders.Contains(s.Encoder) || !installedVaes.Contains(s.VideoVae) || !installedVaes.Contains(s.AudioVae)
@@ -189,6 +189,10 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             PreviewUpscaling = H3PreviewUpscaling.Inspect(root, s),
             InstalledModels = installedModels, InstalledEncoders = installedEncoders, InstalledVaes = installedVaes, InstalledLoras = installedLoras };
     }
+    // Official Ref2VA files, finetunes such as Singularity and FL2VA/Ref2VA merges all name ref2va after a minimax_h3 prefix.
+    internal static bool IsRef2VaModel(string file) => ModelStem(file) is var stem && stem.StartsWith("minimax_h3_", StringComparison.Ordinal) && stem.Contains("ref2va", StringComparison.Ordinal);
+    private static bool IsFl2VaOnly(string file) => ModelStem(file) is var stem && stem.Contains("fl2va", StringComparison.Ordinal) && !stem.Contains("ref2va", StringComparison.Ordinal);
+    private static string ModelStem(string file) => Path.GetFileName(file.Replace('\\', '/')).ToLowerInvariant().Replace('-', '_');
     private static bool SupportsVideoReferences(JsonElement root)
     {
         bool Output(string node, string type) => root.TryGetProperty(node, out var n) && n.TryGetProperty("output", out var o) &&
