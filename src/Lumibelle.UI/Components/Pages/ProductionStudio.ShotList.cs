@@ -46,7 +46,6 @@ public partial class ProductionStudio
         if (_doc.Shots.FirstOrDefault(s => s.Id == id) is { } shot && SceneNeighbour(shot, by) is { } neighbour)
             MoveShotTo(new(id, neighbour.Id, by > 0));
     }
-    private void MoveShot(int by) { if (SourceShot is { } shot) MoveShotInScene(shot.Id, by); }
 
     private void OpenShotMove(Guid id)
     {

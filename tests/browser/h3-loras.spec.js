@@ -113,7 +113,7 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await expect(review.locator('.video-lora-details')).toContainText('Applied LoRAs · 2');
   await page.screenshot({ path: 'test-results/h3-loras-refinement.png', fullPage: true });
   await review.getByRole('button', { name: 'Close', exact: true }).click();
-  await shotAction(page, 'Duplicate shot');
+  await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await state()).shots.length).toBe(2);
   await expect.poll(async () => (await state()).shots[1].loras).toEqual((await state()).shots[0].loras);
 });

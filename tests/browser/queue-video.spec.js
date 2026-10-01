@@ -93,7 +93,7 @@ test('video batches queue per shot and retain captured settings through edits, r
     await page.getByLabel('Action and camera').fill('A newer author draft while the original waits.');
     await page.getByLabel('Action and camera').blur();
     await expect.poll(async () => (await state(request, id)).shots[0].description).toContain('newer author draft');
-    await shotAction(page, 'Duplicate shot');
+    await shotAction(page, 'Duplicate');
     await expect(page.locator('.shot-list-row')).toHaveCount(2);
     await composeProduction(page);
     await generateTakes(page);

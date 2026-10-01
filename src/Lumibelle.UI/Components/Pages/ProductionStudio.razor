@@ -72,6 +72,7 @@ else
                     <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || SceneNeighbour(item, 1) is null)" OnClick="() => MoveShotInScene(item.Id, 1)">Move down</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || sceneCount < 2)" OnClick="() => OpenShotMove(item.Id)">Move to…</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => DuplicateShotRow(item.Id)">Duplicate</MudMenuItem>
+                    <MudMenuItem role="menuitem" Href="@ProjectLink(Id, $"/dubs?shotId={item.Id}")">Language versions</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => OpenShotDeletion(item.Id)" Class="danger-link">Delete</MudMenuItem>
                 </MudMenu>
                 @if (PromptReviewReady(item.Id)) {
@@ -89,15 +90,6 @@ else
                 <div class="shot-workspace-identity">
                     <span class="shot-number">@((_doc.Shots.IndexOf(identity) + 1).ToString("00"))</span>
                     <input aria-label="Shot title" class="shot-title-input" @bind:get="identity.Title" @bind:set="value => EditCoverage(s => s.Title = value ?? string.Empty)" @bind:event="oninput" />
-                    <MudMenu Label="Shot options" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                        <div role="menu" aria-label="Shot options">
-                            <MudMenuItem role="menuitem" Disabled="@(SceneNeighbour(identity, -1) is null)" OnClick="() => MoveShot(-1)">Move shot up</MudMenuItem>
-                            <MudMenuItem role="menuitem" Disabled="@(SceneNeighbour(identity, 1) is null)" OnClick="() => MoveShot(1)">Move shot down</MudMenuItem>
-                            <MudMenuItem role="menuitem" OnClick="DuplicateShot">Duplicate shot</MudMenuItem>
-                            <MudMenuItem role="menuitem" Href="@ProjectLink(Id, "/dubs")">Language versions</MudMenuItem>
-                            <MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion(identity.Id)">Delete shot</MudMenuItem>
-                        </div>
-                    </MudMenu>
                 </div>
                 <StudioToolTabs Items="@(new StudioTab[] { new("Shot", "Shot"), new("Takes", "Takes", ShotTakes.Count) })" Label="Shot view" GroupId="center" />
             }

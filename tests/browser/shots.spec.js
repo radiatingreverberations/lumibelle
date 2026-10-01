@@ -92,7 +92,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await review.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await state()).takes.length).toBe(3);
   await review.getByRole('button', { name: 'Close', exact: true }).click();
-  await shotAction(page, 'Duplicate shot');
+  await shotAction(page, 'Duplicate');
   await toolsTab(page, 'References');
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
   await page.locator('.manual-reference-dialog').getByRole('button', { name: 'Images', exact: true }).click();

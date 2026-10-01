@@ -3,7 +3,7 @@ import { test, expect } from './fixtures.js';
 test.beforeEach(async ({ request }) => { await request.post('/fixtures/generation-setups/reset'); });
 const setups = async (request, id) => (await (await request.get(`/fixtures/${id}/production`)).json()).compositions;
 const shotTab = (page, name) => page.locator('[data-workspace-group=center]').getByRole('tab', { name, exact: true });
-async function shotAction(page, name) { await closeShotSetup(page); await page.getByRole('button', { name: 'Shot options', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }
+async function shotAction(page, name) { await closeShotSetup(page); await page.locator('.shot-outline-item.selected').getByRole('button', { name: /^Actions for shot / }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }
 const shots = async (request, id) => (await (await request.get(`/fixtures/${id}/shots`)).json());
 async function fixture(page, request) {
   const { id } = await (await request.get('/fixtures/new')).json();
@@ -139,13 +139,13 @@ test('planning, cast, coverage-only duplication, deletion and recovery in the sa
   await openShotSetup(page);
   await page.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('An unfinished manual prompt.');
   await expect.poll(async () => (await setups(request, id))[0].prompt).toBe('An unfinished manual prompt.');
-  await shotAction(page, 'Duplicate shot');
+  await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await shots(request, id)).shots.length).toBe(2);
   await expect(page.getByLabel('Shot title')).toHaveValue('A handwritten shot (copy)');
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await openShotSetup(page);
   await expect(page.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
-  await shotAction(page, 'Delete shot');
+  await shotAction(page, 'Delete');
   const deletion = page.locator('.shot-delete-dialog');
   await deletion.getByRole('button', { name: /Delete 1 shot/ }).click();
   await expect(deletion).not.toBeVisible();

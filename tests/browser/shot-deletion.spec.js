@@ -31,13 +31,13 @@ test('bulk delete includes explicitly acknowledged production takes, preserves A
   const original = (await state()).shots[0];
   await page.goto(`/projects/${id}/shots`);
   // Single deletion is no longer a disabled dead end; cancellation is harmless.
-  await shotAction(page, 'Delete shot');
+  await shotAction(page, 'Delete');
   const dialog = page.locator('.shot-delete-dialog');
   await expect(dialog.getByRole('button', { name: 'Delete 1 shot', exact: true })).toBeDisabled();
   await expect(dialog).toContainText('Production take selected');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).shots[0].selectedTakeId).toBe(original.selectedTakeId);
-  await shotAction(page, 'Duplicate shot');
+  await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await state()).shots.length).toBe(2);
   await page.getByRole('button', { name: 'Bulk operations', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Delete shots…', exact: true }).click();

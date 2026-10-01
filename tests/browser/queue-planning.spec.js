@@ -68,7 +68,7 @@ test('planning survives navigation and restores its captured source, then applie
   await page.reload(); await expect(dialog(page)).toContainText('already added');
   await expect(dialog(page).getByRole('button', { name: 'Add reviewed shots' })).toBeDisabled();
   await dialog(page).getByRole('button', { name: 'Close', exact: true }).click();
-  await shotAction(page, 'Delete shot');
+  await shotAction(page, 'Delete');
   await page.locator('.shot-delete-dialog').getByRole('button', { name: 'Delete 1 shot', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(0);
   await page.reload(); await expect(dialog(page)).toContainText('already added');
@@ -133,7 +133,7 @@ test('deleted shots can be drafted from the latest saved script despite an older
   await submitPlanning(page);
   await dialog(page).getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(1);
-  await shotAction(page, 'Delete shot');
+  await shotAction(page, 'Delete');
   await page.locator('.shot-delete-dialog').getByRole('button', { name: 'Delete 1 shot', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(0);
   await request.post(`/fixtures/${id}/looks-script`);

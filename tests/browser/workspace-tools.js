@@ -62,7 +62,7 @@ export async function generateTakes(page) {
 
 export async function shotAction(page, name) {
   await closeShotSetup(page);
-  await page.getByRole('button', { name: 'Shot options', exact: true }).click();
+  await page.locator('.shot-outline-item.selected').getByRole('button', { name: /^Actions for shot / }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
 }
 
