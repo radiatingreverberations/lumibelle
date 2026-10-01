@@ -413,8 +413,11 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
     // The same request can still be deliberately reopened without leaving this asset.
     await openRequest(job);
     await expect(review).toBeVisible();
-    await review.getByRole('button', { name: 'Close', exact: true }).press('Escape');
-    await expect(review).not.toBeVisible();
+    // A slow runner can show the dialog before its Escape handling is attached; retry until it closes.
+    await expect(async () => {
+      if (await review.isVisible()) await review.getByRole('button', { name: 'Close', exact: true }).press('Escape', { timeout: 1000 });
+      await expect(review).not.toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 10000 });
     await expect(page).not.toHaveURL(/jobId=/);
     if (narrow && await page.getByRole('button', { name: 'Close Asset tools', exact: true }).isVisible()) await close(page);
     for (const asset of [other, owner]) {

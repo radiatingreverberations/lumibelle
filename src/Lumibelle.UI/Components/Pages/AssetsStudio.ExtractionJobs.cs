@@ -74,12 +74,11 @@ public partial class AssetsStudio
                 if (!_disposed && _extractionOriginJob is { } origin && _extractionAttempted != origin && matches.FirstOrDefault(j => j.Id == origin) is { } complete &&
                     complete.Target.ProjectId == Id && complete.State is not (AiJobState.Waiting or AiJobState.Running))
                 {
-                    _extractionAttempted = origin;
+                    _extractionAttempted = origin; var closes = _extractionCloses;
                     if (!_extractOpen && !_extractionReviewSuppressed && !complete.CancelRequested && await AiReviews.TryOpenAsync(complete, _extractionOriginElement, automatic: true))
                     {
-                        // The author can open and close the review while the claim is pending; a closed review stays closed.
-                        if (_extractionReviewSuppressed && !_extractOpen) await AiReviews.CloseAsync(complete.Id);
-                        else if (!_extractOpen) await ShowExtractionJobAsync(complete);
+                        if (_extractOpen) { /* The author opened it meanwhile; that opening owns the review. */ }
+                        else await ShowExtractionJobAsync(complete, closes);
                     }
                 }
             } while (_extractionRefreshAgain && !_disposed);
@@ -120,13 +119,17 @@ public partial class AssetsStudio
             await RefreshCoverageAsync();
         }
     }
-    private async Task ShowExtractionJobAsync(AiJobHeader job)
+    // Counts closings of the review. An opening that began before the author closed it must not show it again,
+    // whether it was the automatic opening for a finished request or a click still waiting on a save or claim.
+    private int _extractionCloses;
+    private async Task ShowExtractionJobAsync(AiJobHeader job, int closes)
     {
         try
         {
             if (_reviewDraftDirty && !await SaveReviewDraftAsync()) { await AiReviews.CloseAsync(job.Id); return; }
             await LoadExtractionJobAsync(job);
             if (_disposed || job.Target.ProjectId != Id) { await AiReviews.CloseAsync(job.Id); return; }
+            if (closes != _extractionCloses) { if (!_extractOpen) await AiReviews.CloseAsync(job.Id); return; }
             _extractionReviewOwner = job.Id; _extractOpen = true;
 
             StateHasChanged();
@@ -135,11 +138,12 @@ public partial class AssetsStudio
     }
     private async Task ReviewExtractionJobAsync(AiJobHeader job)
     {
+        var closes = _extractionCloses;
         try
         {
             if (!await SaveNowAsync()) return;
             if (!await AiReviews.TryOpenAsync(job, _extractionOriginElement, automatic: false)) { _extractionError = "Close the other dialog before opening this extraction."; return; }
-            await ShowExtractionJobAsync(job);
+            await ShowExtractionJobAsync(job, closes);
         }
         catch (Exception e) { _extractionError = ExtractionFailure(e); }
     }

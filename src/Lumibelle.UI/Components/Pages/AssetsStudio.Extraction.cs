@@ -148,7 +148,7 @@ public partial class AssetsStudio
     private async Task CloseExtraction()
     {
         if (_finishingReview || !await SaveReviewDraftAsync()) return;
-        _extractOpen = false; _restoreExtractionFocus = true; _extractionReviewSuppressed = true;
+        _extractOpen = false; _restoreExtractionFocus = true; _extractionReviewSuppressed = true; _extractionCloses++;
         await ReleaseExtractionReviewAsync();
     }
     private Task HandleExtractionKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args) => args.Key == "Escape" ? CloseExtraction() : Task.CompletedTask;
