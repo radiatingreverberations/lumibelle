@@ -414,7 +414,7 @@ public partial class ReferenceReelsPanel
     }
     private async Task EditResponse()
     {
-        var opened = false;
+        var edited = false;
         await Run(async () => {
             if (_unappliedPair is not { } pair || _reviewRequest is null) return;
             try {
@@ -435,13 +435,15 @@ public partial class ReferenceReelsPanel
                 _prompt = null;
                 _reviewOpen = false; _reviewError = null; _error = null;
                 await RevealPrompts.InvokeAsync();
-                await OpenSetupDialog("Prompt");
-                opened = true;
+                edited = true;
             } catch (Exception e) { _reviewError = e.Message; if (!_reviewOpen) _error = e.Message; }
         });
+        if (!edited) return;
         // Navigation asks every editor to flush. Wait until Run has released
         // its busy state so the details editor can allow that transition.
-        if (opened) Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("jobId", (string?)null), replace: true);
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("jobId", (string?)null), replace: true);
+        // The Prompt dialog does not open while Run holds the busy state.
+        await OpenSetupDialog("Prompt");
     }
     // Set when the recipe changed since the pair was requested: the review offers Apply anyway.
     private AssistedInputsChangedException? _pairChanged;

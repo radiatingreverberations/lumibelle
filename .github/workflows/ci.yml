@@ -59,15 +59,51 @@ jobs:
       - name: .NET component tests
         run: dotnet test lumibelle.slnx -c Release --no-build --filter "Category=Component" -- xUnit.ParallelizeTestCollections=false
 
-      - name: Shared studio browser flows
+  browser:
+    # Each group runs on its own runner, in parallel with the .NET tests.
+    name: browser (${{ matrix.group }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: shared studio
+            id: shared-studio
+            specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
+          - group: reference reels
+            id: reference-reels
+            specs: reference-reels.spec.js
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # The browser host's video mock creates playable test media with FFmpeg.
+      - name: Install FFmpeg
+        run: choco install ffmpeg --no-progress -y
+
+      - run: npm ci
+
+      # Playwright's global setup only rebuilds the host without restoring, under a two-minute limit.
+      - name: Build browser host
+        run: dotnet build tests/Lumibelle.BrowserHost -c Release
+
+      - name: Browser flows
         env:
           LUMIBELLE_BROWSER_CONFIGURATION: Release
-        run: npx playwright test script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
+        run: npx playwright test ${{ matrix.specs }}
 
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.id }}
           path: test-results/
           if-no-files-found: ignore
 
