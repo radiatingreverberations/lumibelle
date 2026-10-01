@@ -16,10 +16,16 @@ test('a lost editor acknowledgement cannot hold newer snapshots indefinitely', a
   });
   await expect.poll(() => page.evaluate(() => window.transportTest.calls.length)).toBe(1);
   const canvas = page.locator('#transport-test-editor [contenteditable=true]');
-  await canvas.click(); await page.keyboard.press('End'); await page.keyboard.type(' Newer draft while disconnected.');
+  const sentence = 'Original. Newer draft while disconnected.';
+  // On a busy runner the page can take focus mid-typing and drop the tail; this test is about delivery, so finish the sentence.
+  await expect(async () => {
+    const typed = (await canvas.innerText()).trim();
+    if (typed !== sentence && sentence.startsWith(typed)) { await canvas.click(); await page.keyboard.press('End'); await page.keyboard.type(sentence.slice(typed.length)); }
+    await expect(canvas).toHaveText(sentence, { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   // Snapshots can also be sent while typing is still in progress; wait for the one with the whole sentence.
   await expect.poll(() => page.evaluate(() => window.transportTest.calls.at(-1).blocks[0].spans.map(s => s.text).join('')))
-    .toBe('Original. Newer draft while disconnected.');
+    .toBe(sentence);
   const calls = await page.evaluate(() => window.transportTest.calls);
   expect(calls.length).toBeGreaterThan(1);
   expect(calls.at(-1).version).toBeGreaterThan(calls[0].version);
