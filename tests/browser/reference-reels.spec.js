@@ -73,7 +73,7 @@ async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guida
   await expect(dialog.getByLabel('Use guidance', { exact: true })).toHaveValue('');
   await directionOptions(page);
   await dialog.getByLabel('Framing preset', { exact: true }).selectOption(framing);
-  await dialog.getByRole('button', { name: 'Reel assistance', exact: true }).click();
+  await openReelAssist(page, dialog);
   const assist = page.locator('.ai-assist-dialog');
   if (compose) {
     await selectVisionModel(page, assist);
@@ -87,6 +87,13 @@ async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guida
   }
   return dialog;
 }
+// On a slow runner the first click can land before the button is ready; retry until the assist panel is open.
+async function openReelAssist(page, scope) {
+  await expect(async () => {
+    if (!await page.locator('.ai-assist-dialog').isVisible()) await scope.getByRole('button', { name: 'Reel assistance', exact: true }).click({ timeout: 2000 });
+    await expect(page.locator('.ai-assist-dialog')).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
+}
 async function selectVisionModel(page, assist) {
   await assist.locator('.model-chip').click();
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
@@ -97,7 +104,7 @@ async function assistPair(page, instructions) {
   const dialog = await openSetup(page);
   await directionOptions(page);
   await dialog.getByLabel('Instructions', { exact: true }).fill(instructions);
-  await dialog.getByRole('button', { name: 'Reel assistance', exact: true }).click();
+  await openReelAssist(page, dialog);
   const assist = page.locator('.ai-assist-dialog');
   await selectVisionModel(page, assist);
   await assist.getByRole('button', { name: /^(Compose|Revise) pair$/ }).click();
@@ -252,7 +259,7 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   await closeSetup(page);
   await page.reload(); await openSetup(page); await directionOptions(page);
   await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue(directions);
-  await setup.getByRole('button', { name: 'Reel assistance', exact: true }).click();
+  await openReelAssist(page, setup);
   await assist.getByRole('button', { name: 'Revise pair', exact: true }).click();
 
   await expect(assist).not.toBeVisible();
