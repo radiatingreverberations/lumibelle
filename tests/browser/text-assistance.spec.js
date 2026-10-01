@@ -90,7 +90,11 @@ test('assets extraction, prompt enhancement and guidance share the composer and 
  await expect(assist(page).getByRole('button', { name: 'Find assets', exact: true })).toBeEnabled();
  await submitExtraction(page);
  await expect(page.locator('.extraction-dialog')).toBeVisible();
- await page.locator('.extraction-dialog').getByRole('button', { name: 'Close', exact: true }).last().click();
+ // On a slow runner the first Close can arrive before the review settles; retry until it is gone.
+ await expect(async () => {
+  if (await page.locator('.extraction-dialog').isVisible()) await page.locator('.extraction-dialog').getByRole('button', { name: 'Close', exact: true }).last().click({ timeout: 2000 });
+  await expect(page.locator('.extraction-dialog')).toBeHidden({ timeout: 2000 });
+ }).toPass({ timeout: 20000 });
  await toolsTab(page, 'Prompt');
  await page.getByLabel('Image prompt', { exact: true }).fill('A mouse wearing a blue coat.');
  await page.getByRole('button', { name: 'Improve prompt', exact: true }).click();

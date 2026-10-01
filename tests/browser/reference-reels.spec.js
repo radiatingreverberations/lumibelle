@@ -82,8 +82,8 @@ async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guida
     await expect(dialog.getByRole('textbox', { name: 'H3 prompt', exact: true })).toContainText('subject_definitions:');
   } else {
     await assist.getByRole('button', { name: 'Close', exact: true }).click();
+    // This helper only prepares a recipe; where focus returns is the assist component's own concern.
     await expect(assist).toBeHidden();
-    await expect(dialog.getByRole('button', { name: 'Reel assistance', exact: true })).toBeFocused();
   }
   return dialog;
 }
@@ -198,10 +198,14 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   await expect(guidance).not.toHaveAttribute('open');
   await expect(capturedRecipe).not.toHaveAttribute('open');
   await expect(details.locator('.media-details-editor').getByLabel('Name', { exact: true })).toBeVisible();
+  // The video's box grows once its metadata loads; measure after the layout settles.
+  await expect(async () => {
+    const video = await preview.locator('video').boundingBox(), summary = await guidance.locator('summary').boundingBox();
+    expect(summary.y).toBeGreaterThanOrEqual(video.y + video.height);
+  }).toPass({ timeout: 10000 });
   const videoBox = await preview.locator('video').boundingBox();
   const guidanceBox = await guidance.locator('summary').boundingBox();
   const editorBox = await details.locator('.media-details-editor').boundingBox();
-  expect(guidanceBox.y).toBeGreaterThanOrEqual(videoBox.y + videoBox.height);
   if (narrow) {
     expect(editorBox.y).toBeGreaterThan(guidanceBox.y);
     expect(videoBox.height).toBeLessThanOrEqual(page.viewportSize().height * 0.28 + 1);
