@@ -5,12 +5,16 @@ export const extractionComposer = page => page.locator('.ai-assist-dialog').filt
 export async function openPlanning(page) {
   const actions = page.locator('.shots-library-tools');
   const start = actions.getByRole('button', { name: 'Draft shots', exact: true });
-  if (await start.isVisible()) await start.click();
-  else {
-    await actions.getByLabel('Request options', { exact: true }).click();
-    await actions.getByRole('button', { name: 'New request', exact: true }).click();
-  }
-  await expect(planningComposer(page)).toBeVisible();
+  // After a reload the control can show an earlier request until it learns that request is out of date,
+  // then switch to Draft shots. Retry with whichever control is current instead of waiting on a stale one.
+  await expect(async () => {
+    if (await start.isVisible()) await start.click({ timeout: 2000 });
+    else {
+      await actions.getByLabel('Request options', { exact: true }).click({ timeout: 2000 });
+      await actions.getByRole('button', { name: 'New request', exact: true }).click({ timeout: 2000 });
+    }
+    await expect(planningComposer(page)).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
 }
 
 export async function submitPlanning(page) {
