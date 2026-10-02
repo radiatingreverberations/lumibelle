@@ -93,7 +93,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         return [new(ChatRole.System, "Plan ONE new shot of cinematic coverage from the saved screenplay, inserted between two existing shots of a scene. " +
             "The shot is one continuous camera take without cuts or timestamps. " + CutContinuityGuidance +
             "The new shot happens between previousShot and nextShot in story time: it begins after previousShot ends and ends before nextShot begins. " +
-            "Never restage the action of previousShot, nextShot or any other existing shot, and never include dialogue an existing shot already speaks (alreadySpokenDialogue). " +
+            "Never restage the action of previousShot, nextShot or any other existing shot (otherShotTitles), and never include dialogue an existing shot already speaks (alreadySpokenDialogue). " +
             "When directions are given, they decide what this shot shows; the screenplay and existing shots are then only context for continuity, and its dialogue may be none. " +
             "Without directions, prefer the script in uncoveredSourceBlocks and unspokenDialogue; when everything is covered, add a reaction, insert, cutaway or angle " +
             "that fits between the neighbouring shots without new story events. If currentShot is given, it is the author's existing version of this shot to revise according to the directions. " +
@@ -107,7 +107,8 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 uncoveredSourceBlocks = blocks.Where(b => !referenced.Contains(b.Id)).Select(b => new { b.Id, b.Kind, b.Text }),
                 unspokenDialogue = blocks.Where(b => b.Kind == ScriptBlockKind.Dialogue && !spoken.Any(line => SameLine(line, b.Text))).Select(b => b.Text),
                 alreadySpokenDialogue = spoken,
-                allExistingShotsInOrder = single.SceneShots.Select((s, i) => new { order = i + 1, s.Title, s.Description }),
+                // Like prompt composition, only the neighbours are described in full; the rest of a long scene would crowd the prompt.
+                otherShotTitles = single.SceneShots.Select((s, i) => (Shot: s, Order: i + 1)).Where(s => s.Shot != previous && s.Shot != next).Select(s => $"{s.Order}. {s.Shot.Title}"),
                 requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds) }, AtomicJsonFile.Options))];
     }
     public static ShotPlanningResult Parse(string raw, ShotPlanningRequest r)

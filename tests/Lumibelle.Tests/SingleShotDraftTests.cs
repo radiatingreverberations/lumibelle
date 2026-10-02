@@ -41,6 +41,21 @@ public sealed class SingleShotDraftTests
     }
 
     [Fact]
+    public void OnlyTheNeighbouringShotsAreDescribedInFull()
+    {
+        var (request, doc) = Fixture();
+        SceneShotSummary Shot(string title) => new(title, 3, title + " in long detail.", [], [doc.Blocks[0].Id]);
+        request = request with { SingleShot = request.SingleShot! with { Position = 2, SceneShots = [Shot("Arrival"), Shot("Door"), Shot("Key"), Shot("Exit")] } };
+        var text = ShotPlanner.BuildMessages(request)[1].Text;
+        var task = JsonNode.Parse(text)!;
+        Assert.Equal("Door", (string)task["previousShot"]!["title"]!);
+        Assert.Equal("Key", (string)task["nextShot"]!["title"]!);
+        Assert.Equal(["1. Arrival", "4. Exit"], task["otherShotTitles"]!.AsArray().Select(t => (string)t!));
+        Assert.DoesNotContain("Arrival in long detail", text);
+        Assert.DoesNotContain("Exit in long detail", text);
+    }
+
+    [Fact]
     public void OneShotIsReadAndOtherShotsCountAsCoverage()
     {
         var (request, doc) = Fixture();

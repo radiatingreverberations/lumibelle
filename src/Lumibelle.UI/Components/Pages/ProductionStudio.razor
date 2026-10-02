@@ -96,7 +96,7 @@ else
                         Label="Draft shot" Title="Draft this shot" Opened="PrepareShotDraft" SelectionChanged="value => _shotDraftModel = value" ModelLocked="ShotDraftLocked">
                         <ChildContent>
                             <p class="field-hint">@identity.Title · @SceneLabel(identity)</p>
-                            <p class="field-hint">Drafts this shot from its scene in the saved script. The scene's @OtherSceneShots(identity).Count other @(OtherSceneShots(identity).Count == 1 ? "shot is" : "shots are") sent as context, so the draft covers something they don't unless your directions say otherwise.</p>
+                            <p class="field-hint">Drafts this shot from its scene in the saved script. The shots before and after it are sent as context, with the titles and dialogue of the scene's other shots, so the draft covers something they don't unless your directions say otherwise.</p>
                             <p class="field-hint shot-draft-place">@ShotDraftPlace(identity) Drag the shot in the list to change where it goes.</p>
                             @if (HasCoverage(identity)) { <p class="field-hint">This shot's current action and dialogue are sent too, for the directions to revise. Applying replaces them; Undo restores them.</p> }
                             <label>Directions (optional)<textarea rows="3" @bind="_shotDraftDirections" @bind:event="oninput" disabled="@ShotDraftLocked" placeholder="For example: a close-up of the key in her hand as she hesitates."></textarea></label>
