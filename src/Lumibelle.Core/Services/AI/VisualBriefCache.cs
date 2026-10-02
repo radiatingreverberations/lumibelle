@@ -30,7 +30,8 @@ public sealed class VisualBriefCache(ApplicationPaths paths)
 
     public async Task<string?> ReadAsync(string key, CancellationToken ct = default)
     {
-        try { return (await AtomicJsonFile.ReadAsync<Entry>(Path(key), ct)) is { } entry && entry.Key == key ? entry.Brief : null; }
+        // Read as a fresh brief would be, so a brief cached before a reading rule changed still matches it.
+        try { return (await AtomicJsonFile.ReadAsync<Entry>(Path(key), ct)) is { } entry && entry.Key == key ? Production.PromptComposer.ReadBrief(entry.Brief) : null; }
         // A missing or unreadable entry only means the images are inspected again.
         catch (Exception e) when (e is WorkspaceStoreException or IOException or JsonException or UnauthorizedAccessException) { return null; }
     }

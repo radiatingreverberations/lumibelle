@@ -134,6 +134,21 @@ public sealed class TwoStepCompositionTests : IDisposable
     }
 
     [Fact]
+    public void ABriefThatRepeatsItselfIsReadOnce()
+    {
+        // Gemma 4 12B listed seven RefMod frames as "Frame 1" to "Frame 50" with the same sentence, until its reply limit.
+        var looping = "<Picture 1> Riley: short dark hair.\nSetting: plain studio.\n\n<Picture 2> Sam: grey coat.\nSetting: plain studio.\n\n<Video 1>\n" +
+            string.Join("\n", Enumerable.Range(1, 50).Select(n => $"Frame {n}: The woman is shown from the waist up, facing forward.")) +
+            "\nFrame 51: A close-up of her face.";
+        var read = PromptComposer.ReadBrief(looping)!;
+        Assert.Equal("<Picture 1> Riley: short dark hair.\nSetting: plain studio.\n\n<Picture 2> Sam: grey coat.\nSetting: plain studio.\n\n<Video 1>\n" +
+            "Frame 1: The woman is shown from the waist up, facing forward.\nFrame 51: A close-up of her face.", read);
+        // Reading again changes nothing, so a captured brief still validates.
+        Assert.Equal(read, PromptComposer.ReadBrief(read));
+        Assert.Contains("never number or list the frames", PromptComposer.BuildBriefMessages(Composition().Request, Composition().Images, [])[0].Text);
+    }
+
+    [Fact]
     public void TheBriefsBudgetGrowsWithItsReferences()
     {
         // Up to six references keep the original budget; fourteen get room for every one, within a cap.
