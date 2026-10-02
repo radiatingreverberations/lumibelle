@@ -15,12 +15,22 @@ public delegate Task<string?> ComfyProbeRunner(string name, Func<string, object>
 /// </summary>
 public static class ComfyTextCapabilities
 {
-    public const int ProbeTokens = 48;
+    // Room for a model that names two rows of colors in full sentences.
+    public const int ProbeTokens = 96;
     private const float ProbeTemperature = 0.01f;
     internal const string SystemPromptQuestion = "What is the verification code? Reply with the code only.";
     internal const string ImageQuestion = "Read the number printed in the image. Reply with the digits only.";
     internal const string BatchQuestion = "Two images are attached, each showing a number. Reply with the number from the first image, " +
         "a space, then the number from the second image. Digits only.";
+    internal const string ColorQuestion = "The image shows a row of five colored squares. Name their colors from left to right, one word each.";
+    internal const string ColorBatchQuestion = "Two images are attached, each showing a row of five colored squares. Name the colors of the first image's squares " +
+        "from left to right, then those of the second image. One word per square.";
+    // Five colors no vision model confuses; five squares make a blind guess pass less than 1% of the time, even allowing one misnamed square.
+    internal static readonly (string Name, Rgba32 Color)[] ProbeColors =
+    [
+        ("red", new(220, 30, 30, 255)), ("green", new(30, 170, 60, 255)), ("blue", new(30, 80, 220, 255)),
+        ("yellow", new(250, 215, 0, 255)), ("black", new(0, 0, 0, 255))
+    ];
 
     public static bool SupportsSystemPromptInput(JsonElement nodes) => ComfyTextVision.HasInput(nodes, "TextGenerate", "system_prompt", "STRING");
 
@@ -67,25 +77,42 @@ public static class ComfyTextCapabilities
         if (vision.SingleImage)
         {
             await report("Checking image input…");
-            var code = Code(4);
-            var seed = Seed();
-            var uploaded = await ComfyTextVision.UploadAsync(http, model, ComfyVisionInput.SingleImage, [DigitImage(code)], ct);
-            if (Repeats(await run("image", client => ComfyTextVision.BuildWorkflow(model, ImageQuestion, ProbeTokens, ProbeTemperature, seed, client, uploaded), ct), code))
+            if (await SeesAsync(http, model, run, "image", 1, ct))
             {
                 mode = ComfyVisionInput.SingleImage;
                 if (vision.ImageBatch)
                 {
                     await report("Checking multiple-image input…");
-                    string first = Code(4), second;
-                    do second = Code(4); while (second == first);
-                    var batchSeed = Seed();
-                    var batch = await ComfyTextVision.UploadAsync(http, model, ComfyVisionInput.ImageBatch, [DigitImage(first), DigitImage(second)], ct);
-                    if (Repeats(await run("image-batch", client => ComfyTextVision.BuildWorkflow(model, BatchQuestion, ProbeTokens, ProbeTemperature, batchSeed, client, batch), ct), first, second))
-                        mode = ComfyVisionInput.ImageBatch;
+                    if (await SeesAsync(http, model, run, "image-batch", 2, ct)) mode = ComfyVisionInput.ImageBatch;
                 }
             }
         }
         return new(systemPrompt, mode);
+    }
+
+    /// <summary>
+    /// Whether the model reads codes from <paramref name="count"/> images. Printed digits come first; a model that sees but
+    /// misreads the blocky digits gets a second chance with rows of colored squares, which vision models name reliably.
+    /// </summary>
+    private static async Task<bool> SeesAsync(HttpClient http, string model, ComfyProbeRunner run, string name, int count, CancellationToken ct)
+    {
+        foreach (var colors in new[] { false, true })
+        {
+            var codes = new List<string>();
+            while (codes.Count < count)
+                if ((colors ? ColorCode() : Code(4)) is var code && !codes.Contains(code)) codes.Add(code);
+            var seed = Seed();
+            var mode = count == 1 ? ComfyVisionInput.SingleImage : ComfyVisionInput.ImageBatch;
+            var uploaded = await ComfyTextVision.UploadAsync(http, model, mode, [.. codes.Select(c => colors ? ColorImage(c) : DigitImage(c))], ct);
+            var question = (colors, count) switch
+            {
+                (false, 1) => ImageQuestion, (false, _) => BatchQuestion,
+                (true, 1) => ColorQuestion, (true, _) => ColorBatchQuestion
+            };
+            var answer = await run(colors ? name + "-colors" : name, client => ComfyTextVision.BuildWorkflow(model, question, ProbeTokens, ProbeTemperature, seed, client, uploaded), ct);
+            if (Repeats(colors ? ColorDigits(answer) : answer, [.. codes])) return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -106,6 +133,26 @@ public static class ComfyTextCapabilities
             position = found + code.Length;
         }
         return true;
+    }
+
+    private static string ColorCode() => string.Concat(Enumerable.Range(0, 5).Select(_ => (char)('0' + Random.Shared.Next(ProbeColors.Length))));
+
+    /// <summary>The colors a response names, in order, as the digits of a color code.</summary>
+    internal static string? ColorDigits(string? response) => response is null ? null : string.Concat(
+        System.Text.RegularExpressions.Regex.Matches(response.ToLowerInvariant(), @"\b(red|green|blue|yellow|black)\b")
+            .Select(m => (char)('0' + Array.FindIndex(ProbeColors, c => c.Name == m.Value))));
+
+    internal static byte[] ColorImage(string code)
+    {
+        const int side = 96, gap = 32, margin = 48;
+        using var image = new Image<Rgba32>(margin * 2 + code.Length * side + (code.Length - 1) * gap, margin * 2 + side, new Rgba32(255, 255, 255, 255));
+        for (var i = 0; i < code.Length; i++)
+            for (var y = 0; y < side; y++)
+                for (var x = 0; x < side; x++)
+                    image[margin + i * (side + gap) + x, margin + y] = ProbeColors[code[i] - '0'].Color;
+        using var output = new MemoryStream();
+        image.SaveAsPng(output);
+        return output.ToArray();
     }
 
     private static string Code(int length) =>

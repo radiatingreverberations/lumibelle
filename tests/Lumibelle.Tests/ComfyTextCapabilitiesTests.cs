@@ -159,6 +159,31 @@ public sealed class ComfyTextCapabilitiesTests
     }
 
     [Fact]
+    public async Task AModelThatMisreadsTheDigitsIsCheckedWithColors()
+    {
+        var runs = new List<string>();
+        using var server = new FakeComfy { Model = new(SystemPrompt: false, Images: 2, MisreadsDigits: true) }; using var http = server.Client();
+        var capabilities = await ComfyTextCapabilities.ProbeAsync(http, File, false, new(true, true), (name, workflow, _) =>
+        {
+            runs.Add(name);
+            return Task.FromResult(server.Model!.Answer(server, JsonSerializer.SerializeToElement(workflow("client"))));
+        }, _ => Task.CompletedTask, Ct);
+        Assert.Equal(new ComfyTextModelCapabilities(false, ComfyVisionInput.ImageBatch), capabilities);
+        Assert.Equal(["image", "image-colors", "image-batch", "image-batch-colors"], runs);
+        // A blind model is not rescued by the second chance.
+        Assert.Equal(new ComfyTextModelCapabilities(false, ComfyVisionInput.Disabled), await Probe(new FakeModel(SystemPrompt: false, Images: 0)));
+    }
+
+    [Theory]
+    [InlineData("Red, green, blue, yellow, black.", "01234")]
+    [InlineData("1. **Yellow** 2. Black 3. Reddish 4. Blue", "342")]
+    [InlineData(null, null)]
+    public void ColorAnswersBecomeCodes(string? answer, string? code) => Assert.Equal(code, ComfyTextCapabilities.ColorDigits(answer));
+
+    [Fact]
+    public void ColorImagesShowEveryColorInOrder() => Assert.Equal("blue, black, red, yellow, green", ReadColors(ComfyTextCapabilities.ColorImage("24031")));
+
+    [Fact]
     public async Task ProbesRejectChannelsTheTokenizerDropsSilently()
     {
         Assert.Equal(new ComfyTextModelCapabilities(false, ComfyVisionInput.SingleImage), await Probe(new FakeModel(SystemPrompt: false, Images: 1)));
@@ -208,7 +233,7 @@ public sealed class ComfyTextCapabilitiesTests
     }
 
     /// <summary>Answers probes like a model whose tokenizer honors <paramref name="SystemPrompt"/> and the first <paramref name="Images"/> images.</summary>
-    private sealed record FakeModel(bool SystemPrompt, int Images, bool Fails = false)
+    private sealed record FakeModel(bool SystemPrompt, int Images, bool Fails = false, bool MisreadsDigits = false)
     {
         public string? Answer(FakeComfy server, JsonElement workflow)
         {
@@ -218,9 +243,20 @@ public sealed class ComfyTextCapabilitiesTests
                 return SystemPrompt ? new string(system.GetString()!.Where(char.IsAsciiDigit).ToArray()) : "I don't know a code.";
             var images = graph.EnumerateObject().Where(node => node.Name.StartsWith("vision_image_", StringComparison.Ordinal))
                 .OrderBy(node => node.Name, StringComparer.Ordinal).Take(Images)
-                .Select(node => ReadDigits(server.Uploads[node.Value.GetProperty("inputs").GetProperty("image").GetString()!])).ToArray();
-            return images.Length == 0 ? "I cannot see an image." : string.Join(" ", images);
+                .Select(node => server.Uploads[node.Value.GetProperty("inputs").GetProperty("image").GetString()!]).ToArray();
+            if (images.Length == 0) return "I cannot see an image.";
+            if (inputs.GetProperty("prompt").GetString()!.Contains("colored squares", StringComparison.Ordinal))
+                return string.Join(", ", images.Select(ReadColors));
+            // Like Qwen3.5 27B, which read the dot-matrix 4713 as 4235.
+            return string.Join(" ", images.Select(png => MisreadsDigits ? new string(ReadDigits(png).Select(d => (char)('0' + (d - '0' + 3) % 10)).ToArray()) : ReadDigits(png)));
         }
+    }
+
+    private static string ReadColors(byte[] png)
+    {
+        using var image = Image.Load<Rgba32>(png);
+        return string.Join(", ", Enumerable.Range(0, (image.Width - 96 + 32) / 128).Select(i => ComfyTextCapabilities.ProbeColors
+            .First(c => c.Color == image[48 + i * 128 + 48, 96]).Name));
     }
 
     private static string ReadDigits(byte[] png)
