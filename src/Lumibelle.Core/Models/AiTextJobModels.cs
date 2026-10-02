@@ -42,6 +42,9 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
     public string? VisualBrief { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? BriefKey { get; init; }
+    // Reply limit of the first step, sized to the number of references; older snapshots used a fixed 1,024.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? BriefTokens { get; init; }
     public bool TwoStep => BriefKey is not null;
 
     public T Payload<T>() => Task.Deserialize<T>(AtomicJsonFile.Options) ?? throw new WorkspaceStoreException("The saved text request is incomplete.");

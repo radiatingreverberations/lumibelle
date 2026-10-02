@@ -84,11 +84,12 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames).Select(AiTextMessage.Capture).ToArray();
         // The brief cache is keyed by image size, so an automatic size is chosen before looking for one.
         var captured = ComfyTextSettings.Capture(model, configured);
-        configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(PromptComposer.BriefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));
+        var briefTokens = PromptComposer.BriefTokensFor(PromptComposer.BriefEntries(request, modFrames));
+        configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(briefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));
         var key = VisualBriefCache.Key(model, ComfyTextSettings.BatchImageSide(model, configured), briefMessages);
         var cached = briefs is null ? null : await briefs.ReadAsync(key, ct);
         return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
-            PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key));
+            PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key, briefTokens));
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)
     {
@@ -174,7 +175,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private async Task<AiJobSubmission> BuildAsync<T>(Guid id, Guid tab, AiJobKind kind, AiJobTarget target, string label, T payload,
         TextModelReference model, bool followsDefault, AiSettings configured, string profile, List<ChatMessage> messages, float temperature, string? baseline, CancellationToken ct,
-        (IReadOnlyList<AiTextMessage>? Messages, string? Brief, string Key)? brief = null)
+        (IReadOnlyList<AiTextMessage>? Messages, string? Brief, string Key, int Tokens)? brief = null)
     {
         model = TextModelPolicy.WithDefaultEffort(model, configured);
         TextModelPolicy.Validate(model); TextModelPolicy.CheckRequestServer(model, configured); FileAiSettingsStore.Validate(configured);
@@ -185,7 +186,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var version = TextModelProfiles.RequiresSnapshotVersion3(model) ? 3 : 2;
         var snapshot = new AiTextJobRequest(version, kind, model, followsDefault, configured, profile, temperature, Random.Shared.NextInt64(1, long.MaxValue),
             JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), messages.Select(AiTextMessage.Capture).ToArray(), baseline)
-        { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key };
+        { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key, BriefTokens = brief?.Tokens };
         // Smaller images first, then whatever room is left for the reply.
         snapshot = ComfyTextCapacity.FitReplyLimit(ComfyTextCapacity.FitImageSide(snapshot));
         ComfyTextVision.ValidateSnapshot(snapshot);

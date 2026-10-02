@@ -137,7 +137,7 @@ public static class ComfyTextCapacity
     public static AiTextJobRequest FitImageSide(AiTextJobRequest request)
     {
         var reply = TextGenerationOptions.Captured(request).MaxOutputTokens ?? request.Settings.MaxOutputTokens;
-        var (messages, tokens) = request.BriefMessages is { } brief ? (brief, Math.Min(Production.PromptComposer.BriefTokens, reply)) : (request.Messages, reply);
+        var (messages, tokens) = request.BriefMessages is { } brief ? (brief, Math.Min(Production.PromptComposer.BriefTokensOf(request), reply)) : (request.Messages, reply);
         return request with { Settings = FitImageSide(request.Model, request.Settings, messages, tokens) };
     }
 
@@ -189,7 +189,7 @@ public static class ComfyTextCapacity
             Estimate(request.Model.Model, ComfyTextVision.Capture(messages.Select(m => m.ToMessage())), replyTokens, side) is { } size
                 ? new(step, size, PromptCapacity(benchmark, replyTokens)) : null;
         if (!request.TwoStep) return Stage(null, request.Messages, reply) is { } single ? [single] : null;
-        var briefTokens = Math.Min(Production.PromptComposer.BriefTokens, reply);
+        var briefTokens = Math.Min(Production.PromptComposer.BriefTokensOf(request), reply);
         var stages = new List<ComfyTextStageSize>();
         if (request.BriefMessages is { } briefMessages && Stage("Step 1 (visual brief)", briefMessages, briefTokens) is { } first) stages.Add(first);
         var brief = request.VisualBrief ?? new string('.', briefTokens * CharactersPerToken);

@@ -186,7 +186,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                     yield return new(Progress: new(GenerationPhase.Preparing, "Step 1 of 2 · preparing reference images…"));
                     var briefImages = await ComfyTextVision.UploadAsync(http, request.Model.Model, ComfyTextVision.Mode(request.Model, request.Settings),
                         briefInput.Images, ct, ComfyTextSettings.BatchImageSide(request.Model, request.Settings));
-                    var briefTokens = Math.Min(PromptComposer.BriefTokens, TextGenerationOptions.Captured(request).MaxOutputTokens!.Value);
+                    var briefTokens = Math.Min(PromptComposer.BriefTokensOf(request), TextGenerationOptions.Captured(request).MaxOutputTokens!.Value);
                     await foreach (var update in comfy.ExecuteAsync(context, BriefOperation, http, client => ComfyTextVision.BuildWorkflow(request.Model.Model,
                         briefInput.Transcript, briefTokens, BriefTemperature, request.Seed, client, briefImages, briefInput.SystemPrompt), ComfyChatClient.ExecutionOptions, ct))
                     {
@@ -274,6 +274,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         AiTextRepairs.Validate(job, request);
         if (request.TwoStep && (request.Kind != AiJobKind.PromptComposition || request.Model.Backend != AiBackend.ComfyUI || request.Repair is not null ||
             request.BriefKey is not { Length: 64 } key || !key.All(char.IsAsciiHexDigit) || (request.BriefMessages is null) == (request.VisualBrief is null) ||
+            request.BriefTokens is < PromptComposer.BriefTokens or > PromptComposer.MaximumBriefTokens ||
             request.VisualBrief is not null && PromptComposer.ReadBrief(request.VisualBrief) != request.VisualBrief ||
             request.Messages.Any(m => m.Parts.Any(p => p.Image is not null)) ||
             request.BriefMessages is { } briefMessages && (briefMessages.Count != 2 || briefMessages[0].Role != "system" || briefMessages[1].Role != "user" ||

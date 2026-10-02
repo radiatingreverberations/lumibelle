@@ -129,6 +129,24 @@ public sealed class TwoStepCompositionTests : IDisposable
         Rejects(request with { Messages = PromptComposer.BuildMessages(composition, images).Select(AiTextMessage.Capture).ToArray() });
         Rejects(request with { Model = new(AiBackend.OpenRouter, "vision", "Vision") });
         Rejects(request with { BriefKey = null });
+        Rejects(request with { BriefTokens = 100_000 });
+        Assert.True(AiTextJobHandler.Read(Header(request with { BriefTokens = 1936 }), JsonSerializer.SerializeToElement(request with { BriefTokens = 1936 }, AtomicJsonFile.Options)).TwoStep);
+    }
+
+    [Fact]
+    public void TheBriefsBudgetGrowsWithItsReferences()
+    {
+        // Up to six references keep the original budget; fourteen get room for every one, within a cap.
+        Assert.Equal(PromptComposer.BriefTokens, PromptComposer.BriefTokensFor(1));
+        Assert.Equal(PromptComposer.BriefTokens, PromptComposer.BriefTokensFor(6));
+        Assert.Equal(256 + 14 * 120, PromptComposer.BriefTokensFor(14));
+        Assert.Equal(PromptComposer.MaximumBriefTokens, PromptComposer.BriefTokensFor(40));
+        var (composition, images) = Composition();
+        Assert.Contains("Stay under 600 words", PromptComposer.BuildBriefMessages(composition, images, [])[0].Text);
+        // Older snapshots without a captured limit keep the fixed one, and the estimate counts the captured one.
+        var request = TwoStep(composition, images);
+        Assert.Equal(PromptComposer.BriefTokens, PromptComposer.BriefTokensOf(request));
+        Assert.Equal(1936, ComfyTextCapacity.Assess(request with { BriefTokens = 1936 })![0].Size.ReplyTokens);
     }
 
     [Fact]
