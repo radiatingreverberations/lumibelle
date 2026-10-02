@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using lumibelle.Models;
 using lumibelle.Services.AI;
@@ -122,16 +123,17 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 if (json.StartsWith("json", StringComparison.OrdinalIgnoreCase) && (json.Length == 4 || char.IsWhiteSpace(json[4])))
                     json = json[4..].TrimStart();
             }
-            json = Normalize(json, r.SingleShot is not null);
+            var sections = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id)).ToArray();
+            List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [];
+            json = Normalize(json, r.SingleShot is not null, r.SceneIds,
+                sections.SelectMany(s => r.Script.Blocks.Skip(s.Start).Take(s.Count)).Select(b => b.Id).ToArray(), sourceNotes);
             var options = new JsonSerializerOptions(AtomicJsonFile.Options);
             options.Converters.Add(new PlanningAppearanceConverter(r.Assets));
             var list = JsonSerializer.Deserialize<List<Shot>>(json, options);
             if (list is not { Count: > 0 and <= 1000 }) throw new JsonException();
             if (r.SingleShot is not null && list.Count != 1)
                 return new([], raw, [], $"The model returned {list.Count} shots instead of one. Nothing was changed; inspect the response and retry.");
-            var sections = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id)).ToArray();
             var planning = new ShotPlanningSource(Guid.NewGuid(), Profile(r), r.Selection, r.MaximumSeconds, H3Policy.Frames(r.MaximumSeconds), r.Instructions, r.SceneIds.ToArray(), DateTimeOffset.UtcNow);
-            List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [];
             foreach (var shot in list)
             {
                 var scene = sections.SingleOrDefault(s => s.Id == shot.SceneId) ?? throw new JsonException();
@@ -185,18 +187,58 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
     private static string Spoken(string text) =>
         System.Text.RegularExpressions.Regex.Replace(System.Text.RegularExpressions.Regex.Replace(text, @"\([^)]*\)", " "), @"\s+", " ").Trim();
 
-    // Models sometimes answer one shot as a bare object, or list characters by name only.
-    private static string Normalize(string json, bool single)
+    // Models sometimes answer one shot as a bare object, list characters by name only, give a text field as a list,
+    // or copy a UUID with a character dropped or changed.
+    private static string Normalize(string json, bool single, IReadOnlyCollection<Guid> scenes, IReadOnlyCollection<Guid> blocks, List<string> notes)
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(json);
-        if (single && root is System.Text.Json.Nodes.JsonObject one) root = new System.Text.Json.Nodes.JsonArray(one.DeepClone());
-        if (root is not System.Text.Json.Nodes.JsonArray shots) return json;
-        foreach (var shot in shots.OfType<System.Text.Json.Nodes.JsonObject>())
-            if (shot["characters"] is System.Text.Json.Nodes.JsonArray characters)
+        var root = JsonNode.Parse(json);
+        if (single && root is JsonObject one) root = new JsonArray(one.DeepClone());
+        if (root is not JsonArray shots) return json;
+        foreach (var shot in shots.OfType<JsonObject>())
+        {
+            if (shot["characters"] is JsonArray characters)
                 for (var i = 0; i < characters.Count; i++)
-                    if (characters[i] is System.Text.Json.Nodes.JsonValue name && name.TryGetValue<string>(out var text))
-                        characters[i] = new System.Text.Json.Nodes.JsonObject { ["name"] = text };
+                    if (characters[i] is JsonValue name && name.TryGetValue<string>(out var text))
+                        characters[i] = new JsonObject { ["name"] = text };
+            foreach (var field in new[] { "title", "description", "atmosphere", "music" })
+                if (shot[field] is JsonArray parts)
+                    shot[field] = string.Join(", ", parts.OfType<JsonValue>().Select(p => p.TryGetValue<string>(out var s) ? s.Trim() : p.ToJsonString()).Where(s => s.Length > 0));
+            var title = shot["title"] is JsonValue t && t.TryGetValue<string>(out var named) ? named : "A shot";
+            if (shot["sceneId"] is JsonValue scene && scene.TryGetValue<string>(out var sceneId) && Nearest(sceneId, scenes) is { } repairedScene)
+                shot["sceneId"] = repairedScene.ToString();
+            if (shot["sourceBlockIds"] is not JsonArray ids) continue;
+            var repaired = 0;
+            for (var i = 0; i < ids.Count; i++)
+            {
+                if (ids[i] is not JsonValue value || !value.TryGetValue<string>(out var id) || Guid.TryParse(id, out var exact) && blocks.Contains(exact)) continue;
+                if (Nearest(id, blocks) is { } block) { ids[i] = block.ToString(); repaired++; }
+                // An unreadable reference counts as unmatched, so it is dropped and noted with the others.
+                else if (!Guid.TryParse(id, out _)) ids[i] = Guid.Empty.ToString();
+            }
+            if (repaired > 0) notes.Add($"{title} · {repaired} source block {(repaired == 1 ? "reference was" : "references were")} slightly misspelled and matched to the closest block in this scene.");
+        }
         return root.ToJsonString();
+    }
+
+    // The only ID within a few edited characters of a mistyped one, or null when none or several are that close.
+    internal static Guid? Nearest(string id, IReadOnlyCollection<Guid> candidates)
+    {
+        if (Guid.TryParse(id, out var exact) && candidates.Contains(exact)) return null;
+        var close = candidates.Select(c => (Id: c, Distance: EditDistance(id.Trim().ToLowerInvariant(), c.ToString()))).Where(c => c.Distance <= 3).OrderBy(c => c.Distance).ToArray();
+        return close.Length > 0 && (close.Length == 1 || close[1].Distance > close[0].Distance) ? close[0].Id : null;
+    }
+
+    private static int EditDistance(string a, string b)
+    {
+        var previous = Enumerable.Range(0, b.Length + 1).ToArray();
+        for (var i = 1; i <= a.Length; i++)
+        {
+            var current = new int[b.Length + 1]; current[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+                current[j] = Math.Min(Math.Min(current[j - 1], previous[j]) + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            previous = current;
+        }
+        return previous[b.Length];
     }
     public static string Profile(ShotPlanningRequest r) => r.SingleShot is not null ? "single-shot-v1" : r.CoverageOnly ? "shot-coverage-v3" : "h3-shot-planner-v2";
 
