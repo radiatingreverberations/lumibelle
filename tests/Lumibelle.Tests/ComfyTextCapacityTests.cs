@@ -195,16 +195,17 @@ public sealed class ComfyTextCapacityTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task MeasurementFallsBackToASmallerPromptWhenTheLargeOneRunsOutOfMemory(bool largeFails, bool fallbackFails)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task MeasurementFallsBackToASmallerPromptWhenTheLargeOneRunsOutOfMemory(bool largeFails, bool fallbackFails, bool smallFails)
     {
         var runs = new List<string>();
         Task<ComfyMeasuredRun> Run(string name, Func<string, object> workflow, CancellationToken _)
         {
             runs.Add(name);
-            var oom = name == "context-8192" && largeFails || name == "context-4096" && fallbackFails;
+            var oom = name == "context-8192" && largeFails || name == "context-4096" && fallbackFails || name == "context-3072" && smallFails;
             var context = name.StartsWith("context-", StringComparison.Ordinal) ? int.Parse(name[8..]) : ComfyTextBenchmark.ContextTokens;
             return Task.FromResult(new ComfyMeasuredRun(!oom, oom, oom ? null : 1_000_000_000L + context * 300_000L, 15_000_000_000));
         }
@@ -213,10 +214,14 @@ public sealed class ComfyTextCapacityTests
         var measured = await ComfyTextCapacity.MeasureAsync(start, File, "Describe.", 7, Run, Ct);
 
         Assert.Equal(50_000, measured.BytesPerReplyToken);
-        Assert.Equal(largeFails ? ["footprint", "context-8192", "context-4096"] : ["footprint", "context-8192"], runs);
-        Assert.Equal(largeFails ? fallbackFails ? 4096 : 8192 : null, measured.OutOfMemoryContextTokens);
-        Assert.Equal(fallbackFails ? null : 300_000, measured.BytesPerPromptToken);
-        Assert.Equal(fallbackFails ? null : largeFails ? 4096 : 8192, measured.CapacityContextTokens);
+        string[] tried = ["footprint", "context-8192", "context-4096", "context-3072"];
+        Assert.Equal(tried[..(!largeFails ? 2 : !fallbackFails ? 3 : 4)], runs);
+        Assert.Equal(!largeFails ? null : !fallbackFails ? 8192 : !smallFails ? 4096 : 3072, measured.OutOfMemoryContextTokens);
+        Assert.Equal(smallFails ? null : 300_000, measured.BytesPerPromptToken);
+        Assert.Equal(smallFails ? null : !largeFails ? 8192 : !fallbackFails ? 4096 : 3072, measured.CapacityContextTokens);
+        // Even when every larger prompt failed, the benchmark's own prompt is known to fit.
+        Assert.Equal(smallFails ? ComfyTextBenchmark.ContextTokens : null,
+            measured.BytesPerPromptToken is null ? ComfyTextCapacity.PromptCapacity(measured, 2048) : null);
     }
 
     [Fact]

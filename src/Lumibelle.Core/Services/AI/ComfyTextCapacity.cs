@@ -60,7 +60,7 @@ public static class ComfyTextCapacity
         var footprint = await run("footprint", client => Workflow(client, context), ct);
         if (!footprint.Completed || footprint.PeakTorchAllocatedBytes is not { } shortPeak) return benchmark;
         benchmark = benchmark with { BytesPerReplyToken = PerToken(full, shortPeak, benchmark.TokenLimit - FootprintTokens) };
-        foreach (var larger in new[] { ComfyTextBenchmark.LargeContextTokens, ComfyTextBenchmark.FallbackContextTokens })
+        foreach (var larger in new[] { ComfyTextBenchmark.LargeContextTokens, ComfyTextBenchmark.FallbackContextTokens, ComfyTextBenchmark.SmallFallbackContextTokens })
         {
             var measured = await run("context-" + larger, client => Workflow(client, larger), ct);
             // With dynamic VRAM loading a prompt that does not fit is streamed from system RAM instead of failing.
@@ -77,6 +77,9 @@ public static class ComfyTextCapacity
     /// <summary>Prompt tokens (text and images) that fit with the given reply limit, under the benchmark's conditions.</summary>
     public static int? PromptCapacity(ComfyTextModelBenchmark? benchmark, int replyTokens)
     {
+        // When every larger test prompt failed, the benchmark's own prompt is the most that is known to fit.
+        if (benchmark is { CustomPrompt: false, BytesPerPromptToken: null, OutOfMemoryContextTokens: not null, ContextTokens: { } fits })
+            return fits;
         if (benchmark is not { CustomPrompt: false, BytesPerPromptToken: { } perPrompt and > 0, CapacityContextTokens: { } measured,
             CapacityPeakVramUsedBytes: { } peak, VramTotalBytes: { } total }) return null;
         // The capacity run reserved FootprintTokens of reply; a longer reply limit reserves more KV cache.

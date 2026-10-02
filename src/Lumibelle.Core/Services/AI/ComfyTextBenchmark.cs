@@ -13,8 +13,9 @@ public static class ComfyTextBenchmark
 {
     public const int ContextTokens = 2048;
     public const int LargeContextTokens = 8192;
-    // Used when the large context does not fit in GPU memory.
+    // Used in turn when the larger context does not fit in GPU memory: a 27B model on a 20 GB card fits less than 4,096.
     public const int FallbackContextTokens = 4096;
+    public const int SmallFallbackContextTokens = 3072;
     // Calibrated with ComfyUI's bundled tokenizers: 64 scenes are 8,283 Qwen and 7,653 Llama 3 tokens.
     private const int TokensPerScene = 128;
 
