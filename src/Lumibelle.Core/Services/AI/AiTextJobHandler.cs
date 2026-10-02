@@ -193,7 +193,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                         yield return new(Progress: Step(update.Progress, 1));
                         if (update.Complete && update.Job is { } job && ComfyChatClient.TryReadText(job, out var text)) brief = PromptComposer.ReadBrief(text);
                     }
-                    if (brief is null) throw new AiJobRecoveryException("The first step returned no usable visual brief. Generate again, or turn off image sending and use saved descriptions.", AiJobRecovery.GenerateAgain);
+                    if (brief is null) throw new AiJobRecoveryException("The first step returned no usable visual brief. Generate again, or choose another model.", AiJobRecovery.GenerateAgain);
                     if (briefs is not null) await briefs.WriteAsync(request.BriefKey!, brief, ct);
                 }
                 messages = PromptComposer.WithBrief(request.Messages, brief).Select(m => m.ToMessage()).ToList();

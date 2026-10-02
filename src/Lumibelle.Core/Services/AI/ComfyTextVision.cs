@@ -60,7 +60,7 @@ public static partial class ComfyTextVision
         if (mode == ComfyVisionInput.Disabled)
             throw new WorkspaceStoreException("Image input is disabled for this ComfyUI model. Enable Single image or Image batch in AI settings for a compatible VL checkpoint; no images have been submitted.");
         if (mode == ComfyVisionInput.SingleImage && count != 1)
-            throw new WorkspaceStoreException($"This ComfyUI model is configured for one image, but the request has {count}. Select a model configured for Image batch, reduce the references, or use saved descriptions without image inspection. No images were dropped.");
+            throw new WorkspaceStoreException($"This ComfyUI model reads only one image per request; its model test found it unreliable with several. This request has {count}. Choose a model whose test detected multiple images, or use a single reference. No images were dropped.");
     }
 
     public static void ValidateSnapshot(AiTextJobRequest request)
