@@ -18,7 +18,7 @@ public partial class ProductionStudio
             ?? takes.Where(t => t.Snapshot.Dub is null).OrderByDescending(t => t.CreatedUtc).ThenByDescending(t => t.Id).FirstOrDefault()
             ?? takes.OrderByDescending(t => t.CreatedUtc).ThenByDescending(t => t.Id).FirstOrDefault();
         return new(shot.Id, index + 1, string.IsNullOrWhiteSpace(shot.Title) ? "Untitled shot" : shot.Title,
-            shot.SceneId, string.IsNullOrWhiteSpace(shot.SceneTitle) ? "Unassigned scene" : shot.SceneTitle,
+            shot.SceneId, SceneTitle(shot) ?? "Unassigned scene",
             DurationLabel(shot), takes.Length, preview is null ? null : TakeUrl(preview.Id, 0), shot.SelectedTakeId is not null, issue);
     }
 

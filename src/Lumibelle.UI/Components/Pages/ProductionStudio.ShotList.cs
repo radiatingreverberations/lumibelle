@@ -15,8 +15,10 @@ public partial class ProductionStudio
     // Shots without a script scene share one group.
     private static Guid SceneKey(Shot shot) => shot.SceneId ?? Guid.Empty;
     private IEnumerable<Shot> SceneShots(Shot shot) => _doc.Shots.Where(s => SceneKey(s) == SceneKey(shot));
-    private string SceneLabel(Shot shot) => !string.IsNullOrWhiteSpace(shot.SceneTitle) ? shot.SceneTitle
-        : shot.SceneId is { } scene ? Scenes.FirstOrDefault(s => s.Id == scene)?.Title ?? "Untitled scene" : "No scene";
+    // The saved script's current heading wins, so renaming a scene shows up without reassigning its shots.
+    private string? SceneTitle(Shot shot) => (shot.SceneId is { } scene ? Scenes.FirstOrDefault(s => s.Id == scene)?.Title : null) is { Length: > 0 } title
+        ? title : string.IsNullOrWhiteSpace(shot.SceneTitle) ? null : shot.SceneTitle;
+    private string SceneLabel(Shot shot) => SceneTitle(shot) ?? (shot.SceneId is null ? "No scene" : "Untitled scene");
     private bool SceneCollapsed(Shot shot) => _collapsedScenes.Contains(SceneKey(shot));
     private async Task ToggleScene(Shot shot)
     {

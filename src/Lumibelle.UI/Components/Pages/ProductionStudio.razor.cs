@@ -85,7 +85,7 @@ public partial class ProductionStudio
     private bool SourceChanged => Current is { } c && SourceShot is { } source && ProductionPolicy.SourceFingerprint(source) != c.SourceFingerprint;
     private string? CompositionIssue => Current is { } c && _project is not null ? ProductionPolicy.Issue(c, _assets, _doc, _project) : "Choose a composition.";
     private string? GenerationIssue => ActiveGlobalSetup?.Archived == true ? "Restore this global setup or choose another before generating." : CompositionIssue ?? LoraIssue ?? (_configuration is null ? null : Selected is { } s && !_configuration.Ready(s) ? _configuration.Issue(s) : null);
-    private IEnumerable<List<Shot>> VisibleGroups => _doc.Shots.Where(MatchesPromptStatus).Where(s => s.Title.Contains(_filter, StringComparison.OrdinalIgnoreCase) || s.SceneTitle.Contains(_filter, StringComparison.OrdinalIgnoreCase)).GroupBy(s => s.SceneId).Select(g => g.ToList());
+    private IEnumerable<List<Shot>> VisibleGroups => _doc.Shots.Where(MatchesPromptStatus).Where(s => s.Title.Contains(_filter, StringComparison.OrdinalIgnoreCase) || SceneLabel(s).Contains(_filter, StringComparison.OrdinalIgnoreCase)).GroupBy(s => s.SceneId).Select(g => g.ToList());
     private bool TakeMatches(ShotTake take, Shot shot) => Current is { } c && take.Snapshot.Production is { } p && p.CompositionId == c.Id && p.Revision.Id == c.AcceptedRevisionId && CompositionIssue is null;
     protected override void OnInitialized() { AiJobs.Changed += JobChanged; AiJobs.Changed += PlanningQueueChanged; }
     protected override async Task OnParametersSetAsync()
