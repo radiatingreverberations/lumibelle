@@ -101,5 +101,8 @@
 .model-generation-settings { border-top: 1px solid var(--border-color, var(--lumi-border)); margin-block: 1rem; padding-top: 1rem; }
 .model-generation-settings .text-generation-fields { display: flex; flex-wrap: wrap; gap: .75rem; }
 .model-generation-settings label { flex: 1 1 160px; min-width: 0; }
-.model-generation-settings input { width: 100%; }
+.model-generation-settings input:not([type=checkbox]) { width: 100%; }
+/* A checkbox sits before its own label text instead of stretching across the row. */
+.model-generation-settings .check-row { display: flex; align-items: flex-start; gap: 8px; margin-top: .75rem; }
+.model-generation-settings .check-row input { flex: none; width: auto; margin: 3px 0 0; }
 .text-generation-actions { flex-wrap: wrap; }

@@ -29,6 +29,10 @@ test('per-model settings preserve defaults, drafts and return routes', async ({ 
   await form.getByLabel('Maximum reply tokens', { exact: true }).fill('12000');
   await form.getByRole('button', { name: 'Cancel model settings', exact: true }).click();
   await expect(form.getByLabel('Maximum reply tokens', { exact: true })).toHaveValue('8192');
+  // The checkbox sits before its label rather than stretching across the form and squeezing the text into a column.
+  const raise = form.getByRole('checkbox', { name: /Raise the reply limit/ });
+  const [box, label] = [await raise.boundingBox(), await form.locator('.check-row').boundingBox()];
+  expect(box.width).toBeLessThan(30); expect(label.height).toBeLessThan(60); expect(box.x - label.x).toBeLessThan(5);
   await row.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'artifacts/comfy-text-settings-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
