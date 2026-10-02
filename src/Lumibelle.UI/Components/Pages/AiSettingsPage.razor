@@ -260,7 +260,7 @@ else
                                                     <label for="@(domId + "-tokens")">Maximum reply tokens<input id="@(domId + "-tokens")" type="number" min="1" max="32768" @bind="draft.Tokens" disabled="@Busy" /></label>
                                                     <label for="@(domId + "-temperature")">Model temperature<input id="@(domId + "-temperature")" type="number" min="0.01" max="2" step="0.01" @bind="draft.Temperature" disabled="@Busy" /></label>
                                                     <label for="@(domId + "-image-side")">Image size for multiple references<select id="@(domId + "-image-side")" @bind="draft.ImageSide" disabled="@Busy">
-                                                        @foreach (var side in ComfyTextSettings.BatchImageSides) { <option value="@side">@ImageSideLabel(model, side)</option> }
+                                                        @foreach (var side in ComfyTextSettings.BatchImageSides.Prepend(AutomaticImageSide)) { <option value="@side">@ImageSideLabel(model, side)</option> }
                                                     </select></label>
                                                 </div>
                                                 <label class="check-row"><input type="checkbox" @bind="draft.RaiseReplyLimit" disabled="@Busy" />Raise the reply limit when the prompt leaves room in GPU memory (up to @ComfyTextCapacity.RaisedReplyCap.ToString("N0") tokens)</label>

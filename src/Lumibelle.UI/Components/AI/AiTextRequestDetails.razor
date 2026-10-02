@@ -16,6 +16,9 @@
         @if (request.Model.Backend == AiBackend.ComfyUI && request.Model.MaxOutputTokens is null && request.Settings.MaxOutputTokens is var replyLimit) {
             <p>Reply limit · @replyLimit.ToString("N0") tokens@(replyLimit > ComfyTextSettings.Resolve(request.Model, request.Settings).MaxOutputTokens ? ", raised to fit GPU memory" : "")</p>
         }
+        @if (request.Model.Backend == AiBackend.ComfyUI && request.Messages.Concat(request.BriefMessages ?? []).Sum(m => m.Parts.Count(p => p.Image is not null)) > 1) {
+            <p>Reference images · up to @ComfyTextSettings.BatchImageSide(request.Model, request.Settings).ToString("N0") px each</p>
+        }
         @if (request.TwoStep) {
             <p>Two-step composition · @(request.VisualBrief is not null ? "reused a cached visual brief, so the images were not inspected again." : "step 1 inspected the images and wrote a visual brief; step 2 composed from it.")</p>
             @if (request.BriefMessages is { } briefMessages) { <details><summary>Step 1 input</summary><pre class="submitted-input">@Describe(briefMessages)</pre></details> }

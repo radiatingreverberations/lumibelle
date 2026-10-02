@@ -82,6 +82,9 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         // ComfyUI composes in two steps, so the images and the long composition guide never share one prompt:
         // a visual brief from the images, then a text-only composition from that brief. A cached brief skips step one.
         var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames).Select(AiTextMessage.Capture).ToArray();
+        // The brief cache is keyed by image size, so an automatic size is chosen before looking for one.
+        var captured = ComfyTextSettings.Capture(model, configured);
+        configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(PromptComposer.BriefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));
         var key = VisualBriefCache.Key(model, ComfyTextSettings.BatchImageSide(model, configured), briefMessages);
         var cached = briefs is null ? null : await briefs.ReadAsync(key, ct);
         return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
@@ -183,7 +186,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var snapshot = new AiTextJobRequest(version, kind, model, followsDefault, configured, profile, temperature, Random.Shared.NextInt64(1, long.MaxValue),
             JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), messages.Select(AiTextMessage.Capture).ToArray(), baseline)
         { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key };
-        snapshot = ComfyTextCapacity.FitReplyLimit(snapshot);
+        // Smaller images first, then whatever room is left for the reply.
+        snapshot = ComfyTextCapacity.FitReplyLimit(ComfyTextCapacity.FitImageSide(snapshot));
         ComfyTextVision.ValidateSnapshot(snapshot);
         if (model.Backend == AiBackend.Codex)
             snapshot = snapshot with { Codex = CodexClient.Capture(await (codex ?? throw new AiGenerationException("Codex is not configured.")).CheckAsync(configured.Codex, ct), model.Model, model.ReasoningEffort) };

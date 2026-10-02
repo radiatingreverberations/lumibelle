@@ -25,8 +25,14 @@ public static class ComfyTextSettings
         if (TextModelPolicy.Key(model) != key) throw new lumibelle.Services.Story.WorkspaceStoreException("The saved ComfyUI model identity is not normalized.");
     }
     public static readonly int[] BatchImageSides = [1024, 768, 512];
+    // Without a chosen size (Automatic), each request is given one when it is captured; anything else uses the full size.
     public static int BatchImageSide(TextModelReference model, AiSettings settings) =>
         Resolve(model, settings).BatchImageSide ?? ComfyTextVision.BatchMaximumSide;
+    public static AiSettings WithBatchImageSide(TextModelReference model, AiSettings settings, int side) => settings with
+    {
+        ComfyTextModels = new Dictionary<string, ComfyTextModelSettings>(settings.ComfyTextModels, StringComparer.Ordinal)
+            { [TextModelPolicy.Key(model)] = Resolve(model, settings) with { BatchImageSide = side } }
+    };
     public static ComfyTextModelSettings Resolve(TextModelReference model, AiSettings settings) =>
         settings.ComfyTextModels.GetValueOrDefault(TextModelPolicy.Key(model)) ?? new(settings.MaxOutputTokens, settings.Temperature);
 

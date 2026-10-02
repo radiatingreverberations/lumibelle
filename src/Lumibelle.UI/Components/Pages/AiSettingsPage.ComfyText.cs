@@ -15,15 +15,18 @@ public partial class AiSettingsPage
         {
             var value = ComfyTextSettings.Resolve(model, _settings!);
             _comfyTextDrafts[key] = draft = new() { Tokens = value.MaxOutputTokens, Temperature = value.Temperature, VisionInput = value.VisionInput,
-                ImageSide = value.BatchImageSide ?? ComfyTextVision.BatchMaximumSide, RaiseReplyLimit = !value.FixedReplyLimit };
+                ImageSide = value.BatchImageSide ?? AutomaticImageSide, RaiseReplyLimit = !value.FixedReplyLimit };
         }
         return draft;
     }
-    private static string ImageSideLabel(TextModelReference model, int side) =>
-        $"{side:N0} px · ≤{ComfyTextCapacity.ImageTokens(model.Model, side, side):N0} tokens";
+    // The draft's stand-in for no saved size: each request then gets the largest size that fits.
+    private const int AutomaticImageSide = 0;
+    private static string ImageSideLabel(TextModelReference model, int side) => side == AutomaticImageSide
+        ? "Automatic · largest that fits in GPU memory"
+        : $"{side:N0} px · ≤{ComfyTextCapacity.ImageTokens(model.Model, side, side):N0} tokens";
     /// <summary>Turns the measured capacity into what fits at the drafted reply limit and image size, or null before a capacity test.</summary>
     private string? CapacityText(TextModelReference model, ComfyTextDraft draft) =>
-        ComfyTextCapacity.Summary(model, _settings!, draft.Tokens, draft.ImageSide);
+        ComfyTextCapacity.Summary(model, _settings!, draft.Tokens, draft.ImageSide == AutomaticImageSide ? ComfyTextVision.BatchMaximumSide : draft.ImageSide);
     private string ComfyCapabilityText(TextModelReference model)
     {
         if (TextModelPolicy.Verification(model, _settings!)?.Capabilities is { } detected)
@@ -49,7 +52,7 @@ public partial class AiSettingsPage
             var models = new Dictionary<string, ComfyTextModelSettings>(settings.ComfyTextModels, StringComparer.Ordinal);
             if (reset) models.Remove(TextModelPolicy.Key(model));
             else models[TextModelPolicy.Key(model)] = new(draft.Tokens, draft.Temperature)
-            { VisionInput = draft.VisionInput, BatchImageSide = draft.ImageSide == ComfyTextVision.BatchMaximumSide ? null : draft.ImageSide, FixedReplyLimit = !draft.RaiseReplyLimit };
+            { VisionInput = draft.VisionInput, BatchImageSide = draft.ImageSide == AutomaticImageSide ? null : draft.ImageSide, FixedReplyLimit = !draft.RaiseReplyLimit };
             return settings with { ComfyTextModels = models };
         }, reset ? "Model now uses ComfyUI defaults." : "Model generation settings saved.")) CancelTextDraft(model);
     }

@@ -112,6 +112,26 @@ public sealed class ComfyTextCapacityTests
     }
 
     [Fact]
+    public void AutomaticImageSizeIsTheLargestThatFits()
+    {
+        int Side(AiSettings settings, ChatMessage[] messages) =>
+            ComfyTextSettings.BatchImageSide(Model, ComfyTextCapacity.FitImageSide(Request(settings, messages)).Settings);
+        var nine = Enumerable.Range(0, 9).Select(_ => Png(1024, 1024)).ToArray();
+        // Nine references overflow at 1,024 pixels but fit at 512, as in the notice above; two fit at full size.
+        Assert.Equal(512, Side(Settings(Measured()), Messages(8600, 10800, nine)));
+        Assert.Equal(1024, Side(Settings(Measured()), Messages(8600, 10800, nine[..2])));
+        // With a short prompt, nine references fit at 768 pixels (576 tokens each) but not at 1,024.
+        Assert.Equal(768, Side(Settings(Measured()), Messages(2000, 2000, nine)));
+        // Nothing measured: the full size. A chosen size, a single image or a prompt that never fits: as stated.
+        Assert.Equal(1024, Side(Settings(null), Messages(8600, 10800, nine)));
+        Assert.Equal(1024, Side(Settings(Measured(), 1024), Messages(8600, 10800, nine)));
+        Assert.Equal(1024, Side(Settings(Measured()), Messages(8600, 10800, nine[..1])));
+        Assert.Equal(512, Side(Settings(Measured()), Messages(8600, 400_000, nine)));
+        // The size is recorded, so the request keeps it whatever the settings say later.
+        Assert.Equal(512, ComfyTextCapacity.FitImageSide(Request(Settings(Measured()), Messages(8600, 10800, nine))).Settings.ComfyTextModels[TextModelPolicy.Key(Model)].BatchImageSide);
+    }
+
+    [Fact]
     public void ReplyCapacityShrinksAsThePromptGrows()
     {
         var small = ComfyTextCapacity.ReplyCapacity(Measured(), 2000)!.Value;

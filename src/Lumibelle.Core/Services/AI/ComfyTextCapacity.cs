@@ -115,6 +115,29 @@ public static class ComfyTextCapacity
         return raised > request.Settings.MaxOutputTokens ? request with { Settings = request.Settings with { MaxOutputTokens = raised } } : request;
     }
 
+    /// <summary>
+    /// With the Automatic image size, gives a request the largest size for multiple references whose prompt fits the measured
+    /// capacity at its reply limit: the full size without a measurement or with fewer than two images, the smallest when none fits.
+    /// The size is recorded in the request's settings, so retries and recovery use the same images. A chosen size is left alone.
+    /// </summary>
+    public static AiSettings FitImageSide(TextModelReference model, AiSettings settings, IReadOnlyList<AiTextMessage> messages, int replyTokens)
+    {
+        if (model.Backend != AiBackend.ComfyUI || ComfyTextSettings.Resolve(model, settings).BatchImageSide is not null) return settings;
+        var input = ComfyTextVision.Capture(messages.Select(m => m.ToMessage()));
+        var side = input.Images.Count < 2 || PromptCapacity(Benchmark(model, settings), replyTokens) is not { } capacity ? ComfyTextVision.BatchMaximumSide
+            : ComfyTextSettings.BatchImageSides.FirstOrDefault(s => Estimate(model.Model, input, replyTokens, s) is { } size && size.PromptTokens <= capacity,
+                ComfyTextSettings.BatchImageSides[^1]);
+        return ComfyTextSettings.WithBatchImageSide(model, settings, side);
+    }
+
+    /// <summary>Fits the image size to the step that sends images: the visual brief of a two-step composition, or the request itself.</summary>
+    public static AiTextJobRequest FitImageSide(AiTextJobRequest request)
+    {
+        var reply = TextGenerationOptions.Captured(request).MaxOutputTokens ?? request.Settings.MaxOutputTokens;
+        var (messages, tokens) = request.BriefMessages is { } brief ? (brief, Math.Min(Production.PromptComposer.BriefTokens, reply)) : (request.Messages, reply);
+        return request with { Settings = FitImageSide(request.Model, request.Settings, messages, tokens) };
+    }
+
     /// <summary>The newest standard benchmark with capacity measurements for this model and server.</summary>
     public static ComfyTextModelBenchmark? Benchmark(TextModelReference model, AiSettings settings) =>
         TextModelPolicy.Verification(model, settings)?.Benchmarks?
