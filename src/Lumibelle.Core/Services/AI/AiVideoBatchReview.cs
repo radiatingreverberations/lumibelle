@@ -22,6 +22,17 @@ public static class AiVideoBatchReview
         return run;
     }
 
+    // A project copied or imported without its batch records still has its takes. Show
+    // them as a closed batch, so they can be played and chosen like any other take.
+    public static VideoRun Archived(IReadOnlyList<ShotTake> takes)
+    {
+        var first = takes.OrderBy(t => t.Candidate).First();
+        var run = new VideoRun { Id = first.RunId, Snapshot = first.Snapshot, CreatedUtc = takes.Min(t => t.CreatedUtc), Paused = true,
+            Status = "Earlier batch · its batch record is not in this project, so only its saved takes are shown. Use the shot controls to generate a new batch." };
+        run.Candidates.AddRange(takes.OrderBy(t => t.Candidate).Select(t => new VideoCandidate { TakeId = t.Id, Number = t.Candidate, Seed = t.Seed, State = VideoCandidateState.Complete }));
+        return run;
+    }
+
     public static VideoRun Project(AiVideoJobRequest request, IReadOnlyList<AiJobHeader> jobs, ShotDocument document,
         Func<Guid, AiJobProgress?> progress)
     {
