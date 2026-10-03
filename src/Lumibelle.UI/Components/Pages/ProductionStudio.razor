@@ -210,6 +210,19 @@ else
                 <ChildContent>@if (Selected is { } shot) {
                     <section class="shot-references"><h2 class="shot-references-title">References</h2>
                         <button class="add-shot-references" @onclick="OpenReferencePicker">Manage references</button>
+                        @if (shot.StartFrame is { } start)
+                        {
+                            var startTake = StartTake(shot);
+                            <div class="shot-start-frame" role="group" aria-label="Starts from">
+                                @if (startTake is not null) { <img src="@TakeUrl(start.TakeId, start.Frame)" alt="Starting frame" loading="lazy" /> }
+                                <div class="shot-start-frame-text"><strong>Starts from</strong><span>@StartFrameLabel(start, startTake)</span></div>
+                                <button aria-label="Remove the starting frame" @onclick="RemoveStartFrame">Remove</button>
+                            </div>
+                        }
+                        else if (PreviousProductionTake is { } previous)
+                        {
+                            <button class="shot-start-from-previous" title="Takes of this shot open exactly on the last frame of that shot's production take" @onclick="StartFromPreviousShot">Start from the end of @previous.Shot.Title</button>
+                        }
                         <div class="shot-reference-counts"><span>Images <strong>@ResolvedReferences.For(shot).Pictures.Count/9</strong></span><span>Reels <strong>@shot.Videos.Count</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(shot).Count()/3</strong></span></div>
                         <div class="shot-reference-contact-sheet">
                             @foreach (var picture in ResolvedReferences.For(shot).Pictures)
@@ -639,8 +652,14 @@ else
                     {
                         <TakeRefinementForm Source="source" Busy="@(_refinementBusy || _refinementEnqueue is not null)" Issue="@_refinementIssue" ContextChanged="@(_doc.Shots.FirstOrDefault(s => s.Id == source.ShotId) is not { } current || !TakeMatches(source, current))" Cancel="CloseRefinement" Refresh="CheckRefinementSetup" Queue="QueueRefinement" />
                     }
-                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" />
+                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="ContinueFromFrame" />
+                    @if (_frameDestination is { } destination && destination.TakeId == take.Id)
+                    {
+                        <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"
+                            InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
+                    }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
+                    @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
                     <details class="take-quality-actions"><summary>Improve quality</summary>
                         <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Improve quality</button>
                         @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
@@ -654,18 +673,15 @@ else
                         @if (refinementJob.LocksTarget) { <button @onclick="() => CancelGeneration(refinementJob.Id)">Cancel refinement</button> }
                         @if (RecoveryLabel(refinementJob) is { } label) { <button @onclick="async () => { try { await AiJobs.ResumeAsync(refinementJob.Id); } catch (Exception e) { _reviewError = e.Message; } }">@label</button> }
                     }
-                    @if (_frameDestination is { } destination && destination.TakeId == take.Id)
-                    {
-                        <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"
-                            InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
-                    }
-                    <p>@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archive" : "MP4 only") · @Bytes(take.Bytes) total</p>
-                    <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
-                    <RefinementDetails Take="take" />
-                    <VideoPerformanceDetails Take="take" />
-                    <VideoLoraDetails Snapshot="take.Snapshot" />
-                    <ShotInputPreview ProjectId="Id" Shot="take.Snapshot.Shot" Guidance="take.Snapshot.ReferenceGuidance" Restored="InputsRestored" />
-                    <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a>
+                    @* Everything below describes the take rather than acting on it, so it is grouped and collapsed. *@
+                    <section class="take-review-details" aria-label="Take details">
+                        <p class="take-review-file">@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archive" : "MP4 only") · @Bytes(take.Bytes) total <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></p>
+                        <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
+                        <RefinementDetails Take="take" />
+                        <VideoPerformanceDetails Take="take" />
+                        <VideoLoraDetails Snapshot="take.Snapshot" />
+                        <ShotInputPreview ProjectId="Id" Shot="take.Snapshot.Shot" Guidance="take.Snapshot.ReferenceGuidance" Restored="InputsRestored" />
+                    </section>
                 }
                 else { <p>No saved take selected. Completed videos appear here.</p> }
             </div>

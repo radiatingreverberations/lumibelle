@@ -35,8 +35,9 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         H3Policy.Validate(effective, true);
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(projectId, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
-        if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective)) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
+        if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective) || effective.StartFrame is not null) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
         var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3);
+        var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
         var modFrames = ReelRefMods.Uses(effective)
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)
             : Array.Empty<RefModInspectionFrame>();
@@ -70,22 +71,23 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
-            ReducedScriptContext = reducedScriptContext
+            ReducedScriptContext = reducedScriptContext, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
         var attached = images.Select(i => i.Bytes).ToArray();
         var target = new AiJobTarget(projectId, ShotId: shot.Id, CompositionId: c.Id);
         var label = shot.Title + " · " + c.Name + " · Compose prompt";
-        var direct = PromptComposer.BuildMessages(request, attached, modFrames);
+        var openingFrame = opening?.Bytes;
+        var direct = PromptComposer.BuildMessages(request, attached, modFrames, openingFrame: openingFrame);
         var captured = ComfyTextSettings.Capture(model, configured);
         // A ComfyUI model composes while seeing the images when they, the composition guide and the shot fit in GPU memory together.
-        if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0 ||
+        if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0 && openingFrame is null ||
             ComfyTextCapacity.FitsInOneRequest(model, captured, direct.Select(AiTextMessage.Capture).ToArray(), model.MaxOutputTokens ?? captured.MaxOutputTokens))
             return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
                 direct, 0.7f, null, ct);
         // Otherwise it composes in two steps, so the images and the long composition guide never share one prompt:
         // a visual brief from the images, then a text-only composition from that brief. A cached brief skips step one.
-        var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames).Select(AiTextMessage.Capture).ToArray();
+        var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames, openingFrame).Select(AiTextMessage.Capture).ToArray();
         // The brief cache is keyed by image size, so an automatic size is chosen before looking for one.
         var briefTokens = PromptComposer.BriefTokensFor(PromptComposer.BriefEntries(request, modFrames));
         configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(briefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));

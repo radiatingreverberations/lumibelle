@@ -117,6 +117,9 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     // Scene text and neighbouring shots were left out to keep the prompt small.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool ReducedScriptContext { get; init; }
+    // The take frame the shot starts from (BindingId is the take), attached after the references.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CompositionInput? OpeningFrame { get; init; }
 }
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {

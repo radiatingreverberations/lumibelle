@@ -48,7 +48,8 @@ public sealed partial class ShotTests
     public void RefModTrialPreservesExistingEnumNumbersAndOmittedMetadata()
     {
         Assert.Equal(0, (int)ReelVisuals.FullReel); Assert.Equal(1, (int)ReelVisuals.Keyframes); Assert.Equal(2, (int)ReelVisuals.None);
-        Assert.Equal(4, Enum.GetValues<VideoInputKind>().Length); // No fake safetensors upload input.
+        // No fake safetensors upload input; the starting frame is a real image appended after the existing kinds.
+        Assert.Equal([VideoInputKind.Image, VideoInputKind.Video, VideoInputKind.VideoSoundtrack, VideoInputKind.Audio, VideoInputKind.StartFrame], Enum.GetValues<VideoInputKind>());
         Assert.DoesNotContain("refMod", JsonSerializer.Serialize(new ShotVideoBinding(), AtomicJsonFile.Options));
         var binding = RefModBinding(); var clone = ShotCopy.Of(binding);
         Assert.True(ReelRefMods.Matches(clone, clone.RefMod)); Assert.NotSame(binding.Keyframes, clone.Keyframes);

@@ -239,6 +239,8 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             var take = d.Takes.SingleOrDefault(t => t.Id == mediaId) ?? throw new WorkspaceStoreException("Take no longer available.");
             var owner = d.Shots.Single(s => s.Id == take.ShotId);
             if (owner.SelectedTakeId == take.Id) throw new WorkspaceStoreException("Deselect the production take before discarding it.");
+            if (d.Shots.FirstOrDefault(s => s.StartFrame?.TakeId == take.Id) is { } continuation)
+                throw new WorkspaceStoreException($"“{continuation.Title}” starts from a frame of this take. Remove its starting frame before discarding the take.");
             TrashTake(d, take, owner); d.Takes.Remove(take);
         }
         else throw new WorkspaceStoreException("Unsupported media type.");

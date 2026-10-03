@@ -124,8 +124,13 @@ public sealed record Shot
     public bool Turbo { get; set; }
     public int TurboSteps { get; set; } = 4;
     public Guid? SelectedTakeId { get; set; }
+    // Takes of this shot open exactly on this frame of an earlier take, for a continuous cut.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ShotStartFrame? StartFrame { get; set; }
     public Shot Copy() => ShotCopy.Of(this);
 }
+/// <summary>A frame of a saved take, by zero-based index. Take frames never change, so the take and index identify the image.</summary>
+public sealed record ShotStartFrame(Guid TakeId, int Frame);
 public sealed record ShotRecovery(Guid Id, DateTimeOffset CreatedUtc, string Reason, List<Shot> Shots)
 {
     public List<SceneReferenceSetup> SceneSetups { get; init; } = [];
@@ -328,10 +333,13 @@ public sealed record H3Configuration(bool StandardReady, bool TurboReady, string
     public string? TurboIssue { get; init; }
     public string? Turbo8StepIssue { get; init; }
     public string? RefModIssue { get; init; } = "Refresh Video models to check the experimental RefMod nodes.";
+    public string? StartFrameIssue { get; init; } = "Refresh Video models to check support for starting from a frame.";
     public bool Ready(Shot shot) => (!Services.Production.ReelRefMods.Uses(shot) || RefModIssue is null) &&
-        (!shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) || VideoReferenceIssue is null) && Services.Shots.H3Presets.Issue(this, shot) is null;
+        (!shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) || VideoReferenceIssue is null) &&
+        (shot.StartFrame is null || StartFrameIssue is null) && Services.Shots.H3Presets.Issue(this, shot) is null;
     public string Issue(Shot shot) => (Services.Production.ReelRefMods.Uses(shot) ? RefModIssue : null) ??
-        (shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) ? VideoReferenceIssue : null) ?? Services.Shots.H3Presets.Issue(this, shot) ?? Message;
+        (shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) ? VideoReferenceIssue : null) ??
+        (shot.StartFrame is not null ? StartFrameIssue : null) ?? Services.Shots.H3Presets.Issue(this, shot) ?? Message;
     public IReadOnlyList<string> InstalledModels { get; init; } = Models;
     public IReadOnlyList<string> InstalledEncoders { get; init; } = Encoders;
     public IReadOnlyList<string> InstalledVaes { get; init; } = Vaes;

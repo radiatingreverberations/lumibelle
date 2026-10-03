@@ -295,4 +295,15 @@ public static class ProductionInputs
         }
         return result;
     }
+    /// <summary>The frame a shot starts from, as the PNG the composer inspects; its identity is the take and the image hash.</summary>
+    public static async Task<(CompositionInput Identity, byte[] Bytes)?> StartFrameAsync(Guid project, Shot shot, IShotStore shots, CancellationToken ct)
+    {
+        if (shot.StartFrame is not { } start) return null;
+        await using var frame = await shots.OpenAsync(project, start.TakeId, ShotTrashKind.Take, start.Frame, ct: ct)
+            ?? throw new WorkspaceStoreException("The take this shot starts from is in Trash or was deleted. Restore it, or remove the starting frame.");
+        using var buffer = new MemoryStream();
+        await frame.Content.CopyToAsync(buffer, ct);
+        var png = buffer.ToArray();
+        return (new(start.TakeId, Convert.ToHexString(SHA256.HashData(png))), png);
+    }
 }

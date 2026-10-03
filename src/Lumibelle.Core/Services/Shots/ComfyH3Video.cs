@@ -27,7 +27,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     internal static readonly ComfyExecutionOptions MonitorOptions = new(new Dictionary<string, ComfyNodeStage>
     {
         ["1"] = new(GenerationPhase.Preparing, "Loading H3…"), ["2"] = new(GenerationPhase.Preparing, "Loading H3 encoder…"),
-        ["5"] = new(GenerationPhase.Preparing, "Conditioning references…"), ["10"] = new(GenerationPhase.Generating, "Generating video and audio…", "Sampling H3", "steps", "sampling"),
+        ["5"] = new(GenerationPhase.Preparing, "Conditioning references…"), ["61"] = new(GenerationPhase.Preparing, "Anchoring the starting frame…"), ["10"] = new(GenerationPhase.Generating, "Generating video and audio…", "Sampling H3", "steps", "sampling"),
         ["50"] = new(GenerationPhase.Preparing, "Preparing PDD sampling…"), ["51"] = new(GenerationPhase.Preparing, "Preparing generation preset…"),
         ["11"] = new(GenerationPhase.Finalizing, "Decoding video…"), ["12"] = new(GenerationPhase.Finalizing, "Decoding audio…"),
         ["14"] = new(GenerationPhase.Finalizing, "Encoding MP4…"), ["15"] = new(GenerationPhase.Finalizing, "Saving lossless frames…"),
@@ -40,7 +40,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         TimingNodes = new Dictionary<string, string>
         {
             ["1"] = "Preparation", ["2"] = "Preparation", ["3"] = "Preparation", ["4"] = "Preparation", ["5"] = "Preparation",
-            ["6"] = "Preparation", ["7"] = "Preparation", ["8"] = "Preparation", ["9"] = "Preparation", ["16"] = "Preparation",
+            ["6"] = "Preparation", ["60"] = "Preparation", ["61"] = "Preparation", ["7"] = "Preparation", ["8"] = "Preparation", ["9"] = "Preparation", ["16"] = "Preparation",
             ["50"] = "Preparation", ["51"] = "Preparation", ["18"] = "Preparation", ["30"] = "Preparation", ["31"] = "Preparation", ["10"] = "Sampling",
             ["11"] = "Decoding", ["12"] = "Decoding", ["13"] = "Decoding", ["14"] = "Decoding", ["17"] = "Archive", ["15"] = "Archive",
             ["40"] = "Upscaling", ["41"] = "Upscaling", ["42"] = "Upscaling"
@@ -181,6 +181,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             VideoReferenceIssue = SupportsVideoReferences(root)
                 ? null : "Update ComfyUI to enable LoadVideo, GetVideoComponents, and H3 reference video/audio inputs, then refresh Video models.",
             RefModIssue = ComfyRefModClient.Inspect(root),
+            StartFrameIssue = SupportsStartFrame(root) ? null : "Update ComfyUI to start from a frame: it needs the MiniMaxH3AddGuide node. Then refresh Video models.",
             ArchiveIssue = archiveIssue,
             AttentionIssue = H3Performance.Issue(performance, H3Performance.Capture(s.Performance with { SolAttention = false, ArchiveCompression = H3ArchiveCompression.Compact })),
             OptionalLoras = ComfyLoraCatalog.Parse(root), Performance = performance, SelectedPerformanceIssue = H3Performance.Issue(performance, H3Performance.Capture(s.Performance)),
@@ -193,6 +194,11 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     internal static bool IsRef2VaModel(string file) => ModelStem(file) is var stem && stem.StartsWith("minimax_h3_", StringComparison.Ordinal) && stem.Contains("ref2va", StringComparison.Ordinal);
     private static bool IsFl2VaOnly(string file) => ModelStem(file) is var stem && stem.Contains("fl2va", StringComparison.Ordinal) && !stem.Contains("ref2va", StringComparison.Ordinal);
     private static string ModelStem(string file) => Path.GetFileName(file.Replace('\\', '/')).ToLowerInvariant().Replace('-', '_');
+    private static bool SupportsStartFrame(JsonElement root) =>
+        new[] { ("positive", "CONDITIONING"), ("latent", "LATENT"), ("frame_idx", "INT"), ("vae", "VAE"), ("image", "IMAGE") }.All(p =>
+            Input(root, StartFrameNode, p.Item1) is { ValueKind: JsonValueKind.Array } input && input.GetArrayLength() > 0 &&
+            input[0].ValueKind == JsonValueKind.String && input[0].GetString() == p.Item2);
+    internal const string StartFrameNode = "MiniMaxH3AddGuide";
     private static bool SupportsVideoReferences(JsonElement root)
     {
         bool Output(string node, string type) => root.TryGetProperty(node, out var n) && n.TryGetProperty("output", out var o) &&
@@ -235,6 +241,18 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             await using var content = await voices.OpenVoiceAsync(s.ProjectId, v.VoiceId, ct: ct);
             if (voice is null || content is null || v.Start + v.Duration > voice.Duration + .01) throw new WorkspaceStoreException("A voice reference is missing, in Trash, or has an invalid excerpt.");
         }
+        if (s.Shot.StartFrame is not null) await StartTakeAsync(s, ct);
+    }
+    /// <summary>The take a shot starts from, after checking it is still in the project and matches the shot's frame shape.</summary>
+    private async Task<ShotTake> StartTakeAsync(VideoSnapshot s, CancellationToken ct)
+    {
+        var start = s.Shot.StartFrame!;
+        var take = (await shots.LoadAsync(s.ProjectId, ct)).Takes.FirstOrDefault(t => t.Id == start.TakeId)
+            ?? throw new WorkspaceStoreException("The take this shot starts from is in Trash or was deleted. Restore it, or remove the starting frame.");
+        if (start.Frame >= take.FrameCount) throw new WorkspaceStoreException("The starting frame is past the end of its take. Choose the frame again.");
+        if (Math.Abs((double)take.Width / take.Height - (double)s.Width / s.Height) > .02)
+            throw new WorkspaceStoreException($"The starting frame is {take.Width} × {take.Height}, a different shape from this shot's {s.Width} × {s.Height}. Use the same aspect ratio as the take, or remove the starting frame.");
+        return take;
     }
     public async Task PrepareAsync(VideoRun run, string directory, CancellationToken ct)
     {
@@ -260,6 +278,15 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             var file = $"voice-{run.Inputs.Count:D2}.wav";
             await mediaTools.PrepareVoiceAsync(original, Path.Combine(folder, file), v.Start, v.Duration, run.Snapshot.Settings, ct);
             File.Delete(original); run.Inputs.Add(new(file, true));
+        }
+        if (run.Snapshot.Shot.StartFrame is { } start)
+        {
+            await StartTakeAsync(run.Snapshot, ct);
+            await using var frame = await shots.OpenAsync(run.Snapshot.ProjectId, start.TakeId, ShotTrashKind.Take, start.Frame, ct: ct)
+                ?? throw new WorkspaceStoreException("The starting frame could not be read from its take. Check that the take's video is intact.");
+            const string file = "start-frame.png";
+            await using (var target = File.Create(Path.Combine(folder, file))) await frame.Content.CopyToAsync(target, ct);
+            run.Inputs.Add(new(file, false) { Kind = VideoInputKind.StartFrame });
         }
         run.InputsPrepared = true;
     }
@@ -340,6 +367,9 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         Node("1", "UNETLoader", new { unet_name = s.Settings.Model, weight_dtype = "default" });
         Node("2", "CLIPLoader", new { clip_name = s.Settings.Encoder, type = "minimax", device = "default" });
         Node("3", "VAELoader", new { vae_name = s.Settings.VideoVae }); Node("4", "VAELoader", new { vae_name = s.Settings.AudioVae });
+        // The starting frame is not a reference: it is anchored as frame 0 after the references are encoded.
+        var start = inputs.SingleOrDefault(i => i.EffectiveKind == VideoInputKind.StartFrame);
+        if (start is not null) inputs = [.. inputs.Where(i => i != start)];
         if (ReelRefMods.Uses(s.Shot)) RefModConditioning(s, inputs, Node, preparedRefMods);
         else
         {
@@ -364,6 +394,14 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             }
             Node("5", "MiniMaxH3ReferenceToVideo", conditioning);
         }
+        var latent = ReelRefMods.Uses(s.Shot) ? 2 : 1;
+        var guided = "5";
+        if (start is not null)
+        {
+            Node("60", "LoadImage", new { image = start.FileName });
+            Node("61", StartFrameNode, new { positive = Link("5"), latent = Link("5", latent), frame_idx = 0, vae = Link("3"), image = Link("60") });
+            guided = "61";
+        }
         var key = H3Presets.Key(s.Shot);
         var model = "1";
         if (H3Presets.UsesTurboLora(key) || key == H3HyperFlow.Key) { Node("16", "LoraLoaderModelOnly", new { model = Link("1"), lora_name = sampling.Lora, strength_model = sampling.LoraStrength }); model = "16"; }
@@ -386,7 +424,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             Node("51", H3Presets.Node(key), recipe); model = "51";
         }
         if (key is "larry" or "spectrum") scheduleModel = model;
-        Node("6", "BasicGuider", new { model = Link(model), conditioning = Link("5") });
+        Node("6", "BasicGuider", new { model = Link(model), conditioning = Link(guided) });
         Node("7", "RandomNoise", new { noise_seed = seed });
         if (key == "larry") Node("8", "MiniMaxH3TurboSampler", new { });
         else Node("8", "KSamplerSelect", new { sampler_name = sampling.Sampler });
@@ -394,11 +432,11 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         // video-shifted sigmas directly, so do not pass these through BasicScheduler.
         if (key == H3HyperFlow.Key) Node("9", "ManualSigmas", new { sigmas = s.Preset!.Inputs.GetProperty("sigmas").GetString()! });
         else if (key != "pdd") Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = sampling.Scheduler, steps = sampling.Steps, denoise = 1.0 });
-        Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas = key == "pdd" ? Link("51", 1) : Link("9"), latent_image = Link("5", ReelRefMods.Uses(s.Shot) ? 2 : 1) });
+        Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas = key == "pdd" ? Link("51", 1) : Link("9"), latent_image = Link("5", latent) });
         var output = H3PreviewUpscaling.Apply(s, Node);
         if (s.CaptureRefinementData)
         {
-            Node("20", "LumibelleH3CaptureV1", new { protocol = "lumibelle-h3-v1", latent = Link("10", 1), conditioning = Link("5"),
+            Node("20", "LumibelleH3CaptureV1", new { protocol = "lumibelle-h3-v1", latent = Link("10", 1), conditioning = Link(guided),
                 context = JsonSerializer.Serialize(RefinementPackages.Context(s, null), AtomicJsonFile.Options), package_id = clientId, width = s.Width, height = s.Height, frames = s.FrameCount });
             output = "20";
         }

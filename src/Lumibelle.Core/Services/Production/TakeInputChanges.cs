@@ -56,10 +56,15 @@ public static class TakeInputChanges
         var scene = ScriptStructure.Sections(blocks).FirstOrDefault(s => s.Kind == ScriptBlockKind.Scene && s.Id == id);
         return scene is null ? null : ReferenceSetups.Hash(blocks.Skip(scene.Start).Take(scene.Count).Select(b => new { b.Kind, b.Text }));
     }
-    private static string References(Shot shot) => ReferenceSetups.Hash(new
+    private static string References(Shot shot)
     {
-        Images = shot.Images.Select(b => new { b.Kind, b.AssetId, b.MediaId, b.Crop, b.AiUseHint, b.InferUsage, b.Use, b.Role, b.RepresentsId, b.LookId, b.Purpose }),
-        Voices = shot.Voices.Select(b => new { b.VoiceId, b.AssetId, b.CharacterAssetId, b.Speaker, b.Start, b.Duration }),
-        Videos = shot.Videos.Select(b => new { b.Media, b.Description, b.EffectiveVisuals, b.Keyframes, b.UseSoundtrack, b.Speaker, b.AudioExcerpt })
-    });
+        var references = ReferenceSetups.Hash(new
+        {
+            Images = shot.Images.Select(b => new { b.Kind, b.AssetId, b.MediaId, b.Crop, b.AiUseHint, b.InferUsage, b.Use, b.Role, b.RepresentsId, b.LookId, b.Purpose }),
+            Voices = shot.Voices.Select(b => new { b.VoiceId, b.AssetId, b.CharacterAssetId, b.Speaker, b.Start, b.Duration }),
+            Videos = shot.Videos.Select(b => new { b.Media, b.Description, b.EffectiveVisuals, b.Keyframes, b.UseSoundtrack, b.Speaker, b.AudioExcerpt })
+        });
+        // Joined only when set, so takes from before starting frames keep their comparison.
+        return shot.StartFrame is null ? references : ReferenceSetups.Hash(new { References = references, shot.StartFrame });
+    }
 }

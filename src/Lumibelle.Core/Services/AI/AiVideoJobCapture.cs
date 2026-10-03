@@ -150,7 +150,7 @@ public static class AiVideoJobPolicy
         if (string.IsNullOrWhiteSpace(file) || file != Path.GetFileName(file) || file.Contains('/') || file.Contains('\\') ||
             !Enum.IsDefined(kind) || Path.GetExtension(file) != Extension(kind)) throw new WorkspaceStoreException("Invalid captured video input file.");
     }
-    public static string Extension(VideoInputKind kind) => kind == VideoInputKind.Video ? ".mp4" : kind == VideoInputKind.Image ? ".png" : ".wav";
+    public static string Extension(VideoInputKind kind) => kind == VideoInputKind.Video ? ".mp4" : kind is VideoInputKind.Image or VideoInputKind.StartFrame ? ".png" : ".wav";
     public static void Validate(AiVideoJobRequest r)
     {
         if (r.Version is not (1 or 2 or 3) || r.BatchId == Guid.Empty || r.Snapshot is null || r.Inputs is null || r.Inputs.Any(i => i is null) ||

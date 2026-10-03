@@ -69,8 +69,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(video, 'timeupdate', () => { if (!video.paused && !video.requestVideoFrameCallback) { index = frameAt(video.currentTime, fps, count); seek.value = index; } });
     on(video, 'error', () => notify(lossless ? 'Video playback is unavailable. You can still browse and save archived frames.' : 'Video playback is unavailable. Frame extraction remains available if the saved MP4 can be read by FFmpeg.'));
     on(root.querySelector('[data-action=play]'), 'click', () => video.paused ? video.play().catch(() => notify('Playback could not start.')) : video.pause());
-    const saveButton = root.querySelector('.take-save-frame');
-    if (saveButton) on(saveButton, 'click', () => video.pause());
+    for (const button of root.querySelectorAll('.take-save-frame, .take-continue-frame')) on(button, 'click', () => video.pause());
     on(root.querySelector('[data-action=previous]'), 'click', () => seekTo(index - 1));
     on(root.querySelector('[data-action=next]'), 'click', () => seekTo(index + 1));
     on(seek, 'input', () => seekTo(Number(seek.value)));

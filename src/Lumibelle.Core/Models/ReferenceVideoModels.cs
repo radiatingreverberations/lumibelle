@@ -27,4 +27,4 @@ public sealed record ShotVideoBinding
     public const string DefaultDescription = "Single-character reference showing appearance from several angles and a clean speaking sample. Use for identity and voice timbre; do not copy the background, camera movement, actions, or spoken words.";
 }
 
-public enum VideoInputKind { Image, Video, VideoSoundtrack, Audio }
+public enum VideoInputKind { Image, Video, VideoSoundtrack, Audio, StartFrame }
