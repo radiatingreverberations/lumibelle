@@ -449,6 +449,9 @@ else
         <span class="composition-context-tokens" data-context="scene">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { } sceneSize) { @($"≈{sceneSize.SceneTextTokens:N0} tokens") }</span></label>
     <label class="check-row"><input type="checkbox" @bind="_includeNearbyShots" @bind:after="RefreshCompositionSize" /><span>Include the shots before and after</span>
         <span class="composition-context-tokens" data-context="shots">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { NearbyShots: 0 }) { @("none in this scene") } else if (_contextSize is { } shotsSize) { @($"≈{shotsSize.NearbyShotsTokens:N0} tokens") }</span></label>
+    @* References are always sent; the row only shows what they cost. *@
+    <label class="check-row composition-context-fixed" title="References are always sent with the composition."><input type="checkbox" checked disabled /><span>References@(_contextSize is { ReferenceImages: > 0 } refs ? $" · {refs.ReferenceImages} image{(refs.ReferenceImages == 1 ? "" : "s")}" : "")</span>
+        <span class="composition-context-tokens" data-context="references">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { ReferenceImages: 0 }) { @("no images") } else if (_contextSize is { ReferenceTokens: { } referenceTokens }) { @($"≈{referenceTokens:N0} tokens") }</span></label>
 </fieldset>
 @if (_compositionModel?.Model.Backend == AiBackend.ComfyUI && (_compositionStages is not null || _compositionSizeError is not null))
 {

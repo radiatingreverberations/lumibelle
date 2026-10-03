@@ -25,6 +25,16 @@ test('scene text and the neighbouring shots show their size and can be left out 
   await expect(scene).toBeChecked(); await expect(shots).toBeChecked();
   await expect(composer.locator('[data-context=scene]')).toHaveText(/^≈[\d,]+ tokens$/);
   await expect(composer.locator('[data-context=shots]')).toHaveText('none in this scene');
+  // References are always sent, so their row shows only what they cost.
+  const references = composer.getByRole('checkbox', { name: /^References/ });
+  await expect(references).toBeChecked(); await expect(references).toBeDisabled();
+  await expect(composer.locator('[data-context=references]')).toHaveText(/^(no images|≈[\d,]+ tokens)$/);
+  // Each box sits on the middle of its one-line label (measured once the dialog has finished opening).
+  for (const row of await composer.locator('.composition-context .check-row').all())
+    await expect.poll(() => row.evaluate(r => {
+      const box = r.querySelector('input').getBoundingClientRect(), label = r.querySelector('span').getBoundingClientRect();
+      return Math.round(Math.abs((box.top + box.height / 2) - (label.top + label.height / 2)));
+    })).toBeLessThan(3);
   await composer.getByRole('button', { name: 'Close', exact: true }).click();
 
   await shotAction(page, 'Duplicate');

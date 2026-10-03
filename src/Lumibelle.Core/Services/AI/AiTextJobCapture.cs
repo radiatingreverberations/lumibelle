@@ -77,13 +77,25 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     /// The size of the scene text and neighbouring shots a composition would include, so each can be weighed before composing.
     /// Estimated at four characters per token, as for the rest of the prompt.
     /// </summary>
-    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, CancellationToken ct = default)
+    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, TextModelReference? model = null, CancellationToken ct = default)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
         var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
         var context = await ScriptContextAsync(projectId, document, source, shot, ct);
-        return new(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
+        var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
+        // The references are always sent; their images are what they cost. A missing one is reported when composing, not here.
+        try
+        {
+            var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
+            var effective = ShotVideoDefaults.Capture(c.Shot, project);
+            var configured = await settings.LoadAsync(ct);
+            var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
+            if (ReelRefMods.Uses(effective) && refmods is not null) images.AddRange((await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png));
+            if (await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct) is { } opening) images.Add(opening.Bytes);
+            return size with { ReferenceImages = images.Count, ReferenceTokens = model is null ? null : TextImageTokens.Estimate(model, configured, images) };
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
     }
     private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
     {

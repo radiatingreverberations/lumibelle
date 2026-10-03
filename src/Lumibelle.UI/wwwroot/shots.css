@@ -88,7 +88,9 @@
 .take-review-file { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:10px 0; font-size:var(--lumi-font-size-meta); color: var(--lumi-text-muted); }
 .take-review-details details { border-top: 1px solid var(--line); padding:9px 0; }
 .composition-context { border:0; padding:0; margin:12px 0 0; min-width:0; }
-.composition-context .check-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+/* Prompt assistance top-aligns its check rows for wrapped labels; these are one line, with a count beside them. */
+.ai-assist-dialog .composition-context .check-row { display:flex; align-items:center; gap:8px; margin:6px 0; padding:0; line-height:1.4; }
+.composition-context .composition-context-fixed { color: var(--lumi-text-muted); }
 .composition-context .check-row input { flex:none; width:auto; margin:0; }
 .composition-context-tokens { margin-left:auto; padding-left:12px; color: var(--lumi-text-muted); font-weight:400; font-variant-numeric: tabular-nums; white-space:nowrap; }
 .shot-start-frame { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); }

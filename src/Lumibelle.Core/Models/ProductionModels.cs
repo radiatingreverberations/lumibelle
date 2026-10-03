@@ -132,7 +132,12 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public CompositionInput? OpeningFrame { get; init; }
 }
 /// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
-public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots);
+public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots)
+{
+    /// <summary>The images always sent with the references (pictures, RefMod previews and any opening frame), and their estimated tokens for the chosen model.</summary>
+    public int ReferenceImages { get; init; }
+    public int? ReferenceTokens { get; init; }
+}
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {
     // Advisory findings that do not block applying the prompt, such as a rounded duration.
