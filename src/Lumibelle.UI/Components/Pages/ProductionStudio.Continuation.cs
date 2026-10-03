@@ -49,4 +49,9 @@ public partial class ProductionStudio
         if (PreviousProductionTake is { } previous) EditCoverage(s => s.StartFrame = new(previous.Take.Id, previous.Take.FrameCount - 1));
     }
     private void RemoveStartFrame() => EditCoverage(s => s.StartFrame = null);
+
+    /// <summary>The last frame of a shot's production take, as a continuity picture for the shot that copies its references.</summary>
+    private ShotContinuityFrame? LastFrameOf(Shot source) =>
+        _doc.Shots.FirstOrDefault(s => s.Id == source.Id)?.SelectedTakeId is { } id && _doc.Takes.FirstOrDefault(t => t.Id == id) is { } take
+            ? new(Guid.NewGuid(), take.Id, take.FrameCount - 1, $"{source.Title} · last frame") : null;
 }

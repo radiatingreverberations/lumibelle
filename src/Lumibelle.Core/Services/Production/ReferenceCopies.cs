@@ -22,6 +22,8 @@ public static class ReferenceCopies
         var sourceNames = source.Characters.GroupBy(c => c.Name.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         result.Images = ShotCopy.Of(source.Images);
+        // The source's continuity picture belongs to the shot before it; a fresh one is added for the source's own take.
+        result.ContinuityFrame = null;
         foreach (var image in result.Images)
         {
             image.Id = Guid.NewGuid();

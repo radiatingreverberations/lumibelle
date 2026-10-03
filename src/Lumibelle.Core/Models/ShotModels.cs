@@ -127,8 +127,13 @@ public sealed record Shot
     // Takes of this shot open exactly on this frame of an earlier take, for a continuous cut.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ShotStartFrame? StartFrame { get; set; }
+    // A take frame used as a reference picture, numbered after the shot's images: usually the previous shot's last frame.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ShotContinuityFrame? ContinuityFrame { get; set; }
     public Shot Copy() => ShotCopy.Of(this);
 }
+/// <summary>A frame of a saved take used as a Picture reference, read from the take rather than saved to Assets. Id identifies the picture binding.</summary>
+public sealed record ShotContinuityFrame(Guid Id, Guid TakeId, int Frame, string Name);
 /// <summary>A frame of a saved take, by zero-based index. Take frames never change, so the take and index identify the image.</summary>
 public sealed record ShotStartFrame(Guid TakeId, int Frame);
 public sealed record ShotRecovery(Guid Id, DateTimeOffset CreatedUtc, string Reason, List<Shot> Shots)

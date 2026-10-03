@@ -64,6 +64,13 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
             else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
             run.Inputs.Add(new(name,false));
         }
+        if (run.Snapshot.Shot.ContinuityFrame is { } continuity)
+        {
+            var name=$"image-{run.Inputs.Count:D2}.png";
+            if (shots is not null) await File.WriteAllBytesAsync(Path.Combine(folder,name),await lumibelle.Services.Production.ProductionInputs.ContinuityPngAsync(run.Snapshot.ProjectId,continuity,shots,ct),ct);
+            else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
+            run.Inputs.Add(new(name,false));
+        }
         if (run.Snapshot.Shot.Videos.Count > 0)
             await (referenceVideos ?? throw new WorkspaceStoreException("Missing reference video fixture store.")).PrepareAsync(run.Snapshot.ProjectId, run.Snapshot.Shot, folder, run.Inputs, run.Snapshot.Settings, ct);
         foreach(var voice in run.Snapshot.Shot.Voices)

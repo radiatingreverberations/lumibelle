@@ -91,6 +91,10 @@
 .shot-start-frame img { width:96px; aspect-ratio:16 / 9; object-fit:cover; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
 .shot-start-frame-text { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }
 .shot-controls button.shot-start-from-previous { justify-self:start; border-style:dashed; }
+.reference-continuity-frame { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:10px; align-items:center; margin:8px 0; padding:8px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); }
+.reference-continuity-frame img { width:96px; aspect-ratio:16 / 9; object-fit:cover; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.reference-continuity-frame div { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }
+.shot-input-continuity { display:block; width:240px; max-width:100%; border-radius: var(--lumi-radius-control); }
 .shot-candidates { max-height:70vh; overflow:auto; }
 .shot-candidate { padding:10px; border: 1px solid var(--line); border-radius: var(--lumi-radius-surface); margin-bottom:10px; }
 .shot-candidate img { display:block; width:100%; height:90px; object-fit:contain; }

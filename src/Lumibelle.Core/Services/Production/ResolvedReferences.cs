@@ -2,7 +2,10 @@ using lumibelle.Models;
 
 namespace lumibelle.Services.Production;
 
-public sealed record ResolvedPicture(int Number, Guid BindingId, ShotImageBinding? Image, ShotVideoBinding? Reel, ReelKeyframe? Keyframe);
+public sealed record ResolvedPicture(int Number, Guid BindingId, ShotImageBinding? Image, ShotVideoBinding? Reel, ReelKeyframe? Keyframe)
+{
+    public ShotContinuityFrame? Continuity { get; init; }
+}
 public sealed record ResolvedVideo(int Number, int BindingIndex, ShotVideoBinding Reel);
 public sealed record ResolvedAudio(int Number, int? BindingIndex, ShotVideoBinding? Reel, ShotVoiceBinding? Voice)
 {
@@ -25,6 +28,8 @@ public sealed class ResolvedReferences
     {
         var result = new ResolvedReferences { StartFrame = shot.StartFrame };
         foreach (var image in shot.Images) result.Pictures.Add(new(result.Pictures.Count + 1, image.Id, image, null, null));
+        // After the images and before reel keyframes, so existing image numbers stay put.
+        if (shot.ContinuityFrame is { } continuity) result.Pictures.Add(new(result.Pictures.Count + 1, continuity.Id, null, null, null) { Continuity = continuity });
         foreach (var reel in shot.Videos.Where(v => v.EffectiveVisuals == ReelVisuals.Keyframes))
             foreach (var frame in reel.Keyframes?.Frames ?? []) result.Pictures.Add(new(result.Pictures.Count + 1, frame.Id, null, reel, frame));
         for (var i = 0; i < shot.Videos.Count; i++)

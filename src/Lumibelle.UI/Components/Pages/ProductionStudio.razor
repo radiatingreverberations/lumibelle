@@ -228,11 +228,13 @@ else
                             @foreach (var picture in ResolvedReferences.For(shot).Pictures)
                             {
                                 var image = picture.Image; var reel = picture.Reel;
-                                var url = image is not null ? ResolveImage(image).Url : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(Id, picture.Keyframe.Frame) : null;
-                                var name = image?.Name ?? reel?.Name ?? "Unavailable image";
+                                var continuity = picture.Continuity; var continuityTake = continuity is null ? null : _doc.Takes.FirstOrDefault(t => t.Id == continuity.TakeId);
+                                var url = image is not null ? ResolveImage(image).Url : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(Id, picture.Keyframe.Frame)
+                                    : continuityTake is not null ? TakeUrl(continuityTake.Id, continuity!.Frame) : null;
+                                var name = image?.Name ?? reel?.Name ?? continuity?.Name ?? "Unavailable image";
                                 var media = _assets.Assets.FirstOrDefault(a => a.Id == image?.AssetId)?.Images.FirstOrDefault(i => i.Id == image?.MediaId);
                                 <button class="shot-reference-tile" title="@($"Picture {picture.Number} · {name}")" aria-label="@($"Preview Picture {picture.Number} · {name}")" @onclick="() => PreviewPicture(picture.Number)">
-                                    @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
+                                    @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? continuityTake?.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? continuityTake?.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
                                     else { <span class="shot-reference-unavailable">Unavailable</span> }
                                     <span class="shot-reference-number">@picture.Number</span>
                                     <span class="shot-reference-name">@name</span>
@@ -595,7 +597,7 @@ else
 <InlineDialog Visible="_referenceOpen" VisibleChanged="ImageEditorVisibility" Options="@(LargeDialog with { CloseOnEscapeKey = !_imageEditorSaving })" Class="manual-reference-dialog shot-reference-dialog"
               Title="Manage references" Context="@_imageEditorShot?.Title" CloseLabel="Close manage references" CloseDisabled="_imageEditorSaving">
     <DialogContent>@if (_referenceOpen && _imageEditorShot is not null) {
-        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
+        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
     }</DialogContent>
 </InlineDialog>
 

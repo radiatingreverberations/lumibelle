@@ -1,4 +1,4 @@
-import { generateTakes, composeProduction, closeShotSetup } from './workspace-tools.js';
+import { generateTakes, composeProduction, closeShotSetup, shotAction } from './workspace-tools.js';
 import { planningComposer, submitPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
@@ -71,4 +71,44 @@ test('a paused take frame starts a new shot that opens on it, and its takes and 
   await page.getByRole('button', { name: 'Remove the starting frame', exact: true }).click();
   await expect(card).toBeHidden();
   await expect.poll(async () => (await shots(request, project)).shots[1].startFrame ?? null).toBeNull();
+});
+
+test('copying references from the previous shot adds its production take\'s last frame as a continuity picture', async ({ page, request }) => {
+  test.setTimeout(120000);
+  const project = await setup(page, request);
+  await composeProduction(page);
+  await generateTakes(page);
+  const review = page.locator('.shot-review-dialog');
+  await expect(review).toBeVisible({ timeout: 20000 });
+  await review.getByRole('button', { name: 'Use this take', exact: true }).first().click();
+  await expect.poll(async () => (await shots(request, project)).shots[0].selectedTakeId ?? null).not.toBeNull();
+  await review.getByRole('button', { name: 'Close take review', exact: true }).click();
+  await expect(review).toBeHidden();
+  const { shots: [source], takes } = await shots(request, project);
+  const take = takes.find(t => t.id === source.selectedTakeId);
+
+  await shotAction(page, 'Duplicate');
+  await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
+  const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
+  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await picker.getByLabel('Copy references from').selectOption('previous');
+  const continuity = picker.getByRole('group', { name: 'Continuity picture' });
+  await expect(continuity).toContainText(`${source.title} · last frame`);
+  await expect(continuity.locator('img')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${take.id}/frames/38`);
+  await expect(picker).toContainText('added as a continuity picture');
+  await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
+  await expect(picker).toBeHidden();
+  await expect(page.locator('.shot-reference-tile').filter({ hasText: `${source.title} · last frame` })).toBeVisible();
+  const copy = (await shots(request, project)).shots[1];
+  await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/production`)).json()).shotContent?.find(c => c.shotId === copy.id)?.continuityFrame ?? null)
+    .toMatchObject({ takeId: take.id, frame: 38 });
+
+  // The composer sees it as one more Picture, numbered after the images.
+  const before = (await (await request.get('/fixtures/compositions')).json()).length;
+  await composeProduction(page);
+  const compositions = await (await request.get('/fixtures/compositions')).json();
+  expect(compositions.length).toBe(before + 1);
+  const composed = compositions.at(-1);
+  expect(composed.context.continuityPicture.picture).toBe(composed.context.references.length + 1);
+  expect(composed.images.length).toBe(composed.context.references.length + 1);
 });

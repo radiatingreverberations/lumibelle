@@ -65,6 +65,7 @@ public static class TakeInputChanges
             Videos = shot.Videos.Select(b => new { b.Media, b.Description, b.EffectiveVisuals, b.Keyframes, b.UseSoundtrack, b.Speaker, b.AudioExcerpt })
         });
         // Joined only when set, so takes from before starting frames keep their comparison.
-        return shot.StartFrame is null ? references : ReferenceSetups.Hash(new { References = references, shot.StartFrame });
+        if (shot.StartFrame is not null) references = ReferenceSetups.Hash(new { References = references, shot.StartFrame });
+        return shot.ContinuityFrame is null ? references : ReferenceSetups.Hash(new { References = references, Continuity = new { shot.ContinuityFrame.TakeId, shot.ContinuityFrame.Frame } });
     }
 }

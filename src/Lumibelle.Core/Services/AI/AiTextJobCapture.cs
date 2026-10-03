@@ -36,7 +36,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(projectId, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
         if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective) || effective.StartFrame is not null) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
-        var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3);
+        var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3, shots);
         var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
         var modFrames = ReelRefMods.Uses(effective)
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)

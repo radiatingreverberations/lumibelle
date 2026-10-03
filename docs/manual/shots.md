@@ -14,7 +14,7 @@ The right panel summarizes references and provides **Prompt** and **Generation s
 
 ## References
 
-Choose ordered images and crops in **References**, with optional advisory **AI use hints**. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.
+Choose ordered images and crops in **References**, with optional advisory **AI use hints**. **Copy references from** replaces the draft's references with another shot's. Copying from the previous shot also adds the last frame of its production take as a continuity picture, numbered after the images, so wardrobe, props and the set carry across the cut. It is read from the take rather than saved to Assets; **Remove** drops it before you apply. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.
 
 ### LoRAs
 

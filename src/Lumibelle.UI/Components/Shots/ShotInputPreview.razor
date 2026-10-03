@@ -15,6 +15,10 @@
         <p><span class="@(ReferenceSetups.IsAnchor(selected) ? "frame-anchor-badge" : "")">@(selected.Purpose is { } purpose ? ShotLooks.Label(purpose) : selected.Use is { } use ? ReferenceSetups.UseLabel(use) : selected.Role)</span> @if (ShotReferences.Characters(Shot).FirstOrDefault(c => c.Id == selected.RepresentsId) is { } character) { <span>· Represents @character.Name</span> }</p>
         <p class="preservation-text">@(Guidance.FirstOrDefault(g => g.BindingId == selected.Id)?.Effective ?? selected.PreservationOverride ?? selected.Notes)</p>
     }
+    @if (ResolvedReferences.For(Shot).Pictures.FirstOrDefault(p => p.Continuity is not null) is { Continuity: { } continuity } continuityPicture) {
+        <p>Picture @continuityPicture.Number · @continuity.Name · continuity</p>
+        <img class="shot-input-continuity" src="@($"/media/projects/{ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}")" alt="Submitted continuity picture" loading="lazy" />
+    }
     @foreach (var picture in ResolvedReferences.For(Shot).Pictures.Where(p => p.Keyframe is not null)) {
         <p>Picture @picture.Number · @picture.Reel!.Name · @picture.Keyframe!.Frame.Seconds.ToString("0.###") s</p>
         <CropThumbnail MeasureImage="true" Url="@ReferenceVideos.FrameUrl(ProjectId, picture.Keyframe.Frame)" Label="Submitted keyframe" Width="picture.Reel.Media.Width" Height="picture.Reel.Media.Height" Crop="picture.Keyframe.Crop" ThumbnailWidth="240" ThumbnailHeight="180" />

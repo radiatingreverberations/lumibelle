@@ -242,6 +242,12 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (voice is null || content is null || v.Start + v.Duration > voice.Duration + .01) throw new WorkspaceStoreException("A voice reference is missing, in Trash, or has an invalid excerpt.");
         }
         if (s.Shot.StartFrame is not null) await StartTakeAsync(s, ct);
+        if (s.Shot.ContinuityFrame is { } continuity)
+        {
+            var source = (await shots.LoadAsync(s.ProjectId, ct)).Takes.FirstOrDefault(t => t.Id == continuity.TakeId);
+            if (source is null || continuity.Frame >= source.FrameCount)
+                throw new WorkspaceStoreException($"The take of the continuity picture “{continuity.Name}” is in Trash or was deleted. Restore it, or remove the picture.");
+        }
     }
     /// <summary>The take a shot starts from, after checking it is still in the project and matches the shot's frame shape.</summary>
     private async Task<ShotTake> StartTakeAsync(VideoSnapshot s, CancellationToken ct)
@@ -264,6 +270,12 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (source is null) throw new WorkspaceStoreException("An image disappeared before it could be captured.");
             var file = $"image-{run.Inputs.Count:D2}.png";
             await File.WriteAllBytesAsync(Path.Combine(folder, file), await ComfyReferenceImageEditor.PrepareSourcePngAsync(source.Content, b.Crop, ct), ct);
+            run.Inputs.Add(new(file, false));
+        }
+        if (run.Snapshot.Shot.ContinuityFrame is { } continuity)
+        {
+            var file = $"image-{run.Inputs.Count:D2}.png";
+            await File.WriteAllBytesAsync(Path.Combine(folder, file), await ProductionInputs.ContinuityPngAsync(run.Snapshot.ProjectId, continuity, shots, ct), ct);
             run.Inputs.Add(new(file, false));
         }
         if (run.Snapshot.Shot.Videos.Count > 0)

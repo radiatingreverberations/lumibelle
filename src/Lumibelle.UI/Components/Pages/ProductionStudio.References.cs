@@ -122,9 +122,10 @@ public partial class ProductionStudio
                     Notify(others == 0 ? "Reel replaced." : $"Reel replaced in this shot and {(others == 1 ? "1 other shot" : $"{others} other shots")}.");
                     return;
                 }
-                if (Json(Selected!.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices)) {
+                if (Json(Selected!.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices) || Json(Selected.ContinuityFrame) != Json(draft.ContinuityFrame)) {
                     if (!_referenceUndoRecorded) { Remember(); _referenceUndoRecorded = true; }
-                    Current!.Shot.Images = ShotCopy.Of(draft.Images); Current.Shot.Videos = ShotCopy.Of(draft.Videos); Current.Shot.Voices = ShotCopy.Of(draft.Voices); Current.Shot.CharacterVoices = draft.CharacterVoices is null ? null : ShotCopy.Of(draft.CharacterVoices); Changed();
+                    Current!.Shot.Images = ShotCopy.Of(draft.Images); Current.Shot.Videos = ShotCopy.Of(draft.Videos); Current.Shot.Voices = ShotCopy.Of(draft.Voices); Current.Shot.CharacterVoices = draft.CharacterVoices is null ? null : ShotCopy.Of(draft.CharacterVoices);
+                    Current.Shot.ContinuityFrame = draft.ContinuityFrame; Changed();
                     _imageEditorShot = Selected.Copy(); // Retrying a failed save does not add another Undo entry.
                 }
                 if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save references.");

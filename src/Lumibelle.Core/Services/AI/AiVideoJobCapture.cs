@@ -77,7 +77,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         {
             if (document.Shots.FirstOrDefault(s => s.Id == shot.Id) is not { } savedSource || ProductionPolicy.SourceFingerprint(savedSource) != composition.SourceFingerprint) throw new WorkspaceConflictException();
             if (ProductionPolicy.Issue(composition, library, document, project) is { } issue) throw new WorkspaceStoreException(issue);
-            var imageData = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, configured.H3);
+            var imageData = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, configured.H3, shots);
             var identities = imageData.Select(i => i.Identity).ToArray();
             var capturedPrompt = new CompositionPromptRevision(Guid.NewGuid(), DateTimeOffset.UtcNow, composition.Prompt, composition.ReferenceUsage,
                 ProductionPolicy.ContextFingerprint(composition, library, document, project), composition.SourceFingerprint, Images: identities);

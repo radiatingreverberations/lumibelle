@@ -35,7 +35,16 @@
         </BrowserNotice>
         <Selection>
             <h3>@(AllowReels ? "Images" : "Selected references") · @_draft.Images.Count/9</h3>
-            @if (_draft.Images.Count == 0) { <p>Choose images from the library. Their order becomes the Picture numbering in your prompt.</p> }
+            @if (_draft.Images.Count == 0 && _draft.ContinuityFrame is null) { <p>Choose images from the library. Their order becomes the Picture numbering in your prompt.</p> }
+            @if (_draft.ContinuityFrame is { } continuity)
+            {
+                var continuityNumber = ResolvedReferences.For(_draft).Pictures.Single(p => p.Continuity is not null).Number;
+                <div class="reference-continuity-frame" role="group" aria-label="Continuity picture">
+                    <img src="@($"/media/projects/{Library.ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}")" alt="@($"Picture {continuityNumber}")" loading="lazy" />
+                    <div><strong>@(AllowReels ? $"<Picture {continuityNumber}>" : $"Picture {continuityNumber}") · Continuity</strong><span>@continuity.Name</span><span class="field-hint">Read from the take, after the images.</span></div>
+                    <button type="button" aria-label="Remove the continuity picture" disabled="@_busy" @onclick="() => _draft.ContinuityFrame = null">Remove</button>
+                </div>
+            }
             <ol class="manual-reference-list">
                 @foreach (var binding in _draft.Images)
                 {

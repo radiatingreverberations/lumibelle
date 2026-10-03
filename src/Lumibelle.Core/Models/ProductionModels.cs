@@ -64,12 +64,15 @@ public sealed record ShotProductionContent
     // LoRAs chosen for this shot in every setup, on top of each setup's preset LoRAs.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ShotContinuityFrame? ContinuityFrame { get; set; }
 
     public static ShotProductionContent From(ProductionComposition c) => ShotCopy.Of(new ShotProductionContent {
         ShotId = c.ShotId, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
         ReferenceUsage = c.ReferenceUsage, AppliedJobId = c.AppliedJobId, ReviewJobId = c.ReviewJobId,
         AcceptedRevisionId = c.AcceptedRevisionId, History = c.History, CharacterVoices = c.Shot.CharacterVoices,
-        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras
+        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras,
+        ContinuityFrame = c.Shot.ContinuityFrame
     });
     public void Apply(ProductionComposition c)
     {
@@ -79,6 +82,7 @@ public sealed record ShotProductionContent
         c.AcceptedRevisionId = copy.AcceptedRevisionId; c.History = copy.History;
         c.Shot.CharacterVoices = copy.CharacterVoices; c.Shot.Images = copy.Images;
         c.Shot.Voices = copy.Voices; c.Shot.Videos = copy.Videos; c.Shot.AspectOverride = copy.AspectOverride; c.Shot.ShotLoras = copy.Loras;
+        c.Shot.ContinuityFrame = copy.ContinuityFrame;
     }
 }
 
