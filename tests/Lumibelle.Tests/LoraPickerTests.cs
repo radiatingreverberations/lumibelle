@@ -34,6 +34,12 @@ public sealed class LoraPickerTests : BunitContext
         ui.Find("button[aria-label='Remove Film']").Click();
         Assert.Equal([new LoraSelection(mouse.Reference, .55f)], published[^1]);
 
+        // A parent that re-renders before taking in the edits passes its older list again; the published edits stay.
+        ui.Render(p => p.Add(c => c.Selections, [new(mouse.Reference, .75f), new(film.Reference, 1.2f)]));
+        Assert.Equal([new LoraSelection(mouse.Reference, .55f)], published[^1]);
+        Assert.Single(ui.FindAll(".lora-row"));
+        Assert.Equal("0.55", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
+
         // New parameters from the parent are authoritative again.
         ui.Render(p => p.Add(c => c.Selections, [new(mouse.Reference, .9f)]));
         Assert.Equal("0.9", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
