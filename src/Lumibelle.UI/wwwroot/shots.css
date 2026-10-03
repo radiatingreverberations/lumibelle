@@ -233,8 +233,9 @@
 .shot-setup-summary .eyebrow { margin:0 0 4px; }
 .shot-setup-tools { display:flex; align-items:center; gap:2px; }
 .shot-setup-summary .shot-setup-actions { margin-top:8px; }
+.shot-prompt-step { margin:12px 0 8px; }
 .shot-setup-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
-:is(.shot-controls, .reel-tools) .shot-setup-summary .shot-setup-actions > button { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; text-align:left; }
+:is(.shot-controls, .reel-tools) :is(.shot-setup-summary, .workspace-pane-footer) .shot-setup-actions > button { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; text-align:left; }
 .shot-setup-actions small { font-size:var(--lumi-font-size-small); color:var(--muted); text-align:right; }
 .workspace-pane:is(.shot-controls, .reel-tools) button.generation-preset-name { padding:4px 0; margin:0; border:0; border-radius:0; background:transparent; color:var(--ink); font:inherit; text-align:left; overflow-wrap:anywhere; }
 .generation-preset-name:hover { text-decoration:underline; text-underline-offset:3px; }
@@ -248,7 +249,7 @@
 .output-aspect-options { font-size:var(--lumi-font-size-small); color:var(--muted); }
 .output-aspect-options > summary { cursor:pointer; }
 @media (pointer:coarse) {
-    :is(.shot-controls, .reel-tools) .shot-setup-summary .shot-setup-actions > button,
+    :is(.shot-controls, .reel-tools) :is(.shot-setup-summary, .workspace-pane-footer) .shot-setup-actions > button,
     .workspace-pane:is(.shot-controls, .reel-tools) .generation-preset-name,
     .workspace-pane:is(.shot-controls, .reel-tools) .generation-output :is(select,input) { min-height:44px; }
 }

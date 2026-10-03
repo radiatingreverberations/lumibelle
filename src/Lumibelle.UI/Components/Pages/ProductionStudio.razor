@@ -202,9 +202,6 @@ else
                                 <MudMenuItem role="menuitem" OnClick="@(() => OpenSetupDialog("Settings"))">Edit preset…</MudMenuItem>
                             </MudMenu>
                         </span>
-                        <div class="shot-setup-actions">
-                            <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
-                        </div>
                     </div>
                 }</Header>
                 <ChildContent>@if (Selected is { } shot) {
@@ -319,7 +316,11 @@ else
                         @if (Current?.OutputOverrides is not null) { <div class="output-override-note"><span>This shot</span><button @onclick="ResetOutput">Use preset defaults</button></div> }
                         @if (SceneAspectOthers(shot) is { Count: > 0 } others) { <details class="output-aspect-options"><summary>Aspect options</summary><button class="shot-aspect-scene" @onclick="() => ApplyAspectToScene(others)">@SceneAspectAction(shot, others.Count)</button></details> }
                     </fieldset>
-                    @if (GenerationIssue is { } issue) { <p role="status">@issue <button @onclick="ReviewGenerationIssue">@GenerationIssueAction</button></p> }
+                    @* References come first in this panel, so the prompt, written from them, is the step before generating. *@
+                    <div class="shot-setup-actions shot-prompt-step">
+                        <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                    </div>
+                    @if (GenerationIssue is { } issue) { <p role="status">@issue @if (GenerationIssueAction != "Review prompt") { <button @onclick="ReviewGenerationIssue">@GenerationIssueAction</button> }</p> }
                     var activeVideo = ActiveVideoJob;
                     var videoAttention = VideoAttention;
                     var batchJob = activeVideo ?? videoAttention;
