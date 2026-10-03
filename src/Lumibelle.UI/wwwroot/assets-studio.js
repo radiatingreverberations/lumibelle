@@ -146,13 +146,35 @@ window.lumibelleAssets = {
                 .find(button => button.getAttribute('aria-label') === label)?.focus();
         }));
     },
+    // Rename opens from a menu, which gives focus back to its button as it closes; on a slow machine that came after the
+    // name was focused. So wait for the field and for the menu to let go of focus. (A rename dialog applies no initial
+    // focus of its own, so its focus trap cannot take the name's focus either.)
     focusMediaName(id) {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            const input = document.querySelector(`.media-details-dialog [data-media-name="${CSS.escape(id)}"]`);
-            const active = document.activeElement;
-            if (!input || (active !== input && input.closest('.media-details-dialog')?.contains(active) && active.matches('input,textarea,select'))) return;
-            input.focus(); input.select();
-        }));
+        return new Promise(resolve => {
+            const started = performance.now();
+            const attempt = () => {
+                const input = document.querySelector(`.media-details-dialog [data-media-name="${CSS.escape(id)}"]`);
+                const active = document.activeElement;
+                // A closing menu keeps its popover open briefly and then gives focus back to its button: wait for that, at most a second.
+                const menuClosing = document.querySelector('.mud-popover-open .mud-menu-list, .mud-popover-open .mud-list') && performance.now() - started < 1000;
+                const waiting = !input || active?.closest('.mud-menu-item, .mud-list, .mud-popover') || (active === document.body && menuClosing);
+                if (waiting) { if (performance.now() - started < 3000) requestAnimationFrame(attempt); else resolve(false); return; }
+                // Never move typing that has already started in another field of the dialog.
+                if (active !== input && input.closest('.media-details-dialog')?.contains(active) && active.matches('input,textarea,select')) { resolve(false); return; }
+                input.focus(); input.select(); resolve(true);
+                // If the menu still hands focus back to its button after this, take it back once, unless the user clicked or typed.
+                let acted = false;
+                const act = () => { acted = true; };
+                const back = event => {
+                    if (acted || !input.isConnected || !event.target.closest?.('.mud-menu')) return;
+                    stop(); input.focus(); input.select();
+                };
+                const stop = () => { document.removeEventListener('focusin', back, true); document.removeEventListener('pointerdown', act, true); document.removeEventListener('keydown', act, true); };
+                document.addEventListener('focusin', back, true); document.addEventListener('pointerdown', act, true); document.addEventListener('keydown', act, true);
+                setTimeout(stop, 1500);
+            };
+            requestAnimationFrame(() => requestAnimationFrame(attempt));
+        });
     },
     focusReview(label) {
         requestAnimationFrame(() => requestAnimationFrame(() => {

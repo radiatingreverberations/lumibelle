@@ -2,7 +2,10 @@ using lumibelle.Models;
 
 namespace lumibelle.Services.Production;
 
-public sealed record ResolvedPicture(int Number, Guid BindingId, ShotImageBinding? Image, ShotVideoBinding? Reel, ReelKeyframe? Keyframe);
+public sealed record ResolvedPicture(int Number, Guid BindingId, ShotImageBinding? Image, ShotVideoBinding? Reel, ReelKeyframe? Keyframe)
+{
+    public ShotContinuityFrame? Continuity { get; init; }
+}
 public sealed record ResolvedVideo(int Number, int BindingIndex, ShotVideoBinding Reel);
 public sealed record ResolvedAudio(int Number, int? BindingIndex, ShotVideoBinding? Reel, ShotVoiceBinding? Voice)
 {
@@ -19,10 +22,14 @@ public sealed class ResolvedReferences
     public List<ResolvedPicture> Pictures { get; } = [];
     public List<ResolvedVideo> Videos { get; } = [];
     public List<ResolvedAudio> Audio { get; } = [];
+    /// <summary>The frame takes open on: uploaded with the references, but anchored as the first frame rather than referenced by a label.</summary>
+    public ShotStartFrame? StartFrame { get; private init; }
     public static ResolvedReferences For(Shot shot)
     {
-        var result = new ResolvedReferences();
+        var result = new ResolvedReferences { StartFrame = shot.StartFrame };
         foreach (var image in shot.Images) result.Pictures.Add(new(result.Pictures.Count + 1, image.Id, image, null, null));
+        // After the images and before reel keyframes, so existing image numbers stay put.
+        if (shot.ContinuityFrame is { } continuity) result.Pictures.Add(new(result.Pictures.Count + 1, continuity.Id, null, null, null) { Continuity = continuity });
         foreach (var reel in shot.Videos.Where(v => v.EffectiveVisuals == ReelVisuals.Keyframes))
             foreach (var frame in reel.Keyframes?.Frames ?? []) result.Pictures.Add(new(result.Pictures.Count + 1, frame.Id, null, reel, frame));
         for (var i = 0; i < shot.Videos.Count; i++)
@@ -56,6 +63,7 @@ public sealed class ResolvedReferences
         }
         result.AddRange(Audio.Where(a => a.Reel?.EffectiveVisuals != ReelVisuals.FullReel).Select(a => (VideoInputKind.Audio, a.BindingIndex)));
         // RefMods are server-side references captured in the shot snapshot, not uploaded media.
+        if (StartFrame is not null) result.Add((VideoInputKind.StartFrame, null));
         return result;
     }
     public string Label(ShotVideoBinding reel) => string.Join(" · ",

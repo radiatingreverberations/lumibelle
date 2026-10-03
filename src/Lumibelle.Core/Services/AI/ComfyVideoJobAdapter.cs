@@ -60,6 +60,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         {
             if (ReelRefMods.Uses(s.Shot) && configuration.RefModIssue is { } refmodIssue) throw new WorkspaceStoreException(refmodIssue);
             if (s.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) && configuration.VideoReferenceIssue is { } videoIssue) throw new WorkspaceStoreException(videoIssue);
+            if (s.Shot.StartFrame is not null && configuration.StartFrameIssue is { } startIssue) throw new WorkspaceStoreException(startIssue);
             H3Presets.CheckSubmission(s, configuration);
             H3PreviewUpscaling.CheckSubmission(s, configuration);
             if (s.CaptureRefinementData && !configuration.PackageCaptureReady) throw new WorkspaceStoreException("Install the Lumibelle H3 companion nodes to capture refinement data.");

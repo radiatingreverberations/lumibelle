@@ -10,11 +10,11 @@ The shot list groups shots by script scene. Click a scene heading to collapse it
 
 **Draft shot**, at the right of the shot heading, drafts the selected shot with AI from its scene in the saved script, for example after **+ Shot** when the breakdown missed a moment. The scene's other shots are sent as context, so the draft covers something they don't unless your directions say otherwise; a shot that already has action or dialogue is sent too, for the directions to revise. Review the proposed title, duration, action, dialogue, cast and sound, then **Apply to this shot** or **Dismiss** it. Applying keeps the shot's references, takes and existing cast, and **Undo** restores the previous version.
 
-The right panel summarizes references and provides **Prompt** and **Generation settings** dialogs. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
+The right panel lists the references first. Its footer then has the output settings, **Prompt** with the prompt's status, and **Generate takes**; at the top, the preset's name is a dropdown that switches presets, and the pencil beside it opens **Generation settings** to edit the one in use. A shot that [continues from a frame](#continue-from-a-frame) shows **Starts from** with that frame above its references. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
 
 ## References
 
-Choose ordered images and crops in **References**, with optional advisory **AI use hints**. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.
+Choose ordered images and crops in **References**, with optional advisory **AI use hints**. **Copy references from** replaces the draft's references with another shot's. Copying from the previous shot also adds the last frame of its production take as a continuity picture, numbered after the images, so wardrobe, props and the set carry across the cut. **Add the last frame of …**, under the images, adds it without replacing the other references; it needs a production take for that shot. The frame is read from the take rather than saved to Assets; **Remove** drops it before you apply. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.
 
 ### LoRAs
 
@@ -35,5 +35,13 @@ Reference or shot changes preserve your prompt and show **Check prompt**. **Clea
 [Reviewing generated takes](https://lumibelle.ai/media/manual/shots-take-review.mp4)
 
 The dedicated **Takes** view shows large previews, newest first, with a selected badge and an optional setup filter. Retries and **One more take** reuse their batch's captured inputs.
+
+Click a take to review it. The player steps through single frames with **‹ ›** or the `[` and `]` keys. Below it, **Save frame to Assets** saves the paused frame as an image, and **Continue from this frame** makes a shot start from it. Under the player are the take's settings and any changes since it was made, **Improve quality**, and its details: the file and **Download MP4**, the generation details, timings, LoRAs and the references it was submitted with. The takes of the same batch are listed beside the player, each with **Use this take** and **Discard**.
+
+### Continue from a frame
+
+**Continue from this frame** asks which shot should open on the paused frame. **A new shot after** the take's shot is added in the same scene, with the same cast and sound, called "… (cont.)". **An existing shot** starts there instead, for example when a cutaway sits between the two; it replaces that shot's starting frame. Takes of that shot open exactly on the frame, so they play on from the take. Pause on the last frame to continue where the take ends; when you continue from an earlier frame, trim the first clip in [Cut](cut.md) to end there. The new shot opens with its action and dialogue empty: write them, or use **Draft shot**, which sees the shot before it.
+
+**Starts from**, at the top of the shot's references, shows the frame and its take; **Remove** makes the shot cut in again. **Compose prompt** sees the frame after the references and writes the shot to begin in it and carry on from there, rather than opening differently from the previous shot. The frame needs the same aspect ratio as the shot, and its take can't be discarded while a shot starts from it. A shot that starts from a frame can't also have a first-frame reference. Changing or removing the frame marks the prompt for review and the existing takes as changed.
 
 To assemble takes into a sequence, open the [Cut studio](cut.md).

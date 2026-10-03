@@ -58,7 +58,14 @@ public sealed partial class ShotTests
         Assert.DoesNotContain("left out to keep this request small", messages[0].Text);
         // Reduced script context tells the composer not to invent the scene or neighbouring shots it did not receive.
         var reduced = PromptComposer.BuildMessages(request with { SceneContext = "", NearbyShots = [], ReducedScriptContext = true }, []);
-        Assert.Contains("left out to keep this request small", reduced[0].Text);
+        Assert.Contains("The scene text and neighbouring shots were left out", reduced[0].Text);
+        Assert.Equal(reduced[0].Text, PromptComposer.BuildMessages(request with { SceneContext = "", NearbyShots = [], OmitSceneText = true, OmitNearbyShots = true }, [])[0].Text);
+        // Either part can be left out alone; the composer is told which one it did not receive.
+        var sceneOnly = PromptComposer.BuildMessages(request with { SceneContext = "", OmitSceneText = true }, [])[0].Text;
+        Assert.Contains("The scene text was left out", sceneOnly); Assert.DoesNotContain("neighbouring shots were left out", sceneOnly);
+        var shotsOnly = PromptComposer.BuildMessages(request with { NearbyShots = [], OmitNearbyShots = true }, [])[0].Text;
+        Assert.Contains("The neighbouring shots were left out", shotsOnly); Assert.DoesNotContain("scene text was left out", shotsOnly);
+        Assert.Equal(250, ComfyTextCapacity.TextTokens(new string('x', 1000)));
     }
 
     [Theory]

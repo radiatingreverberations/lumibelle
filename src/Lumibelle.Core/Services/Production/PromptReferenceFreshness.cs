@@ -43,6 +43,7 @@ public static class PromptReferenceFreshness
         return Profile + ReferenceSetups.Hash(new {
             Pictures = resolved.Pictures.Select(p => p.Image is { } image
                 ? Image(image, guidance)
+                : p.Continuity is { } frame ? new { Continuity = new { frame.TakeId, frame.Frame } }
                 : Keyframe(p.Reel!, p.Keyframe!)).ToArray(),
             Videos = resolved.Videos.Select(v => new {
                 v.Number, Name = Text(v.Reel.Name), Description = Text(v.Reel.Description),

@@ -26,7 +26,7 @@
                 <video controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(ProjectId, reel.Media.Id)" aria-label="Play @reel.Name"></video>
                 <strong>@reel.Name</strong><small>@reel.Media.Duration.ToString("0.###") s · @reel.CreatedUtc.ToLocalTime().ToString("g") · @(EnvironmentReel ? "Environment" : PropReel ? "Prop" : Owner.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name ?? "General")</small>
                 <small>@(reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent || !reel.Media.HasAudio ? "Visual reference · soundtrack off by default" : "Soundtrack available")</small>
-                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button @onclick="() => Variation(reel)">Create similar</button><button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
+                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button><button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
             </article>
         }
     </div>
@@ -40,16 +40,16 @@
         <Header>
             @if (_draft is not null) {
                 <div class="shot-setup-summary reel-setup-summary">
-                    <strong><button class="generation-preset-name" @ref="_setupSettingsButton" aria-label="Edit reel preset" disabled="@(_busy || _presetBusy)" @onclick="@(() => OpenSetupDialog("Settings"))">@PresetName</button></strong>
+                    @* As in the shot panel: the name switches setups, and the pencil edits the one in use. *@
+                    <select class="generation-preset-select" aria-label="Generation setup" value="@(ActivePreset?.Id.ToString() ?? "")" disabled="@(_busy || _presetBusy)"
+                        @onfocus="() => PresetMenuChanged(true)" @onchange="e => Guid.TryParse(e.Value?.ToString(), out var id) && id != ActivePreset?.Id ? SelectPreset(id) : Task.CompletedTask">
+                        @if (ActivePreset is null) { <option value="">@PresetName</option> }
+                        @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == ActivePreset?.Id))
+                        { <option value="@setup.Id">@setup.Name@(setup.Archived ? " · Archived" : "")</option> }
+                    </select>
                     <span class="shot-setup-tools">
                         <HelpHint Label="Generation setup" Text="@($"{H3Presets.Label(H3Presets.Key(ReferenceReels.Inputs(_draft)))}. Named presets are shared across shots, reels and projects. Output changes in the footer stay with this reel.")" />
-                        <MudMenu Icon="@Icons.Material.Outlined.Edit" AriaLabel="Change generation setup" Size="Size.Small" Dense="true" Disabled="@(_busy || _presetBusy)" OpenChanged="PresetMenuChanged" Class="shot-setup-switch" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                            @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived)) {
-                                var active = setup.Id == ActivePreset?.Id;
-                                <MudMenuItem role="menuitemradio" aria-checked="@(active ? "true" : "false")" Icon="@(active ? Icons.Material.Outlined.Check : null)" OnClick="@(() => SelectPreset(setup.Id))">@setup.Name</MudMenuItem>
-                            }
-                            <MudDivider /><MudMenuItem role="menuitem" OnClick="@(() => OpenSetupDialog("Settings"))">Edit preset…</MudMenuItem>
-                        </MudMenu>
+                        <button class="shot-setup-edit" @ref="_setupSettingsButton" aria-label="Edit reel preset" title="Edit preset" disabled="@(_busy || _presetBusy)" @onclick="@(() => OpenSetupDialog("Settings"))"><MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-hidden="true" /></button>
                     </span>
                     @if (!CameraReel) {
                         <label class="reel-look-context">Look<select aria-label="Reel look" value="@_draft.LookId" @onchange="ChangeLook" disabled="@(_busy || _presetBusy || _resettingDraft || ActiveComposition is not null || ActiveVideo is not null)">
@@ -57,9 +57,6 @@
                             @foreach (var look in Owner.Looks.Where(l => !l.Archived || l.Id == _draft.LookId)) { <option value="@look.Id" disabled="@look.Archived">@look.Name@(look.Archived ? " · Archived" : "")</option> }
                         </select></label>
                     }
-                    <div class="shot-setup-actions">
-                        <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
-                    </div>
                 </div>
             }
         </Header>
@@ -149,17 +146,21 @@
                     <label>Seconds<input aria-label="Requested seconds" type="number" min="@(ReferenceReels.IsCharacterCapture(_draft) ? 5 : 2)" max="15" step="0.1" @bind="_draft.Duration" @bind:after="Changed" /></label>
                 </div>
             </fieldset>
+            @* As in the shot panel: the prompt is written from the references above, so it is the step before generating. *@
+            <div class="shot-setup-actions shot-prompt-step">
+                <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+            </div>
             @if (_preparing) { <p role="status">Preparing request…</p><button @onclick="CancelPreparation">Cancel preparation</button> }
             @if (!_loraValid) { <p class="field-error">Enter valid LoRA strengths before generating.</p> }
             var videoJob = DisplayVideo;
             <div class="shot-generation-footer">
                 @if (videoJob is { } job && (job.State != AiJobState.Completed || job.RemoteUnconfirmed)) { <div class="reel-request-status"><small>Latest video request · @job.State</small><AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /></div> }
                 <div class="shot-generate-actions">
-                    <MudTooltip Text="Add a prompt and use guidance in Prompt." Disabled="HasPromptPair" Placement="Placement.Top" Inline="false" RootClass="generation-primary-action">
-                        <span class="reel-generate-target" tabindex="@(!HasPromptPair ? 0 : (int?)null)" role="group" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
-                            <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair)" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
-                        </span>
-                    </MudTooltip>
+                    @* Prompt, right above with its status, says what is missing; an overlay hint here covered that button. *@
+                    <span class="reel-generate-target generation-primary-action" tabindex="@(!HasPromptPair ? 0 : (int?)null)" role="group"
+                        title="@(!HasPromptPair ? "Add a prompt and use guidance in Prompt." : null)" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
+                        <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair)" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
+                    </span>
                     @if (videoJob is not null) { <MudButton Class="shot-review-latest" OnClick="() => ViewJob(videoJob)" Color="Color.Primary" Size="Size.Small" aria-label="@(ActiveVideo is null ? "Review latest batch" : "View request")" title="@(ActiveVideo is null ? "Review latest batch" : "View request")">Review</MudButton> }
                 </div>
             </div>
@@ -342,7 +343,7 @@
     }
 </Footer></StudioPane></SectionContent>
 }
-<InlineDialog Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DetailOptions" Class="media-details-dialog reel-details-dialog">
+<InlineDialog Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DetailOptions" Class="media-details-dialog reel-details-dialog" DefaultFocus="_detailsFocus">
 <TitleContent><DialogHeader Title="Reel details" CloseLabel="Close reel details" CloseDisabled="_busy" Close="CloseDetails" /></TitleContent><DialogContent>
     <DialogEscape Pressed="() => { CloseDetails(); return Task.CompletedTask; }" />
     <MediaDetailsFocus NameId="@(_renameDetails ? _details?.Id : null)" Handled="() => _renameDetails = false" />
@@ -354,7 +355,7 @@
     </Status><Tools>
     @if (!_confirmDetailsClose && _details is { } detail) {
         @if (detail.Generation is not null) {
-            <MudButton OnClick="() => Variation(detail)" Disabled="_busy">Create similar</MudButton>
+            <MudButton OnClick="() => Variation(detail)" Disabled="@(_busy || !CanVary(detail))" title="@(CanVary(detail) ? null : VaryBusy)">Create similar</MudButton>
             <MudButton OnClick="() => Regenerate(detail)" Disabled="_busy">Regenerate…</MudButton>
         }
         <MudButton OnClick="() => ManageKeyframes(detail)" Disabled="_busy">Manage keyframes…</MudButton>

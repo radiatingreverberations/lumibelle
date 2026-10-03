@@ -29,13 +29,24 @@ public static class ReferenceVideos
         if (shot.Videos.Count == 0) return; // Do not change legacy input limits or fingerprints.
         foreach (var reel in shot.Videos) { ValidateMedia(reel.Media); if (reel.Keyframes is not null) ValidateKeyframes(reel.Media, reel.Keyframes); }
         var resolved = ResolvedReferences.For(shot);
-        if (shot.Videos.Count > 3 || shot.Videos.Select(v => v.Id).Distinct().Count() != shot.Videos.Count ||
-            shot.Videos.Select(v => v.Media.Id).Distinct().Count() != shot.Videos.Count || resolved.Pictures.Count > 9 ||
-            resolved.Pictures.Select(p => p.BindingId).Distinct().Count() != resolved.Pictures.Count ||
-            resolved.Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.FullReel).Sum(v => v.Reel.Media.Duration) > MaximumSeconds + .001 || resolved.Audio.Count > 3 ||
-            resolved.Pictures.Count + resolved.Videos.Count + resolved.Audio.Count(a => a.Reel?.EffectiveVisuals != ReelVisuals.FullReel) > 12 ||
-            resolved.Audio.Sum(a => a.Voice?.Duration ?? (a.Reel!.EffectiveVisuals == ReelVisuals.FullReel ? a.Reel.Media.Duration : ResolvedReferences.Excerpt(a.Reel).Duration)) > MaximumSeconds + .001)
-            throw new WorkspaceStoreException("Use up to nine pictures, three reels and three enabled audio references, up to 15 seconds of video/audio, and 12 source files in total.");
+        // Each limit is reported on its own, with this shot's count, so it is clear what to change.
+        if (shot.Videos.Count > 3) throw new WorkspaceStoreException($"Use up to three reels; this shot has {shot.Videos.Count}.");
+        if (shot.Videos.Select(v => v.Id).Distinct().Count() != shot.Videos.Count || shot.Videos.Select(v => v.Media.Id).Distinct().Count() != shot.Videos.Count)
+            throw new WorkspaceStoreException("Add each reel only once.");
+        if (resolved.Pictures.Count > 9) throw new WorkspaceStoreException($"Use up to nine pictures, counting reel keyframes; this shot has {resolved.Pictures.Count}.");
+        if (resolved.Pictures.Select(p => p.BindingId).Distinct().Count() != resolved.Pictures.Count) throw new WorkspaceStoreException("Use each picture only once.");
+        var fullReels = resolved.Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.FullReel).ToArray();
+        if (fullReels.Sum(v => v.Reel.Media.Duration) > MaximumSeconds + .001)
+            throw new WorkspaceStoreException($"Full reels can add up to {MaximumSeconds:0} seconds of video in total; these add {Seconds(fullReels.Select(v => (v.Reel.Name, v.Reel.Media.Duration)))}. " +
+                "Use keyframes for one of them instead.");
+        if (resolved.Audio.Count > 3) throw new WorkspaceStoreException($"Use up to three audio references, counting reel soundtracks; this shot has {resolved.Audio.Count}.");
+        var files = resolved.Pictures.Count + resolved.Videos.Count + resolved.Audio.Count(a => a.Reel?.EffectiveVisuals != ReelVisuals.FullReel);
+        if (files > 12) throw new WorkspaceStoreException($"Use up to 12 source files in total across pictures, reels and audio; this shot has {files}.");
+        var audio = resolved.Audio.Select(a => (Name: a.SourceName ?? a.Speaker ?? $"Audio {a.Number}",
+            Seconds: a.Voice?.Duration ?? (a.Reel!.EffectiveVisuals == ReelVisuals.FullReel ? a.Reel.Media.Duration : ResolvedReferences.Excerpt(a.Reel).Duration))).ToArray();
+        if (audio.Sum(a => a.Seconds) > MaximumSeconds + .001)
+            throw new WorkspaceStoreException($"Audio references can add up to {MaximumSeconds:0} seconds in total; these add {Seconds(audio)}. " +
+                "Shorten an excerpt, for example with its audio duration.");
         foreach (var v in shot.Videos)
         {
             ValidateMedia(v.Media);
@@ -63,6 +74,12 @@ public static class ReferenceVideos
         var speakers = AudioMappings(shot).Select(a => a.Speaker?.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToArray();
         if (speakers.Distinct(StringComparer.OrdinalIgnoreCase).Count() != speakers.Length)
             throw new WorkspaceStoreException("Choose only one voice reference for each speaker, including video soundtracks.");
+    }
+    // "20.3 s (Riley voice 10.1 s, Guard voice 10.1 s)": the total and what makes it up.
+    private static string Seconds(IEnumerable<(string Name, double Seconds)> items)
+    {
+        var list = items.ToArray();
+        return $"{list.Sum(i => i.Seconds):0.#} s ({string.Join(", ", list.Select(i => $"{i.Name} {i.Seconds:0.#} s"))})";
     }
     public static void ValidateKeyframes(ReferenceVideoMedia media, ReelKeyframeSet set)
     {

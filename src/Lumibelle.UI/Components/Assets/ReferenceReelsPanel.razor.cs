@@ -466,8 +466,13 @@ public partial class ReferenceReelsPanel
     {
         if (_busy) return;
         if (_details?.Id != reel.Id) { _details = reel; _detailName = reel.Name; _detailGuidance = reel.UseGuidance; _detailLook = reel.LookId; _error = null; }
-        _renameDetails = rename; _confirmDetailsClose = false; _directionsCopyNotice = null; StateHasChanged();
+        _renameDetails = rename; _confirmDetailsClose = false; _directionsCopyNotice = null;
+        // Rename focuses the name itself; the dialog's focus trap must not apply its own initial focus afterwards. Decided
+        // here, not from _renameDetails, which clears once the name has focus and would hand the trap its default back.
+        _detailsFocus = rename ? DefaultFocus.None : null;
+        StateHasChanged();
     }
+    private DefaultFocus? _detailsFocus;
     private void CloseDetails()
     {
         if (_busy) return;
@@ -494,11 +499,18 @@ public partial class ReferenceReelsPanel
     public void ClearDetails() { _details = null; _confirmDetailsClose = false; _renameDetails = false; StateHasChanged(); }
     private Task ClearDraftLook() => Run(async () => { await Flush(); _draft = _draft!.Copy(); _draft.Id = Guid.NewGuid(); _draft.LookId = null; _draft.Revision = 0; _draft.PendingJobId = null; _draft.ResolvedJobs = []; _saved = null; await Save(); });
     public Task Trash(AssetReferenceReel reel) => Run(() => Mutate(revision => Reels.TrashReelAsync(ProjectId, reel.Id, revision)));
+    /// <summary>
+    /// Create similar replaces the Create draft, so it waits for the draft's own work and any reel request to finish. Its buttons
+    /// are disabled meanwhile: a click that did nothing left the details open, for example just after a regeneration was saved.
+    /// </summary>
+    public bool CanVary(AssetReferenceReel reel) => reel.Generation is not null && !_disposed && !_saving && !_preparing && !_resettingDraft &&
+        _enqueue is null && ActiveComposition is null && ActiveVideo is null;
+    private const string VaryBusy = "Available when the current reel request finishes.";
     public Task Variation(AssetReferenceReel reel) => Run(async () =>
     {
-        if (reel.Generation is null || _saving || _preparing || _resettingDraft || _enqueue is not null || ActiveComposition is not null || ActiveVideo is not null) return;
+        if (!CanVary(reel) || reel.Generation is not { } generation) return;
         await Flush(); await SaveDetailFields();
-        var draft = ReferenceReels.SimilarDraft(reel.Generation.Recipe, Owner);
+        var draft = ReferenceReels.SimilarDraft(generation.Recipe, Owner);
         ReferenceReelDraft? saved = null;
         await Mutate(async _ => { saved = await Reels.SaveDraftAsync(ProjectId, draft, 0, _lifetime.Token); return await AssetStore.LoadAsync(ProjectId, _lifetime.Token); });
         _details = null; _draft = saved!; _saved = saved!.Copy(); _saveFailed = false;

@@ -29,13 +29,13 @@ public sealed partial class AiActivityTests : BunitContext
     private static async Task Button(IRenderedComponent<AiActivity> ui, string label)
     {
         ui.WaitForAssertion(() => Assert.Contains(ui.FindAll("button"), b => b.TextContent.Trim() == label));
-        await ui.InvokeAsync(() => ui.FindAll("button").Single(b => b.TextContent.Trim() == label).ClickAsync());
+        await ui.ClickCurrent(() => ui.FindAll("button").Single(b => b.TextContent.Trim() == label));
     }
     private async Task Open(IRenderedComponent<AiActivity> ui)
     {
         // Initialization reads the file store asynchronously. Finish that read before interacting.
         await ui.InvokeAsync(() => _queue.RefreshAsync(_ct));
-        await ui.InvokeAsync(() => ui.Find(".ai-activity-trigger").ClickAsync());
+        await ui.ClickCurrent(() => ui.Find(".ai-activity-trigger"));
     }
     [Fact]
     public async Task RunningElapsedTimeTicksWithoutProviderUpdatesAndResumesFromSavedStart()
@@ -104,11 +104,11 @@ public sealed partial class AiActivityTests : BunitContext
         ui.WaitForAssertion(() => Assert.Contains("0 running · 2 waiting", ui.Markup)); Assert.Contains("Queued in Lumibelle", ui.Markup);
         var second = ui.Find($"[data-job-id='{b.Id}']");
         var next = second.QuerySelectorAll("button").Single(x => x.TextContent == "Run next"); Assert.False(next.HasAttribute("disabled"));
-        await ui.InvokeAsync(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Run next").Click());
+        await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Run next"));
         ui.WaitForAssertion(() => Assert.Equal(b.Id.ToString(), ui.FindAll(".ai-activity-job")[0].GetAttribute("data-job-id")));
-        await ui.InvokeAsync(() => ui.Find("button[aria-label='Pause queue ComfyUI']").Click()); ui.WaitForAssertion(() => Assert.Contains("This provider queue is paused", ui.Markup));
+        await ui.ClickCurrent(() => ui.Find("button[aria-label='Pause queue ComfyUI']")); ui.WaitForAssertion(() => Assert.Contains("This provider queue is paused", ui.Markup));
         Assert.Contains(AiBackend.ComfyUI, (await _store.ReadAsync(_ct)).Paused);
-        await ui.InvokeAsync(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Cancel").Click());
+        await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Cancel"));
         ui.WaitForAssertion(() => Assert.Single(ui.FindAll(".ai-activity-job")));
         Assert.Equal(AiJobState.Cancelled, (await _store.ReadAsync(_ct)).Jobs.Single(j => j.Id == b.Id).State);
         Assert.Equal(a.Id.ToString(), ui.Find(".ai-activity-job").GetAttribute("data-job-id"));

@@ -92,6 +92,12 @@ public static class H3Policy
                 throw new WorkspaceStoreException($"Choose only one {ReferenceSetups.UseLabel(role).ToLowerInvariant()} reference.");
         if (s.Images.Any(i => ReferenceSetups.IsAnchor(i) && (i.RepresentsId is not null || i.Purpose is not null)))
             throw new WorkspaceStoreException("Frame anchors cannot also be character identity or look references.");
+        if (s.StartFrame is { } start)
+        {
+            if (start.TakeId == Guid.Empty || start.Frame < 0) throw new WorkspaceStoreException("Choose an existing take frame to start from.");
+            if (s.Images.Any(i => i.Use == ShotImageUse.FirstFrame))
+                throw new WorkspaceStoreException("This shot starts from a take frame, so it cannot also use a first-frame reference. Remove one of them.");
+        }
         foreach (var line in s.Dialogue)
             if (line.Id == Guid.Empty || line.Speaker is null || line.Language is null || line.Text is null || ready &&
                 (string.IsNullOrWhiteSpace(line.Speaker) || string.IsNullOrWhiteSpace(line.Language) || string.IsNullOrWhiteSpace(line.Text)))

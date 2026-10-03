@@ -288,7 +288,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             AiJobKind.PromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
             AiJobKind.Guidance => request.Payload<GuidanceRequest>().InspectionImage is null ? 0 : 1,
             AiJobKind.PromptComposition => request.Payload<PromptCompositionRequest>().InspectReferenceImages == false
-                ? 0 : request.Payload<PromptCompositionRequest>().Images.Count + RefModFrameCount(request),
+                ? 0 : request.Payload<PromptCompositionRequest>() is var composition ? composition.Images.Count + RefModFrameCount(request) + (composition.OpeningFrame is null ? 0 : 1) : 0,
             AiJobKind.ReelComposition => request.Payload<ReelCompositionRequest>().Images.Count + RefModFrameCount(request),
             _ => 0
         };

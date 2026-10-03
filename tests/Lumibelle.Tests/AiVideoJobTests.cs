@@ -51,6 +51,19 @@ public sealed partial class ShotTests
         Assert.Equal(VideoCandidateState.Downloading, original.Candidates[1].State); Assert.False(original.Paused);
     }
 
+    [Fact]
+    public void TakesWhoseBatchRecordIsMissingAreReviewedAsAClosedBatch()
+    {
+        var snapshot = Snapshot(Guid.NewGuid(), Ready()); var runId = Guid.NewGuid(); var start = DateTimeOffset.UtcNow;
+        var takes = new[] { 2, 1 }.Select(n => new ShotTake { RunId = runId, Candidate = n, Seed = n * 10, CreatedUtc = start.AddMinutes(n), Snapshot = snapshot }).ToArray();
+        var review = AiVideoBatchReview.Archived(takes);
+        Assert.Equal(runId, review.Id); Assert.True(review.Paused); Assert.Contains("Earlier batch", review.Status);
+        Assert.Equal(start.AddMinutes(1), review.CreatedUtc);
+        Assert.Equal(new[] { takes[1].Id, takes[0].Id }, review.Candidates.Select(c => c.TakeId));
+        Assert.Equal(new[] { 1, 2 }, review.Candidates.Select(c => c.Number));
+        Assert.All(review.Candidates, c => Assert.Equal(VideoCandidateState.Complete, c.State));
+    }
+
     [Theory]
     [InlineData(20)] [InlineData(4)] [InlineData(8)]
     public async Task QueuedVideoKeepsCapturedShotAndSamplingAcrossCandidatesAndExtensions(int steps)

@@ -48,7 +48,8 @@ public sealed partial class ShotTests
     public void RefModTrialPreservesExistingEnumNumbersAndOmittedMetadata()
     {
         Assert.Equal(0, (int)ReelVisuals.FullReel); Assert.Equal(1, (int)ReelVisuals.Keyframes); Assert.Equal(2, (int)ReelVisuals.None);
-        Assert.Equal(4, Enum.GetValues<VideoInputKind>().Length); // No fake safetensors upload input.
+        // No fake safetensors upload input; the starting frame is a real image appended after the existing kinds.
+        Assert.Equal([VideoInputKind.Image, VideoInputKind.Video, VideoInputKind.VideoSoundtrack, VideoInputKind.Audio, VideoInputKind.StartFrame], Enum.GetValues<VideoInputKind>());
         Assert.DoesNotContain("refMod", JsonSerializer.Serialize(new ShotVideoBinding(), AtomicJsonFile.Options));
         var binding = RefModBinding(); var clone = ShotCopy.Of(binding);
         Assert.True(ReelRefMods.Matches(clone, clone.RefMod)); Assert.NotSame(binding.Keyframes, clone.Keyframes);
@@ -127,7 +128,8 @@ public sealed partial class ShotTests
     {
         var reference = RefModBinding().RefMod!;
         ReelRefMods.ValidateServer(reference, reference.ComfyUrl + "/", reference.Recipe.VaeName);
-        Assert.Throws<WorkspaceStoreException>(() => ReelRefMods.ValidateServer(reference, reference.ComfyUrl, "another.safetensors"));
+        var vae = Assert.Throws<WorkspaceStoreException>(() => ReelRefMods.ValidateServer(reference, reference.ComfyUrl, "another.safetensors"));
+        Assert.Contains($"prepared with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses another.safetensors", vae.Message);
         foreach (var file in new[] { "../model", "/absolute", "C:/model", "a//b", "file.safetensors", "model#0", reference.FileName + "x" })
             Assert.Throws<WorkspaceStoreException>(() => ReelRefMods.Validate(reference with { FileName = file }));
     }

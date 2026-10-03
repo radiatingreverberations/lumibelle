@@ -77,7 +77,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         {
             if (document.Shots.FirstOrDefault(s => s.Id == shot.Id) is not { } savedSource || ProductionPolicy.SourceFingerprint(savedSource) != composition.SourceFingerprint) throw new WorkspaceConflictException();
             if (ProductionPolicy.Issue(composition, library, document, project) is { } issue) throw new WorkspaceStoreException(issue);
-            var imageData = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, configured.H3);
+            var imageData = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, configured.H3, shots);
             var identities = imageData.Select(i => i.Identity).ToArray();
             var capturedPrompt = new CompositionPromptRevision(Guid.NewGuid(), DateTimeOffset.UtcNow, composition.Prompt, composition.ReferenceUsage,
                 ProductionPolicy.ContextFingerprint(composition, library, document, project), composition.SourceFingerprint, Images: identities);
@@ -92,11 +92,12 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
             reviewedAppearances is not null && !reviewedAppearances.SequenceEqual(appearances))
             throw new WorkspaceStoreException("Reference guidance changed. Refresh Assets and review the prompt before generating.");
         var size = VideoResolutions.Size(shot);
+        var sceneFingerprint = shot.SceneId is null ? null : TakeInputChanges.SceneFingerprint((await scripts.LoadAsync(projectId, ct)).Blocks, shot.SceneId);
         var snapshot = new VideoSnapshot(projectId, revision, shot, composition?.Prompt ?? H3Policy.Compile(shot, guidance, appearances), H3Policy.Fingerprint(shot),
             AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), configured.H3, size.Width, size.Height, H3Policy.Frames(shot.Duration!.Value), composed is null ? H3Policy.Profile : ProductionPolicy.Profile)
             { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = !shot.UpscalePreview && capability.PackageCaptureReady,
                 PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(capability.PreviewUpscaling.Implementation!.Value, configured.H3.LatentUpscaler, shot.Aspect) : null,
-                ReferenceGuidance = guidance, Appearances = appearances, Sampling = H3Policy.Sampling(shot, configured.H3) };
+                ReferenceGuidance = guidance, Appearances = appearances, Sampling = H3Policy.Sampling(shot, configured.H3), SceneFingerprint = sceneFingerprint };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
         using var gate = await ProjectFiles.LockAsync(directory, ct);
         if (Directory.Exists(Path.Combine(directory, "inputs"))) throw new WorkspaceStoreException("This batch already has captured inputs. Retry its saved enqueue request.");
@@ -150,7 +151,7 @@ public static class AiVideoJobPolicy
         if (string.IsNullOrWhiteSpace(file) || file != Path.GetFileName(file) || file.Contains('/') || file.Contains('\\') ||
             !Enum.IsDefined(kind) || Path.GetExtension(file) != Extension(kind)) throw new WorkspaceStoreException("Invalid captured video input file.");
     }
-    public static string Extension(VideoInputKind kind) => kind == VideoInputKind.Video ? ".mp4" : kind == VideoInputKind.Image ? ".png" : ".wav";
+    public static string Extension(VideoInputKind kind) => kind == VideoInputKind.Video ? ".mp4" : kind is VideoInputKind.Image or VideoInputKind.StartFrame ? ".png" : ".wav";
     public static void Validate(AiVideoJobRequest r)
     {
         if (r.Version is not (1 or 2 or 3) || r.BatchId == Guid.Empty || r.Snapshot is null || r.Inputs is null || r.Inputs.Any(i => i is null) ||

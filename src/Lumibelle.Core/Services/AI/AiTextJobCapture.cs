@@ -23,7 +23,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
     public async Task<AiJobSubmission> ComposeAsync(Guid id, Guid tab, Guid projectId, Guid compositionId, long version,
-        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool reducedScriptContext = false)
+        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool includeSceneText = true, bool includeNearbyShots = true)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -35,11 +35,70 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         H3Policy.Validate(effective, true);
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(projectId, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
-        if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective)) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
-        var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3);
+        if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective) || effective.StartFrame is not null) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
+        var images = await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, (await settings.LoadAsync(ct)).H3, shots);
+        var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
         var modFrames = ReelRefMods.Uses(effective)
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)
             : Array.Empty<RefModInspectionFrame>();
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        // Either part can be left out to shorten the prompt; the shot itself is always sent.
+        var request = new PromptCompositionRequest(projectId, c.Id, c.Version, ProductionPolicy.ContextFingerprint(c, library, source, project), c.SourceFingerprint,
+            effective, includeSceneText ? context.SceneText : "", includeNearbyShots ? context.NearbyShots : [],
+            ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
+            c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
+        {
+            OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
+        };
+        var configured = Copy(await settings.LoadAsync(ct));
+        var attached = images.Select(i => i.Bytes).ToArray();
+        var target = new AiJobTarget(projectId, ShotId: shot.Id, CompositionId: c.Id);
+        var label = shot.Title + " · " + c.Name + " · Compose prompt";
+        var openingFrame = opening?.Bytes;
+        var direct = PromptComposer.BuildMessages(request, attached, modFrames, openingFrame: openingFrame);
+        var captured = ComfyTextSettings.Capture(model, configured);
+        // A ComfyUI model composes while seeing the images when they, the composition guide and the shot fit in GPU memory together.
+        if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0 && openingFrame is null ||
+            ComfyTextCapacity.FitsInOneRequest(model, captured, direct.Select(AiTextMessage.Capture).ToArray(), model.MaxOutputTokens ?? captured.MaxOutputTokens))
+            return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
+                direct, 0.7f, null, ct);
+        // Otherwise it composes in two steps, so the images and the long composition guide never share one prompt:
+        // a visual brief from the images, then a text-only composition from that brief. A cached brief skips step one.
+        var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames, openingFrame).Select(AiTextMessage.Capture).ToArray();
+        // The brief cache is keyed by image size, so an automatic size is chosen before looking for one.
+        var briefTokens = PromptComposer.BriefTokensFor(PromptComposer.BriefEntries(request, modFrames));
+        configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(briefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));
+        var key = VisualBriefCache.Key(model, ComfyTextSettings.BatchImageSide(model, configured), briefMessages);
+        var cached = briefs is null ? null : await briefs.ReadAsync(key, ct);
+        return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
+            PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key, briefTokens));
+    }
+    /// <summary>
+    /// The size of the scene text and neighbouring shots a composition would include, so each can be weighed before composing.
+    /// Estimated at four characters per token, as for the rest of the prompt.
+    /// </summary>
+    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, CancellationToken ct = default)
+    {
+        var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
+        var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
+        var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
+        // The references are always sent; their images are what they cost. A missing one is reported when composing, not here.
+        try
+        {
+            var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
+            var effective = ShotVideoDefaults.Capture(c.Shot, project);
+            var configured = await settings.LoadAsync(ct);
+            var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
+            if (ReelRefMods.Uses(effective) && refmods is not null) images.AddRange((await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png));
+            if (await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct) is { } opening) images.Add(opening.Bytes);
+            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))] };
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
+    }
+    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
+    {
         var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
         var scene = ScriptStructure.Sections(approved.Blocks).FirstOrDefault(s => s.Id == shot.SceneId) ?? throw new WorkspaceStoreException("The script scene is unavailable.");
         var index = source.Shots.FindIndex(s => s.Id == shot.Id);
@@ -61,38 +120,9 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var nearbyShots = new List<string>();
         var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
         var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
-        // Reduced context keeps the shot itself but leaves out the scene text and neighbouring shots to shorten the prompt.
-        if (previousShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
-        if (nextShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
-        var request = new PromptCompositionRequest(projectId, c.Id, c.Version, ProductionPolicy.ContextFingerprint(c, library, source, project), c.SourceFingerprint,
-            effective, reducedScriptContext ? "" : ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)),
-            nearbyShots.ToArray(),
-            ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
-            c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
-        {
-            ReducedScriptContext = reducedScriptContext
-        };
-        var configured = Copy(await settings.LoadAsync(ct));
-        var attached = images.Select(i => i.Bytes).ToArray();
-        var target = new AiJobTarget(projectId, ShotId: shot.Id, CompositionId: c.Id);
-        var label = shot.Title + " · " + c.Name + " · Compose prompt";
-        var direct = PromptComposer.BuildMessages(request, attached, modFrames);
-        var captured = ComfyTextSettings.Capture(model, configured);
-        // A ComfyUI model composes while seeing the images when they, the composition guide and the shot fit in GPU memory together.
-        if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0 ||
-            ComfyTextCapacity.FitsInOneRequest(model, captured, direct.Select(AiTextMessage.Capture).ToArray(), model.MaxOutputTokens ?? captured.MaxOutputTokens))
-            return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
-                direct, 0.7f, null, ct);
-        // Otherwise it composes in two steps, so the images and the long composition guide never share one prompt:
-        // a visual brief from the images, then a text-only composition from that brief. A cached brief skips step one.
-        var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames).Select(AiTextMessage.Capture).ToArray();
-        // The brief cache is keyed by image size, so an automatic size is chosen before looking for one.
-        var briefTokens = PromptComposer.BriefTokensFor(PromptComposer.BriefEntries(request, modFrames));
-        configured = ComfyTextCapacity.FitImageSide(model, configured, briefMessages, Math.Min(briefTokens, model.MaxOutputTokens ?? captured.MaxOutputTokens));
-        var key = VisualBriefCache.Key(model, ComfyTextSettings.BatchImageSide(model, configured), briefMessages);
-        var cached = briefs is null ? null : await briefs.ReadAsync(key, ct);
-        return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
-            PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key, briefTokens));
+        if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
+        if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        return (ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)), nearbyShots);
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)
     {

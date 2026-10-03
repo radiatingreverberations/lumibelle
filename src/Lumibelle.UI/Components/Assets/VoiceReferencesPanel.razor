@@ -8,7 +8,7 @@
 @if (Inline && !Embedded)
 {
     <div class="voice-library"><h2>Voice references</h2><p class="field-hint">Recordings guide voice identity in Shots. Choose a 1–15 second excerpt to use for this character.</p>
-    <button class="voice-open" @onclick="() => _open = true" disabled="@Disabled">Add voice reference</button>
+    <button class="voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">Add voice reference</button>
     @if (Voices.Count == 0) { <p>No recordings yet.</p> }
     @foreach (var voice in Voices) {
         <article class="voice-reference" @key="voice.Id"><strong>@voice.Name</strong><small>@voice.ExcerptDuration.ToString("0.##") second excerpt</small>
@@ -20,8 +20,8 @@
     @if (!_open && _error is not null) { <p role="alert">@_error</p> }
     </div>
 }
-else if (!Embedded) { <button class="voice-open" @onclick="() => _open = true" disabled="@Disabled">@(Voices.Count == 0 ? "Add voice reference" : $"Voice · {Voices.Count}")</button> }
-<InlineDialog Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="voice-dialog media-details-dialog">
+else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">@(Voices.Count == 0 ? "Add voice reference" : $"Voice · {Voices.Count}")</button> }
+<InlineDialog Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="voice-dialog media-details-dialog" DefaultFocus="_dialogFocus">
     <TitleContent><DialogHeader Title="@(_editing is not null ? "Voice details" : _draft is not null ? "Save voice" : $"{CharacterName} · Voice references")" CloseLabel="Close voice details" CloseDisabled="_busy" Close="RequestCloseAsync" /></TitleContent>
     <DialogContent>
         <DialogEscape Pressed="RequestCloseAsync" />
@@ -105,6 +105,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => _open = true" d
     [Parameter] public Guid? SelectedVoiceId { get; set; }
     private VoiceReference? SelectedVoice => Voices.FirstOrDefault(v => v.Id == SelectedVoiceId);
     private bool _rename, _confirmClose, _makeDefault;
+    private DefaultFocus? _dialogFocus;
     private string? _notice;
     private Guid? DefaultId => Library.Assets.FirstOrDefault(a => a.Id == AssetId)?.DefaultVoiceId;
     private bool EditingDirty => _editing is { } v && (v.Name != _name || v.Start != _start || v.ExcerptDuration != _end - _start);
@@ -129,7 +130,8 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => _open = true" d
     {
         if (_busy) return;
         if (_editing?.Id != v.Id) { _editing = v with { }; _name = v.Name; _start = v.Start; _end = v.Start + v.ExcerptDuration; _error = null; }
-        _open = true; _rename = rename; _confirmClose = false; StateHasChanged();
+        // As for reels: a rename focuses the name, so the dialog applies no initial focus of its own.
+        _open = true; _rename = rename; _dialogFocus = rename ? DefaultFocus.None : null; _confirmClose = false; StateHasChanged();
     }
     private async Task<IJSObjectReference> Module() => _module ??= await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("voice-preview.js"));
     private async Task PlayExcerpt() { try { await (await Module()).InvokeVoidAsync("playExcerpt", _player, _start, _end); } catch (JSException) { _error = "Couldn’t play the excerpt. Check the recording preview and try again."; } }
@@ -168,7 +170,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => _open = true" d
         _notice = next is null ? "Default voice cleared." : $"{voice.Name} is now {CharacterName}’s default voice. Saved setups keep their selection.";
     });
     public Task FromReel(AssetReferenceReel reel) {
-        _open = true; StateHasChanged();
+        _open = true; _dialogFocus = null; StateHasChanged();
         return _upload = Run(async () => {
             await ResetAsync(); _uploading = true; _cancellation = new();
             try {
@@ -180,7 +182,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => _open = true" d
             } finally { _uploading = false; _cancellation.Dispose(); _cancellation = null; }
         });
     }
-    public void OpenImport() { _open = true; _editing = null; }
+    public void OpenImport() { _open = true; _editing = null; _dialogFocus = null; }
     private async Task SaveEdited()
     {
         if (_editing is not { } voice || voice.Name == _name && voice.Start == _start && voice.ExcerptDuration == _end - _start) return;

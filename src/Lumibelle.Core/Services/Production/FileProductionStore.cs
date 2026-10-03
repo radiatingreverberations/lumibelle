@@ -189,7 +189,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(project, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
         var context = ProductionPolicy.ContextFingerprint(c, library, source, info);
-        var imageData = await ProductionInputs.CaptureAsync(project, effective, assets, ct, referenceVideos, settings is null ? null : (await settings.LoadAsync(ct)).H3);
+        var imageData = await ProductionInputs.CaptureAsync(project, effective, assets, ct, referenceVideos, shots: shots, settings: settings is null ? null : (await settings.LoadAsync(ct)).H3);
         if (job is { } id)
         {
             var header = (await jobs.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id && j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == project && j.Target.CompositionId == c.Id);
@@ -223,7 +223,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         if (result is null) return d;
         var source = await shots.LoadAsync(project, ct); var library = await assets.LoadAsync(project, ct);
         var info = await projects.GetAsync(project, ct) ?? throw new WorkspaceStoreException("Project not found.");
-        var images = await ProductionInputs.CaptureAsync(project, ShotVideoDefaults.Capture(c.Shot, info), assets, ct, referenceVideos, settings is null ? null : (await settings.LoadAsync(ct)).H3);
+        var images = await ProductionInputs.CaptureAsync(project, ShotVideoDefaults.Capture(c.Shot, info), assets, ct, referenceVideos, shots: shots, settings: settings is null ? null : (await settings.LoadAsync(ct)).H3);
         // A superseded review is never applied. An explicit Apply may follow harmless saves (seed,
         // take count, or an unchanged draft). Automatic application keeps the exact revision guard.
         if (c.ReviewJobId != job) { if (automatic) return d; throw new WorkspaceConflictException(); }
@@ -261,7 +261,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         var source = await shots.LoadAsync(project, ct); var library = await assets.LoadAsync(project, ct);
         var info = await projects.GetAsync(project, ct) ?? throw new WorkspaceStoreException("Project not found.");
         var effective = ShotVideoDefaults.Capture(c.Shot, info);
-        var images = await ProductionInputs.CaptureAsync(project, effective, assets, ct, referenceVideos, settings is null ? null : (await settings.LoadAsync(ct)).H3);
+        var images = await ProductionInputs.CaptureAsync(project, effective, assets, ct, referenceVideos, shots: shots, settings: settings is null ? null : (await settings.LoadAsync(ct)).H3);
         if (c.Prompt != request.CurrentPrompt || request.ContextFingerprint != ProductionPolicy.ContextFingerprint(c, library, source, info) ||
             !request.Images.SequenceEqual(images.Select(i => i.Identity)))
             throw new WorkspaceStoreException("The prompt, shot direction or references changed after this request. Copy the saved response for manual editing instead.");
@@ -275,7 +275,8 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
 
 public static class ProductionInputs
 {
-    public static async Task<IReadOnlyList<(CompositionInput Identity, byte[] Bytes)>> CaptureAsync(Guid project, Shot shot, IAssetStore assets, CancellationToken ct, IReferenceVideoStore? reels = null, H3Settings? settings = null)
+    public static async Task<IReadOnlyList<(CompositionInput Identity, byte[] Bytes)>> CaptureAsync(Guid project, Shot shot, IAssetStore assets, CancellationToken ct, IReferenceVideoStore? reels = null, H3Settings? settings = null,
+        IShotStore? shots = null)
     {
         var result = new List<(CompositionInput, byte[])>();
         foreach (var b in shot.Images)
@@ -284,6 +285,11 @@ public static class ProductionInputs
             if (source is null) throw new WorkspaceStoreException("A reference is unavailable. Restore or replace it.");
             var png = await ComfyReferenceImageEditor.PrepareSourcePngAsync(source.Content, b.Crop, ct);
             result.Add((new(b.Id, Convert.ToHexString(SHA256.HashData(png))), png));
+        }
+        if (shot.ContinuityFrame is { } continuity)
+        {
+            var png = await ContinuityPngAsync(project, continuity, shots ?? throw new WorkspaceStoreException("Take storage is unavailable."), ct);
+            result.Add((new(continuity.Id, Convert.ToHexString(SHA256.HashData(png))), png));
         }
         var keyframes = ResolvedReferences.For(shot).Pictures.Where(p => p.Keyframe is not null).ToArray();
         if (keyframes.Length > 0) await (reels ?? throw new WorkspaceStoreException("Reel frame storage is unavailable.")).PrepareFramesAsync(project, keyframes.Select(p => p.Keyframe!.Frame), settings ?? new(), ct);
@@ -294,5 +300,23 @@ public static class ProductionInputs
             result.Add((new(picture.BindingId, Convert.ToHexString(SHA256.HashData(png))), png));
         }
         return result;
+    }
+    /// <summary>A continuity picture as submitted: the take frame, prepared like any reference image so its hash matches the video input.</summary>
+    public static async Task<byte[]> ContinuityPngAsync(Guid project, ShotContinuityFrame frame, IShotStore shots, CancellationToken ct)
+    {
+        await using var source = await shots.OpenAsync(project, frame.TakeId, ShotTrashKind.Take, frame.Frame, ct: ct)
+            ?? throw new WorkspaceStoreException($"The take of the continuity picture “{frame.Name}” is in Trash or was deleted. Restore it, or remove the picture.");
+        return await ComfyReferenceImageEditor.PrepareSourcePngAsync(source.Content, null, ct);
+    }
+    /// <summary>The frame a shot starts from, as the PNG the composer inspects; its identity is the take and the image hash.</summary>
+    public static async Task<(CompositionInput Identity, byte[] Bytes)?> StartFrameAsync(Guid project, Shot shot, IShotStore shots, CancellationToken ct)
+    {
+        if (shot.StartFrame is not { } start) return null;
+        await using var frame = await shots.OpenAsync(project, start.TakeId, ShotTrashKind.Take, start.Frame, ct: ct)
+            ?? throw new WorkspaceStoreException("The take this shot starts from is in Trash or was deleted. Restore it, or remove the starting frame.");
+        using var buffer = new MemoryStream();
+        await frame.Content.CopyToAsync(buffer, ct);
+        var png = buffer.ToArray();
+        return (new(start.TakeId, Convert.ToHexString(SHA256.HashData(png))), png);
     }
 }

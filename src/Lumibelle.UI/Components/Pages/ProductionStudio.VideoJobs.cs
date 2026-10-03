@@ -160,7 +160,11 @@ public partial class ProductionStudio
         ShowRun(run);
     }
     private async Task OpenTake(ShotTake take)
-    { if (_runs.FirstOrDefault(r => r.Id == take.RunId) is { } run) { await OpenRun(run); SelectTake(take.Id); } }
+    {
+        if (_runs.FirstOrDefault(r => r.Id == take.RunId) is { } run) { await OpenRun(run); SelectTake(take.Id); return; }
+        ShowRun(AiVideoBatchReview.Archived(_doc.Takes.Where(t => t.RunId == take.RunId).ToArray()));
+        SelectTake(take.Id);
+    }
     private async Task ReviewVisibility(bool open)
     {
         _reviewOpen = open; _restoreReviewFocus = !open;

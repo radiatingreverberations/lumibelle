@@ -220,21 +220,22 @@ public sealed partial class AiModelComponentTests : BunitContext
         page.Find("#ai-text-provider-defaults").Click(); page.Find("#global-text-default").Change(TextModelPolicy.Key(Local)); Assert.Equal(Local.Model, _settings.Value.ComfyModel);
     }
     [Fact]
-    public void TestModelStartsTheStandardTestAndAdvancedTestOpensItsOwnDialog()
+    public async Task TestModelStartsTheStandardTestAndAdvancedTestOpensItsOwnDialog()
     {
         var host = Render<MudDialogProvider>();
         _providers.Models = [new(Local.Model, Local.Name)];
-        var page = Render<AiSettingsPage>(); page.Find("#ai-tab-text").Click();
-        page.FindAll(".text-model-row").Single(row => row.TextContent.Contains(Local.Name)).QuerySelector(".text-model-expand")!.Click();
-        Button(page, "Advanced test").Click();
+        var page = Render<AiSettingsPage>();
+        await page.ClickCurrent(() => page.Find("#ai-tab-text"));
+        await page.ClickCurrent(() => page.FindAll(".text-model-row").Single(row => row.TextContent.Contains(Local.Name)).QuerySelector(".text-model-expand")!);
+        await page.ClickCurrent(() => Button(page, "Advanced test"), awaitHandler: false);
         var advanced = host.FindComponent<ComfyModelDialog>();
         Assert.Contains("Advanced model test", host.Markup);
         Assert.NotNull(advanced.Find("#advanced-test-prompt"));
         Assert.DoesNotContain(advanced.FindAll("button"), button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal));
         Assert.Equal(0, _providers.VerificationCalls);
-        advanced.InvokeAsync(() => Button(advanced, "Close").Click());
+        await advanced.ClickCurrent(() => Button(advanced, "Close"));
 
-        Button(page, "Test model").Click();
+        await page.ClickCurrent(() => Button(page, "Test model"), awaitHandler: false);
         var standard = host.FindComponents<ComfyModelDialog>().Last();
         standard.WaitForAssertion(() => Assert.Equal(1, _providers.VerificationCalls), BunitDefaults.WaitTimeout(5));
         Assert.Empty(standard.FindAll("#advanced-test-prompt"));

@@ -18,7 +18,10 @@
     @if (!Take.HasLosslessFrames) { <p class="field-hint">Frames are extracted from compressed MP4 video; @(Take.FrameArchiveRemoval is null ? "no lossless archive was saved." : "the lossless archive was removed.")</p> }
     <div class="take-frame-actions">
         <span role="status">@(_playing ? "Playing" : $"Frame {_index + 1} / {Take.FrameCount} · {(_index / Take.Fps):0.000} s")@(!_playing && !_ready && _error is null ? " · Loading frame…" : "")</span>
-        @if (ShowSaveFrame) { <button type="button" class="take-save-frame" disabled="@(_saving || (!_playing && !_ready))" @onclick="SaveFrame">Save frame to Assets</button> }
+        <span class="take-frame-buttons">
+            @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" disabled="@(_saving || (!_playing && !_ready))" title="Add a shot after this one that starts exactly on this frame" @onclick="() => Capture(ContinueRequested)">Continue from this frame</button> }
+            @if (ShowSaveFrame) { <button type="button" class="take-save-frame" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(SaveRequested)">Save frame to Assets</button> }
+        </span>
     </div>
     @if (_error is not null) { <p role="alert">@_error <button type="button" @onclick="Retry">Retry frame</button></p> }
 </section>
@@ -28,6 +31,8 @@
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public EventCallback<int> SaveRequested { get; set; }
     [Parameter] public bool ShowSaveFrame { get; set; } = true;
+    /// <summary>Receives the paused frame index to start a new shot from; the button shows only when set.</summary>
+    [Parameter] public EventCallback<int> ContinueRequested { get; set; }
     public async Task<int> CaptureFrameAsync() => _player is null || _disposed ? -1 : await _player.InvokeAsync<int>("pauseForSave");
     public async Task PauseAsync() { if (_player is not null && !_disposed) await _player.InvokeVoidAsync("pause"); }
     private ElementReference _element;
@@ -62,11 +67,12 @@
         _index = index; _playing = playing; _ready = ready; _error = error;
         return InvokeAsync(StateHasChanged);
     }
-    private async Task SaveFrame()
+    // Both frame actions pause on the displayed frame first, so they act on exactly the frame shown.
+    private async Task Capture(EventCallback<int> requested)
     {
         if (_player is null || _saving) return;
         _saving = true;
-        try { var index = await _player.InvokeAsync<int>("pauseForSave"); if (index >= 0 && !_disposed) await SaveRequested.InvokeAsync(index); }
+        try { var index = await _player.InvokeAsync<int>("pauseForSave"); if (index >= 0 && !_disposed) await requested.InvokeAsync(index); }
         catch (JSDisconnectedException) { }
         finally { _saving = false; }
     }

@@ -3,11 +3,15 @@
     [Parameter] public Guid? NameId { get; set; }
     [Parameter] public EventCallback Handled { get; set; }
 
+    private Guid? _focusing;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (NameId is not { } id) return;
+        // The focus waits for the field and for the opening menu to let go; renders meanwhile must not start another wait.
+        if (NameId is not { } id || _focusing == id) return;
+        _focusing = id;
         try { await JS.InvokeVoidAsync("lumibelleAssets.focusMediaName", id.ToString()); }
         catch (Exception e) when (e is JSException or JSDisconnectedException) { }
+        finally { _focusing = null; }
         await Handled.InvokeAsync();
     }
 }

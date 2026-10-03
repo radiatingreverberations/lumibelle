@@ -28,9 +28,31 @@ public partial class ProductionStudio
     private lumibelle.Components.AI.TextAssistance? _compositionAssist;
     private TextModelSelectionState? _compositionModel;
     private bool _compositionBusy;
-    // Request-local choice. A queued request freezes this; generation references never change.
-    // Request-local: scene text and neighbouring shots are the part of the prompt that can be dropped safely.
-    private bool _fullCompositionContext = true;
+    // Request-local: scene text and neighbouring shots are the parts of the prompt that can be dropped safely. A queued request freezes them.
+    private bool _includeSceneText = true, _includeNearbyShots = true;
+    // How much each of them adds, estimated when Prompt assistance opens.
+    private CompositionContextSize? _contextSize;
+    private AiSettings? _contextSettings;
+    // Estimated from the captured sizes for the model chosen now, so changing the model needs no new capture.
+    private int? ReferenceTokens => _contextSize is { } size && _compositionModel is { } model && _contextSettings is { } settings
+        ? TextImageTokens.Estimate(model.Model, settings, size.ReferenceImages) : null;
+    private bool _contextSizeBusy;
+    // Prompt assistance opens only once this callback returns, so the estimate runs on its own and fills in when ready.
+    private Task StartContextEstimate() { _ = EstimateContextSize(); return Task.CompletedTask; }
+    private async Task EstimateContextSize()
+    {
+        if (Current is not { } c || _contextSizeBusy) return;
+        _contextSizeBusy = true; _contextSize = null;
+        try
+        {
+            var size = await TextRequests.CompositionContextAsync(Id, c.Id, _lifetime.Token);
+            _contextSettings = await Settings.LoadAsync(_lifetime.Token);
+            if (Current?.Id == c.Id) _contextSize = size;
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or lumibelle.Services.ProjectStoreException or OperationCanceledException) { /* The sizes are a convenience; composing reports real problems. */ }
+        finally { _contextSizeBusy = false; }
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
     // The size of a composition request that was too large to queue, per step; cleared when the model changes.
     private IReadOnlyList<ComfyTextStageSize>? _compositionStages;
     private string? _compositionSizeError, _compositionSizeModel;
@@ -50,7 +72,7 @@ public partial class ProductionStudio
         try
         {
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
-                _lifetime.Token, reducedScriptContext: !_fullCompositionContext);
+                _lifetime.Token, _includeSceneText, _includeNearbyShots);
             ShowCompositionSize(submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!);
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
@@ -150,7 +172,7 @@ public partial class ProductionStudio
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
             var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
-                reducedScriptContext: !_fullCompositionContext);
+                _includeSceneText, _includeNearbyShots);
             if (!_composeOversized && OversizedComposition(submission)) return;
             _compositionStages = null;
             _compositionEnqueue = _compositionAssist.Attribute(submission);

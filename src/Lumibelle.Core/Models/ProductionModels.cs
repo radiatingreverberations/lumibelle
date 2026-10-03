@@ -64,12 +64,15 @@ public sealed record ShotProductionContent
     // LoRAs chosen for this shot in every setup, on top of each setup's preset LoRAs.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ShotContinuityFrame? ContinuityFrame { get; set; }
 
     public static ShotProductionContent From(ProductionComposition c) => ShotCopy.Of(new ShotProductionContent {
         ShotId = c.ShotId, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
         ReferenceUsage = c.ReferenceUsage, AppliedJobId = c.AppliedJobId, ReviewJobId = c.ReviewJobId,
         AcceptedRevisionId = c.AcceptedRevisionId, History = c.History, CharacterVoices = c.Shot.CharacterVoices,
-        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras
+        Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras,
+        ContinuityFrame = c.Shot.ContinuityFrame
     });
     public void Apply(ProductionComposition c)
     {
@@ -79,6 +82,7 @@ public sealed record ShotProductionContent
         c.AcceptedRevisionId = copy.AcceptedRevisionId; c.History = copy.History;
         c.Shot.CharacterVoices = copy.CharacterVoices; c.Shot.Images = copy.Images;
         c.Shot.Voices = copy.Voices; c.Shot.Videos = copy.Videos; c.Shot.AspectOverride = copy.AspectOverride; c.Shot.ShotLoras = copy.Loras;
+        c.Shot.ContinuityFrame = copy.ContinuityFrame;
     }
 }
 
@@ -114,9 +118,28 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public bool? InspectReferenceImages { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<CompositionVisualDescription>? VisualDescriptions { get; init; }
-    // Scene text and neighbouring shots were left out to keep the prompt small.
+    // Scene text and neighbouring shots were left out to keep the prompt small; set by requests from before they could be left out separately.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool ReducedScriptContext { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitSceneText { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitNearbyShots { get; init; }
+    [JsonIgnore] public bool SceneTextLeftOut => ReducedScriptContext || OmitSceneText;
+    [JsonIgnore] public bool NearbyShotsLeftOut => ReducedScriptContext || OmitNearbyShots;
+    // The take frame the shot starts from (BindingId is the take), attached after the references.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CompositionInput? OpeningFrame { get; init; }
+}
+/// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
+public sealed record ImageSize(int Width, int Height);
+public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots)
+{
+    /// <summary>
+    /// The sizes of the images always sent with the references (pictures, RefMod previews and any opening frame). Their tokens depend on
+    /// the model, so they are estimated from these sizes for whichever model is chosen, without capturing the images again.
+    /// </summary>
+    public IReadOnlyList<ImageSize> ReferenceImages { get; init; } = [];
 }
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {

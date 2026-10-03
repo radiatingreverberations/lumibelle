@@ -69,11 +69,18 @@
     private string? _focusSelection;
     // A parent can pass the published list back a round trip later: inside a MudDialog the
     // content re-renders only after the browser acknowledges the parent's render. Until the
-    // parent sets parameters again, the next edit builds on what was published, so a strength
+    // parent passes a different list, the next edit builds on what was published, so a strength
     // typed just before a reorder or toggle is not replaced by the older list.
     private IReadOnlyList<LoraSelection>? _published;
     private IReadOnlyList<LoraSelection> Latest => _published ?? Selections;
-    protected override void OnParametersSet() => _published = null;
+    // The list last passed in. A parent that re-renders while it saves, such as a reel preset, passes the same older
+    // list again; dropping the published one then removed a just-added row and lost a strength typed into it.
+    private IReadOnlyList<LoraSelection>? _received;
+    protected override void OnParametersSet()
+    {
+        if (_received is not null && _received.SequenceEqual(Selections)) return;
+        _received = [.. Selections]; _published = null;
+    }
     protected override Task OnInitializedAsync() => ValidityChanged.InvokeAsync(true);
     private IEnumerable<LoraDefinition> Available => Settings.LoraLibrary.Where(d => d.Reference.Workflow == Workflow &&
         LoraPolicy.Visible(d, Visibility) &&

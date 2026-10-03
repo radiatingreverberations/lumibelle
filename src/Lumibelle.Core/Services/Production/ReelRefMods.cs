@@ -56,7 +56,8 @@ public static class ReelRefMods
     {
         Validate(reference);
         if (reference.Recipe.VaeName != vaeName)
-            throw new WorkspaceStoreException("The selected H3 video VAE differs from the accepted reference recipe. Select the original VAE or explicitly prepare a new reference.");
+            throw new WorkspaceStoreException($"This RefMod reference was prepared with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses {vaeName}. " +
+                $"Select {reference.Recipe.VaeName} in AI settings → Video models and generate a new batch, or choose Prepare a new build on the reference to use {vaeName}.");
     }
     public static void ValidateServer(ReelRefModReference reference, string server, string vaeName)
     {

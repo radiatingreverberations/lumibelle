@@ -213,8 +213,9 @@
 .media-details-dialog .review-metadata-editor fieldset { padding:0; border: 0; }
 .media-details-dialog .review-metadata-editor label:first-child { margin-top:0; }
 .media-details-dialog .review-dirty-prompt { padding:0; border: 0; background: transparent; margin:0; }
-.media-details-dialog label.media-details-check { display:flex; align-items:center; gap:8px; }
-.media-details-dialog .media-details-check input { width:16px; height:16px; margin:0; padding:0; flex:none; }
+/* Inside the editor fieldset too, where studio-wide label and input rules of equal weight would stack the box above its text. */
+.media-details-dialog label.media-details-check, .media-details-dialog .media-details-editor label.media-details-check { display:flex; align-items:center; gap:8px; }
+.media-details-dialog .media-details-check input, .media-details-dialog .media-details-editor .media-details-check input { display:inline-block; width:16px; height:16px; margin:0; padding:0; flex:none; }
 .voice-preview-stage { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:220px; padding:24px; background: var(--wash); border-radius: var(--lumi-radius-surface); }
 .voice-preview-stage .mud-icon-root { width:64px; height:64px; color: var(--plum); margin-bottom:20px; }
 .media-details-dialog :is(button,summary,input,select,textarea):focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 3px; }

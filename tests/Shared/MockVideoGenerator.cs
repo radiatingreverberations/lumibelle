@@ -27,7 +27,7 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
     {
         Interlocked.Increment(ref CheckCalls);
         return Task.FromResult(Catalog ?? new H3Configuration(true, true, "Mock H3 Standard and Turbo are ready.", [s.H3.Model], [s.H3.Encoder], [s.H3.VideoVae,s.H3.AudioVae], [s.H3.TurboLora,s.H3.Turbo8StepLora,"h3/"+new H3Settings().Turbo8StepLora])
-        { DiscoverySucceeded = true, VideoReferenceIssue = null, Presets = H3Presets.Keys.Select(key => new H3PresetSetup(key, null, key switch {
+        { DiscoverySucceeded = true, VideoReferenceIssue = null, StartFrameIssue = null, Presets = H3Presets.Keys.Select(key => new H3PresetSetup(key, null, key switch {
                 "larry" => [H3Presets.Checkpoint("larry", s.H3)!], "pdd" => [H3Presets.Checkpoint("pdd", s.H3)!], "turbo4" => [s.H3.TurboLora, "custom/renamed-ref2va-turbo.safetensors"],
                 "turbo8" => [s.H3.Turbo8StepLora, "h3/"+new H3Settings().Turbo8StepLora, "custom/renamed-ref2va-turbo.safetensors"], _ => [] })).ToArray(), OptionalLoras = OptionalLoraCatalog?.Invoke(s) ?? new(true, "Mock H3 LoRAs ready.", ["h3/character.safetensors", "h3/styles/film.safetensors"]), Performance = new() { PyTorchIssue=null, KitchenIssue=null, SageIssue=null, SolIssue=null, FastArchiveIssue=null },
             PackageCaptureReady=true, RefinementIssue=null, LatentUpscalers=["mock-h3-3d.safetensors"],
@@ -64,6 +64,13 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
             else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
             run.Inputs.Add(new(name,false));
         }
+        if (run.Snapshot.Shot.ContinuityFrame is { } continuity)
+        {
+            var name=$"image-{run.Inputs.Count:D2}.png";
+            if (shots is not null) await File.WriteAllBytesAsync(Path.Combine(folder,name),await lumibelle.Services.Production.ProductionInputs.ContinuityPngAsync(run.Snapshot.ProjectId,continuity,shots,ct),ct);
+            else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
+            run.Inputs.Add(new(name,false));
+        }
         if (run.Snapshot.Shot.Videos.Count > 0)
             await (referenceVideos ?? throw new WorkspaceStoreException("Missing reference video fixture store.")).PrepareAsync(run.Snapshot.ProjectId, run.Snapshot.Shot, folder, run.Inputs, run.Snapshot.Settings, ct);
         foreach(var voice in run.Snapshot.Shot.Voices)
@@ -72,6 +79,18 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
             // and decoding are exercised in the production media-tools tests.
             var name=$"voice-{run.Inputs.Count:D2}.wav";
             await File.WriteAllBytesAsync(Path.Combine(folder,name),[1,2,3],ct);run.Inputs.Add(new(name,true));
+        }
+        if (run.Snapshot.Shot.StartFrame is { } start)
+        {
+            const string name = "start-frame.png";
+            if (shots is not null)
+            {
+                await using var frame = await shots.OpenAsync(run.Snapshot.ProjectId, start.TakeId, ShotTrashKind.Take, start.Frame, ct: ct)
+                    ?? throw new WorkspaceStoreException("The take this shot starts from is in Trash or was deleted.");
+                await using var target = File.Create(Path.Combine(folder, name)); await frame.Content.CopyToAsync(target, ct);
+            }
+            else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
+            run.Inputs.Add(new(name, false) { Kind = VideoInputKind.StartFrame });
         }
         run.InputsPrepared=true;
     }

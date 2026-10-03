@@ -119,6 +119,10 @@ The Turbo presets need a Ref2V Turbo LoRA in `models/loras`. Choose the matching
 
 Use the `ref2v` files. The `fl2v` LoRAs beside them belong to a different workflow.
 
+### Starting from a frame
+
+A shot that [starts from a take frame](shots.md#continue-from-a-frame) anchors that frame with ComfyUI's built-in `MiniMaxH3AddGuide` node, so it needs no extra files or node packs. If **Generate takes** asks you to update ComfyUI for it, update to a current ComfyUI and refresh video models.
+
 ### Upscaled preview
 
 **Upscaled preview** in the Shots resolution picker samples at a smaller size and upscales the result to full size in the same job. It needs the [Minimax H3 latent upscaler](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler) node pack, installed like the [node packs](#node-packs) above, and [`minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors`](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors) in `models/latent_upscale_models`. Restart ComfyUI, then refresh, select the checkpoint and save in **Video models → Preview upscaling**.

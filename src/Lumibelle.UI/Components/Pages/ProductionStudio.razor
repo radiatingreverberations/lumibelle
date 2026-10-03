@@ -188,38 +188,41 @@ else
             <Right><StudioPane Class="shot-controls" Label="Production tools">
                 <Header>@if (Current is { } current && Selected is { } selected) {
                     <div class="shot-setup-summary">
-                        <strong><button class="generation-preset-name" @ref="_setupSettingsButton" aria-label="Edit generation preset" @onclick="@(() => OpenSetupDialog("Settings"))">@current.Name</button></strong>
-                        @* The setup's settings and scope are in its help; the menu switches setups without opening the dialog. *@
+                        @* The name switches setups; the pencil edits the one in use. Its settings and scope are in its help. *@
+                        <select class="generation-preset-select" aria-label="Generation setup" value="@current.GenerationSetupId" disabled="@_setupBusy" @onchange="ChangeSetup">
+                            @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
+                            { <option value="@setup.Id">@setup.Name@(setup.Archived ? " · Archived" : "")</option> }
+                        </select>
                         <span class="shot-setup-tools">
                             <HelpHint Label="Generation setup" Text="@($"{H3Presets.Label(H3Presets.Key(selected))} · {PresetResolution} · {ActiveGlobalSetup?.Settings.TakeCount ?? 1} takes. Shared across shots and projects. Output changes in the footer stay with this shot.")" />
-                            <MudMenu Icon="@Icons.Material.Outlined.Edit" AriaLabel="Change generation setup" Size="Size.Small" Dense="true" Disabled="_setupBusy" Class="shot-setup-switch" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                                @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
-                                {
-                                    var active = setup.Id == current.GenerationSetupId;
-                                    <MudMenuItem role="menuitemradio" aria-checked="@(active ? "true" : "false")" Icon="@(active ? Icons.Material.Outlined.Check : null)" OnClick="@(() => active ? Task.CompletedTask : SelectGlobalSetup(setup.Id))">@setup.Name@(setup.Archived ? " · Archived" : "")</MudMenuItem>
-                                }
-                                <MudDivider />
-                                <MudMenuItem role="menuitem" OnClick="@(() => OpenSetupDialog("Settings"))">Edit preset…</MudMenuItem>
-                            </MudMenu>
+                            <button class="shot-setup-edit" @ref="_setupSettingsButton" aria-label="Edit generation preset" title="Edit preset" @onclick="@(() => OpenSetupDialog("Settings"))"><MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-hidden="true" /></button>
                         </span>
-                        <div class="shot-setup-actions">
-                            <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
-                        </div>
                     </div>
                 }</Header>
                 <ChildContent>@if (Selected is { } shot) {
                     <section class="shot-references"><h2 class="shot-references-title">References</h2>
                         <button class="add-shot-references" @onclick="OpenReferencePicker">Manage references</button>
+                        @if (shot.StartFrame is { } start)
+                        {
+                            var startTake = StartTake(shot);
+                            <div class="shot-start-frame" role="group" aria-label="Starts from">
+                                @if (startTake is not null) { <img src="@TakeUrl(start.TakeId, start.Frame)" alt="Starting frame" loading="lazy" /> }
+                                <div class="shot-start-frame-text"><strong>Starts from</strong><span>@StartFrameLabel(start, startTake)</span></div>
+                                <button aria-label="Remove the starting frame" @onclick="RemoveStartFrame">Remove</button>
+                            </div>
+                        }
                         <div class="shot-reference-counts"><span>Images <strong>@ResolvedReferences.For(shot).Pictures.Count/9</strong></span><span>Reels <strong>@shot.Videos.Count</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(shot).Count()/3</strong></span></div>
                         <div class="shot-reference-contact-sheet">
                             @foreach (var picture in ResolvedReferences.For(shot).Pictures)
                             {
                                 var image = picture.Image; var reel = picture.Reel;
-                                var url = image is not null ? ResolveImage(image).Url : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(Id, picture.Keyframe.Frame) : null;
-                                var name = image?.Name ?? reel?.Name ?? "Unavailable image";
+                                var continuity = picture.Continuity; var continuityTake = continuity is null ? null : _doc.Takes.FirstOrDefault(t => t.Id == continuity.TakeId);
+                                var url = image is not null ? ResolveImage(image).Url : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(Id, picture.Keyframe.Frame)
+                                    : continuityTake is not null ? TakeUrl(continuityTake.Id, continuity!.Frame) : null;
+                                var name = image?.Name ?? reel?.Name ?? continuity?.Name ?? "Unavailable image";
                                 var media = _assets.Assets.FirstOrDefault(a => a.Id == image?.AssetId)?.Images.FirstOrDefault(i => i.Id == image?.MediaId);
                                 <button class="shot-reference-tile" title="@($"Picture {picture.Number} · {name}")" aria-label="@($"Preview Picture {picture.Number} · {name}")" @onclick="() => PreviewPicture(picture.Number)">
-                                    @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
+                                    @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? continuityTake?.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? continuityTake?.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
                                     else { <span class="shot-reference-unavailable">Unavailable</span> }
                                     <span class="shot-reference-number">@picture.Number</span>
                                     <span class="shot-reference-name">@name</span>
@@ -308,7 +311,11 @@ else
                         @if (Current?.OutputOverrides is not null) { <div class="output-override-note"><span>This shot</span><button @onclick="ResetOutput">Use preset defaults</button></div> }
                         @if (SceneAspectOthers(shot) is { Count: > 0 } others) { <details class="output-aspect-options"><summary>Aspect options</summary><button class="shot-aspect-scene" @onclick="() => ApplyAspectToScene(others)">@SceneAspectAction(shot, others.Count)</button></details> }
                     </fieldset>
-                    @if (GenerationIssue is { } issue) { <p role="status">@issue <button @onclick="ReviewGenerationIssue">@GenerationIssueAction</button></p> }
+                    @* References come first in this panel, so the prompt, written from them, is the step before generating. *@
+                    <div class="shot-setup-actions shot-prompt-step">
+                        <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                    </div>
+                    @if (GenerationIssue is { } issue) { <p role="status">@issue @if (GenerationIssueAction != "Review prompt") { <button @onclick="ReviewGenerationIssue">@GenerationIssueAction</button> }</p> }
                     var activeVideo = ActiveVideoJob;
                     var videoAttention = VideoAttention;
                     var batchJob = activeVideo ?? videoAttention;
@@ -430,10 +437,18 @@ else
                     @if (_compositionResult is null && !string.IsNullOrEmpty(_compositionRaw)) { <details><summary>Inspect AI response</summary><pre class="shot-source">@_compositionRaw</pre></details> }
                     @if (CompositionPromptWarning is { } warning) { <p class="field-hint" role="status">Review note: @warning You can keep this text; this does not block saving or generation.</p> }
                     <PromptEditor @ref="_promptEditor" @key="composition.ShotId" HistoryKey="@($"{_promptHistoryScope}:{composition.ShotId}")" Text="@composition.Prompt" TextChanged="text => PromptChanged(composition.ShotId, text)" PictureClicked="PreviewPicture" VideoClicked="PreviewVideo"><ToolbarActions>
-                    <div @ref="_compositionReviewOrigin"><TextAssistance Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
+                    <div @ref="_compositionReviewOrigin"><TextAssistance Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" Opened="StartContextEstimate" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
                         <ExtraActions><button disabled="@(!CanClearPrompt)" title="Clear the prompt. References, settings, and Direction for AI stay." @onclick="ClearPrompt">Clear prompt</button></ExtraActions>
                         <ChildContent><p class="field-hint">@shot.Title</p>                    <label>Direction for AI<textarea rows="2" maxlength="20000" placeholder="For example: stay closer on her face, then reveal the monitor." @bind:get="composition.DirectingNotes" @bind:set="value => EditComposition(c => c.DirectingNotes = value ?? string.Empty)" @bind:event="oninput"></textarea></label>
-<label class="check-row"><input type="checkbox" @bind="_fullCompositionContext" @bind:after="RefreshCompositionSize" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)" />Include scene text and neighbouring shots</label>
+<fieldset class="composition-context" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)"><legend class="sr-only">Script context</legend>
+    <label class="check-row"><input type="checkbox" @bind="_includeSceneText" @bind:after="RefreshCompositionSize" /><span>Include scene text</span>
+        <span class="composition-context-tokens" data-context="scene">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { } sceneSize) { @($"≈{sceneSize.SceneTextTokens:N0} tokens") }</span></label>
+    <label class="check-row"><input type="checkbox" @bind="_includeNearbyShots" @bind:after="RefreshCompositionSize" /><span>Include the shots before and after</span>
+        <span class="composition-context-tokens" data-context="shots">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { NearbyShots: 0 }) { @("none in this scene") } else if (_contextSize is { } shotsSize) { @($"≈{shotsSize.NearbyShotsTokens:N0} tokens") }</span></label>
+    @* References are always sent; the row only shows what they cost. *@
+    <label class="check-row composition-context-fixed" title="References are always sent with the composition."><input type="checkbox" checked disabled /><span>References@(_contextSize is { ReferenceImages.Count: > 0 } refs ? $" · {refs.ReferenceImages.Count} image{(refs.ReferenceImages.Count == 1 ? "" : "s")}" : "")</span>
+        <span class="composition-context-tokens" data-context="references">@if (_contextSizeBusy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-label="Estimating size" /> } else if (_contextSize is { ReferenceImages.Count: 0 }) { @("no images") } else if (ReferenceTokens is { } referenceTokens) { @($"≈{referenceTokens:N0} tokens") }</span></label>
+</fieldset>
 @if (_compositionModel?.Model.Backend == AiBackend.ComfyUI && (_compositionStages is not null || _compositionSizeError is not null))
 {
     <div class="composition-size" role="status">
@@ -582,7 +597,7 @@ else
 <InlineDialog Visible="_referenceOpen" VisibleChanged="ImageEditorVisibility" Options="@(LargeDialog with { CloseOnEscapeKey = !_imageEditorSaving })" Class="manual-reference-dialog shot-reference-dialog"
               Title="Manage references" Context="@_imageEditorShot?.Title" CloseLabel="Close manage references" CloseDisabled="_imageEditorSaving">
     <DialogContent>@if (_referenceOpen && _imageEditorShot is not null) {
-        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
+        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" CopySourceNumber="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentShotNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
     }</DialogContent>
 </InlineDialog>
 
@@ -639,8 +654,33 @@ else
                     {
                         <TakeRefinementForm Source="source" Busy="@(_refinementBusy || _refinementEnqueue is not null)" Issue="@_refinementIssue" ContextChanged="@(_doc.Shots.FirstOrDefault(s => s.Id == source.ShotId) is not { } current || !TakeMatches(source, current))" Cancel="CloseRefinement" Refresh="CheckRefinementSetup" Queue="QueueRefinement" />
                     }
-                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" />
+                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                    @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
+                    {
+                        <section class="take-continue-panel" aria-label="Continue from this frame">
+                            <h3>Continue from frame @(continuing.Index + 1)</h3>
+                            <p class="field-hint">Takes of the chosen shot open exactly on this frame, so it plays on from here.</p>
+                            <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is null)" @onchange="() => _continueTarget = null" />A new shot after “@(_doc.Shots.FirstOrDefault(s => s.Id == take.ShotId)?.Title)”</label>
+                            @if (ContinueTargets(take).Any())
+                            {
+                                <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is not null)" @onchange="() => _continueTarget = ContinueTargets(take).First().Id" />An existing shot</label>
+                                <select aria-label="Shot to start from this frame" disabled="@(_continueTarget is null)" value="@_continueTarget" @onchange="e => _continueTarget = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                                    @foreach (var target in ContinueTargets(take))
+                                    {
+                                        <option value="@target.Id">@(_doc.Shots.IndexOf(target) + 1). @target.Title@(target.StartFrame is not null ? " · replaces its starting frame" : "")</option>
+                                    }
+                                </select>
+                            }
+                            <div class="shots-actions"><button class="take-continue-confirm" @onclick="ConfirmContinue">@(_continueTarget is null ? "Add shot" : "Start it here")</button><button @onclick="CloseContinue">Cancel</button></div>
+                        </section>
+                    }
+                    @if (_frameDestination is { } destination && destination.TakeId == take.Id)
+                    {
+                        <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"
+                            InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
+                    }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
+                    @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
                     <details class="take-quality-actions"><summary>Improve quality</summary>
                         <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Improve quality</button>
                         @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
@@ -654,18 +694,15 @@ else
                         @if (refinementJob.LocksTarget) { <button @onclick="() => CancelGeneration(refinementJob.Id)">Cancel refinement</button> }
                         @if (RecoveryLabel(refinementJob) is { } label) { <button @onclick="async () => { try { await AiJobs.ResumeAsync(refinementJob.Id); } catch (Exception e) { _reviewError = e.Message; } }">@label</button> }
                     }
-                    @if (_frameDestination is { } destination && destination.TakeId == take.Id)
-                    {
-                        <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"
-                            InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
-                    }
-                    <p>@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archive" : "MP4 only") · @Bytes(take.Bytes) total</p>
-                    <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
-                    <RefinementDetails Take="take" />
-                    <VideoPerformanceDetails Take="take" />
-                    <VideoLoraDetails Snapshot="take.Snapshot" />
-                    <ShotInputPreview ProjectId="Id" Shot="take.Snapshot.Shot" Guidance="take.Snapshot.ReferenceGuidance" Restored="InputsRestored" />
-                    <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a>
+                    @* Everything below describes the take rather than acting on it, so it is grouped and collapsed. *@
+                    <section class="take-review-details" aria-label="Take details">
+                        <p class="take-review-file">@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archive" : "MP4 only") · @Bytes(take.Bytes) total <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></p>
+                        <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
+                        <RefinementDetails Take="take" />
+                        <VideoPerformanceDetails Take="take" />
+                        <VideoLoraDetails Snapshot="take.Snapshot" />
+                        <ShotInputPreview ProjectId="Id" Shot="take.Snapshot.Shot" Guidance="take.Snapshot.ReferenceGuidance" Restored="InputsRestored" />
+                    </section>
                 }
                 else { <p>No saved take selected. Completed videos appear here.</p> }
             </div>

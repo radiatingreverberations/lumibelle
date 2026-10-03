@@ -39,7 +39,7 @@ test('global generation presets follow shots and projects while prompts and refe
   const preset = (await library()).setups.find(s => s.name === 'Seed Hunter');
   expect(preset.settings.takeCount).toBe(4);
   await page.locator('.shot-list-row').nth(1).click();
-  await expect(page.locator('.shot-setup-summary > strong')).toHaveText('Seed Hunter');
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   await openShotSetup(page);
   await expect(editor).toBeEmpty();
   await editor.fill('Second shot only.');
@@ -57,7 +57,7 @@ test('global generation presets follow shots and projects while prompts and refe
   // Even a project created after selecting a preset starts with that selection.
   const otherId = await makeProject();
   await page.goto(`/projects/${otherId}/shots`);
-  await expect(page.locator('.shot-setup-summary > strong')).toHaveText('Seed Hunter');
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   await openShotSetup(page);
   await expect(editor).toBeEmpty();
   await editor.fill('Other project only.');
@@ -73,17 +73,17 @@ test('global generation presets follow shots and projects while prompts and refe
   await page.screenshot({ path: 'artifacts/global-setup-settings-desktop.png', animations: 'disabled' });
   await closeShotSetup(page);
   await page.reload();
-  await expect(page.locator('.shot-setup-summary > strong')).toHaveText('Seed Hunter');
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   const separate = await context.newPage();
   await separate.goto(`/projects/${otherId}/shots`);
-  await expect(separate.locator('.shot-setup-summary > strong')).toHaveText('Seed Hunter');
+  await expect(separate.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   await separate.close();
   const current = await setups(id);
   expect(current.filter(c => c.shotId === current[0].shotId).every(c => c.prompt === 'First shot only.' && c.inputs.images.length === 1)).toBe(true);
   expect(current.filter(c => c.shotId === current[1].shotId).every(c => c.prompt === 'Second shot only.' && c.inputs.images.length === 0)).toBe(true);
   await page.getByRole('button', { name: '+ Shot', exact: true }).click();
   await expect(page.locator('.shot-list-row')).toHaveCount(3);
-  await expect(page.locator('.shot-setup-summary > strong')).toHaveText('Seed Hunter');
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   await openShotSetup(page);
   await expect(editor).toBeEmpty();
   await closeShotSetup(page);
@@ -101,7 +101,8 @@ test('the generation header switches setups from its menu and keeps their detail
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.setViewportSize({ width: 1173, height: 900 });
   await page.goto(`/projects/${id}/shots`);
-  const name = page.locator('.shot-setup-summary > strong');
+  // The setup's name is the dropdown that switches setups.
+  const name = page.locator('.shot-setup-summary select.generation-preset-select option:checked');
   await expect(name).toHaveText('Default setup');
   await expect(page.getByText('Shared preset · across shots and projects')).toHaveCount(0);
   await page.getByRole('button', { name: 'Help: Generation setup', exact: true }).click();
@@ -116,15 +117,12 @@ test('the generation header switches setups from its menu and keeps their detail
   await dialog.getByText('Setup options', { exact: true }).click();
   await closeShotSetup(page);
   await expect(name).toHaveText('Night pass');
-  await page.getByRole('button', { name: 'Change generation setup', exact: true }).click();
-  await expect(page.getByRole('menuitemradio', { name: 'Night pass' })).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('menuitemradio', { name: 'Default setup' }).click();
+  await page.getByRole('combobox', { name: 'Generation setup', exact: true }).selectOption({ label: 'Default setup' });
   await expect(name).toHaveText('Default setup');
   await openShotSetup(page, 'Generation settings');
   const library = await (await request.get('/fixtures/generation-setups')).json();
   await expect(dialog.getByLabel('Named setup', { exact: true })).toHaveValue(library.setups.find(s => s.name === 'Default setup').id);
   await closeShotSetup(page);
-  await page.getByRole('button', { name: 'Change generation setup', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit preset…' }).click();
+  await page.getByRole('button', { name: 'Edit generation preset', exact: true }).click();
   await expect(dialog.getByRole('tab', { name: 'Preset', exact: true })).toHaveAttribute('aria-selected', 'true');
 });

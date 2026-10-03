@@ -17,6 +17,18 @@ public partial class ShotReferenceEditor
     [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = null!;
     [Parameter] public IReadOnlyList<Shot> CopySources { get; set; } = [];
     [Parameter] public Shot? PreviousCopySource { get; set; }
+    /// <summary>A shot's number in the shot list, to order and label the shots to copy from around this one.</summary>
+    [Parameter] public Func<Shot, int>? CopySourceNumber { get; set; }
+    [Parameter] public int CurrentShotNumber { get; set; }
+    // Adds the previous shot's last production frame without replacing this shot's references.
+    private void AddContinuityFrame()
+    {
+        if (PreviousCopySource is { } previous && ContinuityFrameOf?.Invoke(previous) is { } frame && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = frame;
+    }
+    private IEnumerable<Shot> OtherCopySources => CopySources.Where(s => PreviousCopySource is null || s.Id != PreviousCopySource.Id);
+    private string CopyLabel(Shot source) => CopySourceNumber is null ? source.Title : $"{CopySourceNumber(source):00} · {source.Title}";
+    /// <summary>The previous shot's last production frame, added as a continuity picture when its references are copied.</summary>
+    [Parameter] public Func<Shot, ShotContinuityFrame?>? ContinuityFrameOf { get; set; }
     [Parameter] public bool AllowReels { get; set; }
     [Parameter] public bool ReelAuthoring { get; set; }
     [Parameter] public Func<DerivedImageRequest, Task<SavedAssetImage>>? SaveImage { get; set; }
@@ -57,6 +69,11 @@ public partial class ShotReferenceEditor
         {
             var copy = ReferenceCopies.Into(source, _draft, Library);
             _draft = copy.Inputs;
+            var continuity = value == "previous" ? ContinuityFrameOf?.Invoke(source) : null;
+            var continuityNotice = continuity is null ? null : ResolvedReferences.For(_draft).Pictures.Count >= 9
+                ? " Its last frame was not added: this shot already has 9 pictures."
+                : $" Its production take's last frame is added as a continuity picture; remove it if you don't need it.";
+            if (continuity is not null && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = continuity;
             _reelVoiceNotice = null;
             // Copied references retain the source setup's captured guidance; they
             // are not new selections of the current asset-library reel defaults.
@@ -68,8 +85,8 @@ public partial class ShotReferenceEditor
             _originalVoiceOwners = CharacterVoices.Owners(_draft, Library).ToHashSet();
             _selectedTab = true;
             _error = null;
-            _copyNotice = copy.Warnings.Count == 0 ? "References copied into the draft. Apply changes to keep them."
-                : string.Join(" ", copy.Warnings);
+            _copyNotice = (copy.Warnings.Count == 0 ? "References copied into the draft. Apply changes to keep them."
+                : string.Join(" ", copy.Warnings)) + continuityNotice;
             _copyVersion++; // Reset the picker so the same source can be copied again.
         }
         catch (WorkspaceStoreException error) { _error = error.Message; }

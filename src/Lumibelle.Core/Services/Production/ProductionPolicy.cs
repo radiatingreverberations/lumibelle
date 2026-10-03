@@ -13,11 +13,33 @@ public static class ProductionPolicy
     public static readonly string[] Sections = ["subject_definitions", "summary", "retention_analysis", "detailed_description", "overall_soundscape", "non_diegetic_music"];
     internal const string SectionPattern = @"(?m)^\s*(subject_definitions|summary|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):\s*";
     internal static string[] SectionNames(string prompt) => Regex.Matches(prompt, SectionPattern).Select(m => m.Groups[1].Value).ToArray();
-    public static string SourceFingerprint(Shot s) => ReferenceSetups.Hash(new
+    public static string SourceFingerprint(Shot s)
     {
-        s.Id, s.Title, s.ApprovedScriptId, s.SceneId, s.SceneTitle, s.SourceBlockIds, s.SourceExcerpt,
-        s.Duration, s.Description, s.Dialogue, Characters = ShotReferences.Characters(s).Select(c => new { c.Id, c.Name }), s.Atmosphere, s.Music
-    });
+        var source = ReferenceSetups.Hash(new
+        {
+            s.Id, s.Title, s.ApprovedScriptId, s.SceneId, s.SceneTitle, s.SourceBlockIds, s.SourceExcerpt,
+            s.Duration, s.Description, s.Dialogue, Characters = ShotReferences.Characters(s).Select(c => new { c.Id, c.Name }), s.Atmosphere, s.Music
+        });
+        // The starting frame joins only when set, so prompts composed before it existed keep their fingerprint.
+        return s.StartFrame is null ? source : ReferenceSetups.Hash(new { Source = source, s.StartFrame });
+    }
+    /// <summary>
+    /// A new shot that continues from a frame of a take: the same scene, cast and sound, opening on that frame, with its action
+    /// and dialogue still to write. References come from the shot's setup like any new shot's.
+    /// </summary>
+    public static Shot Continuation(Shot source, ShotTake take, int frame)
+    {
+        if (frame < 0 || frame >= take.FrameCount) throw new WorkspaceStoreException("Choose an available frame to continue from.");
+        const string suffix = " (cont.)";
+        var title = source.Title.EndsWith(suffix, StringComparison.Ordinal) ? source.Title : source.Title + suffix;
+        return new Shot
+        {
+            Title = title.Length > 500 ? title[..500] : title, ApprovedScriptId = source.ApprovedScriptId, SceneId = source.SceneId,
+            SceneTitle = source.SceneTitle, SourceBlockIds = [.. source.SourceBlockIds], SourceExcerpt = source.SourceExcerpt,
+            Characters = ShotCopy.Of(ShotReferences.Characters(source).ToList()), Atmosphere = source.Atmosphere, Music = source.Music,
+            StartFrame = new(take.Id, frame)
+        };
+    }
     public static Shot CoverageCopy(Shot source)
     {
         var s = new Shot(); CopyCoverage(source, s); s.SelectedTakeId = null; return s;
@@ -30,7 +52,7 @@ public static class ProductionPolicy
         target.SourceExcerpt = source.SourceExcerpt; target.Planning = source.Planning; target.Duration = source.Duration;
         target.Description = source.Description; target.Dialogue = ShotCopy.Of(source.Dialogue);
         target.Characters = ShotReferences.Characters(source).Select(c => c with { Appearance = looks.GetValueOrDefault(c.Id) }).ToList();
-        target.Atmosphere = source.Atmosphere; target.Music = source.Music;
+        target.Atmosphere = source.Atmosphere; target.Music = source.Music; target.StartFrame = source.StartFrame;
         foreach (var b in target.Images.Where(b => b.RepresentsId is { } id && target.Characters.All(c => c.Id != id))) { b.RepresentsId = null; b.Purpose = null; }
     }
     public static string ContextFingerprint(ProductionComposition c, AssetLibrary assets, ShotDocument shots, ProjectInfo project)
@@ -50,6 +72,7 @@ public static class ProductionPolicy
             : shot.Videos.Count == 0 ? ReferenceSetups.Hash(context) : ReferenceSetups.Hash(new { Context = context, shot.Videos });
         // Shot LoRAs join the context only when chosen, so prompts reviewed before they existed keep their fingerprint.
         if (shot.ShotLoras is { Count: > 0 } own) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ShotLoras = own });
+        if (shot.ContinuityFrame is { } continuity) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ContinuityFrame = continuity });
         return fingerprint;
     }
     // What changed since a composition request, in the author's terms, so a changed

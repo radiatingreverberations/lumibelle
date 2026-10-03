@@ -84,7 +84,7 @@ public static class AiTextRepairContracts
             generatedDuration = H3Policy.Seconds(shot.Duration!.Value).ToString("0.###", CultureInfo.InvariantCulture) + " seconds",
             allowCuts, shot.Aspect, shot.Atmosphere, shot.Music,
             dialogue = shot.Dialogue.Select(d => new { d.Speaker, label = SpeakerLabel(d.Speaker), d.Language, d.Text }),
-            pictures = refs.Pictures.Select(p => new { label = $"<Picture {p.Number}>", name = p.Image?.Name ?? p.Reel?.Name }),
+            pictures = refs.Pictures.Select(p => new { label = $"<Picture {p.Number}>", name = p.Image?.Name ?? p.Continuity?.Name ?? p.Reel?.Name }),
             videos = refs.Videos.Select(v => new { label = $"<Video {v.Number}>", v.Reel.Name, representation = v.Reel.EffectiveVisuals.ToString() }),
             audio = ReferenceVideos.AudioMappings(shot).Select(a => new { label = $"<Audio {a.Item1}>", speaker = a.Item2, speakerLabel = SpeakerLabel(a.Item2) })
         };

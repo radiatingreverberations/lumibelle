@@ -20,20 +20,12 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await expect(tools.getByLabel('Reel name', { exact: true })).toHaveCount(0);
   await expect(tools.getByRole('button', { name: 'Generate reel', exact: true })).toBeInViewport();
   await expect(tools.getByRole('button', { name: 'Open Prompt', exact: true })).toHaveCount(0);
-  const generateHint = tools.locator('.reel-generate-target');
-  const hint = page.getByText('Add a prompt and use guidance in Prompt.', { exact: true });
-  await expect(hint).not.toBeVisible();
-  if (narrow) await generateHint.click();
-  else await generateHint.hover();
-  await expect(hint).toBeVisible();
-  await page.screenshot({ path: `artifacts/reel-generate-hint-${narrow ? 'mobile' : 'desktop'}.png` });
-  await page.mouse.move(0, 0);
-  await tools.getByRole('button', { name: 'Prompt', exact: true }).focus();
-  await expect(hint).not.toBeVisible();
-  await generateHint.focus();
-  await expect(hint).toBeVisible();
-  await tools.getByRole('button', { name: 'Prompt', exact: true }).focus();
-  await expect(hint).not.toBeVisible();
+  // Prompt sits right above Generate and says what is missing; the unavailable button explains itself to assistive technology.
+  const promptButton = tools.getByRole('button', { name: 'Prompt', exact: true });
+  await expect(promptButton).toContainText('Missing');
+  const below = await tools.locator('.reel-generate-target').boundingBox(), above = await promptButton.boundingBox();
+  expect(above.y + above.height).toBeLessThanOrEqual(below.y);
+  await expect(tools.getByRole('group', { name: 'Generate reel unavailable: add a prompt and use guidance in Prompt.' })).toBeVisible();
   expect(await tools.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 
   await tools.getByRole('button', { name: 'Manage references', exact: true }).click();
@@ -67,8 +59,8 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await expect(editor).not.toBeVisible();
   await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toBeFocused();
   await expect.poll(async () => (await library(request, id)).reelDrafts[0].prompt).toBe('Manually authored prompt — café 👋');
-  await generateHint.hover();
-  await expect(hint).not.toBeVisible();
+  // With a prompt pair, Generate is available and no longer explains itself.
+  await expect(tools.getByRole('group', { name: /Generate reel unavailable/ })).toHaveCount(0);
 
   await tools.getByRole('button', { name: 'Edit reel preset', exact: true }).click();
   await expect(editor.getByRole('tab', { name: 'Preset', exact: true })).toHaveAttribute('aria-selected', 'true');

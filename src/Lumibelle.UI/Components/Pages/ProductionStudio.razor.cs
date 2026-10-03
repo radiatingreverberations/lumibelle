@@ -272,7 +272,7 @@ public partial class ProductionStudio
     }
     private void SelectTake(Guid? id)
     {
-        _reviewTakeId = id; _frameDestination = null; _refiningTake = null;
+        _reviewTakeId = id; _frameDestination = null; _continueFrame = null; _refiningTake = null;
         if (_doc.Takes.FirstOrDefault(t => t.Id == id) is { Refinement: not null } take) _refinementJob = take.RunId;
     }
     private void CloseFrameDestination() { _frameDestination = null; _restoreFrameFocus = true; }
@@ -311,7 +311,7 @@ public partial class ProductionStudio
     private async Task OpenFrameDestination(int index)
     {
         if (ReviewTake is not { } take) return;
-        try { _assets = await AssetStore.LoadAsync(Id, _lifetime.Token); _frameDestination = (take.Id, index); _reviewError = null; }
+        try { _assets = await AssetStore.LoadAsync(Id, _lifetime.Token); _frameDestination = (take.Id, index); _continueFrame = null; _reviewError = null; }
         catch (WorkspaceStoreException e) { _reviewError = e.Message; }
     }
     private async Task<SavedAssetImage> SaveFrameImage(DerivedImageRequest request)
