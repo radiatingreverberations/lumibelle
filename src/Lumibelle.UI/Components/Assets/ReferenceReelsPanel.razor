@@ -343,7 +343,7 @@
     }
 </Footer></StudioPane></SectionContent>
 }
-<InlineDialog Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DetailOptions" Class="media-details-dialog reel-details-dialog">
+<InlineDialog Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DetailOptions" Class="media-details-dialog reel-details-dialog" DefaultFocus="_detailsFocus">
 <TitleContent><DialogHeader Title="Reel details" CloseLabel="Close reel details" CloseDisabled="_busy" Close="CloseDetails" /></TitleContent><DialogContent>
     <DialogEscape Pressed="() => { CloseDetails(); return Task.CompletedTask; }" />
     <MediaDetailsFocus NameId="@(_renameDetails ? _details?.Id : null)" Handled="() => _renameDetails = false" />

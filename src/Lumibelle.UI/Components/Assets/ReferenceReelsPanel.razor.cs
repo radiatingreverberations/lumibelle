@@ -466,8 +466,13 @@ public partial class ReferenceReelsPanel
     {
         if (_busy) return;
         if (_details?.Id != reel.Id) { _details = reel; _detailName = reel.Name; _detailGuidance = reel.UseGuidance; _detailLook = reel.LookId; _error = null; }
-        _renameDetails = rename; _confirmDetailsClose = false; _directionsCopyNotice = null; StateHasChanged();
+        _renameDetails = rename; _confirmDetailsClose = false; _directionsCopyNotice = null;
+        // Rename focuses the name itself; the dialog's focus trap must not apply its own initial focus afterwards. Decided
+        // here, not from _renameDetails, which clears once the name has focus and would hand the trap its default back.
+        _detailsFocus = rename ? DefaultFocus.None : null;
+        StateHasChanged();
     }
+    private DefaultFocus? _detailsFocus;
     private void CloseDetails()
     {
         if (_busy) return;
