@@ -106,6 +106,11 @@ test('copying references from the previous shot adds its production take\'s last
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  // The last frame can be added on its own, after the images, without copying the other references.
+  await picker.getByRole('button', { name: `Add the last frame of ${source.title}`, exact: true }).click();
+  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toContainText(`${source.title} · last frame`);
+  await picker.getByRole('button', { name: 'Remove the continuity picture', exact: true }).click();
+  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toHaveCount(0);
   // The previous shot comes first, numbered as in the shot list; it is not repeated among the earlier shots.
   const copyFrom = picker.getByLabel('Copy references from');
   await expect(copyFrom.locator('option[value=previous]')).toHaveText(`Previous shot · 01 · ${source.title}`);

@@ -20,6 +20,11 @@ public partial class ShotReferenceEditor
     /// <summary>A shot's number in the shot list, to order and label the shots to copy from around this one.</summary>
     [Parameter] public Func<Shot, int>? CopySourceNumber { get; set; }
     [Parameter] public int CurrentShotNumber { get; set; }
+    // Adds the previous shot's last production frame without replacing this shot's references.
+    private void AddContinuityFrame()
+    {
+        if (PreviousCopySource is { } previous && ContinuityFrameOf?.Invoke(previous) is { } frame && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = frame;
+    }
     private IEnumerable<Shot> OtherCopySources => CopySources.Where(s => PreviousCopySource is null || s.Id != PreviousCopySource.Id);
     private string CopyLabel(Shot source) => CopySourceNumber is null ? source.Title : $"{CopySourceNumber(source):00} · {source.Title}";
     /// <summary>The previous shot's last production frame, added as a continuity picture when its references are copied.</summary>
