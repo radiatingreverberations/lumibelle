@@ -16,10 +16,12 @@ public static class TakeInputChanges
         if (source is null) changes |= TakeInputChange.Unavailable;
         else if (Story(captured.Shot) != Story(source)) changes |= TakeInputChange.Script;
 
-        // Compare only this scene, not the project-wide script revision or edits in other scenes.
-        var originalScene = Scene(originalScript, captured.Shot.SceneId);
+        // Compare only this scene, not the project-wide script revision or edits in other scenes. A take records the scene as it
+        // stood when generated; script edits made before that are not changes to this take. Older takes compare with the
+        // approved script their shot was planned from.
+        var originalScene = captured.SceneFingerprint ?? SceneFingerprint(originalScript, captured.Shot.SceneId);
         if (originalScene is null || currentScript is null) changes |= TakeInputChange.Unavailable;
-        else if (originalScene != Scene(currentScript, captured.Shot.SceneId)) changes |= TakeInputChange.Script;
+        else if (originalScene != SceneFingerprint(currentScript, captured.Shot.SceneId)) changes |= TakeInputChange.Script;
 
         // The setup adapter carries the shot's current shared prompt and references.
         // Its generation settings do not affect whether the authored inputs changed.
@@ -50,7 +52,7 @@ public static class TakeInputChanges
         Dialogue = shot.Dialogue.Select(d => new { d.Speaker, d.Language, d.Text }),
         Characters = ShotReferences.Characters(shot).Select(c => c.Name)
     });
-    private static string? Scene(IReadOnlyList<ScriptBlock>? blocks, Guid? id)
+    public static string? SceneFingerprint(IReadOnlyList<ScriptBlock>? blocks, Guid? id)
     {
         if (blocks is null || id is null) return null;
         var scene = ScriptStructure.Sections(blocks).FirstOrDefault(s => s.Kind == ScriptBlockKind.Scene && s.Id == id);

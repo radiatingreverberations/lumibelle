@@ -252,6 +252,9 @@ public sealed record VideoSnapshot(Guid ProjectId, long SourceRevision, Shot Sho
     public H3Sampling? Sampling { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public H3PreviewUpscaleProfile? PreviewUpscale { get; init; }
+    /// <summary>The shot's scene in the script as it stood when the take was generated, so later script edits, and only those, mark the take.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SceneFingerprint { get; init; }
 }
 public sealed record TakeRegenerationSource(Guid TakeId, long Seed, int Width, int Height);
 public enum H3UpscalerImplementation { Lbh, Plus }

@@ -60,6 +60,22 @@ public sealed class TakeInputChangesTests
         Assert.Equal(TakeInputChange.Script, f.Compare());
     }
 
+    [Fact]
+    public void ATakeIsComparedWithTheSceneAsItWasWhenGeneratedNotWhenItsShotWasPlanned()
+    {
+        // The script was edited after the shot was planned, then the take was generated.
+        var f = new Fixture();
+        f.Current[1] = f.Current[1] with { Spans = [new("Riley enters before anyone else.")] };
+        Assert.Equal(TakeInputChange.Script, f.Compare());
+        f.Snapshot = f.Snapshot with { SceneFingerprint = TakeInputChanges.SceneFingerprint(f.Current, f.Source.SceneId) };
+        Assert.Equal(TakeInputChange.None, f.Compare());
+        // A later edit marks it, and only edits within its scene do.
+        f.Current[3] = f.Current[3] with { Spans = [new("Rain falls on the street.")] };
+        Assert.Equal(TakeInputChange.None, f.Compare());
+        f.Current[1] = f.Current[1] with { Spans = [new("Riley runs in.")] };
+        Assert.Equal(TakeInputChange.Script, f.Compare());
+    }
+
     [Theory]
     [InlineData("action")]
     [InlineData("dialogue")]
