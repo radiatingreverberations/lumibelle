@@ -87,7 +87,7 @@ public sealed class UnifiedReferenceEditorTests : BunitContext
         e.Find($"[data-reel-id='{library.Reels[0].Id}'] .add-reel").Click();
         Assert.True(e.Find($"[data-reel-id='{library.Reels[0].Id}'] .add-reel").HasAttribute("disabled"));
         e.Find(".soundtrack-choice input").Change(true); // Explicitly retaining competing legacy inputs is still allowed for review.
-        Click(e, "Apply changes"); Assert.False(saved); Assert.Contains("three enabled audio", e.Find("[role=alert]").TextContent);
+        Click(e, "Apply changes"); Assert.False(saved); Assert.Contains("Use up to three audio references, counting reel soundtracks; this shot has 4.", e.Find("[role=alert]").TextContent);
         e.Find(".soundtrack-choice input").Change(false); Click(e, "Apply changes"); Assert.True(saved);
     }
     [Fact]

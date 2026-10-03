@@ -37,6 +37,8 @@ public partial class ProductionStudio
     private int? ReferenceTokens => _contextSize is { } size && _compositionModel is { } model && _contextSettings is { } settings
         ? TextImageTokens.Estimate(model.Model, settings, size.ReferenceImages) : null;
     private bool _contextSizeBusy;
+    // Prompt assistance opens only once this callback returns, so the estimate runs on its own and fills in when ready.
+    private Task StartContextEstimate() { _ = EstimateContextSize(); return Task.CompletedTask; }
     private async Task EstimateContextSize()
     {
         if (Current is not { } c || _contextSizeBusy) return;
@@ -47,8 +49,9 @@ public partial class ProductionStudio
             _contextSettings = await Settings.LoadAsync(_lifetime.Token);
             if (Current?.Id == c.Id) _contextSize = size;
         }
-        catch (Exception e) when (e is WorkspaceStoreException or lumibelle.Services.ProjectStoreException) { /* The sizes are a convenience; composing reports real problems. */ }
+        catch (Exception e) when (e is WorkspaceStoreException or lumibelle.Services.ProjectStoreException or OperationCanceledException) { /* The sizes are a convenience; composing reports real problems. */ }
         finally { _contextSizeBusy = false; }
+        if (!_disposed) await InvokeAsync(StateHasChanged);
     }
     // The size of a composition request that was too large to queue, per step; cleared when the model changes.
     private IReadOnlyList<ComfyTextStageSize>? _compositionStages;

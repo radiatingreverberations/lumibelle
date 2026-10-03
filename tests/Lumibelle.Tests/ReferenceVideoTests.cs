@@ -116,6 +116,21 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public void AnExceededLimitNamesItselfAndWhatAddsUpToIt()
+    {
+        var reel = Clip(false); reel.Visuals = ReelVisuals.Keyframes;
+        reel.Keyframes = new() { Frames = [new() { Frame = new(reel.Media.Id, reel.Media.Sha256, 0, 0) }] };
+        var shot = Ready() with { Duration = 5, Videos = [reel], Voices = [
+            new() { AssetId = Guid.NewGuid(), VoiceId = Guid.NewGuid(), Speaker = "RILEY", Duration = 10.144 },
+            new() { AssetId = Guid.NewGuid(), VoiceId = Guid.NewGuid(), Speaker = "GUARD", Duration = 10.144 }] };
+        var audio = Assert.Throws<WorkspaceStoreException>(() => ReferenceVideos.Validate(shot)).Message;
+        Assert.Equal($"Audio references can add up to 15 seconds in total; these add {20.288:0.#} s (RILEY {10.144:0.#} s, GUARD {10.144:0.#} s). Shorten an excerpt, for example with its audio duration.", audio);
+        shot.Voices[1].Duration = 4.9; ReferenceVideos.Validate(shot);
+        shot.Videos = [Clip(), Clip(), Clip(), Clip()];
+        Assert.Equal("Use up to three reels; this shot has 4.", Assert.Throws<WorkspaceStoreException>(() => ReferenceVideos.Validate(shot)).Message);
+    }
+
+    [Fact]
     public async Task VideoAttachmentsAreIndependentAndRejectChangedFiles()
     {
         var f = Fixture(); var media = new ReferenceMediaFake(); var store = new FileReferenceVideoStore(f.Files, f.Shots, media);
