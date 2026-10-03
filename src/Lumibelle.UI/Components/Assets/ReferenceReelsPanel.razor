@@ -26,7 +26,7 @@
                 <video controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(ProjectId, reel.Media.Id)" aria-label="Play @reel.Name"></video>
                 <strong>@reel.Name</strong><small>@reel.Media.Duration.ToString("0.###") s · @reel.CreatedUtc.ToLocalTime().ToString("g") · @(EnvironmentReel ? "Environment" : PropReel ? "Prop" : Owner.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name ?? "General")</small>
                 <small>@(reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent || !reel.Media.HasAudio ? "Visual reference · soundtrack off by default" : "Soundtrack available")</small>
-                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button @onclick="() => Variation(reel)">Create similar</button><button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
+                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button><button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
             </article>
         }
     </div>
@@ -354,7 +354,7 @@
     </Status><Tools>
     @if (!_confirmDetailsClose && _details is { } detail) {
         @if (detail.Generation is not null) {
-            <MudButton OnClick="() => Variation(detail)" Disabled="_busy">Create similar</MudButton>
+            <MudButton OnClick="() => Variation(detail)" Disabled="@(_busy || !CanVary(detail))" title="@(CanVary(detail) ? null : VaryBusy)">Create similar</MudButton>
             <MudButton OnClick="() => Regenerate(detail)" Disabled="_busy">Regenerate…</MudButton>
         }
         <MudButton OnClick="() => ManageKeyframes(detail)" Disabled="_busy">Manage keyframes…</MudButton>
