@@ -30,6 +30,11 @@ for (const narrow of [false, true]) test(`saved reel voice and combined characte
   await open();
   const voice = page.locator('.voice-dialog');
   await expect(voice.getByLabel('Make Juniper’s default voice')).not.toBeChecked();
+  // The box sits on the line of its label, not above it.
+  await expect.poll(() => voice.locator('label.media-details-check').evaluate(label => {
+    const box = label.querySelector('input').getBoundingClientRect(), rect = label.getBoundingClientRect();
+    return Math.round(Math.abs((box.top + box.height / 2) - (rect.top + rect.height / 2)));
+  })).toBeLessThan(3);
   await expect(voice).toContainText('independent audio recording');
   await voice.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await assets(request, id)).voices).toHaveLength(0);
@@ -49,9 +54,17 @@ for (const narrow of [false, true]) test(`saved reel voice and combined characte
   expect(library.assets[0].defaultVoiceId).toBe(recording.id); expect(recording.sourceReel.reelId).toBe(reel.id);
   await expect(page.locator('.media-look-badge').filter({ hasText: 'Default voice' })).toBeVisible();
   await page.reload(); await assetView(page, 'Reference reels');
-  await expect(page.getByRole('combobox', { name: 'Voice mode', exact: true })).toHaveValue('ExistingRecording');
-  await expect(page.getByRole('combobox', { name: 'Voice recording', exact: true })).toHaveValue(recording.id);
-  await expect(page.getByRole('spinbutton', { name: 'Excerpt start', exact: true })).toHaveValue('0.5');
+  // The new reel's voice is part of its Prompt setup.
+  await expect(async () => {
+    if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').first().click({ timeout: 1000 });
+    await expect(page.locator('.workspace-right')).toBeVisible();
+  }).toPass({ timeout: 10000 });
+  await page.locator('.reel-tools').getByRole('button', { name: 'Prompt', exact: true }).click();
+  const reelVoice = page.locator('.reel-setup-dialog .reel-voice-options');
+  if (!await reelVoice.evaluate(d => d.open)) await reelVoice.locator(':scope > summary').click();
+  await expect(reelVoice.getByRole('combobox', { name: 'Voice mode', exact: true })).toHaveValue('ExistingRecording');
+  await expect(reelVoice.getByRole('combobox', { name: 'Voice recording', exact: true })).toHaveValue(recording.id);
+  await expect(reelVoice.getByRole('spinbutton', { name: 'Excerpt start', exact: true })).toHaveValue('0.5');
   await page.goto(`/projects/${id}/shots`); await toolsTab(page, 'References');
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');

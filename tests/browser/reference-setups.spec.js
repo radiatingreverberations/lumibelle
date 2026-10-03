@@ -28,10 +28,9 @@ test('project aspect follows, overrides, cancels drafts and keeps captured take 
   await expect(settings.getByLabel('Video aspect')).toHaveValue('9:16');
   await page.getByRole('link', { name: 'Shots', exact: true }).click(); await toolsTab(page, 'Generate');
   const aspect = page.getByLabel('Shot aspect', { exact: true });
-  await expect(aspect).toHaveValue(''); await expect(aspect.locator('option[value=""]')).toHaveText('Follow project · 9:16');
-  await expect(page.locator('.shot-setup-dialog')).toContainText('Follows the project aspect.');
+  // The shot follows the project's aspect until it overrides it in the generation output.
+  await expect(aspect).toHaveValue(''); await expect(aspect.locator('option[value=""]')).toHaveText('Project · 9:16');
   await aspect.selectOption('1:1');
-  await expect(page.locator('.shot-setup-dialog')).toContainText('This shot only, whichever setup generates it.');
   await expect.poll(async () => (await state()).shots[0].aspectOverride).toBe('1:1');
   await composeProduction(page);
   await generateTakes(page);
@@ -49,6 +48,6 @@ test('project aspect follows, overrides, cancels drafts and keeps captured take 
   await settings.getByLabel('Video aspect').selectOption('16:9'); await settings.getByRole('button', { name: 'Save video defaults' }).click();
   await expect(settings).toContainText('Video defaults saved.');
   await page.getByRole('link', { name: 'Shots', exact: true }).click(); await toolsTab(page, 'Generate');
-  await expect(aspect.locator('option[value=""]')).toHaveText('Follow project · 16:9'); await expect(aspect).toHaveValue('');
+  await expect(aspect.locator('option[value=""]')).toHaveText('Project · 16:9'); await expect(aspect).toHaveValue('');
   expect((await state()).takes[0].snapshot.shot.aspect).toBe('1:1');
 });
