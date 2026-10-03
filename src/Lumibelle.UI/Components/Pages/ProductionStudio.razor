@@ -219,10 +219,6 @@ else
                                 <button aria-label="Remove the starting frame" @onclick="RemoveStartFrame">Remove</button>
                             </div>
                         }
-                        else if (PreviousProductionTake is { } previous)
-                        {
-                            <button class="shot-start-from-previous" title="Takes of this shot open exactly on the last frame of that shot's production take" @onclick="StartFromPreviousShot">Start from the end of @previous.Shot.Title</button>
-                        }
                         <div class="shot-reference-counts"><span>Images <strong>@ResolvedReferences.For(shot).Pictures.Count/9</strong></span><span>Reels <strong>@shot.Videos.Count</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(shot).Count()/3</strong></span></div>
                         <div class="shot-reference-contact-sheet">
                             @foreach (var picture in ResolvedReferences.For(shot).Pictures)
@@ -659,7 +655,26 @@ else
                     {
                         <TakeRefinementForm Source="source" Busy="@(_refinementBusy || _refinementEnqueue is not null)" Issue="@_refinementIssue" ContextChanged="@(_doc.Shots.FirstOrDefault(s => s.Id == source.ShotId) is not { } current || !TakeMatches(source, current))" Cancel="CloseRefinement" Refresh="CheckRefinementSetup" Queue="QueueRefinement" />
                     }
-                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="ContinueFromFrame" />
+                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                    @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
+                    {
+                        <section class="take-continue-panel" aria-label="Continue from this frame">
+                            <h3>Continue from frame @(continuing.Index + 1)</h3>
+                            <p class="field-hint">Takes of the chosen shot open exactly on this frame, so it plays on from here.</p>
+                            <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is null)" @onchange="() => _continueTarget = null" />A new shot after “@(_doc.Shots.FirstOrDefault(s => s.Id == take.ShotId)?.Title)”</label>
+                            @if (ContinueTargets(take).Any())
+                            {
+                                <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is not null)" @onchange="() => _continueTarget = ContinueTargets(take).First().Id" />An existing shot</label>
+                                <select aria-label="Shot to start from this frame" disabled="@(_continueTarget is null)" value="@_continueTarget" @onchange="e => _continueTarget = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                                    @foreach (var target in ContinueTargets(take))
+                                    {
+                                        <option value="@target.Id">@(_doc.Shots.IndexOf(target) + 1). @target.Title@(target.StartFrame is not null ? " · replaces its starting frame" : "")</option>
+                                    }
+                                </select>
+                            }
+                            <div class="shots-actions"><button class="take-continue-confirm" @onclick="ConfirmContinue">@(_continueTarget is null ? "Add shot" : "Start it here")</button><button @onclick="CloseContinue">Cancel</button></div>
+                        </section>
+                    }
                     @if (_frameDestination is { } destination && destination.TakeId == take.Id)
                     {
                         <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"

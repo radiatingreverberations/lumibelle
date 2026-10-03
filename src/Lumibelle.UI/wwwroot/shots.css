@@ -94,7 +94,11 @@
 .shot-start-frame { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); }
 .shot-start-frame img { width:96px; aspect-ratio:16 / 9; object-fit:cover; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
 .shot-start-frame-text { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }
-.shot-controls button.shot-start-from-previous { justify-self:start; border-style:dashed; }
+.take-continue-panel { margin:12px 0; padding:12px 14px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); }
+.take-continue-panel h3 { margin:0 0 4px; font-size:var(--lumi-font-size-ui); }
+.shot-review-dialog .take-continue-panel .check-row { display:flex; align-items:center; gap:8px; margin:8px 0; font-weight:400; color: inherit; }
+.take-continue-panel .check-row input { width:auto; margin:0; }
+.take-continue-panel select { display:block; width:100%; margin:0 0 10px 24px; max-width:calc(100% - 24px); }
 .reference-continuity-frame { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:10px; align-items:center; margin:8px 0; padding:8px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); }
 .reference-continuity-frame img { width:96px; aspect-ratio:16 / 9; object-fit:cover; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
 .reference-continuity-frame div { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }

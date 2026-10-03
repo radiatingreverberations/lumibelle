@@ -32,6 +32,11 @@ test('a paused take frame starts a new shot that opens on it, and its takes and 
   // Details describe the take; the frame actions sit with the player.
   await expect(review.getByRole('region', { name: 'Take details' })).toContainText('Download MP4');
   await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  const continuing = review.getByRole('region', { name: 'Continue from this frame' });
+  await expect(continuing).toContainText('Continue from frame 39');
+  // A lone shot has nowhere else to continue, so it is added after this one.
+  await expect(continuing.getByLabel('Shot to start from this frame')).toHaveCount(0);
+  await continuing.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(review).toBeHidden();
 
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
@@ -64,13 +69,23 @@ test('a paused take frame starts a new shot that opens on it, and its takes and 
   const runs = await (await request.get(`/fixtures/${project.id}/video-runs`)).json();
   const run = runs.find(r => r.snapshot.shot.id === next.id);
   expect(run.inputs.at(-1).fileName).toBe('start-frame.png');
-  await review.getByRole('button', { name: 'Close take review', exact: true }).click();
+
+  // An existing shot can start from a frame too, for example with a cutaway between them.
+  const nextTake = (await shots(request, project)).takes.find(t => t.shotId === next.id);
+  await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await continuing.getByRole('radio', { name: 'An existing shot' }).check();
+  await continuing.getByLabel('Shot to start from this frame').selectOption(source.id);
+  await continuing.getByRole('button', { name: 'Start it here', exact: true }).click();
   await expect(review).toBeHidden();
+  await expect(page.locator('.shot-outline-item.selected')).not.toContainText('(cont.)');
+  await expect.poll(async () => (await shots(request, project)).shots[0].startFrame ?? null).toMatchObject({ takeId: nextTake.id });
+  await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
 
   // Removing it makes the shot cut in again.
   await page.getByRole('button', { name: 'Remove the starting frame', exact: true }).click();
   await expect(card).toBeHidden();
-  await expect.poll(async () => (await shots(request, project)).shots[1].startFrame ?? null).toBeNull();
+  await expect.poll(async () => (await shots(request, project)).shots[0].startFrame ?? null).toBeNull();
+  expect((await shots(request, project)).shots[1].startFrame).toMatchObject({ takeId: take.id, frame: 38 });
 });
 
 test('copying references from the previous shot adds its production take\'s last frame as a continuity picture', async ({ page, request }) => {
