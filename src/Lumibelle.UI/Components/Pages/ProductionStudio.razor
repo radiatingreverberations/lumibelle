@@ -188,19 +188,14 @@ else
             <Right><StudioPane Class="shot-controls" Label="Production tools">
                 <Header>@if (Current is { } current && Selected is { } selected) {
                     <div class="shot-setup-summary">
-                        <strong><button class="generation-preset-name" @ref="_setupSettingsButton" aria-label="Edit generation preset" @onclick="@(() => OpenSetupDialog("Settings"))">@current.Name</button></strong>
-                        @* The setup's settings and scope are in its help; the menu switches setups without opening the dialog. *@
+                        @* The name switches setups; the pencil edits the one in use. Its settings and scope are in its help. *@
+                        <select class="generation-preset-select" aria-label="Generation setup" value="@current.GenerationSetupId" disabled="@_setupBusy" @onchange="ChangeSetup">
+                            @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
+                            { <option value="@setup.Id">@setup.Name@(setup.Archived ? " · Archived" : "")</option> }
+                        </select>
                         <span class="shot-setup-tools">
                             <HelpHint Label="Generation setup" Text="@($"{H3Presets.Label(H3Presets.Key(selected))} · {PresetResolution} · {ActiveGlobalSetup?.Settings.TakeCount ?? 1} takes. Shared across shots and projects. Output changes in the footer stay with this shot.")" />
-                            <MudMenu Icon="@Icons.Material.Outlined.Edit" AriaLabel="Change generation setup" Size="Size.Small" Dense="true" Disabled="_setupBusy" Class="shot-setup-switch" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                                @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
-                                {
-                                    var active = setup.Id == current.GenerationSetupId;
-                                    <MudMenuItem role="menuitemradio" aria-checked="@(active ? "true" : "false")" Icon="@(active ? Icons.Material.Outlined.Check : null)" OnClick="@(() => active ? Task.CompletedTask : SelectGlobalSetup(setup.Id))">@setup.Name@(setup.Archived ? " · Archived" : "")</MudMenuItem>
-                                }
-                                <MudDivider />
-                                <MudMenuItem role="menuitem" OnClick="@(() => OpenSetupDialog("Settings"))">Edit preset…</MudMenuItem>
-                            </MudMenu>
+                            <button class="shot-setup-edit" @ref="_setupSettingsButton" aria-label="Edit generation preset" title="Edit preset" @onclick="@(() => OpenSetupDialog("Settings"))"><MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-hidden="true" /></button>
                         </span>
                     </div>
                 }</Header>

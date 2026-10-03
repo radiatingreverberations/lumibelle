@@ -7,7 +7,7 @@ const setup = async (request, id) => (await (await request.get(`/fixtures/${id}/
 async function fixture(page, request, narrow) {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
-  await page.goto(`/projects/${id}/shots`); await expect(page.locator('.shot-setup-summary > strong')).toBeVisible();
+  await page.goto(`/projects/${id}/shots`); await expect(page.locator('.shot-setup-summary select.generation-preset-select')).toBeVisible();
   const take = await (await request.post(`/fixtures/${id}/reference-video-take`)).json();
   const saved = await (await request.post(`/fixtures/${id}/reference-reels?takeId=${take.id}`)).json();
   await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });

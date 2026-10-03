@@ -228,7 +228,9 @@
 .take-filters { display:flex; flex:1; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
 .take-filters > label { min-width:140px; flex:1; max-width:190px; margin:0 0 8px!important; }
 .shot-setup-summary { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:8px; }
-.shot-setup-summary > :not(strong, .shot-setup-tools) { grid-column:1 / -1; }
+.shot-setup-summary > :not(strong, .shot-setup-tools, .generation-preset-select) { grid-column:1 / -1; }
+.workspace-pane:is(.shot-controls, .reel-tools) select.generation-preset-select { min-width:0; width:100%; margin:0; font-weight:650; }
+.workspace-pane:is(.shot-controls, .reel-tools) button.shot-setup-edit { display:inline-flex; align-items:center; justify-content:center; padding:6px; border:0; background:transparent; color:var(--muted); }
 .shot-setup-summary > strong { overflow-wrap:anywhere; }
 .shot-setup-summary .eyebrow { margin:0 0 4px; }
 .shot-setup-tools { display:flex; align-items:center; gap:2px; }
@@ -237,8 +239,6 @@
 .shot-setup-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
 :is(.shot-controls, .reel-tools) :is(.shot-setup-summary, .workspace-pane-footer) .shot-setup-actions > button { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; text-align:left; }
 .shot-setup-actions small { font-size:var(--lumi-font-size-small); color:var(--muted); text-align:right; }
-.workspace-pane:is(.shot-controls, .reel-tools) button.generation-preset-name { padding:4px 0; margin:0; border:0; border-radius:0; background:transparent; color:var(--ink); font:inherit; text-align:left; overflow-wrap:anywhere; }
-.generation-preset-name:hover { text-decoration:underline; text-underline-offset:3px; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output { border:0; margin:0; padding:0; min-width:0; display:grid; gap:8px; }
 .generation-output-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output label { display:block; min-width:0; margin:0; font-size:var(--lumi-font-size-meta); color:var(--muted); }
@@ -250,7 +250,7 @@
 .output-aspect-options > summary { cursor:pointer; }
 @media (pointer:coarse) {
     :is(.shot-controls, .reel-tools) :is(.shot-setup-summary, .workspace-pane-footer) .shot-setup-actions > button,
-    .workspace-pane:is(.shot-controls, .reel-tools) .generation-preset-name,
+    .workspace-pane:is(.shot-controls, .reel-tools) :is(.generation-preset-select, .shot-setup-edit),
     .workspace-pane:is(.shot-controls, .reel-tools) .generation-output :is(select,input) { min-height:44px; }
 }
 .shot-references-title { display:flex; align-items:center; gap:8px; font-size:var(--lumi-font-size-ui); margin:0 0 12px; }

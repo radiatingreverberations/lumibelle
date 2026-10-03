@@ -10,7 +10,7 @@ The shot list groups shots by script scene. Click a scene heading to collapse it
 
 **Draft shot**, at the right of the shot heading, drafts the selected shot with AI from its scene in the saved script, for example after **+ Shot** when the breakdown missed a moment. The scene's other shots are sent as context, so the draft covers something they don't unless your directions say otherwise; a shot that already has action or dialogue is sent too, for the directions to revise. Review the proposed title, duration, action, dialogue, cast and sound, then **Apply to this shot** or **Dismiss** it. Applying keeps the shot's references, takes and existing cast, and **Undo** restores the previous version.
 
-The right panel lists the references first. Its footer then has the output settings, **Prompt** with the prompt's status, and **Generate takes**; the preset name at the top opens **Generation settings**. A shot that [continues from a frame](#continue-from-a-frame) shows **Starts from** with that frame above its references. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
+The right panel lists the references first. Its footer then has the output settings, **Prompt** with the prompt's status, and **Generate takes**; at the top, the preset's name is a dropdown that switches presets, and the pencil beside it opens **Generation settings** to edit the one in use. A shot that [continues from a frame](#continue-from-a-frame) shows **Starts from** with that frame above its references. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
 
 ## References
 

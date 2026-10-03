@@ -10,7 +10,7 @@ async function fixture(page, request) {
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  await expect(page.locator('.shot-setup-summary > strong')).toHaveText('Default setup');
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Default setup');
   return id;
 }
 async function references(page) {

@@ -26,7 +26,7 @@ test('reels share named presets with shots while keeping output overrides and lo
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
   const tools = page.locator('.reel-tools');
   const editor = page.locator('.reel-setup-dialog');
-  await expect(tools.getByRole('button', { name: 'Edit reel preset' })).toHaveText(preset.name);
+  await expect(tools.locator('select.generation-preset-select option:checked')).toHaveText(preset.name);
   await expect(tools.getByLabel('Reel takes', { exact: true })).toHaveValue('3');
   await expect(tools.getByLabel('Reel resolution', { exact: true })).toHaveValue('quick');
   await expect(page.locator('.compact-creation-header .asset-tool-context strong')).toHaveCount(0);
@@ -54,12 +54,11 @@ test('reels share named presets with shots while keeping output overrides and lo
   await tools.getByRole('button', { name: 'Prompt', exact: true }).click();
   await expect(editor.getByRole('textbox', { name: 'H3 prompt', exact: true })).toHaveText('Keep my general reel prompt.');
   await editor.getByRole('button', { name: 'Done', exact: true }).click();
-  await tools.getByRole('button', { name: 'Change generation setup', exact: true }).click();
-  await page.getByRole('menuitemradio', { name: 'Default setup', exact: true }).click();
-  await expect(tools.getByRole('button', { name: 'Edit reel preset' })).toHaveText('Default setup');
+  await tools.getByRole('combobox', { name: 'Generation setup', exact: true }).selectOption({ label: 'Default setup' });
+  await expect(tools.locator('select.generation-preset-select option:checked')).toHaveText('Default setup');
   await expect(tools.getByLabel('Reel takes', { exact: true })).toHaveValue('2');
   await page.reload();
-  await expect(tools.getByRole('button', { name: 'Edit reel preset' })).toHaveText('Default setup');
+  await expect(tools.locator('select.generation-preset-select option:checked')).toHaveText('Default setup');
   await page.screenshot({ path: 'artifacts/reel-named-preset-desktop.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('[data-toggle-pane=right]').click();
@@ -68,8 +67,7 @@ test('reels share named presets with shots while keeping output overrides and lo
   await page.screenshot({ path: 'artifacts/reel-named-preset-mobile.png' });
   await page.setViewportSize({ width: 1152, height: 1244 });
   await page.goto(`/projects/${id}/shots`);
-  await page.getByRole('button', { name: 'Change generation setup', exact: true }).click();
-  await page.getByRole('menuitemradio', { name: preset.name, exact: true }).click();
+  await page.getByRole('combobox', { name: 'Generation setup', exact: true }).selectOption({ label: preset.name });
   await openShotSetup(page, 'Generation settings');
   await expect(shotEditor.getByLabel('Default takes', { exact: true })).toHaveValue('4');
   await expect(shotEditor.getByLabel('Generation preset', { exact: true })).toHaveValue('turbo8');

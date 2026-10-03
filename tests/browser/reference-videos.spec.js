@@ -9,12 +9,12 @@ async function fixture(page, request) {
   await request.post(`/fixtures/${id}/images`);
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`);
-  await expect(page.locator('.shot-setup-summary > strong')).toBeVisible();
+  await expect(page.locator('.shot-setup-summary select.generation-preset-select')).toBeVisible();
   const response = await request.post(`/fixtures/${id}/reference-video-take`);
   expect(response.ok(), await response.text()).toBeTruthy();
   const take = await response.json();
   const lib = await (await request.post(`/fixtures/${id}/reference-reels?takeId=${take.id}&environment=true`)).json();
-  await page.reload(); await expect(page.locator('.shot-setup-summary > strong')).toBeVisible();
+  await page.reload(); await expect(page.locator('.shot-setup-summary select.generation-preset-select')).toBeVisible();
   return { id, take, reels: lib.reels };
 }
 async function manage(page) { await toolsTab(page, 'References');
