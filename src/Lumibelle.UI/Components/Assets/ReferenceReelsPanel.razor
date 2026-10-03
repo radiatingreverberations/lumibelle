@@ -57,9 +57,6 @@
                             @foreach (var look in Owner.Looks.Where(l => !l.Archived || l.Id == _draft.LookId)) { <option value="@look.Id" disabled="@look.Archived">@look.Name@(look.Archived ? " · Archived" : "")</option> }
                         </select></label>
                     }
-                    <div class="shot-setup-actions">
-                        <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
-                    </div>
                 </div>
             }
         </Header>
@@ -149,17 +146,21 @@
                     <label>Seconds<input aria-label="Requested seconds" type="number" min="@(ReferenceReels.IsCharacterCapture(_draft) ? 5 : 2)" max="15" step="0.1" @bind="_draft.Duration" @bind:after="Changed" /></label>
                 </div>
             </fieldset>
+            @* As in the shot panel: the prompt is written from the references above, so it is the step before generating. *@
+            <div class="shot-setup-actions shot-prompt-step">
+                <button @ref="_setupPromptButton" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+            </div>
             @if (_preparing) { <p role="status">Preparing request…</p><button @onclick="CancelPreparation">Cancel preparation</button> }
             @if (!_loraValid) { <p class="field-error">Enter valid LoRA strengths before generating.</p> }
             var videoJob = DisplayVideo;
             <div class="shot-generation-footer">
                 @if (videoJob is { } job && (job.State != AiJobState.Completed || job.RemoteUnconfirmed)) { <div class="reel-request-status"><small>Latest video request · @job.State</small><AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /></div> }
                 <div class="shot-generate-actions">
-                    <MudTooltip Text="Add a prompt and use guidance in Prompt." Disabled="HasPromptPair" Placement="Placement.Top" Inline="false" RootClass="generation-primary-action">
-                        <span class="reel-generate-target" tabindex="@(!HasPromptPair ? 0 : (int?)null)" role="group" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
-                            <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair)" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
-                        </span>
-                    </MudTooltip>
+                    @* Prompt, right above with its status, says what is missing; an overlay hint here covered that button. *@
+                    <span class="reel-generate-target generation-primary-action" tabindex="@(!HasPromptPair ? 0 : (int?)null)" role="group"
+                        title="@(!HasPromptPair ? "Add a prompt and use guidance in Prompt." : null)" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
+                        <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair)" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
+                    </span>
                     @if (videoJob is not null) { <MudButton Class="shot-review-latest" OnClick="() => ViewJob(videoJob)" Color="Color.Primary" Size="Size.Small" aria-label="@(ActiveVideo is null ? "Review latest batch" : "View request")" title="@(ActiveVideo is null ? "Review latest batch" : "View request")">Review</MudButton> }
                 </div>
             </div>
