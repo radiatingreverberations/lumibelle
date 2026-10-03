@@ -109,8 +109,12 @@ public static class PromptComposer
             "or between a reference and the shot text, are not missing input: wardrobe, action and staging follow the shot text and directing notes. " +
             (selectedMods.Length > 0 ? "The sparseVisualReferences are visual-only RefMods addressed by their Video labels; keep their identity, outfit or setting without copying source poses, actions, cuts or camera travel. " : "") +
             "Audio remains an independent numbered input.";
-        if (r.ReducedScriptContext) instructions += "\nThe scene text and neighbouring shots were left out to keep this request small. " +
+        if (r.SceneTextLeftOut && r.NearbyShotsLeftOut) instructions += "\nThe scene text and neighbouring shots were left out to keep this request small. " +
             "Work from the shot, its references and the directing notes; do not invent surrounding scene events or claim continuity with unseen shots.";
+        else if (r.SceneTextLeftOut) instructions += "\nThe scene text was left out to keep this request small. " +
+            "Work from the shot, the neighbouring shots, its references and the directing notes; do not invent surrounding scene events.";
+        else if (r.NearbyShotsLeftOut) instructions += "\nThe neighbouring shots were left out to keep this request small. " +
+            "Work from the shot, the scene text, its references and the directing notes; do not claim continuity with shots you cannot see.";
         return [new(ChatRole.System, instructions), message];
     }
 

@@ -23,7 +23,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
     public async Task<AiJobSubmission> ComposeAsync(Guid id, Guid tab, Guid projectId, Guid compositionId, long version,
-        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool reducedScriptContext = false)
+        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool includeSceneText = true, bool includeNearbyShots = true)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -41,37 +41,14 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var modFrames = ReelRefMods.Uses(effective)
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)
             : Array.Empty<RefModInspectionFrame>();
-        var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
-        var scene = ScriptStructure.Sections(approved.Blocks).FirstOrDefault(s => s.Id == shot.SceneId) ?? throw new WorkspaceStoreException("The script scene is unavailable.");
-        var index = source.Shots.FindIndex(s => s.Id == shot.Id);
-
-        string NearbyShotSummary(Shot neighbor, string relation)
-        {
-            var summary = relation + " shot — " + neighbor.Title + ": " + neighbor.Description;
-            if (!string.Equals(relation, "Previous", StringComparison.Ordinal)) return summary;
-            var priorPrompt = document.Compositions
-                .Where(x => x.ShotId == neighbor.Id && !x.Archived && !string.IsNullOrWhiteSpace(x.Prompt))
-                .OrderByDescending(x => x.Version)
-                .Select(x => x.Prompt!.Trim())
-                .FirstOrDefault();
-            return string.IsNullOrWhiteSpace(priorPrompt)
-                ? summary
-                : summary + "\nAccepted/composed prompt: " + priorPrompt;
-        }
-
-        var nearbyShots = new List<string>();
-        var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
-        var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
-        // Reduced context keeps the shot itself but leaves out the scene text and neighbouring shots to shorten the prompt.
-        if (previousShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
-        if (nextShot is not null && !reducedScriptContext) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        // Either part can be left out to shorten the prompt; the shot itself is always sent.
         var request = new PromptCompositionRequest(projectId, c.Id, c.Version, ProductionPolicy.ContextFingerprint(c, library, source, project), c.SourceFingerprint,
-            effective, reducedScriptContext ? "" : ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)),
-            nearbyShots.ToArray(),
+            effective, includeSceneText ? context.SceneText : "", includeNearbyShots ? context.NearbyShots : [],
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
-            ReducedScriptContext = reducedScriptContext, OpeningFrame = opening?.Identity
+            OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
         var attached = images.Select(i => i.Bytes).ToArray();
@@ -95,6 +72,45 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var cached = briefs is null ? null : await briefs.ReadAsync(key, ct);
         return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
             PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key, briefTokens));
+    }
+    /// <summary>
+    /// The size of the scene text and neighbouring shots a composition would include, so each can be weighed before composing.
+    /// Estimated at four characters per token, as for the rest of the prompt.
+    /// </summary>
+    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, CancellationToken ct = default)
+    {
+        var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
+        var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
+        var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        return new(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
+    }
+    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
+    {
+        var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
+        var scene = ScriptStructure.Sections(approved.Blocks).FirstOrDefault(s => s.Id == shot.SceneId) ?? throw new WorkspaceStoreException("The script scene is unavailable.");
+        var index = source.Shots.FindIndex(s => s.Id == shot.Id);
+
+        string NearbyShotSummary(Shot neighbor, string relation)
+        {
+            var summary = relation + " shot — " + neighbor.Title + ": " + neighbor.Description;
+            if (!string.Equals(relation, "Previous", StringComparison.Ordinal)) return summary;
+            var priorPrompt = document.Compositions
+                .Where(x => x.ShotId == neighbor.Id && !x.Archived && !string.IsNullOrWhiteSpace(x.Prompt))
+                .OrderByDescending(x => x.Version)
+                .Select(x => x.Prompt!.Trim())
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(priorPrompt)
+                ? summary
+                : summary + "\nAccepted/composed prompt: " + priorPrompt;
+        }
+
+        var nearbyShots = new List<string>();
+        var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
+        var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
+        if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
+        if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        return (ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)), nearbyShots);
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)
     {

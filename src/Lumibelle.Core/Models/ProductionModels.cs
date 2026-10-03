@@ -118,13 +118,21 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public bool? InspectReferenceImages { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<CompositionVisualDescription>? VisualDescriptions { get; init; }
-    // Scene text and neighbouring shots were left out to keep the prompt small.
+    // Scene text and neighbouring shots were left out to keep the prompt small; set by requests from before they could be left out separately.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool ReducedScriptContext { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitSceneText { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitNearbyShots { get; init; }
+    [JsonIgnore] public bool SceneTextLeftOut => ReducedScriptContext || OmitSceneText;
+    [JsonIgnore] public bool NearbyShotsLeftOut => ReducedScriptContext || OmitNearbyShots;
     // The take frame the shot starts from (BindingId is the take), attached after the references.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CompositionInput? OpeningFrame { get; init; }
 }
+/// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
+public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots);
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {
     // Advisory findings that do not block applying the prompt, such as a rounded duration.

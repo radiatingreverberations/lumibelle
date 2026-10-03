@@ -179,6 +179,7 @@ public static class ComfyTextCapacity
         return transcript.StartsWith("[system]\n", StringComparison.Ordinal) && user > 0 ? user : 0;
     }
 
+    public static int TextTokens(string text) => text.Length / CharactersPerToken;
     public static int ImageTokens(string model, int width, int height)
     {
         var tokens = (int)(Math.Ceiling(width / (double)PixelsPerImageToken) * Math.Ceiling(height / (double)PixelsPerImageToken));
