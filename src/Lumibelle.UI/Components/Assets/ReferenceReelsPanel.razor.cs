@@ -503,9 +503,9 @@ public partial class ReferenceReelsPanel
     private const string VaryBusy = "Available when the current reel request finishes.";
     public Task Variation(AssetReferenceReel reel) => Run(async () =>
     {
-        if (!CanVary(reel)) return;
+        if (!CanVary(reel) || reel.Generation is not { } generation) return;
         await Flush(); await SaveDetailFields();
-        var draft = ReferenceReels.SimilarDraft(reel.Generation.Recipe, Owner);
+        var draft = ReferenceReels.SimilarDraft(generation.Recipe, Owner);
         ReferenceReelDraft? saved = null;
         await Mutate(async _ => { saved = await Reels.SaveDraftAsync(ProjectId, draft, 0, _lifetime.Token); return await AssetStore.LoadAsync(ProjectId, _lifetime.Token); });
         _details = null; _draft = saved!; _saved = saved!.Copy(); _saveFailed = false;
