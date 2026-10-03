@@ -138,6 +138,9 @@ test('a shot keeps its own LoRAs beside its references, on top of the preset', a
 
   const section = page.locator('details.shot-loras');
   await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 0 active');
+  // It reads as one of the panel's sections, like Reference details.
+  const font = summary => summary.evaluate(s => { const style = getComputedStyle(s); return `${style.fontSize} ${style.fontWeight}`; });
+  expect(await font(section.locator(':scope > summary'))).toBe(await font(page.locator('details.shot-reference-details > summary')));
   await section.locator(':scope > summary').click();
   const picker = page.locator('#shot-lora-add');
   await picker.fill('H3 Mouse identity');

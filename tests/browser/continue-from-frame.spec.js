@@ -106,7 +106,11 @@ test('copying references from the previous shot adds its production take\'s last
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
-  await picker.getByLabel('Copy references from').selectOption('previous');
+  // The previous shot comes first, numbered as in the shot list; it is not repeated among the earlier shots.
+  const copyFrom = picker.getByLabel('Copy references from');
+  await expect(copyFrom.locator('option[value=previous]')).toHaveText(`Previous shot · 01 · ${source.title}`);
+  await expect(copyFrom.locator('optgroup')).toHaveCount(0);
+  await copyFrom.selectOption('previous');
   const continuity = picker.getByRole('group', { name: 'Continuity picture' });
   await expect(continuity).toContainText(`${source.title} · last frame`);
   await expect(continuity.locator('img')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${take.id}/frames/38`);

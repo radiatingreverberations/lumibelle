@@ -23,8 +23,16 @@
                 <div class="reference-copy-toolbar">
                     <label>Copy references from<select @key="_copyVersion" aria-label="Copy references from" @onchange="CopyFromChanged" disabled="@_busy">
                         <option value="">Choose a shot to replace these references…</option>
-                        @if (PreviousCopySource is not null) { <option value="previous">Previous shot · @PreviousCopySource.Title</option> }
-                        @foreach (var source in CopySources.Where(s => PreviousCopySource is null || s.Id != PreviousCopySource.Id)) { <option value="@source.Id">@source.Title</option> }
+                        @if (PreviousCopySource is not null) { <option value="previous">Previous shot · @CopyLabel(PreviousCopySource)</option> }
+                        @if (CopySourceNumber is null) { @foreach (var source in OtherCopySources) { <option value="@source.Id">@source.Title</option> } }
+                        else
+                        {
+                            @* Nearby shots most often share references, so each side of this shot is listed nearest first. *@
+                            @if (OtherCopySources.Where(s => CopySourceNumber(s) < CurrentShotNumber).OrderByDescending(CopySourceNumber).ToArray() is { Length: > 0 } earlier)
+                            { <optgroup label="Earlier shots">@foreach (var source in earlier) { <option value="@source.Id">@CopyLabel(source)</option> }</optgroup> }
+                            @if (OtherCopySources.Where(s => CopySourceNumber(s) > CurrentShotNumber).OrderBy(CopySourceNumber).ToArray() is { Length: > 0 } later)
+                            { <optgroup label="Later shots">@foreach (var source in later) { <option value="@source.Id">@CopyLabel(source)</option> }</optgroup> }
+                        }
                     </select></label>
                 </div>
             }

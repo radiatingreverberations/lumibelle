@@ -405,6 +405,8 @@
 .shot-reference-warning { color:var(--lumi-danger); font-size:var(--lumi-font-size-meta); }
 .workspace-pane:is(.shot-controls, .reel-tools) details.shot-reference-details { padding:12px 0 0; }
 .shot-reference-details > summary { color:var(--muted); }
+/* The panel's collapsible sections share one heading style; the LoRAs section fell back to the browser's. */
+.workspace-pane:is(.shot-controls, .reel-tools) :is(.shot-reference-details, .shot-loras) > summary { cursor:pointer; color:var(--muted); font-size:var(--lumi-font-size-meta); font-weight:600; }
 .shot-generation-footer { display:grid; gap:8px; margin-top:12px; }
 .shot-generate-actions { display:flex; align-items:center; gap:8px; }
 .shot-generate-actions > .mud-button-root:first-child,
