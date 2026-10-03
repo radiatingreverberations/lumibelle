@@ -32,12 +32,21 @@ public partial class ProductionStudio
     private bool _includeSceneText = true, _includeNearbyShots = true;
     // How much each of them adds, estimated when Prompt assistance opens.
     private CompositionContextSize? _contextSize;
+    private AiSettings? _contextSettings;
+    // Estimated from the captured sizes for the model chosen now, so changing the model needs no new capture.
+    private int? ReferenceTokens => _contextSize is { } size && _compositionModel is { } model && _contextSettings is { } settings
+        ? TextImageTokens.Estimate(model.Model, settings, size.ReferenceImages) : null;
     private bool _contextSizeBusy;
     private async Task EstimateContextSize()
     {
         if (Current is not { } c || _contextSizeBusy) return;
         _contextSizeBusy = true; _contextSize = null;
-        try { var size = await TextRequests.CompositionContextAsync(Id, c.Id, _compositionModel?.Model, _lifetime.Token); if (Current?.Id == c.Id) _contextSize = size; }
+        try
+        {
+            var size = await TextRequests.CompositionContextAsync(Id, c.Id, _lifetime.Token);
+            _contextSettings = await Settings.LoadAsync(_lifetime.Token);
+            if (Current?.Id == c.Id) _contextSize = size;
+        }
         catch (Exception e) when (e is WorkspaceStoreException or lumibelle.Services.ProjectStoreException) { /* The sizes are a convenience; composing reports real problems. */ }
         finally { _contextSizeBusy = false; }
     }
@@ -45,13 +54,8 @@ public partial class ProductionStudio
     private IReadOnlyList<ComfyTextStageSize>? _compositionStages;
     private string? _compositionSizeError, _compositionSizeModel;
     private bool _compositionSizeBusy, _compositionBriefReused, _composeOversized;
-    private async Task CompositionModelChanged(TextModelSelectionState? value)
-    {
-        var changed = value?.Model != _compositionModel?.Model;
-        _compositionModel = value; _compositionStages = null; _compositionSizeError = null;
-        // Images cost different amounts per model, so an open estimate follows the choice.
-        if (changed && _contextSize is not null) await EstimateContextSize();
-    }
+    private void CompositionModelChanged(TextModelSelectionState? value)
+    { _compositionModel = value; _compositionStages = null; _compositionSizeError = null; }
     private Task RefreshCompositionSize() => _compositionStages is null && _compositionSizeError is null ? Task.CompletedTask : EstimateCompositionSize();
     private static string FitLabel(ComfyTextFit fit) => fit switch
     {

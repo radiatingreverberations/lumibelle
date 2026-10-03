@@ -132,11 +132,14 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public CompositionInput? OpeningFrame { get; init; }
 }
 /// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
+public sealed record ImageSize(int Width, int Height);
 public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots)
 {
-    /// <summary>The images always sent with the references (pictures, RefMod previews and any opening frame), and their estimated tokens for the chosen model.</summary>
-    public int ReferenceImages { get; init; }
-    public int? ReferenceTokens { get; init; }
+    /// <summary>
+    /// The sizes of the images always sent with the references (pictures, RefMod previews and any opening frame). Their tokens depend on
+    /// the model, so they are estimated from these sizes for whichever model is chosen, without capturing the images again.
+    /// </summary>
+    public IReadOnlyList<ImageSize> ReferenceImages { get; init; } = [];
 }
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {

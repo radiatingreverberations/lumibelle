@@ -19,11 +19,13 @@ public sealed class TextImageTokensTests
     {
         var model = new TextModelReference(AiBackend.ComfyUI, "qwen3_vl.safetensors", "Qwen") { ComfyUrl = "http://localhost:8188" };
         var settings = ComfyTextSettings.WithBatchImageSide(model, new AiSettings(), 512);
-        byte[] Png(int width, int height) { using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(width, height); using var stream = new MemoryStream(); SixLabors.ImageSharp.ImageExtensions.SaveAsPng(image, stream); return stream.ToArray(); }
-        var one = TextImageTokens.Estimate(model, settings, [Png(640, 320)]);
+        var one = TextImageTokens.Estimate(model, settings, [new ImageSize(640, 320)]);
         Assert.Equal(ComfyTextCapacity.ImageTokens(model.Model, 640, 320), one);
-        var two = TextImageTokens.Estimate(model, settings, [Png(640, 320), Png(320, 640)]);
+        var two = TextImageTokens.Estimate(model, settings, [new ImageSize(640, 320), new ImageSize(320, 640)]);
         Assert.Equal(2 * ComfyTextCapacity.ImageTokens(model.Model, 512, 512), two);
-        Assert.Equal(0, TextImageTokens.Estimate(model, settings, []));
+        Assert.Equal(0, TextImageTokens.Estimate(model, settings, Array.Empty<ImageSize>()));
+        // Hosted models count each image at its own size.
+        var hosted = model with { Backend = AiBackend.OpenRouter };
+        Assert.Equal(TextImageTokens.Hosted(640, 320) + TextImageTokens.Hosted(320, 640), TextImageTokens.Estimate(hosted, settings, [new ImageSize(640, 320), new ImageSize(320, 640)]));
     }
 }

@@ -10,10 +10,10 @@ public static class TextImageTokens
     private const double HostedPixels = 1_150_000;
     private const double PixelsPerHostedToken = 750;
 
-    public static int Estimate(TextModelReference model, AiSettings settings, IReadOnlyList<byte[]> images)
+    public static int Estimate(TextModelReference model, AiSettings settings, IReadOnlyList<ImageSize> images)
     {
         if (images.Count == 0) return 0;
-        var sizes = ComfyTextVision.InspectSizes(images);
+        IReadOnlyList<(int Width, int Height)> sizes = [.. images.Select(i => (i.Width, i.Height))];
         if (model.Backend == AiBackend.ComfyUI)
         {
             // ComfyUI letterboxes several images to one shared canvas, as the requests do.

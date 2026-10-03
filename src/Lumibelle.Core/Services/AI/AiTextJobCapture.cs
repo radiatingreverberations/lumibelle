@@ -77,7 +77,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     /// The size of the scene text and neighbouring shots a composition would include, so each can be weighed before composing.
     /// Estimated at four characters per token, as for the rest of the prompt.
     /// </summary>
-    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, TextModelReference? model = null, CancellationToken ct = default)
+    public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, CancellationToken ct = default)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -93,7 +93,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
             if (ReelRefMods.Uses(effective) && refmods is not null) images.AddRange((await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png));
             if (await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct) is { } opening) images.Add(opening.Bytes);
-            return size with { ReferenceImages = images.Count, ReferenceTokens = model is null ? null : TextImageTokens.Estimate(model, configured, images) };
+            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))] };
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
     }
