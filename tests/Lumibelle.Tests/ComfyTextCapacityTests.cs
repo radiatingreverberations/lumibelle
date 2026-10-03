@@ -132,6 +132,22 @@ public sealed class ComfyTextCapacityTests
     }
 
     [Fact]
+    public void ARequestIsSentWholeOnlyWhenItFitsTheMeasuredCapacity()
+    {
+        bool Fits(AiSettings settings, ChatMessage[] messages, TextModelReference? model = null) =>
+            ComfyTextCapacity.FitsInOneRequest(model ?? Model, settings, messages.Select(AiTextMessage.Capture).ToArray(), 2048);
+        var nine = Enumerable.Range(0, 9).Select(_ => Png(1024, 1024)).ToArray();
+        // About 9,000 prompt tokens fit: two references with a composition-sized prompt do, nine only once shrunk to 512 pixels.
+        Assert.True(Fits(Settings(Measured()), Messages(8600, 10800, nine[..2])));
+        Assert.True(Fits(Settings(Measured()), Messages(8600, 10800, nine)));
+        Assert.False(Fits(Settings(Measured(), 1024), Messages(8600, 10800, nine)));
+        Assert.False(Fits(Settings(Measured()), Messages(8600, 30000, nine)));
+        // Never measured, or not ComfyUI: keep the two steps.
+        Assert.False(Fits(Settings(null), Messages(100, 100, nine[..2])));
+        Assert.False(Fits(Settings(Measured()), Messages(100, 100, nine[..2]), new(AiBackend.OpenRouter, "vision", "Vision")));
+    }
+
+    [Fact]
     public void ReplyCapacityShrinksAsThePromptGrows()
     {
         var small = ComfyTextCapacity.ReplyCapacity(Measured(), 2000)!.Value;

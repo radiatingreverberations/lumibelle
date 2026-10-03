@@ -133,6 +133,17 @@ public static class ComfyTextCapacity
         return ComfyTextSettings.WithBatchImageSide(model, settings, side);
     }
 
+    /// <summary>
+    /// Whether a request fits the measured capacity as one prompt, at the image size it would get. Only an estimate on the CPU;
+    /// false without a measurement, so a model that was never measured keeps the smaller two-step prompts.
+    /// </summary>
+    public static bool FitsInOneRequest(TextModelReference model, AiSettings settings, IReadOnlyList<AiTextMessage> messages, int replyTokens)
+    {
+        if (model.Backend != AiBackend.ComfyUI || PromptCapacity(Benchmark(model, settings), replyTokens) is not { } capacity) return false;
+        var side = ComfyTextSettings.BatchImageSide(model, FitImageSide(model, settings, messages, replyTokens));
+        return Estimate(model.Model, ComfyTextVision.Capture(messages.Select(m => m.ToMessage())), replyTokens, side) is { } size && size.PromptTokens <= capacity;
+    }
+
     /// <summary>Fits the image size to the step that sends images: the visual brief of a two-step composition, or the request itself.</summary>
     public static AiTextJobRequest FitImageSide(AiTextJobRequest request)
     {

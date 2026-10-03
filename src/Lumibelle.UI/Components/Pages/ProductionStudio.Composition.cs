@@ -31,10 +31,10 @@ public partial class ProductionStudio
     // Request-local choice. A queued request freezes this; generation references never change.
     // Request-local: scene text and neighbouring shots are the part of the prompt that can be dropped safely.
     private bool _fullCompositionContext = true;
-    // The last size estimate of the composition request, per step; cleared when the model changes.
+    // The size of a composition request that was too large to queue, per step; cleared when the model changes.
     private IReadOnlyList<ComfyTextStageSize>? _compositionStages;
     private string? _compositionSizeError, _compositionSizeModel;
-    private bool _compositionSizeBusy, _compositionBriefReused;
+    private bool _compositionSizeBusy, _compositionBriefReused, _composeOversized;
     private void CompositionModelChanged(TextModelSelectionState? value)
     { _compositionModel = value; _compositionStages = null; _compositionSizeError = null; }
     private Task RefreshCompositionSize() => _compositionStages is null && _compositionSizeError is null ? Task.CompletedTask : EstimateCompositionSize();
@@ -42,7 +42,7 @@ public partial class ProductionStudio
     {
         ComfyTextFit.Fits => "Fits", ComfyTextFit.AtLimit => "At the limit", ComfyTextFit.TooLarge => "Too large", _ => "Not measured"
     };
-    /// <summary>Builds the request the Compose button would send, without queueing it, and sizes it against the model's capacity.</summary>
+    /// <summary>Sizes the request Compose would send again, without queueing it, after a too-large request's options change.</summary>
     private async Task EstimateCompositionSize()
     {
         if (Current is not { } c || _compositionModel is not { } selection || _compositionSizeBusy) return;
@@ -51,15 +51,31 @@ public partial class ProductionStudio
         {
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
                 _lifetime.Token, reducedScriptContext: !_fullCompositionContext);
-            var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
-            _compositionStages = ComfyTextCapacity.Assess(request);
-            _compositionSizeModel = TextModelPolicy.DisplayName(request.Model, request.Settings);
-            _compositionBriefReused = request.TwoStep && request.VisualBrief is not null;
-            _compositionSizeError = null;
+            ShowCompositionSize(submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!);
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
         { _compositionStages = null; _compositionSizeError = "The size cannot be estimated right now: " + e.Message; }
         finally { _compositionSizeBusy = false; }
+    }
+    private void ShowCompositionSize(AiTextJobRequest request)
+    {
+        _compositionStages = ComfyTextCapacity.Assess(request);
+        _compositionSizeModel = TextModelPolicy.DisplayName(request.Model, request.Settings);
+        _compositionBriefReused = request.TwoStep && request.VisualBrief is not null;
+        _compositionSizeError = null;
+    }
+    // Checked on Compose, so a request that would run out of GPU memory or crawl is shown before it is queued rather than after.
+    private bool OversizedComposition(AiJobSubmission submission)
+    {
+        var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        if (ComfyTextCapacity.Assess(request) is not { } stages || !stages.Any(stage => stage.TooLarge)) { _compositionStages = null; return false; }
+        ShowCompositionSize(request);
+        return true;
+    }
+    private async Task ComposeAnyway()
+    {
+        _composeOversized = true;
+        try { await ComposePrompt(); } finally { _composeOversized = false; }
     }
     private string? _compositionError;
     private string? _compositionApplyError;
@@ -133,9 +149,11 @@ public partial class ProductionStudio
             if (_promptEditor is not null) await _promptEditor.FlushAsync();
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
-            _compositionEnqueue = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
+            var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
                 reducedScriptContext: !_fullCompositionContext);
-            _compositionEnqueue = _compositionAssist.Attribute(_compositionEnqueue);
+            if (!_composeOversized && OversizedComposition(submission)) return;
+            _compositionStages = null;
+            _compositionEnqueue = _compositionAssist.Attribute(submission);
             EditComposition(d => d.ReviewJobId = id);
             if (!await Save()) return;
             await EnqueueComposition();

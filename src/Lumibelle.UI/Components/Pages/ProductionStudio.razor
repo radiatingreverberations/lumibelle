@@ -434,10 +434,9 @@ else
                         <ExtraActions><button disabled="@(!CanClearPrompt)" title="Clear the prompt. References, settings, and Direction for AI stay." @onclick="ClearPrompt">Clear prompt</button></ExtraActions>
                         <ChildContent><p class="field-hint">@shot.Title</p>                    <label>Direction for AI<textarea rows="2" maxlength="20000" placeholder="For example: stay closer on her face, then reveal the monitor." @bind:get="composition.DirectingNotes" @bind:set="value => EditComposition(c => c.DirectingNotes = value ?? string.Empty)" @bind:event="oninput"></textarea></label>
 <label class="check-row"><input type="checkbox" @bind="_fullCompositionContext" @bind:after="RefreshCompositionSize" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)" />Include scene text and neighbouring shots</label>
-@if (_compositionModel?.Model.Backend == AiBackend.ComfyUI)
+@if (_compositionModel?.Model.Backend == AiBackend.ComfyUI && (_compositionStages is not null || _compositionSizeError is not null))
 {
     <div class="composition-size" role="status">
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(_compositionSizeBusy || _compositionBusy)" OnClick="EstimateCompositionSize">@(_compositionSizeBusy ? "Estimating…" : _compositionStages is null ? "Estimate prompt size" : "Update estimate")</MudButton>
         @if (_compositionSizeError is { } sizeError) { <p class="field-hint">@sizeError</p> }
         @if (_compositionStages is { Count: > 0 } stages)
         {
@@ -453,8 +452,12 @@ else
                 }
             </ul>
             @if (_compositionBriefReused) { <p class="field-hint">The visual brief is reused, so the images are not inspected again.</p> }
-            @if (stages.Any(stage => stage.TooLarge)) { <p class="field-hint">Too large for @_compositionSizeModel in GPU memory. Leave out the scene text, send fewer references, lower the image size in AI settings, or choose a smaller model.</p> }
-            else if (stages.All(stage => stage.Fit == ComfyTextFit.Unknown)) { <p class="field-hint">Test @_compositionSizeModel in AI settings to see how large a prompt fits in GPU memory.</p> }
+            @if (stages.Any(stage => stage.TooLarge))
+            {
+                <p class="field-hint">Not queued: this request is too large for @_compositionSizeModel in GPU memory, so it may run out of memory or be very slow. Leave out the scene text, send fewer references or choose a smaller model, then compose again.</p>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(_compositionSizeBusy || _compositionBusy)" OnClick="ComposeAnyway">Compose anyway</MudButton>
+            }
+            else { <p class="field-hint">This request now fits. Choose Compose prompt to queue it.</p> }
         }
     </div>
 }
