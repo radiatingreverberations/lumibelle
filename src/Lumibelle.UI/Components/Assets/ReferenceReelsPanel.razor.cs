@@ -72,7 +72,7 @@ public partial class ReferenceReelsPanel
         try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); _directionsCopyNotice = "Copied. Paste into Instructions in another reel's Assist."; }
         catch (JSException) { _directionsCopyNotice = "Select and copy the saved directions."; }
     }
-    private string? _error, _reviewError;
+    private string? _error, _reviewError, _saveError;
     private Shot? _pictureDraft;
     private Guid? _pictureExpanded;
     private ReelPromptPair? _pair, _unappliedPair;
@@ -295,15 +295,21 @@ public partial class ReferenceReelsPanel
         try
         {
             if (_draft is null || _saved is not null && ReferenceReels.Fingerprint(_draft) == ReferenceReels.Fingerprint(_saved) &&
-                _draft.PendingJobId == _saved.PendingJobId && _draft.ResolvedJobs.SequenceEqual(_saved.ResolvedJobs)) return;
+                _draft.PendingJobId == _saved.PendingJobId && _draft.ResolvedJobs.SequenceEqual(_saved.ResolvedJobs)) { SaveSucceeded(); return; }
             _draft.SaveLosslessFrames ??= true;
             _saving = true; var captured = _draft.Copy(); ReferenceReelDraft? saved = null;
             await Mutate(async _ => { saved = await Reels.SaveDraftAsync(ProjectId, captured, _saved?.Revision ?? 0, _lifetime.Token); return await AssetStore.LoadAsync(ProjectId, _lifetime.Token); });
             if (_draft.Id == captured.Id) { _draft.Revision = saved!.Revision; _saved = saved.Copy(); }
-            _saveFailed = false;
+            SaveSucceeded();
         }
-        catch { _saveFailed = true; throw; }
+        catch (Exception e) { _saveFailed = true; _saveError = e.Message; throw; }
         finally { _saving = false; _saveGate.Release(); }
+    }
+    // Correcting a recipe, or returning it to what is already saved, clears the error its failed save reported; other errors stay.
+    private void SaveSucceeded()
+    {
+        if (_saveError is not null && _error == _saveError) _error = null;
+        _saveError = null; _saveFailed = false;
     }
     private async Task Run(Func<Task> action)
     { if (_busy) return; _busy = true; _error = null; try { await action(); } catch (Exception e) { _error = e.Message; } finally { _busy = false; } }

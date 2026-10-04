@@ -35,7 +35,9 @@ public partial class ReferenceReelsPanel
         _closingSetupDialog = true;
         try
         {
-            if (!await FlushForClose()) return;
+            // Unlike the shot dialog, a failed save does not keep this one open: Requested seconds is in the tools footer,
+            // so the author may need to close it to fix the problem. The draft stays here and the footer keeps the error.
+            await FlushForClose();
             _setupDialogOpen = false; _restoreSetupFocus = true;
             _prompt = null; _assist = null;
         }
