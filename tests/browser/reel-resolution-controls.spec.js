@@ -12,7 +12,8 @@ for (const narrow of [false, true]) test(`reel resolution draft controls (${narr
   await page.getByLabel('Create media type').selectOption('Reel');
   const resolution = page.getByLabel('Reel resolution', { exact: true });
   await expect(resolution).toHaveValue('preview');
-  await expect(resolution.locator('option')).toHaveCount(4);
+  await expect(resolution.locator('option')).toHaveCount(5);
+  expect(await resolution.locator('option').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(['quick', 'preview', 'detail', 'native', 'preview-upscale']);
   await resolution.selectOption('quick');
   await expect.poll(async () => (await library()).reelDrafts[0]?.resolution).toBe(0);
   await page.reload();

@@ -16,7 +16,7 @@ test('presets, setup and optional archives survive autosave and queue capture', 
   await page.getByLabel('Duration (seconds)').fill('1'); await page.getByLabel('Duration (seconds)').blur();
   await composeProduction(page);
   await toolsTab(page, 'Generate');
-  const preset = page.getByLabel('Generation preset', { exact: true });
+  const preset = page.getByRole('combobox', { name: 'Generation preset', exact: true });
   const archive = page.getByLabel('Save lossless frames', { exact: true });
   await expect(preset.locator('option')).toHaveCount(10);
   expect(await preset.locator('option').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(['standard', 'beta', 'euler-beta', 'larry', 'pdd', 'spectrum', 'turbo4', 'turbo4-075', 'turbo8', 'hyperflow']);
