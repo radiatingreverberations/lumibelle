@@ -79,6 +79,17 @@ export function attachCropGestures(stage, reference) {
 
         const pointerX = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
         const pointerY = clamp((event.clientY - bounds.top) / bounds.height, 0, 1);
+        if (stage.dataset.free === 'true') {
+            // A free selection moves only the dragged edges, down to the same limit a fixed shape has.
+            const minimum = 1 / (Number(stage.dataset.maxZoom) || 4);
+            let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height;
+            if (mode.includes('left')) left = clamp(pointerX, 0, right - minimum);
+            if (mode.includes('right')) right = clamp(pointerX, left + minimum, 1);
+            if (mode.includes('top')) top = clamp(pointerY, 0, bottom - minimum);
+            if (mode.includes('bottom')) bottom = clamp(pointerY, top + minimum, 1);
+            render({ x: left, y: top, width: right - left, height: bottom - top, zoom: start.zoom });
+            return;
+        }
         const desiredSize = mode === 'left' ? start.x + start.width - pointerX :
             mode === 'right' ? pointerX - start.x :
             mode === 'top' ? start.y + start.height - pointerY : pointerY - start.y;
@@ -101,6 +112,7 @@ export function attachCropGestures(stage, reference) {
         const zoom = value.zoom ?? drag.start.zoom;
         selection.releasePointerCapture?.(event.pointerId);
         drag = undefined;
+        if (stage.dataset.free === 'true') { reference.invokeMethodAsync('ApplyFreeCrop', value.x, value.y, value.width, value.height); return; }
         reference.invokeMethodAsync('ApplyCropGesture', zoom,
             focusFor(value.x, value.width), focusFor(value.y, value.height));
     };

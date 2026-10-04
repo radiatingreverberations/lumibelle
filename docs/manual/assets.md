@@ -26,7 +26,7 @@ Edit mode also offers **Inspect reference images**, off by default. With an Open
 
 [Editing an image: remove the chair, then compare the result with the source](https://lumibelle.ai/media/manual/assets-edit-image.mp4)
 
-Choose **Edit image** on any take to use it as the source for a Krea 2 edit. **Crop source** lets you drag the crop to reposition it and pull its edges to zoom; expandable precise controls provide the same adjustments with sliders. Cropping never changes the stored original. Edit instructions can target a different output aspect ratio. Results are stored beside the source as unapproved takes, and their details retain the sources, crop and edit settings even if a source is later deleted.
+Choose **Edit image** on any take to use it as the source for a Krea 2 edit. **Crop source** lets you drag the crop to reposition it and pull its edges to zoom; expandable precise controls provide the same adjustments with sliders. **Crop shape** keeps a fixed shape (the image's own, or 1:1, 4:3, 3:4, 16:9 or 9:16), or choose **Free** to drag each edge and corner on its own and type the crop in pixels. Changing shape keeps the crop where it was, and a crop reopens in the shape it was made with. Cropping never changes the stored original. Edit instructions can target a different output aspect ratio. Results are stored beside the source as unapproved takes, and their details retain the sources, crop and edit settings even if a source is later deleted.
 
 ### Two-image Krea edits
 

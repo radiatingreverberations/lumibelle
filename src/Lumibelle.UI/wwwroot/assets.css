@@ -121,6 +121,17 @@
 .crop-handle.left, .crop-handle.right { top: 12px; bottom: 12px; width: 16px; cursor: ew-resize; }
 .crop-handle.left { left: -8px; }
 .crop-handle.right { right: -8px; }
+/* Corners sit just inside the selection as brackets, so they stay whole and easy to grab at the image's edges. */
+.crop-handle.corner { z-index: 3; width: 24px; height: 24px; }
+.crop-handle.corner::after { width: 14px; height: 14px; transform: none; border: 0 solid var(--lumi-media-text); border-radius: 0; background: none; box-shadow: none; filter: drop-shadow(0 0 1px var(--lumi-media-overlay)); }
+.crop-handle.top-left { top: -4px; left: -4px; cursor: nwse-resize; }
+.crop-handle.top-left::after { top: 4px; left: 4px; border-width: 4px 0 0 4px; }
+.crop-handle.top-right { top: -4px; right: -4px; cursor: nesw-resize; }
+.crop-handle.top-right::after { top: 4px; left: auto; right: 4px; border-width: 4px 4px 0 0; }
+.crop-handle.bottom-right { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.crop-handle.bottom-right::after { top: auto; bottom: 4px; left: auto; right: 4px; border-width: 0 4px 4px 0; }
+.crop-handle.bottom-left { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.crop-handle.bottom-left::after { top: auto; bottom: 4px; left: 4px; border-width: 0 0 4px 4px; }
 .crop-handle::after { content: ""; position: absolute; top: 50%; left: 50%; border-radius: var(--lumi-radius-small); background: var(--lumi-media-text); box-shadow: 0 0 0 1px var(--lumi-media-overlay); transform: translate(-50%, -50%); }
 .crop-handle.top::after, .crop-handle.bottom::after { width: 42px; height: 4px; }
 .crop-handle.left::after, .crop-handle.right::after { width: 4px; height: 42px; }
@@ -133,6 +144,7 @@
 .crop-controls label { color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); font-weight: 650; }
 .crop-controls output { float: right; color: var(--muted); font-weight: 400; }
 .crop-controls input[type="range"] { display: block; width: 100%; margin-top: 10px; accent-color: var(--plum); }
+.crop-controls input[type="number"] { display: block; box-sizing: border-box; width: 100%; margin-top: 6px; }
 .extraction-dialog { max-width: 940px; }
 .extraction-inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 16px; }
 .extraction-dialog .dialog-heading h2 { margin: 4px 0; }
