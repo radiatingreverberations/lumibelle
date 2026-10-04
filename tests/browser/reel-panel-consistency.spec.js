@@ -23,6 +23,7 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   // Prompt sits right above Generate and says what is missing; the unavailable button explains itself to assistive technology.
   const promptButton = tools.getByRole('button', { name: 'Prompt', exact: true });
   await expect(promptButton).toContainText('Missing');
+  await expect(promptButton).toHaveClass(/next-step/);
   const below = await tools.locator('.reel-generate-target').boundingBox(), above = await promptButton.boundingBox();
   expect(above.y + above.height).toBeLessThanOrEqual(below.y);
   await expect(tools.getByRole('group', { name: 'Generate reel unavailable: add a prompt and use guidance in Prompt.' })).toBeVisible();

@@ -28,6 +28,7 @@ public partial class ProductionStudio
     private string GenerationIssueAction => ActiveGlobalSetup?.Archived == true ? "Review preset"
         : ShotPreparationIssue is not null ? ShotPreparationAction
         : ReferenceRepairIssue is not null ? "Review references" : PromptReviewIssue is not null ? "Review prompt" : "Review preset";
+    private bool PromptBlocksGeneration => GenerationIssue is not null && GenerationIssueAction == "Review prompt";
     private ElementReference _shotSceneField, _shotDurationField, _shotDirectionField;
     private async Task ReviewShotPrompt(Guid id)
     {

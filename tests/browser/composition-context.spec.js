@@ -15,6 +15,10 @@ test('scene text and the neighbouring shots show their size and can be left out 
   await submitPlanning(page);
   await plan.getByRole('button', { name: 'Add reviewed shots' }).click();
   await expect(page.getByLabel('Action and camera')).toBeVisible();
+  // Without a prompt, the highlighted Prompt step is the hint; no sentence repeats it under the button.
+  const footer = page.locator('.shot-controls .workspace-pane-footer');
+  await expect(footer.getByRole('button', { name: 'Prompt', exact: true })).toHaveClass(/next-step/);
+  await expect(footer.getByRole('status')).toHaveCount(0);
   const composer = page.locator('.ai-assist-dialog').filter({ has: page.getByLabel('Direction for AI', { exact: true }) });
   const scene = composer.getByRole('checkbox', { name: 'Include scene text' });
   const shots = composer.getByRole('checkbox', { name: 'Include the shots before and after' });

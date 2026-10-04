@@ -239,6 +239,10 @@
 .shot-setup-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
 :is(.shot-controls, .reel-tools) :is(.shot-setup-summary, .workspace-pane-footer) .shot-setup-actions > button { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; text-align:left; }
 .shot-setup-actions small { font-size:var(--lumi-font-size-small); color:var(--muted); text-align:right; }
+/* The step that stands between the panel and generating. */
+.workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step { border-color:var(--plum); box-shadow:inset 0 0 0 1px var(--plum); background:rgba(var(--lumi-accent-rgb),.12); color:var(--plum); font-weight:600; }
+.workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step:hover { background:rgba(var(--lumi-accent-rgb),.2); }
+.shot-setup-actions > button.next-step small { color:var(--plum); font-weight:400; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output { border:0; margin:0; padding:0; min-width:0; display:grid; gap:8px; }
 .generation-output-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output label { display:block; min-width:0; margin:0; font-size:var(--lumi-font-size-meta); color:var(--muted); }
