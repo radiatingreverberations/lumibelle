@@ -124,5 +124,6 @@ test('the generation header switches setups from its menu and keeps their detail
   await expect(dialog.getByLabel('Named setup', { exact: true })).toHaveValue(library.setups.find(s => s.name === 'Default setup').id);
   await closeShotSetup(page);
   await page.getByRole('button', { name: 'Edit generation preset', exact: true }).click();
-  await expect(dialog.getByRole('tab', { name: 'Preset', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByRole('button', { name: 'Close generation preset', exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('Named setup', { exact: true })).toBeVisible();
 });

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures.js';
 import { cropReference, toolsTab } from './workspace-tools.js';
 test.beforeEach(async ({ page }) => page.setDefaultTimeout(15000));
 const library = async (request, id) => (await (await request.get(`/fixtures/${id}`)).json()).assets;
-// The tools pane holds references, output and Generate. Prompt, voice, framing, Assist and preset are in its Prompt and preset dialog.
+// The tools pane holds references, output and Generate. Prompt, voice, framing and Assist are in its Prompt dialog; the preset has its own.
 const reelTools = page => page.locator('.reel-tools');
 const reelSetup = page => page.locator('.reel-setup-dialog');
 async function fixture(page, request, narrow = false) {
@@ -27,15 +27,15 @@ async function showTools(page) {
     await expect(page.locator('.workspace-right')).toBeVisible();
   }).toPass({ timeout: 10000 });
 }
-// Like openShotSetup: open the Prompt and preset dialog on a tab, or switch to that tab.
+// Like openShotSetup: open the reel's Prompt or Preset dialog, closing the other one first.
 async function openSetup(page, tab = 'Prompt') {
-  const dialog = reelSetup(page), tabButton = dialog.getByRole('tab', { name: tab, exact: true });
+  const dialog = reelSetup(page), close = dialog.getByRole('button', { name: tab === 'Preset' ? 'Close reel preset' : 'Close reel prompt', exact: true });
+  if (await dialog.isVisible() && !await close.isVisible()) await closeSetup(page);
   if (!await dialog.isVisible()) {
     await showTools(page);
     await reelTools(page).getByRole('button', { name: tab === 'Preset' ? 'Edit reel preset' : 'Prompt', exact: true }).click();
-  } else if (await tabButton.getAttribute('aria-selected') !== 'true') await tabButton.click();
-  await expect(dialog).toBeVisible();
-  await expect(tabButton).toHaveAttribute('aria-selected', 'true');
+  }
+  await expect(close).toBeVisible();
   if (tab === 'Prompt') await expect(dialog.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
   return dialog;
 }
@@ -686,7 +686,7 @@ test('pre-submit failures explain their stage and link to the prompt from Setup'
   await expect(tools.getByRole('alert')).toContainText('Not submitted to ComfyUI');
   await expect(tools.getByRole('alert')).toContainText('generation prompt text');
   await tools.getByRole('button',{name:'Review prompt',exact:true}).click();
-  await expect(setup.getByRole('tab',{name:'Prompt',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(setup.getByRole('button',{name:'Close reel prompt',exact:true})).toBeVisible();
   await expect(setup.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
   await closeSetup(page);
   await tools.getByLabel('Requested seconds').fill('5'); await tools.getByLabel('Requested seconds').blur();
@@ -833,19 +833,17 @@ for (const narrow of [false, true]) test(`framing belongs with the prompt direct
   expect((await library(request,id)).reelDrafts[0].prompt).toBe(before.prompt);
 });
 
-test('prompt editor keeps its Undo history across setup tabs and reopening, and leaving for another asset keeps current typing', async ({page,request}) => {
+test('prompt editor keeps its Undo history across the preset dialog and reopening, and leaving for another asset keeps current typing', async ({page,request}) => {
   const {id,owner}=await fixture(page,request);
   const setup=await recipe(page,owner);
   const editor=setup.getByRole('textbox',{name:'H3 prompt',exact:true});
   await editor.fill('A manually authored draft.');
   await expect.poll(async()=>(await library(request,id)).reelDrafts[0].prompt).toBe('A manually authored draft.');
-  await editor.evaluate(el => { window.reelEditorIdentity=el; });
 
   await setup.getByLabel('Reel name',{exact:true}).fill('Still my draft');
-  // The Preset tab keeps the Prompt tab's editor mounted.
+  // Visiting the preset dialog, closing, and switching the media type all remount the editor with its history.
   await openSetup(page,'Preset'); await openSetup(page);
-  expect(await editor.evaluate(el => el===window.reelEditorIdentity)).toBe(true);
-  // Closing the dialog and switching the media type remounts the editor with its history.
+  await expect(editor).toHaveText('A manually authored draft.');
   await closeSetup(page);
   await page.getByLabel('Create media type').selectOption('Image');
   await page.getByLabel('Create media type').selectOption('Reel');

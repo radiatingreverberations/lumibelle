@@ -394,16 +394,12 @@ else
     }
 </DialogContent><DialogActions><MudButton OnClick="() => _moveShotId = null">Cancel</MudButton><MudButton OnClick="ConfirmShotMove" Disabled="ShotListLocked" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogActions></InlineDialog>
 <InlineDialog Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="@(LargeDialog with { MaxWidth = MaxWidth.Large, CloseOnEscapeKey = false })" Class="shot-setup-dialog" DefaultFocus="DefaultFocus.FirstChild"
-              Title="Prompt and preset" Context="@SourceShot?.Title" CloseLabel="Close prompt and preset">
+              Title="@(_setupTab == "Prompt" ? "Prompt" : "Generation preset")" Context="@SourceShot?.Title" CloseLabel="@(_setupTab == "Prompt" ? "Close prompt" : "Close generation preset")">
     <DialogContent>
         <DialogEscape Pressed="CloseSetupDialog" />
         @if (Current is { } composition && Selected is { } shot && _project is not null) {
             @if (_error is not null) { <div role="alert"><p>@_error</p>@if (_saveFailed) { <button @onclick="Reload">Reload saved version</button><button @onclick="DownloadDraft">Download unsaved copy</button> }</div> }
-            <div class="setup-dialog-tabs" role="tablist" aria-label="Generation setup">
-                <button @ref="_setupPromptTab" id="shot-setup-prompt-tab" type="button" role="tab" aria-selected="@(_setupTab == "Prompt" ? "true" : "false")" tabindex="@(_setupTab == "Prompt" ? 0 : -1)" aria-controls="shot-setup-prompt-panel" @onclick="@(() => SetSetupTab("Prompt"))" @onkeydown="SetupTabKeyDown">Prompt</button>
-                <button @ref="_setupSettingsTab" id="shot-setup-settings-tab" type="button" role="tab" aria-selected="@(_setupTab == "Settings" ? "true" : "false")" tabindex="@(_setupTab == "Settings" ? 0 : -1)" aria-controls="shot-setup-settings-panel" @onclick="@(() => SetSetupTab("Settings"))" @onkeydown="SetupTabKeyDown">Preset</button>
-            </div>
-                <section id="shot-setup-prompt-panel" data-setup-id="@composition.Id" role="tabpanel" aria-labelledby="shot-setup-prompt-tab" hidden="@(_setupTab != "Prompt")">
+                <section id="shot-setup-prompt-panel" data-setup-id="@composition.Id" hidden="@(_setupTab != "Prompt")">
                     <div class="prompt-review-guidance" role="status">
                         @if (PromptNeedsReview) {
                             <p>Check the prompt against your shot and reference labels, then choose <strong>Mark reviewed</strong>.</p>
@@ -497,7 +493,7 @@ else
                     }
                 </section>
 
-                    <section id="shot-setup-settings-panel" role="tabpanel" aria-labelledby="shot-setup-settings-tab" hidden="@(_setupTab != "Settings")">
+                    <section id="shot-setup-settings-panel" hidden="@(_setupTab != "Settings")">
             @if (_error is not null) { <p role="alert">@_error</p> }
             <fieldset class="global-setup-fields" disabled="@_setupBusy" aria-busy="@(_setupBusy ? "true" : "false")">
             <div class="setup-toolbar">

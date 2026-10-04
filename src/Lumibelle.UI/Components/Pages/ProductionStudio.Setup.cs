@@ -13,9 +13,9 @@ public partial class ProductionStudio
         EditComposition(c => { earlier.Content.Apply(c); c.ReviewJobId = null; });
         if (await Save()) { await RefreshCompositionResult(); Notify("Earlier prompt and references restored. Generation settings are unchanged."); }
     }
-    private bool _setupDialogOpen, _closingSetupDialog, _restoreSetupFocus, _focusSetupTab;
-    private string _setupTab = "Prompt", _setupOriginTab = "Prompt";
-    private ElementReference _setupPromptButton, _setupSettingsButton, _setupPromptTab, _setupSettingsTab;
+    private bool _setupDialogOpen, _closingSetupDialog, _restoreSetupFocus;
+    private string _setupTab = "Prompt";
+    private ElementReference _setupPromptButton, _setupSettingsButton;
     private string SetupPromptStatus => CompositionJob?.LocksTarget == true ? "Writing…"
         : _compositionResult is not null ? "Review ready"
         : CurrentPromptReferenceCheck.NeedsAttention ? CurrentPromptReferenceCheck.Label
@@ -56,7 +56,7 @@ public partial class ProductionStudio
                 _savedComposition = Current?.Copy();
             } catch (Exception e) { _error = e.Message; return; }
         }
-        _setupTab = _setupOriginTab = tab;
+        _setupTab = tab;
         _setupDialogOpen = true;
     }
     private Task SetupDialogVisibility(bool visible) => visible ? Task.CompletedTask : CloseSetupDialog();
@@ -73,30 +73,13 @@ public partial class ProductionStudio
         }
         finally { _closingSetupDialog = false; }
     }
-    private async Task SetSetupTab(string tab)
-    {
-        if (_setupTab == tab) return;
-        if (_promptEditor is not null) await _promptEditor.FlushAsync();
-        _setupTab = tab;
-    }
-    private async Task SetupTabKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key is not ("ArrowLeft" or "ArrowRight" or "Home" or "End")) return;
-        await SetSetupTab(e.Key == "Home" ? "Prompt" : e.Key == "End" ? "Settings" : _setupTab == "Prompt" ? "Settings" : "Prompt");
-        _focusSetupTab = true;
-    }
     private async Task RestoreSetupFocus()
     {
-        if (_focusSetupTab && _setupDialogOpen)
-        {
-            _focusSetupTab = false;
-            await (_setupTab == "Prompt" ? _setupPromptTab : _setupSettingsTab).FocusAsync();
-        }
         if (_restoreSetupFocus)
         {
             _restoreSetupFocus = false;
             if (_workspace is not null) await _workspace.ShowToolsAsync();
-            await (_setupOriginTab == "Prompt" ? _setupPromptButton : _setupSettingsButton).FocusAsync();
+            await (_setupTab == "Prompt" ? _setupPromptButton : _setupSettingsButton).FocusAsync();
         }
     }
     private async Task ReviewGenerationIssue()

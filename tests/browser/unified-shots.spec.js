@@ -217,9 +217,9 @@ test('shot tabs retain scroll while prompt edits live in the setup dialog', asyn
   await editor.fill('Keep this manually written prompt.');
   await editor.press('Control+End'); await editor.pressSequentially(' Extra ending');
   await expect.poll(async () => (await setups(request, id))[0].prompt).toContain('Extra ending');
-  const mounted = await editor.elementHandle();
+  // Visiting the preset dialog and coming back keeps the prompt's Undo history.
   await openShotSetup(page, 'Generation settings'); await openShotSetup(page);
-  expect(await editor.evaluate((current, original) => current === original, mounted)).toBe(true);
+  await expect(editor).toContainText('Extra ending');
   await page.getByRole('button', { name: 'Undo prompt edit', exact: true }).click();
   await expect.poll(async () => (await setups(request, id))[0].prompt).not.toContain('Extra ending');
   await page.getByRole('button', { name: 'Redo prompt edit', exact: true }).click();

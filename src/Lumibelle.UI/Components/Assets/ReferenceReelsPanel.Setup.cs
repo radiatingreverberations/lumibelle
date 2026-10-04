@@ -10,9 +10,9 @@ public partial class ReferenceReelsPanel
 {
     private static readonly DialogOptions SetupOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
     private readonly string _promptHistoryScope = $"reel:{Guid.NewGuid():N}";
-    private bool _setupDialogOpen, _closingSetupDialog, _restoreSetupFocus, _focusSetupTab;
-    private string _setupTab = "Prompt", _setupOriginTab = "Prompt";
-    private ElementReference _setupPromptButton, _setupSettingsButton, _setupPromptTab, _setupSettingsTab;
+    private bool _setupDialogOpen, _closingSetupDialog, _restoreSetupFocus;
+    private string _setupTab = "Prompt";
+    private ElementReference _setupPromptButton, _setupSettingsButton;
     private string SaveStatus => _saving ? "Saving…" : _saveFailed ? "Save failed" : _draft?.Revision > 0 ? "Saved" : "New recipe";
     private string SetupPromptStatus => ActiveComposition is not null ? "Writing…" : !HasPromptPair ? "Missing"
         : _draft!.CheckedInputs != ReferenceReels.InputsFingerprint(_draft) ? "Review prompt" : "Ready";
@@ -24,7 +24,7 @@ public partial class ReferenceReelsPanel
         if (_disposed || _draft is null) return;
         if (_presetBusy || _busy) return;
         await Run(RefreshPresets);
-        _setupTab = _setupOriginTab = tab;
+        _setupTab = tab;
         _setupDialogOpen = true;
     }
 
@@ -42,32 +42,13 @@ public partial class ReferenceReelsPanel
         finally { _closingSetupDialog = false; }
     }
 
-    private async Task SetSetupTab(string tab)
-    {
-        if (_setupTab == tab) return;
-        if (!await FlushForClose()) return;
-        _setupTab = tab;
-    }
-
-    private async Task SetupTabKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key is not ("ArrowLeft" or "ArrowRight" or "Home" or "End")) return;
-        await SetSetupTab(e.Key == "Home" ? "Prompt" : e.Key == "End" ? "Settings" : _setupTab == "Prompt" ? "Settings" : "Prompt");
-        _focusSetupTab = true;
-    }
-
     private async Task RestoreSetupFocus()
     {
-        if (_focusSetupTab && _setupDialogOpen)
-        {
-            _focusSetupTab = false;
-            await (_setupTab == "Prompt" ? _setupPromptTab : _setupSettingsTab).FocusAsync();
-        }
         if (_restoreSetupFocus)
         {
             _restoreSetupFocus = false;
             await RevealTools.InvokeAsync();
-            await (_setupOriginTab == "Prompt" ? _setupPromptButton : _setupSettingsButton).FocusAsync();
+            await (_setupTab == "Prompt" ? _setupPromptButton : _setupSettingsButton).FocusAsync();
         }
     }
 }

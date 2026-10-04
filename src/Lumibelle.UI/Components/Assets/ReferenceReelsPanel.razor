@@ -170,15 +170,11 @@
     </StudioPane>;
 }
 
-<InlineDialog Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="SetupOptions" Class="shot-setup-dialog reel-setup-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="Prompt and preset" Context="@Owner.Name" CloseLabel="Close reel prompt and preset" CloseDisabled="@(_busy || _closingSetupDialog)">
+<InlineDialog Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="SetupOptions" Class="shot-setup-dialog reel-setup-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="@(_setupTab == "Prompt" ? "Reel prompt" : "Reel preset")" Context="@Owner.Name" CloseLabel="@(_setupTab == "Prompt" ? "Close reel prompt" : "Close reel preset")" CloseDisabled="@(_busy || _closingSetupDialog)">
     <DialogContent>
         <DialogEscape Pressed="CloseSetupDialog" />
         @if (_draft is not null) {
-            <div class="setup-dialog-tabs" role="tablist" aria-label="Reel generation setup">
-                <button @ref="_setupPromptTab" id="reel-setup-prompt-tab" type="button" role="tab" aria-selected="@(_setupTab == "Prompt" ? "true" : "false")" tabindex="@(_setupTab == "Prompt" ? 0 : -1)" aria-controls="reel-setup-prompt-panel" @onclick="@(() => SetSetupTab("Prompt"))" @onkeydown="SetupTabKeyDown">Prompt</button>
-                <button @ref="_setupSettingsTab" id="reel-setup-settings-tab" type="button" role="tab" aria-selected="@(_setupTab == "Settings" ? "true" : "false")" tabindex="@(_setupTab == "Settings" ? 0 : -1)" aria-controls="reel-setup-settings-panel" @onclick="@(() => SetSetupTab("Settings"))" @onkeydown="SetupTabKeyDown">Preset</button>
-            </div>
-            <section id="reel-setup-prompt-panel" role="tabpanel" aria-labelledby="reel-setup-prompt-tab" hidden="@(_setupTab != "Prompt")">
+            <section id="reel-setup-prompt-panel" hidden="@(_setupTab != "Prompt")">
                 <fieldset class="reel-form" disabled="@_busy">
                     <div class="reel-fields"><label>Reel name<input @bind="_draft.Name" @bind:event="oninput" @bind:after="Changed" maxlength="500" /></label>@if (_draft.LookId is not null) { <p class="field-hint">Saved destination: @Owner.Looks.FirstOrDefault(l => l.Id == _draft.LookId)?.Name <button @onclick="ClearDraftLook">Use unassigned</button></p> }</div>
                     <details class="reel-voice-options"><summary>@(CameraReel ? "Audio · Silent" : $"Voice and dialogue · {VoiceModeLabel}")</summary>
@@ -249,7 +245,7 @@
                 @if (_error is null && ValidationIssue is { } validation) { <p class="field-error">@validation</p> }
                 </section>
             </section>
-            <section id="reel-setup-settings-panel" role="tabpanel" aria-labelledby="reel-setup-settings-tab" hidden="@(_setupTab != "Settings")">
+            <section id="reel-setup-settings-panel" hidden="@(_setupTab != "Settings")">
                 <fieldset class="reel-form" disabled="@(_busy || _presetBusy)">
                     <div class="setup-toolbar">
                         <label>Global setup<select aria-label="Named setup" value="@ActivePreset?.Id" @onchange="ChangeNamedPreset">

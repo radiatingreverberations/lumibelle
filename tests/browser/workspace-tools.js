@@ -35,15 +35,15 @@ export async function toolsTab(page, name) {
 export async function openShotSetup(page, tab = 'Prompt') {
   if (tab === 'Generation settings') tab = 'Preset';
   const dialog = page.locator('.shot-setup-dialog');
+  // The prompt and the preset are separate dialogs, each opened from its own button.
+  const close = dialog.getByRole('button', { name: tab === 'Preset' ? 'Close generation preset' : 'Close prompt', exact: true });
   if (new URL(page.url()).searchParams.get('view') === 'Prompt') await expect(dialog).toBeVisible();
+  if (await dialog.isVisible() && !await close.isVisible()) await closeShotSetup(page);
   if (!await dialog.isVisible()) {
     const root = await showTools(page, 'Shots');
     await root.getByRole('button', { name: tab === 'Preset' ? 'Edit generation preset' : tab, exact: true }).click();
-  } else {
-    await dialog.getByRole('tab', { name: tab, exact: true }).click();
   }
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('tab', { name: tab, exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(close).toBeVisible();
   if (tab === 'Prompt') await expect(dialog.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
 }
 

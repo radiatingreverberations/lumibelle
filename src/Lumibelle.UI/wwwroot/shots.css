@@ -269,9 +269,6 @@
 .shot-setup-dialog .setup-menu button { margin:0; }
 .shot-setup-dialog .setup-menu label { margin-top:0; }
 .shot-setup-dialog input[type=checkbox] { display:inline-block; width:auto; margin:0 6px 0 0; }
-.shot-setup-dialog .setup-dialog-tabs { display:flex; border-bottom:1px solid var(--line); margin:16px 0; gap:8px; }
-.shot-setup-dialog .setup-dialog-tabs > button[role=tab] { flex:1; padding:12px; border:0; border-radius:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); font-size:var(--lumi-font-size-ui); }
-.shot-setup-dialog .setup-dialog-tabs > button[aria-selected=true] { color:var(--plum); font-weight:600; border-bottom-color:var(--plum); }
 .shot-setup-dialog :is(.shot-generation, .shot-aspect) { max-width:42rem; margin-inline:auto; }
 .shot-setup-dialog .mud-dialog-actions > [role=status] { margin-right:auto; color:var(--muted); font-size:var(--lumi-font-size-meta); }
 .shot-setup-dialog .prompt-editor-host .tiptap { min-height:22rem; }
@@ -285,7 +282,6 @@
     .take-filters > label { min-width:120px; max-width:none; }
     .mud-dialog.shot-setup-dialog { margin:0!important; width:100vw!important; max-width:100vw!important; height:100dvh; max-height:100dvh!important; border-radius:0!important; }
     .shot-setup-dialog .setup-toolbar { grid-template-columns:minmax(0,1fr); gap:4px; }
-    .shot-setup-dialog .setup-dialog-tabs > button { min-height:44px; padding-inline:8px; }
 }
 .setup-menu { position: relative; }
 .setup-menu > div { position: absolute; z-index: 8; right: 0; width: 16rem; padding: 1rem; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--surface, var(--lumi-surface)); box-shadow: var(--lumi-shadow-popover); }

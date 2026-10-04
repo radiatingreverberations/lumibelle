@@ -9,8 +9,9 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await page.setViewportSize({ width: narrow ? 390 : 1152, height: narrow ? 844 : 1244 });
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  if (narrow) await page.locator('[data-toggle-pane=right]').click();
+  // The reels link opens the reel tools itself (a drawer on a phone); toggling it as well raced that and closed or blocked it.
   const tools = page.locator('.reel-tools');
+  await expect(tools).toBeVisible();
   const editor = page.locator('.reel-setup-dialog');
   await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toBeInViewport();
   await expect(tools.getByRole('button', { name: 'Edit reel preset', exact: true })).toBeInViewport();
@@ -50,12 +51,7 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await expect(editor.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
   await prompt.fill('Manually authored prompt — café 👋');
   await editor.getByLabel('Use guidance', { exact: true }).fill('Appearance and clothing reference.');
-  await editor.getByRole('tab', { name: 'Preset', exact: true }).click();
-  await expect(editor.getByLabel('Generation preset', { exact: true })).toBeVisible();
-  // Keyboard tab navigation must return to the same editor without losing its history.
-  await editor.getByRole('tab', { name: 'Preset', exact: true }).press('Home');
-  await expect(editor.getByRole('tab', { name: 'Prompt', exact: true })).toBeFocused();
-  await expect(prompt).toHaveText('Manually authored prompt — café 👋');
+  await expect(editor.getByLabel('Generation preset', { exact: true })).toBeHidden();
   await editor.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(editor).not.toBeVisible();
   await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toBeFocused();
@@ -63,9 +59,14 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   // With a prompt pair, Generate is available and no longer explains itself.
   await expect(tools.getByRole('group', { name: /Generate reel unavailable/ })).toHaveCount(0);
 
+  // The preset is its own dialog; reopening Prompt returns to the same text and its history.
   await tools.getByRole('button', { name: 'Edit reel preset', exact: true }).click();
-  await expect(editor.getByRole('tab', { name: 'Preset', exact: true })).toHaveAttribute('aria-selected', 'true');
-  await editor.getByRole('tab', { name: 'Prompt', exact: true }).click();
+  await expect(editor.getByLabel('Generation preset', { exact: true })).toBeVisible();
+  await expect(prompt).toBeHidden();
+  await editor.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  await expect(tools.getByRole('button', { name: 'Edit reel preset', exact: true })).toBeFocused();
+  await tools.getByRole('button', { name: 'Prompt', exact: true }).click();
   await expect(prompt).toHaveText('Manually authored prompt — café 👋');
   await expect(editor.getByRole('button', { name: 'Undo prompt edit', exact: true })).toBeEnabled();
   await editor.getByRole('button', { name: 'Undo prompt edit', exact: true }).click();
