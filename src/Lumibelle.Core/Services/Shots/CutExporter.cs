@@ -7,11 +7,23 @@ namespace lumibelle.Services.Shots;
 public sealed record CutExportResult(Guid Id, Guid ProjectId, long Revision, DateTimeOffset ExpiresUtc)
 {
     public string Url => $"/downloads/projects/{ProjectId:D}/cuts/{Id:D}.mp4";
+    /// <summary>The exported clips when only part of the cut was exported.</summary>
+    public CutExportRange? Range { get; init; }
+    public string FileName => Range is { } range ? $"cut-clips-{range.First + 1}-{range.Last + 1}.mp4" : "cut.mp4";
+}
+
+/// <summary>A run of clips to export, by zero-based position in the cut, both ends included.</summary>
+public sealed record CutExportRange(int First, int Last)
+{
+    public bool Covers(int count) => First == 0 && Last == count - 1;
+    public string Label => First == Last ? $"clip {First + 1}" : $"clips {First + 1}–{Last + 1}";
 }
 
 public interface ICutExporter
 {
-    Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CancellationToken ct = default);
+    Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CancellationToken ct = default) => ExportAsync(projectId, expectedRevision, null, ct);
+    /// <param name="range">Only these clips, such as a second part; null exports the whole cut.</param>
+    Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CutExportRange? range, CancellationToken ct = default);
     Task<AssetMedia?> OpenAsync(Guid projectId, Guid exportId, CancellationToken ct = default);
 }
 
@@ -30,7 +42,8 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
     private readonly CancellationTokenSource _shutdown = new();
     private bool _disposed;
 
-    public async Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CancellationToken ct = default)
+    public Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CancellationToken ct = default) => ExportAsync(projectId, expectedRevision, null, ct);
+    public async Task<CutExportResult> ExportAsync(Guid projectId, long expectedRevision, CutExportRange? range, CancellationToken ct = default)
     {
         if (projectId == Guid.Empty || expectedRevision < 0)
             throw new WorkspaceStoreException("Choose a saved cut before exporting.");
@@ -47,7 +60,7 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
             token.ThrowIfCancellationRequested();
             var configuration = (await settings.LoadAsync(token).ConfigureAwait(false)).H3;
             Directory.CreateDirectory(directory);
-            var segments = await CaptureAsync(projectId, expectedRevision, directory, token).ConfigureAwait(false);
+            var (segments, exported) = await CaptureAsync(projectId, expectedRevision, range, directory, token).ConfigureAwait(false);
             var output = Path.Combine(directory, "cut.mp4");
             await media.ExportCutAsync(segments, output, configuration, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
@@ -55,7 +68,7 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
                 throw new WorkspaceStoreException("FFmpeg did not produce an export. Check its configuration and try again.");
             DeleteDirectory(Path.Combine(directory, "inputs"));
             var now = clock.GetUtcNow();
-            var result = new CutExportResult(id, projectId, expectedRevision, now + Retention);
+            var result = new CutExportResult(id, projectId, expectedRevision, now + Retention) { Range = exported };
             lock (_sync)
             {
                 token.ThrowIfCancellationRequested();
@@ -75,8 +88,8 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
         }
     }
 
-    private async Task<IReadOnlyList<CutExportSegment>> CaptureAsync(Guid projectId, long expectedRevision,
-        string exportDirectory, CancellationToken ct)
+    private async Task<(IReadOnlyList<CutExportSegment> Segments, CutExportRange? Range)> CaptureAsync(Guid projectId, long expectedRevision,
+        CutExportRange? range, string exportDirectory, CancellationToken ct)
     {
         var projectDirectory = await files.DirectoryAsync(projectId, ct).ConfigureAwait(false);
         // Capture the revision and source files together. Release the project lock
@@ -87,12 +100,17 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
         if (cut.Revision != expectedRevision) throw new WorkspaceConflictException();
         if (cut.Clips.Count == 0)
             throw new WorkspaceStoreException("Add at least one available take to the cut before exporting.");
+        if (range is { } chosen && (chosen.First < 0 || chosen.Last >= cut.Clips.Count || chosen.First > chosen.Last))
+            throw new WorkspaceStoreException("Choose clips that are in the cut, the first before the last.");
+        // A range covering every clip is the whole cut.
+        if (range?.Covers(cut.Clips.Count) == true) range = null;
+        var clips = range is { } part ? cut.Clips.Skip(part.First).Take(part.Last - part.First + 1).ToList() : cut.Clips;
         var document = await shots.LoadAsync(projectId, ct).ConfigureAwait(false);
         var inputs = Path.Combine(exportDirectory, "inputs");
         Directory.CreateDirectory(inputs);
         var captured = new Dictionary<Guid, string>();
-        var segments = new List<CutExportSegment>(cut.Clips.Count);
-        foreach (var clip in cut.Clips)
+        var segments = new List<CutExportSegment>(clips.Count);
+        foreach (var clip in clips)
         {
             ct.ThrowIfCancellationRequested();
             var take = document.Takes.SingleOrDefault(t => t.Id == clip.TakeId)
@@ -123,7 +141,7 @@ public sealed class CutExporter(ProjectFiles files, ICutStore cuts, IShotStore s
             }
             segments.Add(new(target, clip.StartFrame, clip.EndFrameExclusive, clip.Fps));
         }
-        return segments;
+        return (segments, range);
     }
 
     public Task<AssetMedia?> OpenAsync(Guid projectId, Guid exportId, CancellationToken ct = default)

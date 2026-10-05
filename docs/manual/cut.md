@@ -32,4 +32,4 @@ This is a browser preview, not a rendered export or a guarantee of sample-accura
 
 Each project saves one sequence in `cut.json`, with autosave, manual **Save**, Undo/Redo during the page visit, and protection against conflicting edits. A clip keeps its exact take until replaced. Restore unavailable takes through Trash and refresh, or remove the affected clips.
 
-Use **Export MP4** to render the saved sequence with the configured FFmpeg executable.
+Use **Export MP4** to render the saved sequence with the configured FFmpeg executable. It asks which clips: the whole cut, or a part chosen with **From clip** and **To clip**, for example everything from the first clip of a new act with **From the selected clip … to the end**. A part downloads as `cut-clips-24-53.mp4`, numbered by its first and last clip. The choice is kept for the next export, and a part that runs to the end still does when you add clips.

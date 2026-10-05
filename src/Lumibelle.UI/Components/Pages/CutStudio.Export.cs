@@ -1,3 +1,4 @@
+using lumibelle.Models;
 using lumibelle.Services.Shots;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -14,7 +15,43 @@ public partial class CutStudio
 
     private void CancelExport() => _exportCancellation?.Cancel();
 
-    private async Task Export()
+    // Export MP4 asks which clips: the whole cut, or a part such as everything from a chosen clip.
+    // The choice is kept between exports; one that ran to the end still does when clips are added.
+    private bool _exportOpen, _exportToEnd = true;
+    private int _exportFrom = 1, _exportTo = 1;
+    private void OpenExport()
+    {
+        if (_exporting || _downloadingExport || _doc.Clips.Count == 0) return;
+        if (_exportToEnd || _exportTo > _doc.Clips.Count) _exportTo = _doc.Clips.Count;
+        if (_exportFrom > _exportTo) _exportFrom = 1;
+        _exportOpen = true;
+    }
+    private void ExportWhole() { _exportFrom = 1; _exportTo = _doc.Clips.Count; _exportToEnd = true; }
+    private void ExportFromSelected() { if (Selected is { } clip) { _exportFrom = _doc.Clips.IndexOf(clip) + 1; _exportTo = _doc.Clips.Count; _exportToEnd = true; } }
+    private void ExportFromChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var from)) { _exportFrom = from; if (_exportTo < from) _exportTo = from; } }
+    private void ExportToChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var to)) { _exportTo = to; _exportToEnd = to == _doc.Clips.Count; if (_exportFrom > to) _exportFrom = to; } }
+    private IEnumerable<CutClip> ExportClips => _doc.Clips.Skip(_exportFrom - 1).Take(Math.Max(0, _exportTo - _exportFrom + 1));
+    private static string FormatDuration(double seconds) => seconds < 60
+        ? seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s"
+        : TimeSpan.FromSeconds(Math.Round(seconds)).ToString(seconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss", System.Globalization.CultureInfo.InvariantCulture);
+    private string ExportSummary
+    {
+        get
+        {
+            var clips = ExportClips.ToList();
+            var what = ExportsWholeCut ? "The whole cut" : "Clips " + new CutExportRange(_exportFrom - 1, _exportTo - 1).Label["clips ".Length..];
+            if (!ExportsWholeCut && _exportFrom == _exportTo) what = $"Clip {_exportFrom}";
+            return $"{what} · {clips.Count} clip{(clips.Count == 1 ? "" : "s")} · {FormatDuration(clips.Sum(c => c.Duration))}";
+        }
+    }
+    private bool ExportsWholeCut => _exportFrom == 1 && _exportTo == _doc.Clips.Count;
+    private async Task ConfirmExport()
+    {
+        _exportOpen = false;
+        await Export(ExportsWholeCut ? null : new(_exportFrom - 1, _exportTo - 1));
+    }
+
+    private async Task Export(CutExportRange? range = null)
     {
         if (_disposed || _exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0) return;
         var projectId = Id;
@@ -28,13 +65,13 @@ public partial class CutStudio
             if (!await Save() || _disposed || Id != projectId) return;
             cancellation.Token.ThrowIfCancellationRequested();
             var revision = _doc.Revision;
-            _exportStatus = $"Exporting saved revision {revision}. Later edits will not change this export.";
+            _exportStatus = $"Exporting saved revision {revision}{(range is null ? "" : ", " + range.Label)}. Later edits will not change this export.";
             StateHasChanged();
-            var result = await CutExporter.ExportAsync(projectId, revision, cancellation.Token);
+            var result = await CutExporter.ExportAsync(projectId, revision, range, cancellation.Token);
             if (_disposed || Id != projectId) return;
             cancellation.Token.ThrowIfCancellationRequested();
             _completedExport = result;
-            _exportStatus = $"Revision {revision} is ready. Downloads remain available for up to one hour, while this app is running.";
+            _exportStatus = $"Revision {revision}{(result.Range is { } part ? ", " + part.Label + "," : "")} is ready. Downloads remain available for up to one hour, while this app is running.";
             // Rendering has finished; a native save dialog is not cancellable via
             // the render token. Keep its busy state separate.
             _exporting = false;
@@ -68,7 +105,7 @@ public partial class CutStudio
             // JS only initiates a download of an existing resource. It does not wait
             // for FFmpeg or buffer an entire movie through JS interop/a Blob.
             await JS.InvokeVoidAsync("lumibelleShots.downloadResource", _lifetime.Token,
-                "cut.mp4", result.Url);
+                result.FileName, result.Url);
         }
         catch (Exception e)
         {

@@ -35,3 +35,8 @@ button { cursor:pointer; border: 1px solid var(--line); border-radius: var(--lum
 button:disabled { cursor:default; opacity:.5; }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
 @media(max-width:759px) { .cut-heading { padding:10px 0; flex-wrap:wrap; } .cut-workspace { padding:8px; } .cut-take-switcher { flex-wrap:wrap; gap:6px; } .cut-take-controls { flex-basis:100%; } .cut-trims { gap:6px; } }
+.cut-export-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px; margin: 12px 0; }
+.cut-export-range label { display: grid; gap: 4px; min-width: 0; }
+.cut-export-range select { min-width: 0; }
+.cut-export-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cut-export-summary { margin: 14px 0 0; font-weight: 600; }

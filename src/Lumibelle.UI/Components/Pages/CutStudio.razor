@@ -15,7 +15,7 @@ else
     <StudioPageHeader Title="Cut studio">
         <div data-interactive="@(_interactive ? "true" : "false")" class="cut-actions cut-heading"><span role="status">@_saveStatus</span>
             <MudButton Disabled="@(_saving || !_dirty)" OnClick="Save">Save</MudButton>
-            <MudButton Disabled="@(_exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0)" OnClick="Export">@(_exporting ? "Exporting…" : "Export MP4")</MudButton>
+            <MudButton Disabled="@(_exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0)" OnClick="OpenExport">@(_exporting ? "Exporting…" : "Export MP4")</MudButton>
             @if (_exporting) { <MudButton OnClick="CancelExport">Cancel export</MudButton> }
             <MudButton Disabled="@(_undo.Count == 0)" OnClick="Undo">Undo</MudButton>
             <MudButton Disabled="@(_redo.Count == 0)" OnClick="Redo">Redo</MudButton>
@@ -38,7 +38,7 @@ else
     @if (_exportError is not null) { <p class="cut-error" role="alert">@_exportError</p> }
     @if (_completedExport is { } export && export.ProjectId == Id)
     {
-        <MudButton Disabled="@(_exporting || _downloadingExport)" OnClick="DownloadExport">Download revision @export.Revision again</MudButton>
+        <MudButton Disabled="@(_exporting || _downloadingExport)" OnClick="DownloadExport">Download revision @export.Revision@(export.Range is { } part ? ", " + part.Label : "") again</MudButton>
     }
     <div class="cut-workspace">
         <div class="cut-workspace-toolbar">
@@ -133,6 +133,18 @@ else
     </DialogContent>
     <DialogActions><MudButton Disabled="@_adding" OnClick="() => ChooserVisibility(false)">Cancel</MudButton><MudButton Disabled="@(ChoiceChanges == 0 || _adding)" OnClick="AddChosen" Color="Color.Primary" Variant="Variant.Filled">Apply changes (@ChoiceChanges)</MudButton></DialogActions>
 </InlineDialog>
+<InlineDialog @bind-Visible="_exportOpen" Options="ChooserOptions" Class="cut-export-dialog" Title="Export MP4" CloseLabel="Close export"><DialogContent>
+    <p class="field-hint">Export the whole cut, or part of it, such as everything from the first clip of a new act.</p>
+    <div class="cut-export-range">
+        <label>From clip<select aria-label="From clip" value="@_exportFrom" @onchange="ExportFromChanged">@for (var i = 0; i < _doc.Clips.Count; i++) { <option value="@(i + 1)">@(i + 1). @_doc.Clips[i].ShotTitle</option> }</select></label>
+        <label>To clip<select aria-label="To clip" value="@_exportTo" @onchange="ExportToChanged">@for (var i = 0; i < _doc.Clips.Count; i++) { <option value="@(i + 1)">@(i + 1). @_doc.Clips[i].ShotTitle</option> }</select></label>
+    </div>
+    <div class="cut-export-shortcuts">
+        @if (Selected is { } selectedForExport) { <button type="button" @onclick="ExportFromSelected">From the selected clip (@(_doc.Clips.IndexOf(selectedForExport) + 1)) to the end</button> }
+        <button type="button" @onclick="ExportWhole" disabled="@ExportsWholeCut">Whole cut</button>
+    </div>
+    <p class="cut-export-summary" role="status">@ExportSummary</p>
+</DialogContent><DialogActions><MudButton OnClick="() => _exportOpen = false">Cancel</MudButton><MudButton OnClick="ConfirmExport" Color="Color.Primary" Variant="Variant.Filled">Export</MudButton></DialogActions></InlineDialog>
 <InlineDialog @bind-Visible="_reloadOpen" Options="ChooserOptions" Title="Reload saved cut?" CloseLabel="Close reload saved cut"><DialogContent>Your unsaved edits will be replaced. Download an unsaved copy first if you want to keep them.</DialogContent>
     <DialogActions><MudButton OnClick="() => _reloadOpen = false">Cancel</MudButton><MudButton OnClick="Reload">Reload saved cut</MudButton></DialogActions>
 </InlineDialog>

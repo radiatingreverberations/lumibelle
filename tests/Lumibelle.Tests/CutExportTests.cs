@@ -60,6 +60,21 @@ public sealed partial class ShotTests
         ? Directory.GetFiles(paths.Temporary, "*.mp4", SearchOption.AllDirectories) : [];
 
     [Fact]
+    public async Task APartOfTheCutExportsOnlyItsClipsAndIsNamedForThem()
+    {
+        var f = await CreateLunaExportFixture(); await using var exporter = f.Exporter;
+        var part = await exporter.ExportAsync(f.ProjectId, f.Cut.Revision, new CutExportRange(1, 1), _ct);
+        var segment = Assert.Single(f.Media.Segments);
+        Assert.Equal((2, 4), (segment.StartFrame, segment.EndFrameExclusive));
+        Assert.Equal("cut-clips-2-2.mp4", part.FileName); Assert.Equal("clip 2", part.Range!.Label);
+        // Every clip is the whole cut, named as such.
+        var whole = await exporter.ExportAsync(f.ProjectId, f.Cut.Revision, new CutExportRange(0, 1), _ct);
+        Assert.Equal(2, f.Media.Segments.Count); Assert.Null(whole.Range); Assert.Equal("cut.mp4", whole.FileName);
+        foreach (var outside in new[] { new CutExportRange(1, 2), new CutExportRange(-1, 0), new CutExportRange(1, 0) })
+            await Assert.ThrowsAsync<WorkspaceStoreException>(() => exporter.ExportAsync(f.ProjectId, f.Cut.Revision, outside, _ct));
+    }
+
+    [Fact]
     public async Task CutExportDownloadsHeadAndRangesReadOneStableArtifact()
     {
         var f = await CreateLunaExportFixture(); await using var exporter = f.Exporter;
