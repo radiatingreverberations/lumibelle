@@ -173,11 +173,11 @@ public sealed partial class AssetComponentTests
         // The earlier request opens its review first; New request there reaches the composer. Not from inside InvokeAsync,
         // whose dispatcher those clicks need.
         var controls = EnhancementControls(page);
-        controls.WaitForElement(".inspection-toggle input");
-        await page.InvokeAsync(() => controls.Find(".inspection-toggle input").Change(true));
+        controls.WaitForElement(".inspect-references input");
+        await page.InvokeAsync(() => controls.Find(".inspect-references input").Change(true));
         Assert.True(controls.Find(".enhance-button").HasAttribute("disabled"));
         Assert.Contains("vision model", controls.Markup);
-        await page.InvokeAsync(() => controls.Find(".inspection-toggle input").Change(false));
+        await page.InvokeAsync(() => controls.Find(".inspect-references input").Change(false));
         Assert.False(controls.Find(".enhance-button").HasAttribute("disabled"));
     }
 

@@ -37,8 +37,9 @@ public sealed record PromptEnhancementContext
     public string Fingerprint() => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(this))));
 }
 
+// Direction is the author's guidance for this rewrite only, so it is not part of the prompt setup a suggestion is checked against.
 public sealed record PromptEnhancementRequest(PromptEnhancementContext Context, TextModelReference Model,
-    bool InspectImages = false, bool FollowsDefault = false);
+    bool InspectImages = false, bool FollowsDefault = false, string Direction = "");
 public enum PromptEnhancementKind { Prompt, NeedsInput, NeedsSetup }
 public sealed record PromptEnhancementResult(PromptEnhancementKind Kind, string Text);
 public sealed record PromptEnhancementUpdate(GenerationProgress? Progress = null, string? Text = null,

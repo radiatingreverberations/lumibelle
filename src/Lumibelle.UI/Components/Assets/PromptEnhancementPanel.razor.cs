@@ -18,6 +18,7 @@ public partial class PromptEnhancementPanel
     [Inject] public TextRequestReviews ReviewOutcomes { get; set; } = null!;
     [Inject] public IAiReviewGate Reviews { get; set; } = null!;
     [Inject] public IJSRuntime JS { get; set; } = null!;
+    [Inject] public IAiSettingsStore Settings { get; set; } = null!;
     [Parameter, EditorRequired] public PromptEnhancementContext Context { get; set; } = null!;
     [Parameter] public Guid? RequestedJobId { get; set; }
     [Parameter] public EventCallback<Guid> RequestedJobHandled { get; set; }
@@ -25,6 +26,8 @@ public partial class PromptEnhancementPanel
     [Parameter] public EventCallback<bool> BusyChanged { get; set; }
     [Parameter, EditorRequired] public Func<PromptEnhancementContext, string, Task<bool>> Apply { get; set; } = (_, _) => Task.FromResult(false);
     [Parameter] public Func<PromptEnhancementContext, bool, Task<bool>> Restore { get; set; } = (_, _) => Task.FromResult(false);
+    // Looks up a reference's stored size, for estimating what inspecting it costs.
+    [Parameter] public Func<AssetImageReference, AssetImage?> FindImage { get; set; } = _ => null;
 
     private lumibelle.Components.AI.TextAssistance? _assist;
     private bool _freshRequest;
@@ -32,7 +35,7 @@ public partial class PromptEnhancementPanel
     private PromptEnhancementRequest? _request;
     private PromptEnhancementResult? _result;
     private PromptEnhancementContext? _undoContext;
-    private string _undoText = "", _suggestion = "", _raw = "";
+    private string _undoText = "", _suggestion = "", _raw = "", _direction = "";
     private string? _error, _inlineError;
     private bool _busy, _open, _inspect, _disposed, _applying, _restoreFocus, _submitting, _refreshing, _refreshAgain;
     private AiJobHeader? _job, _active;
@@ -96,10 +99,47 @@ public partial class PromptEnhancementPanel
         catch (Exception e) when (e is JSException or JSDisconnectedException) { }
     }
     private void ModelChanged(TextModelSelectionState state) => _model = state;
+    // Token estimates, as in shot prompt assistance. Image tokens depend on the model and its settings, loaded when the composer opens.
+    private AiSettings? _settings;
+    private Task LoadSettings() { _ = LoadSettingsAsync(); return Task.CompletedTask; }
+    private async Task LoadSettingsAsync()
+    {
+        try { _settings = await Settings.LoadAsync(_lifetime.Token); }
+        catch (Exception e) when (e is WorkspaceStoreException or OperationCanceledException) { /* The estimate is a convenience; enhancing reports real problems. */ }
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+    private (PromptEnhancementContext Context, string Direction, int Tokens)? _textEstimate;
+    private int TextTokens
+    {
+        get
+        {
+            if (_textEstimate is { } cached && ReferenceEquals(cached.Context, Context) && cached.Direction == _direction) return cached.Tokens;
+            int tokens;
+            try { tokens = PromptEnhancer.EstimateTextTokens(new(Context, _model?.Model ?? new(AiBackend.OpenRouter, "", ""), Direction: _direction)); }
+            catch (AiGenerationException) { tokens = 0; }
+            _textEstimate = (Context, _direction, tokens);
+            return tokens;
+        }
+    }
+    private int? ImageTokens
+    {
+        get
+        {
+            if (_model is not { } model || _settings is not { } settings) return null;
+            var sizes = new List<ImageSize>();
+            foreach (var reference in Context.References)
+            {
+                if (FindImage(reference.Image) is not { Width: > 0, Height: > 0 } image) return null;
+                var crop = reference.Crop;
+                sizes.Add(new(Math.Max(1, (int)Math.Round(image.Width * (crop?.Width ?? 1))), Math.Max(1, (int)Math.Round(image.Height * (crop?.Height ?? 1)))));
+            }
+            return TextImageTokens.Estimate(model.Model, settings, sizes);
+        }
+    }
     private async Task Start() {
         if (!CanEnhance || _assist is null || !await _assist.PrepareSubmitAsync()) return;
         _freshRequest = true;
-        try { await Submit(new(Context.Capture(), _model!.Model, Context.IsEdit && _inspect, _model.FollowsDefault)); }
+        try { await Submit(new(Context.Capture(), _model!.Model, Context.IsEdit && _inspect, _model.FollowsDefault, _direction.Trim())); }
         finally { _freshRequest = false; }
     }
     private bool _pendingUsesOverride;
@@ -190,7 +230,7 @@ public partial class PromptEnhancementPanel
             var captured = AiTextJobHandler.Read(job, await Store.ReadSnapshotAsync(job.Id, _lifetime.Token)).Payload<PromptEnhancementRequest>();
             _request = captured; _inspect = captured.InspectImages; _loadedJob = job.Id;
             _suggestion = _raw = ""; _error = null; _savedChanges = []; _result = null; _resultJob = null;
-            if (restore) await Restore(captured.Context, true);
+            if (restore) { _direction = captured.Direction; await Restore(captured.Context, true); }
         }
         var result = await Store.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _lifetime.Token);
         if (await ReviewOutcomes.IsResolved(job.Id, _lifetime.Token)) _resolvedJob = job.Id;

@@ -157,7 +157,8 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
             "Preserve quoted visible lettering in its original language. Preserve explicit LoRA triggers exactly; never add absent triggers. " +
             "Asset notes are background context, not proof of image contents. Target-look notes describe the desired appearance; source-look notes describe organization and do not prove what any reference depicts. " +
             "Preserve shared character identity while applying the requested target appearance. Do not carry source wardrobe into the target merely because it appears in background notes. The author's requested change takes priority over background notes. " +
-            "When images are not attached, use source-relative wording and never claim to have inspected them. Do not alter settings or emit an execution plan.";
+            "When images are not attached, use source-relative wording and never claim to have inspected them. Do not alter settings or emit an execution plan. " +
+            "authorDirection, when present, is the author's direction for this rewrite, such as what to improve, emphasise or keep; follow it within this contract.";
         if (c.Workflow == ImageWorkflow.QwenImage21 && c.IsEdit)
             system += " The actual output aspect follows the cropped first reference, not the authoring aspect selector. Use <image1> through <image10> labels; never invent an unprovided slot.";
         if (c.References.Any(r => r.Region is not null)) system += " " + RegionalImageEdits.PlacementInstruction;
@@ -170,9 +171,18 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
             references = c.References.Select((r, i) => new { imageNumber = i + 1, role = i == 0 ? "base" : "additional reference; transfer only author-requested attributes",
                 r.Label, backgroundNotes = r.Notes, sourceLookContext = r.Look, submittedCrop = r.Crop })
         };
-        var user = new ChatMessage(ChatRole.User, JsonSerializer.Serialize(data));
+        var payload = JsonSerializer.SerializeToNode(data)!.AsObject();
+        if (!string.IsNullOrWhiteSpace(request.Direction)) payload["authorDirection"] = request.Direction.Trim();
+        var user = new ChatMessage(ChatRole.User, payload.ToJsonString());
         foreach (var image in images) user.Contents.Add(new DataContent(image, "image/png"));
         return [new(ChatRole.System, system), user];
+    }
+
+    /// <summary>Rough prompt tokens of the request's text: the guide, the author's prompt and direction, and the asset and reference notes.</summary>
+    public static int EstimateTextTokens(PromptEnhancementRequest request)
+    {
+        var messages = BuildMessages(request with { InspectImages = false }, PromptProfiles.Read(request.Context.Workflow, request.Context.IsEdit), []);
+        return messages.Sum(m => ComfyTextCapacity.TextTokens(m.Text));
     }
 
     public static PromptEnhancementResult? Parse(string raw, bool allowPlainText = false)

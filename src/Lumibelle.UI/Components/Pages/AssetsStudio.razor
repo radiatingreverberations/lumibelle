@@ -208,7 +208,7 @@ else
                 @if (!_checkingImages && !CurrentImageConfigurationReady) { <p class="field-hint image-workflow-issue">@CurrentImageConfigurationMessage <a href="@(AiSettingsNavigation.Link(Navigation, projectId: Id, returnTo: "assets"))">AI settings</a></p> }
                 <label for="image-prompt">@(_presentation.Edit ? "Edit instruction" : "Image prompt")</label><textarea id="image-prompt" disabled="@_generating" rows="8" @bind="_imagePrompt" @bind:event="oninput" placeholder="@(IsEditMode ? "Describe what should change while preserving the source…" : "Describe one clear reference view…")"></textarea>
                 <PromptEnhancementPanel @key="SelectedAsset.Id" RequestedJobId="RequestedEnhancementJobId" RequestedJobHandled="HandleEnhancementNavigation" Restore="RestoreEnhancementSetup" Context="EnhancementContext()" Disabled="@(_generating || _checkingImages)"
-                    BusyChanged="value => { if (!_disposed) _enhancing = value; }" Apply="ApplyEnhancedPrompt" />
+                    BusyChanged="value => { if (!_disposed) _enhancing = value; }" Apply="ApplyEnhancedPrompt" FindImage="FindImage" />
 </section>
                     <section class="image-reference-fields">
                     @if (IsEditMode) {

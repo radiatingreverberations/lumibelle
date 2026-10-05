@@ -183,6 +183,22 @@ public sealed class PromptEnhancerTests
     }
 
     [Fact]
+    public void DirectionIsSentOnlyWhenWrittenAndCountsTowardTheEstimate()
+    {
+        static string User(PromptEnhancementRequest request) => PromptEnhancer.BuildMessages(request, "Guide", [])[1].Text;
+        var plain = new PromptEnhancementRequest(Context, Model);
+        var directed = plain with { Direction = "  Keep the banners in view.  " };
+        Assert.DoesNotContain("authorDirection", User(plain));
+        using var json = System.Text.Json.JsonDocument.Parse(User(directed));
+        Assert.Equal("Keep the banners in view.", json.RootElement.GetProperty("authorDirection").GetString());
+        Assert.Equal(Context.Prompt, json.RootElement.GetProperty("authorRequest").GetString());
+        // The direction is the author's for this request only; it is not part of the setup a suggestion is checked against.
+        Assert.Empty(PromptEnhancer.Changes(plain.Context, directed.Context));
+        Assert.True(PromptEnhancer.EstimateTextTokens(plain) > 0);
+        Assert.True(PromptEnhancer.EstimateTextTokens(directed) > PromptEnhancer.EstimateTextTokens(plain));
+    }
+
+    [Fact]
     public async Task NativePromptStillPreservesExplicitTriggersAndQuotedLettering()
     {
         const string text = "A mouse_token holding a sign reading \"ÖPPET?\".";

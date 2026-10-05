@@ -38,7 +38,7 @@
 .text-request-dialog .request-details details { margin-top:6px; }
 .ai-assist-dialog .mud-dialog-actions { flex-wrap:wrap; }
 .ai-assist-dialog label { display:block; font-size:var(--lumi-font-size-meta); font-weight:600; color: var(--lumi-text-muted); }
-.ai-assist-dialog select, .ai-assist-dialog textarea, .ai-assist-dialog input[type=number] { width:100%; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); padding:9px 11px; font:inherit; margin-top:5px; }
+.ai-assist-dialog select, .ai-assist-dialog textarea, .ai-assist-dialog input[type=number] { width:100%; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); padding:9px 11px; font:inherit; font-weight:400; margin-top:5px; }
 .ai-assist-dialog .field-hint { font-size:var(--lumi-font-size-meta); margin:0; }
 .assist-composer-model { padding-top:12px; border-top: 1px solid var(--lumi-border); }
 .ai-assist-dialog .assist-footer-model { margin-right:auto; padding-top:0; border-top:0; display:flex; flex-direction:column; align-items:flex-start; gap:4px; }

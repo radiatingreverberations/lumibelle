@@ -254,6 +254,7 @@ h1:focus { outline: none !important; }
 .enhancement-comparison textarea { width: 100%; min-height: 220px; resize: vertical; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--lumi-radius-surface); padding: 12px; font: inherit; font-size: var(--lumi-font-size-ui); line-height: 1.6; background: var(--mud-palette-background); color: inherit; }
 .enhancement-comparison textarea[readonly] { background: var(--mud-palette-background-gray); }
 .enhancement-attribution { font-size: var(--lumi-font-size-meta); overflow-wrap: anywhere; opacity: .8; }
+.enhancement-direction-used { margin: 4px 0 10px; font-size: var(--lumi-font-size-meta); color: var(--lumi-text-muted); overflow-wrap: anywhere; white-space: pre-line; }
 .enhancement-response { margin-top: 12px; font-size: var(--lumi-font-size-meta); }
 .enhancement-response pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
 .enhancement-clarification { padding: 12px; background: var(--mud-palette-background-gray); border-radius: var(--lumi-radius-surface); }

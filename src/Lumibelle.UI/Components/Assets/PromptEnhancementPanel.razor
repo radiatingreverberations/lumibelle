@@ -1,15 +1,23 @@
 @implements IAsyncDisposable
 
 <section class="prompt-enhancement" aria-label="Prompt enhancement" @ref="_origin">
-    <TextAssistance Request="EnhancementPresentation" Preparing="_submitting" HasError="@(_pending is not null)" ReviewRequested="InspectEnhancement" CancelRequested="CancelRequest" @ref="_assist" ProjectId="Context.ProjectId" Studio="TextAssistantStudio.PromptEnhancement" Label="Improve prompt" Title="Improve prompt" Disabled="@(Blocked || string.IsNullOrWhiteSpace(Context.Prompt))" ModelLocked="@(Blocked || _busy)" SelectionChanged="ModelChanged">
-        <ChildContent><p class="field-hint">@Context.AssetName · @Context.Workflow.Label() · @(Context.IsEdit ? "Edit" : "Create")</p>    @if (Context.IsEdit)
-    {
-        <label class="inspection-toggle"><input type="checkbox" @bind="_inspect" disabled="@(Blocked || _busy)" /> Inspect reference images</label>
-        @if (_inspect)
+    <TextAssistance Request="EnhancementPresentation" Preparing="_submitting" HasError="@(_pending is not null)" ReviewRequested="InspectEnhancement" CancelRequested="CancelRequest" @ref="_assist" ProjectId="Context.ProjectId" Studio="TextAssistantStudio.PromptEnhancement" Label="Improve prompt" Title="Improve prompt" Disabled="@(Blocked || string.IsNullOrWhiteSpace(Context.Prompt))" ModelLocked="@(Blocked || _busy)" SelectionChanged="ModelChanged" Opened="LoadSettings">
+        <ChildContent><p class="field-hint">@Context.AssetName · @Context.Workflow.Label() · @(Context.IsEdit ? "Edit" : "Create")</p>
+    <label class="enhancement-direction">Direction for AI<textarea rows="2" maxlength="20000" placeholder="For example: make the lighting warmer and keep the banners in view." @bind="_direction" @bind:event="oninput" disabled="@(Blocked || _busy)"></textarea></label>
+    <fieldset class="composition-context" disabled="@(Blocked || _busy)"><legend class="sr-only">Request context</legend>
+        @* The prompt guide and notes are always sent; the row only shows what they cost. *@
+        <label class="check-row composition-context-fixed" title="Your prompt and direction, the workflow's prompt guide, and the asset and reference notes are always sent."><input type="checkbox" checked disabled /><span>Prompt, guide and notes</span>
+            <span class="composition-context-tokens" data-context="text">@($"≈{TextTokens:N0} tokens")</span></label>
+        @if (Context.IsEdit)
         {
-            <p class="field-hint">Sends @Context.References.Count image@(Context.References.Count == 1 ? "" : "s"), with their submitted crops, to @_model?.Model.Name through @_model?.Model.Backend.</p>
-            @if (VisionIssue is { } issue) { <p class="field-error" role="status">@issue</p> }
+            <label class="check-row inspect-references"><input type="checkbox" aria-label="Inspect reference images" @bind="_inspect" /><span>Inspect reference images · @Context.References.Count image@(Context.References.Count == 1 ? "" : "s")</span>
+                <span class="composition-context-tokens" data-context="images">@(ImageTokens is { } images ? $"≈{images:N0} tokens" : "")</span></label>
         }
+    </fieldset>
+    @if (Context.IsEdit && _inspect)
+    {
+        <p class="field-hint">Sends the images, with their submitted crops, to @_model?.Model.Name through @_model?.Model.Backend.</p>
+        @if (VisionIssue is { } issue) { <p class="field-error" role="status">@issue</p> }
     }
 @if (_inlineError is not null) { <p role="alert">@_inlineError</p> }</ChildContent>
         <Actions><MudButton Class="enhance-button ai-assist-action" OnClick="Start" Disabled="@(!CanEnhance)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Enhance</MudButton></Actions>
@@ -29,6 +37,7 @@
         {
             @if (_job is { } capturedJob) { <AiTextRequestDetails JobId="capturedJob.Id" /> }
             <p class="enhancement-attribution">@request.Context.Workflow.Label() · @(request.Context.IsEdit ? "Edit" : "Create") · @request.Model.Backend · @request.Model.Name</p>
+            @if (!string.IsNullOrWhiteSpace(request.Direction)) { <p class="enhancement-direction-used"><strong>Direction:</strong> @request.Direction</p> }
             @if (_job is { } job)
             { <lumibelle.Components.AI.AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }
             @if (_busy) { <p class="field-hint">You can close this preview or leave Assets. The request keeps running in AI activity.</p> }

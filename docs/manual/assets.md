@@ -20,6 +20,8 @@ Imported and generated images begin as unapproved takes. Select **Use as referen
 
 Write an image prompt or edit instruction, choose an **Enhancement model**, then click **Enhance**. The remembered choice is shared across Create/Edit and Krea/Klein within the project. A review dialog shows the original and an editable suggestion; **Apply** changes only the prompt, and **Undo enhancement** remains available until you type or change its context. Image generation is a separate action.
 
+**Direction for AI** is optional guidance for this request only, such as what to improve or keep; the review shows the direction it was given. Each row shows roughly how many tokens it adds: the prompt with the workflow's guide and notes, and, in Edit mode, the reference images when they are inspected.
+
 Edit mode also offers **Inspect reference images**, off by default. With an OpenRouter vision model selected, this sends the actual ordered images with their current crops to that provider. ComfyUI enhancement uses text context only. Missing models, unsupported image input and missing or trashed references produce actionable errors instead of silently substituting inputs. A suggestion cannot overwrite a prompt, workflow, asset or set of references that changed after the request.
 
 ## Edit images
