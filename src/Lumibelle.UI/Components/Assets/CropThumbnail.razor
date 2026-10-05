@@ -27,8 +27,10 @@
         if (!MeasureImage) return;
         try {
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Lumibelle.UI/reel-keyframes.js");
-            _size = await module.InvokeAsync<int[]>("imageSize", _image);
-        } catch (JSDisconnectedException) { }
+            _size = await module.InvokeAsync<int[]?>("imageSize", _image) ?? _size;
+        }
+        // A thumbnail removed while measuring keeps its stored size; it must not end the whole session.
+        catch (Exception e) when (e is JSDisconnectedException or JSException or TaskCanceledException) { }
     }
     private int ActualWidth => _size is [> 0, > 0] ? _size[0] : Width;
     private int ActualHeight => _size is [> 0, > 0] ? _size[1] : Height;

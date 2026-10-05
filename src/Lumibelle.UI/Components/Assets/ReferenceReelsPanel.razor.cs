@@ -49,6 +49,15 @@ public partial class ReferenceReelsPanel
     private TextAssistance? _assist;
     private TextModelSelectionState? _model;
     private bool _busy, _saving, _saveFailed, _disposed, _picturesOpen, _reviewOpen, _importOpen;
+    // MudDialog hides itself on Escape even when the panel cannot close yet. A close asked for while busy
+    // is kept and applied once the panel is free, so the dialog does not reappear with its request link.
+    private bool _closeReviewWhenIdle;
+    private void ReviewVisibility(bool visible)
+    {
+        if (visible) return;
+        if (_busy) { _closeReviewWhenIdle = true; return; }
+        _reviewOpen = false;
+    }
     private string _filter = "all", _raw = "", _takeId = "", _importName = "", _importGuidance = ShotVideoBinding.DefaultDescription;
     private string _detailName = "", _detailGuidance = "";
     private string _directionSourceId = "";
@@ -176,6 +185,7 @@ public partial class ReferenceReelsPanel
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_closeReviewWhenIdle && !_busy) { _closeReviewWhenIdle = false; _reviewOpen = false; StateHasChanged(); return; }
         await RestoreSetupFocus();
         if (_lastClearAvailability != CanClearCreation)
         {
@@ -314,7 +324,7 @@ public partial class ReferenceReelsPanel
         _saveError = null; _saveFailed = false;
     }
     private async Task Run(Func<Task> action)
-    { if (_busy) return; _busy = true; _error = null; try { await action(); } catch (Exception e) { _error = e.Message; } finally { _busy = false; } }
+    { if (_busy) return; _busy = true; _error = null; try { await action(); } catch (Exception e) { _error = e.Message; } finally { _busy = false; if (_closeReviewWhenIdle) StateHasChanged(); } }
     private AssetImage? PictureMedia(ShotImageBinding image) => Library.Assets.FirstOrDefault(a => a.Id == image.AssetId)?.Images.FirstOrDefault(i => i.Id == image.MediaId);
     private async Task OpenPictures(Guid? expanded = null)
     {
@@ -411,7 +421,7 @@ public partial class ReferenceReelsPanel
                 catch (WorkspaceStoreException) { }
             }
             if (_draft.ResolvedJobs.Contains(job.Id)) _reviewError = "This response has already been applied or discarded.";
-            _reviewOpen = true;
+            _reviewOpen = true; _closeReviewWhenIdle = false;
         }
         catch (Exception e) { _error = e.Message; }
     }

@@ -40,4 +40,5 @@ export function dispose(player) {
     player.pause(); players.delete(player);
 }
 
-export function imageSize(image) { return [image.naturalWidth, image.naturalHeight]; }
+// The image may already be gone when its load event reaches the server, after a list re-rendered.
+export function imageSize(image) { return image?.isConnected ? [image.naturalWidth, image.naturalHeight] : null; }

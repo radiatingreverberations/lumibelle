@@ -148,7 +148,7 @@
             </fieldset>
             @* As in the shot panel: the prompt is written from the references above, so it is the step before generating. *@
             <div class="shot-setup-actions shot-prompt-step">
-                <button @ref="_setupPromptButton" class="@(SetupPromptStatus == "Review prompt" ? "next-step stale" : SetupPromptStatus == "Missing" ? "next-step" : null)" title="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-description="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                <button @ref="_setupPromptButton" disabled="@(_busy || _presetBusy)" class="@(SetupPromptStatus == "Review prompt" ? "next-step stale" : SetupPromptStatus == "Missing" ? "next-step" : null)" title="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-description="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
             </div>
             @if (_preparing) { <p role="status">Preparing request…</p><button @onclick="CancelPreparation">Cancel preparation</button> }
             @if (!_loraValid) { <p class="field-error">Enter valid LoRA strengths before generating.</p> }
@@ -306,7 +306,7 @@
 
 <InlineDialog Visible="_picturesOpen" VisibleChanged="v => _picturesOpen = v" Options="WideOptions" Class="reel-pictures-dialog" Title="Reel references" CloseLabel="Close reel references"><DialogContent>@if (_pictureDraft is not null) { <ShotReferenceEditor @key="_pictureDraft" Shot="_pictureDraft" Library="Library" Expanded="_pictureExpanded" AllowInference="true" AllowReels="true" ReelAuthoring="true" SaveImage="SaveFrameImage" RestoreTrashedImage="RestoreTrashedImage" Applied="ApplyPictures" Cancelled="() => _picturesOpen = false" /> }</DialogContent></InlineDialog>
 
-<InlineDialog Visible="_reviewOpen" VisibleChanged="v => { if (!_busy) _reviewOpen = v; }" Options="WideOptions" Class="reel-review-dialog" Title="@(_unappliedPair is null ? "Reel prompt pair" : "Reel response needs a correction")" CloseLabel="Close reel prompt pair" CloseDisabled="_busy"><DialogContent>
+<InlineDialog Visible="_reviewOpen" VisibleChanged="ReviewVisibility" Options="WideOptions" Class="reel-review-dialog" Title="@(_unappliedPair is null ? "Reel prompt pair" : "Reel response needs a correction")" CloseLabel="Close reel prompt pair" CloseDisabled="_busy"><DialogContent>
     @if (_pair is not null && _draft is not null) { <h3>Generation prompt</h3><PromptComparisonView Before="@_draft.Prompt" After="@_pair.Prompt" /><h3>Use guidance</h3><PromptComparisonView Before="@_draft.UseGuidance" After="@_pair.UseGuidance" /> }
     @if (_reviewError is not null) { <div class="reel-response-error" role="alert"><strong>What needs attention</strong><p>@_reviewError</p></div> }
     @if (_unappliedPair is { } response) {
