@@ -57,6 +57,8 @@ test('reels share named presets with shots while keeping output overrides and lo
   await tools.getByRole('combobox', { name: 'Generation setup', exact: true }).selectOption({ label: 'Default setup' });
   await expect(tools.locator('select.generation-preset-select option:checked')).toHaveText('Default setup');
   await expect(tools.getByLabel('Reel takes', { exact: true })).toHaveValue('2');
+  // A reload does not wait for the choice to be saved, so wait for that first.
+  await expect.poll(async () => (await assets()).reelDrafts.find(d => d.assetId === owner.id && !d.lookId)?.generationSetup?.name).toBe('Default setup');
   await page.reload();
   await expect(tools.locator('select.generation-preset-select option:checked')).toHaveText('Default setup');
   await page.screenshot({ path: 'artifacts/reel-named-preset-desktop.png' });

@@ -178,7 +178,7 @@ public partial class ReferenceReelsPanel
             _directionSourceId = ""; _directionsNotice = null; _directionsCopyNotice = null;
             _unappliedPair = null; _responseDraft = null; _copyNotice = null; _error = null; _completedVideoId = null;
         }
-        finally { _busy = false; await InvokeAsync(StateHasChanged); }
+        finally { _busy = false; var idle = _idle; _idle = null; idle?.TrySetResult(); await InvokeAsync(StateHasChanged); }
     }
     private string GenerateLabel => _preparing ? "Preparing request…" : ActiveVideo is { CancelRequested: true } ? "Cancellation requested…"
         : ActiveVideo?.State == AiJobState.Waiting ? "Queued…" : ActiveVideo is not null ? "Generating…" : "Generate reel";
@@ -271,7 +271,7 @@ public partial class ReferenceReelsPanel
         // Opening the workspace alone must not persist an empty recipe.
         _saved = _draft.Copy();
     }
-    private Task ChangeLook(ChangeEventArgs e) => Run(async () =>
+    private Task ChangeLook(ChangeEventArgs e) => RunChoice(async () =>
     {
         await Flush(); await LoadPresets();
         LoadDraft(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
@@ -293,7 +293,7 @@ public partial class ReferenceReelsPanel
         finally { _presetGate.Release(); }
     }
     private async Task Changed() { try { await Save(); } catch (Exception e) { _error = e.Message; } }
-    private Task ChangeFraming(ChangeEventArgs e) => Run(async () => {
+    private Task ChangeFraming(ChangeEventArgs e) => RunChoice(async () => {
         if (_draft is null || !Enum.TryParse<ReelFraming>(e.Value?.ToString(), out var framing)) return;
         await Flush();
         if (CameraReel) ReferenceReels.SelectCameraPreset(_draft, framing);
@@ -324,7 +324,33 @@ public partial class ReferenceReelsPanel
         _saveError = null; _saveFailed = false;
     }
     private async Task Run(Func<Task> action)
-    { if (_busy) return; _busy = true; _error = null; try { await action(); } catch (Exception e) { _error = e.Message; } finally { _busy = false; if (_closeReviewWhenIdle) StateHasChanged(); } }
+    {
+        if (_busy) return; _busy = true; _error = null;
+        try { await action(); } catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; var idle = _idle; _idle = null; idle?.TrySetResult(); if (_closeReviewWhenIdle) StateHasChanged(); }
+    }
+    // Run skips work while busy, which suits buttons, but a choice made in a select must not be lost: the select
+    // already shows it. A choice that arrives while the panel saves, for example just after a dialog closes, waits
+    // for that and then applies.
+    private TaskCompletionSource? _idle;
+    private async Task RunChoice(Func<Task> action)
+    {
+        await WhenFree();
+        if (!_disposed) await Run(action);
+    }
+    /// <summary>Waits until the panel is neither busy nor saving a preset, as a person's own action should not be dropped.</summary>
+    private async Task WhenFree()
+    {
+        while (!_disposed && (_busy || _presetBusy))
+        {
+            if (_busy) { _idle ??= new(TaskCreationOptions.RunContinuationsAsynchronously); await _idle.Task; }
+            else
+            {
+                try { await _presetGate.WaitAsync(_lifetime.Token); } catch (OperationCanceledException) { return; }
+                _presetGate.Release();
+            }
+        }
+    }
     private AssetImage? PictureMedia(ShotImageBinding image) => Library.Assets.FirstOrDefault(a => a.Id == image.AssetId)?.Images.FirstOrDefault(i => i.Id == image.MediaId);
     private async Task OpenPictures(Guid? expanded = null)
     {
@@ -554,5 +580,5 @@ public partial class ReferenceReelsPanel
         var voice = _draft!.Voice!; await _voiceModule.InvokeVoidAsync("playExcerpt", _voicePlayer, voice.Start, voice.Start + voice.Duration);
     });
     public async ValueTask DisposeAsync()
-    { _disposed = true; Jobs.Changed -= JobsChanged; _lifetime.Cancel(); if (_voiceModule is not null) try { await _voiceModule.DisposeAsync(); } catch (JSDisconnectedException) { } _lifetime.Dispose(); }
+    { _disposed = true; _idle?.TrySetResult(); Jobs.Changed -= JobsChanged; _lifetime.Cancel(); if (_voiceModule is not null) try { await _voiceModule.DisposeAsync(); } catch (JSDisconnectedException) { } _lifetime.Dispose(); }
 }

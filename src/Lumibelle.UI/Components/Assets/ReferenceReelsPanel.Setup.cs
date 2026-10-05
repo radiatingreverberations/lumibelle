@@ -23,7 +23,9 @@ public partial class ReferenceReelsPanel
     {
         await _reset;
         if (_disposed || _draft is null) return;
-        if (_presetBusy || _busy) return;
+        // Opening is the person's own action: wait for a save in progress rather than ignore the click.
+        await WhenFree();
+        if (_disposed || _draft is null) return;
         await Run(RefreshPresets);
         _setupTab = tab;
         _setupDialogOpen = true;
