@@ -37,10 +37,7 @@ public sealed partial class ComfyH3Video
         if (media.Length > 0) node("refmedia", ComfyRefModClient.MediaNode, new { media_state = JsonSerializer.Serialize(media) });
         var encode = new Dictionary<string, object> { ["clip"] = Link("2"), ["vae"] = Link("3"), ["audio_vae"] = Link("4"),
             ["prompt"] = snapshot.Prompt, ["width"] = snapshot.Width, ["height"] = snapshot.Height, ["length"] = snapshot.FrameCount,
-            ["ref_image_size"] = "match", ["reference_fps"] = 24.0, ["max_total_tokens"] = ReelRefMods.MaximumTotalTokens, ["mods"] = Link("refmods"),
-            // Show H3's text encoder every selected keyframe. Fantastic's default shows the first and every 4th
-            // after it, so a 3-keyframe RefMod was seen as one picture; ours hold at most nine, so all is cheap.
-            ["stack_pictures"] = ComfyRefModClient.EncoderPictures };
+            ["ref_image_size"] = "match", ["reference_fps"] = 24.0, ["max_total_tokens"] = ReelRefMods.MaximumTotalTokens, ["mods"] = Link("refmods") };
         if (media.Length > 0) encode["references"] = Link("refmedia");
         node("5", ComfyRefModClient.EncodeNode, encode);
     }

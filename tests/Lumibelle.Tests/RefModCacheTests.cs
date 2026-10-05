@@ -425,15 +425,13 @@ public sealed partial class ShotTests
                 ["ref_resolution"] = "INT", ["grid"] = "INT", ["latent_frames"] = "INT", ["refinement_steps"] = "INT", ["max_tokens"] = "INT",
                 ["audio_max_seconds"] = "FLOAT", ["concept_type"] = "STRING", ["description"] = "STRING", ["write_preview"] = "BOOLEAN", ["vae"] = "VAE" }, "H3_REF_MODS", "STRING");
             create["input"]!["required"]!["mode"] = new JsonArray(new JsonArray("Full Reference", "Compressed Reference"));
-            static JsonObject Pictures(JsonObject encode)
-            { encode["input"]!["required"]!["stack_pictures"] = new JsonArray(new JsonArray("every 4th", "up to N", "all")); return encode; }
             return new() {
                 [ComfyRefModClient.BuildNode] = create,
                 [ComfyRefModClient.LoadNode] = Node(new() { ["stack_state"] = "STRING" }, "H3_REF_MODS", "STRING"),
                 [ComfyRefModClient.MediaNode] = Node(new() { ["media_state"] = "STRING" }, "H3_REFS"),
-                [ComfyRefModClient.EncodeNode] = Pictures(Node(new() { ["clip"] = "CLIP", ["prompt"] = "STRING", ["width"] = "INT", ["height"] = "INT",
+                [ComfyRefModClient.EncodeNode] = Node(new() { ["clip"] = "CLIP", ["prompt"] = "STRING", ["width"] = "INT", ["height"] = "INT",
                     ["length"] = "INT", ["ref_image_size"] = "STRING", ["reference_fps"] = "FLOAT", ["max_total_tokens"] = "INT",
-                    ["mods"] = "H3_REF_MODS", ["references"] = "H3_REFS", ["vae"] = "VAE", ["audio_vae"] = "VAE" }, "CONDITIONING", "STRING", "LATENT")),
+                    ["mods"] = "H3_REF_MODS", ["references"] = "H3_REFS", ["vae"] = "VAE", ["audio_vae"] = "VAE" }, "CONDITIONING", "STRING", "LATENT"),
                 ["VAELoader"] = new JsonObject { ["input"] = new JsonObject { ["required"] = new JsonObject { ["vae_name"] = new JsonArray(new JsonArray(new H3Settings().VideoVae)) } } }
             };
         }

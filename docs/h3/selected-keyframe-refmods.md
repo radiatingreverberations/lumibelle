@@ -28,14 +28,16 @@ Audio remains independent. Existing automatic character voice selection prefers 
 
 ## Server requirement
 
-Install **ComfyUI-Fantastic-MiniMaxH3-PromptBuilder** 1.8.0 or newer on every ComfyUI server used for generation, restart it and refresh Video models in Lumibelle. No Lumibelle RefMod companion, shared folder or custom transfer route is required. The unrelated refinement companion remains optional for its existing features.
+Install **ComfyUI-Fantastic-MiniMaxH3-PromptBuilder** on every ComfyUI server used for generation, restart it and refresh Video models in Lumibelle. No Lumibelle RefMod companion, shared folder or custom transfer route is required. The unrelated refinement companion remains optional for its existing features.
 
-The upstream contract is Fantastic 1.8.1, commit `01b6d8d91180c6994840e34312a65febe02cc4f5`:
+The upstream contract already used by this trial is Fantastic commit `23038f5050acdcbb8e938bfd7c87a18d2cc84aab`:
 
 - `MiniMaxH3FantasticRefModCreate`: independent picture source entries, Full Reference mode.
 - `MiniMaxH3RefModStack`: saved relative stems without `.safetensors`.
 - `MiniMaxH3MediaLoader`: ordinary pictures, videos and separate audio.
-- `MiniMaxH3FantasticRefModTextEncode`: conditioning output 0, reference map 1, sampling latent 2. Lumibelle sets `stack_pictures` to `all`, so H3's text encoder sees every selected keyframe. The node's default, `every 4th`, shows the first and every fourth after it, which for a 3-keyframe RefMod is one picture. Selected-keyframe RefMods hold at most nine pictures, so showing all of them costs little; the encoder seeing them is what tells the model to use the frames as a reference rather than paste one in, and helps keep several RefMod characters apart. Servers whose encode node lacks `stack_pictures` are reported as needing an update.
+- `MiniMaxH3FantasticRefModTextEncode`: conditioning output 0, reference map 1, sampling latent 2.
+
+Fantastic 1.8.0 added `stack_pictures` to the text encode, which sets how many of a RefMod's pictures H3's text encoder sees; the DiT always receives every picture as latents. Lumibelle leaves it at the default, `every 4th`: the first picture and every fourth after it, so an 8-picture turnaround shows the encoder about the front and back views. An A/B on 2026-10-05 (three RefMods of 7–8 pictures, 608×352, HyperFlow 8 steps, same seed) found `all` about 48% slower per sampling step (26.9 s against 18.1 s, plus about 30 s more text encoding) with only small detail differences. Upstream reports that `all` helps most when several similar-looking characters bleed into each other; retest it on such a shot before changing the default.
 - `GET /minimax_h3/refmods` for discovery and native `POST /upload/image` for source PNGs.
 
 The required VAE filename is captured when accepting a new source recipe. Existing recipes do not silently switch VAE because connection settings change. Select the captured VAE, or remove/re-add the reference to capture a new recipe with the intended VAE. Missing plugins or an unreachable server are reported at generation, not treated as permission to substitute full-reel conditioning.
