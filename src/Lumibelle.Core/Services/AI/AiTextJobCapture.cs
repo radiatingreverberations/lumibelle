@@ -91,9 +91,11 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             var effective = ShotVideoDefaults.Capture(c.Shot, project);
             var configured = await settings.LoadAsync(ct);
             var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
-            if (ReelRefMods.Uses(effective) && refmods is not null) images.AddRange((await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png));
-            if (await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct) is { } opening) images.Add(opening.Bytes);
-            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))] };
+            var reelFrames = ReelRefMods.Uses(effective) && refmods is not null ? (await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png).ToList() : [];
+            images.AddRange(reelFrames);
+            var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
+            if (opening is { } frame) images.Add(frame.Bytes);
+            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))], ReelFrames = reelFrames.Count, OpeningFrame = opening is not null };
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
     }

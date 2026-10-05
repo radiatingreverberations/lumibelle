@@ -28,4 +28,14 @@ public sealed class TextImageTokensTests
         var hosted = model with { Backend = AiBackend.OpenRouter };
         Assert.Equal(TextImageTokens.Hosted(640, 320) + TextImageTokens.Hosted(320, 640), TextImageTokens.Estimate(hosted, settings, [new ImageSize(640, 320), new ImageSize(320, 640)]));
     }
+
+    [Fact]
+    public void TheReferencesRowSaysWhereItsImagesComeFrom()
+    {
+        ImageSize[] Images(int n) => [.. Enumerable.Repeat(new ImageSize(64, 64), n)];
+        Assert.Equal("9 pictures + 14 reel frames", new CompositionContextSize(0, 0, 0) { ReferenceImages = Images(23), ReelFrames = 14 }.DescribeImages());
+        Assert.Equal("1 picture + opening frame", new CompositionContextSize(0, 0, 0) { ReferenceImages = Images(2), OpeningFrame = true }.DescribeImages());
+        Assert.Equal("1 reel frame", new CompositionContextSize(0, 0, 0) { ReferenceImages = Images(1), ReelFrames = 1 }.DescribeImages());
+    }
 }
+

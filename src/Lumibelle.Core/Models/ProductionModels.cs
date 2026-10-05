@@ -140,6 +140,20 @@ public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShots
     /// the model, so they are estimated from these sizes for whichever model is chosen, without capturing the images again.
     /// </summary>
     public IReadOnlyList<ImageSize> ReferenceImages { get; init; } = [];
+    /// <summary>How many of <see cref="ReferenceImages"/> are frames from reels sent as RefMods.</summary>
+    public int ReelFrames { get; init; }
+    public bool OpeningFrame { get; init; }
+    public int Pictures => ReferenceImages.Count - ReelFrames - (OpeningFrame ? 1 : 0);
+    // Where the images come from: reels sent as RefMods add frames of their own beside the pictures.
+    public string DescribeImages()
+    {
+        static string Count(int n, string one) => $"{n} {one}{(n == 1 ? "" : "s")}";
+        var parts = new List<string>();
+        if (Pictures > 0) parts.Add(Count(Pictures, "picture"));
+        if (ReelFrames > 0) parts.Add(Count(ReelFrames, "reel frame"));
+        if (OpeningFrame) parts.Add("opening frame");
+        return string.Join(" + ", parts);
+    }
 }
 public sealed record PromptCompositionResult(string Prompt, string ReferenceUsage)
 {
