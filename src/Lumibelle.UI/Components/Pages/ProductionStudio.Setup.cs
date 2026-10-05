@@ -31,7 +31,7 @@ public partial class ProductionStudio
     private bool PromptBlocksGeneration => GenerationIssue is not null && GenerationIssueAction == "Review prompt";
     // Prompt is the next step whenever its status asks for something: a blocking issue, an AI review waiting,
     // or references or direction that changed since the prompt was reviewed. Generating still works.
-    // References or the shot changed after the prompt was written: it needs a review or a rewrite, which the panel says outright.
+    // References or the shot changed after the prompt was written: it needs a review or a rewrite. The amber button's tooltip says so.
     private string? PromptStaleNote => CompositionJob?.LocksTarget == true || _compositionResult is not null ? null
         : CurrentPromptReferenceCheck.State == lumibelle.Services.Production.PromptReferenceState.ReferencesChanged ? "References changed since this prompt was written. Review it, or revise it with AI, before generating."
         : SourceChanged ? "The shot changed since this prompt was reviewed. Review it, or revise it with AI, before generating." : null;

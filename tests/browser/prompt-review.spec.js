@@ -62,7 +62,7 @@ for (const narrow of [false, true]) test(`review a prompt before setting duratio
   // The new duration changes the shot, so Prompt asks for review again and says why, though Generate stays available.
   await expect(prompt).toContainText('Review prompt');
   await expect(prompt).toHaveClass(/next-step stale/);
-  await expect(footer.locator('.prompt-stale-note')).toHaveText('The shot changed since this prompt was reviewed. Review it, or revise it with AI, before generating.');
+  await expect(prompt).toHaveAttribute('title', 'The shot changed since this prompt was reviewed. Review it, or revise it with AI, before generating.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
 });

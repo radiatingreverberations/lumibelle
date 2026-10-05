@@ -19,7 +19,7 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   const footer = page.locator('.shot-controls > .workspace-pane-footer');
   const prompt = footer.getByRole('button', { name: 'Prompt', exact: true });
   await expect(prompt).not.toHaveClass(/stale/);
-  await expect(footer.locator('.prompt-stale-note')).toHaveCount(0);
+  await expect(prompt).not.toHaveAttribute('title');
   await toolsTab(page, 'References');
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').nth(0).click();
@@ -28,7 +28,7 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   await expect(manager).toBeHidden();
   await expect(prompt).toContainText('References changed');
   await expect(prompt).toHaveClass(/next-step stale/);
-  await expect(footer.locator('.prompt-stale-note')).toHaveText('References changed since this prompt was written. Review it, or revise it with AI, before generating.');
+  await expect(prompt).toHaveAttribute('title', 'References changed since this prompt was written. Review it, or revise it with AI, before generating.');
   // Generating stays possible; the note only says what the prompt needs.
   await expect(footer.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
 });
