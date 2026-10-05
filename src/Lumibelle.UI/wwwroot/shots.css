@@ -92,7 +92,9 @@
 .ai-assist-dialog .composition-context .check-row { display:flex; align-items:center; gap:8px; margin:6px 0; padding:0; line-height:1.4; }
 .composition-context .composition-context-fixed { color: var(--lumi-text-muted); }
 .composition-context .check-row input { flex:none; width:auto; margin:0; }
-.composition-context-tokens { margin-left:auto; padding-left:12px; color: var(--lumi-text-muted); font-weight:400; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.composition-context-tokens { margin-left:auto; padding-left:12px; color: var(--lumi-text-muted); font-weight:400; font-variant-numeric: tabular-nums; white-space:nowrap; display:inline-flex; align-items:center; height:1.4em; }
+/* A text-sized spinner, so rows are as tall while estimating as after. */
+.composition-context-tokens .mud-progress-circular { width:14px !important; height:14px !important; }
 .shot-start-frame { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); }
 .shot-start-frame img { width:96px; aspect-ratio:16 / 9; object-fit:cover; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
 .shot-start-frame-text { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }
