@@ -85,6 +85,9 @@ public sealed class CutTakeSelectionTests
 
         Assert.Equal(expected, CutTakeSelection.ResolutionKey(take));
         Assert.EndsWith(expected + " MP", TakeDisplay.Badge(take));
+        Assert.Equal(expected + " MP", TakeDisplay.Megapixels(take));
+        // Quick and Preview are draft sizes, to be regenerated at Detail or Native.
+        Assert.Equal(expected is "0.2" or "0.4", TakeDisplay.IsDraft(take));
     }
 
     [Theory]

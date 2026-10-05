@@ -29,6 +29,9 @@ test('the take preview and the action and camera text line up side by side', asy
   await expect(review).toBeVisible({ timeout: 20000 });
   await review.getByRole('button', { name: 'Close take review', exact: true }).click();
   await expect(page.locator('.shot-workspace-preview video')).toBeVisible();
+  // The shot list shows the shown take's size; Preview is a draft size, marked for regenerating.
+  await expect(page.locator('.shot-list-resolution')).toHaveText('0.4 MP');
+  await expect(page.locator('.shot-list-resolution')).toHaveClass(/draft/);
   // The caption heads the video as the label heads the text.
   await expect.poll(() => edges(page)).toEqual({ top: 0, bottom: 0 });
   const caption = await page.locator('.shot-preview-caption').boundingBox(), video = await page.locator('.shot-workspace-preview video').boundingBox();
