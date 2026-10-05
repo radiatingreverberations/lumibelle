@@ -30,7 +30,7 @@ Audio remains independent. Existing automatic character voice selection prefers 
 
 Install **ComfyUI-Fantastic-MiniMaxH3-PromptBuilder** on every ComfyUI server used for generation, restart it and refresh Video models in Lumibelle. No Lumibelle RefMod companion, shared folder or custom transfer route is required. The unrelated refinement companion remains optional for its existing features.
 
-The upstream contract already used by this trial is Fantastic commit `23038f5050acdcbb8e938bfd7c87a18d2cc84aab`:
+The upstream contract was introduced with Fantastic commit `23038f5050acdcbb8e938bfd7c87a18d2cc84aab` and is unchanged through 1.8.1 (`01b6d8d91180c6994840e34312a65febe02cc4f5`):
 
 - `MiniMaxH3FantasticRefModCreate`: independent picture source entries, Full Reference mode.
 - `MiniMaxH3RefModStack`: saved relative stems without `.safetensors`.
