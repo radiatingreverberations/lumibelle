@@ -49,7 +49,7 @@ public partial class ReferenceReelsPanel
         catch (Exception e) { _error = e.Message; }
     }
     private Task ChangeNamedPreset(ChangeEventArgs e) => Guid.TryParse(e.Value?.ToString(), out var id) ? SelectPreset(id) : Task.CompletedTask;
-    private Task SelectPreset(Guid id) => Run(async () => {
+    private Task SelectPreset(Guid id) => RunChoice(async () => {
         await Flush();
         await LoadPresets();
         var preset = _globalSetups.Setups.Single(s => s.Id == id);
