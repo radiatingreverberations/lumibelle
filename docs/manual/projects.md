@@ -59,7 +59,7 @@ Invalid, unreadable or unsupported manifests produce warnings while healthy proj
 
 ## Compact a project
 
-**Project settings → Storage → Compact project…** makes a project smaller in place, for example before publishing its folder. It lists what it found with the space each part frees, and removes only what you select after one confirmation:
+**Project settings → Storage → Compact project…** makes a project smaller in place, for example before publishing its folder. It first shows what takes up space: the project's size by kind, such as take videos, reel archives and generation working files, and its largest files, marking any over 100 MB, which GitHub rejects without Git LFS. It then lists what it found with the space each part frees, and removes only what you select after one confirmation:
 
 - **Empty this project's Trash**: the same as Empty Trash filtered to this project.
 - **Lossless take archives** and **Lossless reel archives**: takes and reels keep their MP4. Every reel keyframe already chosen from lossless frames is saved as a picture first, so reference images, RefMod inputs and prompts are unchanged. Paused frames and new keyframes are then decoded from the MP4.

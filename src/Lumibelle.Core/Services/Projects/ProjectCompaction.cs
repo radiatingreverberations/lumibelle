@@ -17,6 +17,8 @@ public sealed record ProjectCompactionPlan(Guid ProjectId, IReadOnlyList<MediaTr
     public long Bytes(CompactionPart part) => part switch {
         CompactionPart.Trash => Trash.Sum(r => r.Bytes), CompactionPart.TakeArchives => TakeBytes, CompactionPart.ReelArchives => ReelBytes,
         CompactionPart.Backups => BackupBytes, _ => ManifestBytes };
+    /// <summary>What the project folder holds, measured with the plan.</summary>
+    public ProjectStorageUsage? Usage { get; init; }
 }
 public sealed record ProjectCompactionResult(long ReclaimedBytes, IReadOnlyList<string> Issues);
 public interface IProjectCompaction
@@ -58,8 +60,9 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         var backups = File.Exists(Path.Combine(dir, "production.json"))
             ? BackupNames.SelectMany(n => new[] { n, n + ".tmp" }).Where(n => File.Exists(Path.Combine(dir, n))).ToArray() : [];
         var manifest = await ManifestAsync(project, ct);
+        var usage = await Task.Run(() => ProjectStorageUsage.Measure(dir), ct);
         return new(project, rows, takes, takeBytes, media, reelBytes, backups, backups.Sum(n => new FileInfo(Path.Combine(dir, n)).Length),
-            manifest, manifest is null ? 0 : new FileInfo(manifest).Length);
+            manifest, manifest is null ? 0 : new FileInfo(manifest).Length) { Usage = usage };
     }
 
     public async Task<ProjectCompactionResult> CompactAsync(ProjectCompactionPlan plan, IReadOnlySet<CompactionPart> parts,

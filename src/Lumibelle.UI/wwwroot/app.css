@@ -129,6 +129,19 @@ h1:focus { outline: none !important; }
 .project-storage-path { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
 .project-storage-path .mud-icon-root { flex: none; margin-top: 2px; }
 .project-storage-path code { overflow-wrap: anywhere; }
+.project-storage-usage { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--lumi-border); }
+.project-storage-usage > p { margin: 0 0 8px; }
+.project-storage-usage ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.project-storage-usage li { display: grid; grid-template-columns: minmax(0, 1fr) 6rem 5.5rem; align-items: center; gap: 10px; font-size: var(--lumi-font-size-meta); }
+.project-storage-usage li small { color: var(--muted); }
+.project-storage-usage .usage-bar { height: 6px; border-radius: var(--lumi-radius-pill); background: var(--lumi-surface-subtle); overflow: hidden; }
+.project-storage-usage .usage-bar i { display: block; height: 100%; background: var(--lumi-accent); }
+.project-storage-usage .usage-size { text-align: right; font-variant-numeric: tabular-nums; }
+.project-storage-usage details { margin-top: 10px; font-size: var(--lumi-font-size-meta); }
+.project-storage-usage details > summary { cursor: pointer; color: var(--plum); font-weight: 600; }
+.project-storage-usage .usage-largest { margin-top: 6px; }
+.project-storage-usage .usage-largest li { display: block; overflow-wrap: anywhere; }
+.project-storage-usage .usage-large { color: var(--lumi-warning); }
 .project-transfer input[type=file] { font: inherit; font-size: var(--lumi-font-size-meta); color: var(--lumi-text-muted); }
 .project-transfer input[type=file]::file-selector-button { margin-right: 12px; min-height: var(--lumi-control-height); padding: 5px 12px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); font: inherit; font-size: var(--lumi-font-size-compact); font-weight: 500; cursor: pointer; }
 .project-transfer input[type=file]::file-selector-button:hover { background: var(--lumi-surface-selected); }

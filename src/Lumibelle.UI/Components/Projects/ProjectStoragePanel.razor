@@ -28,6 +28,24 @@
 <InlineDialog Visible="_compactOpen" VisibleChanged="value => { if (!_busy) _compactOpen = value; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })"
               Class="project-compact-dialog" Title="Compact project" Context="@Project.Name" CloseLabel="Close compact project" CloseDisabled="_busy">
     <DialogContent>
+        @if (_plan?.Usage is { Total: > 0 } usage)
+        {
+            @* What takes up space, so the choice below, or what to keep out of version control, is informed. *@
+            <section class="project-storage-usage" aria-label="What takes up space">
+                <p><strong>This project uses @StorageSize.Format(usage.Total)</strong></p>
+                <ul>
+                    @foreach (var category in usage.Categories.Where(c => c.Bytes > 0))
+                    {
+                        <li><span>@ProjectStorageUsage.Label(category.Kind) <small>· @category.Files @(category.Files == 1 ? "file" : "files")</small></span>
+                            <span class="usage-bar" aria-hidden="true"><i style="@FormattableString.Invariant($"width:{Math.Max(1, 100d * category.Bytes / usage.Total):0.#}%")"></i></span>
+                            <span class="usage-size">@StorageSize.Format(category.Bytes)</span></li>
+                    }
+                </ul>
+                <details><summary>Largest files</summary>
+                    <ul class="usage-largest">@foreach (var file in usage.Largest) { <li><code>@file.Path</code> · @StorageSize.Format(file.Bytes)@if (file.Bytes > ProjectStorageUsage.LargeFileBytes) { <strong class="usage-large"> · over 100 MB, which GitHub rejects without Git LFS</strong> }</li> }</ul>
+                </details>
+            </section>
+        }
         @if (_plan is null) { if (_error is null) { <p role="status">Measuring what can be removed…</p> } }
         else if (!Parts.Any(p => _plan.Count(p) > 0)) { <p>There is nothing to remove. This project has no lossless archives, discarded media or leftover files.</p> }
         else

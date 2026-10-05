@@ -240,12 +240,21 @@ public sealed class ProjectComponentTests : BunitContext
     {
         var project = FakeProjectStore.Project("Garden", "A quiet world.");
         _store.Get = _ => Task.FromResult<ProjectInfo?>(project);
-        _compaction.Plan = new(project.Id, [], [], 0, [Guid.NewGuid()], 1200L * 1024 * 1024, ["production-before-global-setups.json"], 1024 * 1024, @"C:\episode\manifest.json", 1024);
+        _compaction.Plan = new(project.Id, [], [], 0, [Guid.NewGuid()], 1200L * 1024 * 1024, ["production-before-global-setups.json"], 1024 * 1024, @"C:\episode\manifest.json", 1024)
+        {
+            Usage = new(3000L * 1024 * 1024, [new(lumibelle.Services.Projects.StorageKind.GenerationRuns, 1800L * 1024 * 1024, 900), new(lumibelle.Services.Projects.StorageKind.ReelArchives, 1200L * 1024 * 1024, 40)],
+                [new("shots/runs/r/inputs/image-00.png", 150L * 1000 * 1000)])
+        };
         var dialogs = Render<MudDialogProvider>();
         var page = Render<ProjectSettings>(p => p.Add(c => c.Id, project.Id));
         await page.InvokeAsync(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Compact project…").ClickAsync(new()));
         dialogs.WaitForAssertion(() => Assert.Contains($"Lossless reel archives (1 reel video) · {StorageSize.Format(1200L * 1024 * 1024)}", dialogs.Markup));
         Assert.DoesNotContain("take archives", dialogs.Markup); Assert.DoesNotContain("Trash (", dialogs.Markup);
+        // What takes up space comes first, largest kind first, and flags files too large for a plain git push.
+        var usage = dialogs.Find(".project-storage-usage");
+        Assert.Contains($"This project uses {StorageSize.Format(3000L * 1024 * 1024)}", usage.TextContent);
+        Assert.StartsWith("Generation working files", usage.QuerySelector("li")!.TextContent.Trim());
+        Assert.Contains("over 100 MB", usage.QuerySelector(".usage-largest")!.TextContent);
         Assert.True(dialogs.Find("input[data-part=PackageManifest]").HasAttribute("checked"));
         await dialogs.InvokeAsync(() => dialogs.Find("input[data-part=Backups]").ChangeAsync(new() { Value = false }));
         Assert.Contains($"Frees about {StorageSize.Format(1200L * 1024 * 1024 + 1024)}", dialogs.Markup);
