@@ -73,6 +73,9 @@ jobs:
           - group: reference reels
             id: reference-reels
             specs: reference-reels.spec.js
+          - group: camera and reel tools
+            id: reel-tools
+            specs: environment-reels.spec.js prop-reels.spec.js reel-frame-export.spec.js reel-generation-presets.spec.js reel-keyframes.spec.js reel-panel-consistency.spec.js reel-picture-inputs.spec.js reel-regeneration.spec.js reel-replacement.spec.js reel-resolution-controls.spec.js reel-visual-references.spec.js
     steps:
       - uses: actions/checkout@v7
 
