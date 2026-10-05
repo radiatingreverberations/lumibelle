@@ -407,7 +407,10 @@ else
             @if (_error is not null) { <div role="alert"><p>@_error</p>@if (_saveFailed) { <button @onclick="Reload">Reload saved version</button><button @onclick="DownloadDraft">Download unsaved copy</button> }</div> }
                 <section id="shot-setup-prompt-panel" data-setup-id="@composition.Id" hidden="@(_setupTab != "Prompt")">
                     <div class="prompt-review-guidance" role="status">
-                        @if (PromptNeedsReview) {
+                        @if (string.IsNullOrWhiteSpace(composition.Prompt) && _compositionResult is null) {
+                            <p>No prompt yet. Choose <strong>Compose prompt</strong> to write one with AI from the shot and its references, or type it below.</p>
+                        }
+                        else if (PromptNeedsReview) {
                             @if (_compositionResult is not null) { <p>AI changes are ready. Choose <strong>Review changes</strong> to compare them with your text; <strong>Mark reviewed</strong> keeps your text and dismisses them.</p> }
                             else { <p>Check the prompt against your shot and reference labels, then choose <strong>Mark reviewed</strong>.</p> }
                             @if (CurrentPromptReferenceCheck is { NeedsAttention: true } referenceCheck) { <p class="field-hint">@referenceCheck.Detail</p> }
@@ -440,8 +443,9 @@ else
                     @if (_compositionError is not null) { <p role="alert">@_compositionError</p> }
                     @* The raw response is under Response details in the request dialog, as for other text requests; shown here it streamed in mid-dialog. *@
                     @if (CompositionPromptWarning is { } warning) { <p class="prompt-review-note" role="status"><strong>Review note:</strong> @warning <span>You can keep this text; this does not block saving or generation.</span></p> }
-                    <PromptEditor @ref="_promptEditor" @key="composition.ShotId" HistoryKey="@($"{_promptHistoryScope}:{composition.ShotId}")" Text="@composition.Prompt" TextChanged="text => PromptChanged(composition.ShotId, text)" PictureClicked="PreviewPicture" VideoClicked="PreviewVideo"><ToolbarActions>
-                    <div @ref="_compositionReviewOrigin"><TextAssistance Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" Opened="StartContextEstimate" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
+                    <PromptEditor @ref="_promptEditor" @key="composition.ShotId" Placeholder="Compose the prompt with AI, or start typing." HistoryKey="@($"{_promptHistoryScope}:{composition.ShotId}")" Text="@composition.Prompt" TextChanged="text => PromptChanged(composition.ShotId, text)" PictureClicked="PreviewPicture" VideoClicked="PreviewVideo"><ToolbarActions>
+                    @* With no prompt yet, composing one is the obvious next step. *@
+                    <div @ref="_compositionReviewOrigin" class="@(string.IsNullOrWhiteSpace(composition.Prompt) ? "assist-emphasis" : null)"><TextAssistance Label="@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Assist")" Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" Opened="StartContextEstimate" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
                         <ExtraActions><button disabled="@(!CanClearPrompt)" title="Clear the prompt. References, settings, and Direction for AI stay." @onclick="ClearPrompt">Clear prompt</button></ExtraActions>
                         <ChildContent><p class="field-hint">@shot.Title</p>                    <label>Direction for AI<textarea rows="2" maxlength="20000" placeholder="For example: stay closer on her face, then reveal the monitor." @bind:get="composition.DirectingNotes" @bind:set="value => EditComposition(c => c.DirectingNotes = value ?? string.Empty)" @bind:event="oninput"></textarea></label>
 <fieldset class="composition-context" disabled="@(_compositionBusy || CompositionJob?.LocksTarget == true || _compositionEnqueue is not null)"><legend class="sr-only">Script context</legend>
@@ -486,7 +490,7 @@ else
                     </ToolbarActions></PromptEditor>
                     @if (!string.IsNullOrWhiteSpace(composition.Prompt) && PromptReviewIssue is { } issue) { <p class="prompt-validation" role="alert">@issue</p> }
                     @if (!string.IsNullOrWhiteSpace(composition.ReferenceUsage)) { <details><summary>AI explanation</summary>@if (composition.Accepted?.Prompt != composition.Prompt) { <p class="field-hint">Explanation from the last AI composition, before your manual edits.</p> }<p>@composition.ReferenceUsage</p></details> }
-                    <button @onclick="CopyPrompt">Copy prompt</button>
+                    @if (!string.IsNullOrWhiteSpace(composition.Prompt)) { <button @onclick="CopyPrompt">Copy prompt</button> }
                     @if (EarlierShotContent.Any()) {
                         <details class="earlier-setup-content"><summary>Earlier setup prompts and references</summary>
                             <p class="field-hint">These versions were preserved when prompts and references moved to the shot. Restoring one keeps your generation settings.</p>

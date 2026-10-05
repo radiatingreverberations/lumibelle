@@ -310,8 +310,11 @@
 .prompt-toolbar label { display: flex; gap: .4rem; align-items: center; }
 .prompt-editor-host { border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface); }
 .prompt-editor-host .tiptap { min-height: 18rem; padding: 1.1rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; font-size: var(--lumi-font-size-ui); outline: none; }
-.prompt-editor-host:focus-within { border-color: var(--lumi-accent); box-shadow: 0 0 0 2px var(--lumi-shadow-color); }
+/* The box shows focus; the global focus ring on the editable text inside it would draw a second, heavier frame. */
+.prompt-editor-host:focus-within { border-color: var(--lumi-accent); box-shadow: 0 0 0 1px rgba(var(--lumi-accent-rgb), .25); }
+.prompt-editor-host .tiptap:focus-visible { outline: none !important; }
 .prompt-editor-host [data-prompt-line]:empty::after { content: '\200b'; }
+.prompt-editor-host .tiptap > [data-prompt-line]:only-child:is(:empty, :has(> br:only-child))::before { content: var(--prompt-placeholder, none); position: absolute; color: var(--muted); pointer-events: none; }
 .styled-text .prompt-section-heading { color: var(--lumi-accent); font-weight: 700; font-size: var(--lumi-font-size-compact); letter-spacing: .035em; margin-top: .85rem; }
 .styled-text .prompt-dialogue { border-left: 2px solid var(--lumi-border); padding-left: .7rem; }
 .styled-text .prompt-reference { color: var(--lumi-accent); background: var(--lumi-surface-subtle); border-radius: var(--lumi-radius-small); }

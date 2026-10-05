@@ -2,10 +2,12 @@
 @implements IAsyncDisposable
 <section class="prompt-document @(_exact ? "exact-text" : "styled-text")">
     <div class="prompt-toolbar"><strong>H3 prompt</strong>@ToolbarActions<button @onclick="Undo" disabled="@(!_canUndo)" aria-label="Undo prompt edit">Undo</button><button @onclick="Redo" disabled="@(!_canRedo)" aria-label="Redo prompt edit">Redo</button><label><input type="checkbox" @bind="_exact" />Exact text</label></div>
-    <div class="prompt-editor-host" @ref="_element" data-prompt-ready="@(_module is not null ? "true" : "false")"></div>
+    <div class="prompt-editor-host" @ref="_element" data-prompt-ready="@(_module is not null ? "true" : "false")" style="@(Placeholder is null ? null : $"--prompt-placeholder:\"{Placeholder.Replace("\\", "").Replace("\"", "'")}\"")"></div>
 </section>
 @code {
     [Parameter] public RenderFragment? ToolbarActions { get; set; }
+    // Shown in an empty editor only.
+    [Parameter] public string? Placeholder { get; set; }
     [Parameter] public string Text { get; set; } = "";
     [Parameter] public string? HistoryKey { get; set; }
     [Parameter] public EventCallback<string> TextChanged { get; set; }

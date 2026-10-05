@@ -25,6 +25,11 @@ test('scene text and the neighbouring shots show their size and can be left out 
 
   // A lone shot has no neighbours to send.
   await openShotSetup(page);
+  // With no prompt yet, composing one leads: the guidance says so, Assist reads Compose prompt and stands out.
+  const setup = page.locator('.shot-setup-dialog');
+  await expect(setup).toContainText('No prompt yet. Choose Compose prompt');
+  await expect(setup.locator('.assist-emphasis')).toContainText('Compose prompt');
+  await expect(setup.getByRole('button', { name: 'Copy prompt', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Prompt assistance', exact: true }).click();
   await expect(scene).toBeChecked(); await expect(shots).toBeChecked();
   await expect(composer.locator('[data-context=scene]')).toHaveText(/^≈[\d,]+ tokens$/);
