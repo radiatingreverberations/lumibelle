@@ -25,8 +25,12 @@ test('the take preview and the action and camera text line up side by side', asy
 
   await composeProduction(page);
   await generateTakes(page);
+  // While its takes are generated, the shot says so in the shot list.
+  const activity = page.locator('.shot-outline-item').first().locator('.shot-generating');
+  await expect(activity).toHaveText(/Generating|Queued/);
   const review = page.locator('.shot-review-dialog');
   await expect(review).toBeVisible({ timeout: 20000 });
+  await expect(activity).toHaveCount(0);
   await review.getByRole('button', { name: 'Close take review', exact: true }).click();
   await expect(page.locator('.shot-workspace-preview video')).toBeVisible();
   // The shot list shows the shown take's size; Preview is a draft size, marked for regenerating.

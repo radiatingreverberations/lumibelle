@@ -28,6 +28,12 @@ public partial class ProductionStudio
         Notify("Regeneration queued. Your setup and original take are unchanged.");
         await RefreshMedia();
     }
+    // Takes being generated for a shot, including regenerations, as the shot list shows them: running before queued.
+    private string? ShotVideoActivity(Guid shotId)
+    {
+        var jobs = AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.Video && j.Target.ProjectId == Id && j.Target.ShotId == shotId && !j.CancelRequested).ToArray();
+        return jobs.Any(j => j.State == AiJobState.Running) ? "Generating" : jobs.Any(j => j.State == AiJobState.Waiting) ? "Queued" : null;
+    }
     private AiJobHeader? ActiveVideoJob => AiJobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.Video && j.Target.TakeId is null && j.Target.ProjectId == Id && j.Target.ShotId == _selected && j.LocksTarget);
     private AiJobHeader? VideoAttention => AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.Video && j.Target.ProjectId == Id && j.Target.ShotId == _selected)
         .OrderByDescending(j => j.CreatedUtc).FirstOrDefault() is { State: AiJobState.NeedsAttention, CancelRequested: false } job ? job : null;

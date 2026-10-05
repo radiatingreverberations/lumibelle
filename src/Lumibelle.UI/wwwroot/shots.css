@@ -358,6 +358,13 @@
 /* Not yet seen: quieter than Selected, so both can share a caption. */
 .new-take-badge { color: var(--plum); border: 1px solid var(--plum); border-radius: var(--lumi-radius-pill); font-size: var(--lumi-font-size-small); font-weight: 600; padding: .1rem .5rem; }
 .shot-new-takes { color: var(--plum); font-weight: 600; }
+/* Takes in progress for a shot: a pulsing dot while generating, a still one while queued. */
+.shot-generating { color: var(--plum); font-weight: 600; white-space: nowrap; }
+.shot-generating i { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+.shot-generating.generating i { animation: shot-generating-pulse 1.4s ease-in-out infinite; }
+.shot-generating.queued { color: var(--muted); }
+@keyframes shot-generating-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .shot-generating.generating i { animation: none; } }
 .empty-takes { padding: 2rem; text-align: center; color: var(--lumi-text-muted); }
 
 .reference-crop-preview { padding: 0; border: 0; background: none; }
