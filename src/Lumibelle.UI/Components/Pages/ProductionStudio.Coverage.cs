@@ -52,6 +52,22 @@ public partial class ProductionStudio
     private async Task AddShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (!await Save() || !await RefreshSavedSource()) return; _openShotView = true; Remember(); _coverageDirty = true; var shot = new Shot(); if (Scenes.FirstOrDefault() is { } scene) SetScene(shot, scene); _doc.Shots.Add(shot); _selected = shot.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
     private async Task DuplicateShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (SourceShot is null || !await Save()) return; _openShotView = true; Remember(); _coverageDirty = true; var s = lumibelle.Services.Production.ProductionPolicy.CoverageCopy(SourceShot); s.Id = Guid.NewGuid(); s.Title += " (copy)"; s.SelectedTakeId = null; _doc.Shots.Insert(_doc.Shots.IndexOf(SourceShot) + 1, s); _selected = s.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
     private void SetScene(Shot shot, ScriptSection scene) { shot.SceneId = scene.Id; shot.SceneTitle = scene.Title; shot.ApprovedScriptId = _approved!.Id; shot.SourceBlockIds = _approved.Blocks.Skip(scene.Start).Take(scene.Count).Select(b => b.Id).ToList(); shot.SourceExcerpt = ScriptStructure.Markdown(_approved.Blocks.Skip(scene.Start).Take(scene.Count)); }
+    // A shot keeps the script lines it was made from. Saving the script elsewhere does not concern it;
+    // only a change to its own lines does, and then the person checks the shot and marks it checked.
+    private string? CurrentSourceExcerpt(Shot shot) => _approved is null || shot.SourceBlockIds.Count == 0 || !_approved.Blocks.Any(b => shot.SourceBlockIds.Contains(b.Id))
+        ? null : ScriptStructure.Markdown(_approved.Blocks.Where(b => shot.SourceBlockIds.Contains(b.Id)));
+    private bool SourceLinesRemoved(Shot shot) => _approved is not null && shot.ApprovedScriptId != _approved.Id && shot.SourceBlockIds.Count > 0 && CurrentSourceExcerpt(shot) is null;
+    private bool SourceLinesChanged(Shot shot) => _approved is not null && shot.ApprovedScriptId != _approved.Id && CurrentSourceExcerpt(shot) is { } now && now != shot.SourceExcerpt;
+    private async Task MarkSourceChecked()
+    {
+        if (!await RefreshSavedSource()) return;
+        EditCoverage(s =>
+        {
+            if (CurrentSourceExcerpt(s) is not { } now) return;
+            s.SourceBlockIds = s.SourceBlockIds.Where(id => _approved!.Blocks.Any(b => b.Id == id)).ToList();
+            s.SourceExcerpt = now; s.ApprovedScriptId = _approved!.Id;
+        });
+    }
     private async Task<bool> RefreshSavedSource()
     {
         try { _approved = await Scripts.CaptureSourceAsync(Id, cancellationToken: _lifetime.Token); return true; }

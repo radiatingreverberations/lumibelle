@@ -2,6 +2,8 @@
 
 **Shots** combines coverage, references, prompt writing and takes in one workspace. **Shot / Takes** switch the center view. Manual editing works without AI or video models.
 
+Each shot keeps the script lines it was made from. If those lines change in a later saved script, the shot says so above its preview: **Compare script lines** shows them then and now, and **Mark checked** takes the current lines once the action and dialogue fit. Saving changes elsewhere in the script does not affect the shot.
+
 ## Shot view
 
 Edit the title in the heading, with scene, duration, action/camera, dialogue and an inline take preview in **Shot**. Cast and other supporting details expand below. Browsing the preview does not change the selected production take.
@@ -34,7 +36,7 @@ Reference or shot changes preserve your prompt and show **Check prompt**. **Clea
 
 [Reviewing generated takes](https://lumibelle.ai/media/manual/shots-take-review.mp4)
 
-The dedicated **Takes** view shows large previews, newest first, with a selected badge and an optional setup filter. Retries and **One more take** reuse their batch's captured inputs.
+The dedicated **Takes** view shows large previews, newest first, with a selected badge and an optional setup filter. Its tab shows how many takes are new, such as **1 new**, until you open it or review their batch. Retries and **One more take** reuse their batch's captured inputs.
 
 Click a take to review it. The player steps through single frames with **‹ ›** or the `[` and `]` keys. Below it, **Save frame to Assets** saves the paused frame as an image, and **Continue from this frame** makes a shot start from it. Under the player are the take's settings and any changes since it was made, **Improve quality**, and its details: the file and **Download MP4**, the generation details, timings, LoRAs and the references it was submitted with. The takes of the same batch are listed beside the player, each with **Use this take** and **Discard**.
 

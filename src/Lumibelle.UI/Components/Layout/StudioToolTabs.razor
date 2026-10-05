@@ -1,8 +1,8 @@
 <div class="workspace-tool-tabs" role="tablist" aria-label="@Label" data-workspace-group="@GroupId">
     @foreach (var tab in Items)
     {
-        <button type="button" role="tab" data-workspace-tab="@tab.Id" aria-label="@tab.Label" aria-description="@(tab.Count is { } n ? $"{n} items. {tab.Issue}" : tab.Issue)" aria-selected="@(tab == Items[0] ? "true" : "false")" tabindex="@(tab == Items[0] ? 0 : -1)">
-            @tab.Label@if (tab.Count is { } count) { <span class="tab-count">@count</span> }@if (tab.Issue is { } issue) { <span class="tab-issue" aria-label="@issue" title="@issue">!</span> }
+        <button type="button" role="tab" data-workspace-tab="@tab.Id" aria-label="@tab.Label" aria-description="@((tab.Count is { } n ? $"{n} items. " : "") + (tab.New > 0 ? $"{tab.New} new. " : "") + tab.Issue)" aria-selected="@(tab == Items[0] ? "true" : "false")" tabindex="@(tab == Items[0] ? 0 : -1)">
+            @tab.Label@if (tab.Count is { } count) { <span class="tab-count">@count</span> }@if (tab.New > 0) { <span class="tab-new" aria-hidden="true">@tab.New new</span> }@if (tab.Issue is { } issue) { <span class="tab-issue" aria-label="@issue" title="@issue">!</span> }
         </button>
     }
 </div>

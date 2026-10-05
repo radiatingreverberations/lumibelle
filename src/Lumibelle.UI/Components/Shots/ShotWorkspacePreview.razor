@@ -4,12 +4,13 @@
 <section class="shot-workspace-preview" aria-label="Shot preview" @ref="_element">
     @if (Preview is { } take)
     {
-        <video @key="take.Id" controls playsinline preload="none" src="@Url(take)" poster="@(Url(take) + "/frames/0")" aria-label="Shot take preview" @onerror="() => _failed = true"></video>
+        @* The caption heads the preview as the Action and camera label heads the direction, so the video and the text line up beside it. *@
         <div class="shot-preview-caption">
             <span><strong>Take @(Takes.ToList().FindIndex(t => t.Id == take.Id) + 1)</strong><small>@(take.Id == SelectedTakeId ? "Selected take" : "Preview only") · @TakeDisplay.Badge(take)</small></span>
             <div class="shot-preview-actions"><button type="button" aria-label="Previous take preview" disabled="@(PreviewIndex <= 0)" @onclick="() => Step(-1)">‹</button><button type="button" aria-label="Next take preview" disabled="@(PreviewIndex >= Takes.Count - 1)" @onclick="() => Step(1)">›</button><button type="button" @onclick="() => Review.InvokeAsync(take)">Review take</button></div>
+            @if (_failed) { <p role="alert">This preview could not load. Open Review take to inspect the saved media.</p> }
         </div>
-        @if (_failed) { <p role="alert">This preview could not load. Open Review take to inspect the saved media.</p> }
+        <video @key="take.Id" controls playsinline preload="none" src="@Url(take)" poster="@(Url(take) + "/frames/0")" aria-label="Shot take preview" @onerror="() => _failed = true"></video>
     }
     else
     {

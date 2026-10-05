@@ -32,6 +32,7 @@
 .studio-workspace .workspace-tool-tabs > button[role=tab][aria-selected=true] { color: var(--plum); border-bottom-color: var(--plum); background: transparent; font-weight: 650; }
 .studio-workspace .workspace-tool-tabs > button:hover { background: var(--lumi-surface-selected); }
 .tab-count { font-size: var(--lumi-font-size-small); color: var(--muted); }
+.tab-new { margin-left: 6px; padding: 0 7px; border-radius: var(--lumi-radius-pill); background: var(--lumi-accent); color: var(--lumi-on-accent); font-size: var(--lumi-font-size-small); font-weight: 600; }
 .tab-issue { display: inline-block; border-radius: 50%; background: var(--lumi-danger); color: var(--lumi-on-accent); padding: 0 5px; font-size: var(--lumi-font-size-small); }
 .studio-workspace[data-studio=Shots] .shot-list-row.selected { background: var(--lumi-surface-selected); border-color: var(--lumi-accent); color: var(--plum); }
 .studio-workspace[data-right-visible=true] .workspace-status { visibility: hidden; }

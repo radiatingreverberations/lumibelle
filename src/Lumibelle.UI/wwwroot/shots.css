@@ -317,6 +317,12 @@
 .prompt-validation { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); margin-top: .6rem; }
 .prompt-review-note { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); color: var(--lumi-warning); margin: .6rem 0; }
 .prompt-review-note span { color: var(--muted); }
+.shot-source-changed { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); margin: 0 0 16px; }
+.shot-source-changed p { margin: 0 0 .5rem; }
+.shot-source-changed > :last-child { margin-bottom: 0; }
+.shot-source-changed details { margin-bottom: .5rem; }
+.shot-source-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px; margin-top: .5rem; }
+.shot-source-compare h3 { margin: 0 0 4px; font-size: var(--lumi-font-size-small); color: var(--muted); }
 .composition-size { margin: .6rem 0; }
 .composition-size-steps { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .4rem; }
 .composition-size-steps li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; padding: .35rem .6rem; border-left: 3px solid var(--lumi-border); }
@@ -386,7 +392,8 @@
 .studio-workspace[data-studio=Shots] .shot-direction textarea { flex:1; min-height:230px; }
 .shot-workspace-preview { min-width:0; overflow:hidden; }
 .shot-workspace-preview > video { display:block; width:100%; aspect-ratio:16/9; max-height:280px; object-fit:contain; background:var(--lumi-media-stage); border-radius:var(--lumi-radius-surface); }
-.shot-preview-caption { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 0 0; font-size:var(--lumi-font-size-meta); }
+.shot-preview-caption { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:0 0 8px; font-size:var(--lumi-font-size-meta); }
+.shot-preview-caption > p { flex-basis:100%; margin:0; }
 .shot-preview-caption strong { font-size:var(--lumi-font-size-meta); }
 .shot-preview-caption small { display:block; color:var(--muted); margin-top:2px; font-size:var(--lumi-font-size-small); }
 .shot-preview-actions { display:flex; gap:4px; }
@@ -422,8 +429,14 @@
 .shot-generation-footer .mud-button-root { min-height:38px; }
 @media (pointer:coarse) { .shot-generation-footer .mud-button-root { min-height:44px; } }
 @container (min-width:600px) {
-    .shot-creative-workspace { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); align-items:start; gap:20px; }
-    .studio-workspace[data-studio=Shots] .shot-direction textarea { min-height:270px; }
+    /* Two shared rows: the take caption beside the Action and camera label, then the video beside the text, which takes the video's height. */
+    .shot-creative-workspace { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); grid-template-rows:auto auto; column-gap:20px; row-gap:8px; }
+    .shot-creative-workspace > :is(.shot-workspace-preview, .shot-direction) { grid-row:span 2; display:grid; grid-template-rows:subgrid; align-content:start; }
+    .shot-creative-workspace .shot-preview-caption { align-self:end; padding:0; }
+    .shot-creative-workspace .shot-preview-empty { grid-row:2; min-height:270px; }
+    .shot-creative-workspace .shot-workspace-preview > video { align-self:stretch; height:100%; }
+    .studio-workspace[data-studio=Shots] .shot-direction { display:grid; align-items:end; }
+    .studio-workspace[data-studio=Shots] .shot-direction textarea { align-self:stretch; margin:0; min-height:180px; contain:size; }
 }
 @media (max-width:759px) {
     .studio-workspace[data-studio=Shots] .shot-editor > .workspace-pane-body { padding:12px; }

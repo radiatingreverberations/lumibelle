@@ -113,14 +113,19 @@ else
                         <Actions><MudButton Class="ai-assist-action" OnClick="DraftShot" Disabled="@(ShotDraftLocked || _shotDraftModel?.Ready != true || ShotDraftIssue(identity) is not null)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shot</MudButton>@if (_pendingShotDraft is not null) { <button @onclick="RetryShotDraftEnqueue" disabled="@_shotDraftSubmitting">Retry saving request</button> }</Actions>
                     </TextAssistance></div>
                 </div>
-                <StudioToolTabs Items="@(new StudioTab[] { new("Shot", "Shot"), new("Takes", "Takes", ShotTakes.Count) })" Label="Shot view" GroupId="center" />
+                <StudioToolTabs Items="@(new StudioTab[] { new("Shot", "Shot"), new("Takes", "Takes", ShotTakes.Count, New: _selected is { } viewed ? NewTakeCount(viewed) : 0) })" Label="Shot view" GroupId="center" />
             }
         </Header><ChildContent>
             @if (SourceShot is { } source) { <section class="shot-coverage" data-workspace-panel="Shot" @key="source.Id">
                     <div class="shot-inline-fields shot-metadata"><label>Scene<select @ref="_shotSceneField" value="@source.SceneId" @onchange="AssignScene"><option value="">Choose a scene</option>@foreach (var scene in Scenes) { <option value="@scene.Id">@scene.Title</option> }</select></label>
                         <label>Duration (seconds)<input @ref="_shotDurationField" type="number" min="1" max="15" step="0.1" value="@Invariant(source.Duration)" @onchange="DurationChanged" /></label></div>
 
-                    @if (source.ApprovedScriptId != _approved?.Id) { <p class="field-hint">This shot uses an earlier saved script. Its saved source is unchanged.</p> }
+                    @if (SourceLinesChanged(source)) {
+                        <div class="shot-source-changed" role="status"><p>The script lines this shot was made from have changed. Check its action and dialogue against them.</p>
+                            <details><summary>Compare script lines</summary><div class="shot-source-compare"><section><h3>When the shot was made</h3><pre class="shot-source">@source.SourceExcerpt</pre></section><section><h3>Now</h3><pre class="shot-source">@CurrentSourceExcerpt(source)</pre></section></div></details>
+                            <button @onclick="MarkSourceChecked">Mark checked</button></div>
+                    }
+                    else if (SourceLinesRemoved(source)) { <p class="shot-source-changed" role="status">The script lines this shot was made from are no longer in the saved script.</p> }
                     <div class="shot-creative-workspace">
                         <ShotWorkspacePreview ProjectId="Id" ShotId="source.Id" SelectedTakeId="source.SelectedTakeId" Takes="ShotTakes" Review="OpenTake" />
                         <label class="shot-direction">Action and camera<textarea @ref="_shotDirectionField" rows="9" @bind:get="source.Description" @bind:set="value => EditCoverage(s => s.Description = value ?? string.Empty)" @bind:event="oninput" placeholder="Describe the action, staging, and camera movement in one continuous take."></textarea></label>

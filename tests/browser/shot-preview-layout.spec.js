@@ -1,0 +1,36 @@
+import { generateTakes, composeProduction } from './workspace-tools.js';
+import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { test, expect } from './fixtures.js';
+
+const edges = page => page.evaluate(() => {
+  const box = selector => document.querySelector(selector).getBoundingClientRect();
+  const media = box('.shot-workspace-preview :is(video, .shot-preview-empty)'), text = box('.shot-direction textarea');
+  return { top: Math.round(media.top - text.top), bottom: Math.round(media.bottom - text.bottom) };
+});
+
+test('the take preview and the action and camera text line up side by side', async ({ page, request }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const project = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${project.id}/images`);
+  await request.post(`/fixtures/${project.id}/approved`);
+  await page.goto(`/projects/${project.id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
+  await submitPlanning(page);
+  await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await expect(page.locator('.shot-preview-empty')).toBeVisible();
+  await expect.poll(() => edges(page)).toEqual({ top: 0, bottom: 0 });
+
+  await composeProduction(page);
+  await generateTakes(page);
+  const review = page.locator('.shot-review-dialog');
+  await expect(review).toBeVisible({ timeout: 20000 });
+  await review.getByRole('button', { name: 'Close take review', exact: true }).click();
+  await expect(page.locator('.shot-workspace-preview video')).toBeVisible();
+  // The caption heads the video as the label heads the text.
+  await expect.poll(() => edges(page)).toEqual({ top: 0, bottom: 0 });
+  const caption = await page.locator('.shot-preview-caption').boundingBox(), video = await page.locator('.shot-workspace-preview video').boundingBox();
+  expect(caption.y + caption.height).toBeLessThanOrEqual(video.y);
+});
