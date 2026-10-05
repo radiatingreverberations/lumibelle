@@ -153,6 +153,7 @@
         CompactionPart.Trash => $"Empty this project's Trash ({Items(_plan!.Count(part), "item")})",
         CompactionPart.TakeArchives => $"Lossless take archives ({Items(_plan!.Count(part), "take")})",
         CompactionPart.ReelArchives => $"Lossless reel archives ({Items(_plan!.Count(part), "reel video")})",
+        CompactionPart.ReelCandidates => $"Copies left by saved reels ({Items(_plan!.Count(part), "reel")})",
         CompactionPart.Backups => $"Migration backups ({Items(_plan!.Count(part), "file")})",
         _ => "Package manifest" };
     private static string Items(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
@@ -160,6 +161,7 @@
         CompactionPart.Trash => "Deletes this project's discarded images, recordings, takes and reels permanently, as Empty Trash does. A reel's video stays while something still uses it.",
         CompactionPart.TakeArchives => "Takes keep their MP4 and play as before. Paused frames and new stills are then decoded from the MP4.",
         CompactionPart.ReelArchives => "Reels keep their MP4 and every keyframe already chosen, saved as a picture. New keyframes are then chosen from frames decoded from the MP4.",
+        CompactionPart.ReelCandidates => "Each generated reel's video and lossless frames, left in its generation folder after the reel was saved to Assets. The saved reels keep their own.",
         CompactionPart.Backups => "Copies of production.json saved before an automatic upgrade. Lumibelle doesn't read them.",
         _ => "The manifest.json beside this folder describes the original project package and no longer matches it. The folder still opens without it." };
 

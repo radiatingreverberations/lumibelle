@@ -79,6 +79,28 @@ public sealed class ProjectCompactionTests : IDisposable
     }
 
     [Fact]
+    public async Task CopiesLeftBySavedReelsAreRemovedAndUnsavedCandidatesStay()
+    {
+        var project = await _projects.CreateAsync(new("Reels"), _ct); var root = await _files.DirectoryAsync(project.Id, _ct);
+        Guid batch = Guid.NewGuid(), saved = Guid.NewGuid(), pending = Guid.NewGuid();
+        string Candidate(Guid id) { var folder = Path.Combine(root, "reel-runs", batch.ToString("D"), $"candidate-{id:D}"); Directory.CreateDirectory(folder);
+            File.WriteAllBytes(Path.Combine(folder, "video.mp4"), new byte[300]); File.WriteAllBytes(Path.Combine(folder, "archive-0000.webp"), new byte[700]);
+            File.WriteAllText(Path.Combine(folder, "reel-media.json"), "{}"); return folder; }
+        var savedFolder = Candidate(saved); var pendingFolder = Candidate(pending);
+        // Only the saved reel has its publication receipt; the other might still be published by a retry.
+        await AtomicJsonFile.WriteAsync(Path.Combine(root, "assets.json"), new AssetLibrary { ProjectId = project.Id, ReelPublications = [new(saved, Guid.NewGuid(), batch, 1, "fingerprint")] }, _ct);
+        var compaction = new ProjectCompaction(_files, new NoFolders(), _shots, _reels, _trash, new FakeAiSettingsStore(), assets: _assets);
+
+        var plan = await compaction.InspectAsync(project.Id, _ct);
+        Assert.Equal(1, plan.Count(CompactionPart.ReelCandidates)); Assert.Equal(1000, plan.Bytes(CompactionPart.ReelCandidates));
+        var result = await compaction.CompactAsync(plan, new HashSet<CompactionPart> { CompactionPart.ReelCandidates }, ct: _ct);
+        Assert.Empty(result.Issues); Assert.Equal(1000, result.ReclaimedBytes);
+        Assert.Equal(["reel-media.json"], Directory.GetFiles(savedFolder).Select(Path.GetFileName));
+        Assert.Equal(3, Directory.GetFiles(pendingFolder).Length);
+        Assert.Equal(0, (await compaction.InspectAsync(project.Id, _ct)).Count(CompactionPart.ReelCandidates));
+    }
+
+    [Fact]
     public async Task PreparingSeveralLosslessFramesDecodesTheSamePicturesAsOneAtATime()
     {
         var project = await _projects.CreateAsync(new("Compact"), _ct); var root = await _files.DirectoryAsync(project.Id, _ct);

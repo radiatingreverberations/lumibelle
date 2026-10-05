@@ -1,24 +1,30 @@
 using lumibelle.Models;
 using lumibelle.Services.AI;
+using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Projects;
 
-public enum CompactionPart { Trash, TakeArchives, ReelArchives, Backups, PackageManifest }
+public enum CompactionPart { Trash, TakeArchives, ReelArchives, ReelCandidates, Backups, PackageManifest }
 // What Compact project found. Confirmation acts only on these items; anything added later is left alone.
 public sealed record ProjectCompactionPlan(Guid ProjectId, IReadOnlyList<MediaTrashRow> Trash, IReadOnlyList<Guid> Takes, long TakeBytes,
     IReadOnlyList<Guid> Reels, long ReelBytes, IReadOnlyList<string> Backups, long BackupBytes, string? Manifest, long ManifestBytes)
 {
     public int Count(CompactionPart part) => part switch {
         CompactionPart.Trash => Trash.Count, CompactionPart.TakeArchives => Takes.Count, CompactionPart.ReelArchives => Reels.Count,
+        CompactionPart.ReelCandidates => ReelCandidates.Count,
         CompactionPart.Backups => Backups.Count, _ => Manifest is null ? 0 : 1 };
     public long Bytes(CompactionPart part) => part switch {
         CompactionPart.Trash => Trash.Sum(r => r.Bytes), CompactionPart.TakeArchives => TakeBytes, CompactionPart.ReelArchives => ReelBytes,
+        CompactionPart.ReelCandidates => ReelCandidateBytes,
         CompactionPart.Backups => BackupBytes, _ => ManifestBytes };
     /// <summary>What the project folder holds, measured with the plan.</summary>
     public ProjectStorageUsage? Usage { get; init; }
+    /// <summary>Generation folders, relative to the project, of reels already saved to Assets.</summary>
+    public IReadOnlyList<string> ReelCandidates { get; init; } = [];
+    public long ReelCandidateBytes { get; init; }
 }
 public sealed record ProjectCompactionResult(long ReclaimedBytes, IReadOnlyList<string> Issues);
 public interface IProjectCompaction
@@ -31,7 +37,7 @@ public interface IProjectCompaction
 // and reel archive removal. It also deletes one-time migration backups and the stale manifest
 // of an unzipped package opened as a folder. Images are never re-encoded in place.
 public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folders, IShotStore shots, IReferenceVideoStore reels,
-    IMediaTrashStore trash, IAiSettingsStore settings, IAiJobStore? jobs = null) : IProjectCompaction
+    IMediaTrashStore trash, IAiSettingsStore settings, IAiJobStore? jobs = null, IAssetStore? assets = null) : IProjectCompaction
 {
     private static readonly string[] BackupNames = ["production-before-shared-inputs.json", "production-before-global-setups.json"];
 
@@ -60,9 +66,10 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         var backups = File.Exists(Path.Combine(dir, "production.json"))
             ? BackupNames.SelectMany(n => new[] { n, n + ".tmp" }).Where(n => File.Exists(Path.Combine(dir, n))).ToArray() : [];
         var manifest = await ManifestAsync(project, ct);
+        var (candidates, candidateBytes) = await SavedReelCandidatesAsync(project, dir, ct);
         var usage = await Task.Run(() => ProjectStorageUsage.Measure(dir), ct);
         return new(project, rows, takes, takeBytes, media, reelBytes, backups, backups.Sum(n => new FileInfo(Path.Combine(dir, n)).Length),
-            manifest, manifest is null ? 0 : new FileInfo(manifest).Length) { Usage = usage };
+            manifest, manifest is null ? 0 : new FileInfo(manifest).Length) { Usage = usage, ReelCandidates = candidates, ReelCandidateBytes = candidateBytes };
     }
 
     public async Task<ProjectCompactionResult> CompactAsync(ProjectCompactionPlan plan, IReadOnlySet<CompactionPart> parts,
@@ -107,6 +114,15 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
                 catch (WorkspaceStoreException e) { issues.Add(e.Message); }
             }
         });
+        await Run(CompactionPart.ReelCandidates, "Removing copies left by saved reels…", async () => {
+            var (saved, _) = await SavedReelCandidatesAsync(project, dir, ct);
+            foreach (var folder in plan.ReelCandidates.Intersect(saved))
+                foreach (var file in CandidateMedia(Path.Combine(dir, folder)))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var bytes = file.Length; file.Delete(); reclaimed += bytes;
+                }
+        });
         await Run(CompactionPart.Backups, "Removing migration backups…", () => {
             foreach (var name in plan.Backups.Where(n => BackupNames.Any(b => n == b || n == b + ".tmp")))
             {
@@ -121,6 +137,28 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         progress?.Report(new("Compaction finished.", reclaimed));
         return new(reclaimed, issues);
     }
+
+    // Saving a generated reel copies its video and lossless frames into reference-videos and records a
+    // publication receipt in assets.json, which retries check before using the folder again. Once that
+    // receipt exists the copies left in its generation folder are not read; its small JSON files stay.
+    private async Task<(IReadOnlyList<string> Folders, long Bytes)> SavedReelCandidatesAsync(Guid project, string dir, CancellationToken ct)
+    {
+        var runs = Path.Combine(dir, "reel-runs");
+        if (assets is null || !Directory.Exists(runs)) return ([], 0);
+        var saved = (await assets.LoadAsync(project, ct)).ReelPublications.Select(r => r.ReelId).ToHashSet();
+        List<string> folders = []; long bytes = 0;
+        foreach (var batch in Directory.EnumerateDirectories(runs).Order(StringComparer.Ordinal))
+            foreach (var folder in Directory.EnumerateDirectories(batch, "candidate-*").Order(StringComparer.Ordinal))
+            {
+                if (!Guid.TryParseExact(Path.GetFileName(folder)["candidate-".Length..], "D", out var reel) || !saved.Contains(reel)) continue;
+                var size = CandidateMedia(folder).Sum(f => f.Length);
+                if (size > 0) { folders.Add(Path.GetRelativePath(dir, folder)); bytes += size; }
+            }
+        return (folders, bytes);
+    }
+    private static IEnumerable<FileInfo> CandidateMedia(string folder) => Directory.Exists(folder)
+        ? new DirectoryInfo(folder).EnumerateFiles().Where(f => f.Name == "video.mp4" || f.Name.StartsWith("archive-", StringComparison.Ordinal) && f.Name.EndsWith(".webp", StringComparison.Ordinal)).ToArray()
+        : [];
 
     // An unzipped package opened as a folder keeps manifest.json beside project/. Its file list and
     // hashes describe the package, not the edited folder, and Lumibelle never reads it again.

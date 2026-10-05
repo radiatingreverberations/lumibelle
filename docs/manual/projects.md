@@ -63,6 +63,7 @@ Invalid, unreadable or unsupported manifests produce warnings while healthy proj
 
 - **Empty this project's Trash**: the same as Empty Trash filtered to this project.
 - **Lossless take archives** and **Lossless reel archives**: takes and reels keep their MP4. Every reel keyframe already chosen from lossless frames is saved as a picture first, so reference images, RefMod inputs and prompts are unchanged. Paused frames and new keyframes are then decoded from the MP4.
+- **Copies left by saved reels**: saving a generated reel copies its video and lossless frames to Assets and leaves the originals in its generation folder. Once the reel is saved, those copies are no longer read. Generation inputs of shots stay, because Regenerate, language versions and One more take use them.
 - **Migration backups**: copies of `production.json` saved before an automatic upgrade, which Lumibelle does not read.
 - **Package manifest**: an unzipped project package keeps `manifest.json` beside its `project` folder; once the project is edited it no longer matches. The unzipped folder still opens without it.
 
