@@ -95,9 +95,7 @@ test('changed targets and invalid responses keep the authored script', async ({ 
   await action.click(); await page.keyboard.press('End'); await page.keyboard.type(' New local detail.');
   await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Request fresh changes', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await assist(page);
-  await page.locator('.script-assistant .request-action-menu > summary').click();
+  // New request in the review starts over and leaves this response as it is.
   await page.getByRole('button', { name: 'New request', exact: true }).click();
   await page.getByLabel('Instructions', { exact: true }).fill('INVALID');
   await page.getByRole('button', { name: 'Revise', exact: true }).click();
@@ -154,10 +152,7 @@ test('discussion enters requests only when explicitly attached and can be remove
   await assist(page);
   await page.getByLabel('Instructions', { exact: true }).fill('Discuss an exploratory silver bell.');
   await page.getByRole('button', { name: 'Discuss idea', exact: true }).click();
-  await page.locator('.script-review-dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await assist(page);
-  await page.locator('.script-assistant .request-action-menu > summary').click();
-  await page.getByRole('button', { name: 'New request', exact: true }).click();
+  await page.locator('.script-review-dialog').getByRole('button', { name: 'New request', exact: true }).click();
   await page.locator('#script-operation').selectOption('Revise'); await page.locator('#script-scope').selectOption('Document');
   await assist(page);
   await page.getByLabel('Instructions', { exact: true }).fill('FIRST_CHANGE');

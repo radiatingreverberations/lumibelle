@@ -10,8 +10,9 @@ export async function openPlanning(page) {
   await expect(async () => {
     if (await start.isVisible()) await start.click({ timeout: 2000 });
     else {
-      await actions.getByLabel('Request options', { exact: true }).click({ timeout: 2000 });
-      await actions.getByRole('button', { name: 'New request', exact: true }).click({ timeout: 2000 });
+      // An earlier request opens its review, which starts over with New breakdown (or New request).
+      await actions.locator('.request-action-button').click({ timeout: 2000 });
+      await page.getByRole('button', { name: /^(New breakdown|New request)$/ }).first().click({ timeout: 2000 });
     }
     await expect(planningComposer(page)).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20000 });

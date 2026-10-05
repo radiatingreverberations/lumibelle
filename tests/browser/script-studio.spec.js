@@ -117,15 +117,18 @@ test('cancellation and malformed or truncated output never replace script', asyn
   await scriptAssist(page);
   await page.locator('#script-instructions').fill('SLOW make dinner');
   await page.getByRole('button', { name: 'Draft script', exact: true }).click();
-  await page.locator('.script-assistant .request-action-menu > summary').click();
-  await page.getByRole('button', { name: 'Cancel request', exact: true }).click();
+  // The running request opens in its review, which cancels it.
+  await page.locator('.script-assistant .request-action-button').click();
+  await page.locator('.script-review-dialog').getByRole('button', { name: 'Cancel request', exact: true }).click();
+  await page.locator('.script-review-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.locator('.script-assistant').getByText('Request cancelled.', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Draft script', exact: true })).toBeEnabled();
   for (const prompt of ['INVALID', 'TRUNCATED']) {
   await scriptAssist(page);
-    if (await page.locator('.script-assistant .request-action-menu > summary').isVisible()) {
-      await page.locator('.script-assistant .request-action-menu > summary').click();
-      await page.getByRole('button', { name: 'New request', exact: true }).click();
+    const earlier = page.locator('.script-assistant .request-action-button');
+    if (!(await earlier.getAttribute('aria-label'))?.startsWith('Draft script')) {
+      await earlier.click();
+      await page.locator('.script-review-dialog').getByRole('button', { name: 'New request', exact: true }).click();
     }
     await page.locator('#script-instructions').fill(prompt);
     await page.getByRole('button', { name: 'Draft script', exact: true }).click();

@@ -132,6 +132,8 @@ public partial class ProductionStudio
     private Task InspectComposition() => _compositionResult is not null ? OpenCompositionReview() : _compositionAssist?.OpenRequestAsync() ?? Task.CompletedTask;
     private Task CancelComposition() => CompositionJob is { } job ? AiJobs.CancelAsync(job.Id) : Task.CompletedTask;
     private Task NewCompositionRequest() => _compositionAssist?.OpenAsync() ?? Task.CompletedTask;
+    // Starts over in the composer; the reviewed result stays to apply or discard later.
+    private async Task NewCompositionFromReview() { if (_compositionBusy) return; await CloseCompositionReview(); _restoreCompositionFocus = false; await NewCompositionRequest(); }
     private async Task RetryComposition(Guid id)
     {
         if (_compositionBusy) return;

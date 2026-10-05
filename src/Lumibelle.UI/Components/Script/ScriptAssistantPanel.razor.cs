@@ -95,6 +95,15 @@ public partial class ScriptAssistantPanel
     private bool _compare;
     private AssistantRun? ReviewRun => _runs.FirstOrDefault(r => r.Id == _reviewId);
     private static readonly DialogOptions ReviewOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+    private lumibelle.Components.AI.TextRequestAction? _primaryAction;
+    // Starts over in the composer while this result stays as it is, to apply or discard later.
+    private async Task NewRequestAsync()
+    {
+        await CloseReview();
+        if (_reviewId is not null) return;
+        _primaryAction?.StartFresh();
+        await OpenComposerAsync();
+    }
     private async Task CloseReview() { if (_applying || _savingJson) return; if (_reviewId is { } id) await Reviews.CloseAsync(id); _reviewId = null; _editingJson = false; }
     private Task ReviewVisibilityChanged(bool visible) => visible ? Task.CompletedTask : CloseReview();
     private GenerationProgress? _progress;

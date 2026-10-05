@@ -12,7 +12,7 @@
     } else {
         <div class="text-assist-controls">
             <TextRequestAction @ref="_action" Label="@Label" Title="@Title" Notice="@Notice" Request="Request" Preparing="@(Preparing || _preparingSubmit)" HasError="HasError" Disabled="Disabled"
-                OnStart="StartOrResumeAsync" OnNew="OpenAsync" OnReview="ReviewAsync" OnCancel="CancelRequested" />
+                OnStart="StartOrResumeAsync" OnReview="ReviewAsync" />
             @ExtraActions
         </div>
         @if (Status is not null) { <div class="text-assist-status">@Status</div> }
@@ -38,9 +38,11 @@
         <details class="request-details"><summary>Response details</summary>@if (_inspectedRaw.Length > 0) { <pre>@_inspectedRaw</pre> } else { <p class="field-hint">Nothing received yet.</p> }</details>
     }</ChildContent>
     <Actions>@if (InspectedJob is { } job) {
-        @if (TextRequestPresentation.IsActive(job) && !job.CancelRequested) { <MudButton Disabled="_requestBusy" OnClick="() => RequestOperation(() => Jobs.CancelAsync(job.Id))">Cancel request</MudButton> }
-        else if (job.CanRetryCaptured) { <MudButton Disabled="_requestBusy" OnClick="() => RequestOperation(() => Jobs.ResumeAsync(job.Id))">Retry captured request</MudButton> }
-        else if (job is { State: AiJobState.NeedsAttention, Recovery: AiJobRecovery.GenerateAgain, RemoteUnconfirmed: false }) { <MudButton Disabled="@(_requestBusy || Disabled || ModelLocked)" OnClick="NewRequestAsync">New request</MudButton> }
+        @if (TextRequestPresentation.IsActive(job)) { @if (!job.CancelRequested) { <MudButton Disabled="_requestBusy" OnClick="() => RequestOperation(() => CancelRequested.HasDelegate ? CancelRequested.InvokeAsync() : Jobs.CancelAsync(job.Id))">Cancel request</MudButton> } }
+        else {
+            @if (job.CanRetryCaptured) { <MudButton Disabled="_requestBusy" OnClick="() => RequestOperation(() => Jobs.ResumeAsync(job.Id))">Retry captured request</MudButton> }
+            @if (!job.RemoteUnconfirmed) { <MudButton Disabled="@(_requestBusy || Disabled || ModelLocked)" OnClick="NewRequestAsync">New request</MudButton> }
+        }
     }</Actions>
 </AiAssistDialog>
 @inject AiJobCoordinator Jobs
@@ -99,6 +101,7 @@
     {
         if (_focusModule is not null) try { await _focusModule.DisposeAsync(); } catch (JSDisconnectedException) { }
     }
+    // Each review shows the request's progress and can cancel it while it runs.
     private async Task ReviewAsync() { if (ReviewRequested.HasDelegate) await ReviewRequested.InvokeAsync(); else await OpenRequestAsync(); }
     private string ModelLabel => _picker?.DisplayLabel ?? "Loading model…";
     // Like the request action's notice: a (!) badge with the reason as tooltip and description.
@@ -125,7 +128,8 @@
         await InvokeAsync(StateHasChanged);
     }
     protected override Task OnParametersSetAsync() => RefreshInspectedResult();
-    private async Task NewRequestAsync() { _requestOpen = false; await OpenAsync(); }
+    /// <summary>Starts over from the composer, leaving any earlier result as it is; review dialogs offer this as New request.</summary>
+    public async Task NewRequestAsync() { _requestOpen = false; await OpenAsync(); }
     private async Task RequestOperation(Func<Task> operation)
     {
         if (_requestBusy) return;

@@ -40,10 +40,10 @@ public sealed partial class AssetComponentTests
     [Fact]
     public void RequestControlKeepsInspectionEnabledAndRoutesEveryStateWithoutResubmitting()
     {
-        var starts = 0; var reviews = 0; var fresh = 0; var cancels = 0;
+        var starts = 0; var reviews = 0;
         var job = new AiJobHeader { Kind = AiJobKind.ShotPlanning, Backend = AiBackend.OpenRouter, Target = new(Guid.NewGuid()), ProjectName = "Test", TargetName = "Draft shots", OriginTabId = Guid.NewGuid(), RequestFingerprint = "test", Id = Guid.NewGuid(), State = AiJobState.Waiting, CreatedUtc = DateTimeOffset.UtcNow.AddSeconds(-42) };
         var ui = Render<TextRequestAction>(p => p.Add(c => c.Label, "Draft shots").Add(c => c.OnStart, () => starts++)
-            .Add(c => c.OnReview, () => reviews++).Add(c => c.OnNew, () => fresh++).Add(c => c.OnCancel, () => cancels++));
+            .Add(c => c.OnReview, () => reviews++));
         ui.Find(".request-action-button").Click(); Assert.Equal(1, starts);
         ui.Render(p => p.Add(c => c.Preparing, true));
         Assert.True(ui.Find(".request-action-button").HasAttribute("disabled"));
@@ -56,17 +56,17 @@ public sealed partial class AssetComponentTests
         ui.Render(p => p.Add(c => c.Request, new(job, "Drafting shots…")));
         Assert.Single(ui.FindAll(".request-spinner"));
         Assert.Contains("elapsed", ui.Find(".request-time").TextContent);
-        ui.Find(".request-action-menu button").Click(); Assert.Equal(1, cancels);
+        // The button is the only control: a running request opens where it can be cancelled.
+        ui.Find(".request-action-button").Click(); Assert.Equal(2, reviews);
+        Assert.Empty(ui.FindAll(".request-action-menu, details"));
         ui.Render(p => p.Add(c => c.Request, new(job with { CancelRequested = true }, "Drafting shots…")));
         Assert.Contains("Cancellation requested", ui.Find(".request-action-button").TextContent);
-        Assert.Empty(ui.FindAll(".request-action-menu"));
         foreach (var (outcome, label) in new[] { (TextRequestOutcome.Proposal, "Review changes"), (TextRequestOutcome.Response, "View response"), (TextRequestOutcome.Invalid, "Needs attention") }) {
             ui.Render(p => p.Add(c => c.Request, new(job with { State = AiJobState.Completed }, "Drafting shots…", outcome)));
             Assert.Contains(label, ui.Find(".request-action-button").TextContent);
             ui.Find(".request-action-button").Click();
         }
-        Assert.Equal(4, reviews);
-        ui.Render(p => p.Add(c => c.Disabled, false)); ui.Find(".request-action-menu button").Click(); Assert.Equal(1, fresh);
+        Assert.Equal(5, reviews);
         Assert.Equal(1, starts);
         ui.Render(p => p.Add(c => c.Request, new(job with { State = AiJobState.Completed }, "Drafting shots…", TextRequestOutcome.Resolved)));
         Assert.Contains("Draft shots", ui.Find(".request-action-button").TextContent);

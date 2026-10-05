@@ -15,8 +15,8 @@ async function openComposer(page) {
   const start = page.getByRole('button', { name: 'Improve prompt', exact: true });
   if (await start.isVisible()) await start.click();
   else {
-    await page.locator('.prompt-enhancement .request-action-menu > summary').click();
-    await page.getByRole('button', { name: 'New request', exact: true }).click();
+    await page.locator('.prompt-enhancement .request-action-button').click();
+    await page.locator('.prompt-enhancement-dialog').getByRole('button', { name: 'New request', exact: true }).click();
   }
   return page.locator('.ai-assist-dialog').last();
 }

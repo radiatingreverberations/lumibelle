@@ -289,6 +289,8 @@ public partial class PromptEnhancementPanel
         try { await Jobs.CancelAsync(_active.Id, _lifetime.Token); await RefreshJobs(); }
         catch (WorkspaceStoreException e) { _inlineError = _error = e.Message; }
     }
+    // Starts over in the composer; this suggestion stays to apply or discard later.
+    private async Task NewRequestFromReview() { await Close(); if (_assist is not null) await _assist.NewRequestAsync(); }
     private async Task Close()
     {
         _open = false; _restoreFocus = true;

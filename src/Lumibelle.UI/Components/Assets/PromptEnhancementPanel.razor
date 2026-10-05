@@ -50,6 +50,7 @@
     </DialogContent>
     <DialogActions>
         @if (_request is not null && Superseded is null && Changed is { } changed) { <AssistedApplyWarning Changed="changed" Retry="enhance again" Consequence="Applying can be undone." /> }
+        @if (!_busy && InspectionJob is { } inspected && !TextRequestPresentation.IsActive(inspected)) { <MudButton OnClick="NewRequestFromReview">New request</MudButton> }
         @if (CanDiscard) { <MudButton OnClick="DiscardSuggestion">Discard</MudButton> }
         <MudButton OnClick="ApplySuggestion" Disabled="@(!CanApply)" Color="Color.Primary" Variant="Variant.Filled">@(Changed is null ? "Apply changes" : AssistedApplyWarning.ApplyAnyway)</MudButton>
         @if (!_busy && _error is not null && Changes.Count == 0 && _pending is null)

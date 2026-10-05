@@ -11,16 +11,9 @@
         <span class="request-action-copy"><span>@VisibleLabel</span>@if (Timing.Length > 0) { <small class="request-time" aria-hidden="true">@Timing</small> }</span>
         @if (Notice is not null) { <span class="request-notice-badge" aria-hidden="true" title="@Notice">!</span> }
     </button>
-    @if (Inspecting && !Preparing && (!Request!.Active || OnCancel.HasDelegate && !Request.Job.CancelRequested)) {
-        <details @onkeydown="MenuKey" @onkeydown:stopPropagation="_menuOpen" class="request-action-menu" open="@_menuOpen"><summary @onclick="() => _menuOpen = !_menuOpen" @onclick:preventDefault="true" aria-label="Request options">▾</summary><div>
-            @if (Request!.Active) { @if (OnCancel.HasDelegate && !Request.Job.CancelRequested) { <button type="button" @onclick="Cancel">Cancel request</button> } }
-            else { <button type="button" @onclick="NewRequest" disabled="@Disabled">New request</button> }
-        </div></details>
-    }
     <span class="sr-only" role="status" aria-live="polite">@VisibleLabel</span>
     @if (Notice is not null) { <span id="@_noticeId" class="sr-only">@Notice</span> }
 </div>
-@if (_cancelError is not null) { <p class="field-error" role="alert">@_cancelError</p> }
 @code {
     [Parameter] public string Label { get; set; } = "Assist";
     [Parameter] public string? Title { get; set; }
@@ -32,15 +25,12 @@
     [Parameter] public bool Primary { get; set; }
     [Parameter] public EventCallback OnStart { get; set; }
     [Parameter] public EventCallback OnReview { get; set; }
-    [Parameter] public EventCallback OnNew { get; set; }
-    [Parameter] public EventCallback OnCancel { get; set; }
-    private Guid? _freshFor, _menuJob;
+    private Guid? _freshFor;
     private readonly string _noticeId = $"request-notice-{Guid.NewGuid():N}";
     private ElementReference _button;
     private PeriodicTimer? _timer;
     private Task? _ticks;
-    private bool _disposed, _menuOpen;
-    private string? _cancelError;
+    private bool _disposed;
     private bool Inspecting => !HasError && Request?.Inspectable == true && (!Primary || _freshFor != Request.Job.Id || Request.Active);
     private bool Spinning => Preparing || Inspecting && Request!.Active && Request.Job.State != AiJobState.Waiting;
     // A finished result waits for the person to look at it, so the button stands out until it is applied or dismissed.
@@ -57,17 +47,10 @@
         if (Inspecting) { await FocusAsync(); await OnReview.InvokeAsync(); }
         else await OnStart.InvokeAsync();
     }
-    private async Task NewRequest() { _menuOpen = false; if (Primary) _freshFor = Request?.Job.Id; await OnNew.InvokeAsync(); if (Primary) await FocusAsync(); }
-    private async Task MenuKey(KeyboardEventArgs e) { if (e.Key == "Escape" && _menuOpen) { _menuOpen = false; await FocusAsync(); } }
-    private async Task Cancel()
-    {
-        _menuOpen = false; _cancelError = null;
-        try { await OnCancel.InvokeAsync(); }
-        catch (WorkspaceStoreException e) { _cancelError = "Cancellation could not be saved. " + e.Message + " Open the request or try Cancel request again."; }
-    }
+    /// <summary>For a primary action, shows its start label again so a new request can begin while an earlier result waits.</summary>
+    public void StartFresh() { if (Primary) { _freshFor = Request?.Job.Id; StateHasChanged(); } }
     protected override void OnParametersSet()
     {
-        if (_menuJob != Request?.Job.Id) { _menuJob = Request?.Job.Id; _menuOpen = false; _cancelError = null; }
         if (_freshFor != Request?.Job.Id || Preparing) _freshFor = null;
         if (Request?.Active == true && _timer is null) { _timer = new(TimeSpan.FromSeconds(1), Clock); _ticks = Tick(_timer); }
         else if (Request?.Active != true) { _timer?.Dispose(); _timer = null; }

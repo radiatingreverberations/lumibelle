@@ -138,6 +138,8 @@ public partial class ReferenceReelsPanel
     private AiJobHeader? CompositionJob => RelevantJobs.FirstOrDefault(j => j.Kind == AiJobKind.ReelComposition && j.Target.ReelId == _draft?.Id && j.Id == _draft?.PendingJobId);
     private TextRequestPresentation? ReelCompositionPresentation => CompositionJob is { } job ? new(job, "Writing prompt pair…",
         _draft!.ResolvedJobs.Contains(job.Id) ? TextRequestOutcome.Resolved : TextRequestOutcome.Proposal, "Prompt pair") : null;
+    // Starts over in the composer; the reviewed pair stays to apply or discard later.
+    private async Task NewPairFromReview() { _reviewOpen = false; if (_assist is not null) await _assist.NewRequestAsync(); }
     private Task InspectComposition() => CompositionJob is { } job ? ViewJob(job) : Task.CompletedTask;
     private Task CancelComposition() => CompositionJob is { } job ? Jobs.CancelAsync(job.Id) : Task.CompletedTask;
     private AiJobHeader? ActiveComposition => RelevantJobs.FirstOrDefault(j => j.Kind == AiJobKind.ReelComposition && j.Target.ReelId == _draft?.Id && j.LocksTarget);

@@ -186,7 +186,8 @@ test('navigation and concurrent browser drafts cannot overwrite a completed comp
   await expect(editor).toHaveText('Keep this manual draft while the AI runs.');
   const other = await context.newPage(); await other.goto(`/projects/${id}/shots`);
   await openShotSetup(other);
-  await other.getByLabel('Request options', { exact: true }).click();
+  // The waiting result opens its review, which can start a new request and leave the result as it is.
+  await other.getByRole('button', { name: 'Review changes', exact: true }).click();
   await other.getByRole('button', { name: 'New request', exact: true }).click();
   await expect(other.getByLabel('Direction for AI')).toBeVisible();
   await other.getByLabel('Direction for AI').fill('Different direction from another tab.');

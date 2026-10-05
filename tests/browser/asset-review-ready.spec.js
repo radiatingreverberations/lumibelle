@@ -7,8 +7,8 @@ async function enhance(page, prompt) {
   const start = page.getByRole('button', { name: 'Improve prompt', exact: true });
   if (await start.isVisible()) await start.click();
   else {
-    await page.locator('.prompt-enhancement .request-action-menu > summary').click();
-    await page.getByRole('button', { name: 'New request', exact: true }).click();
+    await page.locator('.prompt-enhancement .request-action-button').click();
+    await page.locator('.prompt-enhancement-dialog').getByRole('button', { name: 'New request', exact: true }).click();
   }
   const composer = page.locator('.ai-assist-dialog').last();
   await composer.getByRole('button', { name: 'Enhance', exact: true }).click();

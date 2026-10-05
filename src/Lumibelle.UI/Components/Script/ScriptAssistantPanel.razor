@@ -31,9 +31,9 @@
                 @if (HasScript) { <details class="assistant-start-over"><summary>Start over…</summary><p>Drafting or accepting an outline replaces the entire script. You review it before applying.</p><button disabled="@_generating" @onclick="() => _chosenOperation = WritingOperation.Draft">Draft replacement</button><button disabled="@_generating" @onclick="() => _chosenOperation = WritingOperation.Outline">Outline replacement</button></details> }
             }
 </ChildContent>
-    <Actions><TextRequestAction Primary="true" Label="@ActionLabel" Request="ScriptPresentation" Preparing="@(_submitting || _modelPreparing)"
+    <Actions><TextRequestAction @ref="_primaryAction" Primary="true" Label="@ActionLabel" Request="ScriptPresentation" Preparing="@(_submitting || _modelPreparing)"
         Disabled="@(!CanGenerate || Operation == WritingOperation.Continue && _scope == ScriptScope.Passage)"
-        OnStart="() => StartAsync(Operation)" OnNew="OpenComposerAsync" OnReview="InspectScript" OnCancel="Cancel" /></Actions>
+        OnStart="() => StartAsync(Operation)" OnReview="InspectScript" /></Actions>
     <Status>        @if (_error is not null && _reviewId is null) { <p class="generation-error" role="alert">@_error</p> }
         @if (_historyError && _reviewId is null) { <MudButton OnClick="RetryHistoryAsync">Retry saving history</MudButton> }
         @if (_pendingSubmission is not null) { <MudButton OnClick="RetryEnqueueAsync" Disabled="_submitting">Retry saving request</MudButton> }
@@ -170,6 +170,7 @@
             {
             <span class="review-save-hint">@(_applying ? "Applying proposal…" : "Your script changes only when you apply.")</span>
             <MudButton OnClick="CloseReview" Disabled="@(_applying || _savingJson)">Close</MudButton>
+            @if (run.Status != AssistantRunStatus.Running) { <MudButton OnClick="NewRequestAsync" Disabled="@(_applying || _savingJson)">New request</MudButton> }
             @if (run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss && unresolved)
             {
                 <MudButton OnClick="EditJson" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">Paste / edit JSON</MudButton>

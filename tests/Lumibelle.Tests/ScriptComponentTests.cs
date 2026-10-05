@@ -109,7 +109,10 @@ public sealed class ScriptComponentTests : BunitContext
         // Cancelling before the mock has published its partial result cannot preserve that result.
         await _assistant.PartialSaved.Task.WaitAsync(TimeSpan.FromSeconds(5), _ct);
         Assert.True(panel.Find(".assist-composer-model .model-chip").HasAttribute("disabled")); Assert.True(Controls(panel).Find("#script-operation").HasAttribute("disabled"));
-        await panel.InvokeAsync(() => panel.Find(".request-action-menu button").ClickAsync(new()));
+        // The running request opens in its review, which can cancel it.
+        await Click(panel, "View request");
+        _dialogs.WaitForAssertion(() => Assert.Contains(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Cancel request"), BunitDefaults.WaitTimeout(5));
+        await Click(panel, "Cancel request");
         panel.WaitForAssertion(() => Assert.Equal("Draft script", panel.Find(".request-action-button").GetAttribute("aria-label")));
         var run = await LastRun(); Assert.Equal(AssistantRunStatus.Cancelled, run.Status); Assert.Contains("Partial", run.Output);
         Assert.Equal("Keep this instruction", Controls(panel).Find("#script-instructions").GetAttribute("value")); Assert.Empty(_applications);

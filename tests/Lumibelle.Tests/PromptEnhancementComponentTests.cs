@@ -170,11 +170,15 @@ public sealed partial class AssetComponentTests
         page.Render();
         await page.InvokeAsync(() => page.Find(".media-select").Click());
         await page.InvokeAsync(() => page.Find("#image-prompt").Input("Change the coat"));
-        await page.InvokeAsync(() => EnhancementControls(page).Find(".inspection-toggle input").Change(true));
-        Assert.True(EnhancementControls(page).Find(".enhance-button").HasAttribute("disabled"));
-        Assert.Contains("vision model", EnhancementControls(page).Markup);
-        await page.InvokeAsync(() => EnhancementControls(page).Find(".inspection-toggle input").Change(false));
-        Assert.False(EnhancementControls(page).Find(".enhance-button").HasAttribute("disabled"));
+        // The earlier request opens its review first; New request there reaches the composer. Not from inside InvokeAsync,
+        // whose dispatcher those clicks need.
+        var controls = EnhancementControls(page);
+        controls.WaitForElement(".inspection-toggle input");
+        await page.InvokeAsync(() => controls.Find(".inspection-toggle input").Change(true));
+        Assert.True(controls.Find(".enhance-button").HasAttribute("disabled"));
+        Assert.Contains("vision model", controls.Markup);
+        await page.InvokeAsync(() => controls.Find(".inspection-toggle input").Change(false));
+        Assert.False(controls.Find(".enhance-button").HasAttribute("disabled"));
     }
 
     [Fact]
@@ -211,7 +215,12 @@ public sealed partial class AssetComponentTests
     private IRenderedComponent<MudBlazor.MudDialogProvider> EnhancementControls(IRenderedComponent<AssetsStudio> page)
     {
         if (_dialogs.FindAll(".enhance-button").Count == 0)
-            page.InvokeAsync(() => (page.FindAll(".prompt-enhancement .request-action-menu button").FirstOrDefault(b => b.TextContent.Trim() == "New request") ?? page.Find(".prompt-enhancement .assist-trigger")).ClickAsync(new())).GetAwaiter().GetResult();
+        {
+            page.InvokeAsync(() => page.Find(".prompt-enhancement .assist-trigger").ClickAsync(new())).GetAwaiter().GetResult();
+            // A finished request opens its review instead; New request there starts over in the composer.
+            if (_dialogs.FindAll(".enhance-button").Count == 0 && _dialogs.FindAll("button").Concat(page.FindAll("button")).FirstOrDefault(b => b.TextContent.Trim() == "New request") is { } fresh)
+                page.InvokeAsync(() => fresh.ClickAsync(new())).GetAwaiter().GetResult();
+        }
         return _dialogs;
     }
     private async Task StartEnhancement(IRenderedComponent<AssetsStudio> page)

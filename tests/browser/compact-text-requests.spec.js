@@ -83,8 +83,9 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
    await expect(control).toBeInViewport();
    expect((await jobs(request, id)).map(j => j.id)).toEqual(captured.map(j => j.id));
    if (workflow === 'planning' || workflow === 'reel') await page.screenshot({ path: `artifacts/compact-${workflow}-${narrow ? 'narrow' : 'desktop'}.png` });
-   const menu = control.locator('..').locator('.request-action-menu');
-   await menu.locator('summary').click(); await menu.getByRole('button', { name: 'Cancel request', exact: true }).click();
+   // The request's own review cancels it.
+   await control.click(); await expect(review).toBeVisible();
+   await review.getByRole('button', { name: /^Cancel (request|enhancement|suggestion)$/ }).last().click();
    await expect.poll(async () => (await jobs(request, id))[0].state).toBe('Cancelled');
    await expect(control).not.toContainText('Queued'); await expect(control).toBeEnabled();
    await expect(control.locator('.request-time')).toHaveCount(0);
