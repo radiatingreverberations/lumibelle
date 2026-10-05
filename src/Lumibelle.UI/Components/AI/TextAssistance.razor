@@ -28,13 +28,14 @@
     <Actions>@Actions</Actions>
 </AiAssistDialog>
 }
-<AiAssistDialog Visible="_requestOpen" VisibleChanged="v => _requestOpen = v" Title="Text request">
+<AiAssistDialog Visible="_requestOpen" VisibleChanged="v => _requestOpen = v" Title="Text request" Class="text-request-dialog">
     <ChildContent>@if (InspectedJob is { } job) {
         <AiResultAcknowledgement Observed="@(_inspectedResultJob is { } observed && observed.Id == job.Id ? new[] { observed } : [])" />
-        <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /><AiTextRequestDetails @key="job.Id" JobId="job.Id" RepairReviewRequested="ReviewRepair" />
-        @if (job.Error is { } error) { <p role="alert">@error</p> }
+        <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
+        @if (job.Error is { } error) { <p class="field-error" role="alert">@error</p> }
         @if (_requestError is not null) { <p class="field-error" role="alert">@_requestError</p> }
-        <details><summary>Response details</summary><pre>@_inspectedRaw</pre></details>
+        <AiTextRequestDetails @key="job.Id" JobId="job.Id" RepairReviewRequested="ReviewRepair" />
+        <details class="request-details"><summary>Response details</summary>@if (_inspectedRaw.Length > 0) { <pre>@_inspectedRaw</pre> } else { <p class="field-hint">Nothing received yet.</p> }</details>
     }</ChildContent>
     <Actions>@if (InspectedJob is { } job) {
         @if (TextRequestPresentation.IsActive(job) && !job.CancelRequested) { <MudButton Disabled="_requestBusy" OnClick="() => RequestOperation(() => Jobs.CancelAsync(job.Id))">Cancel request</MudButton> }

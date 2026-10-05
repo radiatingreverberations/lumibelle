@@ -1,4 +1,4 @@
-<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="Options" Class="ai-assist-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="@Title" CloseLabel="Close assistance">
+<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="Options" Class="@($"ai-assist-dialog {Class}".TrimEnd())" DefaultFocus="DefaultFocus.FirstChild" Title="@Title" CloseLabel="Close assistance">
     <DialogContent><DialogEscape Pressed="Close" />@ChildContent</DialogContent>
     <DialogActions>@Leading<MudButton OnClick="Close">Close</MudButton>@Actions</DialogActions>
 </InlineDialog>
@@ -6,6 +6,7 @@
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
     [Parameter] public string Title { get; set; } = "Text assistance";
+    [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
     // Left-aligned footer content that stays visible however long the dialog's content is.

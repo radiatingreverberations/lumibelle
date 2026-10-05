@@ -25,6 +25,15 @@
 .ai-assist-dialog.mud-dialog { width:min(520px, calc(100vw - 32px)); max-width:520px; max-height:85dvh; }
 .ai-assist-dialog .mud-dialog-content { overflow:auto; display:flex; flex-direction:column; gap:12px; }
 .ai-assist-dialog .mud-dialog-content > div { min-width:0; }
+/* The empty read marker would add a gap above the progress. */
+.text-request-dialog .mud-dialog-content > .ai-result-observer { display:block; height:0; margin-bottom:-12px; }
+/* Request and response details read as one set of disclosures, with long text in a scrolling panel. */
+.text-request-dialog .request-details { margin:0; font-size:var(--lumi-font-size-meta); }
+.text-request-dialog .request-details > summary { width:fit-content; color:var(--plum); font-weight:650; cursor:pointer; }
+.text-request-dialog .request-details[open] > summary { margin-bottom:8px; }
+.text-request-dialog .request-details p { margin:4px 0; }
+.text-request-dialog .request-details pre { max-height:40vh; overflow:auto; margin:6px 0 0; padding:10px 12px; border:1px solid var(--lumi-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface-subtle); font-size:var(--lumi-font-size-small); white-space:pre-wrap; overflow-wrap:anywhere; }
+.text-request-dialog .request-details details { margin-top:6px; }
 .ai-assist-dialog .mud-dialog-actions { flex-wrap:wrap; }
 .ai-assist-dialog label { display:block; font-size:var(--lumi-font-size-meta); font-weight:600; color: var(--lumi-text-muted); }
 .ai-assist-dialog select, .ai-assist-dialog textarea, .ai-assist-dialog input[type=number] { width:100%; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); padding:9px 11px; font:inherit; margin-top:5px; }

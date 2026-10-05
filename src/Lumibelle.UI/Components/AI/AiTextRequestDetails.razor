@@ -1,5 +1,10 @@
 @inject IAiJobStore Store
 @inject IServiceProvider Services
+@* What can be done about the request comes before its details. *@
+@if (Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
+{
+    <AiTextRepairAction @key="JobId" JobId="JobId" ReviewRequested="RepairReviewRequested" />
+}
 <details class="request-details"><summary @onclick="LoadAsync">Request details</summary>
     @if (_request is { } request) {
         <p>@request.Model.Backend · @request.Model.Name · @(request.SelectionSource switch { TextModelSelectionSource.GlobalDefault => "Global default", TextModelSelectionSource.ProjectDefault => "Project default", TextModelSelectionSource.RequestOverride => "Request override", _ => "Captured model" })</p>
@@ -30,10 +35,6 @@
         <pre class="submitted-input">@Describe(request.Messages)</pre>
     } else { <p>@(_error ?? "Loading captured input…")</p> }
 </details>
-@if (Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
-{
-    <AiTextRepairAction @key="JobId" JobId="JobId" ReviewRequested="RepairReviewRequested" />
-}
 @code {
     [Parameter] public Guid JobId { get; set; }
     [Parameter] public EventCallback<AiJobHeader> RepairReviewRequested { get; set; }
