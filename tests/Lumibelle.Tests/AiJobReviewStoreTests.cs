@@ -71,7 +71,14 @@ public sealed class AiJobReviewStoreTests : IDisposable
 internal sealed class TestReviewDraftStore(IAiJobReviewStore inner) : IAiJobReviewStore
 {
     public Exception? SaveError { get; set; }
-    public Task<AiJobReviewDraft> LoadAsync(Guid id, CancellationToken ct = default) => inner.LoadAsync(id, ct);
+    public Task? LoadGate { get; set; }
+    public int Loads { get; private set; }
+    public async Task<AiJobReviewDraft> LoadAsync(Guid id, CancellationToken ct = default)
+    {
+        Loads++;
+        if (LoadGate is { } gate) await gate.WaitAsync(ct);
+        return await inner.LoadAsync(id, ct);
+    }
     public Task<AiJobReviewDraft> SaveAsync<T>(Guid id, T value, long revision, CancellationToken ct = default) => SaveError is null
         ? inner.SaveAsync(id, value, revision, ct) : Task.FromException<AiJobReviewDraft>(SaveError);
 }

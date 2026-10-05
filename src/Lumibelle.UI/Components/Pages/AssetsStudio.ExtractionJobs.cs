@@ -114,8 +114,25 @@ public partial class AssetsStudio
         _extractionError = job.CancelRequested || job.State == AiJobState.Cancelled ? job.Error ?? "Asset extraction cancelled. No assets were changed." : result?.Error ?? job.Error;
         if (job.State == AiJobState.Completed && result?.Complete == true && _extractionResult is null)
         {
-            _extractionResult = result.Read<AssetExtractionResult>();
-            if (_extractionResult is not null && _extractionResult.ValidationError is null) await LoadReviewDraftAsync();
+            // Saved decisions load before the proposals show: an edit made while they loaded would be taken for
+            // the saved draft and never saved.
+            var response = result.Read<AssetExtractionResult>();
+            if (response is not { ValidationError: null }) _extractionResult = response;
+            else
+            {
+                var reviewId = _reviewId;
+                try
+                {
+                    var (reviewed, revision) = await ReadReviewDraftAsync(reviewId, response);
+                    if (_disposed || _extractionJob?.Id != job.Id || _reviewId != reviewId) return;
+                    if (_extractionResult is null) ShowReviewDraft(reviewed, revision);
+                }
+                catch (Exception e) when (e is WorkspaceStoreException or JsonException)
+                {
+                    if (_disposed || _extractionJob?.Id != job.Id || _reviewId != reviewId || _extractionResult is not null) return;
+                    _extractionResult = response; _reviewDraftError = e.Message; _reviewDraftConflict = true;
+                }
+            }
             await RefreshCoverageAsync();
         }
     }
@@ -194,20 +211,27 @@ public partial class AssetsStudio
     }
     private async Task LoadReviewDraftAsync()
     {
+        if (_extractionResult is not { } current) return;
         try
         {
-            var job = _reviewId; var draft = await ReviewDrafts.LoadAsync(job, _extractionLifetime.Token);
+            var job = _reviewId; var (reviewed, revision) = await ReadReviewDraftAsync(job, current);
             if (_disposed || job != _reviewId || _extractionResult is null) return;
-            if (draft.Read<AssetExtractionReviewDraft>() is { } saved)
-            {
-                // Membership/evidence are immutable; only the reviewed fields can change.
-                if (!ValidReviewMembership(saved.Proposals, _extractionResult.Proposals)) throw new WorkspaceStoreException("The review draft does not match this response. Its saved content has not been replaced.");
-                _extractionResult = _extractionResult with { Proposals = saved.Proposals };
-            }
-            _reviewDraftRevision = draft.Revision; _reviewDraftFingerprint = ReviewDraftJson;
-            _reviewDraftDirty = _reviewDraftConflict = false; _reviewDraftError = null;
+            ShowReviewDraft(reviewed, revision);
         }
         catch (Exception e) when (e is WorkspaceStoreException or JsonException) { _reviewDraftError = e.Message; _reviewDraftConflict = true; }
+    }
+    private async Task<(AssetExtractionResult Result, long Revision)> ReadReviewDraftAsync(Guid job, AssetExtractionResult response)
+    {
+        var draft = await ReviewDrafts.LoadAsync(job, _extractionLifetime.Token);
+        if (draft.Read<AssetExtractionReviewDraft>() is not { } saved) return (response, draft.Revision);
+        // Membership/evidence are immutable; only the reviewed fields can change.
+        if (!ValidReviewMembership(saved.Proposals, response.Proposals)) throw new WorkspaceStoreException("The review draft does not match this response. Its saved content has not been replaced.");
+        return (response with { Proposals = saved.Proposals }, draft.Revision);
+    }
+    private void ShowReviewDraft(AssetExtractionResult result, long revision)
+    {
+        _extractionResult = result; _reviewDraftRevision = revision; _reviewDraftFingerprint = ReviewDraftJson;
+        _reviewDraftDirty = _reviewDraftConflict = false; _reviewDraftError = null;
     }
     private static bool ValidReviewMembership(IReadOnlyList<AssetExtractionProposal> draft, IReadOnlyList<AssetExtractionProposal> source) =>
         draft is not null && draft.All(p => p is not null && p.Evidence is not null && p.Looks is not null && p.Looks.All(l => l is not null && l.Evidence is not null)) &&
