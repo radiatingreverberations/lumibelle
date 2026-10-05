@@ -58,7 +58,8 @@ public partial class ShotReferenceEditor
     private readonly HashSet<Guid> _missing = [];
     private ElementReference _guidanceInput, _customizeButton;
     protected override void OnInitialized() { _draft = Shot.Copy(); _originalVoiceOwners = CharacterVoices.Owners(Shot, Library).ToHashSet(); ShotReferences.RetainCharacters(_draft); _expanded = Expanded; _selectedTab = Expanded is not null; }
-    private string? _copyNotice;
+    // What a copy did, line by line; warnings ask for a decision before applying.
+    private IReadOnlyList<(string Text, bool Warning)>? _copyNotice;
     private int _copyVersion;
     private void CopyFromChanged(ChangeEventArgs e)
     {
@@ -71,8 +72,8 @@ public partial class ShotReferenceEditor
             _draft = copy.Inputs;
             var continuity = value == "previous" ? ContinuityFrameOf?.Invoke(source) : null;
             var continuityNotice = continuity is null ? null : ResolvedReferences.For(_draft).Pictures.Count >= 9
-                ? " Its last frame was not added: this shot already has 9 pictures."
-                : $" Its production take's last frame is added as a continuity picture; remove it if you don't need it.";
+                ? "Its last frame was not added: this shot already has 9 pictures."
+                : "Its production take's last frame is added as a continuity picture; remove it if you don't need it.";
             if (continuity is not null && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = continuity;
             _reelVoiceNotice = null;
             // Copied references retain the source setup's captured guidance; they
@@ -85,8 +86,10 @@ public partial class ShotReferenceEditor
             _originalVoiceOwners = CharacterVoices.Owners(_draft, Library).ToHashSet();
             _selectedTab = true;
             _error = null;
-            _copyNotice = (copy.Warnings.Count == 0 ? "References copied into the draft. Apply changes to keep them."
-                : string.Join(" ", copy.Warnings)) + continuityNotice;
+            _copyNotice = [.. copy.Warnings.Select(w => (w, true)),
+                .. (copy.Warnings.Count == 0 ? ["References copied into the draft. Apply changes to keep them."] : Array.Empty<string>()).Select(n => (n, false)),
+                .. (copy.Notes ?? []).Select(n => (n, false)),
+                .. (continuityNotice is null ? Array.Empty<string>() : [continuityNotice]).Select(n => (n, false))];
             _copyVersion++; // Reset the picker so the same source can be copied again.
         }
         catch (WorkspaceStoreException error) { _error = error.Message; }

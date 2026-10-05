@@ -32,6 +32,6 @@ public partial class ShotReferenceEditor
         _focusGuidance = _focusCustomize = false; _reelVoiceNotice = null;
         _originalVoiceOwners = CharacterVoices.Owners(_draft, Library).ToHashSet();
         _selectedTab = true; _error = null;
-        _copyNotice = "AI suggestions staged. Review the references and voice mappings, then Apply changes to save; Cancel leaves the shot unchanged.";
+        _copyNotice = [("AI suggestions staged. Review the references and voice mappings, then Apply changes to save; Cancel leaves the shot unchanged.", false)];
     }
 }

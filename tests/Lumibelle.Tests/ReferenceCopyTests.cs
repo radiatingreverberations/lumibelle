@@ -100,6 +100,52 @@ public sealed class ReferenceCopyTests
     }
 
     [Fact]
+    public void ACharacterWithNoLinesInTheDestinationIsCopiedSilent()
+    {
+        var (library, character, _, source) = CharacterVoiceTests.Fixture();
+        CharacterVoices.Set(source, CharacterVoices.Initial(source, character, library), library);
+        // No dialogue at all, then only lines for a speaker another voice keeps.
+        foreach (var target in new[] { new Shot(), new Shot { Dialogue = [new() { Speaker = "MIRA", Text = "Hi" }],
+            CharacterVoices = [], Images = [] } })
+        {
+            var mira = new CharacterVoiceSelection { AssetId = Guid.NewGuid(), CharacterName = "Mira", Source = CharacterVoiceSource.None };
+            var from = ShotCopy.Of(source);
+            if (target.Dialogue.Count > 0) { from.Dialogue.Add(new() { Speaker = "MIRA", Text = "Hi" }); from.CharacterVoices!.Add(mira with { Source = CharacterVoiceSource.Recording, Speaker = "MIRA", SpeakerConfirmed = true, SourceName = "Mira voice" }); }
+            var copy = ReferenceCopies.Into(from, target, library);
+            var riley = copy.Inputs.CharacterVoices!.Single(v => v.AssetId == character.Id);
+            Assert.Equal(CharacterVoiceSource.None, riley.Source);
+            Assert.Empty(copy.Warnings);
+            Assert.Contains("Riley has no lines here, so their voice is None.", copy.Notes!);
+            Assert.DoesNotContain(copy.Inputs.Voices, v => v.CharacterAssetId == character.Id);
+        }
+    }
+
+    [Fact]
+    public void AVoiceFollowsItsCharacterToADifferentlyNamedSpeaker()
+    {
+        var (library, character, _, source) = CharacterVoiceTests.Fixture();
+        var choice = CharacterVoices.Initial(source, character, library);
+        // By the cast member its pictures represent, even beside another speaker.
+        var lux = new ShotCharacter(Guid.NewGuid(), "Lux");
+        source.Characters = [lux];
+        source.Images = [new() { AssetId = character.Id, MediaId = Guid.NewGuid(), Name = "Riley", RepresentsId = lux.Id }];
+        CharacterVoices.Set(source, choice, library);
+        var target = new Shot { Characters = [new(Guid.NewGuid(), "Lux")], Dialogue = [new() { Speaker = "LUX", Text = "Hi" }, new() { Speaker = "MIRA", Text = "Hello" }] };
+        var copy = ReferenceCopies.Into(source, target, library);
+        var voice = Assert.Single(copy.Inputs.CharacterVoices!);
+        Assert.Equal(("LUX", true), (voice.Speaker, voice.SpeakerConfirmed));
+        Assert.Empty(copy.Warnings);
+        Assert.Contains("Riley's voice speaks the LUX lines here.", copy.Notes!);
+
+        // By the words of its name: GUARD is the Noxian Guard.
+        source.Images = []; source.Characters = [];
+        source.CharacterVoices![0].CharacterName = "Noxian Guard";
+        var guard = ReferenceCopies.Into(source, new Shot { Dialogue = [new() { Speaker = "GUARD", Text = "No." }] }, library);
+        Assert.Equal("GUARD", Assert.Single(guard.Inputs.CharacterVoices!).Speaker);
+        CharacterVoices.Validate(guard.Inputs);
+    }
+
+    [Fact]
     public void RecordingExcerptsAndExplicitNoneDoNotFollowNewDefaults()
     {
         var (library, character, original, source) = CharacterVoiceTests.Fixture();

@@ -205,7 +205,7 @@
         </Selection>
         <Footer>
         @if (_reelVoiceNotice is not null) { <p role="status" class="reel-voice-notice">@_reelVoiceNotice</p> }
-        @if (_copyNotice is not null) { <p role="status">@_copyNotice</p> }
+        @if (_copyNotice is { } copied) { <div class="reference-copy-notice" role="status">@foreach (var (text, warning) in copied) { <p class="@(warning ? "field-error" : "field-hint")">@text</p> }</div> }
         @if (_error is not null) { <p role="alert">@_error</p> }
         <span role="status">@ResolvedReferences.For(_draft).Pictures.Count/9 pictures @(AllowReels ? $"· {_draft.Videos.Count}/3 reels" : "") · @ResolvedReferences.For(_draft).Audio.Count/3 audio · @(_preparingFrames ? "Preparing reference images…" : _busy ? "Saving…" : "Changes apply together")</span>
         <MudButton Disabled="@(_busy && !_preparingFrames)" OnClick="CancelDialog">Cancel</MudButton>
