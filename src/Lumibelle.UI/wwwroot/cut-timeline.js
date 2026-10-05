@@ -69,8 +69,11 @@ export function attach(root, project, callbacks) {
             n.querySelector('.timeline-grip').disabled = pending;
             for (const h of n.querySelectorAll('[data-edge]')) { h.hidden = c.id !== selected; attrs(h, c, h.dataset.edge); }
             const visible = before * scale < scroll.scrollLeft + scroll.clientWidth && (before + duration(c)) * scale > scroll.scrollLeft;
-            const count = visible && !unavailable.has(c.takeId) ? Math.min(budget, Math.max(1, Math.min(3, Math.floor(duration(c) * scale / 120)))) : 0;
-            budget -= count;
+            // Every visible clip shows a frame; the budget only limits the extra frames of wide clips,
+            // so a long cut at Fit no longer runs out partway along.
+            const extra = visible && !unavailable.has(c.takeId) ? Math.min(budget, Math.max(0, Math.min(3, Math.floor(duration(c) * scale / 120)) - 1)) : 0;
+            const count = visible && !unavailable.has(c.takeId) ? 1 + extra : 0;
+            budget -= extra;
             const thumbnailClip = gesture?.original.find(original => original.id === c.id) ?? c;
             thumbnails(n.querySelector('.timeline-thumbnails'), thumbnailClip, count, thumbnailClip.startFrame, thumbnailClip.endFrameExclusive);
             if (row.children[i] !== n) row.insertBefore(n, row.children[i] ?? null);
