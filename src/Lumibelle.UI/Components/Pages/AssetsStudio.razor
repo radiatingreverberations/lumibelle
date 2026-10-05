@@ -136,6 +136,7 @@ else
                                 @if (item.Image is { } image) {
                                     @if (_presentation.Multiple) { <input type="checkbox" aria-label="Select image" checked="@_lookImageSelection.Contains(image.Id)" @onchange="e => SelectLookImage(image.Id, e)" /> }
                                     <ReferenceImageMenu Image="image" Rename="() => RenameMedia(item.Key)" EditDetails="() => OpenDetails(image.Id)" Crop="() => OpenImageCopy(image)" Move="() => OpenImageMove([image.Id])"
+                                        CreateSimilar="() => CreateSimilarFromGallery(image.Id)" CreateSimilarDisabled="@(!CanCreateSimilar(image))"
                                         ChangeLook="@(asset.Category == AssetCategory.Character ? EventCallback.Factory.Create(this, () => OpenGalleryLook(asset.Id, item)) : default(EventCallback))" ChangeLookDisabled="@(_saving || _selectionChanging || _imageDetailsDirty)"
                                         ToggleReference="() => ToggleReference(image.Id)" MakeCover="() => MakeCover(image.Id)" Trash="() => DeleteImageAsync(image.Id)"
                                         CropDisabled="@(_generating || _enhancing)" MoveDisabled="_composerLocked" DeleteDisabled="_saving" />
@@ -459,7 +460,7 @@ else
 @if (_review is not null && _library is not null)
 {
     <ImageReviewDialog @key="_review.Id" Session="_review" Library="_library" RegionalSaved="RegionalImageSaved" InitialSelection="_reviewInitial" Visible="_reviewOpen" OpenDetails="_openImageDetails" ApplyDetails="ApplyImageDetails" DetailsDirtyChanged="v => _imageDetailsDirty = v" RequestedGuidanceId="_requestedGuidanceId"
-        Generating="_generating" Closed="ClosePreview" EditRequested="StartEdit" Discard="DiscardReviewTakeAsync" Restore="RestoreReviewedAsync" CancelRequested="CancelReviewGeneration"
+        Generating="_generating" Closed="ClosePreview" EditRequested="StartEdit" SimilarRequested="CreateSimilarFromReview" CanCreateSimilar="id => CanCreateSimilar(GalleryImage(id))" Discard="DiscardReviewTakeAsync" Restore="RestoreReviewedAsync" CancelRequested="CancelReviewGeneration"
         Queue="AiJobs.View" JobProgress="@(_review.Job is { } reviewJob ? AiJobs.Progress(reviewJob.Id) : null)" RetryOutput="RetryImageOutputAsync" RequestError="@_imageReviewError"
         OneMore="@(_review.IsBatch && _review.Job is not null ? EventCallback.Factory.Create(this, AddOneMoreTake) : default(EventCallback))" OneMoreUnavailable="@OneMoreTakeUnavailable" OneMoreLabel="Generate more…" />
 }

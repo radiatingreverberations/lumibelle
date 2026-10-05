@@ -11,12 +11,28 @@ public partial class AssetsStudio
     private IReadOnlyList<LoraSelection>? _imageRecipeLoras;
     private AssetImage? SelectedRecipeImage => _presentation.Selection is { Kind: AssetMediaKind.Image } selected
         ? SelectedAsset?.Images.FirstOrDefault(i => i.Id == selected.Id) : null;
-    private bool CanCreateSimilarImage => SelectedRecipeImage?.Generation is not null && !_composerLocked && !_selectionChanging &&
+    private bool CanCreateSimilarImage => CanCreateSimilar(SelectedRecipeImage);
+    private bool CanCreateSimilar(AssetImage? image) => image?.Generation is not null && !_composerLocked && !_selectionChanging &&
         !_clearingCreation && _imageSubmittingAsset is null;
+    private AssetImage? GalleryImage(Guid imageId) => SelectedAsset?.Images.FirstOrDefault(i => i.Id == imageId);
 
-    private async Task CreateSimilarImage()
+    private Task CreateSimilarImage() => CreateSimilarImage(SelectedRecipeImage);
+
+    // From a card menu or the details dialog, pending tool edits are saved first, as other card actions do.
+    private async Task CreateSimilarFromGallery(Guid imageId)
     {
-        if (!CanCreateSimilarImage || SelectedRecipeImage is not { Generation: { } recipe } image) return;
+        if (CanCreateSimilar(GalleryImage(imageId)) && await FlushSelectedTools()) await CreateSimilarImage(GalleryImage(imageId));
+    }
+    private async Task CreateSimilarFromReview(Guid imageId)
+    {
+        if (!CanCreateSimilar(GalleryImage(imageId))) return;
+        await ClosePreview();
+        await CreateSimilarFromGallery(imageId);
+    }
+
+    private async Task CreateSimilarImage(AssetImage? image)
+    {
+        if (!CanCreateSimilar(image) || image is not { Generation: { } recipe }) return;
         await TransitionTools(async () =>
         {
             RememberMediaDraft();

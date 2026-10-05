@@ -213,6 +213,8 @@ else
         @if (_afterDetails is null) {
         @if (Primary is { } selected && Resolution(selected).State == ReviewImageState.Active && Image(selected) is not null && selected.Reference.AssetId == Session.AssetId)
         { <MudButton OnClick="() => LeaveDetails(() => EditRequested.InvokeAsync(selected.Reference.ImageId))" Disabled="@(_busy || Generating)">Edit image</MudButton> }
+        @if (SimilarRequested.HasDelegate && Primary is { } similar && Resolution(similar).State == ReviewImageState.Active && Image(similar) is { Generation: not null } && similar.Reference.AssetId == Session.AssetId)
+        { <MudButton OnClick="() => LeaveDetails(() => SimilarRequested.InvokeAsync(similar.Reference.ImageId))" Disabled="@(_busy || !CanCreateSimilar(similar.Reference.ImageId))" title="Load the saved prompt, inputs and settings into Create.">Create similar</MudButton> }
         @if (OneMore.HasDelegate)
         {
             <MudButton OnClick="OneMore" Disabled="@(_busy || OneMoreUnavailable is not null)"
@@ -248,6 +250,8 @@ else
     [Parameter] public string OneMoreLabel { get; set; } = "One more take";
     [Parameter] public string? OneMoreUnavailable { get; set; }
     [Parameter] public EventCallback<Guid> EditRequested { get; set; }
+    [Parameter] public EventCallback<Guid> SimilarRequested { get; set; }
+    [Parameter] public Func<Guid, bool> CanCreateSimilar { get; set; } = _ => true;
     [Parameter] public Func<Guid, Task<ImageReviewDiscardResult>> Discard { get; set; } = _ => Task.FromResult(new ImageReviewDiscardResult("Discard is unavailable."));
     [Parameter] public Func<Guid, Task<string?>> Restore { get; set; } = _ => Task.FromResult<string?>("Restoration is unavailable.");
     private Guid? _sessionId, _undoTrashId;

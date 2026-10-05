@@ -7,6 +7,7 @@
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(EditDetails)">Edit details</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Crop)" Disabled="CropDisabled">Crop image</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Move)" Disabled="MoveDisabled">Move to asset…</MudMenuItem>
+            @if (CreateSimilar.HasDelegate && Image.Generation is not null) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(CreateSimilar)" Disabled="CreateSimilarDisabled">Create similar</MudMenuItem> }
             @if (ChangeLook.HasDelegate) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ChangeLook)" Disabled="ChangeLookDisabled">Change look…</MudMenuItem> }
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ToggleReference)">@(Image.IsReference ? "Unapprove reference" : "Approve reference")</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(MakeCover)" Disabled="Image.IsCover">Make cover</MudMenuItem>
@@ -21,6 +22,8 @@
     [Parameter] public bool MoveDisabled { get; set; }
     [Parameter] public bool ChangeLookDisabled { get; set; }
     [Parameter] public bool DeleteDisabled { get; set; }
+    [Parameter] public bool CreateSimilarDisabled { get; set; }
+    [Parameter] public EventCallback CreateSimilar { get; set; }
     [Parameter] public EventCallback EditDetails { get; set; }
     [Parameter] public EventCallback Rename { get; set; }
     [Parameter] public EventCallback Crop { get; set; }

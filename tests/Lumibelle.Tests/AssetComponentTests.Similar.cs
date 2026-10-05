@@ -17,6 +17,46 @@ public sealed partial class AssetComponentTests
     }
 
     [Fact]
+    public async Task CreateSimilarIsOfferedFromTheImageMenuOnlyWithARecipe()
+    {
+        var recipe = new AssetGenerationMetadata { Workflow = ImageWorkflow.QwenImage21, Prompt = "Narrow alley at dusk", Seed = 77, AspectRatio = "16:9" };
+        var generated = new AssetImage { Id = Guid.NewGuid(), FileName = "generated.png", ContentType = "image/png", Width = 64, Height = 36, Generation = recipe };
+        var imported = new AssetImage { Id = Guid.NewGuid(), FileName = "import.png", ContentType = "image/png", Width = 64, Height = 64 };
+        _assets.Library = _assets.Library with { Assets = [Asset("Alley") with { Images = [generated, imported] }] };
+        var page = Page(); page.WaitForElement(".media-select");
+        var importedCard = page.FindAll(".reference-card").Single(c => c.InnerHtml.Contains($"/images/{imported.Id:D}"));
+        await page.InvokeAsync(() => importedCard.QuerySelector(".reference-image-menu button")!.ClickAsync(new()));
+        _popovers.WaitForElement("[role='menuitem']");
+        Assert.DoesNotContain(_popovers.FindAll("[role='menuitem']"), item => item.TextContent.Trim() == "Create similar");
+        await page.InvokeAsync(() => importedCard.QuerySelector(".reference-image-menu button")!.ClickAsync(new()));
+
+        await ImageActionAsync(page, "Create similar", generated.Id);
+        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent));
+        Assert.Equal(recipe.Prompt, page.Find("#image-prompt").GetAttribute("value"));
+        Assert.Equal("77", page.Find("#fixed-seed").GetAttribute("value"));
+        Assert.Equal(0, _generator.Calls);
+    }
+
+    [Fact]
+    public async Task CreateSimilarFromImageDetailsAsksAboutUnsavedDetailsThenLoadsTheRecipe()
+    {
+        var recipe = new AssetGenerationMetadata { Workflow = ImageWorkflow.QwenImage21, Prompt = "Crates by the wall", Seed = 12, AspectRatio = "16:9" };
+        var image = new AssetImage { Id = Guid.NewGuid(), FileName = "generated.png", ContentType = "image/png", Width = 64, Height = 36, Generation = recipe, Name = "Alley" };
+        _assets.Library = _assets.Library with { Assets = [Asset("Alley") with { Images = [image] }] };
+        var page = Page(); page.WaitForElement(".reference-image");
+        page.Find(".media-preview[aria-label^=\"Preview image\"]").Click();
+        _dialogs.WaitForElement(".review-metadata-editor input");
+        _dialogs.Find(".review-metadata-editor input").Input("Noxian alley");
+        await ClickReview("Create similar");
+        _dialogs.WaitForElement(".review-dirty-prompt");
+        await ClickReview("Save and continue");
+        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent));
+        Assert.Empty(_dialogs.FindAll(".review-metadata-editor"));
+        Assert.Equal("Noxian alley", _assets.Library.Assets[0].Images[0].Name);
+        Assert.Equal(recipe.Prompt, page.Find("#image-prompt").GetAttribute("value"));
+    }
+
+    [Fact]
     public async Task CreateSimilarLoadsCapturedImageFieldsAndKeepsEditDraftSeparate()
     {
         var recipe = new AssetGenerationMetadata { Workflow = ImageWorkflow.QwenImage21, Prompt = "Original camera and lighting", Seed = 4711,
