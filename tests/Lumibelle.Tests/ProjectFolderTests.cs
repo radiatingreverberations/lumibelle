@@ -108,6 +108,16 @@ public sealed class ProjectFolderTests : IDisposable
     }
 
     [Fact]
+    public void GitDefaultsNeverReplaceAFoldersOwnFiles()
+    {
+        var folder = Outside("own-git");
+        File.WriteAllText(Path.Combine(folder, ".gitignore"), "mine\n");
+        ProjectGitFiles.WriteDefaults(folder);
+        Assert.Equal("mine\n", File.ReadAllText(Path.Combine(folder, ".gitignore")));
+        Assert.Equal(ProjectGitFiles.Attributes.ReplaceLineEndings("\n"), File.ReadAllText(Path.Combine(folder, ".gitattributes")));
+    }
+
+    [Fact]
     public async Task FoldersThatAreNotNewProjectsAreRefused()
     {
         var library = NewLibrary(); var project = await library.Projects.CreateAsync(new("Only once"), _ct);
@@ -159,6 +169,9 @@ public sealed class ProjectFolderTests : IDisposable
         Assert.Empty(Directory.GetDirectories(destination, ".lumibelle-moving-*"));
         Assert.Equal([1, 2, 3], await File.ReadAllBytesAsync(Path.Combine(location.Path, "assets", "image.png"), _ct));
         Assert.True(Directory.Exists(Path.Combine(location.Path, "empty-folder")));
+        // A folder outside the library gets git defaults: the open-project lock and interrupted writes ignored, files kept byte-for-byte.
+        Assert.Contains(".lumibelle.lock", await File.ReadAllTextAsync(Path.Combine(location.Path, ".gitignore"), _ct));
+        Assert.Contains("* -text", await File.ReadAllTextAsync(Path.Combine(location.Path, ".gitattributes"), _ct));
         Assert.Equal(project, Assert.Single((await library.Projects.ListAsync(_ct)).Projects));
         Assert.Equal(location.Path, await library.Files.DirectoryAsync(project.Id, _ct));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => library.Folders.MoveOutAsync(project.Id, destination, ct: _ct));

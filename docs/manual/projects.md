@@ -53,6 +53,8 @@ Choose **Edit project** on the project overview to change its name or descriptio
 
 Back up or move a project by copying its complete folder, retaining its ID and manifest. To reopen a copied project, place that folder in the configured library and refresh the hub. Choose a new library root before copying if that ID already exists there.
 
+**Project settings → Storage → Move to folder…** keeps a project in a folder of your choice, such as a synced drive or a git repository, and **Open project folder** on Your projects adds such a folder to the library. A project moved to a folder gets a `.gitignore` (the open-project lock and files left by an interrupted save) and a `.gitattributes` (`* -text`, so git stores every file byte-for-byte, as Lumibelle checks media sizes and hashes). Neither replaces a file the folder already has.
+
 Keep complete project folders in backups. Chat and proposals may contain copies of source text supplied to a model.
 
 Invalid, unreadable or unsupported manifests produce warnings while healthy projects remain available. Fix those manifests externally and refresh; Lumibelle does not silently overwrite them. Interrupted project creation is ignored.

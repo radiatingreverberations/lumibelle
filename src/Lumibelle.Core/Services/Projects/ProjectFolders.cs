@@ -87,6 +87,9 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
         try { locations.Lease(target); }
         catch (WorkspaceStoreException e) { log.LogWarning(e, "Could not lock the moved project folder {Folder}", target); }
         if (hidden is not null) Delete(hidden);
+        // A folder outside the library is often kept in git; give it sensible defaults it can change.
+        try { ProjectGitFiles.WriteDefaults(target); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { log.LogWarning(e, "Could not write default git files to {Folder}", target); }
         return location;
     }
 
