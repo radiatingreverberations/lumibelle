@@ -82,7 +82,7 @@ public sealed partial class ShotTests
         page.WaitForElement(".cut-trims input");
         var render = StartExport(page, actions, dialogs);
         await exporter.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), _ct);
-        await page.InvokeAsync(() => actions.FindAll("button").Single(b => b.TextContent.Trim() == "Cancel export").ClickAsync(new()));
+        await page.InvokeAsync(() => page.FindAll(".cut-export-notice button").Single(b => b.TextContent.Trim() == "Cancel export").ClickAsync(new()));
         await render;
         Assert.Contains("Export cancelled", page.Markup); Assert.Equal(cut.Revision, exporter.Revision);
         Assert.Null(exporter.Range); // One clip is the whole cut.

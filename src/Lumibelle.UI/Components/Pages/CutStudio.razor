@@ -16,7 +16,6 @@ else
         <div data-interactive="@(_interactive ? "true" : "false")" class="cut-actions cut-heading"><span role="status">@_saveStatus</span>
             <MudButton Disabled="@(_saving || !_dirty)" OnClick="Save">Save</MudButton>
             <MudButton Disabled="@(_exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0)" OnClick="OpenExport">@(_exporting ? "Exporting…" : "Export MP4")</MudButton>
-            @if (_exporting) { <MudButton OnClick="CancelExport">Cancel export</MudButton> }
             <MudButton Disabled="@(_undo.Count == 0)" OnClick="Undo">Undo</MudButton>
             <MudButton Disabled="@(_redo.Count == 0)" OnClick="Redo">Redo</MudButton>
         </div>
@@ -34,12 +33,18 @@ else
     }
     @if (_loadFailure is not null) { <LoadFailure Title="Couldn’t open the cut" Error="_loadFailure" Retry="RetryLoadAsync" /> }
     else {
-    @if (_exportStatus is not null) { <p class="cut-export-status" role="status">@_exportStatus</p> }
-    @if (_exportError is not null) { <p class="cut-error" role="alert">@_exportError</p> }
-    @if (_completedExport is { } export && export.ProjectId == Id)
+    @* One notice for the export: its progress with Cancel, then its download. *@
+    var readyExport = _completedExport is { } done && done.ProjectId == Id ? done : null;
+    @if (_exportStatus is not null || readyExport is not null)
     {
-        <MudButton Disabled="@(_exporting || _downloadingExport)" OnClick="DownloadExport">Download revision @export.Revision@(export.Range is { } part ? ", " + part.Label : "") again</MudButton>
+        <div class="cut-export-notice @(_exporting ? "working" : null)">
+            @if (_exporting) { <span class="request-spinner" aria-hidden="true"></span> }
+            <span class="cut-export-status" role="status">@_exportStatus</span>
+            @if (_exporting) { <button type="button" @onclick="CancelExport">Cancel export</button> }
+            else if (readyExport is not null) { <button type="button" disabled="@_downloadingExport" @onclick="DownloadExport">Download revision @readyExport.Revision@(readyExport.Range is { } part ? ", " + part.Label : "") again</button> }
+        </div>
     }
+    @if (_exportError is not null) { <p class="cut-error" role="alert">@_exportError</p> }
     <div class="cut-workspace">
         <div class="cut-workspace-toolbar">
             <button type="button" class="cut-add" @ref="_addButton" @onclick="OpenChooser">Choose takes</button>
