@@ -197,6 +197,7 @@ public sealed partial class ShotTests
             using var state = JsonDocument.Parse(graph.GetProperty("refmods").GetProperty("inputs").GetProperty("stack_state").GetString()!);
             var pick = Assert.Single(state.RootElement.GetProperty("picks").EnumerateArray());
             Assert.True(pick.GetProperty("on").GetBoolean()); Assert.False(pick.TryGetProperty("audio", out _));
+            Assert.Equal("all", graph.GetProperty("5").GetProperty("inputs").GetProperty("stack_pictures").GetString());
             Assert.Equal(shot.Videos[0].RefMod!.FileName, pick.GetProperty("visual").GetProperty("file").GetString());
             Assert.Equal(1, pick.GetProperty("visual").GetProperty("w").GetDouble());
         }
@@ -245,6 +246,9 @@ public sealed partial class ShotTests
             (ComfyRefModClient.EncodeNode, "references", "H3_REFS"), (ComfyRefModClient.BuildNode, "vae", "VAE") })
             catalog[node]!["input"]!["required"]![field] = new JsonArray(type);
         catalog[ComfyRefModClient.BuildNode]!["input"]!["required"]!["mode"] = new JsonArray(new JsonArray("Full Reference", "Compressed Reference"));
+        // Fantastic before 1.8.0 has no stack_pictures, so its encoder would see only some of a RefMod's keyframes.
+        Assert.NotNull(ComfyRefModClient.Inspect(JsonSerializer.SerializeToElement(catalog)));
+        catalog[ComfyRefModClient.EncodeNode]!["input"]!["required"]!["stack_pictures"] = new JsonArray(new JsonArray("every 4th", "up to N", "all"));
         Assert.Null(ComfyRefModClient.Inspect(JsonSerializer.SerializeToElement(catalog)));
         catalog[ComfyRefModClient.EncodeNode]!["output"] = new JsonArray("CONDITIONING", "LATENT", "STRING");
         Assert.NotNull(ComfyRefModClient.Inspect(JsonSerializer.SerializeToElement(catalog)));

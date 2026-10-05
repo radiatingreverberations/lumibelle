@@ -11,6 +11,8 @@ public sealed class ComfyRefModClient(IHttpClientFactory clients)
     public const string LoadNode = "MiniMaxH3RefModStack";
     public const string MediaNode = "MiniMaxH3MediaLoader";
     public const string EncodeNode = "MiniMaxH3FantasticRefModTextEncode";
+    // How many of a RefMod's pictures the encode node shows H3's text encoder (Fantastic 1.8.0+).
+    public const string EncoderPictures = "all";
     public const string LibraryRoute = "minimax_h3/refmods";
     private const string UploadFolder = "lumibelle/refmod-trials";
     public HttpClient Client(string server)
@@ -157,6 +159,12 @@ public sealed class ComfyRefModClient(IHttpClientFactory clients)
             return port.ValueKind == JsonValueKind.Array && port.GetArrayLength() > 0 &&
                 port[0].ValueKind == JsonValueKind.String && port[0].GetString() == expected;
         }
+        bool Offers(string type, string field, string option)
+        {
+            var port = Port(type, field);
+            return port.ValueKind == JsonValueKind.Array && port.GetArrayLength() > 0 && port[0].ValueKind == JsonValueKind.Array &&
+                port[0].EnumerateArray().Any(v => v.ValueKind == JsonValueKind.String && v.GetString() == option);
+        }
         bool Outputs(string type, params string[] expected) => catalog.TryGetProperty(type, out var n) &&
             n.TryGetProperty("output", out var output) && output.ValueKind == JsonValueKind.Array &&
             output.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String) && output.EnumerateArray().Select(v => v.GetString()).SequenceEqual(expected);
@@ -169,6 +177,7 @@ public sealed class ComfyRefModClient(IHttpClientFactory clients)
             !Typed(BuildNode, "source", "STRING") || !Typed(BuildNode, "vae", "VAE") ||
             !Typed(EncodeNode, "clip", "CLIP") || !Typed(EncodeNode, "vae", "VAE") || !Typed(EncodeNode, "audio_vae", "VAE") ||
             !Typed(EncodeNode, "mods", "H3_REF_MODS") || !Typed(EncodeNode, "references", "H3_REFS")) return issue;
+        if (!Offers(EncodeNode, "stack_pictures", EncoderPictures)) return issue;
         var mode = Port(BuildNode, "mode");
         if (mode.ValueKind != JsonValueKind.Array || mode.GetArrayLength() == 0 || mode[0].ValueKind != JsonValueKind.Array ||
             !mode[0].EnumerateArray().Any(v => v.ValueKind == JsonValueKind.String && v.GetString() == "Full Reference")) return issue;
