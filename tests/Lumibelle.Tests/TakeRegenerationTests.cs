@@ -58,7 +58,7 @@ public sealed partial class ShotTests
         var document = await f.Shots.LoadAsync(f.Project.Id, _ct); var source = Assert.Single(document.Takes);
         var captured = original.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
         var sourceDirectory = await f.Shots.RunDirectoryAsync(f.Project.Id, source.RunId, _ct);
-        var inputBytes = await Task.WhenAll(captured.Inputs.Select(i => File.ReadAllBytesAsync(Path.Combine(sourceDirectory, "inputs", i.FileName), _ct)));
+        var inputBytes = await Task.WhenAll(captured.Inputs.Select(i => File.ReadAllBytesAsync(CapturedInputStore.Resolve(sourceDirectory, i.FileName, i.Sha256), _ct)));
         f.Shot.Description = "New author direction";
         await f.Shots.SaveAsync(f.Project.Id, [f.Shot], document.Revision, ct: _ct);
         // References can disappear after capture; regeneration must not consult them again.
@@ -79,7 +79,7 @@ public sealed partial class ShotTests
         if (seed is { } expected) Assert.Equal(expected, repeat.Batch!.Candidates[0].Seed);
         else Assert.NotEqual(source.Seed, repeat.Batch!.Candidates[0].Seed);
         var directory = await f.Shots.RunDirectoryAsync(f.Project.Id, request.BatchId, _ct);
-        for (var i = 0; i < request.Inputs.Count; i++) Assert.Equal(inputBytes[i], await File.ReadAllBytesAsync(Path.Combine(directory, "inputs", request.Inputs[i].FileName), _ct));
+        for (var i = 0; i < request.Inputs.Count; i++) Assert.Equal(inputBytes[i], await File.ReadAllBytesAsync(CapturedInputStore.Resolve(directory, request.Inputs[i].FileName, request.Inputs[i].Sha256), _ct));
         var second = await f.Claim(repeat);
         await f.Jobs.EnqueueAsync(repeat, _ct);
         f.Adapter.FailTransfer = true;

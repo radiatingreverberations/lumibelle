@@ -349,7 +349,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         List<PreparedVideoInput> uploaded = [];
         foreach (var input in run.Inputs)
         {
-            await using var stream = File.OpenRead(Path.Combine(directory, "inputs", input.FileName));
+            await using var stream = File.OpenRead(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256));
             using var body = new MultipartFormDataContent(); body.Add(new StreamContent(stream), "image", await UploadNameAsync(stream, input.FileName, ct));
             body.Add(new StringContent("input"), "type"); body.Add(new StringContent("lumibelle"), "subfolder"); body.Add(new StringContent("true"), "overwrite");
             using var response = await http.PostAsync("upload/image", body, ct); response.EnsureSuccessStatusCode();

@@ -215,12 +215,14 @@ public sealed partial class ShotTests
         var directory = await f.Shots.RunDirectoryAsync(f.Project.Id, request.BatchId, _ct);
         foreach (var input in request.Inputs)
         {
-            var pixels = ImageInspector.Inspect(await File.ReadAllBytesAsync(Path.Combine(directory, "inputs", input.FileName), _ct));
+            var pixels = ImageInspector.Inspect(await File.ReadAllBytesAsync(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256), _ct));
             Assert.Equal((8, 8), (pixels.Width, pixels.Height));
         }
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, _ct);
         var context = await f.Claim(submission);
-        var path = Path.Combine(directory, "inputs", request.Inputs[0].FileName); var original = await File.ReadAllBytesAsync(path, _ct);
+        // Captured inputs are kept once, in the project's input store.
+        var path = CapturedInputStore.Resolve(directory, request.Inputs[0].FileName, request.Inputs[0].Sha256); var original = await File.ReadAllBytesAsync(path, _ct);
+        Assert.False(File.Exists(Path.Combine(directory, "inputs", request.Inputs[0].FileName)));
         await File.WriteAllBytesAsync(path, original.Select(b => (byte)(b ^ 1)).ToArray(), _ct);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Worker.ValidateExtensionAsync(context.Job, submission.Snapshot, _ct));
         Assert.Empty(f.Graphs);

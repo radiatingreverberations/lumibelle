@@ -154,6 +154,7 @@
         CompactionPart.TakeArchives => $"Lossless take archives ({Items(_plan!.Count(part), "take")})",
         CompactionPart.ReelArchives => $"Lossless reel archives ({Items(_plan!.Count(part), "reel video")})",
         CompactionPart.ReelCandidates => $"Copies left by saved reels ({Items(_plan!.Count(part), "reel")})",
+        CompactionPart.GenerationInputs => $"Repeated generation inputs ({Items(_plan!.Count(part), "generation")})",
         CompactionPart.Backups => $"Migration backups ({Items(_plan!.Count(part), "file")})",
         _ => "Package manifest" };
     private static string Items(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
@@ -162,6 +163,7 @@
         CompactionPart.TakeArchives => "Takes keep their MP4 and play as before. Paused frames and new stills are then decoded from the MP4.",
         CompactionPart.ReelArchives => "Reels keep their MP4 and every keyframe already chosen, saved as a picture. New keyframes are then chosen from frames decoded from the MP4.",
         CompactionPart.ReelCandidates => "Each generated reel's video and lossless frames, left in its generation folder after the reel was saved to Assets. The saved reels keep their own.",
+        CompactionPart.GenerationInputs => "Each generation kept its own copy of the same cropped references and voice excerpts. They move to one shared copy of each; Regenerate, language versions and One more take keep working.",
         CompactionPart.Backups => "Copies of production.json saved before an automatic upgrade. Lumibelle doesn't read them.",
         _ => "The manifest.json beside this folder describes the original project package and no longer matches it. The folder still opens without it." };
 

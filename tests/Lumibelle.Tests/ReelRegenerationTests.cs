@@ -113,11 +113,10 @@ public sealed partial class ShotTests
         var sourceDirectory = await f.Assets.RunDirectoryAsync(f.Project.Id, original.BatchId, _ct);
         var directory = await f.Assets.RunDirectoryAsync(f.Project.Id, request.BatchId, _ct);
         foreach (var input in request.Inputs)
-        {
-            Assert.Equal(await File.ReadAllBytesAsync(Path.Combine(sourceDirectory, "inputs", input.FileName), _ct),
-                await File.ReadAllBytesAsync(Path.Combine(directory, "inputs", input.FileName), _ct));
-            File.Delete(Path.Combine(sourceDirectory, "inputs", input.FileName));
-        }
+            Assert.Equal(await File.ReadAllBytesAsync(CapturedInputStore.Resolve(sourceDirectory, input.FileName, input.Sha256), _ct),
+                await File.ReadAllBytesAsync(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256), _ct));
+        // The regenerated reel does not depend on the source run's folder; both read the project's input store.
+        Directory.Delete(sourceDirectory, true);
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, _ct);
         var second = await f.Claim(repeat);
         await f.Jobs.EnqueueAsync(repeat, _ct); // A lost enqueue acknowledgement must not create another candidate.

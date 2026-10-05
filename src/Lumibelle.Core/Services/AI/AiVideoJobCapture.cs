@@ -116,6 +116,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         if (composed is not null && !composed.Images.Select(i => i.Sha256).SequenceEqual(inputs.Where(i => i.EffectiveKind == VideoInputKind.Image).Select(i => i.Sha256)))
             throw new WorkspaceStoreException("Reference files changed while preparing the video. Review the composition again.");
         var request = new AiVideoJobRequest(shot.Videos.Count > 0 ? 2 : 1, id, snapshot, inputs); AiVideoJobPolicy.Validate(request);
+        CapturedInputStore.Share(directory, inputs);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: shot.Id, CompositionId: composition?.Id),
             project.Name, shot.Title + " · Video takes", tab, request) with { Batch = batch };
     }
@@ -225,7 +226,7 @@ public static class AiVideoJobPolicy
         }
         foreach (var input in request.Inputs)
         {
-            await using var file = File.OpenRead(Path.Combine(directory, "inputs", input.FileName));
+            await using var file = File.OpenRead(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256));
             if (file.Length != input.Bytes || Convert.ToHexString(await SHA256.HashDataAsync(file, ct)) != input.Sha256)
                 throw new WorkspaceStoreException("A captured video reference file changed. This batch cannot silently use different inputs.");
         }
@@ -239,11 +240,15 @@ public static class AiVideoJobPolicy
         var inputs = Path.Combine(directory, "inputs");
         if (Directory.Exists(inputs)) throw new WorkspaceStoreException("This request already has captured inputs. Retry its saved submission.");
         await ValidatePreparedFilesAsync(source, sourceDirectory, ct);
+        // Within a project the same content serves both runs from the input store; the source keeps working,
+        // as its request finds it by hash. Anything that cannot be shared is copied.
+        var shared = CapturedInputStore.SameProject(sourceDirectory, directory);
+        if (shared) CapturedInputStore.Share(sourceDirectory, source.Inputs);
         Directory.CreateDirectory(inputs);
-        foreach (var input in request.Inputs)
+        foreach (var input in request.Inputs.Where(i => !shared || !CapturedInputStore.Shares(i.FileName)))
         {
             var target = Path.Combine(inputs, input.FileName);
-            await using (var from = File.OpenRead(Path.Combine(sourceDirectory, "inputs", input.FileName)))
+            await using (var from = File.OpenRead(CapturedInputStore.Resolve(sourceDirectory, input.FileName, input.Sha256)))
             await using (var to = new FileStream(target + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
                 await from.CopyToAsync(to, ct);
             DurableFile.Flush(target + ".tmp");
@@ -252,5 +257,5 @@ public static class AiVideoJobPolicy
         await ValidatePreparedFilesAsync(request, directory, ct);
     }
     public static VideoRun Run(AiVideoJobRequest request) => new() { Id = request.BatchId, Snapshot = ShotCopy.Of(request.Snapshot), Refinement = ShotCopy.Of(request.Refinement),
-        Inputs = request.Inputs.Select(i => new PreparedVideoInput(i.FileName, i.Audio) { Kind = i.Kind, VideoIndex = i.VideoIndex }).ToList(), InputsPrepared = true };
+        Inputs = request.Inputs.Select(i => new PreparedVideoInput(i.FileName, i.Audio) { Kind = i.Kind, VideoIndex = i.VideoIndex, Sha256 = i.Sha256 }).ToList(), InputsPrepared = true };
 }

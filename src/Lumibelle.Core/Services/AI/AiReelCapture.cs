@@ -53,6 +53,7 @@ public sealed partial class AiReelCapture(IAssetStore assets, IAssetReelStore re
         LookPolicy.ValidateTarget(current, character, requireCurrent: true);
         ReferenceReels.ValidateOwner(draft, current.Assets.Single(a => a.Id == draft.AssetId));
         var request = new AiVideoJobRequest(3, id, snapshot, captured); AiVideoJobPolicy.Validate(request);
+        CapturedInputStore.Share(directory, captured);
         var name = (await projects.GetAsync(project, ct))?.Name ?? throw new WorkspaceStoreException("Project unavailable.");
         return AiJobSubmission.Create(id, AiJobKind.ReelVideo, AiBackend.ComfyUI, new(project, draft.AssetId, ReelId: draft.Id),
             name, draft.Name + " · Reference reel", tab, request) with { Batch = AiBatchDefinition.Create(id, count, draft.GenerationSetup?.Settings.Seed) };

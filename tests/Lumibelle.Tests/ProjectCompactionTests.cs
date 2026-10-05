@@ -101,6 +101,32 @@ public sealed class ProjectCompactionTests : IDisposable
     }
 
     [Fact]
+    public async Task RepeatedGenerationInputsMoveToOneSharedCopy()
+    {
+        var project = await _projects.CreateAsync(new("Inputs"), _ct); var root = await _files.DirectoryAsync(project.Id, _ct);
+        string Input(string kind, string name, byte[] bytes) { var run = Path.Combine(root, kind, Guid.NewGuid().ToString("D")); Directory.CreateDirectory(Path.Combine(run, "inputs"));
+            File.WriteAllBytes(Path.Combine(run, "inputs", name), bytes); return run; }
+        var picture = new byte[400]; picture[0] = 1;
+        var runs = new[] { (Input("shots/runs", "image-00.png", picture), "image-00.png"), (Input("shots/runs", "image-00.png", picture), "image-00.png"), (Input("reel-runs", "image-01.png", picture), "image-01.png") };
+        // A refinement run's own inputs are not shared.
+        var refinement = Input("shots/runs", "source.mp4", new byte[900]);
+
+        var plan = await _compaction.InspectAsync(project.Id, _ct);
+        Assert.Equal(3, plan.Count(CompactionPart.GenerationInputs)); Assert.Equal(800, plan.Bytes(CompactionPart.GenerationInputs));
+        var result = await _compaction.CompactAsync(plan, new HashSet<CompactionPart> { CompactionPart.GenerationInputs }, ct: _ct);
+        Assert.Empty(result.Issues); Assert.Equal(800, result.ReclaimedBytes);
+        var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(picture));
+        Assert.Single(Directory.GetFiles(CapturedInputStore.Root(root)));
+        foreach (var (run, name) in runs)
+        {
+            Assert.Empty(Directory.GetFiles(Path.Combine(run, "inputs")));
+            Assert.Equal(picture, await File.ReadAllBytesAsync(CapturedInputStore.Resolve(run, name, sha), _ct));
+        }
+        Assert.True(File.Exists(Path.Combine(refinement, "inputs", "source.mp4")));
+        Assert.Equal(0, (await _compaction.InspectAsync(project.Id, _ct)).Count(CompactionPart.GenerationInputs));
+    }
+
+    [Fact]
     public async Task PreparingSeveralLosslessFramesDecodesTheSamePicturesAsOneAtATime()
     {
         var project = await _projects.CreateAsync(new("Compact"), _ct); var root = await _files.DirectoryAsync(project.Id, _ct);

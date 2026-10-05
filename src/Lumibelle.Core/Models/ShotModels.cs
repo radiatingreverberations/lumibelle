@@ -282,6 +282,9 @@ public sealed record PreparedVideoInput(string FileName, bool Audio)
     public VideoInputKind? Kind { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? VideoIndex { get; init; }
+    /// <summary>The captured content's hash, which finds the file in the project's input store.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sha256 { get; init; }
     [System.Text.Json.Serialization.JsonIgnore] public VideoInputKind EffectiveKind => Kind ?? (Audio ? VideoInputKind.Audio : VideoInputKind.Image);
 }
 public sealed record VideoRun

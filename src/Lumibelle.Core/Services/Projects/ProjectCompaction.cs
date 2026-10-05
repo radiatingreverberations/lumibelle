@@ -7,24 +7,28 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Projects;
 
-public enum CompactionPart { Trash, TakeArchives, ReelArchives, ReelCandidates, Backups, PackageManifest }
+public enum CompactionPart { Trash, TakeArchives, ReelArchives, ReelCandidates, GenerationInputs, Backups, PackageManifest }
 // What Compact project found. Confirmation acts only on these items; anything added later is left alone.
 public sealed record ProjectCompactionPlan(Guid ProjectId, IReadOnlyList<MediaTrashRow> Trash, IReadOnlyList<Guid> Takes, long TakeBytes,
     IReadOnlyList<Guid> Reels, long ReelBytes, IReadOnlyList<string> Backups, long BackupBytes, string? Manifest, long ManifestBytes)
 {
     public int Count(CompactionPart part) => part switch {
         CompactionPart.Trash => Trash.Count, CompactionPart.TakeArchives => Takes.Count, CompactionPart.ReelArchives => Reels.Count,
-        CompactionPart.ReelCandidates => ReelCandidates.Count,
+        CompactionPart.ReelCandidates => ReelCandidates.Count, CompactionPart.GenerationInputs => InputRuns.Count,
         CompactionPart.Backups => Backups.Count, _ => Manifest is null ? 0 : 1 };
     public long Bytes(CompactionPart part) => part switch {
         CompactionPart.Trash => Trash.Sum(r => r.Bytes), CompactionPart.TakeArchives => TakeBytes, CompactionPart.ReelArchives => ReelBytes,
-        CompactionPart.ReelCandidates => ReelCandidateBytes,
+        CompactionPart.ReelCandidates => ReelCandidateBytes, CompactionPart.GenerationInputs => InputBytes,
         CompactionPart.Backups => BackupBytes, _ => ManifestBytes };
     /// <summary>What the project folder holds, measured with the plan.</summary>
     public ProjectStorageUsage? Usage { get; init; }
     /// <summary>Generation folders, relative to the project, of reels already saved to Assets.</summary>
     public IReadOnlyList<string> ReelCandidates { get; init; } = [];
     public long ReelCandidateBytes { get; init; }
+    /// <summary>Generation folders, relative to the project, that still keep their own copies of their inputs.</summary>
+    public IReadOnlyList<string> InputRuns { get; init; } = [];
+    /// <summary>What moving those copies into the project's input store frees: every copy but one of each content.</summary>
+    public long InputBytes { get; init; }
 }
 public sealed record ProjectCompactionResult(long ReclaimedBytes, IReadOnlyList<string> Issues);
 public interface IProjectCompaction
@@ -67,9 +71,10 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
             ? BackupNames.SelectMany(n => new[] { n, n + ".tmp" }).Where(n => File.Exists(Path.Combine(dir, n))).ToArray() : [];
         var manifest = await ManifestAsync(project, ct);
         var (candidates, candidateBytes) = await SavedReelCandidatesAsync(project, dir, ct);
+        var (inputRuns, inputBytes) = await LocalInputsAsync(dir, ct);
         var usage = await Task.Run(() => ProjectStorageUsage.Measure(dir), ct);
         return new(project, rows, takes, takeBytes, media, reelBytes, backups, backups.Sum(n => new FileInfo(Path.Combine(dir, n)).Length),
-            manifest, manifest is null ? 0 : new FileInfo(manifest).Length) { Usage = usage, ReelCandidates = candidates, ReelCandidateBytes = candidateBytes };
+            manifest, manifest is null ? 0 : new FileInfo(manifest).Length) { Usage = usage, ReelCandidates = candidates, ReelCandidateBytes = candidateBytes, InputRuns = inputRuns, InputBytes = inputBytes };
     }
 
     public async Task<ProjectCompactionResult> CompactAsync(ProjectCompactionPlan plan, IReadOnlySet<CompactionPart> parts,
@@ -123,6 +128,15 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
                     var bytes = file.Length; file.Delete(); reclaimed += bytes;
                 }
         });
+        await Run(CompactionPart.GenerationInputs, "Keeping one copy of each generation input…", async () => {
+            foreach (var (folder, number) in plan.InputRuns.Select((f, i) => (f, i + 1)))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress?.Report(new($"Keeping one copy of each generation input · folder {number} of {plan.InputRuns.Count}…", reclaimed));
+                var run = Path.Combine(dir, folder);
+                if (Directory.Exists(run)) reclaimed += await CapturedInputStore.ShareExistingAsync(run, ct);
+            }
+        });
         await Run(CompactionPart.Backups, "Removing migration backups…", () => {
             foreach (var name in plan.Backups.Where(n => BackupNames.Any(b => n == b || n == b + ".tmp")))
             {
@@ -136,6 +150,29 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         });
         progress?.Report(new("Compaction finished.", reclaimed));
         return new(reclaimed, issues);
+    }
+
+    // Runs captured before the input store keep their own copies of the same prepared references.
+    // Requests find inputs by hash, so moving each content into the store once is invisible to them.
+    private static async Task<(IReadOnlyList<string> Folders, long Bytes)> LocalInputsAsync(string dir, CancellationToken ct)
+    {
+        var store = CapturedInputStore.Root(dir);
+        HashSet<string> known = Directory.Exists(store) ? [.. Directory.EnumerateFiles(store).Select(f => Path.GetFileNameWithoutExtension(f).ToUpperInvariant())] : [];
+        List<string> folders = []; long freed = 0;
+        foreach (var runs in new[] { Path.Combine(dir, "shots", "runs"), Path.Combine(dir, "reel-runs") }.Where(Directory.Exists))
+            foreach (var run in Directory.EnumerateDirectories(runs).Order(StringComparer.Ordinal))
+            {
+                var files = CapturedInputStore.LocalFiles(run).ToArray();
+                if (files.Length == 0) continue;
+                folders.Add(Path.GetRelativePath(dir, run));
+                foreach (var file in files)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    // The first copy of a content moves into the store; every other copy is freed.
+                    if (!known.Add(await CapturedInputStore.HashAsync(file.FullName, ct))) freed += file.Length;
+                }
+            }
+        return (folders, freed);
     }
 
     // Saving a generated reel copies its video and lossless frames into reference-videos and records a

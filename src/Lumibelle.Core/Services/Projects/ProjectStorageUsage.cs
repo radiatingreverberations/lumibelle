@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using lumibelle.Services.Shots;
 
 namespace lumibelle.Services.Projects;
 
@@ -59,7 +60,7 @@ public sealed partial record ProjectStorageUsage(long Total, IReadOnlyList<Stora
             ["shots", "takes", _, "video.mp4"] => StorageKind.TakeVideos,
             ["shots", "takes", ..] when ArchiveFile().IsMatch(name) => StorageKind.TakeArchives,
             ["shots", "takes", ..] => StorageKind.TakeData,
-            ["shots", "runs", ..] or ["reel-runs", ..] => StorageKind.GenerationRuns,
+            ["shots", "runs", ..] or ["reel-runs", ..] or ["shots", CapturedInputStore.Folder, ..] => StorageKind.GenerationRuns,
             ["reference-videos", _, "video.mp4"] => StorageKind.ReelVideos,
             ["reference-videos", _, "lossless", ..] => StorageKind.ReelArchives,
             ["reference-videos", ..] or ["refmod-previews", ..] => StorageKind.ReelFrames,
