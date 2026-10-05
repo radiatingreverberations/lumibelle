@@ -55,6 +55,26 @@ public sealed partial class AssetComponentTests
         await ExtractionClick(page, "Add to library"); Assert.Equal("Named in review", Assert.Single(_assets.Library.Assets).Name);
     }
     [Fact]
+    public async Task ProposalsWaitForSavedDecisionsSoEarlyEditsAreSaved()
+    {
+        var reviews = (TestReviewDraftStore)Services.GetRequiredService<IAiJobReviewStore>();
+        var loading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); reviews.LoadGate = loading.Task;
+        _extractor.Result = new([new() { Name = "Mira", Description = "A quiet traveller.", Category = AssetCategory.Character }], "mock extraction");
+        var page = Page(); await ExtractionClick(page, "Extract from script"); await ExtractionClick(page, "Find assets");
+        page.WaitForAssertion(() => Assert.True(reviews.Loads > 0), BunitDefaults.WaitTimeout(5));
+        // Any render while they load, such as a progress update, must not show proposals yet: an edit made before
+        // the saved decisions arrive would be mistaken for them and never saved.
+        await page.InvokeAsync(() => page.Render());
+        Assert.Empty(page.FindAll(".extraction-proposal"));
+        loading.SetResult();
+        page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
+        await page.InvokeAsync(() => page.Find("input[aria-label='Asset name']").Input("Named early"));
+        await page.InvokeAsync(() => page.Find(".extraction-dialog .preview-close").ClickAsync(new()));
+        await page.Instance.DisposeAsync(); page.Dispose();
+        page = Page(false); await ExtractionClick(page, "Review suggestions");
+        page.WaitForAssertion(() => Assert.Equal("Named early", page.Find("input[aria-label='Asset name']").GetAttribute("value")));
+    }
+    [Fact]
     public async Task SkippingSuggestionsChangesTheApplyActionWithoutCreatingAssets()
     {
         var page = await ReviewableExtraction();
