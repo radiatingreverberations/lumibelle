@@ -584,6 +584,8 @@ test('narrow AI pair survives closing, revisions compare both fields, manual edi
   await closeSetup(page);
   await tools.getByLabel('Requested seconds').fill('6'); await tools.getByLabel('Requested seconds').blur();
   await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toContainText('Review prompt');
+  await expect(tools.getByRole('button', { name: 'Prompt', exact: true })).toHaveClass(/next-step stale/);
+  await expect(tools.locator('.prompt-stale-note')).toContainText('Review it, or revise it with AI, before generating.');
   await openSetup(page);
   await expect(dialog.getByText(/Check prompts/)).toBeVisible();
   expect((await library(request, id)).reelDrafts[0].prompt).toBe(before);

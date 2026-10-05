@@ -1,0 +1,34 @@
+import { composeProduction, closeShotSetup, toolsTab } from './workspace-tools.js';
+import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { test, expect } from './fixtures.js';
+test('changing references after the prompt was reviewed says the prompt needs a review or a rewrite', async ({ page, request }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const project = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${project.id}/images`);
+  await request.post(`/fixtures/${project.id}/approved`);
+  await page.goto(`/projects/${project.id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
+  await submitPlanning(page);
+  await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await expect(page.getByLabel('Action and camera')).toBeVisible();
+  await composeProduction(page);
+  await closeShotSetup(page);
+  const footer = page.locator('.shot-controls > .workspace-pane-footer');
+  const prompt = footer.getByRole('button', { name: 'Prompt', exact: true });
+  await expect(prompt).not.toHaveClass(/stale/);
+  await expect(footer.locator('.prompt-stale-note')).toHaveCount(0);
+  await toolsTab(page, 'References');
+  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.locator('.project-image-picker .picker-grid button').nth(0).click();
+  const manager = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references' }) });
+  await manager.getByRole('button', { name: 'Apply changes', exact: true }).click();
+  await expect(manager).toBeHidden();
+  await expect(prompt).toContainText('References changed');
+  await expect(prompt).toHaveClass(/next-step stale/);
+  await expect(footer.locator('.prompt-stale-note')).toHaveText('References changed since this prompt was written. Review it, or revise it with AI, before generating.');
+  // Generating stays possible; the note only says what the prompt needs.
+  await expect(footer.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
+});

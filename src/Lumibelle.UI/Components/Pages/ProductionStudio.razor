@@ -318,7 +318,8 @@ else
                     </fieldset>
                     @* References come first in this panel, so the prompt, written from them, is the step before generating. *@
                     <div class="shot-setup-actions shot-prompt-step">
-                        <button @ref="_setupPromptButton" class="@(PromptBlocksGeneration ? "next-step" : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                        <button @ref="_setupPromptButton" class="@(PromptStaleNote is not null ? "next-step stale" : PromptIsNextStep ? "next-step" : null)" aria-label="Prompt" aria-describedby="@(PromptStaleNote is null ? null : "shot-prompt-stale")" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                        @if (PromptStaleNote is { } stale) { <p id="shot-prompt-stale" class="prompt-stale-note" role="status">@stale</p> }
                     </div>
                     @* A missing prompt is said by the highlighted Prompt step itself. *@
                     @if (GenerationIssue is { } issue && !(PromptBlocksGeneration && string.IsNullOrWhiteSpace(Current?.Prompt))) { <p role="status">@issue @if (GenerationIssueAction != "Review prompt") { <button @onclick="ReviewGenerationIssue">@GenerationIssueAction</button> }</p> }

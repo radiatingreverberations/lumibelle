@@ -243,6 +243,11 @@
 .workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step { border-color:var(--plum); box-shadow:inset 0 0 0 1px var(--plum); background:rgba(var(--lumi-accent-rgb),.12); color:var(--plum); font-weight:600; }
 .workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step:hover { background:rgba(var(--lumi-accent-rgb),.2); }
 .shot-setup-actions > button.next-step small { color:var(--plum); font-weight:400; }
+/* A prompt written before its references or shot changed needs a review or a rewrite: amber, with a note saying so. */
+.workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step.stale { border-color:var(--lumi-warning-border); box-shadow:inset 0 0 0 1px var(--lumi-warning-border); background:var(--lumi-warning-surface); color:var(--lumi-warning); }
+.workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button.next-step.stale:hover { background:var(--lumi-warning-surface); filter:brightness(.97); }
+.shot-setup-actions > button.next-step.stale small { color:var(--lumi-warning); font-weight:600; }
+.prompt-stale-note { margin:0; color:var(--lumi-warning); font-size:var(--lumi-font-size-small); line-height:1.45; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output { border:0; margin:0; padding:0; min-width:0; display:grid; gap:8px; }
 .generation-output-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .workspace-pane:is(.shot-controls, .reel-tools) .generation-output label { display:block; min-width:0; margin:0; font-size:var(--lumi-font-size-meta); color:var(--muted); }

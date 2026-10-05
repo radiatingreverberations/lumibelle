@@ -50,12 +50,19 @@ for (const narrow of [false, true]) test(`review a prompt before setting duratio
   const footer = page.locator('.shot-controls > .workspace-pane-footer');
   await expect(footer.getByRole('button', { name: 'Generate takes', exact: true })).toBeDisabled();
   await expect(footer.getByRole('button', { name: 'Review prompt', exact: true })).toHaveCount(0);
+  // A reviewed prompt is not the next step; the missing duration is.
+  const prompt = footer.getByRole('button', { name: 'Prompt', exact: true });
+  await expect(prompt).not.toHaveClass(/next-step/);
   await footer.getByRole('button', { name: 'Set duration', exact: true }).click();
   await expect(duration).toBeFocused();
   await duration.fill('1'); await duration.blur();
   await expect.poll(async () => (await shots())[0].duration).toBe(1);
   await toolsTab(page, 'References');
   await expect(footer.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
+  // The new duration changes the shot, so Prompt asks for review again and says why, though Generate stays available.
+  await expect(prompt).toContainText('Review prompt');
+  await expect(prompt).toHaveClass(/next-step stale/);
+  await expect(footer.locator('.prompt-stale-note')).toHaveText('The shot changed since this prompt was reviewed. Review it, or revise it with AI, before generating.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
 });

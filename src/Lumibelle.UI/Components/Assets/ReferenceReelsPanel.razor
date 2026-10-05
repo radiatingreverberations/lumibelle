@@ -148,7 +148,8 @@
             </fieldset>
             @* As in the shot panel: the prompt is written from the references above, so it is the step before generating. *@
             <div class="shot-setup-actions shot-prompt-step">
-                <button @ref="_setupPromptButton" class="@(!HasPromptPair ? "next-step" : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                <button @ref="_setupPromptButton" class="@(SetupPromptStatus == "Review prompt" ? "next-step stale" : SetupPromptStatus == "Missing" ? "next-step" : null)" aria-describedby="@(SetupPromptStatus == "Review prompt" ? "reel-prompt-stale" : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                @if (SetupPromptStatus == "Review prompt") { <p id="reel-prompt-stale" class="prompt-stale-note" role="status">References or instructions changed since this prompt was written. Review it, or revise it with AI, before generating.</p> }
             </div>
             @if (_preparing) { <p role="status">Preparing request…</p><button @onclick="CancelPreparation">Cancel preparation</button> }
             @if (!_loraValid) { <p class="field-error">Enter valid LoRA strengths before generating.</p> }
