@@ -272,6 +272,8 @@
 .shot-setup-dialog :is(.shot-generation, .shot-aspect) { max-width:42rem; margin-inline:auto; }
 .shot-setup-dialog .mud-dialog-actions > [role=status] { margin-right:auto; color:var(--muted); font-size:var(--lumi-font-size-meta); }
 .shot-setup-dialog .prompt-editor-host .tiptap { min-height:22rem; }
+/* A long prompt scrolls inside its box, so the notes above it and the dialog's actions stay in reach. */
+.shot-setup-dialog .prompt-editor-host .tiptap { max-height:min(32rem, 55vh); overflow-y:auto; }
 .prompt-review-guidance { margin-block:16px; }
 .prompt-review-guidance p { margin:4px 0; }
 .prompt-shot-preparation { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-bottom:16px; padding:10px 12px; background:var(--lumi-surface-subtle); border-radius:var(--lumi-radius-control); color:var(--muted); font-size:var(--lumi-font-size-meta); }
@@ -313,6 +315,8 @@
 @media(max-width:649px) { .shot-video-reference-dialog { margin:8px !important; width:calc(100% - 16px) !important; max-height:calc(100dvh - 16px) !important; } .shot-video-reference-dialog .mud-dialog-content { padding:8px 12px; } }
 .exact-text .tiptap { font-family: ui-monospace, Consolas, monospace; font-size: var(--lumi-font-size-compact); }
 .prompt-validation { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); margin-top: .6rem; }
+.prompt-review-note { padding: .7rem; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); color: var(--lumi-warning); margin: .6rem 0; }
+.prompt-review-note span { color: var(--muted); }
 .composition-size { margin: .6rem 0; }
 .composition-size-steps { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .4rem; }
 .composition-size-steps li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; padding: .35rem .6rem; border-left: 3px solid var(--lumi-border); }

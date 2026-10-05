@@ -402,7 +402,8 @@ else
                 <section id="shot-setup-prompt-panel" data-setup-id="@composition.Id" hidden="@(_setupTab != "Prompt")">
                     <div class="prompt-review-guidance" role="status">
                         @if (PromptNeedsReview) {
-                            <p>Check the prompt against your shot and reference labels, then choose <strong>Mark reviewed</strong>.</p>
+                            @if (_compositionResult is not null) { <p>AI changes are ready. Choose <strong>Review changes</strong> to compare them with your text; <strong>Mark reviewed</strong> keeps your text and dismisses them.</p> }
+                            else { <p>Check the prompt against your shot and reference labels, then choose <strong>Mark reviewed</strong>.</p> }
                             @if (CurrentPromptReferenceCheck is { NeedsAttention: true } referenceCheck) { <p class="field-hint">@referenceCheck.Detail</p> }
                             @if (SourceChanged) { <p class="field-hint">The shot direction changed. Check that the text matches the current shot.</p> }
                         }
@@ -432,7 +433,7 @@ else
                     }
                     @if (_compositionError is not null) { <p role="alert">@_compositionError</p> }
                     @* The raw response is under Response details in the request dialog, as for other text requests; shown here it streamed in mid-dialog. *@
-                    @if (CompositionPromptWarning is { } warning) { <p class="field-hint" role="status">Review note: @warning You can keep this text; this does not block saving or generation.</p> }
+                    @if (CompositionPromptWarning is { } warning) { <p class="prompt-review-note" role="status"><strong>Review note:</strong> @warning <span>You can keep this text; this does not block saving or generation.</span></p> }
                     <PromptEditor @ref="_promptEditor" @key="composition.ShotId" HistoryKey="@($"{_promptHistoryScope}:{composition.ShotId}")" Text="@composition.Prompt" TextChanged="text => PromptChanged(composition.ShotId, text)" PictureClicked="PreviewPicture" VideoClicked="PreviewVideo"><ToolbarActions>
                     <div @ref="_compositionReviewOrigin"><TextAssistance Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" Opened="StartContextEstimate" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
                         <ExtraActions><button disabled="@(!CanClearPrompt)" title="Clear the prompt. References, settings, and Direction for AI stay." @onclick="ClearPrompt">Clear prompt</button></ExtraActions>
@@ -550,7 +551,8 @@ else
         <span role="status">@_saveStatus</span>
         <MudButton OnClick="UndoEdit" Disabled="@(_undo.Count == 0 || _setupBusy)">Undo</MudButton>
         <MudButton OnClick="CloseSetupDialog" Disabled="@(_compositionBusy || _closingSetupDialog || _setupBusy)" Variant="Variant.Outlined">Done</MudButton>
-        @if (_setupTab == "Prompt") { <MudButton OnClick="AcceptPrompt" Disabled="@(!CanAcceptPrompt)" Variant="Variant.Filled" Color="Color.Primary" title="Mark the current prompt reviewed as written, including any review notes.">Mark reviewed</MudButton> }
+        @* While AI changes wait, reviewing them is the next step; marking the text reviewed would dismiss them. *@
+        @if (_setupTab == "Prompt") { <MudButton OnClick="AcceptPrompt" Disabled="@(!CanAcceptPrompt)" Variant="@(_compositionResult is null ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" title="@(_compositionResult is null ? "Mark the current prompt reviewed as written, including any review notes." : "Keep the current prompt as written and dismiss the AI changes waiting under Review changes.")">Mark reviewed</MudButton> }
     </DialogActions>
 </InlineDialog>
 

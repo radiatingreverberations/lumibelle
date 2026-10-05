@@ -6,6 +6,9 @@
 .assist-trigger { white-space:nowrap; font-weight:600; }
 .assist-trigger.request-action-button { min-height:38px; padding:6px 10px; background:var(--lumi-surface-selected); border-color:var(--lumi-accent); color:var(--lumi-accent); }
 .assist-trigger.request-action-button:hover:not(:disabled) { background:var(--lumi-surface-subtle); border-color:var(--lumi-accent-hover); color:var(--lumi-accent-hover); }
+.text-request-action.request-ready .assist-trigger.request-action-button { background:var(--lumi-accent); border-color:var(--lumi-accent); color:var(--lumi-on-accent); font-weight:600; }
+.text-request-action.request-ready .assist-trigger.request-action-button:hover:not(:disabled) { background:var(--lumi-accent-hover); border-color:var(--lumi-accent-hover); color:var(--lumi-on-accent); }
+.request-ready .ai-assist-icon { --lumi-ai-gold:currentColor; --lumi-ai-ribbon:currentColor; }
 .ai-assist-icon { display:inline-block; width:24px; height:24px; flex:0 0 24px; vertical-align:middle; overflow:visible; }
 .ai-assist-ribbon, .ai-assist-sparkle { fill:var(--lumi-ai-gold); }
 .ai-assist-ribbon-back { fill:var(--lumi-ai-ribbon); }

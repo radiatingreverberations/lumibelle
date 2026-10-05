@@ -2,7 +2,7 @@
 @inject AiJobCoordinator Jobs
 @implements IAsyncDisposable
 
-<div class="text-request-action @(Primary ? "primary-request-action" : "")">
+<div class="text-request-action @(Primary ? "primary-request-action" : "") @(Ready ? "request-ready" : "")">
     <button type="button" class="assist-trigger request-action-button" @ref="_button" disabled="@ButtonDisabled" @onclick="Activate" @onmousedown:preventDefault="true"
             aria-label="@AccessibleLabel" aria-describedby="@(Notice is null ? null : _noticeId)" aria-haspopup="@(Primary && !Inspecting ? null : "dialog")">
         @if (Spinning) { <span aria-hidden="true" class="request-spinner"></span> }
@@ -43,6 +43,8 @@
     private string? _cancelError;
     private bool Inspecting => !HasError && Request?.Inspectable == true && (!Primary || _freshFor != Request.Job.Id || Request.Active);
     private bool Spinning => Preparing || Inspecting && Request!.Active && Request.Job.State != AiJobState.Waiting;
+    // A finished result waits for the person to look at it, so the button stands out until it is applied or dismissed.
+    private bool Ready => Inspecting && !Request!.Active && Request.Job.State == AiJobState.Completed && Request.Outcome is TextRequestOutcome.Proposal or TextRequestOutcome.Response;
     private bool ButtonDisabled => Preparing || !Inspecting && !HasError && Disabled;
     private string VisibleLabel => Preparing ? "Preparing request…" : Inspecting ? Request!.Label : HasError ? "Needs attention" : Label;
     private string AccessibleLabel => Inspecting ? VisibleLabel + (Request!.Active ? " · View request" : "") : HasError || Preparing ? VisibleLabel : Title ?? Label;

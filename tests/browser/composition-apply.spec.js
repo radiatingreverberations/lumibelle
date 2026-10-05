@@ -12,6 +12,9 @@ async function review(page, request, conflict = false) {
   await page.goto(`/projects/${id}/shots?jobId=${job.id}&view=Prompt`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await openShotSetup(page);
+  // Waiting AI changes are the next step: Review changes stands out, and Mark reviewed (which would dismiss them) steps back.
+  await expect(page.locator('#shot-setup-prompt-panel .text-request-action').first()).toHaveClass(/request-ready/);
+  await expect(page.locator('.shot-setup-dialog').getByRole('button', { name: 'Mark reviewed', exact: true })).toHaveClass(/mud-button-outlined/);
   await page.locator('#shot-setup-prompt-panel').getByRole('button', { name: 'Review changes', exact: true }).click();
   const dialog = page.locator('.prompt-review-dialog:visible');
   await expect(dialog.getByRole('heading', { name: 'Review prompt changes', exact: true })).toBeVisible();
