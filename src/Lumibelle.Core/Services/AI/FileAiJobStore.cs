@@ -66,9 +66,10 @@ public sealed partial class FileAiJobStore : IAiJobStore
     }
     public async Task<AiQueueDocument> ReadAsync(CancellationToken ct = default)
     {
-        if (!Directory.Exists(_root)) return new();
         // Writers publish by renaming over the index, which Windows refuses while it is open. Share their lock: frequent
         // readers must not hold the file through a slow read and make an enqueue or a worker's state change fail to save.
+        // Before the first publication there is nothing to hold open, so an empty queue is read without waiting.
+        if (!File.Exists(Index)) return new();
         using var gate = await ProjectFiles.LockAsync(Index, ct);
         return await ReadIndexAsync(ct);
     }

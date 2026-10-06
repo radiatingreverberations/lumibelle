@@ -196,17 +196,22 @@ public sealed partial class AssetComponentTests
     }
 
     [Fact]
-    public void AssetsCanRetryFailedVisibilityLoadsWithoutRestoringTheSettingsForm()
+    public async Task AssetsCanRetryFailedVisibilityLoadsWithoutRestoringTheSettingsForm()
     {
         var store = (FakeProjectAiPreferencesStore)Services.GetRequiredService<IProjectAiPreferencesStore>();
         store.LoadError = new WorkspaceStoreException("Project preferences unavailable");
         _assets.Library = _assets.Library with { Assets = [Asset("Character")] };
-        var page = Page(); page.Find("#image-prompt").Input("A portrait");
-        Assert.True(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
-        Assert.Contains("Project preferences unavailable", page.Markup);
-        Assert.Empty(page.FindAll(".project-lora-visibility"));
+        // The AI queue re-renders the page from other threads; see BunitClicks.ClickCurrent.
+        var page = Page(); page.WaitForElement("#image-prompt");
+        await page.InvokeAsync(() => page.Find("#image-prompt").Input("A portrait"));
+        page.WaitForAssertion(() => Assert.Contains("Project preferences unavailable", page.Markup));
+        await page.InvokeAsync(() =>
+        {
+            Assert.True(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
+            Assert.Empty(page.FindAll(".project-lora-visibility"));
+        });
         store.LoadError = null;
-        page.FindAll("button").Single(b => b.TextContent == "Retry project visibility").Click();
-        Assert.False(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled"));
+        await page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent == "Retry project visibility"));
+        page.WaitForAssertion(() => Assert.False(page.FindAll("button").Single(b => b.TextContent == "Generate images").HasAttribute("disabled")));
     }
 }

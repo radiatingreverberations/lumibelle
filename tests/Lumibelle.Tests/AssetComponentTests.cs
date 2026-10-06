@@ -257,13 +257,17 @@ public sealed partial class AssetComponentTests : BunitContext
         };
         _assets.Library = _assets.Library with { Assets = [Asset("Mira") with { Images = [source] }] };
         var page = Page(); page.WaitForElement(".reference-card");
-        page.Find(".media-select").Click();
-        Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").HasAttribute("disabled"));
+        // The AI queue re-renders the page from other threads; see BunitClicks.ClickCurrent.
+        await page.ClickCurrent(() => page.Find(".media-select"));
+        page.WaitForAssertion(() => Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").HasAttribute("disabled")));
 
-        page.Find("#image-prompt").Input("Put her in a blue coat");
-        page.Find("#aspect").Change("16:9");
-        page.Find("#reference-boost").Change("5.5");
-        page.Find("#grounding-pixels").Change("896");
+        await page.InvokeAsync(() =>
+        {
+            page.Find("#image-prompt").Input("Put her in a blue coat");
+            page.Find("#aspect").Change("16:9");
+            page.Find("#reference-boost").Change("5.5");
+            page.Find("#grounding-pixels").Change("896");
+        });
         await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images"), awaitHandler: false);
 
         await _assets.Until(() => Assert.Equal(2, _assets.Library.Assets[0].Images.Count));
@@ -326,7 +330,7 @@ public sealed partial class AssetComponentTests : BunitContext
     }
 
     [Fact]
-    public void MissingBaseImageModelAlsoDisablesEditing()
+    public async Task MissingBaseImageModelAlsoDisablesEditing()
     {
         var source = new AssetImage
         {
@@ -337,10 +341,13 @@ public sealed partial class AssetComponentTests : BunitContext
         _assets.Library = _assets.Library with { Assets = [Asset("Mira", "Portrait") with { Images = [source] }] };
         var page = Page(); page.WaitForElement(".reference-card");
 
-        page.Find(".media-select").Click();
+        await page.ClickCurrent(() => page.Find(".media-select"));
 
-        Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").HasAttribute("disabled"));
-        Assert.Contains("base image model is unavailable", page.Markup);
+        page.WaitForAssertion(() =>
+        {
+            Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").HasAttribute("disabled"));
+            Assert.Contains("base image model is unavailable", page.Markup);
+        });
     }
 
     [Fact]
