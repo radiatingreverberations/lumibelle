@@ -546,7 +546,7 @@ else
                         }
                         @if (_configuration is not null) {
                             <p class="field-hint">@(_configuration.Ready(shot) ? H3Policy.QualityLabel(shot) + " · Ready" : "Selected configuration needs attention")</p>
-                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p><p>@(shot.UpscalePreview ? "Upscaled previews save no later-refinement data." : _configuration.PackageCaptureReady ? "Refinement data will be saved with new takes." : "Optional companion nodes add refinement data. Normal generation works without them.")</p></details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
+                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p>@if (_takeRefinement) { <p>@(shot.UpscalePreview ? "Upscaled previews save no later-refinement data." : _configuration.PackageCaptureReady ? "Refinement data will be saved with new takes." : "Optional companion nodes add refinement data. Normal generation works without them.")</p> }</details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
                         }
 
 
@@ -689,11 +689,14 @@ else
                     }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
                     @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
+                    @if (_takeRefinement)
+                    {
                     <details class="take-quality-actions"><summary>Improve quality</summary>
                         <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Improve quality</button>
                         @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
                         @if (take.RefinementPackage is null) { <span class="field-hint">This take has no refinement data. To refine future takes, <a href="@SettingsUrl">install the optional companion</a> before generating them.</span> }
                     </details>
+                    }
 
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }
                     @if (RefinementJob is { } refinementJob)

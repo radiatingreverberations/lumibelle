@@ -3,7 +3,7 @@
 [Upscaled preview](preview-upscaling.md) adds optional preview-size sampling with
 native-size output in one job. It needs a supported learned upscaler and checkpoint.
 
-Take refinement adds a bundled companion and independently retained tensor packages. See [refinement setup and pinned evidence](refinement.md); the original workflows below remain unchanged.
+Take refinement (hidden for now) adds a bundled companion and independently retained tensor packages. See [refinement setup and pinned evidence](refinement.md); the original workflows below remain unchanged.
 
 Workflow and guide snapshots were vendored on 2026-09-05. The node implementation links below are pinned research references; their Python source is not bundled. Runtime uses `ComfyH3Video` and `H3Policy`, never these files or the network documentation. Community workflows are reference material, not executable application configuration.
 

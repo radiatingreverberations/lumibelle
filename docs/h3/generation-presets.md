@@ -60,8 +60,9 @@ Standard sampling. Samplers that need extra packages, such as RES4LYF's
 
 Install the complete package and its dependencies in the running ComfyUI Python
 environment. Docker installations need persistent custom-node and model mounts.
-Restart ComfyUI, refresh Video models, choose the exact installed checkpoint
-(including subfolders), then Save. Lumibelle neither installs nor downloads files.
+Restart ComfyUI and choose **Check again** in Video models. Each preset row lists
+its node pack and files with download links, as defined in `H3Requirements`; use
+**Change** to pick the exact installed checkpoint (including subfolders), then Save. Lumibelle neither installs nor downloads files.
 Unavailable selections remain visible and block generation rather than falling
 back. Readiness validates advertised contracts and file catalogs, not weight
 contents, real accelerator execution, or available GPU capacity.

@@ -11,8 +11,9 @@ No speed, memory, voice-similarity or visual-quality improvement is asserted.
    [drbaph/MiniMax-H3-Turbo-Lora-ComfyUI](https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI)
    and put it in the running ComfyUI server's `models/loras` directory. Subfolders
    are supported. Keep the published basename.
-2. In Lumibelle's **Video models**, choose **Refresh video models**, expand
-   **HyperFlow · 8 steps**, select the exact installed checkpoint and save.
+2. In Lumibelle's **Video models**, choose **Check again**, expand
+   **HyperFlow · 8 steps**, choose **Change** on its file row, select the exact
+   installed checkpoint and save.
 3. Choose **HyperFlow · 8 steps** in the shot's generation settings or the reference
    reel's generation settings. This is separate from the existing Turbo 8-step
    preset. Do not also add HyperFlow to the optional character/style LoRA list.

@@ -10,6 +10,15 @@ namespace Lumibelle.Tests;
 
 public sealed partial class ShotTests
 {
+    [Fact]
+    public async Task HiddenTakeRefinementCapturesNothingEvenWithTheCompanionInstalled()
+    {
+        using var f = await QueuedVideoFixture.Create(this, 20);
+        f.Settings.Value = f.Settings.Value with { H3 = f.Settings.Value.H3 with { TakeRefinement = false } };
+        f.Generator.Catalog = await f.Generator.CheckAsync(f.Settings.Value, _ct) with { PackageCaptureReady = true };
+        var request = await f.Capture(1);
+        Assert.False(request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
+    }
     [Theory]
     [InlineData(false, 20)] [InlineData(false, 4)] [InlineData(false, 8)]
     [InlineData(true, 20)] [InlineData(true, 4)] [InlineData(true, 8)]

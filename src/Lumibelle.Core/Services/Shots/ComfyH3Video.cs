@@ -188,7 +188,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             Turbo8StepReady = turbo8Issue is null, TurboIssue = turboIssue, Turbo8StepIssue = turbo8Issue,
             PackageCaptureReady = refinement.Capture, RefinementIssue = refinement.Issue, LatentUpscalers = refinement.Models,
             PreviewUpscaling = H3PreviewUpscaling.Inspect(root, s),
-            InstalledModels = installedModels, InstalledEncoders = installedEncoders, InstalledVaes = installedVaes, InstalledLoras = installedLoras };
+            InstalledModels = installedModels, InstalledEncoders = installedEncoders, InstalledVaes = installedVaes, InstalledLoras = installedLoras,
+            Nodes = root.ValueKind == JsonValueKind.Object ? root.EnumerateObject().Select(p => p.Name).ToHashSet(StringComparer.Ordinal) : [] };
     }
     // Official Ref2VA files, finetunes such as Singularity and FL2VA/Ref2VA merges all name ref2va after a minimax_h3 prefix.
     internal static bool IsRef2VaModel(string file) => ModelStem(file) is var stem && stem.StartsWith("minimax_h3_", StringComparison.Ordinal) && stem.Contains("ref2va", StringComparison.Ordinal);

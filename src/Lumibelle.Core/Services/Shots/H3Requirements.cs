@@ -1,0 +1,114 @@
+using lumibelle.Models;
+
+namespace lumibelle.Services.Shots;
+
+public enum H3RequirementKind { File, NodePack }
+public enum H3RequirementState { NotChecked, Installed, OtherFile, Missing }
+public sealed record H3Download(string Name, string Url, string Source, string? Note = null);
+// One supported file or node pack. The first download is the suggested one.
+public sealed record H3Requirement(string Id, H3RequirementKind Kind, string Label, string Folder, IReadOnlyList<H3Download> Downloads)
+{
+    // A node class the pack registers, so discovery can tell whether it is installed.
+    public string? Node { get; init; }
+}
+public sealed record H3RequirementStatus(H3Requirement Requirement, H3RequirementState State, string? Selected);
+
+// The video files and node packs Lumibelle supports. The settings page and the manual both list these,
+// so this is the one place that says what to download and where it goes.
+public static class H3Requirements
+{
+    private const string ComfyOrg = "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/";
+    public static readonly H3Requirement Model = new("model", H3RequirementKind.File, "Model", "models/diffusion_models", [
+        new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "Singularity", "Singularity v1.3, about 21 GB. A community finetune of an FL2VA/Ref2VA merge, with better picture and sound than the official Ref2VA weights."),
+        new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "Singularity", "Singularity at about 12 GB, for cards with less memory."),
+        new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "smhfacct", "A plain FL2VA/Ref2VA merge without further training, about 21 GB."),
+        new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors", "Comfy-Org", "The official Ref2VA weights. They work, at lower quality.")]);
+    public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [
+        new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "koongrizzly"),
+        new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "Comfy-Org", "For NVIDIA RTX 50 series cards.")]);
+    public static readonly H3Requirement VideoVae = new("video-vae", H3RequirementKind.File, "Video VAE", "models/vae", [
+        new("minimax_h3_video_vae_fp16.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_fp16.safetensors", "Comfy-Org")]);
+    public static readonly H3Requirement AudioVae = new("audio-vae", H3RequirementKind.File, "Audio VAE", "models/vae", [
+        new("minimax_h3_audio_vae_fp32.safetensors", ComfyOrg + "vae/minimax_h3_audio_vae_fp32.safetensors", "Comfy-Org")]);
+    public static IReadOnlyList<H3Requirement> Required { get; } = [Model, Encoder, VideoVae, AudioVae];
+
+    public static readonly H3Requirement TurboLora = new("turbo4-lora", H3RequirementKind.File, "Turbo 4-step LoRA", "models/loras", [
+        new("minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", ComfyOrg + "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", "Comfy-Org", "Use the ref2v file; the fl2v LoRAs beside it belong to a different workflow.")]);
+    public static readonly H3Requirement Turbo8Lora = new("turbo8-lora", H3RequirementKind.File, "Turbo 8-step LoRA", "models/loras", [
+        new("minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "LightX2V")]);
+    public static readonly H3Requirement LarryNodes = new("larry-nodes", H3RequirementKind.NodePack, "Larry Turbo nodes", "custom_nodes", [
+        new("ComfyUI-MiniMax-H3-Turbo", "https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785", "Larryvrh", "Tested at 4274783. Install it with its bundled support files.")]) { Node = "MiniMaxH3TurboLoRA" };
+    public static readonly H3Requirement LarryLora = new("larry-lora", H3RequirementKind.File, "Larry LoRA", "models/loras", [
+        new(H3Presets.LarryCheckpoint, "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors", "larryvrh", "v4 step600 EMA.")]);
+    public static readonly H3Requirement PddNodes = new("pdd-nodes", H3RequirementKind.NodePack, "PDD Acc nodes", "custom_nodes", [
+        new("ComfyUI-MiniMax-H3-PDD-Acc", "https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90", "Jalen-Brunson", "Tested at 311a65d.")]) { Node = "MiniMaxH3PDDAccApply" };
+    public static readonly H3Requirement PddFile = new("pdd-file", H3RequirementKind.File, "PDD Ref2VA weights", "models/pdd_acc", [
+        new(H3Presets.PddCheckpoint, "https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors", "Alibaba PAI", "Needs the PDD loader. Don't add it as a character or style LoRA.")]);
+    public static readonly H3Requirement HyperFlowLora = new("hyperflow-lora", H3RequirementKind.File, "HyperFlow ComfyUI conversion", "models/loras", [
+        new(H3HyperFlow.DefaultCheckpoint, "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI", "drbaph", "Use a pruned file with a pruned model such as Singularity, and a full file with a full model. Keep the published name."),
+        .. H3HyperFlow.Checkpoints.Skip(1).Select(name => new H3Download(name, "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI", "drbaph"))]);
+    public static readonly H3Requirement SpectrumNodes = new("spectrum-nodes", H3RequirementKind.NodePack, "Spectrum nodes", "custom_nodes", [
+        new("ComfyUI-Spectrum-MiniMax-H3", "https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8", "xmarre", "Tested at 455bd35.")]) { Node = "SpectrumApplyMiniMaxH3" };
+
+    public static readonly H3Requirement UpscalerNodes = new("upscaler-nodes", H3RequirementKind.NodePack, "Latent upscaler nodes", "custom_nodes", [
+        new("Comfyui_Minimax_h3_latent_Upscaler-Plus", "https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87", "xmarre", "Upscaler-Plus, tested at db76324. Install only one of the two packs: they register the same node."),
+        new("Comfyui_Minimax_h3_latent_Upscaler", "https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f", "LBH-123-AI", "The original, tested at d7c01b9.")]) { Node = H3PreviewUpscaling.Node };
+    public static readonly H3Requirement UpscalerFile = new("upscaler-file", H3RequirementKind.File, "Latent upscaler checkpoint", "models/latent_upscale_models", [
+        new("minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors", "https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors", "LBH-123-AI")]);
+    public static readonly H3Requirement SageNodes = new("sage-nodes", H3RequirementKind.NodePack, "KJNodes", "custom_nodes", [
+        new("ComfyUI-KJNodes", "https://github.com/kijai/ComfyUI-KJNodes", "kijai", "Also needs the sageattention package in ComfyUI's Python environment.")]) { Node = H3Performance.SageNode };
+
+    // What each preset needs beyond the required files.
+    public static IReadOnlyList<H3Requirement> ForPreset(string key) => key switch
+    {
+        "turbo4" or H3Presets.TurboLight => [TurboLora], "turbo8" => [Turbo8Lora], "larry" => [LarryNodes, LarryLora],
+        "pdd" => [PddNodes, PddFile], H3HyperFlow.Key => [HyperFlowLora], "spectrum" => [SpectrumNodes], _ => []
+    };
+    public static IReadOnlyList<H3Requirement> UpscaledPreview { get; } = [UpscalerNodes, UpscalerFile];
+    public static IReadOnlyList<H3Requirement> All { get; } =
+        [.. Required, TurboLora, LarryNodes, LarryLora, PddNodes, PddFile, HyperFlowLora, Turbo8Lora, SpectrumNodes, UpscalerNodes, UpscalerFile, SageNodes];
+
+    public static string? Selected(H3Requirement r, H3Settings s) => r.Id switch
+    {
+        "model" => s.Model, "encoder" => s.Encoder, "video-vae" => s.VideoVae, "audio-vae" => s.AudioVae,
+        "turbo4-lora" => s.TurboLora, "turbo8-lora" => s.Turbo8StepLora, "larry-lora" => H3Presets.Checkpoint("larry", s),
+        "pdd-file" => H3Presets.Checkpoint("pdd", s), "hyperflow-lora" => H3HyperFlow.Checkpoint(s), "upscaler-file" => s.LatentUpscaler, _ => null
+    };
+    public static void Select(H3Requirement r, H3Settings s, string value)
+    {
+        switch (r.Id)
+        {
+            case "model": s.Model = value; break; case "encoder": s.Encoder = value; break;
+            case "video-vae": s.VideoVae = value; break; case "audio-vae": s.AudioVae = value; break;
+            case "turbo4-lora": s.TurboLora = value; break; case "turbo8-lora": s.Turbo8StepLora = value; break;
+            case "larry-lora": s.LarryLora = value; break; case "pdd-file": s.PddCheckpoint = value; break;
+            case "hyperflow-lora": s.HyperFlowLora = value; break; case "upscaler-file": s.LatentUpscaler = value; break;
+        }
+    }
+    // Files installed in the requirement's folder, as the ComfyUI loader lists them.
+    public static IReadOnlyList<string> Installed(H3Requirement r, H3Configuration c) => r.Folder switch
+    {
+        "models/diffusion_models" => c.InstalledModels, "models/text_encoders" => c.InstalledEncoders, "models/vae" => c.InstalledVaes,
+        "models/loras" => c.InstalledLoras, "models/latent_upscale_models" => c.LatentUpscalers,
+        "models/pdd_acc" => c.Presets.FirstOrDefault(p => p.Key == "pdd")?.Files ?? [], _ => []
+    };
+    // Installed files whose names discovery recognizes as H3 files for this role, such as renamed Singularity builds.
+    public static IReadOnlyList<string> Recognized(H3Requirement r, H3Configuration c) => r.Id switch
+    {
+        "model" => c.Models, "encoder" => c.Encoders,
+        "video-vae" => c.Vaes.Where(v => v.Contains("video_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),
+        "audio-vae" => c.Vaes.Where(v => v.Contains("audio_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),
+        "turbo4-lora" or "turbo8-lora" => c.Loras, "hyperflow-lora" => c.Presets.FirstOrDefault(p => p.Key == H3HyperFlow.Key)?.Files ?? [], _ => []
+    };
+    public static bool Suggested(H3Requirement r, string file) =>
+        r.Downloads.Any(d => string.Equals(d.Name, Path.GetFileName(file.Replace('\\', '/')), StringComparison.OrdinalIgnoreCase));
+    public static H3RequirementStatus Status(H3Requirement r, H3Settings s, H3Configuration? c)
+    {
+        var selected = Selected(r, s);
+        if (c is not { DiscoverySucceeded: true }) return new(r, H3RequirementState.NotChecked, selected);
+        if (r.Kind == H3RequirementKind.NodePack)
+            return new(r, r.Node is { } node && c.Nodes.Contains(node) ? H3RequirementState.Installed : H3RequirementState.Missing, null);
+        if (string.IsNullOrEmpty(selected) || !Installed(r, c).Contains(selected)) return new(r, H3RequirementState.Missing, selected);
+        return new(r, Suggested(r, selected) ? H3RequirementState.Installed : H3RequirementState.OtherFile, selected);
+    }
+}

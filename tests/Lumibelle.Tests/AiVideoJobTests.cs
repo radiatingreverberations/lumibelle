@@ -416,7 +416,8 @@ public sealed partial class ShotTests
         public FileAssetStore Assets = null!;
         public AiVideoJobCapture CaptureService = null!; public string ProjectDirectory = null!;
         public FakeProjectAiPreferencesStore Preferences { get; } = new();
-        public FakeAiSettingsStore Settings { get; } = new() { Value = new() { ComfyUrl = "http://video.test:8188", H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors" } } };
+        // Take refinement is hidden in the app; these fixtures turn it on to keep covering it.
+        public FakeAiSettingsStore Settings { get; } = new() { Value = new() { ComfyUrl = "http://video.test:8188", H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors", TakeRefinement = true } } };
         public FileAiJobStore Jobs { get; }
         public AiVideoJobHandler Worker { get; private set; } = null!;
         public MockVideoGenerator Generator { get; private set; } = null!;

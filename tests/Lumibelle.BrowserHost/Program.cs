@@ -248,7 +248,8 @@ app.MapPost("/fixtures/video-preset", async (string key, bool available, IVideoG
     else
     {
         var catalog = await mock.CheckAsync(await settings.LoadAsync());
-        mock.Catalog = catalog with { Presets = catalog.Presets.Select(p => p.Key == key ? p with { Issue = "The selected preset node is unavailable. Install its package and refresh." } : p).ToArray() };
+        mock.Catalog = catalog with { Presets = catalog.Presets.Select(p => p.Key == key ? p with { Issue = "The selected preset node is unavailable. Install its package and refresh." } : p).ToArray(),
+            Nodes = catalog.Nodes.Except(H3Requirements.ForPreset(key).Select(r => r.Node).OfType<string>()).ToHashSet() };
     }
     return Results.Ok();
 });
@@ -333,7 +334,8 @@ app.Run();
 
 sealed class MockSettings : IAiSettingsStore
 {
-    private AiSettings _value = new() { H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors" }, DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "mock/script", HasOpenRouterKey = true,
+    // Take refinement is hidden in the app; the browser tests turn it on to keep covering it.
+    private AiSettings _value = new() { H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors", TakeRefinement = true }, DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "mock/script", HasOpenRouterKey = true,
         StarredTextModels = [new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model")] };
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>("mock-only");

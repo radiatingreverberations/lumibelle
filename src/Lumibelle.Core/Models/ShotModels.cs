@@ -30,6 +30,10 @@ public sealed record H3Settings
     public string Ffmpeg { get; set; } = "ffmpeg";
     public string Ffprobe { get; set; } = "ffprobe";
     public string LatentUpscaler { get; set; } = "";
+    // Take refinement stays hidden until its companion nodes are tested: nothing in the app turns this on,
+    // so new takes capture no refinement data and Shots offers no Improve quality.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool TakeRefinement { get; set; }
 }
 // Retain the old value solely so saved bindings are shown as unavailable rather than dropped.
 public enum ShotImageKind { AssetImage, ContinuityFrame }
@@ -355,4 +359,6 @@ public sealed record H3Configuration(bool StandardReady, bool TurboReady, string
     public IReadOnlyList<string> InstalledEncoders { get; init; } = Encoders;
     public IReadOnlyList<string> InstalledVaes { get; init; } = Vaes;
     public IReadOnlyList<string> InstalledLoras { get; init; } = Loras;
+    // Every node class ComfyUI reported, so the settings page can tell which node packs are installed.
+    public IReadOnlyCollection<string> Nodes { get; init; } = [];
 }
