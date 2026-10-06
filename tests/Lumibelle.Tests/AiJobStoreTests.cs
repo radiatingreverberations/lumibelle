@@ -192,6 +192,23 @@ public sealed partial class AiJobStoreTests : IDisposable
         Assert.Contains("Partial", (await read).ToString());
     }
     [Fact]
+    public async Task QueueReadsWaitForPublicationSoTheyNeverBlockItsRename()
+    {
+        var store = Store; var queued = await store.EnqueueAsync(Request(), _ct);
+        // Pages and the worker poll the queue constantly. An open read during a rename would make an enqueue fail to save.
+        Task<AiQueueDocument> read; Task<JsonElement> snapshot;
+        using (await ProjectFiles.LockAsync(Index, _ct))
+        {
+            read = store.ReadAsync(_ct); snapshot = store.ReadSnapshotAsync(queued.Id, _ct);
+            await Task.WhenAny(read, snapshot, Task.Delay(500, _ct)); Assert.False(read.IsCompleted); Assert.False(snapshot.IsCompleted);
+        }
+        Assert.Equal(queued.Id, (await read).Jobs.Single().Id); Assert.Equal(JsonValueKind.Object, (await snapshot).ValueKind);
+        // Writers read the index inside their own lock, so they never wait for themselves.
+        var job = (await store.ClaimNextAsync(AiBackend.ComfyUI, 1, _ct))!;
+        await store.WriteArtifactAsync(job.Id, AiJobArtifact.Result, new { raw = "Saved" }, _ct);
+        Assert.Equal(AiJobState.Running, (await store.UpdateAsync(job.Id, j => j with { Unread = true }, _ct)).State);
+    }
+    [Fact]
     public async Task LeasesRejectSupersededWritesWhileAllowingLateAcceptanceOfCancelledRemoteJob()
     {
         var job = await Store.EnqueueAsync(Request(), _ct); job = (await Store.ClaimNextAsync(AiBackend.ComfyUI, 1, _ct))!;

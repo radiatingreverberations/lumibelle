@@ -12,7 +12,7 @@ public sealed partial class FileAiJobStore
             throw new WorkspaceStoreException("Invalid activity selection.");
         var versions = observed.ToDictionary(o => o.Id, o => o.Version);
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         var changed = new List<AiJobHeader>();
         var now = clock.GetUtcNow();
         var jobs = document.Jobs.Select(job =>

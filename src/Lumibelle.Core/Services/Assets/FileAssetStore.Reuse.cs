@@ -148,7 +148,9 @@ public sealed partial class FileAssetStore : IAssetReuseStore
         var sourceDirectory = await files.DirectoryAsync(source.ProjectId, ct);
         var destination = await files.DirectoryAsync(command.Destination.ProjectId, ct);
         var queuePath = Path.Combine(files.AiJobsDirectory, "queue.json");
-        using var gates = await LockReusePathsAsync(new[] { sourceDirectory, destination, queuePath }, ct);
+        using var gates = await LockReusePathsAsync(new[] { sourceDirectory, destination }, ct);
+        // Project stores read the AI queue while holding their project lock, so the queue lock always comes after.
+        using var queueGate = await ProjectFiles.LockAsync(queuePath, ct);
         var current = await ReadAsync(sourceDirectory, source.ProjectId, ct);
         var target = await ReadAsync(destination, command.Destination.ProjectId, ct);
         var result = ReuseResult(target, receipt);

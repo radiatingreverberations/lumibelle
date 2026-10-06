@@ -8,7 +8,7 @@ public sealed partial class FileAiJobStore
     public async Task WriteObservedUsageAsync(Guid id, Guid lease, OpenRouterRequestUsage usage, CancellationToken ct = default)
     {
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var job = (await ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id);
+        var job = (await ReadIndexAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id);
         // Accept an already observed billing receipt during cancellation, only from the current worker.
         if (lease == Guid.Empty || job is not { Backend: AiBackend.OpenRouter, State: AiJobState.Running } || job.LeaseId != lease)
             throw new AiJobLeaseException();

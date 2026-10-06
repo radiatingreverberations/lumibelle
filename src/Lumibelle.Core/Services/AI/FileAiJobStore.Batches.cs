@@ -32,7 +32,7 @@ public sealed partial class FileAiJobStore
     {
         if (rootId == Guid.Empty || commandId == Guid.Empty || originTabId == Guid.Empty) throw new WorkspaceStoreException("A batch extension needs exact request identities.");
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         var root = document.Jobs.SingleOrDefault(j => j.Id == rootId && j.Batch?.RootId == rootId)
             ?? throw new WorkspaceStoreException("The original batch is unavailable.");
         foreach (var job in document.Jobs)
@@ -60,7 +60,7 @@ public sealed partial class FileAiJobStore
             throw new WorkspaceStoreException(AiJobLocks.ImageLimitMessage);
         // A completed batch's continuation goes to the end of this provider's queue.
         // Only scheduling metadata changes; its original semantic input remains exact.
-        var payload = await ReadSnapshotAsync(rootId, ct);
+        var payload = await ReadSnapshotAsync(root, ct);
         var request = new AiJobSubmission(Guid.NewGuid(), root.Kind, root.Backend, root.Target, root.ProjectName, root.TargetName,
             originTabId, payload, new(rootId, [candidate]));
         var fingerprint = Fingerprint(request);

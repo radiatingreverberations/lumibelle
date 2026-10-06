@@ -59,12 +59,21 @@ public sealed partial class FileAiJobStore : IAiJobStore
     public async Task ResetProductionAsync(Guid project, CancellationToken ct = default)
     {
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var d = await ReadAsync(ct);
+        var d = await ReadIndexAsync(ct);
         var removed = d.Jobs.Where(j => j.Target.ProjectId == project && j.Kind is AiJobKind.Video or AiJobKind.PromptComposition).ToArray();
         if (removed.Any(j => j.LocksTarget || j.RemoteUnconfirmed)) throw new WorkspaceStoreException("Wait for active production requests before resetting.");
         if (removed.Length > 0) await PublishAsync(d with { Jobs = d.Jobs.Except(removed).ToArray() }, ct);
     }
     public async Task<AiQueueDocument> ReadAsync(CancellationToken ct = default)
+    {
+        if (!Directory.Exists(_root)) return new();
+        // Writers publish by renaming over the index, which Windows refuses while it is open. Share their lock: frequent
+        // readers must not hold the file through a slow read and make an enqueue or a worker's state change fail to save.
+        using var gate = await ProjectFiles.LockAsync(Index, ct);
+        return await ReadIndexAsync(ct);
+    }
+    // Only for callers already holding the index lock, which is not reentrant.
+    private async Task<AiQueueDocument> ReadIndexAsync(CancellationToken ct)
     {
         if (!Directory.Exists(_root)) return new();
         var document = await AtomicJsonFile.ReadAsync<AiQueueDocument>(Index, ct) ?? new();
@@ -106,7 +115,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
             throw new WorkspaceStoreException("A new batch needs its own identity and one to four ordered candidates.");
         var fingerprint = Fingerprint(captured);
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         if (document.Jobs.FirstOrDefault(j => j.Id == request.Id) is { } existing)
         {
             if (existing.RequestFingerprint != fingerprint) throw new WorkspaceStoreException("This enqueue identity was already used for a different request.");
@@ -139,7 +148,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     {
         if (!Enum.IsDefined(provider) || concurrency is < 1 or > 8 || provider == AiBackend.ComfyUI && concurrency != 1) throw new WorkspaceStoreException("Invalid provider concurrency.");
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         if (document.Paused.Contains(provider) || document.Jobs.Any(j => j.Backend == provider && j.RemoteUnconfirmed) ||
             document.Jobs.Count(j => j.Backend == provider && j.HoldsProvider) >= concurrency) return null;
         // Priority changes the next selection only; pause, capacity and uncertain
@@ -155,7 +164,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     public async Task<AiJobHeader> UpdateAsync(Guid id, Func<AiJobHeader, AiJobHeader> update, CancellationToken ct = default)
     {
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         var current = document.Jobs.FirstOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         var next = update(current);
         if (next.Id != current.Id || next.Target != current.Target || next.Kind != current.Kind || next.Backend != current.Backend ||
@@ -171,7 +180,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     public async Task SetPausedAsync(AiBackend provider, bool paused, CancellationToken ct = default)
     {
         if (!Enum.IsDefined(provider)) throw new WorkspaceStoreException("Unknown AI provider.");
-        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadAsync(ct);
+        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadIndexAsync(ct);
         var next = paused ? document.Paused.Append(provider).Distinct().ToArray() : document.Paused.Where(p => p != provider).ToArray();
         // Pause and stop-intent share the scheduling lock, so a newly claimed job
         // cannot escape the pause. Waiting jobs keep their position and identity.
@@ -184,7 +193,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     }
     public async Task MoveAsync(Guid id, int offset, bool first = false, CancellationToken ct = default)
     {
-        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadAsync(ct);
+        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadIndexAsync(ct);
         var job = document.Jobs.FirstOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         if (!AiQueueOrder.IsWaiting(job)) throw new WorkspaceStoreException("Only waiting jobs can be reordered.");
         // Arrows stay within the current priority band. Run next explicitly promotes
@@ -203,17 +212,20 @@ public sealed partial class FileAiJobStore : IAiJobStore
     {
         var captured = JsonSerializer.SerializeToElement(value, AtomicJsonFile.Options);
         // Artifacts are separate from scheduling metadata and large immutable inputs.
-        var path = ArtifactPath(id, artifact); using var gate = await ProjectFiles.LockAsync(path, ct);
+        // Check the index before taking the artifact lock: the index lock always comes first.
+        var path = ArtifactPath(id, artifact);
         if (!(await ReadAsync(ct)).Jobs.Any(j => j.Id == id)) throw new WorkspaceStoreException("AI request not found.");
-        await AtomicJsonFile.WriteAsync(path, captured, ct);
+        await WriteArtifactFileAsync(path, captured, ct);
     }
+    private static async Task WriteArtifactFileAsync<T>(string path, T value, CancellationToken ct)
+    { using var gate = await ProjectFiles.LockAsync(path, ct); await AtomicJsonFile.WriteAsync(path, value, ct); }
     public async Task WriteOwnedArtifactAsync<T>(Guid id, Guid lease, AiJobArtifact artifact, T value, CancellationToken ct = default, bool recoveringCancelledOutputs = false)
     {
         var captured = JsonSerializer.SerializeToElement(value, AtomicJsonFile.Options);
         // Hold the scheduling lock through publication: checking a lease then writing
         // outside the lock would let a late worker overwrite a resumed job's result.
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var job = (await ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
+        var job = (await ReadIndexAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         var receiptAfterCancellation = artifact == AiJobArtifact.Execution && (job.CancelRequested || job.ComfyControl?.PauseRequested == true) && job.RemoteUnconfirmed;
         var recoveredOutput = recoveringCancelledOutputs && CanWriteCancelledOutput(job) && artifact is AiJobArtifact.Execution or AiJobArtifact.Progress or AiJobArtifact.Result;
         if (lease == Guid.Empty || job.LeaseId != lease ||
@@ -225,7 +237,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     }
     public async Task<AiJobHeader> RequeueAsync(Guid id, CancellationToken ct = default)
     {
-        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadAsync(ct);
+        using var gate = await ProjectFiles.LockAsync(Index, ct); var document = await ReadIndexAsync(ct);
         var job = document.Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         if (!job.CanRetryCaptured)
             throw new WorkspaceStoreException("This job cannot be resumed. Inspect its result and explicitly generate again when needed.");
@@ -237,7 +249,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
     {
         var captured = JsonSerializer.SerializeToElement(value, AtomicJsonFile.Options);
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var job = (await ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
+        var job = (await ReadIndexAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         var recoveredOutput = recoveringCancelledOutputs && CanWriteCancelledOutput(job) && artifact is AiOperationArtifact.Output or AiOperationArtifact.Video or AiOperationArtifact.Timings;
         if (lease == Guid.Empty || job.LeaseId != lease || job.State != AiJobState.Running || job.CancelRequested && !recoveredOutput) throw new AiJobLeaseException();
         var path = OperationPath(id, operation, artifact);

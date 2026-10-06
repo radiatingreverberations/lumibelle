@@ -11,7 +11,7 @@ public sealed partial class FileAiJobStore
     public async Task<AiJobHeader> ReviewShotPlanningAsync(Guid projectId, Guid jobId, CancellationToken ct = default)
     {
         using var gate = await ProjectFiles.LockAsync(Index, ct);
-        var document = await ReadAsync(ct);
+        var document = await ReadIndexAsync(ct);
         var job = document.Jobs.SingleOrDefault(j => j.Id == jobId && j.Kind == AiJobKind.ShotPlanning && j.Target.ProjectId == projectId)
             ?? throw new WorkspaceStoreException("Shot planning request not found in this project.");
         if (job.State != AiJobState.NeedsAttention || job.CancelRequested || job.RemoteUnconfirmed ||
@@ -22,12 +22,12 @@ public sealed partial class FileAiJobStore
         // The artifact is published first. Reopening after an interrupted index save reuses
         // its shot identities instead of parsing again and invalidating a review draft.
         var parsed = saved.Error is null && saved.Read<ShotPlanningResult>() is { Error: null, Shots.Count: > 0 } ? saved
-            : AiTextResults.Parse(AiTextJobHandler.Read(job, await ReadSnapshotAsync(jobId, ct)), saved.Raw, saved.FinishReason)
+            : AiTextResults.Parse(AiTextJobHandler.Read(job, await ReadSnapshotAsync(job, ct)), saved.Raw, saved.FinishReason)
                 with { OpenRouterUsage = saved.OpenRouterUsage };
         // Malformed or incomplete responses still need attention. Repeated review
         // must not rewrite their artifacts or churn the queue revision.
         if (parsed.Error is not null) return job;
-        await WriteArtifactAsync(jobId, AiJobArtifact.Result, parsed, ct);
+        await WriteArtifactFileAsync(ArtifactPath(jobId, AiJobArtifact.Result), parsed, ct);
         var next = job with { State = AiJobState.Completed,
             Error = null, Recovery = AiJobRecovery.None,
             Version = job.Version + 1 };
