@@ -174,7 +174,7 @@
                 @if (r.Downloads.Count > 1 || suggested.Note is not null)
                 {
                     <details class="video-requirement-options"><summary>@(r.Downloads.Count > 1 ? $"Supported files ({r.Downloads.Count})" : "Notes")</summary><ul>
-                        @foreach (var download in r.Downloads) { <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a> · @download.Source @if (download.Note is not null) { <span>· @download.Note</span> }</li> }
+                        @foreach (var download in r.Downloads) { <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a><span class="field-hint">@($" · {download.Source}{(download.Note is null ? "" : " · " + download.Note)}")</span></li> }
                     </ul></details>
                 }
                 @if (_changing == r.Id)

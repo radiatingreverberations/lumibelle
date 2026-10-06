@@ -53,6 +53,8 @@ test('video setup checks on open and keeps chosen community files through save a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'test-results/video-settings-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await panel.locator('[data-requirement=model] .video-requirement-options > summary').click();
+  await expect(panel.locator('[data-requirement=model] .video-requirement-options a')).toHaveCount(4);
   await page.screenshot({ path: 'test-results/video-settings-desktop.png', fullPage: true });
   // Cancel discards a new draft.
   const model = panel.locator('[data-requirement=model]');
