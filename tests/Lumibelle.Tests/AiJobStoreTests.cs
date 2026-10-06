@@ -178,6 +178,20 @@ public sealed partial class AiJobStoreTests : IDisposable
     }
     private sealed class JobClock : TimeProvider { public DateTimeOffset Now = new(2026, 9, 6, 12, 0, 0, TimeSpan.Zero); public override DateTimeOffset GetUtcNow() => Now; }
     [Fact]
+    public async Task ArtifactReadsWaitForTheirWriterSoTheyNeverBlockItsRename()
+    {
+        var job = await Store.EnqueueAsync(Request(), _ct); job = (await Store.ClaimNextAsync(AiBackend.ComfyUI, 1, _ct))!;
+        await Store.WriteOwnedArtifactAsync(job.Id, job.LeaseId!.Value, AiJobArtifact.Result, new { raw = "Partial" }, _ct);
+        // Windows refuses a rename over a file that is open, so a slow read during publication would fail the job's result.
+        Task<JsonElement> read;
+        using (await ProjectFiles.LockAsync(Path.Combine(Store.DirectoryFor(job.Id), "result.json"), _ct))
+        {
+            read = Store.ReadArtifactAsync<JsonElement>(job.Id, AiJobArtifact.Result, _ct);
+            await Task.WhenAny(read, Task.Delay(500, _ct)); Assert.False(read.IsCompleted);
+        }
+        Assert.Contains("Partial", (await read).ToString());
+    }
+    [Fact]
     public async Task LeasesRejectSupersededWritesWhileAllowingLateAcceptanceOfCancelledRemoteJob()
     {
         var job = await Store.EnqueueAsync(Request(), _ct); job = (await Store.ClaimNextAsync(AiBackend.ComfyUI, 1, _ct))!;

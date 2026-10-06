@@ -63,25 +63,32 @@ public sealed partial class AssetComponentTests
         await _queue.SetPausedAsync(AiBackend.ComfyUI, true, ct);
         _assets.Library = _assets.Library with { Assets = [Asset("Juniper", "Character portrait")] };
         var page = Page(); page.WaitForElement("#image-prompt");
+        // The queue keeps rendering the page from other threads. bUnit parses the page's DOM lazily on first read, so a read from the
+        // test thread that overlaps a render can cache the old DOM, whose prompt names an input handler the render already replaced.
+        // Read and type on the renderer's dispatcher instead, where no render can overlap.
         for (var i = 1; i <= lumibelle.Models.AiJobLocks.MaxActiveImageBatchesPerAsset; i++)
         {
-            page.Find("#image-prompt").Input($"Variation {i}");
+            await page.InvokeAsync(() => page.Find("#image-prompt").Input($"Variation {i}"));
             await ClickCurrent(page, () => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
             page.WaitForAssertion(() => Assert.Equal(i, page.FindAll(".asset-image-request").Count));
-            Assert.Equal("", page.Find("#image-prompt").GetAttribute("value"));
+            await page.InvokeAsync(() => Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")));
         }
         var prompts = new List<string>();
         foreach (var job in _queue.View.Jobs.OrderBy(j => j.CreatedUtc))
             prompts.Add((await _jobs.ReadSnapshotAsync(job.Id, ct)).Deserialize<AiImageJobRequest>(AtomicJsonFile.Options)!.Prompt);
         Assert.Equal(["Variation 1", "Variation 2", "Variation 3", "Variation 4"], prompts);
-        // Several queued requests stay one line each, in queue order, under one paused-queue hint.
-        Assert.Empty(page.FindAll(".asset-image-request .ai-queue-wait"));
-        Assert.Equal(Enumerable.Range(1, 4).Select(i => $"Queued · position {i} · “Variation {i}”"),
-            page.FindAll(".asset-image-request.is-compact .asset-image-request-prompt").Select(p => p.GetAttribute("title")));
-        Assert.Equal("4 queued · This provider queue is paused.", page.Find(".asset-image-requests-summary").TextContent);
-        page.Find("#image-prompt").Input("One too many");
-        Assert.True(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled"));
-        Assert.Contains(lumibelle.Models.AiJobLocks.ImageLimitMessage, page.Markup);
+        // Several queued requests stay one line each, in queue order, under one paused-queue hint. A row names its prompt once
+        // the page has read the saved request.
+        page.WaitForAssertion(() => Assert.Equal(Enumerable.Range(1, 4).Select(i => $"Queued · position {i} · “Variation {i}”"),
+            page.FindAll(".asset-image-request.is-compact .asset-image-request-prompt").Select(p => p.GetAttribute("title"))));
+        await page.InvokeAsync(() =>
+        {
+            Assert.Empty(page.FindAll(".asset-image-request .ai-queue-wait"));
+            Assert.Equal("4 queued · This provider queue is paused.", page.Find(".asset-image-requests-summary").TextContent);
+            page.Find("#image-prompt").Input("One too many");
+            Assert.True(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled"));
+            Assert.Contains(lumibelle.Models.AiJobLocks.ImageLimitMessage, page.Markup);
+        });
         await page.InvokeAsync(() => page.FindAll(".asset-image-request")[0].QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Cancel").ClickAsync(new()));
         page.WaitForAssertion(() => Assert.False(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled")));
     }

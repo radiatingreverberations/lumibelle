@@ -257,8 +257,14 @@ public sealed partial class FileAiJobStore : IAiJobStore
         if (saved is not null && saved.Operation != operation) throw new WorkspaceStoreException("The operation artifact has a different identity.");
         return saved is null ? default : saved.Data;
     }
-    public Task<T?> ReadArtifactAsync<T>(Guid id, AiJobArtifact artifact, CancellationToken ct = default) => Directory.Exists(DirectoryFor(id))
-        ? AtomicJsonFile.ReadAsync<T>(ArtifactPath(id, artifact), ct) : Task.FromResult<T?>(default);
+    public async Task<T?> ReadArtifactAsync<T>(Guid id, AiJobArtifact artifact, CancellationToken ct = default)
+    {
+        if (!Directory.Exists(DirectoryFor(id))) return default;
+        // Writers publish by renaming over the artifact, which Windows refuses while it is open. Share their lock: a page
+        // polling a busy request must not hold the file through a slow read and make the job's final result fail to save.
+        var path = ArtifactPath(id, artifact); using var gate = await ProjectFiles.LockAsync(path, ct);
+        return await AtomicJsonFile.ReadAsync<T>(path, ct);
+    }
     private static bool CanWriteCancelledOutput(AiJobHeader job) => job.State == AiJobState.Running && job.CancelRequested &&
         job.Backend == AiBackend.ComfyUI && job.Kind is AiJobKind.Video or AiJobKind.ReelVideo;
 }

@@ -72,10 +72,12 @@ internal sealed class TestReviewDraftStore(IAiJobReviewStore inner) : IAiJobRevi
 {
     public Exception? SaveError { get; set; }
     public Task? LoadGate { get; set; }
-    public int Loads { get; private set; }
+    private readonly TaskCompletionSource _loadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    // Await this rather than a WaitFor: a page waiting on the load does not render, and bUnit checks only after renders.
+    public Task LoadStarted => _loadStarted.Task;
     public async Task<AiJobReviewDraft> LoadAsync(Guid id, CancellationToken ct = default)
     {
-        Loads++;
+        _loadStarted.TrySetResult();
         if (LoadGate is { } gate) await gate.WaitAsync(ct);
         return await inner.LoadAsync(id, ct);
     }
