@@ -68,9 +68,10 @@ for (const narrow of [false, true]) test(`regenerate reel with captured seed (${
   await expect(page.locator('.asset-media-card[data-media-kind=Reel]')).toHaveCount(2);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   if (narrow) {
-    const closeTools = page.getByRole('button', { name: 'Close Asset tools', exact: true });
-    if (await closeTools.isVisible()) await closeTools.click();
-    await expect(closeTools).not.toBeVisible();
+    // view=reels opens Asset tools after the page is ready, so wait for it rather than checking once.
+    await expect(page.locator('.workspace-right')).toBeVisible();
+    await page.getByRole('button', { name: 'Close Asset tools', exact: true }).click();
+    await expect(page.locator('.workspace-right')).toBeHidden();
   }
   const resultCard = page.locator(`.asset-media-card[data-media-id='${result.id}']`);
   await expect(resultCard.locator('.media-resolution-badge')).toBeVisible();
