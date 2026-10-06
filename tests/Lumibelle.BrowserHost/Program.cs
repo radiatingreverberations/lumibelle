@@ -206,6 +206,13 @@ app.MapPost("/fixtures/{id:guid}/reference-workspace", async (Guid id, IShotStor
         Voices = [new() { AssetId = asset.Id, VoiceId = library.Voices[0].Id, Speaker = "JUNIPER", Start = 0, Duration = 3 }] };
     return await shots.SaveAsync(id, [shot, new() { Title = "Second shot", Duration = 1, Description = "Another quiet take." }], doc.Revision);
 });
+// Sets a preset directly, as a shot saved before that preset was retired would have it.
+app.MapPost("/fixtures/{id:guid}/shot-preset", async (Guid id, string key, IProductionStore production) =>
+{
+    var setup = (await production.InitializeAsync(id)).Compositions.First(); var shot = setup.Shot;
+    shot.GenerationPreset = key; shot.Turbo = key is "turbo4" or "turbo8"; shot.TurboSteps = key == "turbo8" ? 8 : 4;
+    return await production.SaveAsync(id, setup, setup.Version);
+});
 app.MapPost("/fixtures/{id:guid}/change-shot-reference", async (Guid id, IShotStore store) =>
 {
     var doc = await store.LoadAsync(id); doc.Shots[0].Images[0].Role = "Changed in another tab";

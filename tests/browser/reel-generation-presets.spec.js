@@ -39,7 +39,7 @@ test('reels share named presets with shots while keeping output overrides and lo
   await tools.getByRole('button', { name: 'Edit reel preset' }).click();
   await expect(editor.getByLabel('Named setup', { exact: true })).toHaveValue(preset.id);
   await editor.getByLabel('Default takes', { exact: true }).selectOption('4');
-  await editor.getByLabel('Generation preset', { exact: true }).selectOption('turbo8');
+  await editor.getByLabel('Generation preset', { exact: true }).selectOption('turbo4');
   await expect.poll(async () => (await presets()).find(s => s.id === preset.id).settings.takeCount).toBe(4);
   await editor.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(tools.getByLabel('Reel takes', { exact: true })).toHaveValue('2');
@@ -72,6 +72,6 @@ test('reels share named presets with shots while keeping output overrides and lo
   await page.getByRole('combobox', { name: 'Generation setup', exact: true }).selectOption({ label: preset.name });
   await openShotSetup(page, 'Generation settings');
   await expect(shotEditor.getByLabel('Default takes', { exact: true })).toHaveValue('4');
-  await expect(shotEditor.getByLabel('Generation preset', { exact: true })).toHaveValue('turbo8');
+  await expect(shotEditor.getByLabel('Generation preset', { exact: true })).toHaveValue('turbo4');
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
 });
