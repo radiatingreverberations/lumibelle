@@ -27,6 +27,23 @@ public sealed partial class ShotTests
             Performance = H3Performance.Capture(H3Presets.NewPerformance(settings)),
             PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(H3UpscalerImplementation.Plus, settings.LatentUpscaler, aspect) : null };
     }
+    [Fact]
+    public void RetiredPresetsAreOnlyListedForShotsThatAlreadyUseThem()
+    {
+        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", "hyperflow"], H3Presets.Offered);
+        Assert.Equal(H3Presets.Offered, H3Presets.Choices("larry"));
+        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", "turbo8", "hyperflow"], H3Presets.Choices("turbo8"));
+        Assert.Equal("Turbo · 8 steps · Retired", H3Presets.ChoiceLabel("turbo8"));
+        Assert.Equal("Larry · 6 steps · Experimental", H3Presets.ChoiceLabel("larry"));
+        Assert.Equal("Standard · 20 steps", H3Presets.ChoiceLabel("standard"));
+        // Retired keys stay valid, so existing shots and captured requests keep working.
+        foreach (var key in new[] { "spectrum", "turbo8", "turbo4-075" })
+        {
+            Assert.Contains(key, H3Presets.Keys);
+            var shot = Ready(); shot.GenerationPreset = key;
+            H3Policy.Validate(shot, true);
+        }
+    }
     [Theory]
     [InlineData("standard")][InlineData("beta")][InlineData("euler-beta")][InlineData("larry")][InlineData("pdd")][InlineData("spectrum")][InlineData("turbo4")][InlineData("turbo4-075")][InlineData("turbo8")]
     public void PresetsPreserveResolutionAudioAndArchiveChoices(string key)

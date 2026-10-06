@@ -511,7 +511,7 @@ else
                 <details class="setup-menu"><summary>Setup options</summary><div><label>Setup name<input maxlength="200" @bind:get="composition.Name" @bind:set="v => EditComposition(c => c.Name = v ?? string.Empty)" @bind:event="oninput" /></label><div class="shots-actions"><button @onclick="NewComposition">New setup</button><button @onclick="DuplicateComposition">Duplicate setup</button><button @onclick="ArchiveComposition">@(ActiveGlobalSetup?.Archived == true ? "Restore setup" : "Archive setup")</button></div><label class="check-row"><input type="checkbox" @bind="_showArchived" />Show archived</label></div></details>
             </div>
             <p class="field-hint">Shared across all shots and projects. Changes update this setup for future generations. Prompts and references stay with each shot; saved takes keep their original settings.</p>
-<button @onclick="CheckVideo">Check video models</button>                    <section class="shot-generation"><h3>Preset settings</h3><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(shot)" @onchange="ChangeQuality">@foreach (var key in H3Presets.Keys) { <option value="@key">@H3Presets.Label(key)@(H3Presets.Experimental(key) ? " · Experimental" : "")</option> }</select></label>
+<button @onclick="CheckVideo">Check video models</button>                    <section class="shot-generation"><h3>Preset settings</h3><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(shot)" @onchange="ChangeQuality">@foreach (var key in H3Presets.Choices(H3Presets.Key(shot))) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select></label>
                         <p class="field-hint">@H3Presets.Help(H3Presets.Key(shot))</p>
                         @if (H3Presets.Key(shot) == H3HyperFlow.Key) { <details><summary>Fixed HyperFlow schedule</summary><p>Experimental conversion; not part of the earlier preset benchmark. Eight Euler evaluations, shifts 12/3, BasicGuider, strength 1.</p><code>@H3HyperFlow.VideoSigmas</code></details> }
                         else if (H3Presets.Compared(H3Presets.Key(shot))) { <details><summary>Comparison limits</summary><p>Compared on the base Ref2VA model at Upscaled preview, 141 frames, on one 20 GiB GPU. Finetunes such as Singularity were not compared. Other sizes, GPUs, durations and extra character/style LoRAs remain unverified.</p></details> }
@@ -577,7 +577,7 @@ else
             }
             <aside class="shot-bulk-settings" aria-label="Batch settings">
                 <h3>Batch settings</h3>
-                <label>Preset<select aria-label="Bulk generate preset" disabled="@BulkGenerateLocked" @bind="_bulkGeneratePreset">@foreach (var key in H3Presets.Keys) { <option value="@key">@H3Presets.Label(key)</option> }</select></label>
+                <label>Preset<select aria-label="Bulk generate preset" disabled="@BulkGenerateLocked" @bind="_bulkGeneratePreset">@foreach (var key in H3Presets.Choices(_bulkGeneratePreset)) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select></label>
                 <label>Resolution<select aria-label="Bulk generate resolution" disabled="@BulkGenerateLocked" @bind="_bulkGenerateResolution">
                     <option value="current">Each shot's own resolution</option>
                     @foreach (var resolution in VideoResolutions.Choices) { <option value="@VideoResolutions.Key(resolution)">@VideoResolutions.Label(resolution)</option> }

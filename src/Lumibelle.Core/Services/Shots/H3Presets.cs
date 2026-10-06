@@ -9,6 +9,13 @@ public static class H3Presets
     public const string Beta = "beta", EulerBeta = "euler-beta", TurboLight = "turbo4-075";
     public const double TurboLightStrength = 0.75;
     public static readonly string[] Keys = ["standard", Beta, EulerBeta, "larry", "pdd", "spectrum", "turbo4", TurboLight, "turbo8", H3HyperFlow.Key];
+    // Retired presets are no longer offered for new choices, but stay valid so shots, named setups
+    // and queued requests that captured them keep generating exactly as before.
+    public static bool Retired(string key) => key is "spectrum" or "turbo8" or TurboLight;
+    public static IEnumerable<string> Offered => Keys.Where(k => !Retired(k));
+    // The offered presets, plus the current one when it has been retired so pickers still show it.
+    public static IEnumerable<string> Choices(string current) => Keys.Where(k => !Retired(k) || k == current);
+    public static string ChoiceLabel(string key) => Label(key) + (Retired(key) ? " · Retired" : Experimental(key) ? " · Experimental" : "");
     public const string LarryCheckpoint = "minimax_h3_turbo_v4_step600_ema.safetensors";
     public const string PddCheckpoint = "MiniMax-H3-Ref2VA-Acc-8Step.safetensors";
     public static string Key(Shot shot) => shot.GenerationPreset ?? (shot.Turbo ? shot.TurboSteps == 8 ? "turbo8" : "turbo4" : "standard");
@@ -28,11 +35,12 @@ public static class H3Presets
         H3HyperFlow.Key => "Experimental ComfyUI conversion, not the upstream two-time loader. Eight Euler evaluations on a fixed manual sigma grid; shifts 12/3, strength 1, no CFG pass. Not yet benchmarked in Lumibelle.",
         Beta => "Standard with the beta scheduler (res_multistep · beta). Suggested for reference-heavy prompts. Not yet benchmarked in Lumibelle.",
         EulerBeta => "Euler with the beta scheduler. Community testing preferred it to Standard for reference adherence, with speedups enabled. Not yet benchmarked in Lumibelle.",
-        TurboLight => "The 4-step Turbo LoRA at strength 0.75. The Singularity author suggests 0.75–1.0 to keep reference detail through its stronger early denoising. Not yet benchmarked in Lumibelle.",
+        TurboLight => "Retired. The 4-step Turbo LoRA at strength 0.75. Never benchmarked in Lumibelle, and the Singularity model card gives no strength for it. Use Turbo · 4 steps instead.",
         "larry" => "Experimental. Best overall in our two-scene base-model comparison; quality and speed depend on your setup.",
         "pdd" => "Experimental. Good motion in our base-model comparison, but dialogue was strongly distorted.",
-        "spectrum" => "Experimental. Dialogue was acceptable on the base model, but the motion scene had distorted interiors. Replay protects audio and uses system RAM.",
-        "turbo4" or "turbo8" => "Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors.",
+        "spectrum" => "Retired. Dialogue was acceptable on the base model, but the motion scene had distorted interiors. Replay protects audio and uses system RAM.",
+        "turbo8" => "Retired. Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors and it was slower than Turbo · 4 steps.",
+        "turbo4" => "The fastest preset. Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors.",
         _ => "The original 20-step recipe. A useful control when comparing accelerated presets."
     };
     public static string? Checkpoint(string key, H3Settings s) => key switch

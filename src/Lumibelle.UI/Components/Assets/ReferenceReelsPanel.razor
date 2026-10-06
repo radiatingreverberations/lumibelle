@@ -260,7 +260,7 @@
                     </div>
                     <p class="field-hint">Shared across shots, reels and projects. Prompts, references and looks stay with each reel; saved reels keep their original settings.</p>
                     @if (ActivePreset is null) { <p class="field-hint">This recipe keeps its saved settings. Choose a preset above, or save these settings as a preset.</p> }
-                    <section class="reel-generation-settings"><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(ReferenceReels.Inputs(_draft))" @onchange="ChangeQuality">@foreach (var key in H3Presets.Keys) { <option value="@key">@H3Presets.Label(key)@(H3Presets.Experimental(key) ? " · Experimental" : "")</option> }</select></label>
+                    <section class="reel-generation-settings"><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(ReferenceReels.Inputs(_draft))" @onchange="ChangeQuality">@foreach (var key in H3Presets.Choices(H3Presets.Key(ReferenceReels.Inputs(_draft)))) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select></label>
                         <label><input type="checkbox" checked="@(_draft.SaveLosslessFrames ?? true)" @onchange="ChangeKeepFrames" />Keep lossless frames</label><a href="@AiSettingsNavigation.Link(Navigation, "video", ProjectId, "assets")">Video model settings</a></section>
                     <details class="reel-loras"><summary>H3 LoRAs · @(_draft.Loras?.Count(l => l.Enabled && l.Strength != 0) ?? 0) active</summary>
                         @if (_loraSettings is { } loraSettings) {

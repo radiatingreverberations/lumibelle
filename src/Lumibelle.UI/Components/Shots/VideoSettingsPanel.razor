@@ -15,12 +15,17 @@
     }
     <section class="video-preset-settings" aria-label="Generation presets"><h3>Generation presets</h3>
         <p class="field-hint">Choose a preset per shot. Readiness checks installed filenames and node contracts; it does not verify checkpoint contents, GPU capacity or speed.</p>
-        @foreach (var key in H3Presets.Keys)
+        @foreach (var key in H3Presets.Offered.Concat(H3Presets.Keys.Where(H3Presets.Retired)))
         {
+            if (key == H3Presets.Keys.First(H3Presets.Retired))
+            {
+                <h4>Retired presets</h4>
+                <p class="field-hint">No longer offered for new choices. Shots and saved setups that already use them keep generating with these settings.</p>
+            }
             var preset = key; var setup = _catalog?.Presets.FirstOrDefault(p => p.Key == key);
             var status = _catalog?.DiscoverySucceeded != true || _error is not null || !CommonSetupUnchanged || H3Presets.Checkpoint(key, _checked!) != H3Presets.Checkpoint(key, _draft)
                 ? "Check unavailable" : setup?.Issue is not null ? "Setup needed" : "Ready";
-            <details class="video-preset-setup" data-preset="@key"><summary>@H3Presets.Label(key) <span class="preset-status">@status</span>@if (H3Presets.Experimental(key)) { <span class="experimental-badge">Experimental</span> }</summary>
+            <details class="video-preset-setup" data-preset="@key"><summary>@H3Presets.Label(key) <span class="preset-status">@status</span>@if (H3Presets.Retired(key)) { <span class="experimental-badge">Retired</span> } else if (H3Presets.Experimental(key)) { <span class="experimental-badge">Experimental</span> }</summary>
                 <p>@H3Presets.Help(key)</p>
                 @if (key != H3Presets.TurboLight && H3Presets.Checkpoint(key, _draft) is { } selected)
                 {
@@ -56,7 +61,7 @@
                 else if (key is "turbo4" or "turbo8") { <p>Put the matching Ref2V Turbo LoRA in <code>models/loras</code>, then select its exact path here. FL2V weights require a different workflow.</p> }
             </details>
         }
-        <details><summary>Installing packages and checkpoints</summary><ol><li>Use ComfyUI Manager or place the complete package in the running ComfyUI environment's <code>custom_nodes</code> directory. Install its documented Python dependencies in that environment.</li><li>For Docker, use persistent model and custom-node mounts; files installed only inside an ephemeral container will be lost when it is replaced.</li><li>Restart ComfyUI, refresh video models here, choose the installed checkpoint path and Save. Refresh never downloads models or generates video.</li></ol><p>The earlier Larry, PDD, Spectrum and Turbo comparisons used the base Ref2VA model, Upscaled preview, 141 frames, with no extra LoRAs on one 20 GiB GPU. Beta, Euler beta, Turbo 0.75 and HyperFlow have not been benchmarked in Lumibelle; finetunes such as Singularity and other setups also remain unverified.</p></details>
+        <details><summary>Installing packages and checkpoints</summary><ol><li>Use ComfyUI Manager or place the complete package in the running ComfyUI environment's <code>custom_nodes</code> directory. Install its documented Python dependencies in that environment.</li><li>For Docker, use persistent model and custom-node mounts; files installed only inside an ephemeral container will be lost when it is replaced.</li><li>Restart ComfyUI, refresh video models here, choose the installed checkpoint path and Save. Refresh never downloads models or generates video.</li></ol><p>The earlier Larry, PDD, Spectrum and Turbo comparisons used the base Ref2VA model, Upscaled preview, 141 frames, with no extra LoRAs on one 20 GiB GPU. Beta, Euler beta and HyperFlow have not been benchmarked in Lumibelle; finetunes such as Singularity and other setups also remain unverified.</p></details>
     </section>
     <details class="video-performance-settings"><summary>Advanced</summary>
         <label>Dense attention<select aria-label="H3 dense attention" @bind="_draft.Performance.Attention" disabled="@(_busy || Busy)">

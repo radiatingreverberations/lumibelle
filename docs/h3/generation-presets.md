@@ -1,9 +1,8 @@
 # H3 generation presets and frame storage
 
 Shots offers Standard 20-step, Beta 20-step, Euler beta 20-step, Larry 6-step,
-PDD 8-step, Spectrum Standard 20-step, Turbo 4-step, Turbo 4-step at 0.75,
-Turbo 8-step, and HyperFlow 8-step, in that order. Standard remains the
-default. Resolution, duration, references, optional character/style LoRAs, and
+PDD 8-step, Turbo 4-step and HyperFlow 8-step, in that order. Standard remains
+the default. Resolution, duration, references, optional character/style LoRAs, and
 dense attention remain independent. New jobs never apply the old global Sol
 preference. Acceleration weights are excluded from the optional LoRA library.
 
@@ -18,6 +17,20 @@ and longer clips are available but were not verified by that comparison. Larry,
 PDD and HyperFlow were trained against the base model; on a finetune they run
 outside the conditions they were distilled for.
 
+## Retired presets
+
+Spectrum, Turbo 8-step and Turbo 4-step at 0.75 were retired on 2026-10-06 to
+shorten the list. Spectrum and Turbo 8-step had motion-scene problems in the
+11 September comparison, and Turbo 8-step was slower than Turbo 4-step. Turbo
+0.75 was never benchmarked, and the strength advice behind it is not on the
+Singularity model card, which recommends the Ref2V Turbo 4-step v0.1 LoRA
+without giving a strength.
+
+Retired presets are no longer offered for new choices. Their keys and recipes are
+unchanged, so shots, named setups and queued requests that already use them keep
+generating as before. A picker still lists the current preset when it is retired,
+marked **Retired**, and **Video models** keeps their setup under **Retired presets**.
+
 ## Scheduler and strength variants
 
 These three presets use native ComfyUI nodes only and have not been benchmarked
@@ -28,7 +41,7 @@ comparison against its parent attributes any difference to that change.
 | --- | --- | --- | --- |
 | Beta · 20 steps | Standard | `simple` → `beta` scheduler | Reportedly suggested by the ComfyUI R2V template notes for reference-heavy prompts; not independently checked. |
 | Euler beta · 20 steps | Beta | `res_multistep` → `euler` sampler | Preferred to Standard in one community Ref2VA comparison, which also used Sol-Attn and EasyCache and changed both sampler and scheduler. |
-| Turbo · 4 steps · 0.75 | Turbo · 4 steps | LoRA strength 1.0 → 0.75 | The Singularity author suggests the Ref2V Turbo v0.1 LoRA at 0.75–1.0 to keep reference detail through Singularity's stronger early denoising. |
+| Turbo · 4 steps · 0.75 (retired) | Turbo · 4 steps | LoRA strength 1.0 → 0.75 | Added for a suggested 0.75–1.0 strength with Singularity. That suggestion is not on the Singularity model card (checked 2026-10-06). |
 
 The Turbo variant reuses the LoRA selected for Turbo 4-step. All three keep
 BasicGuider, shifts 12/3 in the model, full denoising and `BasicScheduler` on

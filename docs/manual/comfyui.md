@@ -112,12 +112,9 @@ To select the files, open **AI settings → Video models → MiniMax H3 Ref2VA**
 
 ### Faster takes
 
-The Turbo presets need a Ref2V Turbo LoRA in `models/loras`. Choose the matching file under each preset in **Generation presets**.
+**Turbo · 4 steps** needs [`minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors) in `models/loras`; the Singularity author recommends this LoRA. Choose it under the preset in **Generation presets**. Use the `ref2v` file. The `fl2v` LoRAs beside it belong to a different workflow.
 
-- **Turbo · 4 steps**: [`minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors). The Singularity author suggests it at strength 0.75 to 1.0, so **Turbo · 4 steps · 0.75** is a good start with Singularity.
-- **Turbo · 8 steps**: [`minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors`](https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors).
-
-Use the `ref2v` files. The `fl2v` LoRAs beside them belong to a different workflow.
+Spectrum, **Turbo · 8 steps** and **Turbo · 4 steps · 0.75** are retired. They are no longer offered for new shots, but shots and saved setups that already use them keep working, and their setup stays under **Retired presets**.
 
 ### Starting from a frame
 
