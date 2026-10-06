@@ -163,10 +163,8 @@ public sealed partial class ShotTests
                 Assert.Equal(AiJobRecovery.RetryOutput, coordinator.View.Jobs.Single().Recovery);
                 Assert.Contains("Recover completed takes", coordinator.View.Jobs.Single().Error);
                 f.Adapter.FailTransfer = false;
-                await UntilOutputRecovered(async () => {
-                    await coordinator.ResumeAsync(submission.Id, _ct);
-                    return (await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes.Count == 1;
-                });
+                await coordinator.ResumeAsync(submission.Id, _ct);
+                await UntilOutputRecovered(async () => (await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes.Count == 1);
                 await Until(() => coordinator.View.Jobs.Single().State == AiJobState.Cancelled);
             }
             var document = await f.Shots.LoadAsync(f.Project.Id, _ct);
@@ -179,10 +177,8 @@ public sealed partial class ShotTests
             // Repeating retrieval is idempotent, even with ComfyUI offline once receipts are saved.
             f.NoNetwork = true;
             var priorLease = coordinator.View.Jobs.Single().LeaseId;
-            await UntilOutputRecovered(async () => {
-                await coordinator.ResumeAsync(submission.Id, _ct);
-                return coordinator.View.Jobs.Single().LeaseId != priorLease;
-            });
+            await coordinator.ResumeAsync(submission.Id, _ct);
+            Assert.NotEqual(priorLease, coordinator.View.Jobs.Single().LeaseId);
             await Until(() => coordinator.View.Jobs.Single().State == AiJobState.Cancelled);
             Assert.Single((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes);
             Assert.Single(f.Graphs);

@@ -99,9 +99,7 @@ public sealed partial class AiJobCoordinatorTests : IAsyncDisposable
         Assert.Equal(router.Id, remote.Context.Job.Id);
         Assert.Equal(AiJobState.Waiting, (await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == waiting.Id).State);
         handler.Cancel = _ => Task.FromResult(true);
-        // The completed cancellation worker may still be waiting for the scheduler's
-        // bookkeeping tick. Resume is idempotent while that worker is being removed.
-        await Eventually(async () => { await queue.ResumeAsync(a.Id, _ct); return !(await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == a.Id).RemoteUnconfirmed; });
+        await queue.ResumeAsync(a.Id, _ct); await State(a.Id, j => !j.RemoteUnconfirmed);
         Assert.Equal(waiting.Id, (await handler.Next(_ct)).Context.Job.Id);
         Assert.All((await Store.ReadArtifactAsync<AiJobExecution>(a.Id, AiJobArtifact.Execution, _ct))!.Submissions, s => Assert.Equal(AiRemoteState.Cancelled, s.State));
         Assert.All(handler.Cancelled, id => Assert.Equal(a.Id, id));
@@ -248,11 +246,45 @@ public sealed partial class AiJobCoordinatorTests : IAsyncDisposable
         var b = await queue.EnqueueAsync(Request(), _ct);
         first.Done.SetResult(AiJobOutcome.Attention("Download failed", AiJobRecovery.RetryOutput));
         await State(a.Id, j => j.State == AiJobState.NeedsAttention); var second = await handler.Next(_ct);
-        await Eventually(async () => { await queue.ResumeAsync(a.Id, _ct); return (await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == a.Id).State == AiJobState.Waiting; });
+        await queue.ResumeAsync(a.Id, _ct); Assert.Equal(AiJobState.Waiting, (await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == a.Id).State);
         Assert.Equal(b.Id, second.Context.Job.Id); await second.Complete();
         var retry = await handler.Next(_ct); Assert.Equal(a.Id, retry.Context.Job.Id); Assert.True(retry.Context.Recovering);
         await Assert.ThrowsAsync<AiGenerationException>(() => retry.Context.BeginRemoteAsync("retry", "http://comfy.test:8188"));
         await retry.Complete(); await State(a.Id, j => j.State == AiJobState.Completed);
+    }
+    [Fact]
+    public async Task ResumeOfferedWhileTheFinishedWorkerUnwindsIsNotDropped()
+    {
+        var a = await Store.EnqueueAsync(Request(), _ct);
+        var proxy = System.Reflection.DispatchProxy.Create<IAiJobStore, UnwindingWorkerStore>();
+        var store = (UnwindingWorkerStore)proxy; store.Inner = Store; store.JobId = a.Id;
+        var handler = new FakeHandler(); var queue = new AiJobCoordinator(proxy, _settings, [handler], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
+        _coordinators.Add(queue); await queue.StartAsync(_ct);
+        var first = await handler.Next(_ct); first.Done.SetResult(AiJobOutcome.Attention("Result could not be saved", AiJobRecovery.RetryOutput));
+        // The outcome is published, so the UI already offers Retry, but the worker is still registered.
+        await store.Held.Task.WaitAsync(TimeSpan.FromSeconds(8), _ct);
+        Assert.Equal(AiJobRecovery.RetryOutput, (await Store.ReadAsync(_ct)).Jobs.Single().Recovery);
+        var resume = queue.ResumeAsync(a.Id, _ct); store.Release.SetResult(); await resume;
+        var retry = await handler.Next(_ct); Assert.Equal(a.Id, retry.Context.Job.Id); Assert.True(retry.Context.Recovering);
+        await retry.Complete(); await State(a.Id, j => j.State == AiJobState.Completed);
+    }
+    // Holds the worker's own refresh after it published NeedsAttention.
+    public class UnwindingWorkerStore : System.Reflection.DispatchProxy
+    {
+        public IAiJobStore Inner { get; set; } = null!;
+        public Guid JobId { get; set; }
+        public TaskCompletionSource Held { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _held;
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args) =>
+            method!.Name == nameof(IAiJobStore.ReadAsync) && FakeHandler.Worker.Value == JobId ? Hold((CancellationToken)args![0]!) : method.Invoke(Inner, args);
+        private async Task<AiQueueDocument> Hold(CancellationToken ct)
+        {
+            var value = await Inner.ReadAsync(ct);
+            if (value.Jobs.Single(j => j.Id == JobId).State == AiJobState.NeedsAttention && Interlocked.Exchange(ref _held, 1) == 0)
+            { Held.SetResult(); await Release.Task.WaitAsync(ct); }
+            return value;
+        }
     }
     [Fact]
     public async Task CancelledBatchOutcomeCheckpointsCompletedCandidatesWithoutRecovery()
@@ -332,8 +364,11 @@ public sealed partial class AiJobCoordinatorTests : IAsyncDisposable
         public Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Invoke(context, snapshot, ct);
         public Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => context.Job.Backend == AiBackend.OpenRouter
             ? Task.FromResult(AiJobOutcome.Attention("Interrupted paid response. Retry explicitly.", AiJobRecovery.GenerateAgain)) : Invoke(context, snapshot, ct);
+        // Set synchronously, so it flows through the rest of the calling worker.
+        public static readonly AsyncLocal<Guid?> Worker = new();
         private Task<AiJobOutcome> Invoke(AiJobContext context, JsonElement snapshot, CancellationToken ct)
         {
+            Worker.Value = context.Job.Id;
             var invocation = new Invocation(context, snapshot, new(TaskCreationOptions.RunContinuationsAsynchronously));
             Calls.Enqueue(invocation); _started.Writer.TryWrite(invocation);
             return IgnoreCancellation ? invocation.Done.Task : invocation.Done.Task.WaitAsync(ct);

@@ -109,7 +109,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
                 Recovery = j.RemoteUnconfirmed ? AiJobRecovery.CheckStatus : AiJobRecovery.None,
                 Error = j.State == AiJobState.Waiting ? null : j.Error
             }, ct);
-            if (_workers.TryGetValue(id, out var worker)) worker.Cancellation.Cancel();
+            if (await HasActiveWorkerAsync(job, ct)) _workers[id].Cancellation.Cancel();
             else if (job.RemoteUnconfirmed && Volatile.Read(ref _ownsExecution) == 1) await StartRecoveryAsync(job, ct);
             await RefreshAsync(ct);
         }
@@ -122,7 +122,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         try
         {
             var job = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
-            if (_workers.ContainsKey(id)) return;
+            if (await HasActiveWorkerAsync(job, ct)) return;
             if (!job.RemoteUnconfirmed && !job.CanRecoverCancelledOutputs && job.State is AiJobState.Waiting or AiJobState.Running or AiJobState.Completed or AiJobState.Cancelled) return;
             if (job.RemoteUnconfirmed || job.CanRecoverCancelledOutputs)
             {
@@ -239,9 +239,21 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             StartWorker(job, job.Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput);
         }
     }
+    // Callers hold _commands, so no worker can be added meanwhile. A worker whose job
+    // is no longer Running has published its outcome and is only unwinding; it must
+    // not swallow a recovery command the UI already offers for that outcome.
+    private async Task<bool> HasActiveWorkerAsync(AiJobHeader job, CancellationToken ct)
+    {
+        if (!_workers.TryGetValue(job.Id, out var worker)) return false;
+        if (job.State == AiJobState.Running && !worker.Task.IsCompleted) return true;
+        await worker.Task.WaitAsync(ct).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        ct.ThrowIfCancellationRequested();
+        if (_workers.TryRemove(KeyValuePair.Create(job.Id, worker))) worker.Cancellation.Dispose();
+        return false;
+    }
     private async Task StartRecoveryAsync(AiJobHeader job, CancellationToken ct)
     {
-        if (_workers.ContainsKey(job.Id)) return;
+        if (await HasActiveWorkerAsync(job, ct)) return;
         var document = await store.ReadAsync(ct);
         if (job.Backend == AiBackend.ComfyUI && document.Jobs.Any(j => j.Id != job.Id && j.Backend == job.Backend && j.State == AiJobState.Running))
             throw new WorkspaceStoreException("Another job is still being reconciled for this provider.");
