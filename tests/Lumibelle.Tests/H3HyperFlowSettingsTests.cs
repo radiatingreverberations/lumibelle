@@ -22,12 +22,9 @@ public sealed class H3HyperFlowSettingsTests : BunitContext
     private static Task Click(IRenderedComponent<VideoSettingsPanel> view, string label) => view.InvokeAsync(() =>
         view.FindAll("button").Single(b => b.TextContent.Trim() == label).ClickAsync(new()));
     private const string Row = "[data-requirement='hyperflow-lora']";
-    private static async Task Choose(IRenderedComponent<VideoSettingsPanel> view, string file)
-    {
-        await view.InvokeAsync(() => view.Find(Row + " .video-requirement-links button").ClickAsync(new()));
-        await view.InvokeAsync(() => view.Find("[aria-label='HyperFlow ComfyUI conversion file']").ChangeAsync(new() { Value = file }));
-    }
-    private static string Shown(IRenderedComponent<VideoSettingsPanel> view) => view.Find(Row + " .video-requirement-file").TextContent;
+    private static Task Choose(IRenderedComponent<VideoSettingsPanel> view, string file) =>
+        view.InvokeAsync(() => view.Find("[aria-label='HyperFlow ComfyUI conversion file']").ChangeAsync(new() { Value = file }));
+    private static string? Shown(IRenderedComponent<VideoSettingsPanel> view) => view.Find(Row + " select").GetAttribute("value");
 
     [Fact]
     public async Task HyperFlowSettingsAreStagedSavedAndReloadedWithoutChangingOtherCheckpoints()
@@ -48,7 +45,7 @@ public sealed class H3HyperFlowSettingsTests : BunitContext
         // Saving checks again, so the statuses describe what was saved.
         Assert.Equal(2, _generator.Checks);
         var reopened = Panel(settings with { H3 = saved }, _ => Task.FromResult(true));
-        Assert.Equal(file, Shown(reopened));
+        reopened.WaitForAssertion(() => Assert.Equal(file, Shown(reopened)));
     }
 
     [Fact]

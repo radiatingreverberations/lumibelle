@@ -33,8 +33,10 @@ test('presets, setup and optional archives survive autosave and queue capture', 
     const row = page.locator('[data-preset=larry]');
     await expect(row.locator('> summary .video-status')).toHaveText('Needs node pack'); await row.locator('> summary').click();
     await expect(row.locator('[data-requirement=larry-nodes] .video-status')).toHaveText('Not found');
-    await expect(row.getByRole('link', { name: 'Get ComfyUI-MiniMax-H3-Turbo' })).toHaveAttribute('href', /Larryvrh\/ComfyUI-MiniMax-H3-Turbo\/tree\/4274783/);
-    await expect(row.getByRole('link', { name: 'Download from larryvrh' })).toBeVisible();
+    // The missing pack's link is open; the installed LoRA's stays folded away.
+    await expect(row.getByRole('link', { name: /ComfyUI-MiniMax-H3-Turbo/ })).toHaveAttribute('href', /Larryvrh\/ComfyUI-MiniMax-H3-Turbo\/tree\/4274783/);
+    await expect(row.getByRole('link', { name: /ComfyUI-MiniMax-H3-Turbo/ })).toBeVisible();
+    await expect(row.getByRole('link', { name: /minimax_h3_turbo_v4_step600_ema/ })).toBeHidden();
     await expect(page.getByRole('link', { name: /Back to shots/ })).toHaveAttribute('href', `/projects/${(await (await request.get(`/fixtures/${id}/project-route`)).json()).slug}/shots`);
     await page.getByRole('link', { name: /Back to shots/ }).click();
   }

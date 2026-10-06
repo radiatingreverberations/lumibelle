@@ -20,7 +20,6 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await expect(setup.locator('> summary .video-status')).toHaveText('Ready');
   const file = setup.locator('[data-requirement=upscaler-file]');
   await expect(file.locator('.video-status')).toHaveText('Other file');
-  await file.getByRole('button', { name: 'Change', exact: true }).click();
   await setup.getByLabel('Latent upscaler checkpoint file', { exact: true }).selectOption('mock-h3-3d.safetensors');
   await page.getByRole('button', { name: 'Save video models', exact: true }).click();
   await expect(page.getByText('Video models saved.', { exact: true })).toBeVisible();

@@ -145,15 +145,14 @@
 .video-requirement { display:grid; grid-template-columns:120px minmax(0,1fr) auto; gap:4px 12px; align-items:start; padding:10px 0; border-top:1px solid var(--lumi-border); font-size:var(--lumi-font-size-meta); }
 .video-requirement-file { font-family: var(--lumi-font-mono, ui-monospace, monospace); overflow-wrap:anywhere; }
 .video-requirement .field-hint { margin:2px 0 0; overflow-wrap:anywhere; }
-.video-requirement-links { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:4px; }
+.video-requirement-select { margin:0 0 2px !important; font-family: var(--lumi-font-mono, ui-monospace, monospace); font-size:var(--lumi-font-size-meta); }
+.video-requirement-hint code { overflow-wrap:anywhere; }
 .video-requirement a { color: var(--plum); text-decoration:underline; text-underline-offset:2px; }
 .video-requirement a:hover { text-decoration-thickness:2px; }
 .video-requirement a[target=_blank]::after { content:"\2197" / ""; margin-left:2px; }
-.video-requirement-links { align-items:center; }
-.video-requirement-links button { padding:2px 10px; border:1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--ink); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; }
-.video-requirement-links button:hover { background: var(--lumi-surface-selected); }
 .video-requirement-options a { font-family: var(--lumi-font-mono, ui-monospace, monospace); text-underline-offset:5px; }
 .video-requirement-options .field-hint { display:inline; }
+.video-requirement-options { margin-top:4px; } .video-requirement-options > summary { cursor:pointer; color: var(--plum); width:fit-content; }
 .video-requirement-options ul { margin:4px 0; padding-left:1.2rem; } .video-requirement-options li { overflow-wrap:anywhere; margin:2px 0; }
 .video-status { justify-self:end; white-space:nowrap; font-size:var(--lumi-font-size-small); padding:2px 8px; border-radius: var(--lumi-radius-small); background: var(--lumi-surface-subtle); color: var(--lumi-text-muted); }
 .video-status[data-state=Installed] { background: var(--lumi-success-surface); color: var(--lumi-success); }

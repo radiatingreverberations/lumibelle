@@ -64,7 +64,7 @@
     [Parameter] public string Section { get; set; } = H3Section;
     private string SectionName => Section == H3Section ? "video models" : "video defaults";
     private H3Settings? _checked; private H3Settings _draft = new(); private H3Configuration? _catalog; private DateTime? _checkedAt;
-    private bool _loaded, _busy, _autoChecked; private string? _error, _message, _changing;
+    private bool _loaded, _busy, _autoChecked; private string? _error, _message;
     private bool CommonSetupUnchanged => _checked is not null && _checked.Model == _draft.Model && _checked.Encoder == _draft.Encoder && _checked.VideoVae == _draft.VideoVae && _checked.AudioVae == _draft.AudioVae;
     private bool Checked => _catalog is { DiscoverySucceeded: true };
     protected override void OnParametersSet() { if (!_loaded) { _loaded = true; _draft = ShotCopy.Of(Settings.H3); } }
@@ -149,45 +149,40 @@
     private RenderFragment RequirementRow(H3Requirement r)
     {
         var status = H3Requirements.Status(r, _draft, _catalog); var suggested = r.Downloads[0];
-        var file = r.Kind == H3RequirementKind.File && !string.IsNullOrEmpty(status.Selected) ? status.Selected : suggested.Name;
+        var isFile = r.Kind == H3RequirementKind.File;
         IReadOnlyList<string> installed = _catalog is null ? [] : H3Requirements.Installed(r, _catalog);
         IReadOnlyList<string> recognized = _catalog is null ? [] : H3Requirements.Recognized(r, _catalog);
         var suggestedFiles = installed.Where(f => H3Requirements.Suggested(r, f)).ToArray();
         var h3Files = installed.Where(f => !suggestedFiles.Contains(f) && recognized.Contains(f)).ToArray();
         var otherFiles = installed.Where(f => !suggestedFiles.Contains(f) && !h3Files.Contains(f)).ToArray();
-        var detail = status.State switch
-        {
-            H3RequirementState.OtherFile => "Not one of the suggested files",
-            H3RequirementState.Missing when r.Kind == H3RequirementKind.NodePack => "Install it, restart ComfyUI, then check again",
-            H3RequirementState.Missing when file != suggested.Name => $"Not installed. The suggested file is {suggested.Name}",
-            H3RequirementState.Missing => "Not installed", _ => suggested.Source
-        };
+        var downloads = !isFile ? "Where to get it" : r.Downloads.Count == 1 ? "Download link" : $"Download links ({r.Downloads.Count})";
         return @<div class="video-requirement" data-requirement="@r.Id" data-state="@status.State">
             <span class="video-requirement-label">@r.Label</span>
             <div class="video-requirement-body">
-                <div class="video-requirement-file">@file</div>
-                <div class="field-hint">@detail · <code>@r.Folder</code></div>
-                <div class="video-requirement-links">
-                    <a href="@suggested.Url" target="_blank" rel="noopener">@(r.Kind == H3RequirementKind.NodePack ? $"Get {suggested.Name}" : $"Download from {suggested.Source}")</a>
-                    @if (r.Kind == H3RequirementKind.File && Checked) { <button type="button" class="text-button" aria-expanded="@(_changing == r.Id ? "true" : "false")" @onclick="() => _changing = _changing == r.Id ? null : r.Id">Change</button> }
-                </div>
-                @if (r.Downloads.Count > 1 || suggested.Note is not null)
+                @if (isFile && Checked)
                 {
-                    <details class="video-requirement-options"><summary>@(r.Downloads.Count > 1 ? $"Supported files ({r.Downloads.Count})" : "Notes")</summary><ul>
-                        @foreach (var download in r.Downloads) { <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a><span class="field-hint">@($" · {download.Source}{(download.Note is null ? "" : " · " + download.Note)}")</span></li> }
-                    </ul></details>
-                }
-                @if (_changing == r.Id)
-                {
-                    <label>@r.Label file<select aria-label="@(r.Label + " file")" value="@status.Selected" @onchange="e => Choose(r, e.Value?.ToString() ?? string.Empty)" disabled="@(_busy || Busy)">
+                    <select class="video-requirement-select" aria-label="@(r.Label + " file")" value="@status.Selected" @onchange="e => Choose(r, e.Value?.ToString() ?? string.Empty)" disabled="@(_busy || Busy)">
                         @if (!installed.Contains(status.Selected ?? string.Empty)) { <option value="@status.Selected">@(string.IsNullOrEmpty(status.Selected) ? "Choose an installed file…" : status.Selected + " (not installed)")</option> }
                         @foreach (var (label, files) in new[] { ("Suggested", suggestedFiles), ("Other H3 files", h3Files), (h3Files.Length > 0 ? "Everything else installed" : "Other installed files", otherFiles) })
                         {
                             if (files.Length > 0) { <optgroup label="@label">@foreach (var option in files) { <option value="@option">@option</option> }</optgroup> }
                         }
-                    </select></label>
-                    <p class="field-hint">Other files are allowed, but Lumibelle can't tell from a name whether they're compatible.</p>
+                    </select>
                 }
+                else { <div class="video-requirement-file">@(isFile && !string.IsNullOrEmpty(status.Selected) ? status.Selected : suggested.Name)</div> }
+                <p class="field-hint video-requirement-hint">@switch (status.State)
+                {
+                    case H3RequirementState.Installed when isFile: <span>Found in <code>@r.Folder</code>.</span> break;
+                    case H3RequirementState.Installed: <span>Installed in <code>custom_nodes</code>.</span> break;
+                    case H3RequirementState.OtherFile: <span>Found in <code>@r.Folder</code>. It isn't one of the suggested files, so it works only if it's a compatible H3 file.</span> break;
+                    case H3RequirementState.Missing when isFile && installed.Count > 0: <span>Not found in <code>@r.Folder</code>. Download a supported file and put it there, or choose another installed file above. Then check again.</span> break;
+                    case H3RequirementState.Missing when isFile: <span>Not found in <code>@r.Folder</code>. Download a supported file, put it there, then check again.</span> break;
+                    case H3RequirementState.Missing: <span>Not found. Install it into <code>custom_nodes</code>, restart ComfyUI, then check again.</span> break;
+                    default: <span>Goes in <code>@r.Folder</code>.</span> break;
+                }</p>
+                <details class="video-requirement-options" open="@(status.State == H3RequirementState.Missing)"><summary>@downloads</summary><ul>
+                    @foreach (var download in r.Downloads) { <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a><span class="field-hint">@($" · {download.Source}{(download.Note is null ? "" : " · " + download.Note)}")</span></li> }
+                </ul></details>
             </div>
             <span class="video-status" data-state="@status.State">@StateLabel(status)</span>
         </div>;
@@ -209,13 +204,12 @@
             var section = Section; var settings = ShotCopy.Of(Settings.H3);
             Copy(section, ShotCopy.Of(_draft), settings); H3Policy.ValidateSettings(settings);
             if (!await SaveSettings(settings)) return;
-            _changing = null;
             if (section == H3Section) await Refresh();
             _message = char.ToUpperInvariant(SectionName[0]) + SectionName[1..] + " saved.";
         }
         catch (Exception e) { _error = e.Message; }
     }
-    private void Cancel() { Copy(Section, ShotCopy.Of(Settings.H3), _draft); _changing = null; _error = null; _message = null; }
+    private void Cancel() { Copy(Section, ShotCopy.Of(Settings.H3), _draft); _error = null; _message = null; }
     private static void Copy(string section, H3Settings from, H3Settings to)
     {
         if (section == H3Section)
