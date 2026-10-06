@@ -502,7 +502,10 @@ internal sealed class FakeAiSettingsStore : IAiSettingsStore
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => LoadError is { } error ? Task.FromException<AiSettings>(error) : Task.FromResult(Value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult(Key);
     public async Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
-    { SaveCalls++; if (BeforeSave is not null) await BeforeSave(); if (SaveError is not null) throw SaveError; if (removeKey) Key = null; else if (!string.IsNullOrWhiteSpace(replacementKey)) Key = replacementKey; Value = settings with { HasOpenRouterKey = Key is not null }; return Value; }
+    { SaveCalls++; if (BeforeSave is not null) await BeforeSave(); if (SaveError is not null) throw SaveError; if (removeKey) Key = null; else if (!string.IsNullOrWhiteSpace(replacementKey)) Key = replacementKey; Value = settings with { HasOpenRouterKey = Key is not null }; Saved?.Invoke(); return Value; }
+    private event Action? Saved;
+    /// <summary>Completes once <paramref name="assertion"/> about the saved settings passes, such as after a save from the AI queue.</summary>
+    public Task Until(Action assertion) => StateWaits.Until(h => Saved += h, h => Saved -= h, assertion);
 }
 
 internal sealed class TestHttpFactory(HttpMessageHandler handler) : IHttpClientFactory

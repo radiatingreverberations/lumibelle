@@ -73,8 +73,8 @@ public sealed partial class AssetComponentTests : BunitContext
     }
     private async Task ImageActionAsync(IRenderedComponent<AssetsStudio> page, string action, Guid? imageId = null)
     {
-        var card = imageId is { } id ? page.FindAll(".reference-card").Single(c => c.InnerHtml.Contains($"/images/{id:D}")) : page.Find(".reference-card");
-        await page.InvokeAsync(() => card.QuerySelector(".reference-image-menu button")!.ClickAsync(new()));
+        await page.ClickCurrent(() => (imageId is { } id ? page.FindAll(".reference-card").Single(c => c.InnerHtml.Contains($"/images/{id:D}")) : page.Find(".reference-card"))
+            .QuerySelector(".reference-image-menu button")!);
         _popovers.WaitForElement("[role='menuitem']");
         await _popovers.InvokeAsync(() => _popovers.FindAll("[role='menuitem']").Single(item => item.TextContent.Trim() == action).ClickAsync(new()));
     }
@@ -105,14 +105,17 @@ public sealed partial class AssetComponentTests : BunitContext
         page.Find("#asset-image-workflow").Change("Flux2Klein9bKv");
         _editor.WaitUntilCancelled = true;
         var run = page.InvokeAsync(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").ClickAsync(new()));
-        page.WaitForAssertion(() => Assert.Equal(1, _editor.Calls));
+        await _editor.Called();
         Assert.Equal(ImageWorkflow.Flux2Klein9bKv, _editor.LastRequest!.Workflow);
         Assert.Equal(new[] { new AssetImageReference(person.Id, source.Id), new(clothing.Id, outfit.Id) }, _editor.LastReferences);
         // Once queued, the edit keeps its source but its instruction and references are cleared for the next request.
         page.WaitForAssertion(() => Assert.False(page.Find(".manage-image-inputs").HasAttribute("disabled")));
-        Assert.False(page.Find("#asset-image-workflow").HasAttribute("disabled"));
-        Assert.Contains("Image 1", Assert.Single(page.FindAll(".compact-image-input")).TextContent);
-        await page.InvokeAsync(() => { page.Render(); return page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel").ClickAsync(new()); }); await run;
+        await page.InvokeAsync(() =>
+        {
+            Assert.False(page.Find("#asset-image-workflow").HasAttribute("disabled"));
+            Assert.Contains("Image 1", Assert.Single(page.FindAll(".compact-image-input")).TextContent);
+        });
+        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await run;
         page.WaitForAssertion(() => Assert.False(page.Find("#asset-image-workflow").HasAttribute("disabled")));
     }
 
@@ -128,17 +131,19 @@ public sealed partial class AssetComponentTests : BunitContext
     }
 
     [Fact]
-    public void EditingAutosavesAndFailureRetainsInput()
+    public async Task EditingAutosavesAndFailureRetainsInput()
     {
         _assets.Library = _assets.Library with { Assets = [Asset("Mira")] };
-        var page = Page(); page.WaitForElement("[aria-label='Edit asset details']").Click();
+        var page = Page(); page.WaitForElement("[aria-label='Edit asset details']");
+        await page.ClickCurrent(() => page.Find("[aria-label='Edit asset details']"), awaitHandler: false);
         _dialogs.WaitForElement("#asset-description");
         _assets.SaveError = new WorkspaceStoreException("Disk unavailable");
-        _dialogs.Find("#asset-description").Input("Keep this visual note 🌲");
+        // The autosave runs after a delay and renders from there, so read and type on the renderer's dispatcher; see BunitClicks.ClickCurrent.
+        await _dialogs.InvokeAsync(() => _dialogs.Find("#asset-description").Input("Keep this visual note 🌲"));
         page.WaitForAssertion(() => Assert.Contains("Disk unavailable", page.Markup), BunitDefaults.WaitTimeout(2));
-        Assert.Equal("Keep this visual note 🌲", _dialogs.Find("#asset-description").GetAttribute("value"));
-        _assets.SaveError = null; page.FindAll("button").Single(button => button.TextContent.Trim() == "Retry").Click();
-        Assert.Equal("Keep this visual note 🌲", _assets.Library.Assets[0].Description); Assert.Contains("Saved", _actions.Markup);
+        await _dialogs.InvokeAsync(() => Assert.Equal("Keep this visual note 🌲", _dialogs.Find("#asset-description").GetAttribute("value")));
+        _assets.SaveError = null; await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Retry"));
+        Assert.Equal("Keep this visual note 🌲", _assets.Library.Assets[0].Description); _actions.WaitForAssertion(() => Assert.Contains("Saved", _actions.Markup));
     }
 
     [Fact]
@@ -146,15 +151,15 @@ public sealed partial class AssetComponentTests : BunitContext
     {
         _assets.Library = _assets.Library with { Assets = [Asset("Mira", "A woman in a red coat")] };
         var page = Page(); page.WaitForElement("#image-prompt");
-        page.Find("#image-tags").Input("face, outfit: red coat");
-        page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images").Click();
+        await page.InvokeAsync(() => page.Find("#image-tags").Input("face, outfit: red coat"));
+        await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images"), awaitHandler: false);
         page.WaitForElement(".reference-card");
         var image = Assert.Single(_assets.Library.Assets[0].Images); Assert.False(image.IsReference);
         await ImageActionAsync(page, "Approve reference");
-        await page.InvokeAsync(() => _actions.FindAll("button").Single(button => button.TextContent.Trim() == "Save").ClickAsync(new())); page.WaitForAssertion(() => Assert.True(_assets.Library.Assets[0].Images[0].IsReference));
+        await page.InvokeAsync(() => _actions.FindAll("button").Single(button => button.TextContent.Trim() == "Save").ClickAsync(new())); await _assets.Until(() => Assert.True(_assets.Library.Assets[0].Images[0].IsReference));
         await ImageActionAsync(page, "Make cover");
         await page.InvokeAsync(() => _actions.FindAll("button").Single(button => button.TextContent.Trim() == "Save").ClickAsync(new()));
-        page.WaitForAssertion(() => Assert.True(_assets.Library.Assets[0].Images[0].IsCover)); page.WaitForAssertion(() => Assert.True(_assets.Library.Assets[0].Images[0].IsReference));
+        await _assets.Until(() => Assert.True(_assets.Library.Assets[0].Images[0].IsCover)); Assert.True(_assets.Library.Assets[0].Images[0].IsReference);
     }
 
     [Fact]
@@ -243,7 +248,7 @@ public sealed partial class AssetComponentTests : BunitContext
     }
 
     [Fact]
-    public void EditingValidatesPromptAndSavesUnapprovedLineage()
+    public async Task EditingValidatesPromptAndSavesUnapprovedLineage()
     {
         var source = new AssetImage
         {
@@ -259,9 +264,9 @@ public sealed partial class AssetComponentTests : BunitContext
         page.Find("#aspect").Change("16:9");
         page.Find("#reference-boost").Change("5.5");
         page.Find("#grounding-pixels").Change("896");
-        page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").Click();
+        await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images"), awaitHandler: false);
 
-        page.WaitForAssertion(() => Assert.Equal(2, _assets.Library.Assets[0].Images.Count));
+        await _assets.Until(() => Assert.Equal(2, _assets.Library.Assets[0].Images.Count));
         var edited = _assets.Library.Assets[0].Images[^1];
         Assert.Equal(AssetImageOrigin.Edited, edited.Origin);
         Assert.False(edited.IsReference); Assert.False(edited.IsCover);
@@ -293,13 +298,13 @@ public sealed partial class AssetComponentTests : BunitContext
         Assert.Contains("Cropped", page.Find(".compact-image-input").TextContent);
         await page.InvokeAsync(() => page.Find("#image-prompt").Input("Keep only the selected portrait"));
         await page.InvokeAsync(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").Click());
-        page.WaitForAssertion(() => Assert.NotNull(_editor.LastRequest));
+        await _editor.Called();
 
         var crop = _editor.LastRequest!.SourceCrop!;
         Assert.Equal(.75 / 1.75, crop.Width, 6); Assert.Equal(1d / 1.75, crop.Height, 6);
         Assert.Equal(1 - .75 / 1.75, crop.X, 6); Assert.Equal(0, crop.Y, 6);
         Assert.Equal(400, source.Width); Assert.Equal(300, source.Height);
-        page.WaitForAssertion(() => Assert.Equal(crop, _assets.Library.Assets[0].Images[^1].Generation!.Edit!.SourceCrop));
+        await _assets.Until(() => Assert.Equal(crop, _assets.Library.Assets[0].Images[^1].Generation!.Edit!.SourceCrop));
     }
 
     [Fact]
@@ -352,11 +357,11 @@ public sealed partial class AssetComponentTests : BunitContext
         page.Find(".media-select").Click();
         page.Find("#image-prompt").Input("Change the light");
 
-        var editing = page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.Equal(1, _editor.Calls));
+        var editing = page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate edited images"));
+        await _editor.Called();
         page.WaitForAssertion(() => Assert.Contains("7 / 10 steps", page.Markup));
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".asset-image-request")));
-        Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled"));
+        await page.InvokeAsync(() => { Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); });
         await page.InvokeAsync(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel").ClickAsync(new()));
         await editing;
         Assert.Equal(1, _editor.Calls); page.WaitForAssertion(() => Assert.Contains("cancel", page.Markup, StringComparison.OrdinalIgnoreCase));
@@ -465,14 +470,14 @@ public sealed partial class AssetComponentTests : BunitContext
         providers.Models = [new(cloud.Model, cloud.Name), new("test/model", "Default")];
         var page = Page(); await ExtractionClick(page, "Extract from script");
         await _dialogs.InvokeAsync(() => _dialogs.Find(".assist-composer-model .model-chip").ClickAsync(new()));
-        _dialogs.Find("select[id^=text-model]").Change(TextModelPolicy.Key(cloud));
-        providers.Success = false; _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability").Click();
-        Assert.True(_dialogs.FindAll("button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled"));
+        await _dialogs.InvokeAsync(() => _dialogs.Find("select[id^=text-model]").Change(TextModelPolicy.Key(cloud)));
+        providers.Success = false; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
+        await _dialogs.InvokeAsync(() => Assert.True(_dialogs.FindAll("button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled")));
         Assert.Equal(0, _extractor.Calls);
-        providers.Success = true; _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability").Click();
-        _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Done").Click();
+        providers.Success = true; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
+        await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Done"));
         await ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.NotNull(_extractor.LastRequest), BunitDefaults.WaitTimeout(5));
+        await _extractor.Called();
         Assert.Equal(cloud.Model, _extractor.LastRequest!.Model); Assert.Equal(cloud.Backend, _extractor.LastRequest.Backend);
         Assert.Equal(cloud, _extractor.LastRequest.Selection);
         Assert.Equal("test/model", settings.Value.OpenRouterModel);
@@ -488,7 +493,7 @@ public sealed partial class AssetComponentTests : BunitContext
         await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
         Assert.Empty(_assets.Library.Assets);
         await page.InvokeAsync(() => page.Find(".apply-extraction").ClickAsync(new()));
-        page.WaitForAssertion(() => Assert.Equal("Mira", Assert.Single(_assets.Library.Assets).Name));
+        await _assets.Until(() => Assert.Equal("Mira", Assert.Single(_assets.Library.Assets).Name));
         Assert.Equal(new[] { "face", "full body" }, _assets.Library.Assets[0].SuggestedImageTags); Assert.Single(_assets.Library.Assets[0].Evidence);
     }
 
@@ -550,12 +555,12 @@ public sealed partial class AssetComponentTests : BunitContext
     {
         _assets.Library = _assets.Library with { Assets = [Asset("Mira", "Portrait")] }; _generator.WaitUntilCancelled = true;
         var page = Page(); page.WaitForElement("#image-prompt");
-        var running = page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.Equal(1, _generator.Calls));
+        var running = page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images"));
+        await _generator.Called();
         // The running request is listed on its own; the composer is clear and ready for the next one.
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".asset-image-request")));
-        Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled"));
-        await ClickCurrent(page, () => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await running;
+        await page.InvokeAsync(() => { Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); });
+        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await running;
         Assert.Equal(1, _generator.Calls); page.WaitForAssertion(() => Assert.Contains("cancel", page.Markup, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -566,17 +571,17 @@ public sealed partial class AssetComponentTests : BunitContext
         _generator.WaitForRelease = true;
         var page = Page(); page.WaitForElement("#image-prompt");
 
-        var generating = page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.Equal(1, _generator.Calls));
+        var generating = page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images"));
+        await _generator.Called();
         await page.InvokeAsync(() => page.Find("[aria-label='Edit asset details']").Click());
         _dialogs.WaitForElement("#asset-description");
         await _dialogs.InvokeAsync(() => _dialogs.Find("#asset-description").Input("Edit made while ComfyUI is running"));
         _generator.Release();
         await generating;
 
-        page.WaitForAssertion(() => Assert.Equal("Edit made while ComfyUI is running", _assets.Library.Assets[0].Description));
+        await _assets.Until(() => Assert.Equal("Edit made while ComfyUI is running", _assets.Library.Assets[0].Description));
         Assert.Single(_assets.Library.Assets[0].Images);
-        Assert.Equal("Edit made while ComfyUI is running", _dialogs.Find("#asset-description").GetAttribute("value"));
+        await _dialogs.InvokeAsync(() => Assert.Equal("Edit made while ComfyUI is running", _dialogs.Find("#asset-description").GetAttribute("value")));
     }
 
     [Fact]
@@ -605,7 +610,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _assets.BeforeSave = async () => { _assets.BeforeSave = null; saveStarted.SetResult(); await releaseSave.Task; };
         var page = Page(); page.WaitForElement("#image-prompt");
 
-        var generating = page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images").ClickAsync(new());
+        var generating = page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images"));
         await saveStarted.Task;
         page.WaitForAssertion(() => Assert.Contains("Saving candidate", page.Markup));
         releaseSave.SetResult();
@@ -682,8 +687,11 @@ internal sealed class FakeAssetStore(Guid projectId) : IAssetStore, IImageTrashS
     {
         SaveCalls++; if (BeforeSave is not null) await BeforeSave();
         if (SaveError is not null) throw SaveError; if (expectedRevision != Library.Revision) throw new WorkspaceConflictException();
-        Library = library with { Revision = expectedRevision + 1 }; Working = Library.Copy(); return Library.Copy();
+        Library = library with { Revision = expectedRevision + 1 }; Working = Library.Copy(); Saved?.Invoke(); return Library.Copy();
     }
+    private event Action? Saved;
+    /// <summary>Completes once <paramref name="assertion"/> about the saved library passes, such as after a save from the AI queue.</summary>
+    public Task Until(Action assertion) => StateWaits.Until(h => Saved += h, h => Saved -= h, assertion);
     public Task<AssetLibrary> AddImageAsync(Guid id, Guid assetId, Stream content, AssetImageInput input, long expectedRevision, CancellationToken cancellationToken = default)
     {
         var image = new AssetImage { Id = Guid.NewGuid(), FileName = Guid.NewGuid().ToString("N") + ".png", ContentType = "image/png", Width = 3, Height = 2, Tags = input.Tags.ToList(), Origin = input.Origin, Generation = input.Generation, CreatedUtc = DateTimeOffset.UtcNow };
@@ -760,7 +768,9 @@ internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler
     public Task<bool> CancelRemoteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Task.FromResult(true);
     public AssetExtractionRequest? LastRequest { get; private set; }
     public AssetExtractionResult Result { get; set; } = new([], "[]");
-    public int Calls { get; private set; }
+    private readonly CallCount _calls = new();
+    public int Calls => _calls.Value;
+    public Task Called(int times = 1) => _calls.Reached(times);
     public bool WaitForRelease { get; set; }
     public bool UseScopedCancellationWarning { get; set; }
     private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -768,7 +778,7 @@ internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler
     public async IAsyncEnumerable<AssetExtractionUpdate> ExtractAsync(AssetExtractionRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Calls++; LastRequest = request;
+        LastRequest = request; _calls.Increment();
         await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
         yield return new(Progress: new(GenerationPhase.Generating, "Generating text", 400, 2048, "tokens", TimeSpan.FromSeconds(5)));
@@ -784,7 +794,9 @@ internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler
 
 internal sealed class ComponentImageGenerator : IReferenceImageGenerator
 {
-    public int Calls { get; private set; }
+    private readonly CallCount _calls = new();
+    public int Calls => _calls.Value;
+    public Task Called(int times = 1) => _calls.Reached(times);
     public bool Ready { get; set; } = true;
     public bool WaitUntilCancelled { get; set; }
     public bool WaitForRelease { get; set; }
@@ -798,7 +810,7 @@ internal sealed class ComponentImageGenerator : IReferenceImageGenerator
     }
     public async IAsyncEnumerable<ReferenceGenerationUpdate> GenerateAsync(ReferenceGenerationRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Calls++;
+        _calls.Increment();
         if (WaitUntilCancelled) await Task.Delay(Timeout.Infinite, cancellationToken);
         yield return new("Generating image", 1, request.Count, Progress: new(GenerationPhase.Generating,
             "Generating image", 6, 8, "steps", TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(2)));
@@ -824,7 +836,9 @@ internal sealed class ComponentImageEditor : IReferenceImageEditor
     private readonly TaskCompletionSource _releaseReview = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public void ReleaseReview() => _releaseReview.TrySetResult();
     public bool NoResults { get; set; }
-    public int Calls { get; private set; }
+    private readonly CallCount _calls = new();
+    public int Calls => _calls.Value;
+    public Task Called(int times = 1) => _calls.Reached(times);
     public ReferenceEditRequest? LastRequest { get; private set; }
     public bool Ready { get; set; } = true;
     public bool WaitUntilCancelled { get; set; }
@@ -836,7 +850,7 @@ internal sealed class ComponentImageEditor : IReferenceImageEditor
     public async IAsyncEnumerable<ReferenceGenerationUpdate> EditAsync(ReferenceEditRequest request, Stream source,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Calls++; LastRequest = request; Requests.Add(request);
+        LastRequest = request; Requests.Add(request); _calls.Increment();
         yield return new("Editing image", 1, request.Count, Progress: new(GenerationPhase.Generating,
             "Editing image", 7, 10, "steps", TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(3)));
         if (WaitUntilCancelled) await Task.Delay(Timeout.Infinite, cancellationToken);

@@ -50,10 +50,11 @@ public sealed partial class AiModelComponentTests
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());
         page.WaitForAssertion(() => Assert.Contains("Benchmark completed", page.Markup));
         page.WaitForAssertion(() => Assert.False(page.Find(".model-star").HasAttribute("disabled")));
-        page.Find(".model-star").Click();
-        page.WaitForAssertion(() => Assert.Single(_settings.Value.StarredTextModels));
-        Assert.Empty(page.FindAll(".model-star-warning"));
-        page.Find(".model-star").Click(); page.Find(".model-star").Click();
-        Assert.Empty(page.FindAll(".model-star-warning")); Assert.Single(_settings.Value.StarredTextModels);
+        // The finished benchmark can still render the page, so click and read on the renderer's dispatcher; see BunitClicks.ClickCurrent.
+        await page.ClickCurrent(() => page.Find(".model-star"));
+        await _settings.Until(() => Assert.Single(_settings.Value.StarredTextModels));
+        await page.InvokeAsync(() => Assert.Empty(page.FindAll(".model-star-warning")));
+        await page.ClickCurrent(() => page.Find(".model-star")); await page.ClickCurrent(() => page.Find(".model-star"));
+        await page.InvokeAsync(() => Assert.Empty(page.FindAll(".model-star-warning"))); Assert.Single(_settings.Value.StarredTextModels);
     }
 }

@@ -64,8 +64,8 @@ public sealed partial class AssetComponentTests
         Assert.NotNull(page.Find("#image-resolution").Closest(".workspace-pane-footer"));
         Assert.Empty(page.FindAll(".generator-config"));
         _editor.WaitUntilCancelled = true;
-        await page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate edited images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.NotNull(_editor.LastRequest));
+        await page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate edited images"));
+        await _editor.Called();
         Assert.Equal(2048, workflow == ImageWorkflow.QwenImage21 ? _editor.LastRequest!.QwenImage21!.Resolution : _editor.LastRequest!.Resolution);
     }
 

@@ -40,6 +40,8 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         Render<MudPopoverProvider>(); _modelQueue.Start(Services);
     }
     private IRenderedComponent<MudDialogProvider>? _testHost;
+    // Model tests run on the AI queue, which renders this dialog from other threads, so its tests press buttons and read it on the
+    // renderer's dispatcher; see BunitClicks.ClickCurrent.
     private IRenderedComponent<ComfyModelDialog> TestDialog(string model, bool advanced = false)
     {
         var host = _testHost ??= Render<MudDialogProvider>();
@@ -241,7 +243,7 @@ public sealed partial class AiSettingsComponentTests : BunitContext
     }
 
     [Fact]
-    public void SuccessfulComfyModelTestEnablesSaveAndPersistsVerification()
+    public async Task SuccessfulComfyModelTestEnablesSaveAndPersistsVerification()
     {
         const string model = "qwen3.5_9b_uncensored_int8_convrot.safetensors";
         _providers.Models = [new(_settings.Value.ComfyModel, "Gemma", AiModelVerificationState.Untested),
@@ -249,7 +251,7 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         var navigation = Services.GetRequiredService<NavigationManager>();
         var page = TestDialog(model);
 
-        page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).Click();
+        await page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)), awaitHandler: false);
 
         page.WaitForAssertion(() => Assert.Contains("Verified with ComfyUI 0.34.0", page.Markup));
         Assert.NotEqual(model, _settings.Value.ComfyModel);
@@ -259,13 +261,16 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         var benchmark = Assert.Single(verification.Benchmarks!);
         Assert.False(benchmark.CustomPrompt);
         Assert.Equal(2048, benchmark.TokenLimit);
-        Assert.Contains("16.0 tokens/s", page.Find(".model-benchmark").TextContent);
-        Assert.Contains("8.0 GiB additional device VRAM", page.Find(".model-benchmark").TextContent);
+        await page.InvokeAsync(() =>
+        {
+            Assert.Contains("16.0 tokens/s", page.Find(".model-benchmark").TextContent);
+            Assert.Contains("8.0 GiB additional device VRAM", page.Find(".model-benchmark").TextContent);
+        });
         Assert.Equal("http://localhost/", navigation.Uri);
     }
 
     [Fact]
-    public void SuccessfulModelTestAdoptsVersionReportedDuringExecution()
+    public async Task SuccessfulModelTestAdoptsVersionReportedDuringExecution()
     {
         const string model = "qwen_3_4b.safetensors";
         _providers.BackendVersion = "0.33.0";
@@ -273,61 +278,60 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         var page = TestDialog(model);
         _providers.VerificationVersion = "0.34.0";
 
-        page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).Click();
+        await page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)), awaitHandler: false);
 
         page.WaitForAssertion(() => Assert.Contains("Verified with ComfyUI 0.34.0", page.Markup));
         Assert.NotEmpty(_settings.Value.ComfyTextModelVerifications);
     }
 
     [Fact]
-    public void AdvancedComfyModelTestUsesCustomMessageAndShowsSavedPlainTextResponse()
+    public async Task AdvancedComfyModelTestUsesCustomMessageAndShowsSavedPlainTextResponse()
     {
         const string model = "qwen3.5_9b_uncensored_int8_convrot.safetensors";
         const string prompt = "Answer this spicy compatibility question directly.";
         _providers.Models = [new(model, "Qwen 3.5 9B", AiModelVerificationState.Untested)];
         _providers.TestResponse = "Allowed reply with <script>not executable</script>.";
         var page = TestDialog(model, advanced: true);
-        page.Find("#advanced-test-prompt").Input(prompt);
-        page.Find("#advanced-test-tokens").Input("384");
+        await page.InvokeAsync(() => { page.Find("#advanced-test-prompt").Input(prompt); page.Find("#advanced-test-tokens").Input("384"); });
 
-        page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == "Run advanced test").Click();
+        await page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == "Run advanced test"), awaitHandler: false);
 
         page.WaitForAssertion(() => Assert.Equal(_providers.TestResponse, page.Find(".advanced-model-test-result pre").TextContent));
         Assert.Equal(prompt, _providers.LastTestPrompt);
         Assert.Equal(384, _providers.LastTestMaxTokens);
-        Assert.Empty(page.FindAll(".advanced-model-test-result script"));
+        await page.InvokeAsync(() => Assert.Empty(page.FindAll(".advanced-model-test-result script")));
         page.WaitForAssertion(() => Assert.Contains("Verified with ComfyUI 0.34.0", page.Markup));
-        Assert.Empty(page.FindAll(".model-benchmark"));
+        await page.InvokeAsync(() => Assert.Empty(page.FindAll(".model-benchmark")));
         Assert.NotEmpty(_settings.Value.ComfyTextModelVerifications);
     }
 
     [Fact]
-    public void FailedAdvancedComfyModelTestRetainsMessageAndSelection()
+    public async Task FailedAdvancedComfyModelTestRetainsMessageAndSelection()
     {
         const string model = "oldt5_xxl_fp8_e4m3fn_scaled.safetensors";
         const string prompt = "Keep this custom test message.";
         _providers.Models = [new(model, "T5", AiModelVerificationState.Untested)];
         _providers.VerificationFails = true;
         var page = TestDialog(model, advanced: true);
-        page.Find("#advanced-test-prompt").Input(prompt);
+        await page.InvokeAsync(() => page.Find("#advanced-test-prompt").Input(prompt));
 
-        page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == "Run advanced test").Click();
+        await page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == "Run advanced test"), awaitHandler: false);
 
         page.WaitForAssertion(() => Assert.Contains("cannot run the text workflow", page.Markup));
-        Assert.Equal(prompt, page.Find("#advanced-test-prompt").GetAttribute("value"));
+        await page.InvokeAsync(() => Assert.Equal(prompt, page.Find("#advanced-test-prompt").GetAttribute("value")));
         Assert.Equal(model, page.Instance.Model.Model);
         Assert.Empty(_settings.Value.ComfyTextModelVerifications);
     }
 
     [Fact]
-    public void FailedComfyModelTestRetainsSelectionAndKeepsSaveBlocked()
+    public async Task FailedComfyModelTestRetainsSelectionAndKeepsSaveBlocked()
     {
         const string model = "oldt5_xxl_fp8_e4m3fn_scaled.safetensors";
         _providers.Models = [new(model, "T5", AiModelVerificationState.Untested)];
         _providers.VerificationFails = true;
         var page = TestDialog(model);
 
-        page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).Click();
+        await page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)), awaitHandler: false);
 
         page.WaitForAssertion(() => Assert.Contains("cannot run the text workflow", page.Markup));
         Assert.Equal(model, page.Instance.Model.Model);
@@ -343,10 +347,10 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         _providers.VerificationWaits = true;
         var page = TestDialog(model);
 
-        var request = page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).ClickAsync(new());
+        var request = page.ClickCurrent(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)));
         page.WaitForAssertion(() => Assert.Contains("0 / 2,048 tokens", page.Markup));
         Assert.Equal(1, _providers.VerificationCalls);
-        Assert.True(page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).HasAttribute("disabled"));
+        await page.InvokeAsync(() => Assert.True(page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal)).HasAttribute("disabled")));
         await page.InvokeAsync(() => page.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == "Cancel test").ClickAsync(new()));
         await request;
         page.WaitForAssertion(() => Assert.Contains("Model test cancelled", page.Markup));
@@ -368,16 +372,18 @@ internal sealed class FakeProviders : IAiProviderRegistry
     public bool VerificationWaits { get; set; }
     public TaskCompletionSource? VerificationRelease { get; set; }
     public CancellationToken VerificationToken { get; private set; }
-    public int VerificationCalls { get; private set; }
-    public int CheckCalls { get; private set; }
+    private readonly CallCount _verifications = new(), _checks = new();
+    public int VerificationCalls => _verifications.Value;
+    public Task Verified(int times = 1) => _verifications.Reached(times);
+    public int CheckCalls => _checks.Value;
+    public Task Checked(int times = 1) => _checks.Reached(times);
     public string? LastTestPrompt { get; private set; }
     public int? LastTestMaxTokens { get; private set; }
     public string TestResponse { get; set; } = "The model answered freely.";
     public Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
     {
-        CheckCalls++;
-        CheckedBackends.Add(backend);
+        CheckedBackends.Add(backend); _checks.Increment();
         if (CheckResult is not null) return CheckResult(backend);
         return Task.FromResult(new AiConnectionCheck(Success, Success ? "Connected" : "Not configured",
             Models ?? [new(backend == AiBackend.ComfyUI ? settings.ComfyModel : settings.OpenRouterModel, "Configured model", AiModelVerificationState.Untested)],
@@ -393,8 +399,8 @@ internal sealed class FakeProviders : IAiProviderRegistry
     private async IAsyncEnumerable<AiModelVerificationUpdate> RunTestAsync(string model, AiSettings settings,
         ComfyTextModelTestRequest request, bool includeResponse, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        VerificationCalls++; VerificationToken = cancellationToken;
-        LastTestPrompt = request.Prompt; LastTestMaxTokens = request.MaxOutputTokens;
+        VerificationToken = cancellationToken;
+        LastTestPrompt = request.Prompt; LastTestMaxTokens = request.MaxOutputTokens; _verifications.Increment();
         yield return new(Progress: new(GenerationPhase.Generating, "Generating text", 0, request.MaxOutputTokens, "tokens", TimeSpan.FromSeconds(1)));
         if (VerificationRelease is not null) await VerificationRelease.Task.WaitAsync(cancellationToken);
         if (VerificationWaits) await Task.Delay(Timeout.Infinite, cancellationToken);

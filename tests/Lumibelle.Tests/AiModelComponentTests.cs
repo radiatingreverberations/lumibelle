@@ -33,6 +33,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         Services.AddSingleton<lumibelle.Services.Shots.IVideoGenerator>(new Lumibelle.Testing.MockVideoGenerator());
         Render<MudPopoverProvider>(); _modelQueue.Start(Services);
     }
+    private AiJobCoordinator Queue => Services.GetRequiredService<AiJobCoordinator>();
     private static IElement Button<T>(IRenderedComponent<T> cut, string name) where T : IComponent => cut.FindAll("button").Where(b => b.Closest("[hidden]") is null).Single(button => button.TextContent.Trim() == name);
     // The label also states the benchmark context and the model's reply-token setting.
     private static IElement TestButton(IRenderedComponent<ComfyModelDialog> dialog) => dialog.FindAll("button").Single(button => button.TextContent.Trim().StartsWith("Test selected model · ", StringComparison.Ordinal));
@@ -60,7 +61,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         _providers.CheckResult = _ => _providers.CheckCalls == 1 ? initial.Task : Task.FromResult(available);
         _pickerDialogs = Render<MudDialogProvider>();
         var picker = Picker(Guid.NewGuid(), TextAssistantStudio.Story);
-        picker.WaitForAssertion(() => Assert.Equal(1, _providers.CheckCalls));
+        await _providers.Checked();
         var opening = picker.InvokeAsync(picker.Instance.OpenAsync);
         initial.SetResult(available);
         await opening;
@@ -213,11 +214,13 @@ public sealed partial class AiModelComponentTests : BunitContext
         _settings.SaveError = null; await dialog.InvokeAsync(() => Button(dialog, "Retry saving test result").ClickAsync(new()));
         dialog.WaitForAssertion(() => Assert.Contains("Test result saved.", dialog.Markup), BunitDefaults.WaitTimeout(5));
         Assert.Single(_settings.Value.ComfyTextModelVerifications); Assert.Equal(1, _providers.VerificationCalls);
-        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
+        await Queue.Until(() => Assert.Equal(AiJobState.Completed, Queue.View.Jobs.Single().State));
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());
         page.WaitForAssertion(() => Assert.False(page.Find("button[aria-label='Star Local model']").HasAttribute("disabled")));
-        page.Find("button[aria-label='Star Local model']").Click(); page.WaitForAssertion(() => Assert.Single(_settings.Value.StarredTextModels));
-        page.Find("#ai-text-provider-defaults").Click(); page.Find("#global-text-default").Change(TextModelPolicy.Key(Local)); Assert.Equal(Local.Model, _settings.Value.ComfyModel);
+        // The finished test can still render the page, so click and read on the renderer's dispatcher; see BunitClicks.ClickCurrent.
+        await page.ClickCurrent(() => page.Find("button[aria-label='Star Local model']")); await _settings.Until(() => Assert.Single(_settings.Value.StarredTextModels));
+        await page.InvokeAsync(() => { page.Find("#ai-text-provider-defaults").Click(); page.Find("#global-text-default").Change(TextModelPolicy.Key(Local)); });
+        Assert.Equal(Local.Model, _settings.Value.ComfyModel);
     }
     [Fact]
     public async Task TestModelStartsTheStandardTestAndAdvancedTestOpensItsOwnDialog()
@@ -230,15 +233,18 @@ public sealed partial class AiModelComponentTests : BunitContext
         await page.ClickCurrent(() => Button(page, "Advanced test"), awaitHandler: false);
         var advanced = host.FindComponent<ComfyModelDialog>();
         Assert.Contains("Advanced model test", host.Markup);
-        Assert.NotNull(advanced.Find("#advanced-test-prompt"));
-        Assert.DoesNotContain(advanced.FindAll("button"), button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal));
+        await advanced.InvokeAsync(() =>
+        {
+            Assert.NotNull(advanced.Find("#advanced-test-prompt"));
+            Assert.DoesNotContain(advanced.FindAll("button"), button => button.TextContent.Contains("Test selected model", StringComparison.Ordinal));
+        });
         Assert.Equal(0, _providers.VerificationCalls);
         await advanced.ClickCurrent(() => Button(advanced, "Close"));
 
         await page.ClickCurrent(() => Button(page, "Test model"), awaitHandler: false);
         var standard = host.FindComponents<ComfyModelDialog>().Last();
-        standard.WaitForAssertion(() => Assert.Equal(1, _providers.VerificationCalls), BunitDefaults.WaitTimeout(5));
-        Assert.Empty(standard.FindAll("#advanced-test-prompt"));
+        await _providers.Verified();
+        await standard.InvokeAsync(() => Assert.Empty(standard.FindAll("#advanced-test-prompt")));
         page.WaitForAssertion(() => Assert.Contains("Model test saved.", page.Markup), BunitDefaults.WaitTimeout(5));
     }
     [Fact]
@@ -246,20 +252,24 @@ public sealed partial class AiModelComponentTests : BunitContext
     {
         var host = Render<MudDialogProvider>();
         _providers.Models = [new(Local.Model, Local.Name)];
-        IRenderedComponent<ComfyModelDialog> Open(IRenderedComponent<AiSettingsPage> settings)
+        // The model test renders these pages from the queue, so open the dialog on the renderer's dispatcher; see BunitClicks.ClickCurrent.
+        async Task<IRenderedComponent<ComfyModelDialog>> Open(IRenderedComponent<AiSettingsPage> settings)
         {
-            settings.Find("#ai-tab-text").Click();
-            settings.FindAll(".text-model-row").Single(row => row.TextContent.Contains(Local.Name)).QuerySelector(".text-model-expand")!.Click();
-            Button(settings, "Details").Click();
+            await settings.InvokeAsync(() =>
+            {
+                settings.Find("#ai-tab-text").Click();
+                settings.FindAll(".text-model-row").Single(row => row.TextContent.Contains(Local.Name)).QuerySelector(".text-model-expand")!.Click();
+                Button(settings, "Details").Click();
+            });
             return host.FindComponents<ComfyModelDialog>().Last();
         }
-        var page = Render<AiSettingsPage>(); var dialog = Open(page);
+        var page = Render<AiSettingsPage>(); var dialog = await Open(page);
         await dialog.InvokeAsync(() => TestButton(dialog).ClickAsync(new()));
         page.WaitForAssertion(() => Assert.Contains("Model test saved.", page.Markup), BunitDefaults.WaitTimeout(5));
-        dialog.WaitForAssertion(() => Assert.Equal(AiJobState.Completed, Services.GetRequiredService<AiJobCoordinator>().View.Jobs.Single().State), BunitDefaults.WaitTimeout(5));
+        await Queue.Until(() => Assert.Equal(AiJobState.Completed, Queue.View.Jobs.Single().State));
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());
         // A later visit shows the finished test again; it is not a new save.
-        var later = Render<AiSettingsPage>(); var reopened = Open(later);
+        var later = Render<AiSettingsPage>(); var reopened = await Open(later);
         reopened.WaitForAssertion(() => Assert.Contains("Test result saved.", reopened.Markup), BunitDefaults.WaitTimeout(5));
         Assert.DoesNotContain("Model test saved.", later.Markup);
         Assert.Equal(1, _providers.VerificationCalls);
@@ -272,8 +282,8 @@ public sealed partial class AiModelComponentTests : BunitContext
         _providers.Models = [new(Local.Model, Local.Name)];
         var page = Render<AiSettingsPage>(); page.Find("#ai-tab-text").Click(); page.Find(".text-model-expand").Click(); Button(page, "Details").Click();
         _settings.Value = _settings.Value with { Revision = 5, ComfyUrl = "http://other-server:8188", Temperature = 1.1f };
-        var dialog = host.FindComponent<ComfyModelDialog>(); TestButton(dialog).Click();
-        dialog.WaitForAssertion(() => Assert.Single(_settings.Value.ComfyTextModelVerifications));
+        var dialog = host.FindComponent<ComfyModelDialog>(); await dialog.ClickCurrent(() => TestButton(dialog), awaitHandler: false);
+        await _settings.Until(() => Assert.Single(_settings.Value.ComfyTextModelVerifications));
         Assert.Equal("http://other-server:8188", _settings.Value.ComfyUrl); Assert.Equal(1.1f, _settings.Value.Temperature);
         Assert.Equal(Local.ComfyUrl, _settings.Value.ComfyTextModelVerifications[0].ComfyUrl);
         await dialog.InvokeAsync(() => Button(dialog, "Close").Click());

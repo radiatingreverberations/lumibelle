@@ -102,8 +102,7 @@ public sealed partial class AiActivityTests : BunitContext
         var a = await Add("First request"); var b = await Add("Second request");
         var ui = Render<AiActivity>(); await Open(ui);
         ui.WaitForAssertion(() => Assert.Contains("0 running · 2 waiting", ui.Markup)); Assert.Contains("Queued in Lumibelle", ui.Markup);
-        var second = ui.Find($"[data-job-id='{b.Id}']");
-        var next = second.QuerySelectorAll("button").Single(x => x.TextContent == "Run next"); Assert.False(next.HasAttribute("disabled"));
+        await ui.InvokeAsync(() => Assert.False(ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Run next").HasAttribute("disabled")));
         await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Run next"));
         ui.WaitForAssertion(() => Assert.Equal(b.Id.ToString(), ui.FindAll(".ai-activity-job")[0].GetAttribute("data-job-id")));
         await ui.ClickCurrent(() => ui.Find("button[aria-label='Pause queue ComfyUI']")); ui.WaitForAssertion(() => Assert.Contains("This provider queue is paused", ui.Markup));
@@ -111,7 +110,7 @@ public sealed partial class AiActivityTests : BunitContext
         await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Cancel"));
         ui.WaitForAssertion(() => Assert.Single(ui.FindAll(".ai-activity-job")));
         Assert.Equal(AiJobState.Cancelled, (await _store.ReadAsync(_ct)).Jobs.Single(j => j.Id == b.Id).State);
-        Assert.Equal(a.Id.ToString(), ui.Find(".ai-activity-job").GetAttribute("data-job-id"));
+        await ui.InvokeAsync(() => Assert.Equal(a.Id.ToString(), ui.Find(".ai-activity-job").GetAttribute("data-job-id")));
     }
     [Fact]
     public async Task UnconfirmedRemoteJobStaysVisibleAndCancellableUntilItsReservationIsReleased()
@@ -120,21 +119,27 @@ public sealed partial class AiActivityTests : BunitContext
         await _store.UpdateAsync(job.Id, j => j with { State = AiJobState.NeedsAttention, RemoteUnconfirmed = true, Recovery = AiJobRecovery.CheckStatus }, _ct);
         var ui = Render<AiActivity>(); await Open(ui);
         ui.WaitForAssertion(() => Assert.Contains("1 blocked", ui.Find(".ai-activity-trigger").TextContent));
-        Assert.Contains("ComfyUI is reserved", ui.Find(".ai-activity-job").TextContent);
-        Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
+        await ui.InvokeAsync(() =>
+        {
+            Assert.Contains("ComfyUI is reserved", ui.Find(".ai-activity-job").TextContent);
+            Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
+        });
         await Button(ui, "Needs attention");
         await ui.InvokeAsync(() => ui.FindAll(".ai-job-actions button").Single(b => b.TextContent == "Cancel").ClickAsync(new()));
         Assert.True((await _store.ReadAsync(_ct)).Jobs.Single().CancelRequested);
         await Button(ui, "Active");
-        Assert.Single(ui.FindAll(".ai-activity-job"));
-        Assert.DoesNotContain(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
-        Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Check status");
+        await ui.InvokeAsync(() =>
+        {
+            Assert.Single(ui.FindAll(".ai-activity-job"));
+            Assert.DoesNotContain(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
+            Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Check status");
+        });
         // Local cancellation alone must not claim that a remote workload has stopped.
         ui.WaitForAssertion(() => Assert.Contains("1 blocked", ui.Find(".ai-activity-trigger").TextContent));
         await _store.UpdateAsync(job.Id, j => j with { RemoteUnconfirmed = false, Recovery = AiJobRecovery.None }, _ct);
         await _queue.RefreshAsync(_ct);
         ui.WaitForAssertion(() => Assert.Empty(ui.FindAll(".ai-activity-job")));
-        Assert.DoesNotContain("blocked", ui.Find(".ai-activity-trigger").TextContent);
+        await ui.InvokeAsync(() => Assert.DoesNotContain("blocked", ui.Find(".ai-activity-trigger").TextContent));
     }
     [Fact]
     public async Task FailedResponsesStayInspectableWhenTheirOriginalProjectIsGone()
@@ -143,7 +148,7 @@ public sealed partial class AiActivityTests : BunitContext
         var job = await Add("Removed target"); await _store.UpdateAsync(job.Id, j => j with { State = AiJobState.NeedsAttention, Unread = true, Error = "Response needs correction" }, _ct);
         await _store.WriteArtifactAsync(job.Id, AiJobArtifact.Result, new AiTextJobResult("Saved response for the original target", true), _ct);
         var ui = Render<AiActivity>(); await Open(ui); await Button(ui, "Needs attention");
-        Assert.Equal("true", ui.FindAll("[role='tab']")[1].GetAttribute("aria-selected"));
+        await ui.InvokeAsync(() => Assert.Equal("true", ui.FindAll("[role='tab']")[1].GetAttribute("aria-selected")));
         await Button(ui, "Inspect response"); ui.WaitForAssertion(() => Assert.Contains("Saved response for the original target", ui.Markup));
         // Showing the response marks it read, and the drawer re-renders on the renderer's thread when that lands.
         // Query the DOM only inside the wait: a test-thread query during that render can cache the previous markup.
@@ -157,7 +162,7 @@ public sealed partial class AiActivityTests : BunitContext
         await Button(ui, "History"); ui.WaitForAssertion(() => Assert.Single(ui.FindAll(".ai-activity-job")));
         await Button(ui, "Inspect response"); ui.WaitForAssertion(() => Assert.Contains("Saved response for the original target", ui.Markup));
         Assert.NotNull(await _store.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _ct));
-        Assert.Equal(job.ReviewUrl, ui.Find(".ai-job-actions a").GetAttribute("href"));
+        await ui.InvokeAsync(() => Assert.Equal(job.ReviewUrl, ui.Find(".ai-job-actions a").GetAttribute("href")));
     }
     [Fact]
     public async Task ReviewNavigationOccursAfterTheDrawerClosesAndDoesNotConsumeTheUnreadResult()
@@ -166,10 +171,11 @@ public sealed partial class AiActivityTests : BunitContext
         await _store.UpdateAsync(job.Id, j => j with { State = AiJobState.Completed, Unread = true }, _ct);
         var ui = Render<AiActivity>(); await Open(ui); await Button(ui, "History");
         var navigation = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
-        bool? closedAtNavigation = null;
-        navigation.LocationChanged += (_, _) => closedAtNavigation = ui.FindAll(".ai-activity-panel").Count == 0;
+        var closedAtNavigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        navigation.LocationChanged += (_, _) => closedAtNavigation.TrySetResult(ui.FindAll(".ai-activity-panel").Count == 0);
         await ui.InvokeAsync(() => ui.Find(".ai-job-actions a").Click());
-        ui.WaitForAssertion(() => Assert.True(closedAtNavigation));
+        // Navigation follows the drawer's last render, so await it: a WaitFor checks only after renders.
+        Assert.True(await closedAtNavigation.Task.WaitAsync(BunitContext.DefaultWaitTimeout, _ct));
         Assert.EndsWith(job.ReviewUrl, navigation.Uri);
         Assert.True((await _store.ReadAsync(_ct)).Jobs.Single().Unread);
     }
@@ -208,12 +214,21 @@ public sealed partial class AiActivityTests : BunitContext
         for (var i = 0; i < 21; i++) { var job = await Add("Saved " + i); await _store.UpdateAsync(job.Id, j => j with { State = AiJobState.Completed, FinishedUtc = DateTimeOffset.UtcNow }, _ct); }
         var selected = await Add("This project only"); await _store.UpdateAsync(selected.Id, j => j with { State = AiJobState.Completed }, _ct);
         var ui = Render<AiActivity>(); await Open(ui);
-        await ui.InvokeAsync(() => ui.FindAll("[role='tab']")[0].TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "End" })); Assert.Equal("true", ui.FindAll("[role='tab']")[2].GetAttribute("aria-selected"));
-        Assert.Equal(20, ui.FindAll(".ai-activity-job").Count); await Button(ui, "Next"); Assert.Equal(2, ui.FindAll(".ai-activity-job").Count);
-        await ui.InvokeAsync(() => ui.Find(".ai-activity-filters select").ChangeAsync(new() { Value = selected.Target.ProjectId!.Value.ToString() }));
-        Assert.Single(ui.FindAll(".ai-activity-job")); Assert.Contains("This project only", ui.Find(".ai-activity-job").TextContent);
-        await ui.InvokeAsync(() => ui.Find(".ai-activity-panel").TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" })); Assert.Empty(ui.FindAll(".ai-activity-panel"));
-        Assert.Equal("false", ui.Find(".ai-activity-trigger").GetAttribute("aria-expanded"));
+        await ui.InvokeAsync(async () =>
+        {
+            await ui.FindAll("[role='tab']")[0].TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "End" });
+            Assert.Equal("true", ui.FindAll("[role='tab']")[2].GetAttribute("aria-selected"));
+            Assert.Equal(20, ui.FindAll(".ai-activity-job").Count);
+        });
+        await Button(ui, "Next"); await ui.InvokeAsync(() => Assert.Equal(2, ui.FindAll(".ai-activity-job").Count));
+        await ui.InvokeAsync(async () =>
+        {
+            await ui.Find(".ai-activity-filters select").ChangeAsync(new() { Value = selected.Target.ProjectId!.Value.ToString() });
+            Assert.Single(ui.FindAll(".ai-activity-job")); Assert.Contains("This project only", ui.Find(".ai-activity-job").TextContent);
+            await ui.Find(".ai-activity-panel").TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+            Assert.Empty(ui.FindAll(".ai-activity-panel"));
+            Assert.Equal("false", ui.Find(".ai-activity-trigger").GetAttribute("aria-expanded"));
+        });
     }
     protected override void Dispose(bool disposing)
     {

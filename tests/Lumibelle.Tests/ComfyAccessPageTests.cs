@@ -63,11 +63,11 @@ public sealed class ComfyAccessPageTests
         await f.Store.SaveAsync("https://comfy.example", "other-id", "other-secret", 0, Ct);
         page.Find("form").Submit();
         page.WaitForAssertion(() => Assert.Contains("another window", page.Find("[role=alert]").TextContent));
-        Assert.Equal("draft-secret", page.Find("#comfy-access-client-secret").GetAttribute("value"));
+        await page.InvokeAsync(() => Assert.Equal("draft-secret", page.Find("#comfy-access-client-secret").GetAttribute("value")));
         Assert.Equal("other-secret", (await f.Store.ResolveAsync(new("https://comfy.example/prompt"), Ct))!.ClientSecret);
-        Click(page, "Reload saved credentials");
+        await Click(page, "Reload saved credentials");
         page.WaitForAssertion(() => Assert.Contains("reloaded", page.Markup));
-        page.Find("form").Submit();
+        await page.InvokeAsync(() => page.Find("form").Submit());
         page.WaitForAssertion(() => Assert.Contains("Credentials saved.", page.Markup));
         Assert.Equal("draft-secret", (await f.Store.ResolveAsync(new("https://comfy.example/prompt"), Ct))!.ClientSecret);
     }
@@ -81,12 +81,12 @@ public sealed class ComfyAccessPageTests
         await using var ui = Context(f);
         var page = ui.Render<ComfyAccessPage>();
         page.WaitForElement(".access-origin");
-        await page.FindAll("button").First(b => b.TextContent == "Remove credentials").ClickAsync();
+        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials"));
         Assert.Equal(2, (await f.Store.LoadAsync(Ct)).Entries.Count);
-        await page.FindAll("button").Single(b => b.TextContent.Trim() == "Cancel removal").ClickAsync();
+        await Click(page, "Cancel removal");
         Assert.Equal(2, (await f.Store.LoadAsync(Ct)).Entries.Count);
-        await page.FindAll("button").First(b => b.TextContent == "Remove credentials").ClickAsync();
-        await page.FindAll("button").Single(b => b.TextContent.Trim() == "Confirm removal").ClickAsync();
+        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials"));
+        await Click(page, "Confirm removal");
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".access-origin")));
         Assert.Equal("https://other.example", Assert.Single((await f.Store.LoadAsync(Ct)).Entries).Origin);
     }
@@ -107,15 +107,17 @@ public sealed class ComfyAccessPageTests
         var page = ui.Render<ComfyAccessPage>();
         page.WaitForElement("#comfy-access-client-id").Input("unsaved-id");
         page.Find("#comfy-access-client-secret").Input("unsaved-secret");
-        Click(page, "Test saved connection");
+        await Click(page, "Test saved connection");
         page.WaitForAssertion(() => Assert.Contains("WebSocket denied", page.Markup));
         Assert.Contains("HTTP passed", page.Markup); Assert.Single(checkedUrls);
-        page.Find("#comfy-access-url").Input("https://other.example");
+        await page.InvokeAsync(() => page.Find("#comfy-access-url").Input("https://other.example"));
         Assert.DoesNotContain("WebSocket denied", page.Markup);
     }
 
-    private static void Click(IRenderedComponent<ComfyAccessPage> page, string text) =>
-        page.FindAll("button").Single(b => b.TextContent.Trim() == text).Click();
+    // The credential store saves and loads asynchronously, so the page renders from other threads; click on the renderer's dispatcher.
+    // See BunitClicks.ClickCurrent.
+    private static Task Click(IRenderedComponent<ComfyAccessPage> page, string text) =>
+        page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent.Trim() == text));
 
     private sealed class AccessSettingsFake : IAiSettingsStore
     {

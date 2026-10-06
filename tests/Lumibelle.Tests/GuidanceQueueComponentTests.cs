@@ -30,7 +30,7 @@ public sealed partial class AssetComponentTests
         var asset = Asset("Mira"); _assets.Library = _assets.Library with { Assets = [asset] };
         var context = GuidanceContext.From(new(_projectId, asset.Id, GuidanceScope.CharacterIdentity), asset)!;
         var component = Guidance(context); await StartGuidance(component);
-        component.WaitForAssertion(() => Assert.Single(_guidance.Requests));
+        await _guidance.Called();
         var job = Assert.Single(_queue.View.Jobs);
         await _dialogs.InvokeAsync(() => _dialogs.FindAll(".guidance-dialog button").Single(b => b.TextContent.Trim() == "Close").ClickAsync(new()));
         await component.Instance.DisposeAsync(); component.Dispose();
@@ -85,12 +85,14 @@ public sealed partial class AssetComponentTests
 internal sealed class ComponentGuidanceHandler : IAiJobHandler
 {
     public List<GuidanceRequest> Requests { get; } = [];
+    private readonly CallCount _calls = new();
+    public Task Called(int times = 1) => _calls.Reached(times);
     public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public CancellationToken Token { get; private set; }
     public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.Guidance];
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
-        Requests.Add(snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<GuidanceRequest>()); Token = ct;
+        Requests.Add(snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<GuidanceRequest>()); Token = ct; _calls.Increment();
         await context.ReportAsync(new(new(GenerationPhase.Generating, "Suggesting guidance")));
         await Release.Task.WaitAsync(ct);
         await context.SaveResultAsync(new AiTextJobResult("Saved mock guidance", true, "stop",

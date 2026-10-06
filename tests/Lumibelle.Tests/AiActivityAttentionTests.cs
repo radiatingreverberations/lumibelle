@@ -262,7 +262,7 @@ public sealed partial class AiActivityTests
         await _store.UpdateAsync(job.Id, j => j with { Error = "A new failure", Unread = true }, _ct);
         await _queue.RefreshAsync(_ct);
         ui.WaitForAssertion(() => Assert.Equal("1", ui.Find("[data-ai-attention-count]").GetAttribute("data-ai-attention-count")));
-        Assert.Contains("A new failure", ui.Find(".ai-activity-job").TextContent);
+        await ui.InvokeAsync(() => Assert.Contains("A new failure", ui.Find(".ai-activity-job").TextContent));
     }
 
     [Fact]
@@ -275,9 +275,9 @@ public sealed partial class AiActivityTests
         var ui = Render<AiActivity>(); await Open(ui); await Button(ui, "History");
         await Button(ui, "Inspect response");
         ui.WaitForAssertion(() => Assert.Contains("Saved successful response", ui.Markup));
-        ui.WaitForAssertion(() => Assert.False(_queue.View.Jobs.Single().Unread));
+        await _queue.Until(() => Assert.False(_queue.View.Jobs.Single().Unread));
         ui.WaitForAssertion(() => Assert.DoesNotContain(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Mark read"));
-        Assert.Empty(ui.FindAll("[data-ai-attention-count]"));
+        await ui.InvokeAsync(() => Assert.Empty(ui.FindAll("[data-ai-attention-count]")));
         await Button(ui, "Hide response"); ui.WaitForAssertion(() => Assert.Single(ui.FindAll(".ai-activity-job")));
         Assert.NotNull(await _store.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _ct));
     }

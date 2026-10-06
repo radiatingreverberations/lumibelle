@@ -7,21 +7,13 @@ namespace Lumibelle.Tests;
 internal static class BunitClicks
 {
     /// <summary>
-    /// Background work (the AI queue, saves, model tests) keeps re-rendering these components. A click on an element found before such a
-    /// render names a handler that no longer exists and dispatches nothing, so find the element again after re-rendering and retry.
+    /// Finds an element and clicks it on the renderer's dispatcher. Background work (the AI queue, saves, model tests) keeps re-rendering
+    /// these components from other threads. bUnit parses a component's DOM lazily on first read and a render discards it without a lock,
+    /// so a read from the test thread that overlaps a render can cache the old DOM, whose handlers that render replaced. A click from the
+    /// test thread can also wait behind a render, and bUnit's synchronous Click then drops the failure. On the dispatcher no render can
+    /// interleave, so tests whose pages re-render from background work read the DOM and raise events there, or in WaitFor checks.
     /// </summary>
     /// <param name="awaitHandler">False for a handler that keeps running, such as one awaiting the dialog it opens: the click is then only dispatched.</param>
-    public static async Task ClickCurrent<TComponent>(this IRenderedComponent<TComponent> rendered, Func<IElement> find, bool awaitHandler = true) where TComponent : IComponent
-    {
-        for (var attempt = 0; ; attempt++)
-        {
-            try
-            {
-                if (awaitHandler) await rendered.InvokeAsync(() => find().ClickAsync(new()));
-                else await rendered.InvokeAsync(() => find().Click());
-                return;
-            }
-            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { rendered.Render(); }
-        }
-    }
+    public static Task ClickCurrent<TComponent>(this IRenderedComponent<TComponent> rendered, Func<IElement> find, bool awaitHandler = true) where TComponent : IComponent
+        => awaitHandler ? rendered.InvokeAsync(() => find().ClickAsync(new())) : rendered.InvokeAsync(() => find().Click());
 }

@@ -12,7 +12,7 @@ public sealed class LoraPickerTests : BunitContext
     public LoraPickerTests() { Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose; Render<MudPopoverProvider>(); }
 
     [Fact]
-    public void EditsBuildOnThePublishedListBeforeTheParentPassesItBack()
+    public async Task EditsBuildOnThePublishedListBeforeTheParentPassesItBack()
     {
         // Inside a MudDialog the parent's new list reaches the picker a round trip later.
         // The parent here never passes it back, so every edit must build on the last one.
@@ -24,24 +24,29 @@ public sealed class LoraPickerTests : BunitContext
             .Add(c => c.Selections, [new(mouse.Reference, .75f), new(film.Reference, 1.2f)])
             .Add(c => c.Changed, (IReadOnlyList<LoraSelection> s) => published.Add(s)));
 
-        ui.Find("input[aria-label='Strength for Mouse']").Input("0.55");
-        ui.Find("button[aria-label='Move Film up']").Click();
+        // MudAutocomplete renders again after its JavaScript calls, so read and raise events on the renderer's dispatcher, where they
+        // cannot overlap such a render, and await each handler; see BunitClicks.ClickCurrent.
+        await ui.InvokeAsync(() => ui.Find("input[aria-label='Strength for Mouse']").InputAsync(new() { Value = "0.55" }));
+        await ui.ClickCurrent(() => ui.Find("button[aria-label='Move Film up']"));
         Assert.Equal([new(film.Reference, 1.2f), new(mouse.Reference, .55f)], published[^1]);
-        Assert.Equal("0.55", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
+        await ui.InvokeAsync(() => Assert.Equal("0.55", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value")));
 
-        ui.Find("input[type=checkbox]").Change(false);
+        await ui.InvokeAsync(() => ui.Find("input[type=checkbox]").ChangeAsync(new() { Value = false }));
         Assert.Equal([new(film.Reference, 1.2f, false), new(mouse.Reference, .55f)], published[^1]);
-        ui.Find("button[aria-label='Remove Film']").Click();
+        await ui.ClickCurrent(() => ui.Find("button[aria-label='Remove Film']"));
         Assert.Equal([new LoraSelection(mouse.Reference, .55f)], published[^1]);
 
         // A parent that re-renders before taking in the edits passes its older list again; the published edits stay.
         ui.Render(p => p.Add(c => c.Selections, [new(mouse.Reference, .75f), new(film.Reference, 1.2f)]));
         Assert.Equal([new LoraSelection(mouse.Reference, .55f)], published[^1]);
-        Assert.Single(ui.FindAll(".lora-row"));
-        Assert.Equal("0.55", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
+        await ui.InvokeAsync(() =>
+        {
+            Assert.Single(ui.FindAll(".lora-row"));
+            Assert.Equal("0.55", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
+        });
 
         // New parameters from the parent are authoritative again.
         ui.Render(p => p.Add(c => c.Selections, [new(mouse.Reference, .9f)]));
-        Assert.Equal("0.9", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value"));
+        await ui.InvokeAsync(() => Assert.Equal("0.9", ui.Find("input[aria-label='Strength for Mouse']").GetAttribute("value")));
     }
 }

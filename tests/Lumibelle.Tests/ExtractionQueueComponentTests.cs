@@ -19,7 +19,7 @@ public sealed partial class AssetComponentTests
         if (text is "View request" or "Review assets") { await page.InvokeAsync(() => page.Find(".asset-library-extraction .request-action-button").ClickAsync(new())); return; }
         await page.InvokeAsync(() => Press(page.FindAll("button").Concat(_dialogs.FindAll("button")).First(b => b.TextContent.Trim() == text)));
         if (text == "Find assets") {
-            page.WaitForAssertion(() => Assert.NotEmpty(_queue.View.Jobs), BunitDefaults.WaitTimeout(5));
+            await _queue.Until(() => Assert.NotEmpty(_queue.View.Jobs));
             page.WaitForElement(".asset-library-extraction .request-action-button", BunitDefaults.WaitTimeout(5));
             await page.InvokeAsync(() => page.FindAll(".extraction-dialog").Count == 0 ? Press(page.Find(".asset-library-extraction .request-action-button")) : Task.CompletedTask);
         }

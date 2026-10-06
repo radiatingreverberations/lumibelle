@@ -102,8 +102,8 @@ public sealed partial class AssetComponentTests
         Assert.Contains("Original owner", page.Find(".compact-image-input").TextContent);
         Assert.Equal(0, _editor.Calls);
         _editor.WaitUntilCancelled = true;
-        await page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.NotNull(_editor.LastRequest));
+        await page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
+        await _editor.Called();
         Assert.Equal(sourceOwner.Id, _editor.LastRequest!.SourceAssetId);
         Assert.Equal(source.Id, _editor.LastRequest.SourceImageId);
         Assert.Equal(crop, _editor.LastRequest.SourceCrop);
@@ -130,8 +130,8 @@ public sealed partial class AssetComponentTests
         Assert.Contains(_assets.Library.Assets.Single(a => a.Id == sourceOwner.Id).Images, i => i.Id == source.Id);
         await _dialogs.FindAll(".reference-editor-footer button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new());
         _editor.WaitUntilCancelled = true;
-        await page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.NotNull(_editor.LastRequest));
+        await page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
+        await _editor.Called();
         Assert.Equal(source.Id, _editor.LastRequest!.SourceImageId);
     }
 }

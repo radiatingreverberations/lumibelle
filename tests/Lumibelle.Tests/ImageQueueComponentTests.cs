@@ -13,25 +13,34 @@ public sealed partial class AssetComponentTests
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await _queue.SetPausedAsync(AiBackend.ComfyUI, true, ct);
-        var (page, asset) = PrepareEdit(2);
-        await page.InvokeAsync(() => RunButton(page).ClickAsync(new()));
+        var (page, asset) = await PrepareEdit(2);
+        await Generate(page);
         page.WaitForElement(".ai-queue-wait");
-        Assert.Empty(page.FindAll(".enhancement-job-actions"));
-        Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.Equal(0, _editor.Calls);
+        await page.InvokeAsync(() =>
+        {
+            Assert.Empty(page.FindAll(".enhancement-job-actions"));
+            Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); Assert.Equal("", page.Find("#image-prompt").GetAttribute("value"));
+        });
+        Assert.Equal(0, _editor.Calls);
         var original = Assert.Single(_queue.View.Jobs);
         var request = (await _jobs.ReadSnapshotAsync(original.Id, ct)).Deserialize<AiImageJobRequest>(AtomicJsonFile.Options)!;
         Assert.Equal("Change the coat.", request.Prompt); Assert.Null(request.Edit!.Seed);
         Assert.Equal(2, original.Batch!.Candidates.Select(c => c.Seed).Distinct().Count());
         await page.Instance.DisposeAsync(); page.Dispose();
         page = Page(); page.WaitForElement(".ai-queue-wait");
-        Assert.Single(page.FindAll(".asset-image-request"));
-        Assert.NotEqual("Change the coat.", page.Find("#image-prompt").GetAttribute("value"));
-        Assert.False(page.Find("#image-prompt").HasAttribute("disabled"));
-        Assert.Empty(_dialogs.FindAll(".image-review-dialog"));
+        await page.InvokeAsync(() =>
+        {
+            Assert.Single(page.FindAll(".asset-image-request"));
+            Assert.NotEqual("Change the coat.", page.Find("#image-prompt").GetAttribute("value"));
+            Assert.False(page.Find("#image-prompt").HasAttribute("disabled"));
+            Assert.Empty(_dialogs.FindAll(".image-review-dialog"));
+        });
         await _queue.SetPausedAsync(AiBackend.ComfyUI, false, ct);
-        page.WaitForAssertion(() => Assert.Equal(3, _assets.Library.Assets.Single(a => a.Id == asset.Id).Images.Count));
-        page.WaitForAssertion(() => Assert.DoesNotContain(_queue.View.Jobs, j => j.LocksTarget));
-        Assert.Empty(_dialogs.FindAll(".image-review-dialog"));
+        await _assets.Until(() => Assert.Equal(3, _assets.Library.Assets.Single(a => a.Id == asset.Id).Images.Count));
+        await _queue.Until(() => Assert.DoesNotContain(_queue.View.Jobs, j => j.LocksTarget));
+        // Once the page shows the finished edit, it has not opened its review on its own.
+        page.WaitForAssertion(() => Assert.Contains(page.FindAll("button"), b => b.TextContent.Trim() == "Review latest edit"));
+        await page.InvokeAsync(() => Assert.Empty(_dialogs.FindAll(".image-review-dialog")));
         await page.InvokeAsync(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Review latest edit").ClickAsync(new()));
         _dialogs.WaitForElement("[aria-label='View Take 2']");
         Assert.Equal(1, _editor.Calls);
@@ -49,11 +58,11 @@ public sealed partial class AssetComponentTests
         page.WaitForElement(".ai-queue-wait");
         await page.InvokeAsync(() => page.FindAll(".asset-choice").Single(b => b.TextContent.Contains("Bedroom")).ClickAsync(new()));
         page.WaitForAssertion(() => Assert.False(page.Find("#image-prompt").HasAttribute("disabled")));
-        page.Find("#image-prompt").Input("Authored bedroom prompt");
+        await page.InvokeAsync(() => page.Find("#image-prompt").Input("Authored bedroom prompt"));
         await page.InvokeAsync(() => page.FindAll(".asset-choice").Single(b => b.TextContent.Contains("Juniper")).ClickAsync(new()));
-        page.WaitForElement(".ai-queue-wait"); Assert.Equal("", page.Find("#image-prompt").GetAttribute("value"));
+        page.WaitForElement(".ai-queue-wait"); await page.InvokeAsync(() => Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")));
         await page.InvokeAsync(() => page.FindAll(".asset-choice").Single(b => b.TextContent.Contains("Bedroom")).ClickAsync(new()));
-        Assert.Equal("Authored bedroom prompt", page.Find("#image-prompt").GetAttribute("value"));
+        await page.InvokeAsync(() => Assert.Equal("Authored bedroom prompt", page.Find("#image-prompt").GetAttribute("value")));
     }
 
     [Fact]
@@ -69,7 +78,7 @@ public sealed partial class AssetComponentTests
         for (var i = 1; i <= lumibelle.Models.AiJobLocks.MaxActiveImageBatchesPerAsset; i++)
         {
             await page.InvokeAsync(() => page.Find("#image-prompt").Input($"Variation {i}"));
-            await ClickCurrent(page, () => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
+            await page.ClickCurrent(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images"));
             page.WaitForAssertion(() => Assert.Equal(i, page.FindAll(".asset-image-request").Count));
             await page.InvokeAsync(() => Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")));
         }

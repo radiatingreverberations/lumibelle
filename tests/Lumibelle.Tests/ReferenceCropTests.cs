@@ -149,7 +149,7 @@ public sealed partial class AssetComponentTests
         Assert.Contains("Cropped", page.Find(".compact-image-input").TextContent);
         page.Find("#image-prompt").Input("Place the person in the scene.");
         page.Find("#base-reference-boost").Change("1.75"); page.Find("#reference-boost").Change("5.5");
-        RunButton(page).Click(); page.WaitForAssertion(() => Assert.NotNull(_editor.LastRequest));
+        await Generate(page, awaitHandler: false); await _editor.Called();
         Assert.Equal(.5, _editor.LastRequest!.SourceCrop!.Width); Assert.Empty(_editor.LastRequest.ReferenceCrops);
         Assert.Equal(1.75f, _editor.LastRequest.BaseReferenceBoost); Assert.Equal(5.5f, _editor.LastRequest.ReferenceBoost);
         Assert.Equal("2:3", _editor.LastRequest.AspectRatio);
