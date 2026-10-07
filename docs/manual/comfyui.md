@@ -119,7 +119,7 @@ Each preset in the Shots preset picker lists what it needs beyond the four files
 | | [`minimax_h3_turbo_v4_step600_ema.safetensors`](https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors) | `models/loras` |
 | PDD · 8 steps | The [ComfyUI-MiniMax-H3-PDD-Acc](https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90) node pack, tested at 311a65d | `custom_nodes` |
 | | [`MiniMax-H3-Ref2VA-Acc-8Step.safetensors`](https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors) | `models/pdd_acc` |
-| HyperFlow · 8 steps | [`minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16.safetensors`](https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI) from drbaph. Use a pruned file with a pruned model such as Singularity, and a full file with a full model. Keep the published name. | `models/loras` |
+| HyperFlow · 8 steps | [`minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16.safetensors`](https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/blob/main/minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16.safetensors) from drbaph. Use a pruned file with a pruned model such as Singularity, and a full file with a full model. Keep the published name. | `models/loras` |
 
 After installing a node pack, restart ComfyUI, then choose **Check again** in Video models.
 

@@ -54,6 +54,12 @@ test('video setup checks on open and keeps chosen community files through save a
   await page.setViewportSize({ width: 1440, height: 1000 });
   await model.locator('.video-requirement-options > summary').click();
   await expect(panel.locator('[data-requirement=model] .video-requirement-options a')).toHaveCount(4);
+  // Alternatives say one is enough, and their facts are badges that explain themselves.
+  await expect(model.locator('.video-requirement-options > summary')).toHaveText('Download one of these (4)');
+  const defaultBadge = model.locator('.video-badge', { hasText: 'Default' });
+  await expect(defaultBadge).toHaveAttribute('data-hint', "Lumibelle's default choice.");
+  await expect(model.locator('.video-badge[data-kind=size]').first()).toHaveText(/21 GB/);
+  await defaultBadge.focus();
   await page.screenshot({ path: 'test-results/video-settings-desktop.png', fullPage: true });
   // Cancel discards a new draft.
   const modelFile = panel.getByLabel('Model file', { exact: true });

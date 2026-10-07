@@ -155,7 +155,8 @@
         var suggestedFiles = installed.Where(f => H3Requirements.Suggested(r, f)).ToArray();
         var h3Files = installed.Where(f => !suggestedFiles.Contains(f) && recognized.Contains(f)).ToArray();
         var otherFiles = installed.Where(f => !suggestedFiles.Contains(f) && !h3Files.Contains(f)).ToArray();
-        var downloads = !isFile ? "Where to get it" : r.Downloads.Count == 1 ? "Download link" : $"Download links ({r.Downloads.Count})";
+        // Several downloads are alternatives: one of them is enough.
+        var downloads = r.Downloads.Count > 1 ? $"{(isFile ? "Download" : "Install")} one of these ({r.Downloads.Count})" : isFile ? "Download link" : "Where to get it";
         return @<div class="video-requirement" data-requirement="@r.Id" data-state="@status.State">
             <span class="video-requirement-label">@r.Label</span>
             <div class="video-requirement-body">
@@ -181,12 +182,26 @@
                     default: <span>Goes in <code>@r.Folder</code>.</span> break;
                 }</p>
                 <details class="video-requirement-options" open="@(status.State == H3RequirementState.Missing)"><summary>@downloads</summary><ul>
-                    @foreach (var download in r.Downloads) { <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a><span class="field-hint">@($" · {download.Source}{(download.Note is null ? "" : " · " + download.Note)}")</span></li> }
+                    @foreach (var download in r.Downloads)
+                    {
+                        <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a>
+                            <span class="video-badges">
+                                @Badge(download.Source, $"Published by {download.Source} on {(download.Url.Contains("github.com") ? "GitHub" : "Hugging Face")}.", "source")
+                                @if (download.Size is { } size) { @Badge(size, "Download size.", "size") }
+                                @if (download.Format is { } format) { @Badge(format, H3Requirements.FormatHint(format), "format") }
+                                @foreach (var tag in download.Tags) { @Badge(tag.Label, tag.Hint, "tag") }
+                            </span>
+                            @if (download.Note is not null) { <span class="field-hint video-download-note">@download.Note</span> }
+                        </li>
+                    }
                 </ul></details>
             </div>
             <span class="video-status" data-state="@status.State">@StateLabel(status)</span>
         </div>;
     }
+    // Focusable so the explanation also shows on keyboard focus and tap, and is read out after the label.
+    private static RenderFragment Badge(string label, string hint, string kind) =>
+        @<span class="video-badge" data-kind="@kind" data-hint="@hint" tabindex="0">@label<span class="sr-only">: @hint</span></span>;
     private void Choose(H3Requirement r, string value) => H3Requirements.Select(r, _draft, value);
 
     private async Task Refresh()
