@@ -31,20 +31,26 @@ public static class H3Requirements
     private const string ComfyOrg = "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/";
     private const string Drbaph = "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/blob/main/";
     private static readonly H3Badge Default = new("Default", "Lumibelle's default choice.");
+    private static readonly H3Badge LessMemory = new("Less memory", "Smaller than the default, for cards with less memory.");
     private static readonly H3Badge Template = new("ComfyUI template", "ComfyUI's own MiniMax H3 Ref2VA template uses this file.");
     private static H3Badge Tested(string commit) => new($"Tested {commit}", $"Lumibelle was tested with commit {commit}. Newer versions may work too.");
     public static string FormatHint(string format) => format switch
     {
-        "int8" => "8-bit weights.", "W4A8" => "4-bit weights with 8-bit activations: smaller than int8, at slightly lower precision.",
+        "int8" => "8-bit weights.", "W6A8" => "6-bit weights with 8-bit activations: between int8 and W4A8 in size.", "W4A8" => "4-bit weights with 8-bit activations: smaller than int8, at slightly lower precision.",
         "NVFP4" => "NVIDIA's 4-bit format, meant for RTX 50 series cards.", "fp16" or "bf16" => "16-bit weights.", "fp32" => "32-bit weights.", _ => format
     };
     public static readonly H3Requirement Model = new("model", H3RequirementKind.File, "Model", "models/diffusion_models", [
         new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [Default, Template, new("Official", "MiniMax's own Ref2VA weights. The Turbo, PDD and HyperFlow speed-ups were trained on these.")] },
+        new("minimax_h3_ref2va_pruned_w6a8.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors")
+            { Size = "16 GB", Format = "W6A8", Tags = [new("Official", "MiniMax's own Ref2VA weights in a smaller format."), LessMemory] },
+        new("minimax_h3_ref2va_pruned_w4a8_mixed.safetensors", "https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/minimax_h3_ref2va_pruned_w4a8_mixed.safetensors")
+            { Size = "12 GB", Format = "W4A8", Tags = [new("Official", "MiniMax's own Ref2VA weights in a smaller format."), LessMemory,
+                new("Experimental", "From Kijai's repository of experiments, so it may change or disappear.")] },
         new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge. Its author tuned it for clarity, faces, action scenes and camera control.")] },
         new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors")
-            { Size = "12 GB", Format = "W4A8", Tags = [new("Less memory", "Singularity v1.3 at about half the size, for cards with less memory.")] },
+            { Size = "12 GB", Format = "W4A8", Tags = [new("Finetune", "Singularity v1.3 at about half the size."), LessMemory] },
         new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] }]);
     public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [

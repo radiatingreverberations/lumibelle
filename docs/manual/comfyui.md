@@ -103,6 +103,8 @@ These are the files ComfyUI's own Ref2VA template uses. The model is MiniMax's o
 
 Lumibelle also suggests these alternative models:
 
+- [`minimax_h3_ref2va_pruned_w6a8.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors) (about 16 GB), from Comfy-Org: the same official weights in a smaller format, for cards with less memory.
+- [`minimax_h3_ref2va_pruned_w4a8_mixed.safetensors`](https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/minimax_h3_ref2va_pruned_w4a8_mixed.safetensors) (about 12 GB): the official weights smaller still, from Kijai's repository of experiments, so it may change or disappear.
 - [`Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors) (about 21 GB): Singularity v1.3, a community finetune of such a merge. Its author tuned it for clarity, faces, action scenes and camera control.
 - [`Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors) (about 12 GB), from the same repository: Singularity at about half the size, for cards with less memory.
 - [`minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors`](https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors) (21 GB): a plain merge of the official weights, without further training. The same repository has `b20-49` and `b15-49`, which follow references more closely at some cost in quality, and `b30-49`, which leans the other way.
