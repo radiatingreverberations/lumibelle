@@ -168,7 +168,7 @@
 .video-preset-setup > summary::before, .video-add-on > summary::before { content:""; justify-self:center; width:6px; height:6px; border-right:1.5px solid var(--lumi-text-muted); border-bottom:1.5px solid var(--lumi-text-muted); transform:rotate(-45deg); transition:transform .15s; }
 .video-preset-setup[open] > summary::before, .video-add-on[open] > summary::before { transform:rotate(45deg); }
 .video-preset-setup > p, .video-add-on > p { font-size:var(--lumi-font-size-meta); }
-.video-preset-setup > summary .video-badges { margin-left:0; } .video-preset-help { margin:0 0 6px; } .video-test-note { margin:6px 0 10px; }
+.video-preset-setup > summary .video-badges { margin-left:0; } .video-preset-help { margin:0 0 6px; }
 .video-works-with { font-size:var(--lumi-font-size-meta); color: var(--lumi-text-muted); margin:0 0 8px; } .video-works-label { font-weight:500; color: var(--ink); } .video-works-with ul { margin:2px 0 0; padding-left:1.2rem; } .video-works-with li { margin:1px 0; }
 .video-preset-setup > summary .field-hint, .video-add-on > summary .field-hint { margin:0; }
 .video-row-title { font-weight:500; }

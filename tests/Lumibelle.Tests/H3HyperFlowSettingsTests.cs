@@ -33,8 +33,7 @@ public sealed class H3HyperFlowSettingsTests : BunitContext
         var view = Panel(settings, value => { saved = value; return Task.FromResult(true); });
         view.WaitForAssertion(() => Assert.Equal(1, _generator.Checks));
         var section = view.Find("[data-preset='hyperflow']");
-        Assert.Contains("Experimental", section.TextContent); Assert.Contains("two-time", section.TextContent);
-        Assert.Contains("Not yet benchmarked", section.TextContent);
+        Assert.Contains("two-time", section.TextContent);
         var file = H3HyperFlow.Checkpoints[2];
         await Choose(view, file);
         Assert.Equal(file, Shown(view)); Assert.Null(settings.H3.HyperFlowLora); Assert.Null(saved);

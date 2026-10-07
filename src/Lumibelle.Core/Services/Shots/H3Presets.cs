@@ -15,13 +15,11 @@ public static class H3Presets
     public static IEnumerable<string> Offered => Keys.Where(k => !Retired(k));
     // The offered presets, plus the current one when it has been retired so pickers still show it.
     public static IEnumerable<string> Choices(string current) => Keys.Where(k => !Retired(k) || k == current);
-    public static string ChoiceLabel(string key) => Label(key) + (Retired(key) ? " · Retired" : Experimental(key) ? " · Experimental" : "");
+    public static string ChoiceLabel(string key) => Label(key) + (Retired(key) ? " · Retired" : "");
     public const string LarryCheckpoint = "minimax_h3_turbo_v4_step600_ema.safetensors";
     public const string PddCheckpoint = "MiniMax-H3-Ref2VA-Acc-8Step.safetensors";
     public static string Key(Shot shot) => shot.GenerationPreset ?? (shot.Turbo ? shot.TurboSteps == 8 ? "turbo8" : "turbo4" : "standard");
     public static bool Experimental(string key) => key is "larry" or "pdd" or "spectrum" or H3HyperFlow.Key or Beta or EulerBeta or TurboLight;
-    // Presets in the 11 September comparison, which ran on the base Ref2VA model.
-    public static bool Compared(string key) => key is "larry" or "pdd" or "spectrum" or "turbo4" or "turbo8";
     public static bool UsesTurboLora(string key) => key is "turbo4" or "turbo8" or TurboLight;
     public static string Label(string key) => key switch
     {
@@ -30,13 +28,13 @@ public static class H3Presets
         "turbo4" => "Turbo · 4 steps", TurboLight => "Turbo · 4 steps · 0.75", "turbo8" => "Turbo · 8 steps",
         H3HyperFlow.Key => "HyperFlow · 8 steps", _ => "Unknown preset"
     };
-    // What each preset is, as fact. Results from our own testing live in TestNote, with the size of the test.
+    // What each preset is, as fact.
     public static string Help(string key) => key switch
     {
-        H3HyperFlow.Key => "Eight steps with drbaph's ComfyUI conversion of HyperFlow, on a fixed schedule. It doesn't use HyperFlow's own two-time loader. Not yet benchmarked in Lumibelle.",
-        Beta => "Standard with the beta scheduler. ComfyUI's Ref2VA template notes suggest beta for reference-heavy prompts. Not yet benchmarked in Lumibelle.",
-        EulerBeta => "Standard with the Euler sampler and the beta scheduler. Not yet benchmarked in Lumibelle.",
-        TurboLight => "Retired. The Turbo 4-step LoRA at strength 0.75. Not benchmarked in Lumibelle.",
+        H3HyperFlow.Key => "Eight steps with drbaph's ComfyUI conversion of HyperFlow, on a fixed schedule. It doesn't use HyperFlow's own two-time loader.",
+        Beta => "Standard with the beta scheduler. ComfyUI's Ref2VA template notes suggest beta for reference-heavy prompts.",
+        EulerBeta => "Standard with the Euler sampler and the beta scheduler.",
+        TurboLight => "Retired. The Turbo 4-step LoRA at strength 0.75.",
         "larry" => "Six steps with Larry's Turbo LoRA and its own sampler.",
         "pdd" => "Eight steps with Alibaba's PDD adapter for Ref2VA, which supplies its own schedule.",
         "spectrum" => "Retired. Standard's 20-step schedule with Spectrum forecasting, which predicts some model calls instead of running them.",
@@ -44,32 +42,22 @@ public static class H3Presets
         "turbo4" => "Four steps with the LightX2V Turbo 4-step LoRA. The fewest steps of any preset.",
         _ => "The original 20-step recipe."
     };
-    // What we saw in the 11 September comparison: one seed, a dialogue and a motion clip, on the base model.
-    public static string? TestNote(string key) => key switch
-    {
-        "larry" => "Both clips looked acceptable.",
-        "pdd" => "Motion looked good; dialogue was strongly distorted.",
-        "spectrum" or "turbo4" or "turbo8" => "Dialogue looked acceptable; the motion clip had distorted interiors.",
-        _ => null
-    };
     // Which Ref2VA models each preset is known to work with, and where that knowledge comes from.
     public static IReadOnlyList<string> WorksWith(string key)
     {
         const string trained = "Trained on the official Ref2VA weights. Finetunes such as Singularity run it outside what it was trained on.";
-        const string tested = "Ran in our 11 September test on the official pruned W4A8 model, the only model we tried it with.";
         return key switch
         {
             "standard" or Beta or EulerBeta => ["Any Ref2VA model. It uses only ComfyUI's built-in nodes."],
-            "turbo4" => [trained, "The Singularity author recommends it with Singularity.", tested],
+            "turbo4" => [trained, "The Singularity author recommends it with Singularity."],
             TurboLight => [trained, "The Singularity author recommends this LoRA with Singularity, without giving a strength."],
-            "turbo8" or "pdd" => [trained, tested],
-            "larry" => ["Its loader is built for pruned models, such as the official pruned files and Singularity.", tested],
-            "spectrum" => ["Any Ref2VA model. It adds no weights.", tested],
-            H3HyperFlow.Key => [trained, "Its publisher says to use a pruned file with pruned models and a full file with full models. Every model Lumibelle suggests is pruned.", "Not yet tested in Lumibelle."],
+            "turbo8" or "pdd" => [trained],
+            "larry" => ["Its loader is built for pruned models, such as the official pruned files and Singularity."],
+            "spectrum" => ["Any Ref2VA model. It adds no weights."],
+            H3HyperFlow.Key => [trained, "Its publisher says to use a pruned file with pruned models and a full file with full models. Every model Lumibelle suggests is pruned."],
             _ => []
         };
     }
-    public const string TestNoteScope = "Our 11 September test: one seed on the base Ref2VA model, preview size.";
     // The recipe as short badges, explained on hover. The step count is already in the label.
     public static IReadOnlyList<H3Badge> Recipe(string key)
     {

@@ -123,7 +123,6 @@
                 <span class="video-badges">
                     @foreach (var badge in H3Presets.Recipe(key)) { @Badge(badge.Label, badge.Hint, "recipe") }
                     @if (H3Presets.Retired(key)) { @Badge("Retired", "No longer offered for new choices. Shots and setups that already use it keep working.", "tag") }
-                    else if (H3Presets.Experimental(key)) { @Badge("Experimental", "Lumibelle checks its setup, but it has had little or no testing here.", "tag") }
                 </span>@Status(state)</summary>
             <p class="field-hint video-preset-help">@H3Presets.Help(key)</p>
             @if (H3Presets.WorksWith(key) is { Count: > 0 } works)
@@ -132,7 +131,6 @@
             }
             @foreach (var requirement in needs) { @RequirementRow(requirement) }
             @if (needs.Count == 0) { <p class="field-hint">Needs nothing beyond the required files.</p> }
-            @if (H3Presets.TestNote(key) is { } note) { <p class="field-hint video-test-note"><span class="video-badge" data-kind="tag" data-hint="@H3Presets.TestNoteScope" tabindex="0">Our test<span class="sr-only">: @H3Presets.TestNoteScope</span></span> @note</p> }
             @if (issue is not null) { <p role="status">@issue</p> }
         </details>;
     }
