@@ -48,13 +48,13 @@ public static class H3Requirements
         new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] }]);
     public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [
-        new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors")
-            { Size = "16 GB", Format = "W4A8", Tags = [Default] },
+        new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors") { Size = "16 GB", Format = "NVFP4", Tags = [Default, Template] },
         new("qwen3vl_32b_minimax_h3_int8_convrot.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors") { Size = "27 GB", Format = "int8" },
-        new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors") { Size = "16 GB", Format = "NVFP4", Tags = [Template] }]);
+        new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors")
+            { Size = "16 GB", Format = "W4A8" }]);
     public static readonly H3Requirement VideoVae = new("video-vae", H3RequirementKind.File, "Video VAE", "models/vae", [
-        new("minimax_h3_video_vae_fp16.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_fp16.safetensors") { Size = "5 GB", Format = "fp16", Tags = [Default] },
-        new("minimax_h3_video_vae_int8_convrot.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_int8_convrot.safetensors") { Size = "3 GB", Format = "int8", Tags = [Template] }]);
+        new("minimax_h3_video_vae_int8_convrot.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_int8_convrot.safetensors") { Size = "3 GB", Format = "int8", Tags = [Default, Template] },
+        new("minimax_h3_video_vae_fp16.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_fp16.safetensors") { Size = "5 GB", Format = "fp16" }]);
     public static readonly H3Requirement AudioVae = new("audio-vae", H3RequirementKind.File, "Audio VAE", "models/vae", [
         new("minimax_h3_audio_vae_fp32.safetensors", ComfyOrg + "vae/minimax_h3_audio_vae_fp32.safetensors") { Size = "0.6 GB", Format = "fp32" }]);
     public static IReadOnlyList<H3Requirement> Required { get; } = [Model, Encoder, VideoVae, AudioVae];
