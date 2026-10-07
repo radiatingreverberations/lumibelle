@@ -189,6 +189,7 @@
                                 @Badge(download.Publisher, $"Published by {download.Publisher} on {download.Site}.", "source")
                                 @if (download.Size is { } size) { @Badge(size, "Download size.", "size") }
                                 @if (download.Format is { } format) { @Badge(format, H3Requirements.FormatHint(format), "format") }
+                                @if (H3Requirements.GpuFit(r, download) is { } fit) { @Badge(fit.Label, fit.Hint, "gpu") }
                                 @foreach (var tag in download.Tags) { @Badge(tag.Label, tag.Hint, "tag") }
                             </span>
                             @if (download.Note is not null) { <span class="field-hint video-download-note">@download.Note</span> }
