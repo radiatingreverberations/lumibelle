@@ -40,13 +40,13 @@ public static class H3Requirements
     };
     public static readonly H3Requirement Model = new("model", H3RequirementKind.File, "Model", "models/diffusion_models", [
         new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors")
-            { Size = "21 GB", Format = "int8", Tags = [Default, new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge, with better picture and sound than the official Ref2VA weights.")] },
+            { Size = "21 GB", Format = "int8", Tags = [Default, new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge. Its author tuned it for clarity, faces, action scenes and camera control.")] },
         new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors")
             { Size = "12 GB", Format = "W4A8", Tags = [new("Less memory", "Singularity v1.3 at about half the size, for cards with less memory.")] },
         new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] },
         new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
-            { Size = "21 GB", Format = "int8", Tags = [Template, new("Official", "MiniMax's own Ref2VA weights. They work, at lower quality than Singularity.")] }]);
+            { Size = "21 GB", Format = "int8", Tags = [Template, new("Official", "MiniMax's own Ref2VA weights. The Turbo, PDD and HyperFlow speed-ups were trained on these.")] }]);
     public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [
         new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors")
             { Size = "16 GB", Format = "W4A8", Tags = [Default] },
