@@ -50,13 +50,13 @@ public sealed class H3RequirementTests
     [Fact]
     public void ModelsSayWhichCommonCardHoldsThemFully()
     {
-        string? Fit(string file) => H3Requirements.GpuFit(H3Requirements.Model, H3Requirements.Model.Downloads.Single(d => d.Name == file))?.Label;
-        Assert.Equal("24 GB GPU", Fit("minimax_h3_ref2va_pruned_int8_convrot.safetensors"));
-        Assert.Equal("24 GB GPU", Fit("minimax_h3_ref2va_pruned_w6a8.safetensors"));
-        Assert.Equal("16 GB GPU", Fit("minimax_h3_ref2va_pruned_w4a8_mixed.safetensors"));
-        Assert.Contains("Estimate", H3Requirements.GpuFit(H3Requirements.Model, H3Requirements.Model.Downloads[0])!.Hint);
+        int? Fit(string file) => H3Requirements.GpuFit(H3Requirements.Model, H3Requirements.Model.Downloads.Single(d => d.Name == file));
+        Assert.Equal(24, Fit("minimax_h3_ref2va_pruned_int8_convrot.safetensors"));
+        Assert.Equal(24, Fit("minimax_h3_ref2va_pruned_w6a8.safetensors"));
+        Assert.Equal(16, Fit("minimax_h3_ref2va_pruned_w4a8_mixed.safetensors"));
+        Assert.Contains("holds fully on a 24 GB card", H3Requirements.SizeHint(H3Requirements.Model, H3Requirements.Model.Downloads[0]));
         // The encoder and VAEs load at other times, so only models get a card size.
-        Assert.Null(H3Requirements.GpuFit(H3Requirements.Encoder, H3Requirements.Encoder.Downloads[0]));
+        Assert.Equal("Download size.", H3Requirements.SizeHint(H3Requirements.Encoder, H3Requirements.Encoder.Downloads[0]));
     }
 
     [Fact]

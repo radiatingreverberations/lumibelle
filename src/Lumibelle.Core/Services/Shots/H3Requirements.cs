@@ -37,14 +37,17 @@ public static class H3Requirements
     // An estimate from the file size of the smallest common card that holds a model fully. Smaller cards
     // still work: ComfyUI streams the rest from system memory, more slowly. Only the model needs this;
     // the encoder and VAEs load at other times.
-    public static H3Badge? GpuFit(H3Requirement r, H3Download d)
+    public static int? GpuFit(H3Requirement r, H3Download d)
     {
         if (r.Id != Model.Id || d.Size is null || !double.TryParse(d.Size.Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture, out var gb)) return null;
         var card = CardSizes.FirstOrDefault(c => c >= gb + SamplingRoomGb);
-        return card == 0 ? null : new($"{card} GB GPU",
-            $"Estimate: holds fully on a {card} GB card, counting the {d.Size} of weights plus about {SamplingRoomGb:0} GB for sampling at preview size. " +
-            "Cards with less memory still work, more slowly, because ComfyUI streams the rest from system memory.");
+        return card == 0 ? null : card;
     }
+    // The size badge's explanation; for models it also estimates which card holds them fully.
+    public static string SizeHint(H3Requirement r, H3Download d) => GpuFit(r, d) is { } card
+        ? $"Download size. Estimate: holds fully on a {card} GB card, counting about {SamplingRoomGb:0} GB for sampling at preview size. " +
+          "Cards with less memory still work, more slowly, because ComfyUI streams the rest from system memory."
+        : "Download size.";
     private static readonly H3Badge Template = new("ComfyUI template", "ComfyUI's own MiniMax H3 Ref2VA template uses this file.");
     private static H3Badge Tested(string commit) => new($"Tested {commit}", $"Lumibelle was tested with commit {commit}. Newer versions may work too.");
     public static string FormatHint(string format) => format switch
