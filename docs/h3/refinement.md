@@ -1,6 +1,8 @@
 # Take refinement: setup and technical evidence
 
-Use **AI settings → Video models → Take refinement → Install refinement support** to download the bundled companion. Installation commands and the package protocol are in [the companion README](../../comfy_nodes/lumibelle_h3/README.md). The learned checkpoint is explicitly selected after catalog refresh; refresh and Save perform no inference.
+**Hidden since 2026-10-06.** The companion nodes haven't been tested on a real server yet, so the app no longer shows take refinement: Video models has no setup for it, Shots offers no **Improve quality**, and new takes capture no refinement data. The code and its tests remain. `H3Settings.TakeRefinement` turns it back on; nothing in the app sets it, and the browser tests turn it on to keep covering it. The rest of this page describes the feature as it works when turned on.
+
+The bundled companion was downloaded from **AI settings → Video models → Take refinement → Install refinement support**. Installation commands and the package protocol are in [the companion README](../../comfy_nodes/lumibelle_h3/README.md). The learned checkpoint is explicitly selected after catalog refresh; refresh and Save perform no inference.
 
 Refinement support is optional. Normal H3 generation uses stock ComfyUI nodes and saves MP4 plus lossless WebP without the companion or learned upscaler. When capture is available at request start, the batch also retains refinement data automatically. This decision is immutable for remaining candidates and One more take. If a captured batch requires nodes that are later removed, it pauses for repair rather than silently dropping promised data. Installing nodes later enables capture for new batches; it cannot add refinement data to existing takes.
 

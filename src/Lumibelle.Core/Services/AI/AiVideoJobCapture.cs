@@ -95,7 +95,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         var sceneFingerprint = shot.SceneId is null ? null : TakeInputChanges.SceneFingerprint((await scripts.LoadAsync(projectId, ct)).Blocks, shot.SceneId);
         var snapshot = new VideoSnapshot(projectId, revision, shot, composition?.Prompt ?? H3Policy.Compile(shot, guidance, appearances), H3Policy.Fingerprint(shot),
             AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), configured.H3, size.Width, size.Height, H3Policy.Frames(shot.Duration!.Value), composed is null ? H3Policy.Profile : ProductionPolicy.Profile)
-            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = !shot.UpscalePreview && capability.PackageCaptureReady,
+            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = configured.H3.TakeRefinement && !shot.UpscalePreview && capability.PackageCaptureReady,
                 PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(capability.PreviewUpscaling.Implementation!.Value, configured.H3.LatentUpscaler, shot.Aspect) : null,
                 ReferenceGuidance = guidance, Appearances = appearances, Sampling = H3Policy.Sampling(shot, configured.H3), SceneFingerprint = sceneFingerprint };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);

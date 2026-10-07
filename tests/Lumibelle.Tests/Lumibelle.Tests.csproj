@@ -23,5 +23,6 @@
 <ItemGroup><None Update="Fixtures/h3-presets-contract.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 <ItemGroup><None Update="Fixtures/h3-presets-recipes.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 <ItemGroup><None Include="../../docs/h3/character-reference-prompt.txt" Link="Fixtures/character-reference-prompt.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+<ItemGroup><None Include="../../docs/manual/comfyui.md" Link="Fixtures/manual-comfyui.md" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 <ItemGroup><None Update="Fixtures/QwenImage21/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

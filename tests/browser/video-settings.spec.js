@@ -1,67 +1,75 @@
 import { test, expect } from './fixtures.js';
 
-test('advanced video catalog keeps selected community files through filtering, save and reload', async ({ page }) => {
+test('video setup checks on open and keeps chosen community files through save and reload', async ({ page }) => {
   await page.goto('/settings/ai');
   await expect(page.locator('h1')).toBeFocused();
   await page.getByRole('tab', { name: 'Video models', exact: true }).click();
   const panel = page.locator('.video-model-form');
-  const attention = panel.getByLabel('H3 dense attention', { exact: true });
-  await panel.locator('.video-performance-settings > summary').click();
-  await expect(panel.getByRole('checkbox', { name: /Sol-Attn/ })).toHaveCount(0);
-  await expect(panel.getByLabel('H3 archive compression')).toHaveCount(0);
+  const model = panel.locator('[data-requirement=model]');
+  // The page checks ComfyUI by itself and says where each file goes and where to get it.
+  await expect(panel.locator('[data-requirement=encoder] .video-status')).toHaveText('Installed');
+  await expect(panel.locator('.video-setup-summary')).toHaveText(/presets ready|Every preset/);
+  await expect(panel.locator('[data-requirement=encoder]')).toContainText('models/text_encoders');
+  await expect(panel.locator('[data-requirement=encoder] a').first()).toHaveAttribute('href', /Comfy-Org\/MiniMax-H3\/.*qwen3vl_32b_minimax_h3_nvfp4_awq/);
+  await expect(panel.locator('.video-preset-settings > .video-preset-setup')).toHaveCount(7);
   await expect(panel.locator('.video-preset-setup')).toHaveCount(10);
+  await expect(panel.getByText(/refinement/i)).toHaveCount(0);
+  const attention = panel.getByLabel('H3 dense attention', { exact: true });
+  await panel.locator('[data-add-on=attention] > summary').click();
+  await expect(panel.getByRole('checkbox', { name: /Sol-Attn/ })).toHaveCount(0);
   await expect(attention).toHaveValue('ServerDefault');
   await attention.selectOption('Sage');
+  await expect(panel.locator('[data-requirement=sage-nodes] .video-status')).toHaveText('Not found');
   await panel.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(attention).toHaveValue('ServerDefault');
   await attention.selectOption('Kitchen');
+  // Retired presets keep their setup, out of the way.
+  await panel.locator('.video-retired-presets > summary').click();
   await panel.locator('[data-preset=turbo8] > summary').click();
-  await panel.locator('[data-preset=turbo4] > summary').click();
-  const encoder = panel.getByLabel('H3 Encoder', { exact: true });
-  const turbo8 = panel.getByLabel('turbo8 checkpoint', { exact: true });
-  const turbo4 = panel.getByLabel('turbo4 checkpoint', { exact: true });
+  const turbo8 = panel.locator('[data-preset=turbo8] [data-requirement=turbo8-lora]');
   const eightStepFile = 'h3/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors';
-  const toggle = panel.getByRole('checkbox', { name: 'Show all installed files (advanced)' });
+  await panel.getByLabel('Turbo 8-step LoRA file', { exact: true }).selectOption(eightStepFile);
+  await expect(turbo8.locator('.video-status')).toHaveText('Installed');
+  const encoder = panel.locator('[data-requirement=encoder]');
   const custom = 'custom/renamed-h3-encoder.safetensors';
-  await panel.getByRole('button', { name: 'Refresh video models' }).click();
-  await expect(turbo8.locator('option', { hasText: eightStepFile })).toHaveCount(1);
-  await expect(turbo4.locator('option', { hasText: '8step' })).toHaveCount(0);
-  await turbo8.selectOption(eightStepFile);
-  await expect(encoder.locator('option', { hasText: custom })).toHaveCount(0);
-  await toggle.focus();
-  await page.keyboard.press('Space');
-  await expect(toggle).toBeChecked();
-  await expect(encoder.locator('option', { hasText: custom })).toHaveCount(1);
-  await encoder.selectOption(custom);
-  await toggle.uncheck();
-  await expect(encoder).toHaveValue(custom);
-  await panel.getByRole('button', { name: 'Save MiniMax H3' }).click();
-  await expect(panel.getByText('MiniMax H3 saved.', { exact: true })).toBeVisible();
+  await expect(panel.getByLabel('Encoder file', { exact: true }).locator('optgroup[label="Other installed files"] option', { hasText: custom })).toHaveCount(1);
+  await panel.getByLabel('Encoder file', { exact: true }).selectOption(custom);
+  await expect(encoder.locator('.video-status')).toHaveText('Other file');
+  await panel.getByRole('button', { name: 'Save video models', exact: true }).click();
+  await expect(panel.getByText('Video models saved.', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.locator('h1')).toBeFocused();
   await page.getByRole('tab', { name: 'Video models', exact: true }).click();
-  await panel.locator('.video-performance-settings > summary').click();
-  await panel.locator('[data-preset=turbo8] > summary').click();
+  await panel.locator('[data-add-on=attention] > summary').click();
   await expect(attention).toHaveValue('Kitchen');
-  await expect(toggle).not.toBeChecked();
-  await expect(panel.locator('.video-catalog-toggle').first()).toHaveCSS('display', 'flex');
-  await expect(encoder).toHaveValue(custom);
+  await expect(panel.getByLabel('Encoder file', { exact: true })).toHaveValue(custom);
+  await expect(encoder.locator('.video-status')).toHaveText('Other file');
+  await panel.locator('.video-retired-presets > summary').click();
+  await panel.locator('[data-preset=turbo8] > summary').click();
+  await expect(panel.getByLabel('Turbo 8-step LoRA file', { exact: true })).toHaveValue(eightStepFile);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(turbo8).toHaveValue(eightStepFile);
-  await expect(toggle).toBeVisible();
+  await expect(encoder.locator('.video-status')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'test-results/video-settings-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await model.locator('.video-requirement-options > summary').click();
+  await expect(panel.locator('[data-requirement=model] .video-requirement-options a')).toHaveCount(6);
+  // Alternatives say one is enough, and their facts are badges that explain themselves.
+  await expect(model.locator('.video-requirement-options > summary')).toHaveText('Download one of these (6)');
+  const defaultBadge = model.locator('.video-badge', { hasText: /^Default/ });
+  await expect(defaultBadge).toHaveAttribute('data-hint', "Lumibelle's default choice.");
+  await expect(model.locator('.video-badge[data-kind=size]').first()).toHaveText(/21 GB/);
+  // The publisher badge names the account the link points at.
+  await expect(model.locator('.video-badge[data-kind=source]').first()).toHaveAttribute('data-hint', 'Published by Comfy-Org on Hugging Face.');
+  await defaultBadge.focus();
   await page.screenshot({ path: 'test-results/video-settings-desktop.png', fullPage: true });
-  // Reopening keeps the saved selection, while Cancel discards a new form draft.
-  await panel.getByRole('button', { name: 'Refresh video models' }).click();
-  await toggle.check();
-  await turbo8.selectOption('custom/renamed-ref2va-turbo.safetensors');
-  await panel.getByLabel('H3 Model', { exact: true }).selectOption('custom/renamed-ref2va.safetensors');
+  // Cancel discards a new draft.
+  const modelFile = panel.getByLabel('Model file', { exact: true });
+  await modelFile.selectOption('custom/renamed-ref2va.safetensors');
+  await expect(model.locator('.video-status')).toHaveText('Other file');
   await panel.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(panel.getByLabel('H3 Model', { exact: true })).not.toHaveValue('custom/renamed-ref2va.safetensors');
-  await expect(turbo8).toHaveValue(eightStepFile);
+  await expect(modelFile).not.toHaveValue('custom/renamed-ref2va.safetensors');
   // Keep the shared mock settings neutral for subsequent browser walkthroughs.
   await attention.selectOption('ServerDefault');
-  await panel.getByRole('button', { name: 'Save MiniMax H3' }).click();
+  await panel.getByRole('button', { name: 'Save video models', exact: true }).click();
 });

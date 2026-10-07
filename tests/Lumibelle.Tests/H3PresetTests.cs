@@ -34,7 +34,7 @@ public sealed partial class ShotTests
         Assert.Equal(H3Presets.Offered, H3Presets.Choices("larry"));
         Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", "turbo8", "hyperflow"], H3Presets.Choices("turbo8"));
         Assert.Equal("Turbo · 8 steps · Retired", H3Presets.ChoiceLabel("turbo8"));
-        Assert.Equal("Larry · 6 steps · Experimental", H3Presets.ChoiceLabel("larry"));
+        Assert.Equal("Larry · 6 steps", H3Presets.ChoiceLabel("larry"));
         Assert.Equal("Standard · 20 steps", H3Presets.ChoiceLabel("standard"));
         // Retired keys stay valid, so existing shots and captured requests keep working.
         foreach (var key in new[] { "spectrum", "turbo8", "turbo4-075" })
@@ -127,7 +127,7 @@ public sealed partial class ShotTests
         Assert.Equal("1", Input("9", "model")[0].GetString());
         Assert.Equal(strength is not null, graph.TryGetProperty("16", out _));
         if (strength is { } s) { Assert.Equal(s, Input("16", "strength_model").GetDouble()); Assert.Equal(new H3Settings().TurboLora, Input("16", "lora_name").GetString()); }
-        Assert.True(H3Presets.Experimental(key)); Assert.False(H3Presets.Compared(key));
+        Assert.True(H3Presets.Experimental(key));
         // A queued request keeps its captured recipe; a tampered one is rejected.
         Assert.Throws<WorkspaceStoreException>(() => ComfyH3Video.BuildWorkflow(snapshot with { Sampling = snapshot.Sampling! with { Scheduler = "normal" } }, 42, "test", []));
         Assert.Throws<WorkspaceStoreException>(() => H3Presets.Validate(snapshot with { Preset = snapshot.Preset! with { Key = "standard" } }));

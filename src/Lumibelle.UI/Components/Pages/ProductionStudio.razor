@@ -513,8 +513,6 @@ else
             <p class="field-hint">Shared across all shots and projects. Changes update this setup for future generations. Prompts and references stay with each shot; saved takes keep their original settings.</p>
 <button @onclick="CheckVideo">Check video models</button>                    <section class="shot-generation"><h3>Preset settings</h3><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(shot)" @onchange="ChangeQuality">@foreach (var key in H3Presets.Choices(H3Presets.Key(shot))) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select></label>
                         <p class="field-hint">@H3Presets.Help(H3Presets.Key(shot))</p>
-                        @if (H3Presets.Key(shot) == H3HyperFlow.Key) { <details><summary>Fixed HyperFlow schedule</summary><p>Experimental conversion; not part of the earlier preset benchmark. Eight Euler evaluations, shifts 12/3, BasicGuider, strength 1.</p><code>@H3HyperFlow.VideoSigmas</code></details> }
-                        else if (H3Presets.Compared(H3Presets.Key(shot))) { <details><summary>Comparison limits</summary><p>Compared on the base Ref2VA model at Upscaled preview, 141 frames, on one 20 GiB GPU. Finetunes such as Singularity were not compared. Other sizes, GPUs, durations and extra character/style LoRAs remain unverified.</p></details> }
                         <a href="@(AiSettingsNavigation.Link(Navigation, "video", Id, "shots"))">Preset setup and video models</a>
 
                         @if (_loraSettings is { } loraSettings)
@@ -546,7 +544,7 @@ else
                         }
                         @if (_configuration is not null) {
                             <p class="field-hint">@(_configuration.Ready(shot) ? H3Policy.QualityLabel(shot) + " · Ready" : "Selected configuration needs attention")</p>
-                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p><p>@(shot.UpscalePreview ? "Upscaled previews save no later-refinement data." : _configuration.PackageCaptureReady ? "Refinement data will be saved with new takes." : "Optional companion nodes add refinement data. Normal generation works without them.")</p></details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
+                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p>@if (_takeRefinement) { <p>@(shot.UpscalePreview ? "Upscaled previews save no later-refinement data." : _configuration.PackageCaptureReady ? "Refinement data will be saved with new takes." : "Optional companion nodes add refinement data. Normal generation works without them.")</p> }</details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
                         }
 
 
@@ -689,11 +687,14 @@ else
                     }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
                     @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
+                    @if (_takeRefinement)
+                    {
                     <details class="take-quality-actions"><summary>Improve quality</summary>
                         <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Improve quality</button>
                         @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
                         @if (take.RefinementPackage is null) { <span class="field-hint">This take has no refinement data. To refine future takes, <a href="@SettingsUrl">install the optional companion</a> before generating them.</span> }
                     </details>
+                    }
 
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }
                     @if (RefinementJob is { } refinementJob)

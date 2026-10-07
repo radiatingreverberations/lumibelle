@@ -25,8 +25,8 @@ Install **one** supported implementation in ComfyUI:
 They register the same `MinimaxH3LatentUpscaler3D` ID with different inputs; do not
 install both. Place a compatible 3D SafeTensors checkpoint under
 `models/latent_upscale_models`; the FP16 checkpoint is recommended. Restart
-ComfyUI, open **Video models → Preview upscaling**, refresh, select the checkpoint,
-and save. Native `LTXVSeparateAVLatent` and `LTXVConcatAVLatent` nodes must exist.
+ComfyUI, open **Video models**, expand **Upscaled preview** under **Optional add-ons**,
+choose **Change** on the checkpoint row, select it, and save. Native `LTXVSeparateAVLatent` and `LTXVConcatAVLatent` nodes must exist.
 
 Lumibelle detects the input/output contract, not an installed Git revision.
 Inference uses CUDA, FP16, exact target dimensions and alignment 32. LBH enables

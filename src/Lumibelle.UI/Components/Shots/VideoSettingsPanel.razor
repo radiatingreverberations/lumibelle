@@ -2,99 +2,43 @@
 <form class="settings-card video-model-form" id="@("ai-video-panel-" + Section)" role="tabpanel" aria-labelledby="@("ai-video-" + Section)" @onsubmit="Save" @onsubmit:preventDefault>
     @if (Section == H3Section)
     {
-    <h2>MiniMax H3 Ref2VA</h2><p>Generate continuous video takes with audio and optional lossless frames.</p>
-    <MudButton Disabled="@(_busy || Busy)" OnClick="Refresh" Variant="Variant.Outlined">Refresh video models</MudButton>
-    <label class="video-catalog-toggle"><input type="checkbox" @bind="_showAll" disabled="@(_busy || Busy)" />Show all installed files (advanced)</label>
-    <p class="field-hint">@(_showAll ? "Showing each loader’s complete installed catalog. Choose H3-compatible files; filenames do not verify compatibility." : "Showing suggested H3 filenames. Enable advanced browsing for renamed or community files. Your current selections remain visible.")</p>
-    @foreach (var field in new[] { "Model", "Encoder", "Video VAE", "Audio VAE" })
-    {
-        var key = field;
-        <label>@field<select aria-label="H3 @field" value="@Value(field)" @onchange="e => Set(key, e.Value?.ToString() ?? string.Empty)" disabled="@(_busy || Busy)">
-            @foreach (var file in Choices(field).Prepend(Value(field)).Distinct()) { <option value="@file">@file</option> }
-        </select></label>
-    }
-    <section class="video-preset-settings" aria-label="Generation presets"><h3>Generation presets</h3>
-        <p class="field-hint">Choose a preset per shot. Readiness checks installed filenames and node contracts; it does not verify checkpoint contents, GPU capacity or speed.</p>
-        @foreach (var key in H3Presets.Offered.Concat(H3Presets.Keys.Where(H3Presets.Retired)))
-        {
-            if (key == H3Presets.Keys.First(H3Presets.Retired))
-            {
-                <h4>Retired presets</h4>
-                <p class="field-hint">No longer offered for new choices. Shots and saved setups that already use them keep generating with these settings.</p>
-            }
-            var preset = key; var setup = _catalog?.Presets.FirstOrDefault(p => p.Key == key);
-            var status = _catalog?.DiscoverySucceeded != true || _error is not null || !CommonSetupUnchanged || H3Presets.Checkpoint(key, _checked!) != H3Presets.Checkpoint(key, _draft)
-                ? "Check unavailable" : setup?.Issue is not null ? "Setup needed" : "Ready";
-            <details class="video-preset-setup" data-preset="@key"><summary>@H3Presets.Label(key) <span class="preset-status">@status</span>@if (H3Presets.Retired(key)) { <span class="experimental-badge">Retired</span> } else if (H3Presets.Experimental(key)) { <span class="experimental-badge">Experimental</span> }</summary>
-                <p>@H3Presets.Help(key)</p>
-                @if (key != H3Presets.TurboLight && H3Presets.Checkpoint(key, _draft) is { } selected)
-                {
-                    <label>Checkpoint<select aria-label="@(key + " checkpoint")" value="@selected" @onchange="e => SetCheckpoint(preset, e.Value?.ToString() ?? string.Empty)" disabled="@(_busy || Busy)">
-                        @foreach (var file in (setup?.Files ?? []).Prepend(selected).Distinct()) { <option value="@file">@file</option> }
-                    </select></label>
-                }
-                @if (setup?.Issue is { } issue) { <p role="status">@issue</p> }
-                @if (key == "larry")
-                {
-                    <p>Install <a href="https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785" target="_blank" rel="noopener">Larry Turbo (tested 4274783)</a>, including its bundled support files. Download <a href="https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors" target="_blank" rel="noopener">v4 step600 EMA</a> into <code>models/loras</code>.</p>
-                    <p class="field-hint">Six steps · dedicated Turbo sampler · simple schedule · strength 1 · low-VRAM merging off.</p>
-                }
-                else if (key == "pdd")
-                {
-                    <p>Install <a href="https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90" target="_blank" rel="noopener">PDD Acc (tested 311a65d)</a>. Download <a href="https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors" target="_blank" rel="noopener">Ref2VA Acc 8Step</a> into <code>models/pdd_acc</code>. These weights require the dedicated PDD loader; do not add them as a character/style LoRA.</p>
-                    <p class="field-hint">Eight evaluations · supplied sigmas · Euler · shifts 12/3 · strengths 1/1 · strict model and schedule checks.</p>
-                }
-                else if (key == "spectrum")
-                {
-                    <p>Install <a href="https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8" target="_blank" rel="noopener">Spectrum (tested 455bd35)</a>. No additional checkpoint is required.</p>
-                    <p class="field-hint">Standard 20-step schedule · video blend 0.5 · audio blend 0 · smoothing replay · system-RAM history and replay archive.</p>
-                }
-                else if (key == H3HyperFlow.Key)
-                {
-                    <p>Download a <a href="https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI" target="_blank" rel="noopener">HyperFlow v1.0 ComfyUI conversion</a> into <code>models/loras</code>. Use a pruned file for a pruned/curve-form base, or the full version for a compatible full base. Both original-rank and resized avg-rank-20 variants are supported. Keep the published basename; subfolders are supported.</p>
-                    <p>Requires native <code>LoraLoaderModelOnly</code>, <code>MiniMaxH3SigmaShift</code>, <code>ManualSigmas</code>, and Euler. Update ComfyUI if these are unavailable; no HyperFlow companion is installed by Lumibelle. The raw upstream checkpoint requires its own loader and is not accepted by this preset.</p>
-                    <p class="field-hint">Eight Euler evaluations · shifts 12/3 · strength 1 · BasicGuider · full denoising. No automatic scheduler fallback.</p>
-                    <details><summary>Fixed HyperFlow schedule</summary><p>Sampler-domain video sigmas, already shifted by 12:</p><code>@H3HyperFlow.VideoSigmas</code><p>The source grid is unshifted. Applying that raw grid directly to ManualSigmas would use a different trajectory.</p></details>
-                }
-                else if (key == H3Presets.TurboLight) { <p>Uses the LoRA selected under Turbo · 4 steps.</p><p class="field-hint">Four steps · res_multistep · simple · strength 0.75.</p> }
-                else if (key is H3Presets.Beta or H3Presets.EulerBeta) { <p class="field-hint">Twenty steps · @(key == H3Presets.Beta ? "res_multistep" : "euler") · beta · BasicGuider. Native ComfyUI nodes only.</p> }
-                else if (key is "turbo4" or "turbo8") { <p>Put the matching Ref2V Turbo LoRA in <code>models/loras</code>, then select its exact path here. FL2V weights require a different workflow.</p> }
-            </details>
-        }
-        <details><summary>Installing packages and checkpoints</summary><ol><li>Use ComfyUI Manager or place the complete package in the running ComfyUI environment's <code>custom_nodes</code> directory. Install its documented Python dependencies in that environment.</li><li>For Docker, use persistent model and custom-node mounts; files installed only inside an ephemeral container will be lost when it is replaced.</li><li>Restart ComfyUI, refresh video models here, choose the installed checkpoint path and Save. Refresh never downloads models or generates video.</li></ol><p>The earlier Larry, PDD, Spectrum and Turbo comparisons used the base Ref2VA model, Upscaled preview, 141 frames, with no extra LoRAs on one 20 GiB GPU. Beta, Euler beta and HyperFlow have not been benchmarked in Lumibelle; finetunes such as Singularity and other setups also remain unverified.</p></details>
+    <div class="video-setup-heading">
+        <div><h2>MiniMax H3 Ref2VA</h2><p class="field-hint">@CheckedLabel</p></div>
+        <MudButton Disabled="@(_busy || Busy)" OnClick="Refresh" Variant="Variant.Outlined">@(_busy ? "Checking…" : "Check again")</MudButton>
+    </div>
+    <p class="video-setup-summary" role="status" data-state="@Summary.State">@Summary.Text</p>
+
+    <section class="video-setup-group" aria-labelledby="video-required-files">
+        <h3 id="video-required-files">Required files</h3>
+        <p class="field-hint">Every preset needs these four. Put each file in the folder shown inside your ComfyUI folder, then check again.</p>
+        @foreach (var requirement in H3Requirements.Required) { @RequirementRow(requirement) }
     </section>
-    <details class="video-performance-settings"><summary>Advanced</summary>
-        <label>Dense attention<select aria-label="H3 dense attention" @bind="_draft.Performance.Attention" disabled="@(_busy || Busy)">
-            @foreach (var backend in Enum.GetValues<H3AttentionBackend>()) { <option value="@backend">@H3Performance.Label(backend)</option> }
-        </select></label>
-        <p>Server default follows ComfyUI's launch configuration. PyTorch and Kitchen use native nodes. Explicit Sage requires <a href="https://github.com/kijai/ComfyUI-KJNodes" target="_blank" rel="noopener">KJNodes</a> and a compatible <a href="https://github.com/thu-ml/SageAttention" target="_blank" rel="noopener">sageattention package</a> in ComfyUI's Python environment.</p>
-        @if (_catalog?.AttentionIssue is { } attentionIssue) { <p role="status">@attentionIssue</p> }
-        <p>New batches use the selected preset without Sol. Lossless frames, when requested in Shots, use Fast compression. Earlier queued batches retain their captured settings.</p>
-    </details>
-    }
-    else if (Section == UpscalingSection)
-    {
-    <h2>Preview upscaling</h2>
-    <MudButton Disabled="@(_busy || Busy)" OnClick="Refresh" Variant="Variant.Outlined">Refresh video models</MudButton>
-    <section class="video-preview-upscaling" aria-label="Preview upscaling">
-        <label>Learned 3D latent upscaler<select @bind="_draft.LatentUpscaler" disabled="@(_busy || Busy)"><option value="">Choose an installed checkpoint…</option>@foreach (var file in (_catalog?.LatentUpscalers ?? []).Prepend(_draft.LatentUpscaler).Where(s => s.Length > 0).Distinct()) { <option value="@file">@file</option> }</select></label>
-        <p>Choose Upscaled preview in Shots to generate at preview size and save native-size video. It adds upscaling, decoding and saving time; fine detail is softer than native generation. Your sampling mode stays the same.</p>
-        <details><summary>Set up preview upscaling</summary><ol>
-            <li>Install either <a href="https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f" target="_blank" rel="noopener">LBH (tested d7c01b9)</a> or <a href="https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87" target="_blank" rel="noopener">Plus (tested db76324)</a>, then restart ComfyUI. Install only one: they share the same node ID with different inputs.</li>
-            <li>Put a learned 3D SafeTensors checkpoint in models/latent_upscale_models. The FP16 checkpoint is recommended; inference uses FP16 with offloading afterward.</li>
-            <li>Refresh video models, choose the exact checkpoint above and Save. Availability checks node contracts and installed filenames; GPU capacity and execution are checked when running.</li>
-        </ol></details>
-        @if (_catalog is not null) { <p role="status">@(_catalog.PreviewUpscaling.Issue ?? "Preview upscaling setup ready.")</p> }
+
+    <section class="video-setup-group video-preset-settings" aria-label="Generation presets">
+        <h3>Presets</h3>
+        <p class="field-hint">Offered in the Shots preset picker. Each lists only what it needs beyond the required files.</p>
+        @foreach (var key in H3Presets.Offered) { @PresetRow(key) }
+        <details class="video-retired-presets"><summary>Retired presets (@H3Presets.Keys.Count(H3Presets.Retired))</summary>
+            <p class="field-hint">No longer offered for new choices. Shots and saved setups that already use them keep generating with these settings.</p>
+            @foreach (var key in H3Presets.Keys.Where(H3Presets.Retired)) { @PresetRow(key) }
+        </details>
     </section>
-    }
-    else if (Section == RefinementSection)
-    {
-    <h2>Take refinement <span class="experimental-badge">Experimental</span></h2>
-    <MudButton Disabled="@(_busy || Busy)" OnClick="Refresh" Variant="Variant.Outlined">Refresh video models</MudButton>
-    <section class="video-refinement-setup">
-        <p>Optional: normal video generation needs no refinement nodes. With the Lumibelle companion installed, new takes also retain video/audio latents and conditioning for later refinement. Takes without that data remain playable and can supply frames.</p>
-        <details><summary>Install refinement support</summary><ol><li><a href="/downloads/lumibelle-h3-companion.zip" download>Download the Lumibelle H3 companion nodes</a>, extract the lumibelle_h3 folder into ComfyUI/custom_nodes, and restart ComfyUI.</li><li>Install the <a href="https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f" target="_blank" rel="noopener">supported learned 3D upscaler</a> at revision d7c01b9. Put its 3D SafeTensors checkpoint in models/latent_upscale_models.</li><li>Refresh video models, then choose the exact checkpoint under Preview upscaling and save it there.</li></ol><p>Refine preserves source audio; Rework regenerates it. Both use Standard sampling. Sizes above native and both refinement profiles are experimental; larger passes require substantial GPU memory.</p></details>
-        @if (_catalog is not null) { <p role="status">@(_catalog.PackageCaptureReady ? "Refinement data capture ready." : "Refinement data capture unavailable. Normal video generation does not require it.")</p><p role="status">Refinement: @(_catalog.RefinementIssue ?? "Refine and Rework setup ready. Visual quality remains experimental.")</p> }
+
+    <section class="video-setup-group" aria-labelledby="video-add-ons">
+        <h3 id="video-add-ons">Optional add-ons</h3>
+        <details class="video-add-on" data-add-on="upscaled-preview"><summary><span class="video-row-title">Upscaled preview</span><span class="field-hint">Samples small, saves full size</span>@Status(UpscaleState)</summary>
+            <p>Choose Upscaled preview in Shots to generate at preview size and save native-size video. It adds upscaling, decoding and saving time, and fine detail is softer than native generation.</p>
+            @foreach (var requirement in H3Requirements.UpscaledPreview) { @RequirementRow(requirement) }
+            @if (_catalog is { DiscoverySucceeded: true, PreviewUpscaling.Issue: { } upscaleIssue }) { <p role="status">@upscaleIssue</p> }
+        </details>
+        <details class="video-add-on" data-add-on="attention"><summary><span class="video-row-title">Attention</span><span class="field-hint">@H3Performance.Label(_draft.Performance.Attention)</span>@Status(AttentionState)</summary>
+            <label>Dense attention<select aria-label="H3 dense attention" @bind="_draft.Performance.Attention" disabled="@(_busy || Busy)">
+                @foreach (var backend in Enum.GetValues<H3AttentionBackend>()) { <option value="@backend">@H3Performance.Label(backend)</option> }
+            </select></label>
+            <p class="field-hint">Server default follows ComfyUI's launch configuration. PyTorch and Comfy Kitchen use built-in nodes. SageAttention also needs the KJNodes node pack.</p>
+            @if (_draft.Performance.Attention == H3AttentionBackend.Sage) { @RequirementRow(H3Requirements.SageNodes) }
+            @if (_catalog?.AttentionIssue is { } attentionIssue) { <p role="status">@attentionIssue</p> }
+        </details>
     </section>
     }
     else
@@ -108,34 +52,154 @@
     }
     @if (_message is not null) { <p role="status">@_message</p> }
     @if (_error is not null) { <p role="alert">@_error</p> }
-    @if (Section != RefinementSection)
-    {
     <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@(_busy || Busy)" Color="Color.Primary" Variant="Variant.Filled">Save @SectionName</MudButton><MudButton Disabled="@(_busy || Busy)" OnClick="Cancel">Cancel</MudButton></div>
-    }
 </form>
 @code {
     [Parameter, EditorRequired] public AiSettings Settings { get; set; } = default!;
     [Parameter] public bool Busy { get; set; }
     [Parameter, EditorRequired] public Func<H3Settings, Task<bool>> SaveSettings { get; set; } = default!;
     // The AI settings page lists these in its sidebar; the draft is shared and each section saves only its own fields.
-    public const string H3Section = "h3", UpscalingSection = "upscaling", RefinementSection = "refinement";
-    public static readonly (string Key, string Label, string Kind)[] Sections =
-        [(H3Section, "MiniMax H3 Ref2VA", "ComfyUI"), (UpscalingSection, "Preview upscaling", "ComfyUI"), (RefinementSection, "Take refinement", "Experimental")];
+    public const string H3Section = "h3";
+    public static readonly (string Key, string Label, string Kind)[] Sections = [(H3Section, "MiniMax H3 Ref2VA", "ComfyUI")];
     [Parameter] public string Section { get; set; } = H3Section;
-    private string SectionName => Section switch { H3Section => "MiniMax H3", UpscalingSection => "preview upscaling", _ => "video defaults" };
-    private H3Settings? _checked; private H3Settings _draft = new(); private H3Configuration? _catalog; private bool _loaded, _busy, _showAll; private string? _error, _message;
+    private string SectionName => Section == H3Section ? "video models" : "video defaults";
+    private H3Settings? _checked; private H3Settings _draft = new(); private H3Configuration? _catalog; private DateTime? _checkedAt;
+    private bool _loaded, _busy, _autoChecked; private string? _error, _message;
     private bool CommonSetupUnchanged => _checked is not null && _checked.Model == _draft.Model && _checked.Encoder == _draft.Encoder && _checked.VideoVae == _draft.VideoVae && _checked.AudioVae == _draft.AudioVae;
+    private bool Checked => _catalog is { DiscoverySucceeded: true };
     protected override void OnParametersSet() { if (!_loaded) { _loaded = true; _draft = ShotCopy.Of(Settings.H3); } }
-    private string Value(string field) => field switch { "Model" => _draft.Model, "Encoder" => _draft.Encoder, "Video VAE" => _draft.VideoVae, "Audio VAE" => _draft.AudioVae, "8-step Turbo LoRA" => _draft.Turbo8StepLora, _ => _draft.TurboLora };
-    private void Set(string field, string value) { switch (field) { case "Model": _draft.Model = value; break; case "Encoder": _draft.Encoder = value; break; case "Video VAE": _draft.VideoVae = value; break; case "Audio VAE": _draft.AudioVae = value; break; case "8-step Turbo LoRA": _draft.Turbo8StepLora = value; break; default: _draft.TurboLora = value; break; } }
-    private IEnumerable<string> Choices(string field) => _showAll
-        ? field switch { "Model" => _catalog?.InstalledModels ?? [], "Encoder" => _catalog?.InstalledEncoders ?? [], "Video VAE" or "Audio VAE" => _catalog?.InstalledVaes ?? [], _ => _catalog?.InstalledLoras ?? [] }
-        : field switch { "Model" => _catalog?.Models ?? [], "Encoder" => _catalog?.Encoders ?? [], "Video VAE" => (_catalog?.Vaes ?? []).Where(v => v.Contains("video_vae", StringComparison.OrdinalIgnoreCase)), "Audio VAE" => (_catalog?.Vaes ?? []).Where(v => v.Contains("audio_vae", StringComparison.OrdinalIgnoreCase)), _ => (_catalog?.Loras ?? []).Where(v => H3Policy.TurboFileIssue(v, field == "8-step Turbo LoRA" ? 8 : 4) is null) };
-    private void SetCheckpoint(string key, string value)
+    // Check as soon as the page shows, so nothing reads "not checked" until someone remembers to refresh.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        switch (key) { case "larry": _draft.LarryLora = value; break; case "pdd": _draft.PddCheckpoint = value; break; case H3HyperFlow.Key: _draft.HyperFlowLora = value; break; case "turbo4": _draft.TurboLora = value; break; case "turbo8": _draft.Turbo8StepLora = value; break; }
+        if (Section != H3Section || _autoChecked || string.IsNullOrWhiteSpace(Settings.ComfyUrl)) return;
+        _autoChecked = true; _busy = true; StateHasChanged(); await Refresh(); StateHasChanged();
     }
-    private async Task Refresh() { _busy = true; _error = null; try { _catalog = await Generator.CheckAsync(Settings with { H3 = ShotCopy.Of(_draft) }); _checked = ShotCopy.Of(_draft); _message = _catalog.Message; } catch (Exception e) { _error = e.Message; } finally { _busy = false; } }
+
+    private string CheckedLabel => _checkedAt is { } at ? $"Checked at {at:HH:mm} on {Settings.ComfyUrl}" :
+        string.IsNullOrWhiteSpace(Settings.ComfyUrl) ? "Connect ComfyUI under Connections first." : $"Not checked yet on {Settings.ComfyUrl}";
+    private (string Text, string State) Summary
+    {
+        get
+        {
+            if (_catalog is null) return (_busy ? "Checking ComfyUI…" : "Not checked yet.", "NotChecked");
+            if (!_catalog.DiscoverySucceeded) return (_catalog.Message, "Missing");
+            var missing = H3Requirements.Required.Count(r => State(r) == H3RequirementState.Missing);
+            if (missing > 0) return (missing == 1 ? "1 required file is missing. Presets work once it's in place." : $"{missing} required files are missing. Presets work once they're in place.", "Missing");
+            if (!CommonSetupUnchanged) return ("Your file choices changed. Check again to update the presets.", "NotChecked");
+            if (!_catalog.StandardReady) return (_catalog.Presets.FirstOrDefault(p => p.Key == "standard")?.Issue ?? _catalog.Message, "Missing");
+            var offered = H3Presets.Offered.ToArray(); var waiting = offered.Where(k => PresetState(k).State != H3RequirementState.Installed).Select(H3Presets.Label).ToArray();
+            return waiting.Length == 0 ? ("Ready. Every preset can generate.", "Installed")
+                : ($"{offered.Length - waiting.Length} of {offered.Length} presets ready. Not set up yet: {string.Join(", ", waiting)}.", "Installed");
+        }
+    }
+    private H3RequirementState State(H3Requirement r) => H3Requirements.Status(r, _draft, _catalog).State;
+    private (string Label, H3RequirementState State) PresetState(string key)
+    {
+        if (!Checked) return ("Not checked", H3RequirementState.NotChecked);
+        if (H3Requirements.Required.Any(r => State(r) == H3RequirementState.Missing)) return ("Needs required files", H3RequirementState.Missing);
+        var extra = H3Requirements.ForPreset(key).Select(r => H3Requirements.Status(r, _draft, _catalog)).ToArray();
+        if (extra.Any(s => s.State == H3RequirementState.Missing && s.Requirement.Kind == H3RequirementKind.NodePack)) return ("Needs node pack", H3RequirementState.Missing);
+        if (extra.Any(s => s.State == H3RequirementState.Missing)) return ("Needs file", H3RequirementState.Missing);
+        if (!CommonSetupUnchanged || H3Presets.Checkpoint(key, _checked!) != H3Presets.Checkpoint(key, _draft)) return ("Check again", H3RequirementState.NotChecked);
+        return _catalog!.Presets.FirstOrDefault(p => p.Key == key)?.Issue is null ? ("Ready", H3RequirementState.Installed) : ("Setup needed", H3RequirementState.Missing);
+    }
+    private (string Label, H3RequirementState State) UpscaleState => !Checked ? ("Not checked", H3RequirementState.NotChecked) :
+        _catalog!.PreviewUpscaling.Issue is null && H3Requirements.UpscaledPreview.All(r => State(r) != H3RequirementState.Missing) ? ("Ready", H3RequirementState.Installed) : ("Not set up", H3RequirementState.NotChecked);
+    private (string Label, H3RequirementState State) AttentionState => !Checked ? ("Not checked", H3RequirementState.NotChecked) :
+        _catalog!.AttentionIssue is null ? ("Ready", H3RequirementState.Installed) : ("Setup needed", H3RequirementState.Missing);
+    private static string StateLabel(H3RequirementStatus s) => s.State switch
+    {
+        H3RequirementState.Installed => "Installed", H3RequirementState.OtherFile => "Other file",
+        H3RequirementState.Missing => s.Requirement.Kind == H3RequirementKind.NodePack ? "Not found" : "Missing", _ => "Not checked"
+    };
+    private static RenderFragment Status((string Label, H3RequirementState State) s) => @<span class="video-status" data-state="@s.State">@s.Label</span>;
+
+    private RenderFragment PresetRow(string key)
+    {
+        var state = PresetState(key); var issue = Checked && state.Label == "Setup needed" ? _catalog!.Presets.FirstOrDefault(p => p.Key == key)?.Issue : null;
+        var needs = H3Requirements.ForPreset(key);
+        return @<details class="video-preset-setup" data-preset="@key">
+            <summary><span class="video-row-title">@H3Presets.Label(key)</span>
+                <span class="video-badges">
+                    @foreach (var badge in H3Presets.Recipe(key)) { @Badge(badge.Label, badge.Hint, "recipe") }
+                    @if (H3Presets.Retired(key)) { @Badge("Retired", "No longer offered for new choices. Shots and setups that already use it keep working.", "tag") }
+                </span>@Status(state)</summary>
+            <p class="field-hint video-preset-help">@H3Presets.Help(key)</p>
+            @if (H3Presets.WorksWith(key) is { Count: > 0 } works)
+            {
+                <div class="video-works-with"><span class="video-works-label">Works with</span><ul>@foreach (var fact in works) { <li>@fact</li> }</ul></div>
+            }
+            @foreach (var requirement in needs) { @RequirementRow(requirement) }
+            @if (needs.Count == 0) { <p class="field-hint">Needs nothing beyond the required files.</p> }
+            @if (issue is not null) { <p role="status">@issue</p> }
+        </details>;
+    }
+
+    private RenderFragment RequirementRow(H3Requirement r)
+    {
+        var status = H3Requirements.Status(r, _draft, _catalog); var suggested = r.Downloads[0];
+        var isFile = r.Kind == H3RequirementKind.File;
+        IReadOnlyList<string> installed = _catalog is null ? [] : H3Requirements.Installed(r, _catalog);
+        IReadOnlyList<string> recognized = _catalog is null ? [] : H3Requirements.Recognized(r, _catalog);
+        var suggestedFiles = installed.Where(f => H3Requirements.Suggested(r, f)).ToArray();
+        var h3Files = installed.Where(f => !suggestedFiles.Contains(f) && recognized.Contains(f)).ToArray();
+        var otherFiles = installed.Where(f => !suggestedFiles.Contains(f) && !h3Files.Contains(f)).ToArray();
+        // Several downloads are alternatives: one of them is enough.
+        var downloads = r.Downloads.Count > 1 ? $"{(isFile ? "Download" : "Install")} one of these ({r.Downloads.Count})" : isFile ? "Download link" : "Where to get it";
+        return @<div class="video-requirement" data-requirement="@r.Id" data-state="@status.State">
+            <span class="video-requirement-label">@r.Label</span>
+            <div class="video-requirement-body">
+                @if (isFile && Checked)
+                {
+                    <select class="video-requirement-select" aria-label="@(r.Label + " file")" value="@status.Selected" @onchange="e => Choose(r, e.Value?.ToString() ?? string.Empty)" disabled="@(_busy || Busy)">
+                        @if (!installed.Contains(status.Selected ?? string.Empty)) { <option value="@status.Selected">@(string.IsNullOrEmpty(status.Selected) ? "Choose an installed file…" : status.Selected + " (not installed)")</option> }
+                        @foreach (var (label, files) in new[] { ("Suggested", suggestedFiles), ("Other H3 files", h3Files), (h3Files.Length > 0 ? "Everything else installed" : "Other installed files", otherFiles) })
+                        {
+                            if (files.Length > 0) { <optgroup label="@label">@foreach (var option in files) { <option value="@option">@option</option> }</optgroup> }
+                        }
+                    </select>
+                }
+                else { <div class="video-requirement-file">@(isFile && !string.IsNullOrEmpty(status.Selected) ? status.Selected : suggested.Name)</div> }
+                <p class="field-hint video-requirement-hint">@switch (status.State)
+                {
+                    case H3RequirementState.Installed when isFile: <span>Found in <code>@r.Folder</code>.</span> break;
+                    case H3RequirementState.Installed: <span>Installed in <code>custom_nodes</code>.</span> break;
+                    case H3RequirementState.OtherFile: <span>Found in <code>@r.Folder</code>. It isn't one of the suggested files, so it works only if it's a compatible H3 file.</span> break;
+                    case H3RequirementState.Missing when isFile && installed.Count > 0: <span>Not found in <code>@r.Folder</code>. Download a supported file and put it there, or choose another installed file above. Then check again.</span> break;
+                    case H3RequirementState.Missing when isFile: <span>Not found in <code>@r.Folder</code>. Download a supported file, put it there, then check again.</span> break;
+                    case H3RequirementState.Missing: <span>Not found. Install it into <code>custom_nodes</code>, restart ComfyUI, then check again.</span> break;
+                    default: <span>Goes in <code>@r.Folder</code>.</span> break;
+                }</p>
+                <details class="video-requirement-options" open="@(status.State == H3RequirementState.Missing)"><summary>@downloads</summary><ul>
+                    @foreach (var download in r.Downloads)
+                    {
+                        <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a>
+                            <span class="video-badges">
+                                @Badge(download.Publisher, $"Published by {download.Publisher} on {download.Site}.", "source")
+                                @if (download.Size is { } size) { @Badge(size, H3Requirements.SizeHint(r, download), "size") }
+                                @if (download.Format is { } format) { @Badge(format, H3Requirements.FormatHint(format), "format") }
+                                @foreach (var tag in download.Tags) { @Badge(tag.Label, tag.Hint, "tag") }
+                            </span>
+                            @if (download.Note is not null) { <span class="field-hint video-download-note">@download.Note</span> }
+                        </li>
+                    }
+                </ul></details>
+            </div>
+            <span class="video-status" data-state="@status.State">@StateLabel(status)</span>
+        </div>;
+    }
+    // Focusable so the explanation also shows on keyboard focus and tap, and is read out after the label.
+    private static RenderFragment Badge(string label, string hint, string kind) =>
+        @<span class="video-badge" data-kind="@kind" data-hint="@hint" tabindex="0">@label<span class="sr-only">: @hint</span></span>;
+    private void Choose(H3Requirement r, string value) => H3Requirements.Select(r, _draft, value);
+
+    private async Task Refresh()
+    {
+        _busy = true; _error = null;
+        try { _catalog = await Generator.CheckAsync(Settings with { H3 = ShotCopy.Of(_draft) }); _checked = ShotCopy.Of(_draft); _checkedAt = DateTime.Now; _message = null; }
+        catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; }
+    }
     private async Task Save()
     {
         _error = null;
@@ -143,22 +207,21 @@
         {
             var section = Section; var settings = ShotCopy.Of(Settings.H3);
             Copy(section, ShotCopy.Of(_draft), settings); H3Policy.ValidateSettings(settings);
-            if (await SaveSettings(settings)) _message = char.ToUpperInvariant(SectionName[0]) + SectionName[1..] + " saved.";
+            if (!await SaveSettings(settings)) return;
+            if (section == H3Section) await Refresh();
+            _message = char.ToUpperInvariant(SectionName[0]) + SectionName[1..] + " saved.";
         }
         catch (Exception e) { _error = e.Message; }
     }
     private void Cancel() { Copy(Section, ShotCopy.Of(Settings.H3), _draft); _error = null; _message = null; }
     private static void Copy(string section, H3Settings from, H3Settings to)
     {
-        switch (section)
+        if (section == H3Section)
         {
-            case H3Section:
-                to.Model = from.Model; to.Encoder = from.Encoder; to.VideoVae = from.VideoVae; to.AudioVae = from.AudioVae; to.Performance = from.Performance;
-                to.LarryLora = from.LarryLora; to.PddCheckpoint = from.PddCheckpoint; to.HyperFlowLora = from.HyperFlowLora; to.TurboLora = from.TurboLora; to.Turbo8StepLora = from.Turbo8StepLora;
-                break;
-            case UpscalingSection: to.LatentUpscaler = from.LatentUpscaler; break;
-            case RefinementSection: break;
-            default: to.TimeoutSeconds = from.TimeoutSeconds; to.Ffmpeg = from.Ffmpeg; to.Ffprobe = from.Ffprobe; break;
+            to.Model = from.Model; to.Encoder = from.Encoder; to.VideoVae = from.VideoVae; to.AudioVae = from.AudioVae; to.Performance = from.Performance;
+            to.LarryLora = from.LarryLora; to.PddCheckpoint = from.PddCheckpoint; to.HyperFlowLora = from.HyperFlowLora; to.TurboLora = from.TurboLora;
+            to.Turbo8StepLora = from.Turbo8StepLora; to.LatentUpscaler = from.LatentUpscaler;
         }
+        else { to.TimeoutSeconds = from.TimeoutSeconds; to.Ffmpeg = from.Ffmpeg; to.Ffprobe = from.Ffprobe; }
     }
 }

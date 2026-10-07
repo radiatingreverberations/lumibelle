@@ -117,26 +117,29 @@ public sealed partial class AiModelComponentTests : BunitContext
         page.Find("#ai-tab-loras").KeyDown("ArrowRight"); Assert.Equal("true", page.Find("#ai-tab-connections").GetAttribute("aria-selected"));
     }
     [Fact]
-    public void VideoCatalogTogglePreservesExplicitChoicesAndOnlySaveWritesSettings()
+    public void VideoSetupChecksOnOpenKeepsExplicitChoicesAndOnlySaveWritesSettings()
     {
         var generator=(Lumibelle.Testing.MockVideoGenerator)Services.GetRequiredService<lumibelle.Services.Shots.IVideoGenerator>();
         H3Settings? saved=null;var fail=false;
         var page=Render<lumibelle.Components.Shots.VideoSettingsPanel>(p=>p.Add(c=>c.Settings,_settings.Value)
             .Add(c=>c.SaveSettings, draft=> { if(fail) throw new WorkspaceConflictException();saved=draft;return Task.FromResult(true); }));
         const string file="custom/renamed-h3-encoder.safetensors";
-        var encoder="select[aria-label='H3 Encoder']";
+        const string row="[data-requirement='encoder']", encoder="select[aria-label='Encoder file']";
         const string attention="select[aria-label='H3 dense attention']";
-        page.Find(attention).Change("Sage");
-        Assert.Empty(page.FindAll(".video-performance-settings input[type=checkbox]"));
+        // The page checks ComfyUI as soon as it opens.
+        page.WaitForAssertion(()=>Assert.Equal(1,generator.CheckCalls));
         Assert.Equal(lumibelle.Services.Shots.H3Presets.Keys.Length, page.FindAll(".video-preset-setup").Count);
+        Assert.Equal("Installed",page.Find(row+" .video-status").TextContent);
+        Assert.Contains("models/text_encoders",page.Find(row).TextContent);
+        page.Find(attention).Change("Sage");
+        Assert.Equal("Not found",page.Find("[data-requirement='sage-nodes'] .video-status").TextContent);
         Assert.Equal(H3AttentionBackend.ServerDefault,_settings.Value.H3.Performance.Attention);
-        Assert.Equal(0,generator.CheckCalls);
-        Button(page,"Refresh video models").Click();Assert.Equal(1,generator.CheckCalls);
-        Assert.DoesNotContain(file,page.Find(encoder).TextContent);
-        page.Find("input[type=checkbox]").Change(true);Assert.Contains(file,page.Find(encoder).TextContent);
+        Assert.Contains(_settings.Value.H3.Encoder,page.Find(encoder+" optgroup[label='Suggested']").TextContent);
+        Assert.Contains(file,page.Find(encoder+" optgroup[label='Other installed files']").TextContent);
         page.Find(encoder).Change(file);Assert.Null(saved);
-        page.Find("input[type=checkbox]").Change(false);Assert.Contains(file,page.Find(encoder).TextContent);
-        Assert.Equal(file,page.Find(encoder).GetAttribute("value"));Assert.Null(saved);
+        Assert.Equal("Other file",page.Find(row+" .video-status").TextContent);
+        Assert.Equal(file,page.Find(encoder).GetAttribute("value"));
+        Assert.Contains("isn't one of the suggested files",page.Find(row).TextContent);
         fail=true;page.FindAll("form").Single(f => f.Closest("[hidden]") is null).Submit();Assert.Null(saved);Assert.Contains("Another tab",page.Markup);
         Assert.Equal("Sage",page.Find(attention).QuerySelector("option[selected]")!.GetAttribute("value"));
         Assert.Equal(file,page.Find(encoder).GetAttribute("value"));
@@ -148,7 +151,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         Button(page,"Cancel").Click();Assert.Equal(_settings.Value.H3.Encoder,page.Find(encoder).GetAttribute("value"));
         Assert.Equal("ServerDefault",page.Find(attention).QuerySelector("option[selected]")!.GetAttribute("value"));
         page.Render(p=>p.Add(c=>c.Settings,_settings.Value with { H3=saved }).Add(c=>c.Busy,true));
-        Button(page,"Cancel");Assert.True(page.Find("input[type=checkbox]").HasAttribute("disabled"));
+        Assert.True(Button(page,"Check again").HasAttribute("disabled"));
         Assert.Equal(0,generator.SubmitCount);
     }
     [Fact]

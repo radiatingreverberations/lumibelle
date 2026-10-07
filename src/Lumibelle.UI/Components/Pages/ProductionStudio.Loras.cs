@@ -37,6 +37,8 @@ public partial class ProductionStudio
                 ? $"{l.Reference.Name}: {issue}" : null).FirstOrDefault(i => i is not null);
         }
     }
+    // Take refinement is hidden until its companion nodes are tested; see H3Settings.TakeRefinement.
+    private bool _takeRefinement;
     private async Task RefreshH3LorasAsync()
     {
         var project = Id; var version = ++_loraRefreshVersion; _loraRefreshing = true;
@@ -44,6 +46,7 @@ public partial class ProductionStudio
         try
         {
             var settings = await Settings.LoadAsync(_lifetime.Token);
+            _takeRefinement = settings.H3.TakeRefinement;
             var preferences = await LoraPreferences.LoadAsync(project, _lifetime.Token);
             LoraPolicy.ValidateVisibility(preferences.LoraVisibility);
             var check = await LoraCatalog.CheckAsync(settings, _lifetime.Token);

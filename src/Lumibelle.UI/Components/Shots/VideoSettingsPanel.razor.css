@@ -1,17 +1,3 @@
-.video-performance-settings { border-top: 1px solid var(--mud-palette-lines-default); margin-top: 1rem; padding-top: .75rem; }
-.video-performance-settings h3 { margin: 0 0 .5rem; }
-.video-performance-settings fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: .65rem; }
-.video-performance-settings label { margin: 0; min-width: 0; }
-.video-performance-settings .video-catalog-toggle { margin: 0; align-self: end; min-height: 2.25rem; }
-.video-performance-settings details { margin-top: .6rem; font-size: var(--lumi-font-size-ui); }
-.video-performance-settings select { max-width: 100%; }
 .video-preset-settings { min-width: 0; }
-.video-preset-setup { border: 1px solid var(--mud-palette-lines-default); border-radius: var(--lumi-radius-surface); margin: .6rem 0; padding: .65rem .8rem; }
-.video-preset-setup summary { cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
 .video-preset-setup p, .video-preset-setup code { overflow-wrap: anywhere; }
-.video-preset-setup select { width: 100%; max-width: 100%; min-width: 0; }
-.preset-status { font-size: var(--lumi-font-size-meta); font-weight: 400; margin-left: .6rem; color: var(--mud-palette-text-secondary); }
-.video-preset-setup .experimental-badge { margin-left: .4rem; }
-@media (min-width: 760px) {
-    .video-performance-settings fieldset { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1.25rem; }
-}
+.video-preset-setup select, .video-add-on select { width: 100%; max-width: 100%; min-width: 0; }

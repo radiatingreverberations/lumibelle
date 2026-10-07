@@ -29,11 +29,14 @@ test('presets, setup and optional archives survive autosave and queue capture', 
     await expect(preset).toHaveValue('larry');
     await expect(page.getByRole('button', { name: 'Generate takes', exact: true })).toBeDisabled();
     await page.getByRole('link', { name: 'Preset setup and video models' }).click();
-    await page.getByRole('button', { name: 'Refresh video models', exact: true }).click();
+    // Video models checks ComfyUI as it opens and says what the preset is missing.
     const row = page.locator('[data-preset=larry]');
-    await expect(row).toContainText('Setup needed'); await row.locator('summary').click();
-    await expect(row.getByRole('link', { name: /Larry Turbo/ })).toBeVisible();
-    await expect(row.getByRole('link', { name: 'v4 step600 EMA' })).toBeVisible();
+    await expect(row.locator('> summary .video-status')).toHaveText('Needs node pack'); await row.locator('> summary').click();
+    await expect(row.locator('[data-requirement=larry-nodes] .video-status')).toHaveText('Not found');
+    // The missing pack's link is open; the installed LoRA's stays folded away.
+    await expect(row.getByRole('link', { name: /ComfyUI-MiniMax-H3-Turbo/ })).toHaveAttribute('href', /Larryvrh\/ComfyUI-MiniMax-H3-Turbo\/tree\/4274783/);
+    await expect(row.getByRole('link', { name: /ComfyUI-MiniMax-H3-Turbo/ })).toBeVisible();
+    await expect(row.getByRole('link', { name: /minimax_h3_turbo_v4_step600_ema/ })).toBeHidden();
     await expect(page.getByRole('link', { name: /Back to shots/ })).toHaveAttribute('href', `/projects/${(await (await request.get(`/fixtures/${id}/project-route`)).json()).slug}/shots`);
     await page.getByRole('link', { name: /Back to shots/ }).click();
   }

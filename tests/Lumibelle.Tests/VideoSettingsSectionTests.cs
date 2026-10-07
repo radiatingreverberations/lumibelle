@@ -37,8 +37,8 @@ public sealed class VideoSettingsSectionTests : BunitContext
         Assert.Equal("Sage", panel.Find(attention).GetAttribute("value"));
         await panel.InvokeAsync(() => panel.Find("form").Submit());
         Assert.Equal(H3AttentionBackend.Sage, saved.Performance.Attention); Assert.Equal(settings.H3.TimeoutSeconds, saved.TimeoutSeconds);
-        panel.Render(p => p.Add(c => c.Section, VideoSettingsPanel.RefinementSection));
-        Assert.Empty(panel.FindAll("button[type=submit]"));
-        Assert.Contains("under Preview upscaling", panel.Markup);
+        // Preview upscaling lives on the same page now, and take refinement is hidden.
+        Assert.Equal([VideoSettingsPanel.H3Section], VideoSettingsPanel.Sections.Select(s => s.Key));
+        Assert.DoesNotContain("refinement", panel.Markup, StringComparison.OrdinalIgnoreCase);
     }
 }

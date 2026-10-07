@@ -32,7 +32,9 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
                 "turbo8" => [s.H3.Turbo8StepLora, "h3/"+new H3Settings().Turbo8StepLora, "custom/renamed-ref2va-turbo.safetensors"], _ => [] })).ToArray(), OptionalLoras = OptionalLoraCatalog?.Invoke(s) ?? new(true, "Mock H3 LoRAs ready.", ["h3/character.safetensors", "h3/styles/film.safetensors"]), Performance = new() { PyTorchIssue=null, KitchenIssue=null, SageIssue=null, SolIssue=null, FastArchiveIssue=null },
             PackageCaptureReady=true, RefinementIssue=null, LatentUpscalers=["mock-h3-3d.safetensors"],
             PreviewUpscaling=new(H3UpscalerImplementation.Plus, s.H3.LatentUpscaler == "mock-h3-3d.safetensors" ? null : "Choose an installed learned 3D upscaler checkpoint under Preview upscaling and Save."),
-            Turbo8StepReady=true, InstalledModels=[s.H3.Model,"custom/renamed-ref2va.safetensors"], InstalledEncoders=[s.H3.Encoder,"custom/renamed-h3-encoder.safetensors"], InstalledVaes=[s.H3.VideoVae,s.H3.AudioVae,"custom/renamed-vae.safetensors"], InstalledLoras=[s.H3.TurboLora,s.H3.Turbo8StepLora,"h3/"+new H3Settings().Turbo8StepLora,"custom/renamed-ref2va-turbo.safetensors"] });
+            Turbo8StepReady=true, InstalledModels=[s.H3.Model,"custom/renamed-ref2va.safetensors"], InstalledEncoders=[s.H3.Encoder,"custom/renamed-h3-encoder.safetensors"], InstalledVaes=[s.H3.VideoVae,s.H3.AudioVae,"custom/renamed-vae.safetensors"], InstalledLoras=[s.H3.TurboLora,s.H3.Turbo8StepLora,"h3/"+new H3Settings().Turbo8StepLora,"custom/renamed-ref2va-turbo.safetensors",H3Presets.Checkpoint("larry", s.H3)!,H3HyperFlow.Checkpoint(s.H3)],
+            // The preset and upscaler node packs are installed; KJNodes for SageAttention is not.
+            Nodes=new[] { H3Requirements.LarryNodes, H3Requirements.PddNodes, H3Requirements.SpectrumNodes, H3Requirements.UpscalerNodes }.Select(r => r.Node!).ToHashSet() });
     }
     public async Task ValidateInputsAsync(VideoSnapshot s, CancellationToken ct)
     {

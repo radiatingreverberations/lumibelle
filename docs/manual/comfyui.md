@@ -90,39 +90,53 @@ Choose the download button on each Hugging Face page. You can start with only th
 
 ## Video models
 
-Shots generates takes with [MiniMax H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) Ref2VA, which runs on nodes built into current ComfyUI, so no node pack is needed. It needs four files, about 43 GB in total:
+Shots generates takes with [MiniMax H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) Ref2VA, which runs on nodes built into current ComfyUI, so no node pack is needed. It needs four files, about 40 GB in total:
 
 | File | Folder | Source |
 | --- | --- | --- |
-| [`Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors) | `diffusion_models` | [Singularity](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity) |
-| [`qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors`](https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors) | `text_encoders` | [koongrizzly](https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned) |
-| [`minimax_h3_video_vae_fp16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_video_vae_fp16.safetensors) | `vae` | [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3) |
+| [`minimax_h3_ref2va_pruned_int8_convrot.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) | `diffusion_models` | [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3) |
+| [`qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors) | `text_encoders` | [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3) |
+| [`minimax_h3_video_vae_int8_convrot.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae` | [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3) |
 | [`minimax_h3_audio_vae_fp32.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae` | [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3) |
 
-Use Singularity rather than the official Ref2VA model. MiniMax released two H3 checkpoints: FL2VA, which starts from a first or last frame, and Ref2VA, the only one that takes reference images. Ref2VA has a known training-quality problem that makes its output noticeably worse than FL2VA's, even without references. Community models work around it by [merging the two](https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models): FL2VA's weights for picture and sound quality, Ref2VA's for following references. Singularity is built on such a merge and finetuned further. The official [`minimax_h3_ref2va_pruned_int8_convrot.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) still works, at that lower quality. Comfy-Org also publishes the [`qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors) encoder, which is meant for NVIDIA RTX 50 series cards; the W4A8 encoder above is Lumibelle's default.
+These are the files ComfyUI's own Ref2VA template uses. The model is MiniMax's own Ref2VA weights, as packaged by Comfy-Org, and the Turbo, PDD and HyperFlow speed-ups were trained on it. MiniMax released two H3 checkpoints: FL2VA, which starts from a first or last frame, and Ref2VA, the only one that takes reference images. Community models [merge the two](https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models), keeping Ref2VA's reference inputs while taking other weights from FL2VA. Lumibelle hasn't compared these models systematically, so try more than one with your own references. The encoder's NVFP4 format is a 4-bit format meant for NVIDIA RTX 50 series cards. Alternatives are Comfy-Org's 8-bit [`qwen3vl_32b_minimax_h3_int8_convrot.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors) (about 27 GB) and koongrizzly's [`qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors`](https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors) (about 16 GB). For the video VAE, Comfy-Org's larger [`minimax_h3_video_vae_fp16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_video_vae_fp16.safetensors) (about 5 GB) also works.
 
-Lumibelle also suggests these alternatives:
+Lumibelle also suggests these alternative models. Hovering a model's size on the settings page estimates which common card holds it fully; smaller cards still work, more slowly, because ComfyUI streams the rest from system memory.
 
-- [`Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors) (about 12 GB), from the same repository: Singularity at about half the size, for cards with less memory.
+- [`minimax_h3_ref2va_pruned_w6a8.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors) (about 16 GB), from Comfy-Org: the same official weights in a smaller format.
+- [`minimax_h3_ref2va_pruned_w4a8_mixed.safetensors`](https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/minimax_h3_ref2va_pruned_w4a8_mixed.safetensors) (about 12 GB): the official weights smaller still, from Kijai's repository of experiments, so it may change or disappear.
+- [`Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors) (about 21 GB): Singularity v1.3, a community finetune of such a merge. Its author tuned it for clarity, faces, action scenes and camera control.
+- [`Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors`](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors) (about 12 GB), from the same repository: Singularity at about half the size.
 - [`minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors`](https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors) (21 GB): a plain merge of the official weights, without further training. The same repository has `b20-49` and `b15-49`, which follow references more closely at some cost in quality, and `b30-49`, which leans the other way.
 
-To select the files, open **AI settings → Video models → MiniMax H3 Ref2VA** and choose **Refresh video models**. Singularity and the W4A8 encoder are the defaults; the **Model** list also offers other Ref2VA files, including FL2VA/Ref2VA merges. Choose the encoder and both VAEs, then **Save MiniMax H3**. Lumibelle recognizes these by name, so if a renamed file is missing from the list, turn on **Show all installed files (advanced)**. **Generation presets** below the files shows which presets are ready to use.
+To check your setup, open **AI settings → Video models**. Lumibelle checks ComfyUI when the page opens and shows each file as **Installed**, **Missing** or **Other file**, with the folder it belongs in and where to download it. The files from ComfyUI's template are the defaults. To use another installed file, such as one you renamed, choose it from the list on its row. Lumibelle can't tell from a file name whether it's compatible. Choose **Save video models** when you're done.
 
-![Video models with Singularity, the W4A8 encoder and both VAEs selected](https://lumibelle.ai/media/manual/ai-settings-video-models.png)
+### Presets
 
-### Faster takes
+Each preset in the Shots preset picker lists what it needs beyond the four files above, and shows **Ready** once it's all there. Standard, Beta and Euler beta need nothing more.
 
-**Turbo · 4 steps** needs [`minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors) in `models/loras`; the Singularity author recommends this LoRA. Choose it under the preset in **Generation presets**. Use the `ref2v` file. The `fl2v` LoRAs beside it belong to a different workflow.
+| Preset | Needs | Folder |
+| --- | --- | --- |
+| Turbo · 4 steps | [`minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors), which the Singularity author recommends. Use the `ref2v` file; the `fl2v` LoRAs beside it belong to a different workflow. | `models/loras` |
+| Larry · 6 steps | The [ComfyUI-MiniMax-H3-Turbo](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785) node pack, tested at 4274783, with its bundled support files | `custom_nodes` |
+| | [`minimax_h3_turbo_v4_step600_ema.safetensors`](https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors) | `models/loras` |
+| PDD · 8 steps | The [ComfyUI-MiniMax-H3-PDD-Acc](https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90) node pack, tested at 311a65d | `custom_nodes` |
+| | [`MiniMax-H3-Ref2VA-Acc-8Step.safetensors`](https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors) | `models/pdd_acc` |
+| HyperFlow · 8 steps | [`minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16.safetensors`](https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/blob/main/minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16.safetensors) from drbaph. Use a pruned file with a pruned model such as Singularity, and a full file with a full model. Keep the published name. | `models/loras` |
 
-Spectrum, **Turbo · 8 steps** and **Turbo · 4 steps · 0.75** are retired. They are no longer offered for new shots, but shots and saved setups that already use them keep working, and their setup stays under **Retired presets**.
+After installing a node pack, restart ComfyUI, then choose **Check again** in Video models.
+
+Spectrum, **Turbo · 8 steps** and **Turbo · 4 steps · 0.75** are retired. They're no longer offered for new shots, but shots and saved setups that already use them keep working. Their setup stays under **Retired presets**: Turbo 8 uses [`minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors`](https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors) and Spectrum the [ComfyUI-Spectrum-MiniMax-H3](https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8) node pack, tested at 455bd35.
+
+### Optional add-ons
+
+**Upscaled preview** in the Shots resolution picker samples at a smaller size and upscales the result to full size in the same job. It needs one latent upscaler node pack, either [Comfyui_Minimax_h3_latent_Upscaler-Plus](https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87) (tested at db76324) or the original [Comfyui_Minimax_h3_latent_Upscaler](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f) (tested at d7c01b9). Install only one: they register the same node. It also needs [`minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors`](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors) in `models/latent_upscale_models`.
+
+**SageAttention**, chosen under **Attention**, needs the [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes) node pack and the `sageattention` package in ComfyUI's Python environment. The other attention choices use nodes built into ComfyUI.
 
 ### Starting from a frame
 
 A shot that [starts from a take frame](shots.md#continue-from-a-frame) anchors that frame with ComfyUI's built-in `MiniMaxH3AddGuide` node, so it needs no extra files or node packs. If **Generate takes** asks you to update ComfyUI for it, update to a current ComfyUI and refresh video models.
-
-### Upscaled preview
-
-**Upscaled preview** in the Shots resolution picker samples at a smaller size and upscales the result to full size in the same job. It needs the [Minimax H3 latent upscaler](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler) node pack, installed like the [node packs](#node-packs) above, and [`minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors`](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors) in `models/latent_upscale_models`. Restart ComfyUI, then refresh, select the checkpoint and save in **Video models → Preview upscaling**.
 
 ## Connect Lumibelle
 

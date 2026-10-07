@@ -14,16 +14,16 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await page.goto(`/settings/ai?projectId=${id}&returnTo=shots`);
   await expect(page.locator('h1')).toBeFocused();
   await page.getByRole('tab', { name: 'Video models', exact: true }).click();
-  await page.getByRole('tablist', { name: 'Video settings' }).getByRole('tab', { name: 'Preview upscaling', exact: true }).click();
-  await page.getByRole('button', { name: 'Refresh video models', exact: true }).click();
-  const setup = page.getByRole('region', { name: 'Preview upscaling', exact: true });
-  await expect(setup).toBeVisible();
-  await expect(setup).toContainText('Preview upscaling setup ready.');
-  await setup.getByLabel('Learned 3D latent upscaler').selectOption('mock-h3-3d.safetensors');
-  await page.getByRole('button', { name: 'Save preview upscaling', exact: true }).click();
-  await expect(page.getByText('Preview upscaling saved.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Refresh video models', exact: true }).click();
-  await expect(setup).toContainText('Preview upscaling setup ready.');
+  // Upscaled preview is an add-on on the video models page.
+  const setup = page.locator('[data-add-on=upscaled-preview]');
+  await setup.locator('> summary').click();
+  await expect(setup.locator('> summary .video-status')).toHaveText('Ready');
+  const file = setup.locator('[data-requirement=upscaler-file]');
+  await expect(file.locator('.video-status')).toHaveText('Other file');
+  await setup.getByLabel('Latent upscaler checkpoint file', { exact: true }).selectOption('mock-h3-3d.safetensors');
+  await page.getByRole('button', { name: 'Save video models', exact: true }).click();
+  await expect(page.getByText('Video models saved.', { exact: true })).toBeVisible();
+  await expect(setup.locator('> summary .video-status')).toHaveText('Ready');
   await request.post('/fixtures/video-companion?available=false');
   await page.getByRole('link', { name: /Back to shots/i }).click();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');

@@ -13,10 +13,11 @@ public static class ShotCopy
 public sealed record H3Settings
 {
     public H3PerformancePreferences Performance { get; set; } = new();
-    // The official Ref2VA weights have a known quality problem; Singularity is a community fix built on an FL2VA/Ref2VA merge.
-    public string Model { get; set; } = "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors";
-    public string Encoder { get; set; } = "qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors";
-    public string VideoVae { get; set; } = "minimax_h3_video_vae_fp16.safetensors";
+    // MiniMax's own Ref2VA weights, as packaged by Comfy-Org. Saved settings keep whatever model they chose.
+    public string Model { get; set; } = "minimax_h3_ref2va_pruned_int8_convrot.safetensors";
+    // The encoder and VAEs ComfyUI's own Ref2VA template uses; community files are alternatives.
+    public string Encoder { get; set; } = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors";
+    public string VideoVae { get; set; } = "minimax_h3_video_vae_int8_convrot.safetensors";
     public string AudioVae { get; set; } = "minimax_h3_audio_vae_fp32.safetensors";
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? LarryLora { get; set; }
@@ -30,6 +31,10 @@ public sealed record H3Settings
     public string Ffmpeg { get; set; } = "ffmpeg";
     public string Ffprobe { get; set; } = "ffprobe";
     public string LatentUpscaler { get; set; } = "";
+    // Take refinement stays hidden until its companion nodes are tested: nothing in the app turns this on,
+    // so new takes capture no refinement data and Shots offers no Improve quality.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool TakeRefinement { get; set; }
 }
 // Retain the old value solely so saved bindings are shown as unavailable rather than dropped.
 public enum ShotImageKind { AssetImage, ContinuityFrame }
@@ -355,4 +360,6 @@ public sealed record H3Configuration(bool StandardReady, bool TurboReady, string
     public IReadOnlyList<string> InstalledEncoders { get; init; } = Encoders;
     public IReadOnlyList<string> InstalledVaes { get; init; } = Vaes;
     public IReadOnlyList<string> InstalledLoras { get; init; } = Loras;
+    // Every node class ComfyUI reported, so the settings page can tell which node packs are installed.
+    public IReadOnlyCollection<string> Nodes { get; init; } = [];
 }
