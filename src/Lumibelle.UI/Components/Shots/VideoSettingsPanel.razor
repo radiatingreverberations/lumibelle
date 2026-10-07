@@ -112,37 +112,28 @@
         H3RequirementState.Installed => "Installed", H3RequirementState.OtherFile => "Other file",
         H3RequirementState.Missing => s.Requirement.Kind == H3RequirementKind.NodePack ? "Not found" : "Missing", _ => "Not checked"
     };
-    private static string PresetSummary(string key) => key switch
-    {
-        "standard" => "20 steps · the reference recipe", H3Presets.Beta => "Standard with the beta scheduler", H3Presets.EulerBeta => "Euler with the beta scheduler",
-        "larry" => "6 steps", "pdd" => "8 steps · dialogue distorted in our small test", "turbo4" => "4 steps · fastest",
-        H3HyperFlow.Key => "8 steps · not benchmarked", _ => "Retired"
-    };
-    private static string Recipe(string key) => key switch
-    {
-        "standard" => "Twenty steps · res_multistep · simple · BasicGuider.",
-        H3Presets.Beta or H3Presets.EulerBeta => $"Twenty steps · {(key == H3Presets.Beta ? "res_multistep" : "euler")} · beta · BasicGuider. Built-in ComfyUI nodes only.",
-        "larry" => "Six steps · dedicated Turbo sampler · simple schedule · strength 1 · low-VRAM merging off.",
-        "pdd" => "Eight evaluations · supplied sigmas · Euler · shifts 12/3 · strengths 1/1 · strict model and schedule checks.",
-        "turbo4" => "Four steps · res_multistep · simple · strength 1.", H3Presets.TurboLight => "Four steps · res_multistep · simple · strength 0.75. Uses the Turbo 4-step LoRA.",
-        "turbo8" => "Eight steps · Euler · video shift 12 · audio shift 3 · strength 1.",
-        "spectrum" => "Standard 20-step schedule · video blend 0.5 · audio blend 0 · smoothing replay · system-RAM history and replay archive.",
-        H3HyperFlow.Key => "Eight Euler evaluations · shifts 12/3 · strength 1 · BasicGuider · full denoising. No automatic scheduler fallback.", _ => ""
-    };
     private static RenderFragment Status((string Label, H3RequirementState State) s) => @<span class="video-status" data-state="@s.State">@s.Label</span>;
 
     private RenderFragment PresetRow(string key)
     {
         var state = PresetState(key); var issue = Checked && state.Label == "Setup needed" ? _catalog!.Presets.FirstOrDefault(p => p.Key == key)?.Issue : null;
+        var needs = H3Requirements.ForPreset(key);
         return @<details class="video-preset-setup" data-preset="@key">
-            <summary><span class="video-row-title">@H3Presets.Label(key)</span><span class="field-hint">@PresetSummary(key)</span>@Status(state)</summary>
-            <p>@H3Presets.Help(key)</p>
-            @foreach (var requirement in H3Requirements.ForPreset(key)) { @RequirementRow(requirement) }
-            @if (H3Requirements.ForPreset(key).Count == 0) { <p class="field-hint">Needs nothing beyond the required files.</p> }
+            <summary><span class="video-row-title">@H3Presets.Label(key)</span>
+                <span class="video-badges">
+                    @foreach (var badge in H3Presets.Recipe(key)) { @Badge(badge.Label, badge.Hint, "recipe") }
+                    @if (H3Presets.Retired(key)) { @Badge("Retired", "No longer offered for new choices. Shots and setups that already use it keep working.", "tag") }
+                    else if (H3Presets.Experimental(key)) { @Badge("Experimental", "Lumibelle checks its setup, but it has had little or no testing here.", "tag") }
+                </span>@Status(state)</summary>
+            <p class="field-hint video-preset-help">@H3Presets.Help(key)</p>
+            @if (H3Presets.WorksWith(key) is { Count: > 0 } works)
+            {
+                <div class="video-works-with"><span class="video-works-label">Works with</span><ul>@foreach (var fact in works) { <li>@fact</li> }</ul></div>
+            }
+            @foreach (var requirement in needs) { @RequirementRow(requirement) }
+            @if (needs.Count == 0) { <p class="field-hint">Needs nothing beyond the required files.</p> }
+            @if (H3Presets.TestNote(key) is { } note) { <p class="field-hint video-test-note"><span class="video-badge" data-kind="tag" data-hint="@H3Presets.TestNoteScope" tabindex="0">Our test<span class="sr-only">: @H3Presets.TestNoteScope</span></span> @note</p> }
             @if (issue is not null) { <p role="status">@issue</p> }
-            <details class="video-recipe"><summary>Recipe details</summary><p class="field-hint">@Recipe(key)</p>
-                @if (key == H3HyperFlow.Key) { <p class="field-hint">This is the drbaph ComfyUI conversion with a fixed schedule, not HyperFlow's own loader. Sampler-domain video sigmas, already shifted by 12:</p><code>@H3HyperFlow.VideoSigmas</code> }
-            </details>
         </details>;
     }
 

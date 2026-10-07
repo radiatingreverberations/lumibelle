@@ -30,19 +30,65 @@ public static class H3Presets
         "turbo4" => "Turbo · 4 steps", TurboLight => "Turbo · 4 steps · 0.75", "turbo8" => "Turbo · 8 steps",
         H3HyperFlow.Key => "HyperFlow · 8 steps", _ => "Unknown preset"
     };
+    // What each preset is, as fact. Results from our own testing live in TestNote, with the size of the test.
     public static string Help(string key) => key switch
     {
-        H3HyperFlow.Key => "Experimental ComfyUI conversion, not the upstream two-time loader. Eight Euler evaluations on a fixed manual sigma grid; shifts 12/3, strength 1, no CFG pass. Not yet benchmarked in Lumibelle.",
-        Beta => "Standard with the beta scheduler (res_multistep · beta). Suggested for reference-heavy prompts. Not yet benchmarked in Lumibelle.",
-        EulerBeta => "Euler with the beta scheduler. Community testing preferred it to Standard for reference adherence, with speedups enabled. Not yet benchmarked in Lumibelle.",
-        TurboLight => "Retired. The 4-step Turbo LoRA at strength 0.75. Never benchmarked in Lumibelle, and the Singularity model card gives no strength for it. Use Turbo · 4 steps instead.",
-        "larry" => "Experimental. Both clips looked acceptable in our small single-seed comparison on the base model; quality and speed depend on your setup.",
-        "pdd" => "Experimental. Good motion in our base-model comparison, but dialogue was strongly distorted.",
-        "spectrum" => "Retired. Dialogue was acceptable on the base model, but the motion scene had distorted interiors. Replay protects audio and uses system RAM.",
-        "turbo8" => "Retired. Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors and it was slower than Turbo · 4 steps.",
-        "turbo4" => "The fastest preset. Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors.",
-        _ => "The original 20-step recipe. A useful control when comparing accelerated presets."
+        H3HyperFlow.Key => "Eight steps with drbaph's ComfyUI conversion of HyperFlow, on a fixed schedule. It doesn't use HyperFlow's own two-time loader. Not yet benchmarked in Lumibelle.",
+        Beta => "Standard with the beta scheduler. ComfyUI's Ref2VA template notes suggest beta for reference-heavy prompts. Not yet benchmarked in Lumibelle.",
+        EulerBeta => "Standard with the Euler sampler and the beta scheduler. Not yet benchmarked in Lumibelle.",
+        TurboLight => "Retired. The Turbo 4-step LoRA at strength 0.75. Not benchmarked in Lumibelle.",
+        "larry" => "Six steps with Larry's Turbo LoRA and its own sampler.",
+        "pdd" => "Eight steps with Alibaba's PDD adapter for Ref2VA, which supplies its own schedule.",
+        "spectrum" => "Retired. Standard's 20-step schedule with Spectrum forecasting, which predicts some model calls instead of running them.",
+        "turbo8" => "Retired. Eight steps with the LightX2V Turbo 8-step LoRA.",
+        "turbo4" => "Four steps with the LightX2V Turbo 4-step LoRA. The fewest steps of any preset.",
+        _ => "The original 20-step recipe."
     };
+    // What we saw in the 11 September comparison: one seed, a dialogue and a motion clip, on the base model.
+    public static string? TestNote(string key) => key switch
+    {
+        "larry" => "Both clips looked acceptable.",
+        "pdd" => "Motion looked good; dialogue was strongly distorted.",
+        "spectrum" or "turbo4" or "turbo8" => "Dialogue looked acceptable; the motion clip had distorted interiors.",
+        _ => null
+    };
+    // Which Ref2VA models each preset is known to work with, and where that knowledge comes from.
+    public static IReadOnlyList<string> WorksWith(string key)
+    {
+        const string trained = "Trained on the official Ref2VA weights. Finetunes such as Singularity run it outside what it was trained on.";
+        const string tested = "Ran in our 11 September test on the official pruned W4A8 model, the only model we tried it with.";
+        return key switch
+        {
+            "standard" or Beta or EulerBeta => ["Any Ref2VA model. It uses only ComfyUI's built-in nodes."],
+            "turbo4" => [trained, "The Singularity author recommends it with Singularity.", tested],
+            TurboLight => [trained, "The Singularity author recommends this LoRA with Singularity, without giving a strength."],
+            "turbo8" or "pdd" => [trained, tested],
+            "larry" => ["Its loader is built for pruned models, such as the official pruned files and Singularity.", tested],
+            "spectrum" => ["Any Ref2VA model. It adds no weights.", tested],
+            H3HyperFlow.Key => [trained, "Its publisher says to use a pruned file with pruned models and a full file with full models. Every model Lumibelle suggests is pruned.", "Not yet tested in Lumibelle."],
+            _ => []
+        };
+    }
+    public const string TestNoteScope = "Our 11 September test: one seed on the base Ref2VA model, preview size.";
+    // The recipe as short badges, explained on hover. The step count is already in the label.
+    public static IReadOnlyList<H3Badge> Recipe(string key)
+    {
+        static H3Badge Sampler(string name) => new(name, "The ComfyUI sampler.");
+        static H3Badge Scheduler(string name) => new(name, "The scheduler, which spaces the noise levels across the steps.");
+        return key switch
+        {
+            Beta => [Sampler("res_multistep"), Scheduler("beta")],
+            EulerBeta => [Sampler("euler"), Scheduler("beta")],
+            "larry" => [new("Turbo sampler", "Larry's own sampler node."), Scheduler("simple")],
+            "pdd" => [Sampler("euler"), new("PDD schedule", "The PDD node supplies its own schedule.")],
+            "turbo4" => [Sampler("res_multistep"), Scheduler("simple")],
+            TurboLight => [Sampler("res_multistep"), Scheduler("simple"), new("strength 0.75", "The Turbo LoRA is applied at 0.75 instead of 1.")],
+            "turbo8" => [Sampler("euler"), Scheduler("simple")],
+            "spectrum" => [Sampler("res_multistep"), Scheduler("simple"), new("forecasting", "Spectrum predicts some model calls instead of running them, with audio left unforecast.")],
+            H3HyperFlow.Key => [Sampler("euler"), new("fixed schedule", $"A fixed grid of video sigmas, already shifted by 12: {H3HyperFlow.VideoSigmas}. No automatic scheduler fallback.")],
+            _ => [Sampler("res_multistep"), Scheduler("simple")]
+        };
+    }
     public static string? Checkpoint(string key, H3Settings s) => key switch
     { "larry" => s.LarryLora ?? LarryCheckpoint, "pdd" => s.PddCheckpoint ?? PddCheckpoint, "turbo4" or TurboLight => s.TurboLora, "turbo8" => s.Turbo8StepLora, H3HyperFlow.Key => H3HyperFlow.Checkpoint(s), _ => null };
     public static string Node(string key) => key switch
