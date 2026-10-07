@@ -7,8 +7,11 @@ public enum H3RequirementState { NotChecked, Installed, OtherFile, Missing }
 // A short fact about a download, explained when hovered or focused.
 public sealed record H3Badge(string Label, string Hint);
 // Note is reserved for instructions people have to follow; descriptive facts go in Size, Format and Tags.
-public sealed record H3Download(string Name, string Url, string Source, string? Note = null)
+public sealed record H3Download(string Name, string Url, string? Note = null)
 {
+    // The account the link points at, so the badge always matches the link.
+    public string Publisher => new Uri(Url).Segments.ElementAtOrDefault(1)?.TrimEnd('/') ?? new Uri(Url).Host;
+    public string Site => new Uri(Url).Host.Contains("github") ? "GitHub" : "Hugging Face";
     public string? Size { get; init; }
     public string? Format { get; init; }
     public IReadOnlyList<H3Badge> Tags { get; init; } = [];
@@ -36,60 +39,60 @@ public static class H3Requirements
         "NVFP4" => "NVIDIA's 4-bit format, meant for RTX 50 series cards.", "fp16" or "bf16" => "16-bit weights.", "fp32" => "32-bit weights.", _ => format
     };
     public static readonly H3Requirement Model = new("model", H3RequirementKind.File, "Model", "models/diffusion_models", [
-        new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "Singularity")
+        new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [Default, new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge, with better picture and sound than the official Ref2VA weights.")] },
-        new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "Singularity")
+        new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors")
             { Size = "12 GB", Format = "W4A8", Tags = [new("Less memory", "Singularity v1.3 at about half the size, for cards with less memory.")] },
-        new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "smhfacct")
+        new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] },
-        new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors", "Comfy-Org")
+        new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
             { Size = "21 GB", Format = "int8", Tags = [Template, new("Official", "MiniMax's own Ref2VA weights. They work, at lower quality than Singularity.")] }]);
     public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [
-        new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "koongrizzly")
+        new("qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors", "https://huggingface.co/koongrizzly/MiniMax_H3_int4_W4A8_ConvRot_Pruned/blob/main/text_encoders/qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors")
             { Size = "16 GB", Format = "W4A8", Tags = [Default] },
-        new("qwen3vl_32b_minimax_h3_int8_convrot.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "Comfy-Org") { Size = "27 GB", Format = "int8" },
-        new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "Comfy-Org") { Size = "16 GB", Format = "NVFP4", Tags = [Template] }]);
+        new("qwen3vl_32b_minimax_h3_int8_convrot.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors") { Size = "27 GB", Format = "int8" },
+        new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors") { Size = "16 GB", Format = "NVFP4", Tags = [Template] }]);
     public static readonly H3Requirement VideoVae = new("video-vae", H3RequirementKind.File, "Video VAE", "models/vae", [
-        new("minimax_h3_video_vae_fp16.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_fp16.safetensors", "Comfy-Org") { Size = "5 GB", Format = "fp16", Tags = [Default] },
-        new("minimax_h3_video_vae_int8_convrot.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_int8_convrot.safetensors", "Comfy-Org") { Size = "3 GB", Format = "int8", Tags = [Template] }]);
+        new("minimax_h3_video_vae_fp16.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_fp16.safetensors") { Size = "5 GB", Format = "fp16", Tags = [Default] },
+        new("minimax_h3_video_vae_int8_convrot.safetensors", ComfyOrg + "vae/minimax_h3_video_vae_int8_convrot.safetensors") { Size = "3 GB", Format = "int8", Tags = [Template] }]);
     public static readonly H3Requirement AudioVae = new("audio-vae", H3RequirementKind.File, "Audio VAE", "models/vae", [
-        new("minimax_h3_audio_vae_fp32.safetensors", ComfyOrg + "vae/minimax_h3_audio_vae_fp32.safetensors", "Comfy-Org") { Size = "0.6 GB", Format = "fp32" }]);
+        new("minimax_h3_audio_vae_fp32.safetensors", ComfyOrg + "vae/minimax_h3_audio_vae_fp32.safetensors") { Size = "0.6 GB", Format = "fp32" }]);
     public static IReadOnlyList<H3Requirement> Required { get; } = [Model, Encoder, VideoVae, AudioVae];
 
     public static readonly H3Requirement TurboLora = new("turbo4-lora", H3RequirementKind.File, "Turbo 4-step LoRA", "models/loras", [
-        new("minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", ComfyOrg + "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", "Comfy-Org",
+        new("minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", ComfyOrg + "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
             "Use the ref2v file; the fl2v LoRAs beside it belong to a different workflow.") { Size = "2 GB", Format = "bf16", Tags = [new("Recommended", "The Singularity author recommends this LoRA.")] }]);
     public static readonly H3Requirement Turbo8Lora = new("turbo8-lora", H3RequirementKind.File, "Turbo 8-step LoRA", "models/loras", [
-        new("minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "LightX2V") { Size = "2 GB", Format = "bf16" }]);
+        new("minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors") { Size = "2 GB", Format = "bf16" }]);
     public static readonly H3Requirement LarryNodes = new("larry-nodes", H3RequirementKind.NodePack, "Larry Turbo nodes", "custom_nodes", [
-        new("ComfyUI-MiniMax-H3-Turbo", "https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785", "Larryvrh",
+        new("ComfyUI-MiniMax-H3-Turbo", "https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785",
             "Install it with its bundled support files.") { Tags = [Tested("4274783")] }]) { Node = "MiniMaxH3TurboLoRA" };
     public static readonly H3Requirement LarryLora = new("larry-lora", H3RequirementKind.File, "Larry LoRA", "models/loras", [
-        new(H3Presets.LarryCheckpoint, "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors", "larryvrh")
+        new(H3Presets.LarryCheckpoint, "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors")
             { Size = "0.8 GB", Tags = [new("v4 step600 EMA", "The version its author calls the current best.")] }]);
     public static readonly H3Requirement PddNodes = new("pdd-nodes", H3RequirementKind.NodePack, "PDD Acc nodes", "custom_nodes", [
-        new("ComfyUI-MiniMax-H3-PDD-Acc", "https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90", "Jalen-Brunson") { Tags = [Tested("311a65d")] }]) { Node = "MiniMaxH3PDDAccApply" };
+        new("ComfyUI-MiniMax-H3-PDD-Acc", "https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90") { Tags = [Tested("311a65d")] }]) { Node = "MiniMaxH3PDDAccApply" };
     public static readonly H3Requirement PddFile = new("pdd-file", H3RequirementKind.File, "PDD Ref2VA weights", "models/pdd_acc", [
-        new(H3Presets.PddCheckpoint, "https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors", "Alibaba PAI",
+        new(H3Presets.PddCheckpoint, "https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors",
             "Needs the PDD loader. Don't add it as a character or style LoRA.") { Size = "1.4 GB", Format = "bf16" }]);
     private static H3Badge HyperFlowKind(string name) => name.Contains("_pruned_") ? new("Pruned", "For pruned models such as Singularity.") : new("Full", "For full, unpruned models.");
     private static H3Badge? HyperFlowRank(string name) => name.Contains("rank_20") ? new("Rank 20", "Resized to an average rank of 20: much smaller, possibly less faithful.") : null;
     public static readonly H3Requirement HyperFlowLora = new("hyperflow-lora", H3RequirementKind.File, "HyperFlow ComfyUI conversion", "models/loras",
-        H3HyperFlow.Checkpoints.Select((name, i) => new H3Download(name, Drbaph + name, "drbaph", i == 0 ? "Match the file to your model: pruned with pruned, full with full. Keep the published name." : null)
+        H3HyperFlow.Checkpoints.Select((name, i) => new H3Download(name, Drbaph + name, i == 0 ? "Match the file to your model: pruned with pruned, full with full. Keep the published name." : null)
             { Size = name.Contains("rank_20") ? "0.3 GB" : "3.9 GB", Format = "bf16", Tags = new[] { i == 0 ? Default : null, HyperFlowKind(name), HyperFlowRank(name) }.OfType<H3Badge>().ToArray() }).ToArray());
     public static readonly H3Requirement SpectrumNodes = new("spectrum-nodes", H3RequirementKind.NodePack, "Spectrum nodes", "custom_nodes", [
-        new("ComfyUI-Spectrum-MiniMax-H3", "https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8", "xmarre") { Tags = [Tested("455bd35")] }]) { Node = "SpectrumApplyMiniMaxH3" };
+        new("ComfyUI-Spectrum-MiniMax-H3", "https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8") { Tags = [Tested("455bd35")] }]) { Node = "SpectrumApplyMiniMaxH3" };
 
     public static readonly H3Requirement UpscalerNodes = new("upscaler-nodes", H3RequirementKind.NodePack, "Latent upscaler nodes", "custom_nodes", [
-        new("Comfyui_Minimax_h3_latent_Upscaler-Plus", "https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87", "xmarre",
+        new("Comfyui_Minimax_h3_latent_Upscaler-Plus", "https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87",
             "Install only one of these two packs: they register the same node.") { Tags = [Tested("db76324"), new("Plus", "Upscaler-Plus processes the whole clip at once.")] },
-        new("Comfyui_Minimax_h3_latent_Upscaler", "https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f", "LBH-123-AI")
+        new("Comfyui_Minimax_h3_latent_Upscaler", "https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler/tree/d7c01b9011f2e8439493f6c02c29995a27df276f")
             { Tags = [Tested("d7c01b9"), new("Original", "The original pack. It processes the clip in chunks.")] }]) { Node = H3PreviewUpscaling.Node };
     public static readonly H3Requirement UpscalerFile = new("upscaler-file", H3RequirementKind.File, "Latent upscaler checkpoint", "models/latent_upscale_models", [
-        new("minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors", "https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors", "LBH-123-AI")
+        new("minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors", "https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/blob/main/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors")
             { Size = "0.7 GB", Format = "fp16" }]);
     public static readonly H3Requirement SageNodes = new("sage-nodes", H3RequirementKind.NodePack, "KJNodes", "custom_nodes", [
-        new("ComfyUI-KJNodes", "https://github.com/kijai/ComfyUI-KJNodes", "kijai", "Also needs the sageattention package in ComfyUI's Python environment.")]) { Node = H3Performance.SageNode };
+        new("ComfyUI-KJNodes", "https://github.com/kijai/ComfyUI-KJNodes", "Also needs the sageattention package in ComfyUI's Python environment.")]) { Node = H3Performance.SageNode };
 
     // What each preset needs beyond the required files.
     public static IReadOnlyList<H3Requirement> ForPreset(string key) => key switch

@@ -59,6 +59,8 @@ test('video setup checks on open and keeps chosen community files through save a
   const defaultBadge = model.locator('.video-badge', { hasText: 'Default' });
   await expect(defaultBadge).toHaveAttribute('data-hint', "Lumibelle's default choice.");
   await expect(model.locator('.video-badge[data-kind=size]').first()).toHaveText(/21 GB/);
+  // The publisher badge names the account the link points at.
+  await expect(model.locator('.video-badge[data-kind=source]').first()).toHaveAttribute('data-hint', 'Published by WarmBloodAban on Hugging Face.');
   await defaultBadge.focus();
   await page.screenshot({ path: 'test-results/video-settings-desktop.png', fullPage: true });
   // Cancel discards a new draft.

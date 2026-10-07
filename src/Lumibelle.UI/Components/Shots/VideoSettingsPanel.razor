@@ -186,7 +186,7 @@
                     {
                         <li><a href="@download.Url" target="_blank" rel="noopener">@download.Name</a>
                             <span class="video-badges">
-                                @Badge(download.Source, $"Published by {download.Source} on {(download.Url.Contains("github.com") ? "GitHub" : "Hugging Face")}.", "source")
+                                @Badge(download.Publisher, $"Published by {download.Publisher} on {download.Site}.", "source")
                                 @if (download.Size is { } size) { @Badge(size, "Download size.", "size") }
                                 @if (download.Format is { } format) { @Badge(format, H3Requirements.FormatHint(format), "format") }
                                 @foreach (var tag in download.Tags) { @Badge(tag.Label, tag.Hint, "tag") }
