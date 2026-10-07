@@ -26,8 +26,8 @@
 
     <section class="video-setup-group" aria-labelledby="video-add-ons">
         <h3 id="video-add-ons">Optional add-ons</h3>
-        <details class="video-add-on" data-add-on="upscaled-preview"><summary><span class="video-row-title">Upscaled preview</span><span class="field-hint">Samples small, saves full size</span>@Status(UpscaleState)</summary>
-            <p>Choose Upscaled preview in Shots to generate at preview size and save native-size video. It adds upscaling, decoding and saving time, and fine detail is softer than native generation.</p>
+        <details class="video-add-on" data-add-on="upscaled-preview"><summary><span class="video-row-title">Latent upscaler</span><span class="field-hint">Upscaled preview and take refinement</span>@Status(UpscaleState)</summary>
+            <p>The learned 3D latent upscaler enlarges a take's latent instead of its pixels. Upscaled preview uses it to save native-size video from a preview-size generation. Refining a take uses it to enlarge the saved take before a short second pass at the new size, which keeps the take's motion and audio.</p>
             @foreach (var requirement in H3Requirements.UpscaledPreview) { @RequirementRow(requirement) }
             @if (_catalog is { DiscoverySucceeded: true, PreviewUpscaling.Issue: { } upscaleIssue }) { <p role="status">@upscaleIssue</p> }
         </details>

@@ -40,7 +40,7 @@ captured when queued. Changing setup later cannot silently switch an existing
 job to another upscaler. Restore its captured setup or create a new batch.
 
 The MP4 and lossless frame archives remain available for editing and frame
-selection. Upscaled-preview jobs do not capture saved-refinement packages and
-require no Lumibelle companion nodes. Existing Preview/Native jobs and saved
-refinement behavior are unchanged. Timings show observed upscaling elapsed time;
+selection. Upscaled-preview jobs keep no refinement data. The same learned
+upscaler also enlarges takes for [take refinement](refinement.md). Existing
+Preview/Native jobs are unchanged. Timings show observed upscaling elapsed time;
 missing observations are reported as unavailable, not zero.

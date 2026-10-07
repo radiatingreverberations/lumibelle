@@ -45,11 +45,10 @@ public sealed class CapturedInputStoreTests : IDisposable
         var run = Run();
         var input = Write(run, "image-00.png", [5]);
         Assert.Equal(Path.Combine(run, "inputs", "image-00.png"), CapturedInputStore.Resolve(run, input.FileName, input.Sha256));
-        // Refinement inputs are verified and uploaded by their own paths.
-        var package = Write(run, H3RefinementPackage.FileName, [7]); var source = Write(run, "source.mp4", [8]);
-        CapturedInputStore.Share(run, [input, package, source]);
+        // A refinement's package is verified and uploaded by its own path.
+        var package = Write(run, H3RefinementPackage.FileName, [7]);
+        CapturedInputStore.Share(run, [input, package]);
         Assert.True(File.Exists(Path.Combine(run, "inputs", H3RefinementPackage.FileName)));
-        Assert.True(File.Exists(Path.Combine(run, "inputs", "source.mp4")));
         Assert.False(File.Exists(Path.Combine(run, "inputs", "image-00.png")));
         // A folder that is not a project's generation folder has no store; its files stay.
         var elsewhere = Path.Combine(_project, "somewhere", "else");

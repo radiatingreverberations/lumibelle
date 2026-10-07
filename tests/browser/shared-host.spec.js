@@ -34,7 +34,6 @@ test('shared UI assets, source routes, ranged videos, frames and missing resourc
  expect((await request.get(media,{headers:{Range:'bytes=999999999999-'}})).status()).toBe(416);
  expect((await request.get(`${media}/frames/0`)).headers()['content-type']).toMatch(/^image\//);
  expect((await request.get(`/media/projects/${id}/takes/00000000-0000-0000-0000-000000000001`)).status()).toBe(404);
- const companion=await request.get('/downloads/lumibelle-h3-companion.zip'); expect(companion.status()).toBe(200); expect((await companion.body()).subarray(0,2).toString()).toBe('PK');
  for(const resource of ['lumibelle.css','bootstrap.js','script-editor.js','prompt-editor.js','take-player.js','cut-player.js']) {
   const response=await request.get(`/_content/Lumibelle.UI/${resource}`); expect(response.status(),resource).toBe(200); expect((await response.body()).length).toBeGreaterThan(20);
  }

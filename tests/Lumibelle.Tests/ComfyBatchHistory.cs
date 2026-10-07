@@ -19,7 +19,7 @@ internal static class ComfyBatchHistory
                 case "PreviewImage": outputs[node.Name] = new { images = new[] { File(".png") } }; break;
                 case "SaveVideo": outputs[node.Name] = new { videos = new[] { File(".mp4") } }; break;
                 case "SaveAnimatedWEBP": outputs[node.Name] = new { images = new[] { File(".webp") } }; break;
-                case "LumibelleH3CaptureV1": outputs[node.Name] = new { refinement = new[] { File(".safetensors") } }; break;
+                case "SaveLatent": outputs[node.Name] = new { latents = new[] { File(".latent") } }; break;
             }
         }
         return new { status = new { completed = !failed, status_str = failed ? "error" : "success" }, outputs };

@@ -30,7 +30,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
     public async Task<Func<string, object>> PrepareQueuedWorkflowAsync(AiJobContext context, AiVideoJobRequest request,
         IReadOnlyList<AiBatchCandidate> candidates, string directory, CancellationToken ct)
     {
-        if (request.Refinement is not null || !ReelRefMods.Uses(request.Snapshot.Shot))
+        if (!ReelRefMods.Uses(request.Snapshot.Shot))
             return candidates.Count == 1 ? await PrepareWorkflowAsync(request, candidates[0], directory, ct)
                 : await PrepareBatchWorkflowAsync(request, candidates, directory, ct);
         if (candidates.Count is < 1 or > 4) throw new WorkspaceStoreException("Choose one to four captured candidates.");
@@ -38,14 +38,23 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var cache = refModCache ?? throw new WorkspaceStoreException("Reference-cache preparation is unavailable. Restart Lumibelle with the current services.");
         var scope = candidates.Count == 1 ? ComfyMultiTakeWorkflow.CandidateOperation(candidates[0]) : ComfyMultiTakeWorkflow.Operation;
         var prepared = await cache.EnsureAsync(context, request.Snapshot, scope, ct);
+        var refine = await RefineSourceAsync(request, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct, prepared);
         if (candidates.Count == 1)
-            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared);
+            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared, refine);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared, refine), clientId);
+    }
+    // Uploads a refinement's saved latents; null for normal generation.
+    private async Task<ComfyH3Video.RefineSource?> RefineSourceAsync(AiVideoJobRequest request, string directory, CancellationToken ct)
+    {
+        if (request.Refinement is not { } refinement) return null;
+        var (videoLatent, audioLatent) = await video.UploadRefinementAsync(request.Snapshot.ExecutionComfyUrl,
+            Path.Combine(directory, "inputs", H3RefinementPackage.FileName), Path.Combine(directory, "refinement-upload"), ct);
+        return new(refinement, videoLatent, audioLatent);
     }
     public Task<bool> RecoverPreparationAsync(AiJobContext context, AiVideoJobRequest request, CancellationToken ct) =>
-        request.Refinement is not null || !ReelRefMods.Uses(request.Snapshot.Shot) ? Task.FromResult(false)
+        !ReelRefMods.Uses(request.Snapshot.Shot) ? Task.FromResult(false)
             : (refModCache ?? throw new WorkspaceStoreException("Reference-cache recovery is unavailable."))
                 .RecoverAsync(context, request.Snapshot, ct);
     public async Task ValidateAsync(AiVideoJobRequest request, CancellationToken ct)
@@ -54,41 +63,36 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var configuration = await video.CheckAsync(new() { ComfyUrl = s.ExecutionComfyUrl, H3 = s.Settings with {
             Performance = H3Performance.Preferences(s.Performance), LatentUpscaler = request.Refinement?.Upscaler ?? s.Settings.LatentUpscaler } }, ct);
         H3Loras.CheckSubmission(s, configuration.OptionalLoras);
-        if (request.Refinement is not null)
-        { if (configuration.RefinementIssue is { } issue) throw new WorkspaceStoreException(issue); }
+        if (ReelRefMods.Uses(s.Shot) && configuration.RefModIssue is { } refmodIssue) throw new WorkspaceStoreException(refmodIssue);
+        if (s.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) && configuration.VideoReferenceIssue is { } videoIssue) throw new WorkspaceStoreException(videoIssue);
+        if (request.Refinement is { } refinement)
+        {
+            if (configuration.RefinementIssue is { } issue) throw new WorkspaceStoreException(issue);
+            if (configuration.PreviewUpscaling.Implementation != refinement.Implementation)
+                throw new WorkspaceStoreException("The installed latent upscaler changed after this refinement was queued. Restore it or refine the take again.");
+        }
         else
         {
-            if (ReelRefMods.Uses(s.Shot) && configuration.RefModIssue is { } refmodIssue) throw new WorkspaceStoreException(refmodIssue);
-            if (s.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) && configuration.VideoReferenceIssue is { } videoIssue) throw new WorkspaceStoreException(videoIssue);
             if (s.Shot.StartFrame is not null && configuration.StartFrameIssue is { } startIssue) throw new WorkspaceStoreException(startIssue);
             H3Presets.CheckSubmission(s, configuration);
             H3PreviewUpscaling.CheckSubmission(s, configuration);
-            if (s.CaptureRefinementData && !configuration.PackageCaptureReady) throw new WorkspaceStoreException("Install the Lumibelle H3 companion nodes to capture refinement data.");
+            if (s.CaptureRefinementData && !configuration.PackageCaptureReady) throw new WorkspaceStoreException("Update ComfyUI to keep refinement data for new takes.");
         }
     }
     public async Task<Func<string, object>> PrepareWorkflowAsync(AiVideoJobRequest request, AiBatchCandidate candidate, string directory, CancellationToken ct)
     {
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
-        if (request.Refinement is { } refinement)
-        {
-            var token = await video.UploadRefinementAsync(request.Snapshot.ExecutionComfyUrl, Path.Combine(directory, "inputs", H3RefinementPackage.FileName), ct);
-            return clientId => ComfyH3Video.BuildRefinementWorkflow(request.Snapshot, refinement, candidate.Seed, clientId, token);
-        }
+        var refine = await RefineSourceAsync(request, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
-        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded);
+        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded, refine: refine);
     }
     public async Task<Func<string, object>> PrepareBatchWorkflowAsync(AiVideoJobRequest request, IReadOnlyList<AiBatchCandidate> candidates, string directory, CancellationToken ct)
     {
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
-        if (request.Refinement is { } refinement)
-        {
-            var token = await video.UploadRefinementAsync(request.Snapshot.ExecutionComfyUrl, Path.Combine(directory, "inputs", H3RefinementPackage.FileName), ct);
-            return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-                c => ComfyH3Video.BuildRefinementWorkflow(request.Snapshot, refinement, c.Seed, c.Id.ToString("D"), token), clientId);
-        }
+        var refine = await RefineSourceAsync(request, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, refine: refine), clientId);
     }
     public Task<ShotTake> DownloadAsync(AiVideoJobRequest request, VideoCandidate candidate, string directory, Func<string, Task> progress, CancellationToken ct) =>
         video.DownloadAsync(AiVideoJobPolicy.Run(request), candidate, directory, progress, ct);

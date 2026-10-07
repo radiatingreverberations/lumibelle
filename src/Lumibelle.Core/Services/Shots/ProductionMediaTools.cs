@@ -28,8 +28,6 @@ public interface IProductionMediaTools
     Task<double> AudioDurationAsync(string path, H3Settings settings, CancellationToken ct);
     Task PrepareVoiceAsync(string source, string target, double start, double duration, H3Settings settings, CancellationToken ct);
     Task<VideoFileInfo> VideoInfoAsync(string path, H3Settings settings, CancellationToken ct);
-    Task CopyAudioAsync(string video, string sourceAudio, string target, H3Settings settings, CancellationToken ct)
-        => throw new WorkspaceStoreException("Encoded audio preservation is unavailable.");
 }
 public sealed partial class ProductionMediaTools : IProductionMediaTools
 {
@@ -86,9 +84,6 @@ public sealed partial class ProductionMediaTools : IProductionMediaTools
         catch (System.ComponentModel.Win32Exception e) { throw new WorkspaceStoreException("FFmpeg could not be started. Check its path in Video models.", e); }
         finally { try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
     }
-    public async Task CopyAudioAsync(string video, string sourceAudio, string target, H3Settings settings, CancellationToken ct) =>
-        await Run(settings.Ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", video, "-i", sourceAudio,
-            "-map", "0:v:0", "-map", "1:a:0", "-c", "copy", "-map_metadata", "-1", "-movflags", "+faststart", target], ct);
     private static async Task<string> Run(string executable, IEnumerable<string> args, CancellationToken ct)
     {
         var info = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };

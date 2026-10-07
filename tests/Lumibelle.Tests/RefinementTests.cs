@@ -11,13 +11,12 @@ namespace Lumibelle.Tests;
 public sealed partial class ShotTests
 {
     [Fact]
-    public async Task HiddenTakeRefinementCapturesNothingEvenWithTheCompanionInstalled()
+    public async Task NewTakesKeepRefinementDataWheneverComfyUiCan()
     {
         using var f = await QueuedVideoFixture.Create(this, 20);
-        f.Settings.Value = f.Settings.Value with { H3 = f.Settings.Value.H3 with { TakeRefinement = false } };
         f.Generator.Catalog = await f.Generator.CheckAsync(f.Settings.Value, _ct) with { PackageCaptureReady = true };
         var request = await f.Capture(1);
-        Assert.False(request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
+        Assert.True(request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
     }
     [Theory]
     [InlineData(false, 20)] [InlineData(false, 4)] [InlineData(false, 8)]
@@ -54,8 +53,8 @@ public sealed partial class ShotTests
             {
                 string Name(string node) => prefix + node;
                 if (!graph.TryGetProperty(Name("11"), out _)) continue;
-                Assert.Equal(companion, graph.TryGetProperty(Name("20"), out _));
-                Assert.Equal(companion ? Name("20") : Name("10"), graph.GetProperty(Name("11")).GetProperty("inputs").GetProperty("samples")[0].GetString());
+                Assert.Equal(companion, graph.TryGetProperty(Name("21"), out _));
+                Assert.Equal(Name("10"), graph.GetProperty(Name("11")).GetProperty("inputs").GetProperty("samples")[0].GetString());
             }
             if (!companion) Assert.DoesNotContain(nodes, n => n.Value.GetProperty("class_type").GetString()!.StartsWith("Lumibelle"));
         });
@@ -89,50 +88,67 @@ public sealed partial class ShotTests
     }
 
     [Theory]
-    [InlineData(TakeRefinementMode.Refine, .35, true)] [InlineData(TakeRefinementMode.Rework, .65, false)]
-    public void RefinementGraphKeepsJointLatentsButNeverCarriesTurboOrTextReencoding(TakeRefinementMode mode, double denoise, bool audioLock)
+    [InlineData(TakeRefinementMode.Refine)] [InlineData(TakeRefinementMode.Rework)]
+    public void RefinementGraphUsesOnlyStockNodesAndTheUpscalerPack(TakeRefinementMode mode)
     {
-        var shot = Ready(); shot.Turbo = true; shot.TurboSteps = 8;
-        var source = Snapshot(Guid.NewGuid(), shot) with { Width = 832, Height = 480, CaptureRefinementData = true };
-        var package = new H3RefinementPackage(Guid.NewGuid(), 1024, new('A', 64), 832, 480, source.FrameCount);
-        var size = RefinementPolicy.DefaultSize(832, 480);
-        var refine = new TakeRefinement(Guid.NewGuid(), package, mode, size.Width, size.Height, "nested/h3-3d.safetensors", 100, new('B', 64));
-        var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildRefinementWorkflow(source, refine, 812, Guid.NewGuid().ToString(), Guid.NewGuid().ToString("N"))).GetProperty("prompt");
+        var source = Snapshot(Guid.NewGuid(), Ready()) with { CaptureRefinementData = true };
+        var package = new H3RefinementPackage(Guid.NewGuid(), 1024, new('A', 64), source.Width, source.Height, source.FrameCount);
+        var size = RefinementPolicy.DefaultSize(source.Width, source.Height);
+        var refine = new TakeRefinement(Guid.NewGuid(), package, mode, size.Width, size.Height, "nested/h3-3d.safetensors", H3UpscalerImplementation.Lbh);
+        var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildWorkflow(source, 812, Guid.NewGuid().ToString(), [], refine: new(refine, "v.latent", "a.latent"))).GetProperty("prompt");
         JsonElement Input(string node, string field) => graph.GetProperty(node).GetProperty("inputs").GetProperty(field);
-        Assert.DoesNotContain(graph.EnumerateObject(), n => n.Value.GetProperty("class_type").GetString() is "LoraLoaderModelOnly" or "CLIPLoader" or "MiniMaxH3ReferenceToVideo");
-        Assert.Equal("21", Input("22", "latent")[0].GetString()); Assert.Equal(1, Input("22", "latent")[1].GetInt32());
-        Assert.Equal(size.Width, Input("22", "mode.width").GetInt32()); Assert.Equal(size.Height, Input("22", "mode.height").GetInt32());
-        Assert.Equal("23", Input("6", "conditioning")[0].GetString()); Assert.Equal("23", Input("10", "noise")[0].GetString());
-        Assert.Equal(audioLock, Input("23", "lock_audio").GetBoolean()); Assert.Equal(source.FrameCount, Input("23", "frames").GetInt32());
-        Assert.Equal(20, Input("9", "steps").GetInt32()); Assert.Equal(denoise, Input("9", "denoise").GetDouble());
-        Assert.Equal("res_multistep", Input("8", "sampler_name").GetString());
-        Assert.Equal(1, Input("20", "latent")[1].GetInt32()); Assert.Equal(audioLock, graph.GetProperty("20").GetProperty("inputs").TryGetProperty("locked_audio_source", out _));
-        Assert.Equal("20", Input("11", "samples")[0].GetString()); Assert.Equal("20", Input("12", "samples")[0].GetString());
+        Assert.DoesNotContain(graph.EnumerateObject(), n => n.Value.GetProperty("class_type").GetString()!.StartsWith("Lumibelle", StringComparison.Ordinal));
+        Assert.Equal(2, graph.EnumerateObject().Count(n => n.Value.GetProperty("class_type").GetString() == "LoadLatent"));
+        Assert.Equal("30", Input("32", "latent")[0].GetString());
+        Assert.Equal(size.Width, Input("32", "mode.width").GetInt32()); Assert.True(Input("32", "enable_temporal_chunking").GetBoolean());
+        Assert.Equal(size.Width, Input("5", "width").GetInt32());
+        Assert.Equal(refine.Denoise, Input("9", "denoise").GetDouble());
         Assert.True(Input("15", "lossless").GetBoolean()); Assert.Equal("11", Input("17", "images")[0].GetString());
-        using var context = JsonDocument.Parse(Input("20", "context").GetString()!);
-        Assert.Equal(source.Prompt, context.RootElement.GetProperty("snapshot").GetProperty("prompt").GetString());
-        Assert.True(source.Shot.Turbo);
     }
 
     [Fact]
-    public void NewTakeGraphArchivesTheSameDenoisedStreamsThatItDecodes()
+    public void NewTakeGraphKeepsItsLatentsWithStockNodes()
     {
         var snapshot = Snapshot(Guid.NewGuid(), Ready()) with { CaptureRefinementData = true };
         var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildWorkflow(snapshot, 12, Guid.NewGuid().ToString(), [])).GetProperty("prompt");
-        Assert.Equal("LumibelleH3CaptureV1", graph.GetProperty("20").GetProperty("class_type").GetString());
-        Assert.Equal(1, graph.GetProperty("20").GetProperty("inputs").GetProperty("latent")[1].GetInt32());
-        Assert.Equal("20", graph.GetProperty("11").GetProperty("inputs").GetProperty("samples")[0].GetString());
-        Assert.Equal("20", graph.GetProperty("12").GetProperty("inputs").GetProperty("samples")[0].GetString());
+        JsonElement Input(string node, string field) => graph.GetProperty(node).GetProperty("inputs").GetProperty(field);
+        Assert.Equal("LTXVSeparateAVLatent", graph.GetProperty("20").GetProperty("class_type").GetString());
+        // The same sampler output that is decoded, so the kept audio matches the take exactly.
+        Assert.Equal("10", Input("20", "av_latent")[0].GetString()); Assert.Equal(0, Input("20", "av_latent")[1].GetInt32());
+        Assert.Equal("SaveLatent", graph.GetProperty("21").GetProperty("class_type").GetString());
+        Assert.Equal("20", Input("21", "samples")[0].GetString()); Assert.Equal(0, Input("21", "samples")[1].GetInt32());
+        Assert.Equal("20", Input("22", "samples")[0].GetString()); Assert.Equal(1, Input("22", "samples")[1].GetInt32());
+        Assert.Equal("10", Input("11", "samples")[0].GetString()); Assert.Equal("10", Input("12", "samples")[0].GetString());
+        var plain = JsonSerializer.SerializeToElement(ComfyH3Video.BuildWorkflow(snapshot with { CaptureRefinementData = false }, 12, Guid.NewGuid().ToString(), [])).GetProperty("prompt");
+        Assert.False(plain.TryGetProperty("21", out _));
     }
 
     [Fact]
-    public async Task RefinementPackageRejectsChangedContextTruncationAndChecksum()
+    public async Task RefinementPackageRoundTripsThroughComfyLatentFiles()
+    {
+        var snapshot = Snapshot(Guid.NewGuid(), Ready()) with { CaptureRefinementData = true };
+        var package = await MockRefinementPackage.WriteAsync(_root, snapshot, null, _ct);
+        var path = Path.Combine(_root, H3RefinementPackage.FileName);
+        var video = Path.Combine(_root, "video.latent"); var audio = Path.Combine(_root, "audio.latent");
+        await RefinementPackages.SplitAsync(path, video, audio, _ct);
+        var again = Path.Combine(_root, "again.safetensors");
+        await RefinementPackages.ComposeAsync(video, audio, again, package.Id, snapshot.Width, snapshot.Height, snapshot.FrameCount, _ct);
+        Assert.Equal(package with { Bytes = 0, Sha256 = "" }, (await RefinementPackages.InspectAsync(again, snapshot, null, _ct)) with { Bytes = 0, Sha256 = "" });
+        // What ComfyUI's LoadLatent reads: the tensor plus the format marker, with nothing else.
+        var header = await File.ReadAllBytesAsync(video, _ct);
+        var length = (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(header);
+        var keys = JsonNode.Parse(header.AsSpan(8, length))!.AsObject().Select(p => p.Key).Order().ToArray();
+        Assert.Equal(["latent_format_version_0", "latent_tensor"], keys);
+    }
+
+    [Fact]
+    public async Task RefinementPackageRejectsChangedSizeTruncationAndChecksum()
     {
         var snapshot = Snapshot(Guid.NewGuid(), Ready()) with { CaptureRefinementData = true };
         var package = await MockRefinementPackage.WriteAsync(_root, snapshot, null, _ct);
         var path = Path.Combine(_root, H3RefinementPackage.FileName);
         Assert.Equal(package, await RefinementPackages.InspectAsync(path, snapshot, null, _ct));
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => RefinementPackages.InspectAsync(path, snapshot with { Prompt = "Changed" }, null, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => RefinementPackages.InspectAsync(path, snapshot with { Width = snapshot.Width + 32 }, null, _ct));
         await using (var file = File.OpenWrite(path)) { file.Position = file.Length - 1; file.WriteByte(1); }
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => RefinementPackages.VerifyFileAsync(path, package.Bytes, package.Sha256, _ct));
         await using (var file = File.OpenWrite(path)) file.SetLength(9);
@@ -198,7 +214,7 @@ public sealed partial class ShotTests
     {
         var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
         var d = await AddTake(f.Project.Id, f.Shots, shot); var take = d.Takes[0];
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Shots.CaptureRefinementAsync(f.Project.Id, take.Id, Guid.NewGuid(), TakeRefinementMode.Refine, 32, 32, "model.safetensors", _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Shots.CaptureRefinementAsync(f.Project.Id, take.Id, Guid.NewGuid(), TakeRefinementMode.Refine, 32, 32, "model.safetensors", H3UpscalerImplementation.Plus, _ct));
         take.Snapshot = take.Snapshot with { CaptureRefinementData = true };
         Assert.Throws<WorkspaceStoreException>(() => FileShotStore.Validate(new() { ProjectId = f.Project.Id, Takes = [take] }, f.Project.Id));
     }

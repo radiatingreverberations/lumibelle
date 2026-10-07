@@ -1,12 +1,12 @@
 @if (Take.Refinement is { } refinement)
 {
-    <details><summary>Refinement details · @refinement.Mode (experimental)</summary>
-        <p>@refinement.Profile · 20 steps · res_multistep · simple · denoise @refinement.Denoise · seed @Take.Seed</p>
+    <details><summary>Refinement details · @refinement.Mode</summary>
+        <p>@refinement.Profile · @refinement.Steps steps · res_multistep · simple · denoise @refinement.Denoise · seed @Take.Seed</p>
         <p>Output: @Take.Width × @Take.Height · @Take.FrameCount frames at 24 fps</p>
-        <p>Base model: @Take.Snapshot.Settings.Model · no Turbo LoRA</p>
+        <p>Model: @Take.Snapshot.Settings.Model · Standard sampling</p>
         <p>Learned upscaler: @refinement.Upscaler</p>
-        <p>Upscaler implementation: @refinement.UpscalerRevision</p>
-        <p>Audio: @(refinement.Mode == TakeRefinementMode.Refine ? "Original encoded stream preserved" : "Regenerated")</p>
+        <p>Upscaler pack: @refinement.Implementation</p>
+        <p>Audio: @(refinement.Mode == TakeRefinementMode.Refine ? "Kept from the source take" : "Regenerated")</p>
         <p>Source take: @refinement.ParentTakeId · source package: @refinement.SourcePackage.Id</p>
         <p>Independent refinement data: @((Take.RefinementPackage?.Bytes / (1024d * 1024) ?? 0).ToString("0.00")) MB</p>
         @if (Take.FrameArchiveRemoval is { } removal) { <p>Lossless frames removed @removal.RequestedUtc.ToLocalTime().ToString("g"). Frame access uses compressed video.</p> }

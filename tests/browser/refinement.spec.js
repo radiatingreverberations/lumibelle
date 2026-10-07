@@ -24,9 +24,9 @@ async function setup(page, request) {
   return id;
 }
 
-test('video generation and added takes work without the optional companion', async ({ page, request }) => {
+test('video generation and added takes work when ComfyUI cannot keep refinement data', async ({ page, request }) => {
   test.setTimeout(90000);
-  await request.post('/fixtures/video-companion?available=false');
+  await request.post('/fixtures/refinement-capture?available=false');
   try {
     const id = await setup(page, request);
     const original = (await state(request, id)).takes[0];
@@ -34,11 +34,11 @@ test('video generation and added takes work without the optional companion', asy
     expect(original.refinementPackage).toBeNull();
     expect(original.frames.length).toBeGreaterThan(0);
     await openQuality(page);
-    await expect(review(page).getByRole('button', { name: 'Improve quality', exact: true })).toBeDisabled();
+    await expect(review(page).getByRole('button', { name: 'Refine this take', exact: true })).toBeDisabled();
     await expect(review(page)).toContainText('This take has no refinement data.');
     await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${original.id}`);
-    // Newly installed nodes are only used by new batches, never an old batch extension.
-    await request.post('/fixtures/video-companion?available=true');
+    // Updated nodes are only used by new batches, never an old batch extension.
+    await request.post('/fixtures/refinement-capture?available=true');
     await review(page).getByRole('button', { name: 'One more take', exact: true }).click();
     await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(2);
     expect((await state(request, id)).takes.every(t => !t.snapshot.captureRefinementData && !t.refinementPackage)).toBe(true);
@@ -48,26 +48,24 @@ test('video generation and added takes work without the optional companion', asy
     await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(3);
     expect((await state(request, id)).takes.filter(t => t.refinementPackage)).toHaveLength(1);
   } finally {
-    await request.post('/fixtures/video-companion?available=true');
+    await request.post('/fixtures/refinement-capture?available=true');
   }
 });
 
 test('saved take -> Refine -> Another version -> Rework stays in one review and keeps source context', async ({ page, request }) => {
   test.setTimeout(120000);
   const id = await setup(page, request);
-  const companion = await request.get('/downloads/lumibelle-h3-companion.zip');
-  expect(companion.ok()).toBe(true);
-  const zip = await companion.body();
-  for (const file of ['__init__.py', 'package.py', 'preparation.py', 'nodes.py', 'README.md'])
-    expect(zip.includes(Buffer.from(`lumibelle_h3/${file}`))).toBe(true);
+  // The companion nodes are gone: refinement uses stock ComfyUI nodes.
+  expect((await request.get('/downloads/lumibelle-h3-companion.zip')).status()).toBe(404);
   const original = (await state(request, id)).takes[0];
   await openQuality(page);
-  await review(page).getByRole('button', { name: 'Improve quality', exact: true }).click();
-  const form = review(page).getByRole('region', { name: 'Improve take quality' });
+  await review(page).getByRole('button', { name: 'Refine this take', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form).toBeVisible();
   await expect(form.getByLabel('Mode', { exact: true })).toHaveValue('Refine');
   await expect(form.getByLabel('Output size')).toHaveValue('1');
-  await expect(form).toContainText('Experimental');
+  await expect(form).toContainText('7 steps · denoise 0.35');
+  await expect(form).not.toContainText('Experimental');
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Refine', exact: true }).click();
   await expect(form).not.toBeVisible();
@@ -91,7 +89,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
   await review(page).locator(`[data-shot-take="${refined.id}"]`).click();
   await openQuality(page);
-  await review(page).getByRole('button', { name: 'Improve quality', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Refine this take', exact: true }).click();
   await form.getByLabel('Mode', { exact: true }).selectOption('Rework');
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Rework', exact: true }).click();
@@ -121,9 +119,9 @@ test('refinement options remain keyboard accessible and fit a narrow review', as
   await setup(page, request);
   await page.setViewportSize({ width: 390, height: 844 });
   await openQuality(page);
-  const improve = review(page).getByRole('button', { name: 'Improve quality', exact: true });
+  const improve = review(page).getByRole('button', { name: 'Refine this take', exact: true });
   await improve.focus(); await page.keyboard.press('Enter');
-  const form = review(page).getByRole('region', { name: 'Improve take quality' });
+  const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form.getByRole('button', { name: 'Queue Refine', exact: true })).toBeEnabled();
   await expect(form.getByLabel('Mode', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

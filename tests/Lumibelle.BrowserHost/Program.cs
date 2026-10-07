@@ -227,11 +227,12 @@ app.MapGet("/fixtures/{id:guid}/video-runs", async (Guid id, IShotStore store, I
     return runs.OrderByDescending(r => r.CreatedUtc);
 });
 app.MapPost("/fixtures/lora-file", (string file, bool missing, MockLoraCatalog catalog) => { if (missing) catalog.Missing.Add(file); else catalog.Missing.Remove(file); return Results.Ok(); });
-app.MapPost("/fixtures/video-companion", async (bool available, IVideoGenerator video, IAiSettingsStore settings) =>
+// Simulates a ComfyUI without the stock latent nodes that keep refinement data.
+app.MapPost("/fixtures/refinement-capture", async (bool available, IVideoGenerator video, IAiSettingsStore settings) =>
 {
     var mock = (Lumibelle.Testing.MockVideoGenerator)video;
     mock.Catalog = available ? null : (await mock.CheckAsync(await settings.LoadAsync())) with
-        { PackageCaptureReady = false, RefinementIssue = "Install the optional Lumibelle H3 companion to enable refinement." };
+        { PackageCaptureReady = false, RefinementIssue = "Update ComfyUI for its built-in SaveLatent, LoadLatent and audio/video latent nodes, then check again." };
     return Results.Ok();
 });
 app.MapPost("/fixtures/video-upscaler", async (bool available, IVideoGenerator video, IAiSettingsStore settings) =>
@@ -334,8 +335,7 @@ app.Run();
 
 sealed class MockSettings : IAiSettingsStore
 {
-    // Take refinement is hidden in the app; the browser tests turn it on to keep covering it.
-    private AiSettings _value = new() { H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors", TakeRefinement = true }, DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "mock/script", HasOpenRouterKey = true,
+    private AiSettings _value = new() { H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors" }, DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "mock/script", HasOpenRouterKey = true,
         StarredTextModels = [new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model")] };
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>("mock-only");

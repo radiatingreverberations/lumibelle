@@ -207,7 +207,7 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
     {
         yield return "14";
         if (request.Refinement is not null || request.Snapshot.OutputPolicy?.SaveLosslessFrames != false) yield return "15";
-        if (request.Refinement is not null || request.Snapshot.CaptureRefinementData) yield return "20";
+        if (request.Refinement is not null || request.Snapshot.CaptureRefinementData) { yield return "21"; yield return "22"; }
     }
     private static void ValidateTake(ShotTake take, AiJobContext context, AiVideoJobRequest request, AiBatchCandidate candidate)
     {

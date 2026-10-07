@@ -473,9 +473,8 @@ public sealed class ProjectPackageTests
         long[] audio = [1,32,2,(long)Math.Round(snapshot.FrameCount / 24d * 40)]; long offset = 0;
         JsonObject Tensor(long[] shape) { var size = shape.Aggregate(2L, (a,b) => a*b); var first = offset; offset += size;
             return new() { ["dtype"] = "F16", ["shape"] = JsonSerializer.SerializeToNode(shape), ["data_offsets"] = new JsonArray(first, offset) }; }
-        var root = new JsonObject { ["video"] = Tensor(video), ["audio"] = Tensor(audio), ["cond"] = Tensor([1]) };
-        var m = new { version = 1, id = Guid.NewGuid().ToString("D"), fps = 24, width = snapshot.Width, height = snapshot.Height,
-            frameCount = snapshot.FrameCount, conditioning = new object[] { new { tensor = "cond" } }, context = RefinementPackages.Context(snapshot, null) };
+        var root = new JsonObject { ["video"] = Tensor(video), ["audio"] = Tensor(audio) };
+        var m = new { version = 2, id = Guid.NewGuid().ToString("D"), fps = 24, width = snapshot.Width, height = snapshot.Height, frameCount = snapshot.FrameCount };
         root["__metadata__"] = new JsonObject { ["lumibelle"] = JsonSerializer.Serialize(m, AtomicJsonFile.Options), ["unused-global-info"] = Secret };
         var header = JsonSerializer.SerializeToUtf8Bytes(root); using var output = new MemoryStream(); var prefix = new byte[8];
         BinaryPrimitives.WriteUInt64LittleEndian(prefix, (ulong)header.Length); output.Write(prefix); output.Write(header); output.Write(new byte[(int)offset]);

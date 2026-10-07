@@ -40,6 +40,15 @@ The dedicated **Takes** view shows large previews, newest first, with a selected
 
 Click a take to review it. The player steps through single frames with **‹ ›** or the `[` and `]` keys. Below it, **Save frame to Assets** saves the paused frame as an image, and **Continue from this frame** makes a shot start from it. Under the player are the take's settings and any changes since it was made, and its details: the file and **Download MP4**, the generation details, timings, LoRAs and the references it was submitted with. The takes of the same batch are listed beside the player, each with **Use this take** and **Discard**.
 
+### Refine a take at a larger size
+
+Takes keep the data needed to make a larger version of them later. To try many ideas cheaply, generate several takes at **Quick** size, then open the best one and choose **Refine at a larger size** → **Refine this take**. Pick an output size and a mode:
+
+- **Refine** enlarges the take and re-noises it lightly, so its motion and composition carry over. Its audio stays exactly as it was.
+- **Rework** re-noises more of the take, so more can change, and generates new audio.
+
+The refined version appears beside the original in the same review, and **Another version** makes more with new seeds. Refining needs the learned latent upscaler described in [Video models](comfyui.md#optional-add-ons). Takes generated with Upscaled preview, or before this feature, can't be refined.
+
 ### Continue from a frame
 
 **Continue from this frame** asks which shot should open on the paused frame. **A new shot after** the take's shot is added in the same scene, with the same cast and sound, called "… (cont.)". **An existing shot** starts there instead, for example when a cutaway sits between the two; it replaces that shot's starting frame. Takes of that shot open exactly on the frame, so they play on from the take. Pause on the last frame to continue where the take ends; when you continue from an earlier frame, trim the first clip in [Cut](cut.md) to end there. The new shot opens with its action and dialogue empty: write them, or use **Draft shot**, which sees the shot before it.

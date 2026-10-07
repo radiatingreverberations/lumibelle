@@ -14,7 +14,7 @@ public static class CapturedInputStore
 {
     public const string Folder = "input-store";
     // Refinement inputs are verified and uploaded by their own paths.
-    private static readonly string[] Kept = [H3RefinementPackage.FileName, "source.mp4"];
+    private static readonly string[] Kept = [H3RefinementPackage.FileName];
 
     public static bool Shares(string fileName) => !Kept.Contains(fileName, StringComparer.OrdinalIgnoreCase);
     public static string Root(string projectDirectory) => Path.Combine(projectDirectory, "shots", Folder);

@@ -9,9 +9,8 @@ namespace lumibelle.Services.Projects;
 
 internal static class ProjectPackageRefinement
 {
-    // SafeTensors embeds the COMPLETE VideoSnapshot. Filtering only shots.json would still
-    // leak unused accelerator filenames, and would make the package fail context validation.
-    // Rewrite the bounded JSON header and stream tensor bytes verbatim. No model is loaded.
+    // Packages carry only sizes as metadata, but rewrite the bounded JSON header to that known set
+    // anyway, so nothing else a header might hold leaves the project. Tensor bytes stream verbatim.
     internal static async Task RewriteAsync(ProjectPackagePlan plan, IReadOnlyDictionary<Guid, ShotTake> originals,
         string scratch, CancellationToken ct)
     {
@@ -64,8 +63,7 @@ internal static class ProjectPackageRefinement
         var root = JsonNode.Parse(header)!.AsObject();
         var metadata = JsonNode.Parse(root["__metadata__"]!["lumibelle"]!.GetValue<string>())!.AsObject();
         var clean = new JsonObject();
-        foreach (var name in new[] { "version", "id", "fps", "width", "height", "frameCount", "conditioning" }) clean.Add(name, metadata[name]?.DeepClone());
-        clean["context"] = JsonSerializer.SerializeToNode(RefinementPackages.Context(snapshot, refinement), AtomicJsonFile.Options);
+        foreach (var name in new[] { "version", "id", "fps", "width", "height", "frameCount" }) clean.Add(name, metadata[name]?.DeepClone());
         root["__metadata__"] = new JsonObject { ["lumibelle"] = clean.ToJsonString() };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(root);
         var padded = checked((bytes.Length + 7) / 8 * 8);

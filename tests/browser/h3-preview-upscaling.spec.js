@@ -24,7 +24,7 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await page.getByRole('button', { name: 'Save video models', exact: true }).click();
   await expect(page.getByText('Video models saved.', { exact: true })).toBeVisible();
   await expect(setup.locator('> summary .video-status')).toHaveText('Ready');
-  await request.post('/fixtures/video-companion?available=false');
+  await request.post('/fixtures/refinement-capture?available=false');
   await page.getByRole('link', { name: /Back to shots/i }).click();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await toolsTab(page, 'Generate');
@@ -49,7 +49,7 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await expect(page.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
   await resolution.selectOption('upscaled');
   await request.post('/fixtures/video-upscaler?available=true');
-  await request.post('/fixtures/video-companion?available=false');
+  await request.post('/fixtures/refinement-capture?available=false');
   await page.getByRole('button', { name: 'Check video models', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 }); await toolsTab(page, 'Generate');
@@ -76,5 +76,5 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await resolution.selectOption('native');
   await expect.poll(async () => (await state()).shots[0].nativeResolution).toBe(true);
   expect((await state()).shots[0].upscalePreview ?? false).toBe(false);
-  await request.post('/fixtures/video-companion?available=true');
+  await request.post('/fixtures/refinement-capture?available=true');
 });

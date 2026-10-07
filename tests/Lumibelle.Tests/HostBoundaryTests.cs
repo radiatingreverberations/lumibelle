@@ -28,11 +28,11 @@ public sealed class HostBoundaryTests : IDisposable
     }
 
     [Fact]
-    public void EmbeddedProfileAndCompanionIdentifiersRemainStable()
+    public void EmbeddedProfileIdentifiersRemainStable()
     {
         var resources = typeof(ScriptDocument).Assembly.GetManifestResourceNames();
         Assert.Contains(resources, r => r.StartsWith("lumibelle.Services.AI.PromptProfiles.", StringComparison.Ordinal));
-        Assert.Contains("lumibelle.comfy_nodes.lumibelle_h3.__init__.py", resources);
+        Assert.DoesNotContain(resources, r => r.Contains("comfy_nodes", StringComparison.Ordinal));
         Assert.DoesNotContain(resources, r => r.StartsWith("Lumibelle.Core.", StringComparison.Ordinal));
     }
 

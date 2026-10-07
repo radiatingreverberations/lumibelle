@@ -1,7 +1,7 @@
 @foreach (var run in Runs.Where(r => r.Refinement?.ParentTakeId == ParentId && !Ancestors.Contains(r.Id)).OrderBy(r => r.CreatedUtc))
 {
     <section class="take-versions" aria-label="@($"{run.Refinement!.Mode} versions")">
-        <h4>@run.Refinement.Mode · @run.Refinement.Width × @run.Refinement.Height <span class="experimental-badge">Experimental</span></h4>
+        <h4>@run.Refinement.Mode · @run.Refinement.Width × @run.Refinement.Height</h4>
         @if (run.Candidates.Any(c => c.State is not (VideoCandidateState.Complete or VideoCandidateState.Cancelled))) { <p class="field-hint" role="status">@run.Status</p> }
         @foreach (var candidate in run.Candidates)
         {

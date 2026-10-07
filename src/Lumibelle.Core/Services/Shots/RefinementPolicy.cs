@@ -5,8 +5,7 @@ namespace lumibelle.Services.Shots;
 
 public static class RefinementPolicy
 {
-    public const string Profile = "h3-refinement-experimental-v1";
-    public const string UpscalerRevision = "d7c01b9011f2e8439493f6c02c29995a27df276f";
+    public const string Profile = "h3-refinement-stock-v1";
     public static IReadOnlyList<RefinementSize> Sizes(int width, int height)
     {
         if (width < 32 || height < 32 || width % 32 != 0 || height % 32 != 0)
@@ -28,10 +27,10 @@ public static class RefinementPolicy
     public static void Validate(TakeRefinement r, VideoSnapshot source)
     {
         var p = r.SourcePackage;
-        if (r.ParentTakeId == Guid.Empty || p is null || p.Id == Guid.Empty || !Enum.IsDefined(r.Mode) || r.Profile != Profile || r.UpscalerRevision != UpscalerRevision || r.Steps != 20 ||
-            string.IsNullOrWhiteSpace(r.Upscaler) || r.SourceVideoBytes <= 0 || !Hash(r.SourceVideoSha256) || p.Bytes <= 0 || !Hash(p.Sha256) ||
+        if (r.ParentTakeId == Guid.Empty || p is null || p.Id == Guid.Empty || !Enum.IsDefined(r.Mode) || !Enum.IsDefined(r.Implementation) || r.Profile != Profile ||
+            string.IsNullOrWhiteSpace(r.Upscaler) || !r.Upscaler.EndsWith(".safetensors", StringComparison.OrdinalIgnoreCase) || p.Bytes <= 0 || !Hash(p.Sha256) ||
             p.FrameCount != source.FrameCount || !Sizes(p.Width, p.Height).Any(s => s.Issue is null && s.Width == r.Width && s.Height == r.Height))
-            throw new WorkspaceStoreException("Invalid refinement source, size, or experimental profile. Review the saved take again.");
+            throw new WorkspaceStoreException("Invalid refinement source, size, or profile. Review the saved take again.");
     }
     public static bool Hash(string? hash) => hash is { Length: 64 } && hash.All(Uri.IsHexDigit);
     public static (int Width, int Height) OutputSize(VideoRun run) => H3PreviewUpscaling.OutputSize(run.Snapshot, run.Refinement);
