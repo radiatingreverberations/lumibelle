@@ -36,7 +36,7 @@ public static class H3Presets
         Beta => "Standard with the beta scheduler (res_multistep · beta). Suggested for reference-heavy prompts. Not yet benchmarked in Lumibelle.",
         EulerBeta => "Euler with the beta scheduler. Community testing preferred it to Standard for reference adherence, with speedups enabled. Not yet benchmarked in Lumibelle.",
         TurboLight => "Retired. The 4-step Turbo LoRA at strength 0.75. Never benchmarked in Lumibelle, and the Singularity model card gives no strength for it. Use Turbo · 4 steps instead.",
-        "larry" => "Experimental. Best overall in our two-scene base-model comparison; quality and speed depend on your setup.",
+        "larry" => "Experimental. Both clips looked acceptable in our small single-seed comparison on the base model; quality and speed depend on your setup.",
         "pdd" => "Experimental. Good motion in our base-model comparison, but dialogue was strongly distorted.",
         "spectrum" => "Retired. Dialogue was acceptable on the base model, but the motion scene had distorted interiors. Replay protects audio and uses system RAM.",
         "turbo8" => "Retired. Dialogue was acceptable in our base-model comparison; the motion scene had distorted interiors and it was slower than Turbo · 4 steps.",

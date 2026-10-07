@@ -115,7 +115,7 @@
     private static string PresetSummary(string key) => key switch
     {
         "standard" => "20 steps · the reference recipe", H3Presets.Beta => "Standard with the beta scheduler", H3Presets.EulerBeta => "Euler with the beta scheduler",
-        "larry" => "6 steps · good in both test scenes", "pdd" => "8 steps · good motion, distorted dialogue in tests", "turbo4" => "4 steps · fastest",
+        "larry" => "6 steps", "pdd" => "8 steps · dialogue distorted in our small test", "turbo4" => "4 steps · fastest",
         H3HyperFlow.Key => "8 steps · not benchmarked", _ => "Retired"
     };
     private static string Recipe(string key) => key switch

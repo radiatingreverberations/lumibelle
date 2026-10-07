@@ -13,7 +13,7 @@ public static class ShotCopy
 public sealed record H3Settings
 {
     public H3PerformancePreferences Performance { get; set; } = new();
-    // The official Ref2VA weights have a known quality problem; Singularity is a community fix built on an FL2VA/Ref2VA merge.
+    // Singularity, a community finetune of an FL2VA/Ref2VA merge, is the default; the official Ref2VA weights also work.
     public string Model { get; set; } = "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors";
     public string Encoder { get; set; } = "qwen3vl_32b_minimax_h3-w4a8_convrot.safetensors";
     public string VideoVae { get; set; } = "minimax_h3_video_vae_fp16.safetensors";
