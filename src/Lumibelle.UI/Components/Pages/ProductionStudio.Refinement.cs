@@ -12,7 +12,7 @@ public partial class ProductionStudio
     private string? _refinementIssue;
     private AiJobSubmission? _refinementEnqueue;
     private Guid? _refinementJob;
-    private ElementReference _improveButton;
+    private MudBlazor.MudButton? _refineButton;
     private bool _restoreRefinementFocus;
     private void CloseRefinement() { _refiningTake = null; _restoreRefinementFocus = true; }
     private ShotTake? RefinementSource => _doc.Takes.FirstOrDefault(t => t.Id == _refiningTake);
@@ -20,6 +20,16 @@ public partial class ProductionStudio
     private bool RefinementLocked(ShotTake take) => AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.Video && j.Target.ProjectId == Id && j.Target.TakeId == take.Id && j.LocksTarget);
     private bool ReviewContains(ShotTake take) => _reviewRun is not null &&
         (take.RunId == _reviewRun.Id || _runs.FirstOrDefault(r => r.Id == take.RunId) is { } run && ReviewRoot(run).Id == _reviewRun.Id);
+    private string? RefineIssue(ShotTake take) => take.RefinementPackage is null ? TakeDisplay.NoLatents
+        : RefinementLocked(take) ? "This take is already being refined." : null;
+    private bool CanRefine(ShotTake take) => RefineIssue(take) is null && !_refinementBusy && _refinementEnqueue is null;
+    // Opens the take in review, where the refinement options appear above the player.
+    private async Task RefineTake(ShotTake take)
+    {
+        if (!CanRefine(take)) return;
+        if (!_reviewOpen || ReviewTake?.Id != take.Id) await OpenTake(take);
+        await ConfigureRefinement();
+    }
     private async Task ConfigureRefinement()
     {
         if (ReviewTake is not { RefinementPackage: not null } take || _refinementBusy || RefinementLocked(take)) return;

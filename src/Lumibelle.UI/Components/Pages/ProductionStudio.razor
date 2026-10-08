@@ -179,7 +179,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -692,12 +692,6 @@ else
                     }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
                     @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
-                    <details class="take-quality-actions"><summary>Refine at a larger size</summary>
-                        <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Refine this take</button>
-                        @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
-                        @if (take.RefinementPackage is null) { <span class="field-hint">@TakeDisplay.NoLatents</span> }
-                    </details>
-
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }
                     @if (RefinementJob is { } refinementJob)
                     {
@@ -737,7 +731,11 @@ else
         @if (_reviewError is not null) { <p role="alert">@_reviewError</p> }
     }
 </DialogContent>
-<Status>@if (ReviewTake is { } regenTake) { <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton> }</Status>
+<Status>@if (ReviewTake is { } regenTake) {
+    <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
+    <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
+    @if (regenTake.Refinement is not null) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Refine the same take again with a new seed">Another version</MudButton> }
+}</Status>
 <Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton>@if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Filled" Color="Color.Primary">One more take</MudButton> }</Actions></InlineDialog>
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />

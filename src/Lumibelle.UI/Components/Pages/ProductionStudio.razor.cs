@@ -272,7 +272,7 @@ public partial class ProductionStudio
             _handledCompositionJob = id;
             if (job.Target.CompositionId is { } c && _production.Compositions.Any(p => p.Id == c)) { await SelectComposition(c); await RefreshCompositionResult(id); await OpenSetupDialog("Prompt"); StateHasChanged(); }
         }
-        if (_restoreRefinementFocus && _reviewOpen) { _restoreRefinementFocus = false; try { await _improveButton.FocusAsync(); } catch (JSDisconnectedException) { } }
+        if (_restoreRefinementFocus && _reviewOpen) { _restoreRefinementFocus = false; try { if (_refineButton is not null) await _refineButton.FocusAsync(); } catch (JSDisconnectedException) { } }
         if (_focusReview && _reviewOpen) { _focusReview = false; try { await JS.InvokeVoidAsync("lumibelleShots.focusTake", _reviewTakeId?.ToString()); } catch (JSDisconnectedException) { } }
         if (_restoreReviewFocus || _restoreFrameFocus) { var review = _restoreReviewFocus; _restoreReviewFocus = _restoreFrameFocus = false; try { await JS.InvokeVoidAsync("lumibelleShots.restoreReviewFocus", review); } catch (JSDisconnectedException) { } }
     }

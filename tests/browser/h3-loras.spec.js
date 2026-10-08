@@ -102,8 +102,7 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await expect.poll(async () => (await state()).shots[0].loras[1].enabled).toBe(false);
   await closeSetup(page);
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
-  await review.locator('.take-quality-actions summary').click();
-  await review.getByRole('button', { name: 'Refine this take', exact: true }).click();
+  await review.getByRole('button', { name: 'Refine…', exact: true }).click();
   const form = review.getByRole('region', { name: 'Refine take' });
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Refine', exact: true }).click();

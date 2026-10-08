@@ -42,7 +42,7 @@ Click a take to review it. The player steps through single frames with **‹ ›
 
 ### Refine a take at a larger size
 
-To refine a take, it needs its latents. Turn on **Save latents** in the shot's generation options before generating; it adds a few MB per take at Quick size, and ComfyUI also keeps a copy in its output folder. To try many ideas cheaply, generate several takes at **Quick** size with **Save latents** on, then open the best one and choose **Refine at a larger size** → **Refine this take**. Pick an output size and a mode:
+To refine a take, it needs its latents. Turn on **Save latents** in the shot's generation options before generating; it adds a few MB per take at Quick size, and ComfyUI also keeps a copy in its output folder. To try many ideas cheaply, generate several takes at **Quick** size with **Save latents** on, then choose **Refine…** on the best one, in the Takes view or at the bottom of the review. Pick an output size and a mode:
 
 - **Refine** enlarges the take and re-noises it lightly, so its motion and composition carry over. Its audio stays exactly as it was.
 - **Rework** re-noises more of the take, so more can change, and generates new audio.

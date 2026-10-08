@@ -152,8 +152,6 @@
 .studio-workspace .reference-link-notice button { display: block; margin-top: 5px; }
 .scene-reference-actions summary { font-size: var(--lumi-font-size-meta); color: var(--plum); cursor: pointer; padding: 6px 0; }
 .scene-reference-actions[open] button { display: block; margin: 4px 0; }
-.take-quality-actions { padding: 10px 0; }
-.take-quality-actions summary { cursor: pointer; color: var(--plum); font-size: var(--lumi-font-size-compact); }
 @media (min-width: 760px) and (max-height: 900px) {
     .shot-review-dialog .take-player:not(:fullscreen) .take-player-stage { max-height: max(180px, calc(100dvh - 380px)); }
 }

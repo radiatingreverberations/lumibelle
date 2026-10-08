@@ -31,9 +31,9 @@ test('Save latents is optional; a take without them is regenerated with its seed
   const original = (await state(request, id)).takes[0];
   expect(original.snapshot.captureRefinementData).toBe(false);
   expect(original.refinementPackage).toBeNull();
-  await openQuality(page);
-  await expect(review(page).getByRole('button', { name: 'Refine this take', exact: true })).toBeDisabled();
-  await expect(review(page)).toContainText('This take has no saved latents. To refine it, regenerate it with the same seed and resolution');
+  const refine = review(page).getByRole('button', { name: 'Refine…', exact: true });
+  await expect(refine).toBeDisabled();
+  await expect(refine).toHaveAttribute('title', /^This take has no saved latents\. To refine it, regenerate it with the same seed and resolution/);
   await review(page).getByRole('button', { name: 'Close', exact: true }).click();
   // Regenerating with the same seed and size, with latents saved, gives a take that can be refined.
   await page.goto(`/projects/${id}/shots?view=Takes`);
@@ -54,6 +54,14 @@ test('Save latents is optional; a take without them is regenerated with its seed
   expect([again.seed, again.width, again.height]).toEqual([original.seed, original.width, original.height]);
   expect(again.snapshot.captureRefinementData).toBe(true);
   expect(again.refinementPackage).not.toBeNull();
+  // The new take opens in review; close it to use the Takes view's own buttons.
+  await expect(review(page)).toBeVisible();
+  await review(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(review(page)).toBeHidden();
+  await expect(page.locator(`[data-take-id='${original.id}']`).getByRole('button', { name: 'Refine…', exact: true })).toBeDisabled();
+  await page.locator(`[data-take-id='${again.id}']`).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await expect(review(page).getByRole('region', { name: 'Refine take' })).toBeVisible();
+  await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${again.id}`);
 });
 
 test('Save latents explains when ComfyUI lacks the nodes', async ({ page, request }) => {
@@ -80,8 +88,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   // The companion nodes are gone: refinement uses stock ComfyUI nodes.
   expect((await request.get('/downloads/lumibelle-h3-companion.zip')).status()).toBe(404);
   const original = (await state(request, id)).takes[0];
-  await openQuality(page);
-  await review(page).getByRole('button', { name: 'Refine this take', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form).toBeVisible();
   await expect(form.getByLabel('Mode', { exact: true })).toHaveValue('Refine');
@@ -110,8 +117,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   await closeSetup(page);
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
   await review(page).locator(`[data-shot-take="${refined.id}"]`).click();
-  await openQuality(page);
-  await review(page).getByRole('button', { name: 'Refine this take', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
   await form.getByLabel('Mode', { exact: true }).selectOption('Rework');
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Rework', exact: true }).click();
@@ -140,8 +146,7 @@ test('refinement options remain keyboard accessible and fit a narrow review', as
   test.setTimeout(90000);
   await setup(page, request);
   await page.setViewportSize({ width: 390, height: 844 });
-  await openQuality(page);
-  const improve = review(page).getByRole('button', { name: 'Refine this take', exact: true });
+  const improve = review(page).getByRole('button', { name: 'Refine…', exact: true });
   await improve.focus(); await page.keyboard.press('Enter');
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form.getByRole('button', { name: 'Queue Refine', exact: true })).toBeEnabled();
@@ -152,7 +157,3 @@ test('refinement options remain keyboard accessible and fit a narrow review', as
   await expect(form).not.toBeVisible();
   await expect(improve).toBeFocused();
 });
-async function openQuality(page) {
-  const section = review(page).locator('.take-quality-actions');
-  if (await section.getAttribute('open') === null) await section.locator('summary').click();
-}

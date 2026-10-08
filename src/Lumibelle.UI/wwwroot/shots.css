@@ -193,13 +193,13 @@
 .reference-look-issue { font-size:var(--lumi-font-size-meta); color: var(--lumi-warning); overflow-wrap:anywhere; }
 
 :is(.preferred-reference-dialog,.scene-reference-dialog,.fill-reference-dialog) summary { display:list-item; cursor:pointer; }
-.take-quality-actions, .take-refinement-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .65rem; }
+.take-refinement-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .65rem; }
 .take-refinement-form { padding: 1rem; margin-block: .8rem; border: 1px solid var(--studio-border, var(--lumi-border)); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface); }
 .take-refinement-form label { display: grid; gap: .35rem; margin-block: .75rem; }
 .take-refinement-form select { width: 100%; min-width: 0; min-height: 36px; padding: 7px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); font: inherit; color: var(--ink); }
 .take-refinement-form p { margin-block: .5rem; }
-.take-quality-actions > .primary-action, .take-refinement-actions > .primary-action { background: var(--plum, var(--lumi-accent)); border-color: var(--plum, var(--lumi-border)); color: var(--lumi-on-accent); }
-.take-quality-actions > .primary-action:disabled, .take-refinement-actions > .primary-action:disabled { opacity: .5; }
+.take-refinement-actions > .primary-action { background: var(--plum, var(--lumi-accent)); border-color: var(--plum, var(--lumi-border)); color: var(--lumi-on-accent); }
+.take-refinement-actions > .primary-action:disabled { opacity: .5; }
 .experimental-badge { font-size: var(--lumi-font-size-small); font-weight: 500; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-small); padding: .1rem .3rem; vertical-align: middle; }
 .take-versions { margin: .4rem 0 .8rem .55rem; border-left: 2px solid var(--lumi-border); padding-left: .5rem; min-width: 0; }
 .take-versions h4 { font-size: var(--lumi-font-size-compact); margin-bottom: .4rem; overflow-wrap: anywhere; }
