@@ -88,7 +88,12 @@ public partial class ProductionStudio
         if (_reviewRun is not null) _reviewRun = _runs.FirstOrDefault(r => r.Id == _reviewRun.Id) ?? _reviewRun;
         if (_reviewRun is { } review && !_doc.Takes.Any(t => t.Id == _reviewTakeId && ReviewContains(t)))
             SelectTake(_doc.Takes.FirstOrDefault(t => t.RunId == review.Id)?.Id);
+        if (_reviewOpen && _trimmingTake is null && _refinementJob is { } refinementId) {
+            foreach (var trimmed in _doc.Takes.Where(t => t.RunId == refinementId && t.Trim is { } trim && t.Id == TakeTrimming.OutputId(trim.ParentTakeId)).OrderBy(t => t.CreatedUtc))
+                if (_openedRefinedTrims.Add(trimmed.Id)) SelectTake(trimmed.Id);
+        }
     }
+    private readonly HashSet<Guid> _openedRefinedTrims = [];
     private async Task OfferVideoReviewAsync()
     {
         if (_videoOriginJob is not { } origin || _autoReviewed.Contains(origin)) return;
@@ -174,7 +179,7 @@ public partial class ProductionStudio
     private async Task ReviewVisibility(bool open)
     {
         _reviewOpen = open; _restoreReviewFocus = !open;
-        if (!open) { _refiningTake = null; if (_reviewRun is not null) _autoReviewed.Add(_reviewRun.Id); await ReleaseVideoReviewAsync(); }
+        if (!open) { _trimCancellation?.Cancel(); _trimmingTake = null; _refiningTake = null; if (_reviewRun is not null) _autoReviewed.Add(_reviewRun.Id); await ReleaseVideoReviewAsync(); }
     }
     private async Task ReleaseVideoReviewAsync()
     { if (_videoReviewOwner is { } id) { _videoReviewOwner = null; await AiReviews.CloseAsync(id); } }

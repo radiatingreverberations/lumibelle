@@ -19,7 +19,7 @@ public partial class ProductionStudio
     private void Baseline(ShotDocument d) { _baseline = ShotCopy.Of(d.Shots); _setupBaseline = ShotCopy.Of(d.SceneSetups); }
     private IEnumerable<ScriptSection> Scenes => _approved is null ? [] : ScriptStructure.Sections(_approved.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene);
     private string MaximumLabel => _maximum is >= 1 and <= 15 ? $"Maximum generated duration: {H3Policy.Seconds(_maximum):0.###} seconds" : "Choose a maximum from 1 to 15 seconds";
-    private void MergeMedia(ShotDocument latest) { _doc.Revision = latest.Revision; _doc.Takes = latest.Takes; _doc.Trash = latest.Trash; _doc.Recovery = latest.Recovery; _doc.PlanningReviews = latest.PlanningReviews; _doc.TakePublications = latest.TakePublications; }
+    private void MergeMedia(ShotDocument latest) { _doc.Revision = latest.Revision; _doc.Takes = latest.Takes; _doc.Trash = latest.Trash; _doc.Recovery = latest.Recovery; _doc.PlanningReviews = latest.PlanningReviews; _doc.TakePublications = latest.TakePublications; _doc.TrimPublications = latest.TrimPublications; }
     private void EditCoverage(Action<Shot> edit) { if (SourceShot is not { } shot) return; Remember(); edit(shot); CoverageChanged(); }
     private void CoverageChanged() { _coverageDirty = true; SyncCoverage(); Changed(); }
     private void SyncCoverage() { foreach (var c in _production.Compositions) if (_doc.Shots.FirstOrDefault(s => s.Id == c.ShotId) is { } s) lumibelle.Services.Production.ProductionPolicy.CopyCoverage(s, c.Shot); }

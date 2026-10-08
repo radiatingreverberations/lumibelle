@@ -127,13 +127,17 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         var document = await shots.LoadAsync(projectId, ct);
         var take = ShotCopy.Of(document.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("The source take is unavailable. Restore it before refining."));
         if (take.RefinementPackage is null) throw new WorkspaceStoreException(TakeDisplay.NoLatents);
-        var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
-        var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
-            ?? throw new WorkspaceStoreException("This take's captured request is unavailable.");
-        var source = AiVideoJobHandler.Read(sourceJob, await store.ReadSnapshotAsync(sourceJob.Id, ct));
-        if (source.Snapshot.ProjectId != projectId || source.BatchId != take.RunId || source.Snapshot.Reel is not null ||
-            !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(take.Snapshot, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(source.Snapshot, AtomicJsonFile.Options)))
-            throw new WorkspaceStoreException("The source take does not match its captured request.");
+        AiVideoJobRequest source;
+        if (take.RetainedSource is { } retained) source = new(2, take.RunId, take.Snapshot, ShotCopy.Of(retained.Inputs)) { Refinement = take.Refinement };
+        else {
+            var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
+            var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
+                ?? throw new WorkspaceStoreException("This take's captured request is unavailable.");
+            source = AiVideoJobHandler.Read(sourceJob, await store.ReadSnapshotAsync(sourceJob.Id, ct));
+            if (source.Snapshot.ProjectId != projectId || source.BatchId != take.RunId || source.Snapshot.Reel is not null ||
+                !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(take.Snapshot, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(source.Snapshot, AtomicJsonFile.Options)))
+                throw new WorkspaceStoreException("The source take does not match its captured request.");
+        }
         var configured = await settings.LoadAsync(ct);
         // Only the explicitly selected upscaler comes from current settings.
         // The source model, prompt, references and sampling origin remain immutable.
@@ -145,9 +149,12 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         if (id == source.BatchId) throw new WorkspaceStoreException("Refinement needs a new request identity.");
         var refinement = await shots.CaptureRefinementAsync(projectId, takeId, id, mode, width, height, configured.H3.LatentUpscaler, implementation, ct);
         var request = new AiVideoJobRequest(2, id, take.Snapshot, ShotCopy.Of(source.Inputs)) { Refinement = refinement,
+            OutputTrim = take.Trim is { } trim ? new(trim.SourceStartFrame, trim.SourceEndFrameExclusive) : null,
             DestinationShotId = take.ShotId != take.Snapshot.Shot.Id ? take.ShotId : null };
         AiVideoJobPolicy.Validate(request);
-        await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await shots.RunDirectoryAsync(projectId, source.BatchId, ct), request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
+        if (take.RetainedSource is null)
+            await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await shots.RunDirectoryAsync(projectId, source.BatchId, ct), request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
+        else await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("The project is unavailable.");
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request),
             project.Name, take.Snapshot.Shot.Title + " · " + mode + " · " + width + " × " + height, tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
@@ -170,6 +177,10 @@ public static class AiVideoJobPolicy
             r.Snapshot.ProjectId == Guid.Empty || r.Snapshot.Shot is null || r.Snapshot.Settings is null)
             throw new WorkspaceStoreException("Invalid queued video request.");
         var s = r.Snapshot;
+        if (r.OutputTrim is { } trim) {
+            if (r.Refinement is null || s.Reel is not null) throw new WorkspaceStoreException("An output trim requires a shot refinement.");
+            TakeTrimming.Range(trim.StartFrame, trim.EndFrameExclusive, s.FrameCount);
+        }
         if (r.DestinationShotId is { } destination && (destination == Guid.Empty || s.Reel is not null ||
             r.Refinement is null && s.RegenerationSource is null && s.Dub is null))
             throw new WorkspaceStoreException("Invalid destination for the captured take request.");

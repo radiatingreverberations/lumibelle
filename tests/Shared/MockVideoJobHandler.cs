@@ -58,7 +58,12 @@ public sealed class MockVideoJobHandler(IShotStore shots, IVideoGenerator genera
             saved.ShotId = request.OutputShotId;
             if (run.Snapshot.Reel is not null) await reels!.PublishAsync(saved, stage, ct);
             else await shots.PublishTakeAsync(run.Snapshot.ProjectId, saved, stage, ct);
-            results.Add(new(saved.Id, saved.Candidate, context.Job.Id)); await context.SaveResultAsync(new AiVideoJobResult(results.ToArray()));
+            var reviewId = saved.Id;
+            if (request.OutputTrim is { } trim) {
+                reviewId = TakeTrimming.OutputId(saved.Id);
+                await shots.TrimTakeAsync(run.Snapshot.ProjectId, new(saved.Id, reviewId, trim.StartFrame, trim.EndFrameExclusive), ct: ct);
+            }
+            results.Add(new(reviewId, saved.Candidate, context.Job.Id)); await context.SaveResultAsync(new AiVideoJobResult(results.ToArray()));
             await context.MarkReviewableAsync(ct); await context.ReportAsync(new(new(GenerationPhase.Saving, $"Take {take.Number} saved"), take.Number,
                 (await context.CurrentAsync(ct)).Batch!.Candidates[^1].Number), true);
         }

@@ -150,10 +150,12 @@ public sealed record ShotFrame(int Index, string FileName, long Bytes)
 }
 public sealed record ShotTake
 {
+    public TakeTrim? Trim { get; set; }
+    public RetainedRefinementSource? RetainedSource { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
-    public int FrameCount => Snapshot.FrameCount;
+    public int FrameCount => Trim is { } trim ? trim.EndFrameExclusive - trim.StartFrame : Snapshot.FrameCount;
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasLosslessFrames => FrameArchiveRemoval is null && (Refinement is not null || Snapshot.OutputPolicy?.SaveLosslessFrames != false);
+    public bool HasLosslessFrames => FrameArchiveRemoval is null && (Trim?.LosslessFrames ?? (Refinement is not null || Snapshot.OutputPolicy?.SaveLosslessFrames != false));
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public FrameArchiveRemoval? FrameArchiveRemoval { get; set; }
     public VideoTakeTimings? Timings { get; set; }
@@ -202,6 +204,7 @@ public sealed record ShotDocument
     public List<ShotRecovery> Recovery { get; set; } = [];
     public List<ShotPlanningReview> PlanningReviews { get; set; } = [];
     public List<ShotTakePublication> TakePublications { get; set; } = [];
+    public List<TakeTrimRequest> TrimPublications { get; set; } = [];
     public ShotDocument Copy() => ShotCopy.Of(this);
 }
 public sealed record ShotTakePublication(Guid TakeId, Guid RunId, Guid ShotId, Guid? JobId, int Candidate, string Fingerprint, DateTimeOffset PublishedUtc);

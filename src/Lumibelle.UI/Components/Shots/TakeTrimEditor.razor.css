@@ -1,0 +1,5 @@
+.take-trim-editor { display: grid; gap: .65rem; min-width: 0; }
+.trim-boundaries { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.trim-boundaries label { display: grid; gap: .35rem; }
+.trim-boundaries input { width: 100%; accent-color: var(--mud-palette-primary); }
+@media (max-width: 600px) { .trim-boundaries { grid-template-columns: 1fr; } }

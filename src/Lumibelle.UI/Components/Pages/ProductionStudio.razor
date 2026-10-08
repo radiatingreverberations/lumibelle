@@ -179,7 +179,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -665,7 +665,15 @@ else
                     {
                         <TakeRefinementForm Source="source" Busy="@(_refinementBusy || _refinementEnqueue is not null)" Issue="@_refinementIssue" ContextChanged="@(_doc.Shots.FirstOrDefault(s => s.Id == source.ShotId) is not { } current || !TakeMatches(source, current))" Cancel="CloseRefinement" Refresh="CheckRefinementSetup" Queue="QueueRefinement" />
                     }
-                    <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                    @if (_trimmingTake == take.Id) {
+                        <TakeTrimEditor @key="take.Id" ProjectId="Id" Take="take" Busy="@(_trimCancellation is not null)" Progress="@_trimProgress" Error="@_trimError" Saved="SaveTrim" Cancel="CloseTrim" />
+                    } else {
+                        <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                    }
+                    @if (take.Trim is { } trimmed) {
+                        <p class="take-trim-details">Trimmed from @trimmed.ParentTakeId.ToString()[..8] · frames @(trimmed.StartFrame + 1)–@trimmed.EndFrameExclusive of @trimmed.ParentFrameCount</p>
+                        @if (take.RetainedSource is not null) { <p class="field-hint">Full source latents retained · @take.Snapshot.FrameCount frames · @((take.Snapshot.FrameCount / take.Fps).ToString("0.###")) s</p> }
+                    }
                     @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
                     {
                         <section class="take-continue-panel" aria-label="Continue from this frame">
@@ -715,7 +723,7 @@ else
                 @foreach (var candidate in review.Candidates)
                 {
                     var saved = _doc.Takes.FirstOrDefault(t => t.Id == candidate.TakeId);
-                    <article class="shot-candidate" @key="candidate.Number">
+                    <article class="shot-candidate" @key="candidate.TakeId">
                         @if (saved is not null) { <button data-shot-take="@saved.Id" aria-pressed="@(_reviewTakeId == saved.Id ? "true" : "false")" @onclick="() => SelectTake(saved.Id)"><img data-ai-candidate="@saved.Id" src="@TakeUrl(saved.Id, 0)" alt="" loading="lazy" />Take @candidate.Number</button><button disabled="@_mediaBusy" @onclick="() => ToggleSelectedTake(saved)">@(_doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(_mediaBusy || _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id)" @onclick="() => DiscardTake(saved)">Discard</button> }
                         else { <strong>Take @candidate.Number</strong><p>@(candidate.State == VideoCandidateState.Complete ? "Discarded · recoverable in Trash" : candidate.State)</p> }
                         @if (candidate.Error is not null) { <p role="alert">@candidate.Error</p> }
@@ -734,6 +742,7 @@ else
 </DialogContent>
 <Status>@if (ReviewTake is { } regenTake) {
     <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
+    <MudButton OnClick="() => OpenTrim(regenTake)" Disabled="@(_trimCancellation is not null)">Trim…</MudButton>
     <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
     @if (regenTake.Refinement is not null) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Refine the same take again with a new seed">Another version</MudButton> }
 }</Status>

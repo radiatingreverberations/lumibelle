@@ -99,6 +99,11 @@ public partial class ProductionStudio
         if (!_videoAppendCommands.TryGetValue(root.Value, out var command)) _videoAppendCommands[root.Value] = command = Guid.NewGuid();
         try
         {
+            if (ReviewTake is { Trim: { } trim } take && _videoRequests.GetValueOrDefault(root.Value)?.OutputTrim != new TakeTrimRange(trim.SourceStartFrame, trim.SourceEndFrameExclusive)) {
+                _refinementEnqueue = await VideoRequests.CaptureTrimmedVersionAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, take.Id, _lifetime.Token);
+                await EnqueueRefinement();
+                return;
+            }
             await AiJobs.ExtendBatchAsync(root.Value, command, await AiReviews.TabIdAsync(), _lifetime.Token);
             _videoAppendCommands.Remove(root.Value); _refinementJob = root; await RefreshMedia();
         }
@@ -110,7 +115,9 @@ public partial class ProductionStudio
         HashSet<Guid> visited = [];
         while (run.Refinement is { } refinement && visited.Add(run.Id))
         {
-            var parent = _runs.FirstOrDefault(r => r.Candidates.Any(c => c.TakeId == refinement.ParentTakeId));
+            var parentRunId = _doc.Takes.FirstOrDefault(t => t.Id == refinement.ParentTakeId)?.RunId;
+            var parent = _runs.FirstOrDefault(r => r.Candidates.Any(c => c.TakeId == refinement.ParentTakeId) || r.Id == parentRunId)
+                ?? (_reviewRun?.Id == parentRunId ? _reviewRun : null);
             if (parent is null) break;
             run = parent;
         }

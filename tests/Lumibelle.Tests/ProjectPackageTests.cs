@@ -480,6 +480,42 @@ public sealed class ProjectPackageTests
         BinaryPrimitives.WriteUInt64LittleEndian(prefix, (ulong)header.Length); output.Write(prefix); output.Write(header); output.Write(new byte[(int)offset]);
         await Task.CompletedTask; return output.ToArray();
     }
+    [Fact]
+    public async Task TrimmedTakePackageRetainsFullLatentsAndInputsWithoutTheOriginalOrQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var source = new Fixture(); using var target = new Fixture(); var project = await source.Create();
+        var snapshot = Snapshot(project.Id, "standard") with { CaptureRefinementData = true };
+        var binding = new ShotImageBinding { AssetId = Guid.NewGuid(), MediaId = Guid.NewGuid(), Name = "Reference" };
+        snapshot.Shot.Images.Add(binding);
+        IReadOnlyList<ShotReferenceGuidance> guidance = [new(binding.Id, "", "", null)];
+        snapshot = snapshot with { Prompt = H3Policy.Compile(snapshot.Shot, guidance), Fingerprint = H3Policy.Fingerprint(snapshot.Shot), ReferenceGuidance = guidance };
+        var packageBytes = await TensorPackage(snapshot); var takeId = Guid.NewGuid();
+        await source.Bytes(project, $"shots/takes/{takeId:D}/{H3RefinementPackage.FileName}", packageBytes);
+        var package = await RefinementPackages.InspectAsync(Path.Combine(source.Root(project), "shots", "takes", takeId.ToString("D"), H3RefinementPackage.FileName), snapshot, null, ct);
+        var input = new AiVideoInput("picture.png", false, Pixel.Length, Convert.ToHexString(SHA256.HashData(Pixel)));
+        var take = new ShotTake { Id = takeId, ShotId = snapshot.Shot.Id, RunId = Guid.NewGuid(), Candidate = 1, Directory = takeId.ToString("D"), Snapshot = snapshot,
+            Width = snapshot.Width, Height = snapshot.Height, RefinementPackage = package, RetainedSource = new([input]),
+            Trim = new(Guid.NewGuid(), snapshot.FrameCount, 5, 30, 5, 30, false), Bytes = 3 + package.Bytes + Pixel.Length };
+        await source.Bytes(project, $"shots/takes/{takeId:D}/video.mp4", [1, 2, 3]);
+        await source.Bytes(project, $"shots/takes/{takeId:D}/{TakeTrimming.InputsFolder}/picture.png", Pixel);
+        await source.Save(project, "shots.json", new ShotDocument { ProjectId = project.Id, Shots = [snapshot.Shot], Takes = [take] });
+        var export = await source.Service.ExportAsync(project.Id, new(), ct: TestContext.Current.CancellationToken);
+        await using var bytes = (await source.Service.OpenExportAsync(project.Id, export.Id, ct))!;
+        var pending = await target.Service.StageImportAsync(bytes.Content, ct: ct);
+        await target.Service.CommitImportAsync(pending.Token, ct);
+        var shots = new FileShotStore(target.Files, TimeProvider.System);
+        var imported = Assert.Single((await shots.LoadAsync(project.Id, ct)).Takes);
+        Assert.Equal(25, imported.FrameCount); Assert.Equal(snapshot.FrameCount, imported.RefinementPackage!.FrameCount);
+        Assert.Equal(3 + imported.RefinementPackage.Bytes + Pixel.Length, imported.Bytes); Assert.NotNull(imported.RetainedSource);
+        var importedBytes = await File.ReadAllBytesAsync(Path.Combine(target.Root(project), "shots", "takes", takeId.ToString("D"), H3RefinementPackage.FileName), ct);
+        Assert.Equal(packageBytes[(8 + (int)BinaryPrimitives.ReadUInt64LittleEndian(packageBytes))..], importedBytes[(8 + (int)BinaryPrimitives.ReadUInt64LittleEndian(importedBytes))..]);
+        var runId = Guid.NewGuid();
+        var refinement = await shots.CaptureRefinementAsync(project.Id, takeId, runId, TakeRefinementMode.Refine, take.Width, take.Height, "mock.safetensors", H3UpscalerImplementation.Plus, ct);
+        lumibelle.Services.AI.AiVideoJobPolicy.Validate(new(2, runId, imported.Snapshot, imported.RetainedSource!.Inputs) { Refinement = refinement, OutputTrim = new(5, 30) });
+        Assert.Equal(Pixel, await File.ReadAllBytesAsync(Path.Combine(await shots.RunDirectoryAsync(project.Id, runId, ct), "inputs", input.FileName), ct));
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly string directory = Path.Combine(Path.GetTempPath(), "lumibelle-package-" + Guid.NewGuid().ToString("N"));

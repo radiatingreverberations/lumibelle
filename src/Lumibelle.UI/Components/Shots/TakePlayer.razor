@@ -33,6 +33,9 @@
     [Parameter] public bool ShowSaveFrame { get; set; } = true;
     /// <summary>Receives the paused frame index to start a new shot from; the button shows only when set.</summary>
     [Parameter] public EventCallback<int> ContinueRequested { get; set; }
+    [Parameter] public int RangeStart { get; set; }
+    [Parameter] public int? RangeEndExclusive { get; set; }
+    private (int, int)? _appliedRange;
     public async Task<int> CaptureFrameAsync() => _player is null || _disposed ? -1 : await _player.InvokeAsync<int>("pauseForSave");
     public async Task PauseAsync() { if (_player is not null && !_disposed) await _player.InvokeVoidAsync("pause"); }
     private ElementReference _element;
@@ -42,8 +45,11 @@
     private string VideoUrl => $"/media/projects/{ProjectId}/takes/{Take.Id}";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
-        await InitializePlayer();
+        if (firstRender) await InitializePlayer();
+        if (_player is not null && _appliedRange != (RangeStart, RangeEndExclusive ?? Take.FrameCount)) {
+            _appliedRange = (RangeStart, RangeEndExclusive ?? Take.FrameCount);
+            await _player.InvokeVoidAsync("setRange", RangeStart, RangeEndExclusive ?? Take.FrameCount);
+        }
     }
     private async Task InitializePlayer()
     {

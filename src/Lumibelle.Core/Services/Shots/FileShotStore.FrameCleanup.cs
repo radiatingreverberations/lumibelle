@@ -48,7 +48,7 @@ public sealed partial class FileShotStore
             var folder = ArchiveDirectory(dir, take); var video = Path.Combine(folder, "video.mp4");
             // Ensure frame access remains possible before accepting an irreversible removal.
             var info = await media.VideoInfoAsync(video, take.Snapshot.Settings, ct);
-            if (info.Width != take.Width || info.Height != take.Height || info.Frames != take.FrameCount || info.Fps != take.Fps || !info.HasAudio)
+            if (info.Width != take.Width || info.Height != take.Height || info.Frames != take.FrameCount || info.Fps != take.Fps)
                 throw new WorkspaceStoreException("The saved MP4 does not match this take. Its lossless archive was retained.");
             await media.ExtractFrameAsync(video, 0, take.Width, take.Height, take.Snapshot.Settings, ct);
             foreach (var file in take.FrameArchiveRemoval?.Files.Select(f => f.FileName) ?? take.Frames.Select(f => f.FileName).Distinct())

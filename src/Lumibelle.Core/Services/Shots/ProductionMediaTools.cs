@@ -12,6 +12,8 @@ public sealed record VideoFileInfo(int Width, int Height, int Frames, double Fps
 }
 public interface IProductionMediaTools
 {
+    Task TrimTakeAsync(string source, string? framePattern, string target, int start, int end, double fps, H3Settings settings, CancellationToken ct)
+        => throw new WorkspaceStoreException("Take trimming is unavailable.");
     Task ExportCutAsync(IReadOnlyList<CutExportSegment> segments, string target, H3Settings settings, CancellationToken ct)
         => throw new WorkspaceStoreException("Cut export is unavailable.");
     // Original presentation timestamps, including a nonzero first-frame timestamp.

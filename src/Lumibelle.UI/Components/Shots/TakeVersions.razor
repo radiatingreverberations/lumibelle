@@ -1,3 +1,12 @@
+@foreach (var trimmed in Takes.Where(t => t.Trim?.ParentTakeId == ParentId && !Ancestors.Contains(t.Id)).OrderBy(t => t.CreatedUtc)) {
+    <section class="take-versions" aria-label="Trimmed versions">
+        <article class="shot-candidate">
+            <button data-shot-take="@trimmed.Id" aria-pressed="@(SelectedId == trimmed.Id ? "true" : "false")" @onclick="() => Select.InvokeAsync(trimmed.Id)"><img src="@($"/media/projects/{ProjectId}/takes/{trimmed.Id}/frames/0")" alt="" loading="lazy" />Trimmed · @TakeDisplay.Duration(trimmed)</button>
+            <button disabled="@Busy" @onclick="() => Use.InvokeAsync(trimmed)">@(ProductionId == trimmed.Id ? "Deselect take" : "Use this take")</button><button disabled="@(Busy || ProductionId == trimmed.Id)" @onclick="() => Discard.InvokeAsync(trimmed)">Discard</button>
+        </article>
+        <TakeVersions ProjectId="ProjectId" ParentId="trimmed.Id" Runs="Runs" Takes="Takes" SelectedId="SelectedId" ProductionId="ProductionId" Busy="Busy" Select="Select" Use="Use" Discard="Discard" Remove="Remove" Retry="Retry" RetryLabel="RetryLabel" Ancestors="@(Ancestors.Append(trimmed.Id).ToArray())" />
+    </section>
+}
 @foreach (var run in Runs.Where(r => r.Refinement?.ParentTakeId == ParentId && !Ancestors.Contains(r.Id)).OrderBy(r => r.CreatedUtc))
 {
     // A cancelled or removed version that saved nothing has nothing left to show.

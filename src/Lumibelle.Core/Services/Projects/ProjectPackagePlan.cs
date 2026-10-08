@@ -32,7 +32,7 @@ internal sealed class ProjectPackagePlan
         // generation would keep itself alive merely because its receipt still exists.
         state.Assets = assets with { Trash = [], ReelTrash = [], VoiceTrash = [], ImagePublications = [],
             ImageCopyReceipts = [], ReelPublications = [], VoiceImportReceipts = [] };
-        state.Shots = shots with { Trash = [], TakePublications = [] };
+        state.Shots = shots with { Trash = [], TakePublications = [], TrimPublications = [] };
         references.Scan(state.Assets); references.Scan(state.Shots); references.Scan(state.Production); references.Scan(state.Cut);
         var changed = true; var rounds = 0;
         while (changed)
@@ -80,6 +80,9 @@ internal sealed class ProjectPackagePlan
             plan.Add(root, $"shots/takes/{take.Id:D}/video.mp4");
             foreach (var frame in take.Frames.DistinctBy(f => f.FileName)) plan.Add(root, $"shots/takes/{take.Id:D}/{frame.FileName}", frame.Bytes);
             if (take.RefinementPackage is { } package) plan.Add(root, $"shots/takes/{take.Id:D}/{H3RefinementPackage.FileName}", package.Bytes, package.Sha256);
+            if (take.RetainedSource is { } retained)
+                foreach (var input in retained.Inputs)
+                    plan.Add(root, $"shots/takes/{take.Id:D}/{TakeTrimming.InputsFolder}/{input.FileName}", input.Bytes, input.Sha256);
         }
         foreach (var id in references.Takes.Except(allTakes.Select(t => t.Id))) plan.Note($"Source take {id:D} is unavailable; saved media and provenance remain included.");
         // A binding can outlive its reel's asset-library entry. Its immutable media record
