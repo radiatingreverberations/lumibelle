@@ -347,7 +347,10 @@ test('a crashed video batch cancels locally and releases generation controls', a
   await generateTakes(page);
   const banner = page.locator('.shot-job-banner');
   await expect(banner).toContainText('ComfyUI connection failed.');
-  await banner.getByRole('button', { name: 'Cancel generation', exact: true }).click();
+  // The batch stopped without saving a take, so there is nothing to view or cancel; it can be dismissed.
+  await expect(banner.getByRole('button', { name: 'View batch', exact: true })).toHaveCount(0);
+  await expect(banner.getByRole('button', { name: 'Cancel generation', exact: true })).toHaveCount(0);
+  await banner.getByRole('button', { name: 'Dismiss this batch', exact: true }).click();
   await expect(banner).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Generate takes', exact: true })).toBeEnabled();
   await toolsTab(page, 'Generate');

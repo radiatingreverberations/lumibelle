@@ -130,12 +130,23 @@ public sealed partial class ShotTests
         Assert.Empty(http.Requests); Assert.Empty((await f.Context.ExecutionAsync(_ct)).Submissions);
     }
     [Fact]
-    public async Task RefModCacheDifferentVaeIsNotSilentlySubstituted()
+    public async Task RefModCacheForAnotherVaeEncodesTheSameAcceptedImagesWithThatVae()
     {
-        var f = await CacheSetup(); using var http = f.Http;
+        var f = await CacheSetup(); using var http = f.Http; http.Add(f.Binding.RefMod!);
         var snapshot = f.Snapshot with { Settings = f.Snapshot.Settings with { VideoVae = "different.safetensors" } };
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Cache.EnsureAsync(f.Context, snapshot, f.Scope, _ct));
-        Assert.Empty(http.Requests);
+        var before = JsonSerializer.Serialize(snapshot, AtomicJsonFile.Options);
+        var resolved = await f.Cache.EnsureAsync(f.Context, snapshot, f.Scope, _ct);
+        // The existing cache was encoded with the other VAE, so a new one is built from the same accepted images.
+        Assert.Equal(1, http.Builds);
+        Assert.Equal(f.Binding.RefMod!.Recipe.FrameHashes, http.Uploaded.Values.Select(p => Convert.ToHexString(SHA256.HashData(p))));
+        var reference = resolved[f.Binding.Id];
+        Assert.Equal(ReelRefMods.ForVae(f.Binding.RefMod.Recipe, "different.safetensors"), reference.Recipe);
+        Assert.Equal("different.safetensors", reference.Recipe.VaeName);
+        Assert.NotEqual(f.Binding.RefMod.Recipe.Key, reference.Recipe.Key);
+        Assert.Equal(f.Binding.RefMod.Recipe.FrameHashes, reference.Recipe.FrameHashes);
+        // The accepted reference and the captured request are unchanged; the new cache is valid for this batch.
+        Assert.Equal(before, JsonSerializer.Serialize(snapshot, AtomicJsonFile.Options));
+        Assert.Equal(reference, ReelRefMods.ExecutionReferences(snapshot, resolved)[f.Binding.Id]);
     }
     [Fact]
     public async Task RefModCacheUnreadableRemoteLibraryIsNotAnAutomaticCacheMiss()
@@ -432,7 +443,7 @@ public sealed partial class ShotTests
                 [ComfyRefModClient.EncodeNode] = Node(new() { ["clip"] = "CLIP", ["prompt"] = "STRING", ["width"] = "INT", ["height"] = "INT",
                     ["length"] = "INT", ["ref_image_size"] = "STRING", ["reference_fps"] = "FLOAT", ["max_total_tokens"] = "INT",
                     ["mods"] = "H3_REF_MODS", ["references"] = "H3_REFS", ["vae"] = "VAE", ["audio_vae"] = "VAE" }, "CONDITIONING", "STRING", "LATENT"),
-                ["VAELoader"] = new JsonObject { ["input"] = new JsonObject { ["required"] = new JsonObject { ["vae_name"] = new JsonArray(new JsonArray(new H3Settings().VideoVae)) } } }
+                ["VAELoader"] = new JsonObject { ["input"] = new JsonObject { ["required"] = new JsonObject { ["vae_name"] = new JsonArray(new JsonArray(new H3Settings().VideoVae, "different.safetensors")) } } }
             };
         }
     }

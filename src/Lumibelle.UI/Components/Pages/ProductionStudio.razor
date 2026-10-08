@@ -340,11 +340,14 @@ else
                         }
                         @if (batchJob is not null)
                         {
+                            // A batch that stopped before saving any take has nothing to view or cancel; it can only be dismissed.
+                            var stopped = activeVideo is null; var savedTakes = _doc.Takes.Any(t => t.RunId == batchJob.Batch?.RootId);
                             <div class="@(videoAttention?.Id == batchJob.Id ? "shot-job-banner" : null)">
                                 @if (videoAttention?.Id == batchJob.Id) { <p class="field-error" role="status">@videoAttention.Error</p> }
                                 <div class="shot-batch-actions">
-                                    <MudButton id="review-latest-takes" OnClick="OpenLatestReview" Color="Color.Primary" Variant="Variant.Outlined">View batch</MudButton>
-                                    <MudButton OnClick="() => CancelGeneration(batchJob.Id)" StartIcon="@Icons.Material.Outlined.StopCircle" aria-label="Cancel generation" title="Cancel remaining takes; saved takes are kept">Cancel</MudButton>
+                                    @if (!stopped || savedTakes) { <MudButton id="review-latest-takes" OnClick="OpenLatestReview" Color="Color.Primary" Variant="Variant.Outlined">View batch</MudButton> }
+                                    @if (stopped) { <MudButton OnClick="() => CancelGeneration(batchJob.Id)" aria-label="Dismiss this batch" title="Hide this stopped batch; saved takes are kept">Dismiss</MudButton> }
+                                    else { <MudButton OnClick="() => CancelGeneration(batchJob.Id)" StartIcon="@Icons.Material.Outlined.StopCircle" aria-label="Cancel generation" title="Cancel remaining takes; saved takes are kept">Cancel</MudButton> }
                                 </div>
                             </div>
                         }

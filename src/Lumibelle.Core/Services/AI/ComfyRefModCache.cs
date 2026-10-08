@@ -42,14 +42,16 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
         var server = AiProviderRegistry.NormalizeComfyUrl(snapshot.ExecutionComfyUrl);
         var bindings = snapshot.Shot.Videos.Where(v => v.EffectiveVisuals == ReelVisuals.RefMod).ToArray();
         var sources = new Dictionary<string, IReadOnlyList<byte[]>>(StringComparer.Ordinal);
+        // Each cache uses this batch's video VAE: a reference prepared with another VAE gets a cache of
+        // its same accepted images encoded with this one.
+        var recipes = bindings.ToDictionary(b => b.Id, b => ReelRefMods.ForVae(b.RefMod!.Recipe, snapshot.Settings.VideoVae));
         // Validate ALL source inputs before any remote build. Never re-extract a
         // later reel, recrop it, or generate a new appearance to repair this cache.
         foreach (var binding in bindings)
         {
             ReelRefMods.ValidateBinding(binding, true);
             var source = binding.RefMod!;
-            ReelRefMods.ValidateVae(source, snapshot.Settings.VideoVae);
-            if (sources.ContainsKey(source.Recipe.Key)) continue;
+            if (sources.ContainsKey(recipes[binding.Id].Key)) continue;
             var frames = new List<byte[]>();
             for (var i = 0; i < source.Recipe.LatentFrames; i++)
             {
@@ -59,7 +61,7 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
                     throw new WorkspaceStoreException("The accepted reference image does not match its captured canvas. Restore the original source images.");
                 frames.Add(bytes);
             }
-            sources.Add(source.Recipe.Key, frames);
+            sources.Add(recipes[binding.Id].Key, frames);
         }
         if (bindings.Length == 0) return new Dictionary<Guid, ReelRefModReference>();
         await remote.CheckAsync(server, snapshot.Settings.VideoVae, ct);
@@ -67,19 +69,19 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
         var materialized = new Dictionary<string, ReelRefModReference>(StringComparer.Ordinal);
         foreach (var binding in bindings)
         {
-            var source = binding.RefMod!;
-            if (!materialized.ContainsKey(source.Recipe.Key))
+            var source = binding.RefMod!; var recipe = recipes[binding.Id];
+            if (!materialized.ContainsKey(recipe.Key))
             {
-                var plan = BuildPlan(context.Job.Id, snapshot.ProjectId, scope, server, source.Recipe);
-                var operation = Operation(context.Job.Id, scope, server, source.Recipe.Key);
+                var plan = BuildPlan(context.Job.Id, snapshot.ProjectId, scope, server, recipe);
+                var operation = Operation(context.Job.Id, scope, server, recipe.Key);
                 var submitted = (await context.ExecutionAsync(ct)).Submissions.Any(s => s.Operation == operation);
                 ReelRefModReference? reference = null;
                 if (!submitted)
                 {
-                    var cached = await store.FindAsync(snapshot.ProjectId, source.Recipe.Key, server, ct);
+                    var cached = await store.FindAsync(snapshot.ProjectId, recipe.Key, server, ct);
                     // The captured filename is only a hint. Do not contact its old
-                    // server when generation is executing somewhere else.
-                    if (cached is null && source.ComfyUrl == server) cached = source;
+                    // server when generation is executing somewhere else, or use it with another VAE.
+                    if (cached is null && source.ComfyUrl == server && source.Recipe.Key == recipe.Key) cached = source;
                     if (cached is not null && await remote.ReferenceAvailableAsync(cached, ct)) reference = cached;
                 }
                 if (reference is null)
@@ -90,7 +92,7 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
                     if (!submitted)
                     {
                         await context.SaveOperationAsync(operation + "/source", AiOperationArtifact.Request, plan, ct);
-                        var frames = sources[source.Recipe.Key];
+                        var frames = sources[recipe.Key];
                         for (var i = 0; i < frames.Count; i++)
                             uploaded.Add(await ComfyRefModClient.UploadPictureAsync(http, plan.Reference.BuildId, i, frames[i], ct));
                     }
@@ -112,9 +114,9 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
                     await RememberAsync(context, snapshot.ProjectId, reference, ct);
                 }
                 ReelRefMods.ValidateServer(reference, server, snapshot.Settings.VideoVae);
-                materialized.Add(source.Recipe.Key, reference);
+                materialized.Add(recipe.Key, reference);
             }
-            result.Add(binding.Id, materialized[source.Recipe.Key]);
+            result.Add(binding.Id, materialized[recipe.Key]);
         }
         return result;
     }
@@ -155,7 +157,8 @@ public sealed class ComfyRefModCache(ReelRefModStore store, ComfyRefModClient re
         if (plan.ProjectId != snapshot.ProjectId || plan.Reference.BuildId != expected.Reference.BuildId ||
             plan.Reference.ComfyUrl != expected.Reference.ComfyUrl || plan.Reference.FileName != expected.Reference.FileName ||
             Operation(context.Job.Id, plan.Scope, plan.Reference.ComfyUrl, plan.Reference.Recipe.Key) != operation ||
-            !snapshot.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.RefMod && v.RefMod?.Recipe.Key == plan.Reference.Recipe.Key))
+            !snapshot.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.RefMod && v.RefMod is { } refMod &&
+                ReelRefMods.ForVae(refMod.Recipe, snapshot.Settings.VideoVae).Key == plan.Reference.Recipe.Key))
             throw new WorkspaceStoreException("The reference-cache build does not match this captured video request.");
         ReelRefMods.ValidateVae(plan.Reference, snapshot.Settings.VideoVae);
         return plan;
