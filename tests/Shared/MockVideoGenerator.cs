@@ -110,6 +110,8 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
         await Task.Delay(DelayMilliseconds,ct);
         if (run.Snapshot.PreviewUpscale is not null) { yield return new(new(GenerationPhase.Finalizing,"Upscaling video…")); await Task.Delay(250, ct); }
         if (run.Snapshot.Shot.Description.Contains("MOCK_COMFY_CRASH")) throw new HttpRequestException("ComfyUI connection failed.");
+        // Large refinements run out of GPU memory, as they can on a real card.
+        if (run.Refinement is { Height: >= 1000 }) throw new WorkspaceStoreException("ComfyUI failed at SamplerCustomAdvanced (node 10): RuntimeError: mock out of GPU memory");
         yield return new(new(GenerationPhase.Finalizing,"Mock frames ready"),c.PromptId,JsonSerializer.SerializeToElement(new { outputs = new { } }),true);
     }
     public Task<bool> ExistsAsync(VideoRun r,VideoCandidate c,CancellationToken ct) => Task.FromResult(!MissingJob);

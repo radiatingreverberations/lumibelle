@@ -179,7 +179,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -340,11 +340,14 @@ else
                         }
                         @if (batchJob is not null)
                         {
+                            // A batch that stopped before saving any take has nothing to view or cancel; it can only be dismissed.
+                            var stopped = activeVideo is null; var savedTakes = _doc.Takes.Any(t => t.RunId == batchJob.Batch?.RootId);
                             <div class="@(videoAttention?.Id == batchJob.Id ? "shot-job-banner" : null)">
                                 @if (videoAttention?.Id == batchJob.Id) { <p class="field-error" role="status">@videoAttention.Error</p> }
                                 <div class="shot-batch-actions">
-                                    <MudButton id="review-latest-takes" OnClick="OpenLatestReview" Color="Color.Primary" Variant="Variant.Outlined">View batch</MudButton>
-                                    <MudButton OnClick="() => CancelGeneration(batchJob.Id)" StartIcon="@Icons.Material.Outlined.StopCircle" aria-label="Cancel generation" title="Cancel remaining takes; saved takes are kept">Cancel</MudButton>
+                                    @if (!stopped || savedTakes) { <MudButton id="review-latest-takes" OnClick="OpenLatestReview" Color="Color.Primary" Variant="Variant.Outlined">View batch</MudButton> }
+                                    @if (stopped) { <MudButton OnClick="() => CancelGeneration(batchJob.Id)" aria-label="Dismiss this batch" title="Hide this stopped batch; saved takes are kept">Dismiss</MudButton> }
+                                    else { <MudButton OnClick="() => CancelGeneration(batchJob.Id)" StartIcon="@Icons.Material.Outlined.StopCircle" aria-label="Cancel generation" title="Cancel remaining takes; saved takes are kept">Cancel</MudButton> }
                                 </div>
                             </div>
                         }
@@ -529,6 +532,8 @@ else
                         <p class="field-hint">Explore a few takes at Quick or Preview, then regenerate your favorite at Detail or Native with its seed retained.</p>
                         <label class="check-row"><input type="checkbox" checked="@shot.SaveLosslessFrames" @onchange="e => Edit(s => s.SaveLosslessFrames = e.Value is true)" />Save lossless frames</label>
                         <p class="field-hint">Optional: adds encoding time and storage. Without it, you can still save frames from the compressed MP4.</p>
+                        <label class="check-row"><input type="checkbox" checked="@(shot.SaveLatents && !shot.UpscalePreview)" disabled="@shot.UpscalePreview" @onchange="e => Edit(s => s.SaveLatents = e.Value is true)" />Save latents</label>
+                        <p class="field-hint">@(shot.UpscalePreview ? "Upscaled previews can't save latents." : $"Optional: lets you refine a take at a larger size later. About {LatentsSize(shot)} per take, saved with the take and left in ComfyUI's output folder. Without it, regenerate a take with the same seed and resolution and this option on before refining.")</p>
                         @if (shot.UpscalePreview)
                         {
                             <p class="field-hint">@H3Policy.Size(EffectiveAspect(shot), false).Width × @H3Policy.Size(EffectiveAspect(shot), false).Height sampling → @H3Policy.Size(EffectiveAspect(shot), true).Width × @H3Policy.Size(EffectiveAspect(shot), true).Height output · @(shot.SaveLosslessFrames ? "MP4 + lossless WebP archive" : "MP4")</p>
@@ -544,7 +549,7 @@ else
                         }
                         @if (_configuration is not null) {
                             <p class="field-hint">@(_configuration.Ready(shot) ? H3Policy.QualityLabel(shot) + " · Ready" : "Selected configuration needs attention")</p>
-                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p>@if (_takeRefinement) { <p>@(shot.UpscalePreview ? "Upscaled previews save no later-refinement data." : _configuration.PackageCaptureReady ? "Refinement data will be saved with new takes." : "Optional companion nodes add refinement data. Normal generation works without them.")</p> }</details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
+                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p>@if (!_configuration.PackageCaptureReady) { <p>Save latents: @H3Presets.LatentsIssue</p> }</details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
                         }
 
 
@@ -687,15 +692,6 @@ else
                     }
                     <TakeSummary Take="take" Changes="TakeChanges(take)" />
                     @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
-                    @if (_takeRefinement)
-                    {
-                    <details class="take-quality-actions"><summary>Improve quality</summary>
-                        <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Improve quality</button>
-                        @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
-                        @if (take.RefinementPackage is null) { <span class="field-hint">This take has no refinement data. To refine future takes, <a href="@SettingsUrl">install the optional companion</a> before generating them.</span> }
-                    </details>
-                    }
-
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }
                     @if (RefinementJob is { } refinementJob)
                     {
@@ -726,7 +722,8 @@ else
                         @if (candidate.State != VideoCandidateState.Complete && CandidateJob(candidate.Number)?.CanRecoverCancelledOutputs != true && RecoveryLabel(CandidateJob(candidate.Number)) is { } recoveryLabel)
                         { <button @onclick="() => RetryCandidate(candidate.Number)">@recoveryLabel</button> }
                     </article>
-                    <TakeVersions ProjectId="Id" ParentId="candidate.TakeId" Runs="_runs" Takes="_doc.Takes" SelectedId="_reviewTakeId" ProductionId="@(_doc.Shots.FirstOrDefault(s => s.Id == ReviewTake?.ShotId)?.SelectedTakeId)" Busy="_mediaBusy" Select="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake" />
+                    <TakeVersions ProjectId="Id" ParentId="candidate.TakeId" Runs="_runs" Takes="_doc.Takes" SelectedId="_reviewTakeId" ProductionId="@(_doc.Shots.FirstOrDefault(s => s.Id == ReviewTake?.ShotId)?.SelectedTakeId)" Busy="_mediaBusy" Select="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake"
+                        Remove="RemoveFailedVersion" Retry="RetryFailedVersion" RetryLabel="run => RecoveryLabel(BatchJob(run.Id))" />
                 }
             </div>
         </div>
@@ -735,7 +732,11 @@ else
         @if (_reviewError is not null) { <p role="alert">@_reviewError</p> }
     }
 </DialogContent>
-<Status>@if (ReviewTake is { } regenTake) { <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton> }</Status>
+<Status>@if (ReviewTake is { } regenTake) {
+    <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
+    <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
+    @if (regenTake.Refinement is not null) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Refine the same take again with a new seed">Another version</MudButton> }
+}</Status>
 <Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton>@if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Filled" Color="Color.Primary">One more take</MudButton> }</Actions></InlineDialog>
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />

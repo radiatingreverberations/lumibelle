@@ -1,16 +1,16 @@
 @inject NavigationManager Navigation
-<section class="take-refinement-form" aria-label="Improve take quality">
-    <h3>Improve quality <span class="experimental-badge">Experimental</span></h3>
+<section class="take-refinement-form" aria-label="Refine take">
+    <h3>Refine at a larger size</h3>
     <p>@RefinementPolicy.Label(Source) · @Source.Width × @Source.Height · @Source.FrameCount frames at 24 fps</p>
-    <label>Mode<select @ref="_modeElement" aria-label="Mode" @bind="_mode" disabled="@Busy"><option value="Refine">Refine · preserve original audio</option><option value="Rework">Rework · regenerate audio</option></select></label>
-    <p class="field-hint">@(_mode == TakeRefinementMode.Refine ? "Aims to preserve performance, timing and composition while improving detail. Original audio is copied unchanged." : "Allows stronger visual changes and newly generated audio using the saved prompt and references.") Neither mode guarantees the same visual performance.</p>
+    <label>Mode<select @ref="_modeElement" aria-label="Mode" @bind="_mode" disabled="@Busy"><option value="Refine">Refine · keep the take's audio</option><option value="Rework">Rework · regenerate audio</option></select></label>
+    <p class="field-hint">@(_mode == TakeRefinementMode.Refine ? "Enlarges the take and re-noises it lightly, so its motion and composition carry over. The audio is the take's own, unchanged." : "Enlarges the take and re-noises more of it, so more can change, and generates new audio.")</p>
     <label>Output size<select aria-label="Output size" @bind="_sizeIndex" disabled="@Busy">
-        @for (var i = 0; i < _sizes.Count; i++) { var size = _sizes[i]; <option value="@i" disabled="@(size.Issue is not null)">@size.Name · @size.Width × @size.Height @(size.Experimental ? "· experimental" : "") @(size.Issue is null ? "" : "· unavailable")</option> }
+        @for (var i = 0; i < _sizes.Count; i++) { var size = _sizes[i]; <option value="@i" disabled="@(size.Issue is not null)">@size.Name · @size.Width × @size.Height @(size.Issue is null ? "" : "· unavailable")</option> }
     </select></label>
-    <p>@Size.Width × @Size.Height · @((Size.Pixels / 1_000_000d).ToString("0.00")) MP · 20 steps · denoise @(_mode == TakeRefinementMode.Refine ? "0.35" : "0.65")</p>
-    <p class="field-hint">Uses the source take’s saved context and base model, with no Turbo LoRA. Larger passes need substantial GPU memory. Resolution will not be reduced automatically.</p>
+    <p>@Size.Width × @Size.Height · @((Size.Pixels / 1_000_000d).ToString("0.00")) MP · @(_mode == TakeRefinementMode.Refine ? "7 steps · denoise 0.35" : "13 steps · denoise 0.65")</p>
+    <p class="field-hint">Uses the take's saved prompt, references and model with Standard sampling. Larger sizes need more GPU memory.</p>
     @foreach (var size in _sizes.Where(s => s.Issue is not null)) { <p class="field-hint">@size.Name: @size.Issue</p> }
-    @if (ContextChanged) { <p role="status">The shot or its defaults changed since this take. Refinement uses the saved take; those changes are not included.</p> }
+    @if (ContextChanged) { <p role="status">The shot or its defaults changed since this take. Refinement uses the take's saved prompt and references, so those changes aren't included.</p> }
     @if (Issue is not null) { <p role="status">@Issue</p><a href='@AiSettingsNavigation.Link(Navigation, "video")'>Video models and setup</a> }
     <div class="take-refinement-actions"><button disabled="@Busy" @onclick="Cancel">Back to review</button><button disabled="@Busy" @onclick="Refresh">Check setup</button><button class="primary-action" disabled="@(Busy || Issue is not null || Size.Issue is not null)" @onclick="Submit">@(_mode == TakeRefinementMode.Refine ? "Queue Refine" : "Queue Rework")</button></div>
 </section>

@@ -31,10 +31,6 @@ public sealed record H3Settings
     public string Ffmpeg { get; set; } = "ffmpeg";
     public string Ffprobe { get; set; } = "ffprobe";
     public string LatentUpscaler { get; set; } = "";
-    // Take refinement stays hidden until its companion nodes are tested: nothing in the app turns this on,
-    // so new takes capture no refinement data and Shots offers no Improve quality.
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-    public bool TakeRefinement { get; set; }
 }
 // Retain the old value solely so saved bindings are shown as unavailable rather than dropped.
 public enum ShotImageKind { AssetImage, ContinuityFrame }
@@ -126,6 +122,9 @@ public sealed record Shot
     public string? GenerationPreset { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SaveLosslessFrames { get; set; }
+    // Keeps each take's audio/video latents so it can be refined at a larger size later.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SaveLatents { get; set; }
     public bool Turbo { get; set; }
     public int TurboSteps { get; set; } = 4;
     public Guid? SelectedTakeId { get; set; }
@@ -342,7 +341,7 @@ public sealed record H3Configuration(bool StandardReady, bool TurboReady, string
     public H3PerformanceCapabilities Performance { get; init; } = new();
     public string? SelectedPerformanceIssue { get; init; }
     public bool PackageCaptureReady { get; init; }
-    public string? RefinementIssue { get; init; } = "Install the Lumibelle H3 companion nodes and refresh Video models.";
+    public string? RefinementIssue { get; init; } = "Check Video models to see whether takes can be refined.";
     public IReadOnlyList<string> LatentUpscalers { get; init; } = [];
     public H3PreviewUpscaleCapability PreviewUpscaling { get; init; } = new(null, "Refresh Video models to check preview upscaling setup.");
     public bool Turbo8StepReady { get; init; }

@@ -89,7 +89,7 @@ public sealed partial class FileProductionStore
                 c.Id, c.ShotId, c.Name, c.GenerationSetupId, c.GenerationSetupVersion, c.Seed, c.TakeCount, c.OutputOverrides, c.Archived, c.Version, c.SourceFingerprint,
                 Inputs = new {
                     c.Shot.Aspect, c.Shot.NativeResolution, c.Shot.Resolution,
-                    c.Shot.UpscalePreview, c.Shot.GenerationPreset, c.Shot.SaveLosslessFrames,
+                    c.Shot.UpscalePreview, c.Shot.GenerationPreset, c.Shot.SaveLosslessFrames, c.Shot.SaveLatents,
                     c.Shot.Turbo, c.Shot.TurboSteps, c.Shot.Loras
                 }
             }).ToArray()

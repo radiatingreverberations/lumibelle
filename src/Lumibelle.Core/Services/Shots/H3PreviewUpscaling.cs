@@ -57,7 +57,7 @@ public static class H3PreviewUpscaling
             n.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object && input.TryGetProperty("required", out var fields) &&
             fields.ValueKind == JsonValueKind.Object && fields.EnumerateObject().All(p => known.Contains(p.Name));
         bool Flag(string name) => Type(Input(Node, name), "BOOLEAN");
-        const string setup = "Install a supported LBH or Plus learned 3D upscaler and refresh Video models. Install only one implementation.";
+        const string setup = "Install one supported learned 3D latent upscaler pack (LBH or Plus), restart ComfyUI, then check again in Video models.";
         if (!Type(Input("LTXVSeparateAVLatent", "av_latent"), "LATENT") || !Outputs("LTXVSeparateAVLatent", "LATENT", "LATENT") ||
             !KnownInputs("LTXVSeparateAVLatent", "av_latent") ||
             !Type(Input("LTXVConcatAVLatent", "video_latent"), "LATENT") || !Type(Input("LTXVConcatAVLatent", "audio_latent"), "LATENT") ||
@@ -77,22 +77,27 @@ public static class H3PreviewUpscaling
         var implementation = lbh ? H3UpscalerImplementation.Lbh : H3UpscalerImplementation.Plus;
         if (string.IsNullOrWhiteSpace(settings.LatentUpscaler) || !settings.LatentUpscaler.EndsWith(".safetensors", StringComparison.OrdinalIgnoreCase) ||
             !ComfyH3Video.Options(root, Node, "model_name").Contains(settings.LatentUpscaler))
-            return new(implementation, "Choose an installed learned 3D upscaler SafeTensors checkpoint under Preview upscaling in Video models and Save.");
+            return new(implementation, "Choose an installed learned 3D upscaler checkpoint under Upscaled preview in Video models, then save.");
         return new(implementation, null);
     }
 
+    // The upscaler node's inputs for the installed implementation; take refinement uses them too.
+    internal static Dictionary<string, object> Inputs(H3PreviewUpscaleProfile p, object latent)
+    {
+        var values = new Dictionary<string, object> { ["latent"] = latent, ["model_name"] = p.Checkpoint,
+            ["mode"] = "target dimensions", ["mode.width"] = p.Width, ["mode.height"] = p.Height,
+            ["align"] = p.Align, ["device"] = p.Device, ["precision"] = p.Precision };
+        if (p.Implementation == H3UpscalerImplementation.Lbh) { values["enable_temporal_chunking"] = p.TemporalChunking; values["force_unload"] = p.Offload; }
+        else { values["keep_proportion"] = p.KeepProportion; values["offload_after_upscale"] = p.Offload; }
+        return values;
+    }
     internal static string Apply(VideoSnapshot s, Action<string, string, object> node)
     {
         Validate(s);
         if (s.PreviewUpscale is not { } p) return "10";
         object Link(string id, int port = 0) => new object[] { id, port };
         node("40", "LTXVSeparateAVLatent", new { av_latent = Link("10", 1) });
-        var values = new Dictionary<string, object> { ["latent"] = Link("40"), ["model_name"] = p.Checkpoint,
-            ["mode"] = "target dimensions", ["mode.width"] = p.Width, ["mode.height"] = p.Height,
-            ["align"] = p.Align, ["device"] = p.Device, ["precision"] = p.Precision };
-        if (p.Implementation == H3UpscalerImplementation.Lbh) { values["enable_temporal_chunking"] = p.TemporalChunking; values["force_unload"] = p.Offload; }
-        else { values["keep_proportion"] = p.KeepProportion; values["offload_after_upscale"] = p.Offload; }
-        node("41", Node, values);
+        node("41", Node, Inputs(p, Link("40")));
         node("42", "LTXVConcatAVLatent", new { video_latent = Link("41"), audio_latent = Link("40", 1) });
         return "42";
     }

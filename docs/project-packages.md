@@ -172,11 +172,10 @@ unique model files. An enabled nonzero choice is considered an intentional proje
 setting even when no take has been generated with it yet. Used names and filenames
 can themselves be sensitive and remain visible.
 
-A refinement `.safetensors` file embeds a captured snapshot in its JSON header.
-Filtering only `shots.json` would both leak inactive paths and break context checks.
-The exporter rewrites the bounded metadata header, preserves tensor data bytes
-verbatim, revalidates the package and updates its size/hash and child source-package
-references. No VAE, model or GPU is invoked. Sanitized snapshot fingerprints are
+A refinement `.safetensors` file holds only sizes in its JSON header, but the
+exporter still rewrites that bounded header to the known fields, preserves tensor
+data bytes verbatim, revalidates the package and updates its size/hash and child
+source-package references. No VAE, model or GPU is invoked. Sanitized snapshot fingerprints are
 recomputed where inactive choices affect serialization. Authored prompts, actual
 applied weights and the selected preset schedule do not change. Imported prompts
 may still need normal configuration/reference review.

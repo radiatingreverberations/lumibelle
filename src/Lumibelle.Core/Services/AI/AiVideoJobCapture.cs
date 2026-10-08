@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Shots;
@@ -95,7 +96,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         var sceneFingerprint = shot.SceneId is null ? null : TakeInputChanges.SceneFingerprint((await scripts.LoadAsync(projectId, ct)).Blocks, shot.SceneId);
         var snapshot = new VideoSnapshot(projectId, revision, shot, composition?.Prompt ?? H3Policy.Compile(shot, guidance, appearances), H3Policy.Fingerprint(shot),
             AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), configured.H3, size.Width, size.Height, H3Policy.Frames(shot.Duration!.Value), composed is null ? H3Policy.Profile : ProductionPolicy.Profile)
-            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = configured.H3.TakeRefinement && !shot.UpscalePreview && capability.PackageCaptureReady,
+            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = shot.SaveLatents && !shot.UpscalePreview,
                 PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(capability.PreviewUpscaling.Implementation!.Value, configured.H3.LatentUpscaler, shot.Aspect) : null,
                 ReferenceGuidance = guidance, Appearances = appearances, Sampling = H3Policy.Sampling(shot, configured.H3), SceneFingerprint = sceneFingerprint };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
@@ -125,21 +126,31 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
     {
         var document = await shots.LoadAsync(projectId, ct);
         var take = ShotCopy.Of(document.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("The source take is unavailable. Restore it before refining."));
-        if (take.RefinementPackage is null) throw new WorkspaceStoreException("Refinement data unavailable. Generate a new take with package capture enabled.");
+        if (take.RefinementPackage is null) throw new WorkspaceStoreException(TakeDisplay.NoLatents);
+        var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
+        var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
+            ?? throw new WorkspaceStoreException("This take's captured request is unavailable.");
+        var source = AiVideoJobHandler.Read(sourceJob, await store.ReadSnapshotAsync(sourceJob.Id, ct));
+        if (source.Snapshot.ProjectId != projectId || source.BatchId != take.RunId || source.Snapshot.Reel is not null ||
+            !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(take.Snapshot, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(source.Snapshot, AtomicJsonFile.Options)))
+            throw new WorkspaceStoreException("The source take does not match its captured request.");
         var configured = await settings.LoadAsync(ct);
         // Only the explicitly selected upscaler comes from current settings.
-        // The source model, prompt, conditioning and sampling origin remain immutable.
+        // The source model, prompt, references and sampling origin remain immutable.
         var checkSettings = new AiSettings { ComfyUrl = take.Snapshot.ExecutionComfyUrl, H3 = take.Snapshot.Settings with { LatentUpscaler = configured.H3.LatentUpscaler } };
         var check = await generator.CheckAsync(checkSettings, ct);
         if (check.RefinementIssue is { } issue) throw new WorkspaceStoreException(issue);
+        if (check.PreviewUpscaling.Implementation is not { } implementation) throw new WorkspaceStoreException(check.PreviewUpscaling.Issue ?? "Install the learned 3D latent upscaler to refine takes.");
         H3Loras.CheckSubmission(take.Snapshot, check.OptionalLoras);
-        var refinement = await shots.CaptureRefinementAsync(projectId, takeId, id, mode, width, height, configured.H3.LatentUpscaler, ct);
-        var request = new AiVideoJobRequest(1, id, take.Snapshot, []) { Refinement = refinement,
+        if (id == source.BatchId) throw new WorkspaceStoreException("Refinement needs a new request identity.");
+        var refinement = await shots.CaptureRefinementAsync(projectId, takeId, id, mode, width, height, configured.H3.LatentUpscaler, implementation, ct);
+        var request = new AiVideoJobRequest(2, id, take.Snapshot, ShotCopy.Of(source.Inputs)) { Refinement = refinement,
             DestinationShotId = take.ShotId != take.Snapshot.Shot.Id ? take.ShotId : null };
         AiVideoJobPolicy.Validate(request);
+        await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await shots.RunDirectoryAsync(projectId, source.BatchId, ct), request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("The project is unavailable.");
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request),
-            project.Name, take.Snapshot.Shot.Title + " · " + mode + " (experimental)", tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
+            project.Name, take.Snapshot.Shot.Title + " · " + mode + " · " + width + " × " + height, tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
     }
 }
 
@@ -171,13 +182,11 @@ public static class AiVideoJobPolicy
         H3Presets.Validate(s);
         H3Loras.ValidateSnapshot(s);
         H3PreviewUpscaling.Validate(s);
+        // A refinement encodes the prompt and references again at the new size, so it carries the source's prepared inputs.
         if (r.Refinement is { } refinement)
         {
             RefinementPolicy.Validate(refinement, s);
-            if (r.Inputs.Count != 0 || string.IsNullOrWhiteSpace(s.Prompt) || !RefinementPolicy.Hash(s.Fingerprint))
-                throw new WorkspaceStoreException("Invalid captured refinement context.");
-            AiProviderRegistry.NormalizeComfyUrl(s.ExecutionComfyUrl);
-            return; // Saved packages already contain conditioning; never recompile/re-encode current references.
+            if (s.PreviewUpscale is not null || s.RegenerationSource is not null) throw new WorkspaceStoreException("Invalid captured refinement context.");
         }
         var size = s.Reel is { } reel ? VideoResolutions.Size(reel.Recipe) : VideoResolutions.Size(s.Shot);
         var fingerprint = s.Reel is { } reelContext ? VideoResolutions.Fingerprint(reelContext.Recipe) : H3Policy.Fingerprint(s.Shot);
@@ -219,11 +228,7 @@ public static class AiVideoJobPolicy
     {
         Validate(request);
         if (request.Refinement is { } refinement)
-        {
             await RefinementPackages.VerifyFileAsync(Path.Combine(directory, "inputs", H3RefinementPackage.FileName), refinement.SourcePackage.Bytes, refinement.SourcePackage.Sha256, ct);
-            await RefinementPackages.VerifyFileAsync(Path.Combine(directory, "inputs", "source.mp4"), refinement.SourceVideoBytes, refinement.SourceVideoSha256, ct);
-            return;
-        }
         foreach (var input in request.Inputs)
         {
             await using var file = File.OpenRead(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256));
@@ -238,7 +243,9 @@ public static class AiVideoJobPolicy
         using var gate = await ProjectFiles.LockAsync(directory, ct);
         using var sourceGate = await ProjectFiles.LockAsync(sourceDirectory, ct);
         var inputs = Path.Combine(directory, "inputs");
-        if (Directory.Exists(inputs)) throw new WorkspaceStoreException("This request already has captured inputs. Retry its saved submission.");
+        // A refinement's package is captured first; nothing else may be there yet.
+        if (Directory.Exists(inputs) && Directory.EnumerateFileSystemEntries(inputs).Any(f => request.Refinement is null || Path.GetFileName(f) != H3RefinementPackage.FileName))
+            throw new WorkspaceStoreException("This request already has captured inputs. Retry its saved submission.");
         await ValidatePreparedFilesAsync(source, sourceDirectory, ct);
         // Within a project the same content serves both runs from the input store; the source keeps working,
         // as its request finds it by hash. Anything that cannot be shared is copied.

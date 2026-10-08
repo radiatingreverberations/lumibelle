@@ -28,8 +28,8 @@ public interface IShotStore
     Task<string> RunDirectoryAsync(Guid projectId, Guid runId, CancellationToken ct = default);
     Task SaveRunAsync(VideoRun run, CancellationToken ct = default);
     Task<IReadOnlyList<VideoRun>> RunsAsync(Guid projectId, CancellationToken ct = default);
-    Task<TakeRefinement> CaptureRefinementAsync(Guid projectId, Guid takeId, Guid runId, TakeRefinementMode mode, int width, int height, string upscaler, CancellationToken ct = default)
-        => throw new WorkspaceStoreException("Refinement storage is unavailable.");
+    Task<TakeRefinement> CaptureRefinementAsync(Guid projectId, Guid takeId, Guid runId, TakeRefinementMode mode, int width, int height, string upscaler,
+        H3UpscalerImplementation implementation, CancellationToken ct = default) => throw new WorkspaceStoreException("Refinement storage is unavailable.");
 }
 
 public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock, TakeFrameReader? frameReader = null, IProductionMediaTools? mediaTools = null, lumibelle.Services.AI.IAiJobStore? jobs = null) : IShotStore
@@ -328,12 +328,13 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         if (runId == Guid.Empty) throw new WorkspaceStoreException("Invalid run ID.");
         return Path.Combine(await files.DirectoryAsync(projectId, ct), "shots", "runs", runId.ToString("D"));
     }
-    public async Task<TakeRefinement> CaptureRefinementAsync(Guid projectId, Guid takeId, Guid runId, TakeRefinementMode mode, int width, int height, string upscaler, CancellationToken ct = default)
+    public async Task<TakeRefinement> CaptureRefinementAsync(Guid projectId, Guid takeId, Guid runId, TakeRefinementMode mode, int width, int height, string upscaler,
+        H3UpscalerImplementation implementation, CancellationToken ct = default)
     {
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var doc = await Read(dir, projectId, ct);
         var take = doc.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("Restore the source take from Trash before refining it.");
-        var package = take.RefinementPackage ?? throw new WorkspaceStoreException("Refinement data unavailable. Generate a new take with the companion nodes installed.");
+        var package = take.RefinementPackage ?? throw new WorkspaceStoreException(TakeDisplay.NoLatents);
         var source = Path.Combine(dir, "shots", "takes", take.Directory);
         var checkedPackage = await RefinementPackages.InspectAsync(Path.Combine(source, H3RefinementPackage.FileName), take.Snapshot, take.Refinement, ct);
         if (checkedPackage != package) throw new WorkspaceStoreException("The source refinement package changed or is corrupt.");
@@ -347,10 +348,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             File.Move(Path.Combine(target, output + ".tmp"), Path.Combine(target, output));
         }
         await Copy(H3RefinementPackage.FileName, H3RefinementPackage.FileName);
-        await Copy("video.mp4", "source.mp4");
-        await using var video = File.OpenRead(Path.Combine(target, "source.mp4"));
-        var captured = new TakeRefinement(take.Id, package, mode, width, height, upscaler, video.Length,
-            Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(video, ct)));
+        var captured = new TakeRefinement(take.Id, package, mode, width, height, upscaler, implementation);
         RefinementPolicy.Validate(captured, take.Snapshot);
         return captured;
     }

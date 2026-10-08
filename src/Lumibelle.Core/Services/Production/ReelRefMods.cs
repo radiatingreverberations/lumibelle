@@ -31,6 +31,14 @@ public static class ReelRefMods
         var recipe = new ReelRefModRecipe(Protocol, key, selection, width, height, vaeName, frameHashes.ToArray());
         Validate(recipe); return recipe;
     }
+    // The server cache is the accepted images encoded with a video VAE. A batch with another VAE
+    // needs its own cache of the same images, not a new build: same frames and canvas, new key.
+    public static ReelRefModRecipe ForVae(ReelRefModRecipe recipe, string vaeName)
+    {
+        if (recipe.VaeName == vaeName) return recipe;
+        var derived = recipe with { VaeName = vaeName, Key = Digest(new { Protocol, recipe.Selection, recipe.Width, recipe.Height, VaeName = vaeName, recipe.FrameHashes }) };
+        Validate(derived); return derived;
+    }
     public static void Validate(ReelRefModRecipe r)
     {
         if (r is null || r.Protocol != Protocol || !Hash(r.Key) || !Hash(r.Selection) ||
@@ -56,8 +64,7 @@ public static class ReelRefMods
     {
         Validate(reference);
         if (reference.Recipe.VaeName != vaeName)
-            throw new WorkspaceStoreException($"This RefMod reference was prepared with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses {vaeName}. " +
-                $"Select {reference.Recipe.VaeName} in AI settings → Video models and generate a new batch, or choose Prepare a new build on the reference to use {vaeName}.");
+            throw new WorkspaceStoreException($"This RefMod cache was encoded with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses {vaeName}. Generate again to build a cache for {vaeName}.");
     }
     public static void ValidateServer(ReelRefModReference reference, string server, string vaeName)
     {
@@ -79,7 +86,7 @@ public static class ReelRefMods
             ValidateBinding(binding, true);
             var reference = prepared is null ? binding.RefMod! : prepared[binding.Id];
             Validate(reference);
-            if (reference.Recipe.Key != binding.RefMod!.Recipe.Key)
+            if (reference.Recipe.Key != ForVae(binding.RefMod!.Recipe, snapshot.Settings.VideoVae).Key)
                 throw new WorkspaceStoreException("A reference cache belongs to another accepted frame selection or recipe.");
             ValidateServer(reference, snapshot.ExecutionComfyUrl, snapshot.Settings.VideoVae);
             result.Add(binding.Id, reference);

@@ -46,22 +46,6 @@ public sealed class MediaResources(IAssetStore assets, IImageTrashStore trash, I
             path[4].EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) &&
             Guid.TryParse(path[4][..^4], out var exportId) && cutExporter is not null)
             return await cutExporter.OpenAsync(exportProject, exportId, ct).ConfigureAwait(false);
-        if (uri.AbsolutePath == "/downloads/lumibelle-h3-companion.zip")
-        {
-            var buffer = new MemoryStream();
-            using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, true))
-            {
-                var assembly = typeof(MediaResources).Assembly;
-                const string prefix = "lumibelle.comfy_nodes.lumibelle_h3.";
-                foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith(prefix, StringComparison.Ordinal)))
-                {
-                    using var source = assembly.GetManifestResourceStream(name)!;
-                    using var target = zip.CreateEntry("lumibelle_h3/" + name[prefix.Length..]).Open();
-                    await source.CopyToAsync(target, ct).ConfigureAwait(false);
-                }
-            }
-            buffer.Position = 0; return new(buffer, "application/zip", DateTimeOffset.UnixEpoch);
-        }
         if (path.Length < 4 || path[0] != "media" || !Guid.TryParse(path[2], out var project) || project == Guid.Empty) return null;
         if (path[1] == "trash" && path.Length == 4 && Guid.TryParse(path[3], out var trashId)) return await trash.OpenTrashImageAsync(project, trashId, ct).ConfigureAwait(false);
         if (path[1] == "production-trash" && path.Length == 5 && Guid.TryParse(path[4], out var deletedId) && Enum.TryParse<MediaTrashKind>(path[3], true, out var kind))

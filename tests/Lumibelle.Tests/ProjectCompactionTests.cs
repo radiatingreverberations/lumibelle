@@ -109,7 +109,7 @@ public sealed class ProjectCompactionTests : IDisposable
         var picture = new byte[400]; picture[0] = 1;
         var runs = new[] { (Input("shots/runs", "image-00.png", picture), "image-00.png"), (Input("shots/runs", "image-00.png", picture), "image-00.png"), (Input("reel-runs", "image-01.png", picture), "image-01.png") };
         // A refinement run's own inputs are not shared.
-        var refinement = Input("shots/runs", "source.mp4", new byte[900]);
+        var refinement = Input("shots/runs", "refinement.safetensors", new byte[900]);
 
         var plan = await _compaction.InspectAsync(project.Id, _ct);
         Assert.Equal(3, plan.Count(CompactionPart.GenerationInputs)); Assert.Equal(800, plan.Bytes(CompactionPart.GenerationInputs));
@@ -122,7 +122,7 @@ public sealed class ProjectCompactionTests : IDisposable
             Assert.Empty(Directory.GetFiles(Path.Combine(run, "inputs")));
             Assert.Equal(picture, await File.ReadAllBytesAsync(CapturedInputStore.Resolve(run, name, sha), _ct));
         }
-        Assert.True(File.Exists(Path.Combine(refinement, "inputs", "source.mp4")));
+        Assert.True(File.Exists(Path.Combine(refinement, "inputs", "refinement.safetensors")));
         Assert.Equal(0, (await _compaction.InspectAsync(project.Id, _ct)).Count(CompactionPart.GenerationInputs));
     }
 

@@ -78,8 +78,6 @@ internal sealed class ProjectPackagePlan
         foreach (var take in allTakes)
         {
             plan.Add(root, $"shots/takes/{take.Id:D}/video.mp4");
-            if (take.Refinement is { } refinement && allTakes.Any(t => t.Id == refinement.ParentTakeId))
-                plan.Add(root, $"shots/takes/{refinement.ParentTakeId:D}/video.mp4", refinement.SourceVideoBytes, refinement.SourceVideoSha256);
             foreach (var frame in take.Frames.DistinctBy(f => f.FileName)) plan.Add(root, $"shots/takes/{take.Id:D}/{frame.FileName}", frame.Bytes);
             if (take.RefinementPackage is { } package) plan.Add(root, $"shots/takes/{take.Id:D}/{H3RefinementPackage.FileName}", package.Bytes, package.Sha256);
         }

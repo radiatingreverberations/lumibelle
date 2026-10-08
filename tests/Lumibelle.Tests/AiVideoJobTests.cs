@@ -416,8 +416,7 @@ public sealed partial class ShotTests
         public FileAssetStore Assets = null!;
         public AiVideoJobCapture CaptureService = null!; public string ProjectDirectory = null!;
         public FakeProjectAiPreferencesStore Preferences { get; } = new();
-        // Take refinement is hidden in the app; these fixtures turn it on to keep covering it.
-        public FakeAiSettingsStore Settings { get; } = new() { Value = new() { ComfyUrl = "http://video.test:8188", H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors", TakeRefinement = true } } };
+        public FakeAiSettingsStore Settings { get; } = new() { Value = new() { ComfyUrl = "http://video.test:8188", H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors" } } };
         public FileAiJobStore Jobs { get; }
         public AiVideoJobHandler Worker { get; private set; } = null!;
         public MockVideoGenerator Generator { get; private set; } = null!;
@@ -456,11 +455,11 @@ public sealed partial class ShotTests
                 throw new InvalidOperationException(request.RequestUri.ToString());
             });
         }
-        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20)
+        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20, bool saveLatents = true)
         {
             var result = new QueuedVideoFixture(owner); var f = owner.Fixture(); var a = ApprovedShot(f.Project.Id);
             result.Project = f.Project; result.Shots = f.Shots; result.Shot = a.Shot; result.Assets = f.Assets;
-            result.Shot.Turbo = steps != 20; result.Shot.TurboSteps = steps == 8 ? 8 : 4;
+            result.Shot.Turbo = steps != 20; result.Shot.TurboSteps = steps == 8 ? 8 : 4; result.Shot.SaveLatents = saveLatents;
             result.ProjectDirectory = await f.Files.DirectoryAsync(f.Project.Id, owner._ct);
             await f.Shots.SaveAsync(f.Project.Id, [result.Shot], 0, ct: owner._ct);
             var generator = result.Generator = new MockVideoGenerator(f.Assets, f.Shots);
@@ -523,7 +522,9 @@ public sealed partial class ShotTests
         public ComfyExecutionOptions Options => ComfyH3Video.MonitorOptions;
         public Task ValidateAsync(AiVideoJobRequest request, CancellationToken ct) => Missing ? Task.FromException(new WorkspaceStoreException("Missing captured H3 weights")) : Task.CompletedTask;
         public Task<Func<string, object>> PrepareWorkflowAsync(AiVideoJobRequest request, AiBatchCandidate candidate, string directory, CancellationToken ct) =>
-            Task.FromResult<Func<string, object>>(id => request.Refinement is { } refinement ? ComfyH3Video.BuildRefinementWorkflow(request.Snapshot, refinement, candidate.Seed, id, Guid.NewGuid().ToString("N")) : ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, id, request.Inputs.Select(i => new PreparedVideoInput(i.FileName, i.Audio)).ToArray()));
+            Task.FromResult<Func<string, object>>(id => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, id,
+                request.Inputs.Select(i => new PreparedVideoInput(i.FileName, i.Audio) { Kind = i.Kind, VideoIndex = i.VideoIndex }).ToArray(),
+                refine: request.Refinement is { } refinement ? new(refinement, "lumibelle-video.latent", "lumibelle-audio.latent") : null));
         public async Task<ShotTake> DownloadAsync(AiVideoJobRequest request, VideoCandidate c, string directory, Func<string, Task> progress, CancellationToken ct)
         {
             Downloaded.Add(c);

@@ -60,7 +60,7 @@ public static class ComfyMultiTakeWorkflow
                 throw new WorkspaceStoreException("The generated graph contains a dangling input link.");
             // Never coalesce stochastic execution or output side effects, even for equal seeds.
             if (type is "KSampler" or "KSamplerAdvanced" or "SamplerCustomAdvanced" or "RandomNoise" or
-                "PreviewImage" or "LumibelleH3CaptureV1" || type.StartsWith("Save", StringComparison.Ordinal) ||
+                "PreviewImage" || type.StartsWith("Save", StringComparison.Ordinal) ||
                 graphs.Skip(1).Any(g => !JsonNode.DeepEquals(node, g[id]))) local.Add(id);
         }
         // Any node depending on a candidate-local result is candidate-local as well.

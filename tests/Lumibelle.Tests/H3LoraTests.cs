@@ -54,19 +54,36 @@ public sealed partial class ShotTests
     }
     [Theory]
     [InlineData(TakeRefinementMode.Refine)] [InlineData(TakeRefinementMode.Rework)]
-    public void RefinementInheritsOptionalStackWithoutTurboOrReencoding(TakeRefinementMode mode)
+    public void RefinementKeepsOptionalLorasDropsTurboAndReencodesAtTheNewSize(TakeRefinementMode mode)
     {
-        var shot = Ready(); shot.Turbo = true; shot.TurboSteps = 8;
-        var snapshot = WithLoras(Snapshot(Guid.NewGuid(), shot) with { Width = 832, Height = 480 });
-        var package = new H3RefinementPackage(Guid.NewGuid(), 1024, new('A', 64), 832, 480, snapshot.FrameCount);
-        var refinement = new TakeRefinement(Guid.NewGuid(), package, mode, 832, 480, "upscaler.safetensors", 100, new('B', 64));
-        var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildRefinementWorkflow(snapshot, refinement, 1, Guid.NewGuid().ToString(), Guid.NewGuid().ToString("N"))).GetProperty("prompt");
-        Assert.Equal("1", graph.GetProperty("lora_1").GetProperty("inputs").GetProperty("model")[0].GetString());
-        Assert.Equal("lora_1", graph.GetProperty("lora_2").GetProperty("inputs").GetProperty("model")[0].GetString());
-        Assert.Equal("lora_2", graph.GetProperty("18").GetProperty("inputs").GetProperty("model")[0].GetString());
-        Assert.False(graph.TryGetProperty("16", out _));
-        Assert.DoesNotContain(graph.EnumerateObject(), n => n.Value.GetProperty("class_type").GetString() is "CLIPLoader" or "MiniMaxH3ReferenceToVideo");
-        Assert.Equal(20, graph.GetProperty("9").GetProperty("inputs").GetProperty("steps").GetInt32());
+        var snapshot = WithLoras(PresetSnapshot("turbo8"));
+        var package = new H3RefinementPackage(Guid.NewGuid(), 1024, new('A', 64), snapshot.Width, snapshot.Height, snapshot.FrameCount);
+        var refinement = new TakeRefinement(Guid.NewGuid(), package, mode, 1344, 768, "upscaler.safetensors", H3UpscalerImplementation.Plus);
+        var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildWorkflow(snapshot, 1, Guid.NewGuid().ToString(), [],
+            refine: new(refinement, "lumibelle-video.latent", "lumibelle-audio.latent"))).GetProperty("prompt");
+        JsonElement Inputs(string node) => graph.GetProperty(node).GetProperty("inputs");
+        string? From(string node, string input) => Inputs(node).GetProperty(input)[0].GetString();
+        // Character and style LoRAs stay; the Turbo LoRA and its sigma shift don't.
+        Assert.Equal("1", From("lora_1", "model")); Assert.Equal("lora_1", From("lora_2", "model"));
+        Assert.Equal("lora_2", From("6", "model"));
+        Assert.False(graph.TryGetProperty("16", out _)); Assert.False(graph.TryGetProperty("18", out _));
+        // The prompt and references are encoded again at the new size.
+        Assert.Equal(1344, Inputs("5").GetProperty("width").GetInt32()); Assert.Equal(768, Inputs("5").GetProperty("height").GetInt32());
+        // A partial Standard pass from the saved, enlarged latent.
+        Assert.Equal("res_multistep", Inputs("8").GetProperty("sampler_name").GetString());
+        Assert.Equal(refinement.Steps, Inputs("9").GetProperty("steps").GetInt32());
+        Assert.Equal(refinement.Denoise, Inputs("9").GetProperty("denoise").GetDouble());
+        Assert.Equal(mode == TakeRefinementMode.Refine ? 7 : 13, refinement.Steps);
+        Assert.Equal("lumibelle-video.latent", Inputs("30").GetProperty("latent").GetString());
+        Assert.Equal("lumibelle-audio.latent", Inputs("31").GetProperty("latent").GetString());
+        Assert.Equal(1344, Inputs("32").GetProperty("mode.width").GetInt32()); Assert.True(Inputs("32").TryGetProperty("keep_proportion", out _));
+        Assert.Equal("33", From("10", "latent_image"));
+        // Refine decodes and keeps the saved audio; Rework uses the newly sampled audio.
+        var keep = mode == TakeRefinementMode.Refine;
+        Assert.Equal(keep ? "35" : "10", From("12", "samples"));
+        Assert.Equal(keep ? "31" : "20", From("22", "samples"));
+        Assert.Equal("SaveLatent", graph.GetProperty("21").GetProperty("class_type").GetString());
+        Assert.True(graph.TryGetProperty("15", out _));
     }
     [Theory]
     [InlineData("duplicate")] [InlineData("nan")] [InlineData("workflow")] [InlineData("server")] [InlineData("missing")]
@@ -196,7 +213,7 @@ public sealed partial class ShotTests
         var request = new AiVideoJobRequest(1, Guid.NewGuid(), snapshot, []);
         // A missing optional file must be diagnosed on either path before uploads/submission.
         root["LoraLoaderModelOnly"]!["input"]!["required"]!["lora_name"]![0] = new JsonArray("h3/character.safetensors");
-        if (refinement) request = request with { Refinement = new(Guid.NewGuid(), new(Guid.NewGuid(), 1024, new('A', 64), 32, 32, snapshot.FrameCount), TakeRefinementMode.Refine, 32, 32, "upscaler.safetensors", 100, new('B', 64)) };
+        if (refinement) request = request with { Refinement = new(Guid.NewGuid(), new(Guid.NewGuid(), 1024, new('A', 64), 32, 32, snapshot.FrameCount), TakeRefinementMode.Refine, 32, 32, "upscaler.safetensors", H3UpscalerImplementation.Plus) };
         var error = await Assert.ThrowsAsync<WorkspaceStoreException>(() => adapter.ValidateAsync(request, _ct));
         Assert.Contains("h3/styles/film.safetensors", error.Message);
     }

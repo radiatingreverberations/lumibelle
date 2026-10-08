@@ -23,7 +23,7 @@ public sealed class ComfyMultiTakeWorkflowTests
             ["sample"] = new { class_type = "SamplerCustomAdvanced", inputs = new { noise = new object[] { "noise", 0 }, conditioning = new object[] { "encode", 0 }, latent_image = new object[] { "latent", 0 } } },
             ["decode"] = new { class_type = "VAEDecode", inputs = new { samples = new object[] { "sample", 0 } } },
             ["output"] = new { class_type = "PreviewImage", inputs = new { images = new object[] { "decode", 0 } } },
-            ["capture"] = new { class_type = "LumibelleH3CaptureV1", inputs = new { latent = new object[] { "sample", 0 }, package_id = candidate.Id.ToString("D") } },
+            ["capture"] = new { class_type = "SaveLatent", inputs = new { samples = new object[] { "sample", 0 }, filename_prefix = "lumibelle/" + candidate.Id.ToString("D") + "/latent-video" } },
             ["save"] = new { class_type = "SaveVideo", inputs = new { video = new object[] { "decode", 0 }, filename_prefix = "lumibelle/" + candidate.Id.ToString("D") + "/video" } }
         }
     };
@@ -46,7 +46,7 @@ public sealed class ComfyMultiTakeWorkflowTests
             Assert.Equal("encode", Input("sample", "conditioning")[0].GetString());
             Assert.Equal(Id("sample"), Input("decode", "samples")[0].GetString());
             Assert.Equal(Id("decode"), Input("output", "images")[0].GetString());
-            Assert.Equal(c.Id.ToString("D"), Input("capture", "package_id").GetString());
+            Assert.Contains(c.Id.ToString("D"), Input("capture", "filename_prefix").GetString()!);
             Assert.Contains(c.Id.ToString("D"), Input("save", "filename_prefix").GetString()!);
         }
         Assert.Equal(count, nodes.EnumerateObject().Count(n => n.Value.GetProperty("class_type").GetString() == "PreviewImage"));
@@ -156,12 +156,13 @@ public sealed class ComfyMultiTakeWorkflowTests
             [ComfyMultiTakeWorkflow.Node(first, "14")] = new { videos = new[] { new { filename = "one.mp4" } } },
             [ComfyMultiTakeWorkflow.Node(second, "14")] = new { videos = new[] { new { filename = "two.mp4" } } },
             [ComfyMultiTakeWorkflow.Node(second, "15")] = new { images = new[] { new { filename = "two.webp" } } },
-            [ComfyMultiTakeWorkflow.Node(second, "20")] = new { refinement = new[] { new { filename = "two.safetensors" } } }
+            [ComfyMultiTakeWorkflow.Node(second, "21")] = new { latents = new[] { new { filename = "two-video.latent" } } },
+            [ComfyMultiTakeWorkflow.Node(second, "22")] = new { latents = new[] { new { filename = "two-audio.latent" } } }
         } });
-        Assert.False(ComfyMultiTakeWorkflow.HasOutputs(history, first, ["14", "15", "20"]));
-        Assert.True(ComfyMultiTakeWorkflow.HasOutputs(history, second, ["14", "15", "20"]));
+        Assert.False(ComfyMultiTakeWorkflow.HasOutputs(history, first, ["14", "15", "21", "22"]));
+        Assert.True(ComfyMultiTakeWorkflow.HasOutputs(history, second, ["14", "15", "21", "22"]));
         var outputs = ComfyMultiTakeWorkflow.Output(history, second).GetProperty("outputs");
-        Assert.Equal(3, outputs.EnumerateObject().Count());
+        Assert.Equal(4, outputs.EnumerateObject().Count());
         Assert.Equal("two.mp4", outputs.GetProperty("14").GetProperty("videos")[0].GetProperty("filename").GetString());
         Assert.DoesNotContain("one.mp4", outputs.GetRawText());
     }

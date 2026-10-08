@@ -24,6 +24,29 @@ public sealed partial class ShotTests
 
     [Theory]
     [InlineData(false, null, false)] [InlineData(false, true, true)] [InlineData(true, false, false)] [InlineData(true, null, true)]
+    public async Task TakeRegenerationCanChangeWhetherLatentsAreSaved(bool source, bool? choice, bool expected)
+    {
+        using var f = await QueuedVideoFixture.Create(this, saveLatents: source);
+        var original = await f.Capture(); var context = await f.Claim(original);
+        await f.Worker.ExecuteAsync(context, original.Snapshot, _ct);
+        await f.Jobs.UpdateAsync(context.Job.Id, j => j with { State = AiJobState.Completed, LeaseId = null }, _ct);
+        var take = Assert.Single((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes);
+        Assert.Equal(source, take.RefinementPackage is not null);
+        // The same seed, size and inputs with latents saved gives a take that can be refined.
+        var repeat = await f.CaptureService.CaptureRegenerationAsync(Guid.NewGuid(), Guid.NewGuid(), f.Project.Id, take.Id, VideoResolutions.Selected(take.Snapshot.Shot), take.Seed, null, choice, _ct);
+        var request = repeat.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal(expected, request.Snapshot.CaptureRefinementData);
+        Assert.Equal(expected, request.Snapshot.Shot.SaveLatents);
+        Assert.Equal((take.Width, take.Height), (request.Snapshot.Width, request.Snapshot.Height));
+        Assert.Equal(take.Seed, repeat.Batch!.Candidates[0].Seed);
+        H3Presets.Validate(request.Snapshot);
+        var next = await f.Claim(repeat); await f.Worker.ExecuteAsync(next, repeat.Snapshot, _ct);
+        var regenerated = (await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes.Single(t => t.Id != take.Id);
+        Assert.Equal(expected, regenerated.RefinementPackage is not null);
+    }
+
+    [Theory]
+    [InlineData(false, null, false)] [InlineData(false, true, true)] [InlineData(true, false, false)] [InlineData(true, null, true)]
     public async Task TakeRegenerationCanChangeWhetherLosslessFramesAreSaved(bool source, bool? choice, bool expected)
     {
         using var f = await QueuedVideoFixture.Create(this);

@@ -82,6 +82,7 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await page.screenshot({ path: 'test-results/h3-loras-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 }); await toolsTab(page, 'Generate');
   await page.getByRole('combobox', { name: 'Default takes', exact: true }).selectOption('2');
+  await page.getByLabel('Save latents', { exact: true }).check();
   await generateTakes(page);
   await expect(page.locator('.shot-setup-dialog')).toBeHidden();
   const review = page.locator('.shot-review-dialog');
@@ -101,9 +102,8 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await expect.poll(async () => (await state()).shots[0].loras[1].enabled).toBe(false);
   await closeSetup(page);
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
-  await review.locator('.take-quality-actions summary').click();
-  await review.getByRole('button', { name: 'Improve quality', exact: true }).click();
-  const form = review.getByRole('region', { name: 'Improve take quality' });
+  await review.getByRole('button', { name: 'Refine…', exact: true }).click();
+  const form = review.getByRole('region', { name: 'Refine take' });
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Refine', exact: true }).click();
   await expect.poll(async () => (await state()).takes.length, { timeout: 30000 }).toBe(4);

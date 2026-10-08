@@ -13,7 +13,7 @@ test('video setup checks on open and keeps chosen community files through save a
   await expect(panel.locator('[data-requirement=encoder] a').first()).toHaveAttribute('href', /Comfy-Org\/MiniMax-H3\/.*qwen3vl_32b_minimax_h3_nvfp4_awq/);
   await expect(panel.locator('.video-preset-settings > .video-preset-setup')).toHaveCount(7);
   await expect(panel.locator('.video-preset-setup')).toHaveCount(10);
-  await expect(panel.getByText(/refinement/i)).toHaveCount(0);
+  await expect(panel.getByText(/companion/i)).toHaveCount(0);
   const attention = panel.getByLabel('H3 dense attention', { exact: true });
   await panel.locator('[data-add-on=attention] > summary').click();
   await expect(panel.getByRole('checkbox', { name: /Sol-Attn/ })).toHaveCount(0);

@@ -80,6 +80,12 @@ public partial class ProductionStudio
     private DialogOptions LargeDialog => new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private string SettingsUrl => AiSettingsNavigation.Link(Navigation, "video", Id, "shots");
     private string EffectiveAspect(Shot s) => _project is null ? s.Aspect : ShotVideoDefaults.Aspect(s, _project);
+    private string LatentsSize(Shot s)
+    {
+        var size = VideoResolutions.Size(EffectiveAspect(s), VideoResolutions.Selected(s));
+        var frames = H3Policy.Frames(s.Duration is >= 1 and <= 15 and var seconds ? seconds : 5);
+        return (RefinementPackages.EstimatedBytes(frames, size.Width, size.Height) / 1e6).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " MB";
+    }
     private string PromptPreview => Current?.Prompt ?? "";
     private ShotReferenceGuidance Guidance(ShotImageBinding b) => ShotReferences.Resolve(b, _assets, _doc);
     private bool SourceChanged => Current is { } c && SourceShot is { } source && ProductionPolicy.SourceFingerprint(source) != c.SourceFingerprint;
@@ -266,7 +272,7 @@ public partial class ProductionStudio
             _handledCompositionJob = id;
             if (job.Target.CompositionId is { } c && _production.Compositions.Any(p => p.Id == c)) { await SelectComposition(c); await RefreshCompositionResult(id); await OpenSetupDialog("Prompt"); StateHasChanged(); }
         }
-        if (_restoreRefinementFocus && _reviewOpen) { _restoreRefinementFocus = false; try { await _improveButton.FocusAsync(); } catch (JSDisconnectedException) { } }
+        if (_restoreRefinementFocus && _reviewOpen) { _restoreRefinementFocus = false; try { if (_refineButton is not null) await _refineButton.FocusAsync(); } catch (JSDisconnectedException) { } }
         if (_focusReview && _reviewOpen) { _focusReview = false; try { await JS.InvokeVoidAsync("lumibelleShots.focusTake", _reviewTakeId?.ToString()); } catch (JSDisconnectedException) { } }
         if (_restoreReviewFocus || _restoreFrameFocus) { var review = _restoreReviewFocus; _restoreReviewFocus = _restoreFrameFocus = false; try { await JS.InvokeVoidAsync("lumibelleShots.restoreReviewFocus", review); } catch (JSDisconnectedException) { } }
     }

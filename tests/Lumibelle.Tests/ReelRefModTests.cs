@@ -129,7 +129,7 @@ public sealed partial class ShotTests
         var reference = RefModBinding().RefMod!;
         ReelRefMods.ValidateServer(reference, reference.ComfyUrl + "/", reference.Recipe.VaeName);
         var vae = Assert.Throws<WorkspaceStoreException>(() => ReelRefMods.ValidateServer(reference, reference.ComfyUrl, "another.safetensors"));
-        Assert.Contains($"prepared with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses another.safetensors", vae.Message);
+        Assert.Contains($"encoded with the H3 video VAE {reference.Recipe.VaeName}, but this batch uses another.safetensors", vae.Message);
         foreach (var file in new[] { "../model", "/absolute", "C:/model", "a//b", "file.safetensors", "model#0", reference.FileName + "x" })
             Assert.Throws<WorkspaceStoreException>(() => ReelRefMods.Validate(reference with { FileName = file }));
     }

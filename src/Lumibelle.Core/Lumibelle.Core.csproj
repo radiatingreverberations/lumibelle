@@ -5,7 +5,5 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <EmbeddedResource Include="Services/AI/PromptProfiles/*.txt" />
-    <EmbeddedResource Include="comfy_nodes/lumibelle_h3/*.py" />
-    <EmbeddedResource Include="comfy_nodes/lumibelle_h3/README.md" />
   </ItemGroup>
 </Project>
