@@ -60,7 +60,7 @@ public sealed partial class ShotTests
         var request = new AiVideoJobRequest(1, Guid.NewGuid(), snapshot, []);
         await adapter.ValidateAsync(request, _ct);
         var failure = await Assert.ThrowsAsync<WorkspaceStoreException>(() => adapter.ValidateAsync(request with { Snapshot = snapshot with { CaptureRefinementData = true } }, _ct));
-        Assert.Contains("refinement data", failure.Message);
+        Assert.Equal(H3Presets.LatentsIssue, failure.Message);
     }
 
     [Fact]

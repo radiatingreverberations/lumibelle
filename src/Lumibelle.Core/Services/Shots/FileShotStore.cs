@@ -334,7 +334,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var doc = await Read(dir, projectId, ct);
         var take = doc.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("Restore the source take from Trash before refining it.");
-        var package = take.RefinementPackage ?? throw new WorkspaceStoreException("This take has no refinement data. Takes generated from now on keep it.");
+        var package = take.RefinementPackage ?? throw new WorkspaceStoreException(TakeDisplay.NoLatents);
         var source = Path.Combine(dir, "shots", "takes", take.Directory);
         var checkedPackage = await RefinementPackages.InspectAsync(Path.Combine(source, H3RefinementPackage.FileName), take.Snapshot, take.Refinement, ct);
         if (checkedPackage != package) throw new WorkspaceStoreException("The source refinement package changed or is corrupt.");

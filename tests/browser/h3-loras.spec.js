@@ -82,6 +82,7 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await page.screenshot({ path: 'test-results/h3-loras-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 }); await toolsTab(page, 'Generate');
   await page.getByRole('combobox', { name: 'Default takes', exact: true }).selectOption('2');
+  await page.getByLabel('Save latents', { exact: true }).check();
   await generateTakes(page);
   await expect(page.locator('.shot-setup-dialog')).toBeHidden();
   const review = page.locator('.shot-review-dialog');

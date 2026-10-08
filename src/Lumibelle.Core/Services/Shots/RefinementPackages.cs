@@ -19,6 +19,9 @@ public static class RefinementPackages
     private sealed record Tensor(string Dtype, long[] Shape, long Start, long End);
 
     public static long[] VideoShape(int frames, int width, int height) => [1, 24, (frames - 5) / 17 * 5 + 2, height / 16, width / 16];
+    // Size of a take's package, as float32 latents.
+    public static long EstimatedBytes(int frames, int width, int height) =>
+        4 * (VideoShape(frames, width, height).Aggregate(1L, (a, b) => a * b) + AudioShape(frames).Aggregate(1L, (a, b) => a * b));
     public static long[] AudioShape(int frames) => [1, 32, 2, (long)Math.Round(frames / 24d * 40)];
 
     // Combines the two downloaded .latent files into one package.

@@ -122,6 +122,9 @@ public sealed record Shot
     public string? GenerationPreset { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SaveLosslessFrames { get; set; }
+    // Keeps each take's audio/video latents so it can be refined at a larger size later.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SaveLatents { get; set; }
     public bool Turbo { get; set; }
     public int TurboSteps { get; set; } = 4;
     public Guid? SelectedTakeId { get; set; }

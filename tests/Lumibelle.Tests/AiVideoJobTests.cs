@@ -455,11 +455,11 @@ public sealed partial class ShotTests
                 throw new InvalidOperationException(request.RequestUri.ToString());
             });
         }
-        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20)
+        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20, bool saveLatents = true)
         {
             var result = new QueuedVideoFixture(owner); var f = owner.Fixture(); var a = ApprovedShot(f.Project.Id);
             result.Project = f.Project; result.Shots = f.Shots; result.Shot = a.Shot; result.Assets = f.Assets;
-            result.Shot.Turbo = steps != 20; result.Shot.TurboSteps = steps == 8 ? 8 : 4;
+            result.Shot.Turbo = steps != 20; result.Shot.TurboSteps = steps == 8 ? 8 : 4; result.Shot.SaveLatents = saveLatents;
             result.ProjectDirectory = await f.Files.DirectoryAsync(f.Project.Id, owner._ct);
             await f.Shots.SaveAsync(f.Project.Id, [result.Shot], 0, ct: owner._ct);
             var generator = result.Generator = new MockVideoGenerator(f.Assets, f.Shots);

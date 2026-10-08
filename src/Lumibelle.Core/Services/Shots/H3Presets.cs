@@ -129,6 +129,7 @@ public static class H3Presets
             snapshot.Performance != H3Performance.Capture(NewPerformance(snapshot.Settings)))
             throw new WorkspaceStoreException("The captured video preset or output policy is invalid. Start a new batch.");
     }
+    public const string LatentsIssue = "Update ComfyUI to save latents. It needs the stock LTXVSeparateAVLatent and SaveLatent nodes.";
     public static string? Issue(H3Configuration c, Shot shot)
     {
         var key = Key(shot);
@@ -139,6 +140,7 @@ public static class H3Presets
             "turbo8" => c.Turbo8StepReady ? null : c.Turbo8StepIssue ?? c.Message,
             _ => "Refresh Video models to check this preset." });
         return c.AttentionIssue ?? issue ?? (shot.SaveLosslessFrames ? c.ArchiveIssue ?? c.Performance.FastArchiveIssue : null)
+            ?? (shot.SaveLatents && !shot.UpscalePreview && !c.PackageCaptureReady ? LatentsIssue : null)
             ?? (shot.UpscalePreview ? c.PreviewUpscaling.Issue ?? (c.PreviewUpscaling.Implementation is null ? "Refresh preview upscaling setup." : null) : null);
     }
     public static void CheckSubmission(VideoSnapshot s, H3Configuration c)

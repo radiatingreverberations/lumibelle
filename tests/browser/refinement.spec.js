@@ -4,7 +4,7 @@ import { test, expect } from './fixtures.js';
 
 const review = page => page.locator('.shot-review-dialog');
 const state = async (request, id) => (await request.get(`/fixtures/${id}/shots`)).json();
-async function setup(page, request) {
+async function setup(page, request, saveLatents = true) {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
@@ -18,35 +18,57 @@ async function setup(page, request) {
   await composeProduction(page);
   await toolsTab(page, 'Generate');
   await page.getByLabel('Save lossless frames', { exact: true }).check();
+  await page.getByLabel('Save latents', { exact: true }).setChecked(saveLatents);
   await generateTakes(page);
   await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(1);
   await expect(review(page)).toBeVisible();
   return id;
 }
 
-test('video generation and added takes work when ComfyUI cannot keep refinement data', async ({ page, request }) => {
+test('Save latents is optional; a take without them is regenerated with its seed to refine it', async ({ page, request }) => {
+  test.setTimeout(120000);
+  const id = await setup(page, request, false);
+  const original = (await state(request, id)).takes[0];
+  expect(original.snapshot.captureRefinementData).toBe(false);
+  expect(original.refinementPackage).toBeNull();
+  await openQuality(page);
+  await expect(review(page).getByRole('button', { name: 'Refine this take', exact: true })).toBeDisabled();
+  await expect(review(page)).toContainText('This take has no saved latents. To refine it, regenerate it with the same seed and resolution');
+  await review(page).getByRole('button', { name: 'Close', exact: true }).click();
+  // Regenerating with the same seed and size, with latents saved, gives a take that can be refined.
+  await page.goto(`/projects/${id}/shots?view=Takes`);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  const closeTools = page.getByRole('button', { name: 'Close Shot tools', exact: true });
+  if (await closeTools.isVisible()) await closeTools.click();
+  await page.locator(`[data-take-id='${original.id}']`).getByRole('button', { name: 'Regenerate…', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Regenerate take', exact: true });
+  await expect(dialog.getByLabel('Save latents', { exact: true })).not.toBeChecked();
+  await dialog.getByLabel('Save latents', { exact: true }).check();
+  // The source's own resolution and seed.
+  const resolution = dialog.getByLabel('Resolution', { exact: true });
+  await resolution.selectOption(await resolution.locator('option', { hasText: `${original.width} × ${original.height}` }).getAttribute('value'));
+  await dialog.getByRole('button', { name: 'Generate take', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(2);
+  const again = (await state(request, id)).takes.find(t => t.id !== original.id);
+  expect([again.seed, again.width, again.height]).toEqual([original.seed, original.width, original.height]);
+  expect(again.snapshot.captureRefinementData).toBe(true);
+  expect(again.refinementPackage).not.toBeNull();
+});
+
+test('Save latents explains when ComfyUI lacks the nodes', async ({ page, request }) => {
   test.setTimeout(90000);
   await request.post('/fixtures/refinement-capture?available=false');
   try {
-    const id = await setup(page, request);
-    const original = (await state(request, id)).takes[0];
-    expect(original.snapshot.captureRefinementData).toBe(false);
-    expect(original.refinementPackage).toBeNull();
-    expect(original.frames.length).toBeGreaterThan(0);
-    await openQuality(page);
-    await expect(review(page).getByRole('button', { name: 'Refine this take', exact: true })).toBeDisabled();
-    await expect(review(page)).toContainText('This take has no refinement data.');
-    await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${original.id}`);
-    // Updated nodes are only used by new batches, never an old batch extension.
-    await request.post('/fixtures/refinement-capture?available=true');
-    await review(page).getByRole('button', { name: 'One more take', exact: true }).click();
-    await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(2);
-    expect((await state(request, id)).takes.every(t => !t.snapshot.captureRefinementData && !t.refinementPackage)).toBe(true);
+    const id = await setup(page, request, false);
+    expect((await state(request, id)).takes[0].refinementPackage).toBeNull();
     await review(page).getByRole('button', { name: 'Close', exact: true }).click();
-    await page.reload(); await toolsTab(page, 'Generate');
-    await generateTakes(page);
-    await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(3);
-    expect((await state(request, id)).takes.filter(t => t.refinementPackage)).toHaveLength(1);
+    await toolsTab(page, 'Generate');
+    await page.getByLabel('Save latents', { exact: true }).check();
+    await closeSetup(page);
+    await page.getByRole('button', { name: 'Generate takes', exact: true }).click();
+    await expect(page.getByText('Update ComfyUI to save latents.', { exact: false }).first()).toBeVisible();
+    expect((await state(request, id)).takes).toHaveLength(1);
   } finally {
     await request.post('/fixtures/refinement-capture?available=true');
   }

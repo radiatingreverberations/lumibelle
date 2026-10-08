@@ -53,6 +53,8 @@
     <p class="field-hint">Keep the seed to try the same take at higher resolution. Motion and details can still change with resolution.</p>
     <label class="video-regeneration-check"><input type="checkbox" @bind="_keepFrames" disabled="@(Locked || snapshot.OutputPolicy is null)" />Save lossless frames</label>
     <p class="field-hint">@(snapshot.OutputPolicy is null ? "This take's saved request always keeps lossless frames." : "Keeps a lossless archive of every frame beside the MP4, so frames saved to Assets are exact rather than taken from the compressed video. Uses more storage.")</p>
+    <label class="video-regeneration-check"><input type="checkbox" @bind="_saveLatents" disabled="@Locked" />Save latents</label>
+    <p class="field-hint">Keeps the new take's latents so it can be refined at a larger size. To get this take again with its latents, keep the source seed and choose its resolution (@Width × @Height).</p>
     @if (_submission is not null) { <p class="field-hint">Captured seed: @_submission.Batch!.Candidates[0].Seed. Retry submits this same request.</p> }
     @if (SeedChanged) { <p class="field-hint">A different seed explores a new take.</p> }
     @if (_error is not null) { <p role="alert">@_error</p> }
@@ -86,7 +88,7 @@
     private readonly CancellationTokenSource _lifetime = new();
     private bool _busy;
     private string _resolution = "native", _seedMode = "same", _seedText = "";
-    private bool _keepFrames = true;
+    private bool _keepFrames = true, _saveLatents;
     private string? _error;
     private AiJobSubmission? _submission;
     private Guid? _sourceId;
@@ -94,7 +96,7 @@
     {
         if (_sourceId == SourceId) return;
         _sourceId = SourceId; _resolution = Reel?.Generation is { } generation ? VideoResolutions.Key(VideoResolutions.Selected(generation.Recipe)) : "native";
-        _keepFrames = Snapshot?.OutputPolicy?.SaveLosslessFrames ?? true;
+        _keepFrames = Snapshot?.OutputPolicy?.SaveLosslessFrames ?? true; _saveLatents = Take?.Snapshot.CaptureRefinementData ?? false;
         _seedMode = Reel is null ? "same" : "random"; _seedText = SourceSeed.ToString(System.Globalization.CultureInfo.InvariantCulture); _submission = null; _error = null;
     }
     private Task Close() => _busy ? Task.CompletedTask : Closed.InvokeAsync();
@@ -115,7 +117,7 @@
                 var id = Guid.NewGuid(); var tab = await Reviews.TabIdAsync();
                 _submission = Reel is not null
                     ? await Reels.CaptureRegenerationAsync(id, tab, ProjectId, Reel.Id, resolution, _seedMode == "same", seed, _count, _keepFrames, _lifetime.Token)
-                    : await Takes.CaptureRegenerationAsync(id, tab, ProjectId, Take!.Id, resolution, seed, _keepFrames, _lifetime.Token);
+                    : await Takes.CaptureRegenerationAsync(id, tab, ProjectId, Take!.Id, resolution, seed, _keepFrames, _saveLatents, _lifetime.Token);
             }
             await Jobs.EnqueueAsync(_submission, _lifetime.Token);
             await Submitted.InvokeAsync(_submission);

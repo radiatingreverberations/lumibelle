@@ -10,6 +10,7 @@ public sealed record GenerationSettings
     public bool UpscalePreview { get; set; }
     public string? GenerationPreset { get; set; }
     public bool SaveLosslessFrames { get; set; }
+    public bool SaveLatents { get; set; }
     public bool Turbo { get; set; }
     public int TurboSteps { get; set; } = 4;
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
@@ -17,7 +18,7 @@ public sealed record GenerationSettings
     public static GenerationSettings From(ProductionComposition c) => ShotCopy.Of(new GenerationSettings {
         Seed = c.Seed, TakeCount = c.TakeCount,
         NativeResolution = c.Shot.NativeResolution, Resolution = c.Shot.Resolution, UpscalePreview = c.Shot.UpscalePreview,
-        GenerationPreset = c.Shot.GenerationPreset, SaveLosslessFrames = c.Shot.SaveLosslessFrames,
+        GenerationPreset = c.Shot.GenerationPreset, SaveLosslessFrames = c.Shot.SaveLosslessFrames, SaveLatents = c.Shot.SaveLatents,
         Turbo = c.Shot.Turbo, TurboSteps = c.Shot.TurboSteps, Loras = c.Shot.Loras
     });
     public void Apply(ProductionComposition c)
@@ -26,7 +27,7 @@ public sealed record GenerationSettings
         c.Seed = s.Seed; c.TakeCount = s.TakeCount;
         c.Shot.NativeResolution = s.NativeResolution; c.Shot.Resolution = s.Resolution;
         c.Shot.UpscalePreview = s.UpscalePreview; c.Shot.GenerationPreset = s.GenerationPreset;
-        c.Shot.SaveLosslessFrames = s.SaveLosslessFrames; c.Shot.Turbo = s.Turbo;
+        c.Shot.SaveLosslessFrames = s.SaveLosslessFrames; c.Shot.SaveLatents = s.SaveLatents; c.Shot.Turbo = s.Turbo;
         c.Shot.TurboSteps = s.TurboSteps; c.Shot.Loras = s.Loras;
     }
 

@@ -21,6 +21,7 @@ public static class TakeDisplay
             (take.Width, take.Height) == VideoResolutions.Size(take.Snapshot.Shot) ? "Native · " + mp : mp;
     }
     public static string Duration(ShotTake take) => (take.FrameCount / take.Fps).ToString("0.###", CultureInfo.InvariantCulture) + " s";
+    public const string NoLatents = "This take has no saved latents. To refine it, regenerate it with the same seed and resolution and Save latents on, then refine the new take.";
     public static string? RegenerationIssue(ShotTake take) => take.Snapshot.Dub is not null
         ? "Render this translation again from Language versions; its master take fixes the generation settings and input files."
         : take.Refinement is not null

@@ -16,7 +16,9 @@ companion-based version was removed on 2026-10-07.
 
 ## How it works
 
-**Keeping the take.** Every new take's graph splits the sampler's audio/video
+**Keeping the take.** Saving latents is a per-shot option, **Save latents**, off by
+default like lossless frames; the Regenerate dialog has the same option. With it on, a
+take's graph splits the sampler's audio/video
 latent, the same output the take decodes, with `LTXVSeparateAVLatent` (node 20) and saves both parts with
 two stock `SaveLatent` nodes (21 video, 22 audio). Lumibelle downloads the two
 `.latent` files, checks their shapes and combines them into the take's
@@ -25,8 +27,16 @@ and `audio` `[1, 32, 2, round(frames/24*40)]`, with `T = (frames - 5) / 17 * 5 +
 The package's metadata holds only its id, size, frame count and fps, so it carries
 no prompt or settings. ComfyUI's own `.latent` metadata, which includes the
 submitted prompt, is not kept. At 0.2 MP and 141 frames the package is about
-3.5 MB. Takes made with Upscaled preview keep no package. Capture needs only a
-ComfyUI recent enough to have these nodes.
+3.5 MB; the size grows with the pixel count and duration, and the shot options show an
+estimate. ComfyUI also keeps its own copies of the two `.latent` files in
+`output/lumibelle/`, since stock `SaveLatent` always writes a new numbered file and
+ComfyUI has no API to delete outputs. Takes made with Upscaled preview keep no
+package. If ComfyUI lacks these nodes, a shot with **Save latents** on is refused
+before queueing.
+
+A take generated without latents can be regenerated with its seed, its resolution
+and **Save latents** on, then refined. That relies on the same seed, size and
+inputs producing the same take on that ComfyUI setup.
 
 **The refinement pass.** It is a normal H3 generation with three changes, built by
 the same graph builder as any take (`ComfyH3Video.BuildWorkflow` with a

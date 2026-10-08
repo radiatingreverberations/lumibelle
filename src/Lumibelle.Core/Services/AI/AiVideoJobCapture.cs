@@ -96,7 +96,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         var sceneFingerprint = shot.SceneId is null ? null : TakeInputChanges.SceneFingerprint((await scripts.LoadAsync(projectId, ct)).Blocks, shot.SceneId);
         var snapshot = new VideoSnapshot(projectId, revision, shot, composition?.Prompt ?? H3Policy.Compile(shot, guidance, appearances), H3Policy.Fingerprint(shot),
             AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), configured.H3, size.Width, size.Height, H3Policy.Frames(shot.Duration!.Value), composed is null ? H3Policy.Profile : ProductionPolicy.Profile)
-            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = !shot.UpscalePreview && capability.PackageCaptureReady,
+            { Production = composed, AppliedLoras = loras, Preset = H3Presets.Capture(shot, configured.H3), OutputPolicy = new(shot.SaveLosslessFrames), Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), CaptureRefinementData = shot.SaveLatents && !shot.UpscalePreview,
                 PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(capability.PreviewUpscaling.Implementation!.Value, configured.H3.LatentUpscaler, shot.Aspect) : null,
                 ReferenceGuidance = guidance, Appearances = appearances, Sampling = H3Policy.Sampling(shot, configured.H3), SceneFingerprint = sceneFingerprint };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
@@ -126,7 +126,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
     {
         var document = await shots.LoadAsync(projectId, ct);
         var take = ShotCopy.Of(document.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("The source take is unavailable. Restore it before refining."));
-        if (take.RefinementPackage is null) throw new WorkspaceStoreException("This take has no refinement data. Takes generated from now on keep it.");
+        if (take.RefinementPackage is null) throw new WorkspaceStoreException(TakeDisplay.NoLatents);
         var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
         var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
             ?? throw new WorkspaceStoreException("This take's captured request is unavailable.");

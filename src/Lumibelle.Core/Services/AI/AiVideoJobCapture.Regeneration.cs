@@ -11,9 +11,13 @@ public sealed partial class AiVideoJobCapture
         VideoResolution resolution, long? seed, CancellationToken ct = default)
         => CaptureRegenerationAsync(id, tab, projectId, takeId, resolution, seed, null, ct);
 
-    // saveLosslessFrames null keeps the source take's choice.
-    public async Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid projectId, Guid takeId,
+    public Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid projectId, Guid takeId,
         VideoResolution resolution, long? seed, bool? saveLosslessFrames, CancellationToken ct = default)
+        => CaptureRegenerationAsync(id, tab, projectId, takeId, resolution, seed, saveLosslessFrames, null, ct);
+
+    // saveLosslessFrames and saveLatents null keep the source take's choice.
+    public async Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid projectId, Guid takeId,
+        VideoResolution resolution, long? seed, bool? saveLosslessFrames, bool? saveLatents, CancellationToken ct = default)
     {
         var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
         var document = await shots.LoadAsync(projectId, ct);
@@ -41,11 +45,13 @@ public sealed partial class AiVideoJobCapture
             if (source.Snapshot.OutputPolicy is null) throw new WorkspaceStoreException("This take's saved request always keeps lossless frames.");
             shot.SaveLosslessFrames = keepFrames;
         }
+        // Regenerating a take with its seed and Save latents on gives a take that can be refined.
+        shot.SaveLatents = saveLatents ?? source.Snapshot.CaptureRefinementData;
         var size = VideoResolutions.Size(shot);
         var snapshot = ShotCopy.Of(source.Snapshot) with {
             Shot = shot, Width = size.Width, Height = size.Height, Fingerprint = H3Policy.Fingerprint(shot),
             OutputPolicy = source.Snapshot.OutputPolicy is null ? null : new(shot.SaveLosslessFrames),
-            PreviewUpscale = null, RegenerationSource = new(take.Id, take.Seed, take.Width, take.Height),
+            PreviewUpscale = null, CaptureRefinementData = shot.SaveLatents, RegenerationSource = new(take.Id, take.Seed, take.Width, take.Height),
             TargetComfyUrl = null
         };
         // New requests own their immutable inputs, including formerly version-one captures.

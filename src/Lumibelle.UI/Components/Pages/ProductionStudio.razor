@@ -532,6 +532,8 @@ else
                         <p class="field-hint">Explore a few takes at Quick or Preview, then regenerate your favorite at Detail or Native with its seed retained.</p>
                         <label class="check-row"><input type="checkbox" checked="@shot.SaveLosslessFrames" @onchange="e => Edit(s => s.SaveLosslessFrames = e.Value is true)" />Save lossless frames</label>
                         <p class="field-hint">Optional: adds encoding time and storage. Without it, you can still save frames from the compressed MP4.</p>
+                        <label class="check-row"><input type="checkbox" checked="@(shot.SaveLatents && !shot.UpscalePreview)" disabled="@shot.UpscalePreview" @onchange="e => Edit(s => s.SaveLatents = e.Value is true)" />Save latents</label>
+                        <p class="field-hint">@(shot.UpscalePreview ? "Upscaled previews can't save latents." : $"Optional: lets you refine a take at a larger size later. About {LatentsSize(shot)} per take, saved with the take and left in ComfyUI's output folder. Without it, regenerate a take with the same seed and resolution and this option on before refining.")</p>
                         @if (shot.UpscalePreview)
                         {
                             <p class="field-hint">@H3Policy.Size(EffectiveAspect(shot), false).Width × @H3Policy.Size(EffectiveAspect(shot), false).Height sampling → @H3Policy.Size(EffectiveAspect(shot), true).Width × @H3Policy.Size(EffectiveAspect(shot), true).Height output · @(shot.SaveLosslessFrames ? "MP4 + lossless WebP archive" : "MP4")</p>
@@ -547,7 +549,7 @@ else
                         }
                         @if (_configuration is not null) {
                             <p class="field-hint">@(_configuration.Ready(shot) ? H3Policy.QualityLabel(shot) + " · Ready" : "Selected configuration needs attention")</p>
-                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p><p>@(shot.UpscalePreview ? "Upscaled previews keep no refinement data." : _configuration.PackageCaptureReady ? "New takes keep refinement data, so they can be refined at a larger size later." : "Update ComfyUI to keep refinement data for new takes.")</p></details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
+                            <details><summary>Setup details</summary><p>@_configuration.Issue(shot)</p>@if (!_configuration.PackageCaptureReady) { <p>Save latents: @H3Presets.LatentsIssue</p> }</details><button disabled="@_starting" @onclick="CheckVideo">Refresh readiness</button>
                         }
 
 
@@ -693,7 +695,7 @@ else
                     <details class="take-quality-actions"><summary>Refine at a larger size</summary>
                         <button @ref="_improveButton" disabled="@(take.RefinementPackage is null || _refinementBusy || _refinementEnqueue is not null || RefinementLocked(take))" @onclick="ConfigureRefinement">Refine this take</button>
                         @if (take.Refinement is not null) { <button disabled="@_refinementBusy" @onclick="AnotherVersion">Another version</button> }
-                        @if (take.RefinementPackage is null) { <span class="field-hint">This take has no refinement data. Takes generated from now on keep it.</span> }
+                        @if (take.RefinementPackage is null) { <span class="field-hint">@TakeDisplay.NoLatents</span> }
                     </details>
 
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }

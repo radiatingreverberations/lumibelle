@@ -10,25 +10,37 @@ namespace Lumibelle.Tests;
 
 public sealed partial class ShotTests
 {
-    [Fact]
-    public async Task NewTakesKeepRefinementDataWheneverComfyUiCan()
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task NewTakesSaveLatentsOnlyWhenTheShotAsks(bool saveLatents)
     {
-        using var f = await QueuedVideoFixture.Create(this, 20);
+        using var f = await QueuedVideoFixture.Create(this, 20, saveLatents);
         f.Generator.Catalog = await f.Generator.CheckAsync(f.Settings.Value, _ct) with { PackageCaptureReady = true };
         var request = await f.Capture(1);
-        Assert.True(request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
+        Assert.Equal(saveLatents, request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
+    }
+    [Fact]
+    public async Task SaveLatentsOnAComfyUiWithoutTheNodesIsRefusedBeforeQueueing()
+    {
+        using var f = await QueuedVideoFixture.Create(this, 20);
+        f.Generator.Catalog = await f.Generator.CheckAsync(f.Settings.Value, _ct) with { PackageCaptureReady = false };
+        var failure = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Capture(1));
+        Assert.Equal(H3Presets.LatentsIssue, failure.Message);
+        Assert.Empty((await f.Jobs.ReadAsync(_ct)).Jobs);
     }
     [Theory]
     [InlineData(false, 20)] [InlineData(false, 4)] [InlineData(false, 8)]
     [InlineData(true, 20)] [InlineData(true, 4)] [InlineData(true, 8)]
     public async Task OptionalCaptureIsFixedForAllCandidatesAndExtensions(bool companion, int steps)
     {
-        using var f = await QueuedVideoFixture.Create(this, steps);
+        using var f = await QueuedVideoFixture.Create(this, steps, companion);
         var ready = await f.Generator.CheckAsync(f.Settings.Value, _ct);
-        f.Generator.Catalog = ready with { PackageCaptureReady = companion };
+        f.Generator.Catalog = ready with { PackageCaptureReady = true };
         var request = await f.Capture(2);
         Assert.Equal(companion, request.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot.CaptureRefinementData);
-        // Installing/removing nodes after capture cannot rewrite remaining candidates.
+        // Changing the shot's option or the installed nodes after capture cannot rewrite remaining candidates.
+        f.Shot.SaveLatents = !companion;
+        await f.Shots.SaveAsync(f.Project.Id, [f.Shot], (await f.Shots.LoadAsync(f.Project.Id, _ct)).Revision, ct: _ct);
         f.Generator.Catalog = ready with { PackageCaptureReady = !companion };
         var context = await f.Claim(request);
         await f.Worker.ExecuteAsync(context, request.Snapshot, _ct);

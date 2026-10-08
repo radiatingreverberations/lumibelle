@@ -325,7 +325,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (run.Snapshot.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) && check.VideoReferenceIssue is { } videoIssue) throw new WorkspaceStoreException(videoIssue);
             H3Presets.CheckSubmission(run.Snapshot, check);
             H3PreviewUpscaling.CheckSubmission(run.Snapshot, check);
-            if (run.Snapshot.CaptureRefinementData && !check.PackageCaptureReady) throw new WorkspaceStoreException("Update ComfyUI to keep refinement data for new takes.");
+            if (run.Snapshot.CaptureRefinementData && !check.PackageCaptureReady) throw new WorkspaceStoreException(H3Presets.LatentsIssue);
             var uploaded = await UploadAsync(run, directory, ct);
             workflow = BuildWorkflow(run.Snapshot, candidate.Seed, candidate.ClientId, uploaded);
         }

@@ -76,7 +76,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
             if (s.Shot.StartFrame is not null && configuration.StartFrameIssue is { } startIssue) throw new WorkspaceStoreException(startIssue);
             H3Presets.CheckSubmission(s, configuration);
             H3PreviewUpscaling.CheckSubmission(s, configuration);
-            if (s.CaptureRefinementData && !configuration.PackageCaptureReady) throw new WorkspaceStoreException("Update ComfyUI to keep refinement data for new takes.");
+            if (s.CaptureRefinementData && !configuration.PackageCaptureReady) throw new WorkspaceStoreException(H3Presets.LatentsIssue);
         }
     }
     public async Task<Func<string, object>> PrepareWorkflowAsync(AiVideoJobRequest request, AiBatchCandidate candidate, string directory, CancellationToken ct)
