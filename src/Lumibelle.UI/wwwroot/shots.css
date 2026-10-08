@@ -202,6 +202,8 @@
 .take-refinement-actions > .primary-action:disabled { opacity: .5; }
 .experimental-badge { font-size: var(--lumi-font-size-small); font-weight: 500; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-small); padding: .1rem .3rem; vertical-align: middle; }
 .take-versions { margin: .4rem 0 .8rem .55rem; border-left: 2px solid var(--lumi-border); padding-left: .5rem; min-width: 0; }
+.take-versions > .field-error { overflow-wrap: anywhere; }
+.take-version-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
 .take-versions h4 { font-size: var(--lumi-font-size-compact); margin-bottom: .4rem; overflow-wrap: anywhere; }
 .video-refinement-setup li { margin-block: .6rem; }
 .video-preview-upscaling { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--lumi-border); }

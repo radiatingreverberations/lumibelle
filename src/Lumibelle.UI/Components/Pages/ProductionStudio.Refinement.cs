@@ -79,6 +79,18 @@ public partial class ProductionStudio
         _autoReviewed.Add(request.Id);
         await RefreshMedia();
     }
+    private async Task RemoveFailedVersion(VideoRun run)
+    {
+        if (BatchJob(run.Id) is not { } job) return;
+        try { await AiJobs.CancelAsync(job.Id, _lifetime.Token); await RefreshMedia(); }
+        catch (Exception e) { _reviewError = e.Message; }
+    }
+    private async Task RetryFailedVersion(VideoRun run)
+    {
+        if (BatchJob(run.Id) is not { } job) return;
+        try { await AiJobs.ResumeAsync(job.Id, _lifetime.Token); await RefreshMedia(); }
+        catch (Exception e) { _reviewError = e.Message; }
+    }
     private async Task AnotherVersion()
     {
         var root = ReviewTake?.Refinement is not null ? ReviewTake.RunId : _refinementJob;

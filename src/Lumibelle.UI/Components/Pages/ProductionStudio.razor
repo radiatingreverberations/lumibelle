@@ -722,7 +722,8 @@ else
                         @if (candidate.State != VideoCandidateState.Complete && CandidateJob(candidate.Number)?.CanRecoverCancelledOutputs != true && RecoveryLabel(CandidateJob(candidate.Number)) is { } recoveryLabel)
                         { <button @onclick="() => RetryCandidate(candidate.Number)">@recoveryLabel</button> }
                     </article>
-                    <TakeVersions ProjectId="Id" ParentId="candidate.TakeId" Runs="_runs" Takes="_doc.Takes" SelectedId="_reviewTakeId" ProductionId="@(_doc.Shots.FirstOrDefault(s => s.Id == ReviewTake?.ShotId)?.SelectedTakeId)" Busy="_mediaBusy" Select="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake" />
+                    <TakeVersions ProjectId="Id" ParentId="candidate.TakeId" Runs="_runs" Takes="_doc.Takes" SelectedId="_reviewTakeId" ProductionId="@(_doc.Shots.FirstOrDefault(s => s.Id == ReviewTake?.ShotId)?.SelectedTakeId)" Busy="_mediaBusy" Select="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake"
+                        Remove="RemoveFailedVersion" Retry="RetryFailedVersion" RetryLabel="run => RecoveryLabel(BatchJob(run.Id))" />
                 }
             </div>
         </div>

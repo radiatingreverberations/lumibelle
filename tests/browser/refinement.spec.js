@@ -142,6 +142,24 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   await expect.poll(async () => (await state(request, id)).takes.length).toBe(4);
 });
 
+test('a refinement that fails shows its error and can be removed', async ({ page, request }) => {
+  test.setTimeout(90000);
+  const id = await setup(page, request);
+  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Refine take' });
+  await form.getByLabel('Output size').selectOption('2');
+  await form.getByRole('button', { name: 'Queue Refine', exact: true }).click();
+  const failed = review(page).locator('.take-versions');
+  await expect(failed.getByRole('alert')).toContainText('mock out of GPU memory', { timeout: 30000 });
+  const remove = failed.getByRole('button', { name: /^Remove failed Refine · \d+ × \d+$/ });
+  await remove.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'artifacts/validation/refinement-failed.png' });
+  await remove.click();
+  await expect(failed).toHaveCount(0);
+  expect((await state(request, id)).takes).toHaveLength(1);
+  await expect(review(page).getByRole('button', { name: 'Refine…', exact: true })).toBeEnabled();
+});
+
 test('refinement options remain keyboard accessible and fit a narrow review', async ({ page, request }) => {
   test.setTimeout(90000);
   await setup(page, request);

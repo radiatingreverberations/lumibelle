@@ -1,9 +1,21 @@
 @foreach (var run in Runs.Where(r => r.Refinement?.ParentTakeId == ParentId && !Ancestors.Contains(r.Id)).OrderBy(r => r.CreatedUtc))
 {
-    <section class="take-versions" aria-label="@($"{run.Refinement!.Mode} versions")">
-        <h4>@run.Refinement.Mode · @run.Refinement.Width × @run.Refinement.Height</h4>
-        @if (run.Candidates.Any(c => c.State is not (VideoCandidateState.Complete or VideoCandidateState.Cancelled))) { <p class="field-hint" role="status">@run.Status</p> }
-        @foreach (var candidate in run.Candidates)
+    // A cancelled or removed version that saved nothing has nothing left to show.
+    var candidates = run.Candidates.Where(c => c.State != VideoCandidateState.Cancelled || Takes.Any(t => t.Id == c.TakeId)).ToArray();
+    if (candidates.Length == 0) continue;
+    var label = $"{run.Refinement!.Mode} · {run.Refinement.Width} × {run.Refinement.Height}";
+    <section class="take-versions" aria-label="@($"{run.Refinement.Mode} versions")">
+        <h4>@label</h4>
+        @if (run.Paused && !run.CancelRequested)
+        {
+            <p class="field-error" role="alert">@run.Status</p>
+            <div class="take-version-actions">
+                @if (RetryLabel?.Invoke(run) is { } retry) { <button disabled="@Busy" @onclick="() => Retry.InvokeAsync(run)">@retry</button> }
+                <button disabled="@Busy" aria-label="@($"Remove failed {label}")" title="Removes this failed refinement; saved versions are kept" @onclick="() => Remove.InvokeAsync(run)">Remove</button>
+            </div>
+        }
+        else if (run.Candidates.Any(c => c.State is not (VideoCandidateState.Complete or VideoCandidateState.Cancelled))) { <p class="field-hint" role="status">@run.Status</p> }
+        @foreach (var candidate in candidates)
         {
             var saved = Takes.FirstOrDefault(t => t.Id == candidate.TakeId);
             <article class="shot-candidate" @key="candidate.TakeId">
@@ -14,7 +26,8 @@
                 }
                 else { <strong>Version @candidate.Number</strong><p>@(candidate.State == VideoCandidateState.Complete ? "Discarded · recoverable in Trash" : candidate.State)</p> }
             </article>
-            <TakeVersions ProjectId="ProjectId" ParentId="candidate.TakeId" Runs="Runs" Takes="Takes" SelectedId="SelectedId" ProductionId="ProductionId" Busy="Busy" Select="Select" Use="Use" Discard="Discard" Ancestors="@(Ancestors.Append(run.Id).ToArray())" />
+            <TakeVersions ProjectId="ProjectId" ParentId="candidate.TakeId" Runs="Runs" Takes="Takes" SelectedId="SelectedId" ProductionId="ProductionId" Busy="Busy" Select="Select" Use="Use" Discard="Discard"
+                Remove="Remove" Retry="Retry" RetryLabel="RetryLabel" Ancestors="@(Ancestors.Append(run.Id).ToArray())" />
         }
     </section>
 }
@@ -30,4 +43,8 @@
     [Parameter] public EventCallback<Guid> Select { get; set; }
     [Parameter] public EventCallback<ShotTake> Use { get; set; }
     [Parameter] public EventCallback<ShotTake> Discard { get; set; }
+    // A failed refinement can be removed, or retried when the queue offers a recovery.
+    [Parameter] public EventCallback<VideoRun> Remove { get; set; }
+    [Parameter] public EventCallback<VideoRun> Retry { get; set; }
+    [Parameter] public Func<VideoRun, string?>? RetryLabel { get; set; }
 }
