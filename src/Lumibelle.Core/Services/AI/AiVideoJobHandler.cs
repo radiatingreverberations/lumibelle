@@ -71,7 +71,8 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
             {
                 if (receipt.JobId != context.Job.Id || receipt.RunId != request.BatchId || receipt.ShotId != request.OutputShotId || receipt.Candidate != candidate.Number)
                     throw new WorkspaceStoreException("This saved video candidate belongs to another request.");
-                completed.Add(new(candidate.Id, candidate.Number, context.Job.Id));
+                var reviewId = await ApplyOutputTrim(request, candidate.Id, ct);
+                completed.Add(new(reviewId, candidate.Number, context.Job.Id));
                 await SaveResultAsync(context, completed); await context.MarkReviewableAsync(ct); continue;
             }
             var staged = await context.ReadOperationAsync<ShotTake>(operation, AiOperationArtifact.Video, ct);
@@ -184,7 +185,8 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
                     await context.ReportAsync(new(new(GenerationPhase.Saving, "Saving the video and lossless frame archive…"), candidate.Number, total), true);
                     if (s.Reel is not null) await ReelStore.PublishAsync(staged, stagingDirectory, linked.Token);
                     else await shots.PublishTakeAsync(s.ProjectId, staged, stagingDirectory, linked.Token);
-                    completed.Add(new(candidate.Id, candidate.Number, context.Job.Id));
+                    var reviewId = await ApplyOutputTrim(request, candidate.Id, linked.Token);
+                    completed.Add(new(reviewId, candidate.Number, context.Job.Id));
                     await SaveResultAsync(context, completed); await context.MarkReviewableAsync(linked.Token);
                     await context.ReportAsync(new(new(GenerationPhase.Saving, $"Take {candidate.Number} saved · ready to review"), candidate.Number, total), true);
                 }
@@ -201,6 +203,18 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
                     ? AiJobRecovery.RetryOutput : AiJobRecovery.GenerateAgain;
                 throw new AiJobRecoveryException("Video generation or transfer timed out. Completed takes remain available.", recovery);
             }
+        }
+    }
+    private async Task<Guid> ApplyOutputTrim(AiVideoJobRequest request, Guid takeId, CancellationToken ct)
+    {
+        if (request.OutputTrim is not { } trim) return takeId;
+        var id = TakeTrimming.OutputId(takeId);
+        try {
+            await shots.TrimTakeAsync(request.Snapshot.ProjectId, new(takeId, id, trim.StartFrame, trim.EndFrameExclusive), ct: ct);
+            return id;
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or IOException) {
+            throw new AiJobRecoveryException("The full refinement is saved. Retry output to reapply the trim without generating again. " + e.Message, AiJobRecovery.RetryOutput, e);
         }
     }
     private static IEnumerable<string> RequiredOutputs(AiVideoJobRequest request)

@@ -278,6 +278,8 @@ public partial class ProductionStudio
     }
     private void SelectTake(Guid? id)
     {
+        if (_trimCancellation is not null && id != _reviewTakeId) _trimCancellation.Cancel();
+        _trimmingTake = null;
         _reviewTakeId = id; _frameDestination = null; _continueFrame = null; _refiningTake = null;
         if (_doc.Takes.FirstOrDefault(t => t.Id == id) is { Refinement: not null } take) _refinementJob = take.RunId;
     }
@@ -296,6 +298,7 @@ public partial class ProductionStudio
             var source = latest.Shots.Single(s => s.Id == take.ShotId);
             source.SelectedTakeId = source.SelectedTakeId == take.Id ? null : take.Id;
             _doc = await Store.SaveAsync(Id, latest.Shots, latest.Revision, "Choose production take", _lifetime.Token);
+            Baseline(_doc);
         } catch (Exception e) { _reviewError = e.Message; }
     }
     private async Task DiscardTake(ShotTake take)

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.Shots;
+using SixLabors.ImageSharp;
 
 namespace Lumibelle.Tests;
 
@@ -77,6 +78,54 @@ public sealed class CutExportMediaTests : IDisposable
         await _media.ExportCutAsync([new(shortAudio, 24, 48, 24), new(silent, 0, 24, 24)], output, _settings, _timeout.Token);
         await AssertVideo(output, 48, 2, audio: true);
         Assert.True(Rms(await Audio(output), .15, 1.75) < .002);
+        var trimmed = Path.Combine(_directory, "trim-padding.mp4");
+        await _media.TrimTakeAsync(shortAudio, null, trimmed, 24, 48, 24, _settings, _timeout.Token);
+        await AssertVideo(trimmed, 24, 1, audio: true);
+        Assert.True(Rms(await Audio(trimmed), .1, .9) < .002);
+    }
+
+    [Theory(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    [InlineData(false, 24, 25)] [InlineData(true, 3, 37)] [InlineData(false, 0, 30)]
+    public async Task TakeTrimEncodesArbitraryFramesAndMatchingAudio(bool audio, int start, int end)
+    {
+        var source = await Fixture("red", audio ? 2 : null);
+        var output = Path.Combine(_directory, "trimmed.mp4");
+        await _media.TrimTakeAsync(source, null, output, start, end, 24, _settings, _timeout.Token);
+        await AssertVideo(output, end - start, (end - start) / 24d, audio);
+        await AssertColor(output, 0, true);
+        if (audio) Assert.True(Rms(await Audio(output), .1, .9) > .02);
+    }
+
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task TakeTrimUsesLosslessFrameSequenceInsteadOfCompressedSourcePixels()
+    {
+        var source = await Fixture("red", 2);
+        for (var i = 0; i < 3; i++) {
+            using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(64, 64, new(0, 0, 255));
+            image.Save(Path.Combine(_directory, $"frame-{i:D4}.png"), new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+        }
+        var output = Path.Combine(_directory, "frames.mp4");
+        await _media.TrimTakeAsync(source, Path.Combine(_directory, "frame-%04d.png"), output, 20, 23, 24, _settings, _timeout.Token);
+        await AssertVideo(output, 3, 3d / 24, true);
+        await AssertColor(output, 0, false); await AssertColor(output, 2, false);
+    }
+
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task TakeTrimKeepsVideoEndpointsAndAudioOnTheSameTimeline()
+    {
+        var red = await Fixture("red", 2); var blue = await Fixture("blue");
+        var source = Path.Combine(_directory, "source-timeline.mp4");
+        await _media.ExportCutAsync([new(red, 0, 24, 24), new(blue, 0, 24, 24)], source, _settings, _timeout.Token);
+        var output = Path.Combine(_directory, "trim-timeline.mp4");
+        await _media.TrimTakeAsync(source, null, output, 18, 42, 24, _settings, _timeout.Token);
+        await AssertVideo(output, 24, 1, true);
+        await AssertColor(output, 0, true); await AssertColor(output, 5, true);
+        await AssertColor(output, 6, false); await AssertColor(output, 23, false);
+        var audio = await Audio(output);
+        Assert.True(Rms(audio, .05, .2) > .02); Assert.True(Rms(audio, .4, .9) < .002);
+        using var probe = JsonDocument.Parse(await Run(_settings.Ffprobe, ["-v", "error", "-show_entries", "stream=start_time", "-of", "json", output]));
+        foreach (var stream in probe.RootElement.GetProperty("streams").EnumerateArray())
+            Assert.Equal(0, double.Parse(stream.GetProperty("start_time").GetString()!, CultureInfo.InvariantCulture));
     }
 
     private async Task<string> Fixture(string color, double? audioSeconds = null, int fps = 24, int width = 64)

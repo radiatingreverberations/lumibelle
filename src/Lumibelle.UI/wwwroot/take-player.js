@@ -6,6 +6,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     const video = root.querySelector('video'), frame = root.querySelector('.take-paused-frame');
     const seek = root.querySelector('[data-action=seek]'), cache = new Map(), requests = new Map(), listeners = [];
     let index = 0, ready = false, disposed = false, version = 0, presented = null, callback = null, selecting = null;
+    let rangeStart = 0, rangeEnd = count;
     const on = (el, event, action) => { el.addEventListener(event, action); listeners.push(() => el.removeEventListener(event, action)); };
     const notify = error => { if (!disposed) dotnet.invokeMethodAsync('PlayerState', index, !video.paused, ready, error ?? null).catch(() => {}); };
     const prune = () => {
@@ -50,7 +51,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     };
     const seekTo = i => {
         video.pause(); presented = null;
-        const target = Math.max(0, Math.min(count - 1, i));
+        const target = Math.max(rangeStart, Math.min(rangeEnd - 1, i));
         // Seek inside the chosen frame: container timestamps can round its leading edge down.
         video.currentTime = (target + .5) / fps;
         return settle(target);
@@ -58,7 +59,9 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     const track = (_, metadata) => {
         if (disposed) return;
         presented = metadata.mediaTime;
-        if (!video.paused) { index = frameAt(presented, fps, count); seek.value = index; }
+        if (!video.paused) { index = frameAt(presented, fps, count); seek.value = index;
+            if (index >= rangeEnd - 1) { video.pause(); seekTo(rangeEnd - 1); }
+        }
         callback = video.requestVideoFrameCallback(track);
     };
     if (video.requestVideoFrameCallback) callback = video.requestVideoFrameCallback(track);
@@ -66,9 +69,19 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(video, 'seeking', () => { ++version; ready = false; presented = null; frame.hidden = true; notify(); });
     on(video, 'seeked', () => { if (video.paused) settle(frameAt(video.currentTime, fps, count)); });
     on(video, 'play', () => { ++version; frame.hidden = true; ready = false; notify(); });
-    on(video, 'timeupdate', () => { if (!video.paused && !video.requestVideoFrameCallback) { index = frameAt(video.currentTime, fps, count); seek.value = index; } });
+    on(video, 'timeupdate', () => {
+        if (!video.paused && !video.requestVideoFrameCallback) {
+            index = frameAt(video.currentTime, fps, count); seek.value = index;
+            if (index >= rangeEnd - 1) { video.pause(); seekTo(rangeEnd - 1); }
+        }
+    });
     on(video, 'error', () => notify(lossless ? 'Video playback is unavailable. You can still browse and save archived frames.' : 'Video playback is unavailable. Frame extraction remains available if the saved MP4 can be read by FFmpeg.'));
-    on(root.querySelector('[data-action=play]'), 'click', () => video.paused ? video.play().catch(() => notify('Playback could not start.')) : video.pause());
+    on(root.querySelector('[data-action=play]'), 'click', () => {
+        if (video.paused) {
+            if (index < rangeStart || index >= rangeEnd - 1) { presented = null; video.currentTime = rangeStart / fps; }
+            video.play().catch(() => notify('Playback could not start.'));
+        } else video.pause();
+    });
     for (const button of root.querySelectorAll('.take-save-frame, .take-continue-frame')) on(button, 'click', () => video.pause());
     on(root.querySelector('[data-action=previous]'), 'click', () => seekTo(index - 1));
     on(root.querySelector('[data-action=next]'), 'click', () => seekTo(index + 1));
@@ -78,6 +91,11 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(root.querySelector('[data-action=fullscreen]'), 'click', () => (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(() => {}));
     settle(0);
     return {
+        setRange(start, end) {
+            rangeStart = Math.max(0, Math.min(count - 1, start)); rangeEnd = Math.max(rangeStart + 1, Math.min(count, end));
+            seek.min = rangeStart; seek.max = rangeEnd - 1;
+            if (index < rangeStart || index >= rangeEnd) return seekTo(rangeStart);
+        },
         pause: () => video.pause(),
         async pauseForSave() {
             if (!video.paused) await new Promise(resolve => { video.addEventListener('pause', resolve, { once: true }); video.pause(); });

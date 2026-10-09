@@ -29,7 +29,7 @@ public static class AiVideoBatchReview
         var first = takes.OrderBy(t => t.Candidate).First();
         var run = new VideoRun { Id = first.RunId, Snapshot = first.Snapshot, CreatedUtc = takes.Min(t => t.CreatedUtc), Paused = true,
             Status = "Earlier batch · its batch record is not in this project, so only its saved takes are shown. Use the shot controls to generate a new batch." };
-        run.Candidates.AddRange(takes.OrderBy(t => t.Candidate).Select(t => new VideoCandidate { TakeId = t.Id, Number = t.Candidate, Seed = t.Seed, State = VideoCandidateState.Complete }));
+        run.Candidates.AddRange(takes.Where(t => t.Trim is null || !takes.Any(p => p.Id == t.Trim.ParentTakeId)).OrderBy(t => t.Candidate).Select(t => new VideoCandidate { TakeId = t.Id, Number = t.Candidate, Seed = t.Seed, State = VideoCandidateState.Complete }));
         return run;
     }
 

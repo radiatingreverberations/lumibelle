@@ -46,6 +46,7 @@ internal static class ProjectPackageRefinement
             foreach (var frame in take.Frames.DistinctBy(f => f.FileName))
                 size = checked(size + new FileInfo(plan.Sources[$"shots/takes/{take.Id:D}/{frame.FileName}"].Physical).Length);
             take.Bytes = checked(size + (take.RefinementPackage?.Bytes ?? 0));
+            if (take.RetainedSource is { } retained) take.Bytes = checked(take.Bytes + retained.Inputs.Sum(i => i.Bytes));
             visiting.Remove(take.Id); done.Add(take.Id);
         }
         foreach (var take in takes.Values) await One(take);

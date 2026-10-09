@@ -15,6 +15,9 @@ public interface IShotStore
     Task<ShotDocument> DeleteShotsAsync(Guid projectId, IReadOnlyCollection<Guid> shotIds, long expectedRevision, bool clearProductionSelections = false, CancellationToken ct = default);
     Task<ShotDocument> RecoverAsync(Guid projectId, Guid recoveryId, long expectedRevision, CancellationToken ct = default);
     Task<ShotDocument> PublishTakeAsync(Guid projectId, ShotTake take, string stagingDirectory, CancellationToken ct = default);
+    Task<ShotDocument> TrimTakeAsync(Guid projectId, TakeTrimRequest request, long? expectedRevision = null,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+        => throw new WorkspaceStoreException("Take trimming is unavailable.");
     Task<ShotDocument> MoveTakesAsync(Guid projectId, IReadOnlyCollection<Guid> takeIds, Guid destinationShotId, long expectedRevision, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Moving takes is unavailable.");
     Task<ShotDocument> DiscardAsync(Guid projectId, Guid mediaId, ShotTrashKind kind, long expectedRevision, CancellationToken ct = default);
@@ -52,6 +55,8 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
     }
     public static void Validate(ShotDocument d, Guid id)
     {
+        if (d.TrimPublications is null || d.TrimPublications.Any(r => r is null || r.ResultId == Guid.Empty || r.TakeId == Guid.Empty || r.ResultId == r.TakeId || r.StartFrame < 0 || r.EndFrameExclusive <= r.StartFrame || r.EndFrameExclusive > 362) || d.TrimPublications.DistinctBy(r => r.ResultId).Count() != d.TrimPublications.Count)
+            throw new WorkspaceStoreException("Invalid trim publication receipts.");
         if (id == Guid.Empty || d.ProjectId != id || d.SchemaVersion != 2 || d.SceneSetups is null || d.SceneSetups.Any(s => s is null || s.SceneId == Guid.Empty || s.Version == Guid.Empty || s.Images is null || s.Images.Any(i => i is null || i.Image is null)) || d.SceneSetups.Select(s => s.SceneId).Distinct().Count() != d.SceneSetups.Count || d.Revision < 0 || d.Shots is null || d.Takes is null || d.Trash is null || d.Recovery is null || d.Shots.Any(x => x is null) || d.Takes.Any(x => x is null) || d.Trash.Any(x => x is null) ||
             d.Shots.Select(s => s.Id).Distinct().Count() != d.Shots.Count || d.Takes.Select(t => t.Id).Distinct().Count() != d.Takes.Count ||
             d.Trash.Select(t => t.Id).Distinct().Count() != d.Trash.Count || d.PlanningReviews is null ||
@@ -63,6 +68,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         foreach (var shot in d.Shots) { H3Policy.Validate(shot); if (shot.SelectedTakeId is { } selected && !d.Takes.Any(t => t.Id == selected && t.ShotId == shot.Id)) throw new WorkspaceStoreException("The selected take no longer exists."); }
         foreach (var t in d.Takes.Concat(d.Trash.Where(t => t.Take is not null).Select(t => t.Take!)))
         {
+            TakeTrimming.Validate(t);
             if (t.Id == Guid.Empty || t.ShotId == Guid.Empty || t.Directory != t.Id.ToString("D") || t.Frames is null || t.Snapshot is null || t.FrameCount is < 1 or > 362 || t.Frames.Count != (t.HasLosslessFrames ? t.FrameCount : 0) || t.Snapshot.Shot.Id == Guid.Empty || t.RunId == Guid.Empty ||
                 t.Frames.Where((f, i) => f is null || f.Index != i || f.Bytes <= 0 ||
                     f.FileName != LosslessFrameArchive.FileName(i / LosslessFrameArchive.SegmentFrames) || f.ArchiveFrameIndex is < 0 or >= LosslessFrameArchive.SegmentFrames ||
@@ -78,7 +84,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             if (t.Snapshot.PreviewUpscale is not null && (t.Width, t.Height) != H3PreviewUpscaling.OutputSize(t.Snapshot, t.Refinement))
                 throw new WorkspaceStoreException("The upscaled take does not match its captured output dimensions.");
             if (t.RefinementPackage is { } package && (package.Id == Guid.Empty || package.Bytes <= 0 || !RefinementPolicy.Hash(package.Sha256) ||
-                package.Width != t.Width || package.Height != t.Height || package.FrameCount != t.FrameCount) ||
+                package.Width != t.Width || package.Height != t.Height || package.FrameCount != t.Snapshot.FrameCount) ||
                 (t.Refinement is not null || t.Snapshot.CaptureRefinementData) && t.RefinementPackage is null)
                 throw new WorkspaceStoreException("Invalid or missing take refinement package.");
         }
@@ -195,6 +201,10 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         take = ShotCopy.Of(take);
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var d = await Read(dir, projectId, ct);
+        return await PublishTakeCore(projectId, take, stagingDirectory, dir, d, ct);
+    }
+    private async Task<ShotDocument> PublishTakeCore(Guid projectId, ShotTake take, string stagingDirectory, string dir, ShotDocument d, CancellationToken ct)
+    {
         take.Directory = take.Id.ToString("D");
         var fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(take, AtomicJsonFile.Options)));
         if (d.TakePublications.SingleOrDefault(r => r.TakeId == take.Id) is { } receipt)
@@ -226,6 +236,8 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
     }
     private static void RequireFiles(string dir, ShotTake take)
     {
+        if (take.RetainedSource is { } retained && retained.Inputs.Any(i => !File.Exists(Path.Combine(dir, TakeTrimming.InputsFolder, i.FileName))))
+            throw new WorkspaceStoreException("The retained refinement inputs are incomplete.");
         if (!File.Exists(Path.Combine(dir, "video.mp4")) || take.Frames.DistinctBy(f => f.FileName).Any(f => !File.Exists(Path.Combine(dir, f.FileName))) ||
             take.RefinementPackage is not null && !File.Exists(Path.Combine(dir, H3RefinementPackage.FileName)))
             throw new WorkspaceStoreException("The take archive is incomplete. Retry downloading without regenerating.");
@@ -348,6 +360,13 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             File.Move(Path.Combine(target, output + ".tmp"), Path.Combine(target, output));
         }
         await Copy(H3RefinementPackage.FileName, H3RefinementPackage.FileName);
+        if (take.RetainedSource is { } retained) {
+            foreach (var input in retained.Inputs) {
+                var inputPath = Path.Combine(source, TakeTrimming.InputsFolder, input.FileName);
+                await RefinementPackages.VerifyFileAsync(inputPath, input.Bytes, input.Sha256, ct);
+                await Copy(Path.Combine(TakeTrimming.InputsFolder, input.FileName), input.FileName);
+            }
+        }
         var captured = new TakeRefinement(take.Id, package, mode, width, height, upscaler, implementation);
         RefinementPolicy.Validate(captured, take.Snapshot);
         return captured;

@@ -414,6 +414,7 @@ public sealed partial class ShotTests
         private readonly ShotTests _owner; private readonly ScriptedHttpHandler _http;
         public ProjectInfo Project = null!; public IShotStore Shots = null!; public Shot Shot = null!;
         public FileAssetStore Assets = null!;
+        public ProjectFiles Files = null!;
         public AiVideoJobCapture CaptureService = null!; public string ProjectDirectory = null!;
         public FakeProjectAiPreferencesStore Preferences { get; } = new();
         public FakeAiSettingsStore Settings { get; } = new() { Value = new() { ComfyUrl = "http://video.test:8188", H3 = new() { LatentUpscaler = "mock-h3-3d.safetensors" } } };
@@ -455,17 +456,17 @@ public sealed partial class ShotTests
                 throw new InvalidOperationException(request.RequestUri.ToString());
             });
         }
-        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20, bool saveLatents = true)
+        public static async Task<QueuedVideoFixture> Create(ShotTests owner, int steps = 20, bool saveLatents = true, IProductionMediaTools? trimMedia = null)
         {
             var result = new QueuedVideoFixture(owner); var f = owner.Fixture(); var a = ApprovedShot(f.Project.Id);
-            result.Project = f.Project; result.Shots = f.Shots; result.Shot = a.Shot; result.Assets = f.Assets;
+            result.Project = f.Project; result.Files = f.Files; result.Shots = trimMedia is null ? f.Shots : new FileShotStore(f.Files, owner._clock, mediaTools: trimMedia, jobs: result.Jobs); result.Shot = a.Shot; result.Assets = f.Assets;
             result.Shot.Turbo = steps != 20; result.Shot.TurboSteps = steps == 8 ? 8 : 4; result.Shot.SaveLatents = saveLatents;
             result.ProjectDirectory = await f.Files.DirectoryAsync(f.Project.Id, owner._ct);
             await f.Shots.SaveAsync(f.Project.Id, [result.Shot], 0, ct: owner._ct);
             var generator = result.Generator = new MockVideoGenerator(f.Assets, f.Shots);
-            result.CaptureService = new(f.Shots, a.Scripts, f.Assets, result.Settings, generator,
+            result.CaptureService = new(result.Shots, a.Scripts, f.Assets, result.Settings, generator,
                 new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) }, result.Preferences, jobs: result.Jobs);
-            result.Worker = new(f.Shots, result.Generator, result.Adapter, new TestHttpFactory(result._http), new(TestComfy.Monitor()), TimeProvider.System);
+            result.Worker = new(result.Shots, result.Generator, result.Adapter, new TestHttpFactory(result._http), new(TestComfy.Monitor()), TimeProvider.System);
             return result;
         }
         public ReelTestMedia ReelMedia { get; } = new();
@@ -516,7 +517,7 @@ public sealed partial class ShotTests
     }
     private sealed class VideoAdapter : IComfyVideoJobAdapter
     {
-        public int Downloads; public bool FailTransfer, Missing;
+        public int Downloads; public bool FailTransfer, Missing, RealFrames;
         public List<VideoCandidate> Downloaded { get; } = [];
         public Func<Task>? BeforeDownload;
         public ComfyExecutionOptions Options => ComfyH3Video.MonitorOptions;
@@ -535,6 +536,7 @@ public sealed partial class ShotTests
             var s = request.Snapshot; var frames = new List<ShotFrame>();
             for (var i = 0; i < (request.Refinement is not null || s.OutputPolicy?.SaveLosslessFrames != false ? s.FrameCount : 0); i++) frames.Add(new(i, LosslessFrameArchive.FileName(i / LosslessFrameArchive.SegmentFrames), 1));
             foreach (var file in frames.Select(f => f.FileName).Distinct()) await File.WriteAllBytesAsync(Path.Combine(directory, file), [1], ct);
+            if (RealFrames && frames.Count > 0) frames = await MockFrameArchive.WriteAsync(directory, s.FrameCount, request.Refinement?.Width ?? s.Width, request.Refinement?.Height ?? s.Height, ct);
             var package = s.CaptureRefinementData || request.Refinement is not null ? await MockRefinementPackage.WriteAsync(directory, s, request.Refinement, ct) : null;
             return new() { Id = c.TakeId, RunId = request.BatchId, ShotId = s.Shot.Id, Candidate = c.Number, Seed = c.Seed, Snapshot = ShotCopy.Of(s), Refinement = request.Refinement, RefinementPackage = package,
                 CreatedUtc = DateTimeOffset.UtcNow, Width = H3PreviewUpscaling.OutputSize(s, request.Refinement).Width, Height = H3PreviewUpscaling.OutputSize(s, request.Refinement).Height, Directory = c.TakeId.ToString("D"), Frames = frames, Bytes = 4 + (package?.Bytes ?? 0) };

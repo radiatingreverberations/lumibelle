@@ -47,6 +47,8 @@ internal static class ProjectPackageFormat
                 p[2] == "voices" && AudioExtensions.Contains(Path.GetExtension(p[3]).ToLowerInvariant());
         if (p.Length == 4 && p[0] == "shots" && p[1] == "takes" && Id(p[2]))
             return p[3] is "video.mp4" or "refinement.safetensors" || ArchiveName(p[3]);
+        if (p.Length == 5 && p[0] == "shots" && p[1] == "takes" && Id(p[2]) && p[3] == "refinement-inputs")
+            return p[4] == Path.GetFileName(p[4]) && Path.GetExtension(p[4]) is ".png" or ".wav" or ".mp4";
         if (p.Length == 3 && p[0] == "reference-videos" && Id(p[1]))
             return p[2] is "media.json" or "video.mp4" or "frame-archive.json" || KeyframeName(p[2]);
         if (p.Length == 4 && p[0] == "reference-videos" && Id(p[1]) && p[2] == "lossless") return ArchiveName(p[3]);
