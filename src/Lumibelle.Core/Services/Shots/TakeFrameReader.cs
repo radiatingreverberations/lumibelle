@@ -19,6 +19,10 @@ public sealed class TakeFrameReader(IProductionMediaTools media)
     public async Task<Stream> OpenAsync(string directory, ShotTake take, int index, CancellationToken ct)
     {
         if (index < 0 || index >= take.FrameCount) throw new WorkspaceStoreException("Choose an available frame.");
+        if (take.Composition is not null && take.FrameArchiveRemoval is null) {
+            var (segment, localEnd) = H3Motion.Tail(take, index + 1);
+            return await OpenAsync(Path.Combine(directory, "segments", segment.Key.ToString("D")), segment.Source, localEnd - 1, ct);
+        }
         if (take.HasLosslessFrames)
         {
             var frame = take.Frames.ElementAtOrDefault(index) ?? throw new WorkspaceStoreException("The lossless frame archive is missing.");

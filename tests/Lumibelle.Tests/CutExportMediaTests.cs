@@ -21,6 +21,36 @@ public sealed class CutExportMediaTests : IDisposable
     };
     private readonly CancellationTokenSource _timeout = new(TimeSpan.FromMinutes(2));
     private readonly ProductionMediaTools _media = new();
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task CombinedMediaCanExceedTheGenerationFrameLimitWithoutAudioDrift()
+    {
+        var voiced = await Fixture("red", audioSeconds: 2); var silent = await Fixture("blue");
+        var output = Path.Combine(_directory, "long-extension.mp4");
+        var segments = Enumerable.Range(0, 9).Select(i => new TakeAssemblyMedia(i % 2 == 0 ? voiced : silent, null, 1, 47, 24)).ToArray();
+        await _media.AssembleTakeAsync(segments, output, _settings, _timeout.Token);
+        await AssertVideo(output, 414, 414d / 24, audio: true);
+        await AssertColor(output, 413, true);
+        var samples = await Audio(output);
+        Assert.True(Rms(samples, 46d / 24 + .15, 92d / 24 - .15) < .002);
+        Assert.True(Rms(samples, 368d / 24 + .15, 414d / 24 - .15) > .02);
+    }
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task ExtensionAssemblyRemovesOverlapOnceAndPreservesSilentAndVoicedIntervals()
+    {
+        var prefix = await Fixture("red", audioSeconds: 2); var extension = await Fixture("blue");
+        var output = Path.Combine(_directory, "extension.mp4");
+        await _media.AssembleTakeAsync([new(prefix, null, 0, 39, 24), new(extension, null, 22, 48, 24)], output, _settings, _timeout.Token);
+        await AssertVideo(output, 65, 65d / 24, audio: true);
+        await AssertColor(output, 38, true); await AssertColor(output, 39, false); await AssertColor(output, 64, false);
+        var samples = await Audio(output);
+        Assert.True(Rms(samples, .2, 1.4) > .02); Assert.True(Rms(samples, 1.8, 2.5) < .002);
+        var context = Path.Combine(_directory, "context.wav");
+        await _media.CaptureMotionAudioAsync(prefix, context, 5, 44, 24, _settings, _timeout.Token);
+        Assert.InRange(await _media.AudioDurationAsync(context, _settings, _timeout.Token), 39d / 24 - .001, 39d / 24 + .001);
+        var absent = Path.Combine(_directory, "silent-context.wav");
+        await _media.CaptureMotionAudioAsync(extension, absent, 0, 39, 24, _settings, _timeout.Token);
+        Assert.False(File.Exists(absent));
+    }
 
     [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
     public async Task MixedAudioExportKeepsDialogueAndInsertsSilenceAtTheRightTime()
@@ -128,6 +158,20 @@ public sealed class CutExportMediaTests : IDisposable
             Assert.Equal(0, double.Parse(stream.GetProperty("start_time").GetString()!, CultureInfo.InvariantCulture));
     }
 
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task LeadInAssemblyRemovesTheEndingOverlapAndRetainsFollowingAudio()
+    {
+        var red = await Fixture("red"); var blue = await Fixture("blue", 2);
+        var full = Path.Combine(_directory, "lead-in-full.mp4");
+        await _media.AssembleTakeAsync([new(red, null, 0, 17, 24), new(blue, null, 0, 39, 24)], full, _settings, _timeout.Token);
+        var result = Path.Combine(_directory, "lead-in-combined.mp4");
+        await _media.AssembleTakeAsync([new(full, null, 0, 17, 24), new(blue, null, 3, 42, 24)], result, _settings, _timeout.Token);
+        await AssertVideo(result, 56, 56 / 24d, true);
+        await AssertColor(result, 0, true); await AssertColor(result, 16, true);
+        await AssertColor(result, 17, false); await AssertColor(result, 55, false);
+        var audio = await Audio(result);
+        Assert.True(Rms(audio, .1, .5) < .002); Assert.True(Rms(audio, 1, 2.2) > .02);
+    }
     private async Task<string> Fixture(string color, double? audioSeconds = null, int fps = 24, int width = 64)
     {
         Directory.CreateDirectory(_directory);

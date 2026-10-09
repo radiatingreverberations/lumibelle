@@ -525,7 +525,8 @@ public sealed partial class ShotTests
         public Task<Func<string, object>> PrepareWorkflowAsync(AiVideoJobRequest request, AiBatchCandidate candidate, string directory, CancellationToken ct) =>
             Task.FromResult<Func<string, object>>(id => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, id,
                 request.Inputs.Select(i => new PreparedVideoInput(i.FileName, i.Audio) { Kind = i.Kind, VideoIndex = i.VideoIndex }).ToArray(),
-                refine: request.Refinement is { } refinement ? new(refinement, "lumibelle-video.latent", "lumibelle-audio.latent") : null));
+                refine: request.Refinement is { } refinement ? new(refinement, "lumibelle-video.latent", "lumibelle-audio.latent") : null,
+                motion: request.Snapshot.Motion is { } motion ? new(motion, motion.Files.ToDictionary(f => f.FileName, f => f.FileName)) : null));
         public async Task<ShotTake> DownloadAsync(AiVideoJobRequest request, VideoCandidate c, string directory, Func<string, Task> progress, CancellationToken ct)
         {
             Downloaded.Add(c);

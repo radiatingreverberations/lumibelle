@@ -49,7 +49,9 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
         selecting = new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
             .then(() => disposed || token !== version || !video.paused ? -1 : select(frameAt(presented ?? video.currentTime, fps, count)));
     };
+    let joinEnd = null;
     const seekTo = i => {
+        joinEnd = null;
         video.pause(); presented = null;
         const target = Math.max(rangeStart, Math.min(rangeEnd - 1, i));
         // Seek inside the chosen frame: container timestamps can round its leading edge down.
@@ -60,7 +62,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
         if (disposed) return;
         presented = metadata.mediaTime;
         if (!video.paused) { index = frameAt(presented, fps, count); seek.value = index;
-            if (index >= rangeEnd - 1) { video.pause(); seekTo(rangeEnd - 1); }
+            if (index >= (joinEnd ?? rangeEnd) - 1) { video.pause(); seekTo((joinEnd ?? rangeEnd) - 1); }
         }
         callback = video.requestVideoFrameCallback(track);
     };
@@ -72,7 +74,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(video, 'timeupdate', () => {
         if (!video.paused && !video.requestVideoFrameCallback) {
             index = frameAt(video.currentTime, fps, count); seek.value = index;
-            if (index >= rangeEnd - 1) { video.pause(); seekTo(rangeEnd - 1); }
+            if (index >= (joinEnd ?? rangeEnd) - 1) { video.pause(); seekTo((joinEnd ?? rangeEnd) - 1); }
         }
     });
     on(video, 'error', () => notify(lossless ? 'Video playback is unavailable. You can still browse and save archived frames.' : 'Video playback is unavailable. Frame extraction remains available if the saved MP4 can be read by FFmpeg.'));
@@ -91,6 +93,13 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(root.querySelector('[data-action=fullscreen]'), 'click', () => (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(() => {}));
     settle(0);
     return {
+        async previewJoin(join) {
+            rangeStart = 0; rangeEnd = count;
+            await seekTo(Math.max(0, join - Math.round(fps)));
+            joinEnd = Math.min(count, join + Math.round(fps) + 1);
+            frame.hidden = true;
+            video.play().catch(() => notify('Playback could not start.'));
+        },
         setRange(start, end) {
             rangeStart = Math.max(0, Math.min(count - 1, start)); rangeEnd = Math.max(rangeStart + 1, Math.min(count, end));
             seek.min = rangeStart; seek.max = rangeEnd - 1;

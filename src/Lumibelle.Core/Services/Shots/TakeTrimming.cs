@@ -8,6 +8,7 @@ namespace lumibelle.Services.Shots;
 public static class TakeTrimming
 {
     public const string InputsFolder = "refinement-inputs";
+    public const string RefinementInputFile = "refinement-source.safetensors";
     public static Guid OutputId(Guid fullTakeId) => new(SHA256.HashData(fullTakeId.ToByteArray().Concat("trim"u8.ToArray()).ToArray()).AsSpan(0, 16));
     public static void Range(int start, int end, int count)
     {
@@ -16,18 +17,18 @@ public static class TakeTrimming
     public static void Validate(ShotTake take)
     {
         if (take.Snapshot is null) throw new WorkspaceStoreException("The take generation context is missing.");
-        if (take.Trim is not { } t) {
-            if (take.RetainedSource is not null) throw new WorkspaceStoreException("Retained inputs require a trimmed take.");
-            return;
-        }
+        if (take.Trim is { } t) {
         Range(t.StartFrame, t.EndFrameExclusive, t.ParentFrameCount);
-        Range(t.SourceStartFrame, t.SourceEndFrameExclusive, take.Snapshot.FrameCount);
+        if (take.Composition is null) Range(t.SourceStartFrame, t.SourceEndFrameExclusive, take.Snapshot.FrameCount);
         if (t.ParentTakeId == Guid.Empty || t.ParentTakeId == take.Id || take.Snapshot.FrameCount > 362 ||
-            t.ParentFrameCount > take.Snapshot.FrameCount || t.SourceStartFrame < t.StartFrame ||
+            take.Composition is null && t.ParentFrameCount > take.Snapshot.FrameCount || t.SourceStartFrame < t.StartFrame ||
             t.EndFrameExclusive - t.StartFrame != t.SourceEndFrameExclusive - t.SourceStartFrame ||
-            (take.RefinementPackage is not null) != (take.RetainedSource is not null))
+            take.Composition is null && take.RefinementPackage is not null && take.RetainedSource is null)
             throw new WorkspaceStoreException("Invalid trimmed take provenance.");
+        }
         if (take.RetainedSource is { } source) {
+            if (source.RefinementInput is { } original && (take.Refinement?.SourcePackage != original || original.Bytes <= 0 || !RefinementPolicy.Hash(original.Sha256)))
+                throw new WorkspaceStoreException("Invalid retained refinement replay package.");
             if (source.Inputs is null || source.Inputs.Count > 100 || source.Inputs.Any(i => i is null) || source.Inputs.DistinctBy(i => i.FileName).Count() != source.Inputs.Count)
                 throw new WorkspaceStoreException("Invalid retained refinement inputs.");
             foreach (var input in source.Inputs) {

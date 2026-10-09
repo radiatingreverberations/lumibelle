@@ -32,7 +32,7 @@ internal sealed class ProjectPackagePlan
         // generation would keep itself alive merely because its receipt still exists.
         state.Assets = assets with { Trash = [], ReelTrash = [], VoiceTrash = [], ImagePublications = [],
             ImageCopyReceipts = [], ReelPublications = [], VoiceImportReceipts = [] };
-        state.Shots = shots with { Trash = [], TakePublications = [], TrimPublications = [] };
+        state.Shots = shots with { Trash = [], TakePublications = [], TrimPublications = [], ExtensionPublications = [] };
         references.Scan(state.Assets); references.Scan(state.Shots); references.Scan(state.Production); references.Scan(state.Cut);
         var changed = true; var rounds = 0;
         while (changed)
@@ -73,16 +73,20 @@ internal sealed class ProjectPackagePlan
         foreach (var voice in allVoices) plan.Add(root, $"assets/{(voice.StorageAssetId ?? voice.AssetId):D}/voices/{voice.FileName}");
         foreach (var id in references.Voices.Except(allVoices.Select(v => v.Id))) plan.Note($"Referenced recording {id:D} is already unavailable.");
         var allTakes = state.Shots.Takes.Concat(state.Shots.Trash.Where(t => t.Take is not null).Select(t => t.Take!)).ToArray();
-        if (options.LeaveOutLosslessArchives && allTakes.Any(t => t.Frames.Count > 0))
+        if (options.LeaveOutLosslessArchives && allTakes.Any(t => t.HasAnyLosslessFrames))
             throw new WorkspaceStoreException("This package leaves out lossless archives, but a take still lists its archive.");
         foreach (var take in allTakes)
         {
-            plan.Add(root, $"shots/takes/{take.Id:D}/video.mp4");
-            foreach (var frame in take.Frames.DistinctBy(f => f.FileName)) plan.Add(root, $"shots/takes/{take.Id:D}/{frame.FileName}", frame.Bytes);
-            if (take.RefinementPackage is { } package) plan.Add(root, $"shots/takes/{take.Id:D}/{H3RefinementPackage.FileName}", package.Bytes, package.Sha256);
-            if (take.RetainedSource is { } retained)
-                foreach (var input in retained.Inputs)
-                    plan.Add(root, $"shots/takes/{take.Id:D}/{TakeTrimming.InputsFolder}/{input.FileName}", input.Bytes, input.Sha256);
+            foreach (var file in TakeBundles.Files(take).Distinct()) plan.Add(root, $"shots/takes/{take.Id:D}/{file}");
+            foreach (var (context, prefix) in TakeBundles.Contexts(take)) {
+                var path = $"shots/takes/{take.Id:D}/{prefix}";
+                foreach (var frame in context.Frames.DistinctBy(f => f.FileName)) plan.Add(root, path + frame.FileName, frame.Bytes);
+                if (context.RefinementPackage is { } package) plan.Add(root, path + H3RefinementPackage.FileName, package.Bytes, package.Sha256);
+                if (context.RetainedSource?.RefinementInput is { } original) plan.Add(root, path + TakeTrimming.InputsFolder + "/" + TakeTrimming.RefinementInputFile, original.Bytes, original.Sha256);
+                foreach (var input in context.RetainedSource?.Inputs ?? []) plan.Add(root, path + TakeTrimming.InputsFolder + "/" + input.FileName, input.Bytes, input.Sha256);
+                if (context.RetainedSource is not null) foreach (var input in context.Snapshot.Motion?.Files ?? []) plan.Add(root, path + TakeTrimming.InputsFolder + "/" + input.FileName, input.Bytes, input.Sha256);
+            }
+            foreach (var file in take.Extension?.SourceFiles ?? []) plan.Add(root, $"shots/takes/{take.Id:D}/{H3Motion.SourceFolder}/{file.FileName}", file.Bytes, file.Sha256);
         }
         foreach (var id in references.Takes.Except(allTakes.Select(t => t.Id))) plan.Note($"Source take {id:D} is unavailable; saved media and provenance remain included.");
         // A binding can outlive its reel's asset-library entry. Its immutable media record

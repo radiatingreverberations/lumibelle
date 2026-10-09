@@ -207,6 +207,12 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
     }
     private async Task<Guid> ApplyOutputTrim(AiVideoJobRequest request, Guid takeId, CancellationToken ct)
     {
+        if (request.Extension is not null) {
+            try { await shots.PublishExtensionAsync(request.Snapshot.ProjectId, request, takeId, ct); return H3Motion.OutputId(takeId); }
+            catch (Exception e) when (e is WorkspaceStoreException or IOException) {
+                throw new AiJobRecoveryException("The full generation is saved. Retry saving extension without generating again. " + e.Message, AiJobRecovery.RetryOutput, e);
+            }
+        }
         if (request.OutputTrim is not { } trim) return takeId;
         var id = TakeTrimming.OutputId(takeId);
         try {
@@ -245,9 +251,10 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
     public static AiJobTarget Target(VideoSnapshot s, TakeRefinement? refinement = null) => s.Reel is { } reel
         ? new(s.ProjectId, reel.Recipe.AssetId, ReelId: reel.Recipe.Id)
         : new(s.ProjectId, ShotId: s.Shot.Id, TakeId: refinement?.ParentTakeId, CompositionId: s.Production?.CompositionId);
-    public static AiJobTarget Target(AiVideoJobRequest request) => request.DestinationShotId is { } destination
-        ? Target(request.Snapshot, request.Refinement) with { ShotId = destination, CompositionId = null }
-        : Target(request.Snapshot, request.Refinement);
+    public static AiJobTarget Target(AiVideoJobRequest request) => request.Snapshot.Reel is not null ? Target(request.Snapshot, request.Refinement) : Target(request.Snapshot, request.Refinement) with {
+        ShotId = request.DestinationShotId ?? request.Snapshot.Shot.Id,
+        TakeId = request.Refinement?.ParentTakeId ?? request.Extension?.Source.Id,
+        CompositionId = request.DestinationShotId is null ? request.Snapshot.Production?.CompositionId : null };
     private HttpClient Client(string server)
     {
         var http = clients.CreateClient("ComfyUI"); http.BaseAddress = new(AiProviderRegistry.NormalizeComfyUrl(server) + "/");

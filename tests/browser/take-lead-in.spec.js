@@ -1,0 +1,105 @@
+import { test, expect } from './fixtures.js';
+import { submitPlanning } from './text-assistance-tools.js';
+import { composeProduction, generateTakes, toolsTab } from './workspace-tools.js';
+
+const review = page => page.locator('.shot-review-dialog');
+const state = async (request, id) => (await request.get(`/fixtures/${id}/shots`)).json();
+async function setup(page, request, duration = 1) {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/approved`); await page.goto(`/projects/${id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.getByRole('button', { name: 'Draft shots', exact: true }).click(); await submitPlanning(page);
+  await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await page.getByLabel('Duration (seconds)').fill(String(duration)); await page.getByLabel('Duration (seconds)').blur();
+  await expect.poll(async () => (await state(request, id)).shots[0].duration).toBe(duration);
+  await composeProduction(page); await toolsTab(page, 'Generate');
+  await page.getByLabel('Save lossless frames', { exact: true }).check();
+  await page.getByLabel('Save latents', { exact: true }).check();
+  await generateTakes(page); await expect(review(page)).toBeVisible(); return id;
+}
+
+test('lead-in prepends new footage, preserves the source and reviews its first segment', async ({ page, request }) => {
+  test.setTimeout(150000);
+  const id = await setup(page, request); const before = await state(request, id); const source = before.takes[0];
+  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
+  await expect(form).toContainText('Lead into frame 1'); await expect(form).toContainText('Retain frames 1–39 of 39');
+  await expect(form).toContainText('Saved motion'); await expect(form.getByLabel('Added duration', { exact: true })).toHaveValue('5');
+  await expect(form.getByLabel('Lead-in action', { exact: true })).toHaveValue('');
+  await expect(form.getByLabel('New dialogue', { exact: true })).toHaveValue('');
+  await form.getByLabel('Lead-in action', { exact: true }).fill('She approaches the doorway before entering.');
+  await form.getByLabel('Added duration', { exact: true }).fill('1');
+  await form.getByRole('button', { name: 'Queue lead-in', exact: true }).click();
+  await expect.poll(async () => (await state(request, id)).takes.filter(t => t.composition).length, { timeout: 45000 }).toBe(1);
+  const after = await state(request, id); const take = after.takes.find(t => t.composition);
+  expect(take.composition.generatedSegmentKey).toBe(take.composition.segments[0].key);
+  expect(take.composition.segments[1].source.id).toBe(source.id);
+  expect(take.composition.segments[1].source.refinementPackage.sha256).toBe(source.refinementPackage.sha256);
+  expect(take.composition.segments[0].startFrame).toBe(0);
+  expect(after.shots[0].selectedTakeId).toBeNull(); expect(after.shots[0].duration).toBe(before.shots[0].duration);
+  await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${take.id}`);
+  await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  const refine = review(page).getByRole('region', { name: 'Refine take', exact: true });
+  await expect(refine).toContainText('lead-in segment');
+  await refine.getByRole('button', { name: 'Back to review', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  await expect(form).toBeVisible(); expect(await form.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await form.getByLabel('Lead-in action', { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'obj/lead-in-narrow.png', fullPage: true });
+});
+
+test('paused lead-in captures following motion and saves a separate shot before its source', async ({ page, request }) => {
+  test.setTimeout(150000);
+  const id = await setup(page, request); const source = (await state(request, id)).takes[0];
+  const position = review(page).getByRole('slider', { name: 'Video position' });
+  await position.press('Home'); for (let i = 0; i < 3; i++) await position.press('ArrowRight');
+  await expect(review(page).locator('.take-player')).toHaveAttribute('data-frame-index', '3');
+  await review(page).getByRole('button', { name: 'Lead into this frame', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
+  await expect(form).toContainText('Retain frames 4–39 of 39'); await expect(form).toContainText('re-encoded context');
+  await form.getByLabel('Lead-in action', { exact: true }).fill('She approaches before reaching the doorway.');
+  await form.getByLabel('Added duration', { exact: true }).fill('1');
+  const before = (await (await request.get('/fixtures/compositions')).json()).length;
+  await form.getByRole('button', { name: 'Text model options', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
+  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Close', exact: true }).click();
+  await form.getByRole('button', { name: 'Compose lead-in prompt', exact: true }).click();
+  await expect.poll(async () => (await (await request.get('/fixtures/compositions')).json()).length).toBe(before + 1);
+  const composition = (await (await request.get('/fixtures/compositions')).json()).at(-1);
+  expect(composition.context.cutContinuity.transition).toBe('continuous_into_motion_window');
+  expect(composition.context.followingAction).toBe(source.snapshot.shot.description);
+  expect(composition.context.precedingAction).toBeNull(); expect(composition.context.shot.dialogue).toEqual([]);
+  await form.getByLabel('Separate lead-in shot', { exact: true }).check();
+  await expect(form.getByLabel('Lead-in destination')).toHaveValue('');
+  await form.getByRole('button', { name: 'Queue lead-in', exact: true }).click();
+  await expect.poll(async () => (await state(request, id)).takes.filter(t => t.composition).length, { timeout: 45000 }).toBe(1);
+  const doc = await state(request, id); const take = doc.takes.find(t => t.composition);
+  expect(doc.shots[1].id).toBe(source.shotId); expect(take.shotId).toBe(doc.shots[0].id);
+  expect(take.composition.segments).toHaveLength(1); expect(take.composition.segments[0].startFrame).toBe(0);
+  expect(doc.shots[0].selectedTakeId).toBeNull(); expect(doc.shots[1].selectedTakeId).toBeNull();
+  await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${take.id}`);
+  await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
+  await expect(review(page).locator('video[aria-label="Join preview"]')).toBeVisible();
+  expect((await request.get(`/media/projects/${id}/takes/${take.id}/join-preview`)).ok()).toBe(true);
+});
+
+test('a trimmed opening stays exact until a nearby saved-motion boundary is explicitly chosen', async ({ page, request }) => {
+  test.setTimeout(150000);
+  await setup(page, request, 5);
+  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  const trim = review(page).getByRole('region', { name: 'Trim take', exact: true });
+  await trim.getByLabel('Snap end for continuation').uncheck();
+  await trim.getByRole('slider', { name: 'Trim start frame', exact: true }).press('Home');
+  for (let i = 0; i < 3; i++) await trim.getByRole('slider', { name: 'Trim start frame', exact: true }).press('ArrowRight');
+  await trim.getByRole('slider', { name: 'Trim end frame', exact: true }).evaluate(el => { el.value = '80'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await trim.getByRole('button', { name: 'Save trimmed version', exact: true }).click();
+  await expect(review(page).getByRole('region', { name: 'Trim take', exact: true })).not.toBeVisible();
+  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
+  await expect(form).toContainText('Retain frames 1–77 of 77'); await expect(form).toContainText('re-encoded context');
+  const nearby = form.getByRole('checkbox', { name: /Use nearby saved motion boundary/ });
+  await expect(nearby).not.toBeChecked(); await nearby.check();
+  await expect(form).toContainText('Retain frames 15–77 of 77'); await expect(form).toContainText('Saved motion');
+});

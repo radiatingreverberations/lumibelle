@@ -130,6 +130,9 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     // The take frame the shot starts from (BindingId is the take), attached after the references.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CompositionInput? OpeningFrame { get; init; }
+    public string? PrecedingAction { get; init; }
+    public string? FollowingAction { get; init; }
+    public IReadOnlyList<CompositionInput>? MotionStills { get; init; }
 }
 /// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
 public sealed record ImageSize(int Width, int Height);

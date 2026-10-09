@@ -26,9 +26,22 @@ public sealed class MockVideoJobHandler(IShotStore shots, IVideoGenerator genera
     public Task<bool> CancelRemoteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Task.FromResult(true);
     public async Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
-        var request = Read(snapshot); var count = 0;
-        foreach (var candidate in context.Job.Batch!.Candidates) if (await PublishedAsync(request, context.Job, candidate, ct)) count++;
-        return AiJobOutcome.BatchCheckpoint(count);
+        var request = Read(snapshot); var results = new List<AiVideoCandidateResult>();
+        var current = await context.CurrentAsync(ct);
+        foreach (var candidate in current.Batch!.Candidates) {
+            if (!await PublishedAsync(request, current, candidate, ct)) continue;
+            var reviewId = candidate.Id;
+            if (request.Extension is not null) {
+                await shots.PublishExtensionAsync(request.Snapshot.ProjectId, request, candidate.Id, ct);
+                reviewId = H3Motion.OutputId(candidate.Id);
+            } else if (request.OutputTrim is { } trim) {
+                reviewId = TakeTrimming.OutputId(candidate.Id);
+                await shots.TrimTakeAsync(request.Snapshot.ProjectId, new(candidate.Id, reviewId, trim.StartFrame, trim.EndFrameExclusive), ct: ct);
+            }
+            results.Add(new(reviewId, candidate.Number, context.Job.Id));
+        }
+        if (results.Count > 0) { await context.SaveResultAsync(new AiVideoJobResult(results)); await context.MarkReviewableAsync(ct); }
+        return AiJobOutcome.BatchCheckpoint(results.Count);
     }
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
@@ -40,7 +53,7 @@ public sealed class MockVideoJobHandler(IShotStore shots, IVideoGenerator genera
             var current = await context.CurrentAsync(ct);
             AiBatchCandidate? candidate = null;
             foreach (var item in current.Batch!.Candidates) if (!await PublishedAsync(request, current, item, ct)) { candidate = item; break; }
-            if (candidate is null) return AiJobOutcome.BatchCheckpoint(current.Batch.Candidates.Count);
+            if (candidate is null) return await RecoverAsync(context, snapshot, ct);
             if(request.Version == 1 && run.Refinement is null) await generator.ValidateInputsAsync(run.Snapshot, ct);
             await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
             var take = new VideoCandidate { Number = candidate.Number, TakeId = candidate.Id, Seed = candidate.Seed };
@@ -59,7 +72,10 @@ public sealed class MockVideoJobHandler(IShotStore shots, IVideoGenerator genera
             if (run.Snapshot.Reel is not null) await reels!.PublishAsync(saved, stage, ct);
             else await shots.PublishTakeAsync(run.Snapshot.ProjectId, saved, stage, ct);
             var reviewId = saved.Id;
-            if (request.OutputTrim is { } trim) {
+            if (request.Extension is not null) {
+                reviewId = H3Motion.OutputId(saved.Id);
+                await shots.PublishExtensionAsync(run.Snapshot.ProjectId, request, saved.Id, ct);
+            } else if (request.OutputTrim is { } trim) {
                 reviewId = TakeTrimming.OutputId(saved.Id);
                 await shots.TrimTakeAsync(run.Snapshot.ProjectId, new(saved.Id, reviewId, trim.StartFrame, trim.EndFrameExclusive), ct: ct);
             }

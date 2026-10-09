@@ -60,6 +60,7 @@ public sealed class MediaResources(IAssetStore assets, IImageTrashStore trash, I
         if (path.Length < 5 || !Guid.TryParse(path[4], out var id)) return null;
         if (path[3] == "takes")
         {
+            if (path.Length == 6 && path[5] == "join-preview") return await shots.OpenJoinPreviewAsync(project, id, ct).ConfigureAwait(false);
             if (path.Length == 5) return await shots.OpenAsync(project, id, ShotTrashKind.Take, ct: ct).ConfigureAwait(false);
             if (path.Length == 7 && path[5] == "frames" && int.TryParse(path[6], out var frame) && frame >= 0)
                 return await shots.OpenAsync(project, id, ShotTrashKind.Take, frame, ct: ct).ConfigureAwait(false);

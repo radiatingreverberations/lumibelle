@@ -228,7 +228,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     }
     public async Task ValidateInputsAsync(VideoSnapshot s, CancellationToken ct)
     {
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null);
+        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null);
         if (s.Shot.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(s.ProjectId, s.Shot.Videos, ct);
         foreach (var b in s.Shot.Images)
         {
@@ -367,9 +367,9 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     // new size. The prompt and references are encoded again at that size.
     public sealed record RefineSource(TakeRefinement Refinement, string VideoLatent, string AudioLatent);
     public static object BuildWorkflow(VideoSnapshot s, long seed, string clientId, IReadOnlyList<PreparedVideoInput> inputs,
-        IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null, RefineSource? refine = null)
+        IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null, RefineSource? refine = null, MotionSource? motion = null)
     {
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null);
+        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null);
         H3Policy.ValidateSettings(s.Settings);
         H3Performance.Validate(s.Performance);
         H3Presets.Validate(s);
@@ -417,6 +417,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         }
         var latent = ReelRefMods.Uses(s.Shot) ? 2 : 1;
         var guided = "5";
+        object? motionLatent = null;
+        if (motion is not null) motionLatent = ApplyMotion(motion, latent, Node, out guided);
         if (start is not null)
         {
             Node("60", "LoadImage", new { image = start.FileName });
@@ -439,7 +441,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             Node("18", "MiniMaxH3SigmaShift", new { model = Link(model), shift_video = sampling.VideoShift, shift_audio = sampling.AudioShift }); model = "18";
         }
         var scheduleModel = key == "turbo8" ? model : "1";
-        model = H3Performance.Apply(performance, model, Node);
+        model = H3Performance.Apply(performance, model, Node, refine is null ? "" : "refine-attention-");
         if (key == "spectrum")
         {
             var recipe = H3Presets.Inputs(key, s.Settings); recipe["model"] = Link(model);
@@ -455,12 +457,17 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         if (key == H3HyperFlow.Key) Node("9", "ManualSigmas", new { sigmas = s.Preset!.Inputs.GetProperty("sigmas").GetString()! });
         else if (refine is not null) Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = "simple", steps = refine.Refinement.Steps, denoise = refine.Refinement.Denoise });
         else if (key != "pdd") Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = sampling.Scheduler, steps = sampling.Steps, denoise = 1.0 });
-        var source = Link("5", latent);
+        var source = motionLatent ?? Link("5", latent);
         if (refine is { Refinement: var r })
         {
             Node("30", "LoadLatent", new { latent = refine.VideoLatent }); Node("31", "LoadLatent", new { latent = refine.AudioLatent });
             Node("32", H3PreviewUpscaling.Node, H3PreviewUpscaling.Inputs(H3PreviewUpscaling.Capture(r.Implementation, r.Upscaler, s.Shot.Aspect) with { Width = r.Width, Height = r.Height }, Link("30")));
-            Node("33", "LTXVConcatAVLatent", new { video_latent = Link("32"), audio_latent = Link("31") });
+            if (motion is not null) {
+                if (motion.Context.Route != MotionContextRoute.SavedLatents) AddMotionMasks(motion, Node);
+                Node("refine-motion-video", "SetLatentNoiseMask", new { samples = Link("32"), mask = Link("motion-video-mask") });
+                Node("refine-motion-audio", "SetLatentNoiseMask", new { samples = Link("31"), mask = Link("motion-audio-mask") });
+                Node("33", "LTXVConcatAVLatent", new { video_latent = Link("refine-motion-video"), audio_latent = Link("refine-motion-audio") });
+            } else Node("33", "LTXVConcatAVLatent", new { video_latent = Link("32"), audio_latent = Link("31") });
             source = Link("33");
         }
         Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas = key == "pdd" ? Link("51", 1) : Link("9"), latent_image = source });

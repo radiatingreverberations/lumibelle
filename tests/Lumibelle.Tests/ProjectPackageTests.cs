@@ -19,7 +19,7 @@ using Picture = SixLabors.ImageSharp.Image;
 
 namespace Lumibelle.Tests;
 
-public sealed class ProjectPackageTests
+public sealed partial class ProjectPackageTests
 {
     private const string Secret = "PRIVATE-OTHER-PROJECT-DO-NOT-EXPORT";
     private static readonly byte[] Pixel = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRZcAAAAASUVORK5CYII=");

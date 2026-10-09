@@ -2,17 +2,18 @@
 <section class="take-trim-editor" aria-label="Trim take">
     <h3>Trim take</h3>
     <p>Choose the first and last frames to keep. Saving creates a new version.</p>
-    <TakePlayer @ref="_player" ProjectId="ProjectId" Take="Take" ShowSaveFrame="false" RangeStart="_start" RangeEndExclusive="_end" />
+    <TakePlayer @ref="_player" ProjectId="ProjectId" Take="Take" ShowSaveFrame="false" RangeStart="_start" RangeEndExclusive="EffectiveEnd" />
     <div class="trim-boundaries">
-        <label>First frame: @(_start + 1)<input type="range" aria-label="Trim start frame" min="0" max="@(_end - 1)" step="1" value="@_start" @oninput="StartChanged" disabled="@Busy" /></label>
-        <label>Last frame: @_end<input type="range" aria-label="Trim end frame" min="@(_start + 1)" max="@Take.FrameCount" step="1" value="@_end" @oninput="EndChanged" disabled="@Busy" /></label>
+        <label>First frame: @(_start + 1)<input type="range" aria-label="Trim start frame" min="0" max="@(_end - 1)" step="1" @bind:get="_start" @bind:set="StartChanged" @bind:event="oninput" disabled="@Busy" /></label>
+        <label>Last frame: @EffectiveEnd<input type="range" aria-label="Trim end frame" min="@(_start + 1)" max="@Take.FrameCount" step="1" @bind:get="_end" @bind:set="EndChanged" @bind:event="oninput" disabled="@Busy" /></label>
     </div>
+    @if (H3Motion.AlignedEnd(Take, _end) is { } aligned && aligned > _start) { <label><input type="checkbox" @bind="_snap" @bind:after="() => _resultId = Guid.NewGuid()" disabled="@Busy" />Snap end for continuation</label><p class="field-hint">@(_snap ? $"Will end on frame {EffectiveEnd}, using the source generation's coordinates." : $"Exact-frame mode: will end on frame {_end}.")</p> }
     <div class="shots-actions"><button disabled="@Busy" @onclick="SetStart">Set start here</button><button disabled="@Busy" @onclick="SetEnd">Set end here</button></div>
-    <p role="status">Keep @(_end - _start) frames · @(((_end - _start) / Take.Fps).ToString("0.###")) s</p>
+    <p role="status">Keep @(EffectiveEnd - _start) frames · @(((EffectiveEnd - _start) / Take.Fps).ToString("0.###")) s</p>
     @if (Take.RefinementPackage is not null) { <p class="field-hint">Full source latents retained. Refinement processes the full @((Take.Snapshot.FrameCount / Take.Fps).ToString("0.###")) s, then reapplies this trim.</p> }
     @if (Progress is not null) { <p role="status">@Progress</p> }
     @if (Error is not null) { <p role="alert">@Error</p> }
-    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel saving" : "Cancel")</button><button class="primary-action" disabled="@(Busy || _end <= _start || (_start == 0 && _end == Take.FrameCount))" @onclick="Save">Save trimmed version</button></div>
+    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel saving" : "Cancel")</button><button class="primary-action" disabled="@(Busy || EffectiveEnd <= _start || (_start == 0 && EffectiveEnd == Take.FrameCount))" @onclick="Save">Save trimmed version</button></div>
 </section>
 @code {
     [Parameter, EditorRequired] public ShotTake Take { get; set; } = default!;
@@ -24,11 +25,13 @@
     [Parameter] public EventCallback Cancel { get; set; }
     private TakePlayer? _player;
     private int _start, _end;
+    private bool _snap = true;
+    private int EffectiveEnd => _snap && H3Motion.AlignedEnd(Take, _end) is { } aligned && aligned > _start ? aligned : _end;
     private Guid _takeId, _resultId;
     protected override void OnParametersSet() { if (_takeId != Take.Id) { _takeId = Take.Id; _start = 0; _end = Take.FrameCount; _resultId = Guid.NewGuid(); } }
-    private void StartChanged(ChangeEventArgs e) { _start = Math.Clamp(int.Parse(e.Value!.ToString()!), 0, _end - 1); _resultId = Guid.NewGuid(); }
-    private void EndChanged(ChangeEventArgs e) { _end = Math.Clamp(int.Parse(e.Value!.ToString()!), _start + 1, Take.FrameCount); _resultId = Guid.NewGuid(); }
+    private void StartChanged(int value) { _start = Math.Clamp(value, 0, _end - 1); _resultId = Guid.NewGuid(); }
+    private void EndChanged(int value) { _end = Math.Clamp(value, _start + 1, Take.FrameCount); _resultId = Guid.NewGuid(); }
     private async Task SetStart() { var frame = _player is null ? -1 : await _player.CaptureFrameAsync(); if (frame >= 0) { _start = Math.Min(frame, _end - 1); _resultId = Guid.NewGuid(); } }
     private async Task SetEnd() { var frame = _player is null ? -1 : await _player.CaptureFrameAsync(); if (frame >= 0) { _end = Math.Max(frame + 1, _start + 1); _resultId = Guid.NewGuid(); } }
-    private Task Save() => Saved.InvokeAsync(new(Take.Id, _resultId, _start, _end));
+    private Task Save() => Saved.InvokeAsync(new(Take.Id, _resultId, _start, EffectiveEnd));
 }

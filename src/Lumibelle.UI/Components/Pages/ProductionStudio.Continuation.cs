@@ -10,14 +10,17 @@ public partial class ProductionStudio
 {
     // The paused frame being continued, and the existing shot to start from it; null adds a new shot after the take's shot.
     private (Guid TakeId, int Index)? _continueFrame;
+    private TakeExtensionDirection _extensionDirection;
     private Guid? _continueTarget;
     private void OpenContinue(int index)
     {
         if (ReviewTake is not { } take) return;
         _frameDestination = null; _reviewError = null;
         _continueFrame = (take.Id, index); _continueTarget = null;
+        _extensionDirection = TakeExtensionDirection.After;
     }
-    private void CloseContinue() { _continueFrame = null; _restoreFrameFocus = true; }
+    private void OpenLeadInto(int index) { OpenContinue(index); _extensionDirection = TakeExtensionDirection.Before; }
+    private void CloseContinue() { if (_extensionPreparation is not null) { _extensionPreparation.Cancel(); return; } _continueFrame = null; _restoreFrameFocus = true; }
     /// <summary>The shots a frame can be continued in: any shot but the one the take belongs to.</summary>
     private IEnumerable<Shot> ContinueTargets(ShotTake take) => _doc.Shots.Where(s => s.Id != take.ShotId);
 

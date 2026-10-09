@@ -37,13 +37,17 @@ public static class PromptComposer
     /// inspected the reference images, and its brief is appended with <see cref="WithBrief"/>.
     /// </summary>
     public static List<ChatMessage> BuildMessages(PromptCompositionRequest r, IReadOnlyList<byte[]> images, IReadOnlyList<RefModInspectionFrame>? modFrames = null,
-        bool visualBrief = false, byte[]? openingFrame = null)
+        bool visualBrief = false, byte[]? openingFrame = null, IReadOnlyList<byte[]>? motionStills = null)
     {
         var attach = !visualBrief;
         modFrames ??= [];
         if (r.Images.Count != ResolvedReferences.For(r.Shot).Pictures.Count || images.Count != (attach ? r.Images.Count : 0))
             throw new WorkspaceStoreException("The inspection images do not match the selected references.");
         CheckOpeningFrame(r, attach, openingFrame);
+        if ((motionStills?.Count ?? 0) != (r.MotionStills?.Count ?? 0)) throw new WorkspaceStoreException("The captured motion stills changed.");
+        for (var i = 0; i < (motionStills?.Count ?? 0); i++)
+            if (Convert.ToHexString(SHA256.HashData(motionStills![i])) != r.MotionStills![i].Sha256)
+                throw new WorkspaceStoreException("The captured motion stills changed. Compose the prompt again.");
         var selectedMods = RefModVideos(r, attach, modFrames);
         var profile = r.Shot.Videos.Count > 0 ? "h3-compose-video-v1.txt" : "h3-compose-v1.txt";
         using var stream = typeof(PromptComposer).Assembly.GetManifestResourceStream("lumibelle.Services.AI.PromptProfiles." + profile)
@@ -52,12 +56,13 @@ public static class PromptComposer
         var message = new ChatMessage(ChatRole.User, Data(r, new
         {
             shot = new { r.Shot.Title, r.Shot.Description, r.Shot.Duration, r.Shot.Dialogue, r.Shot.Characters, r.Shot.Atmosphere, r.Shot.Music, r.Shot.Aspect },
-            generatedDurationSeconds = Shots.H3Policy.Seconds(r.Shot.Duration!.Value), r.SceneContext, r.NearbyShots,
+            generatedDurationSeconds = Shots.H3Policy.Seconds(r.Shot.Duration!.Value), r.SceneContext, r.NearbyShots, r.PrecedingAction, r.FollowingAction,
+            motionStillsInTimeOrder = r.MotionStills,
             cutContinuity = new {
-                transition = r.OpeningFrame is null ? "hard_cut" : "continuous_from_opening_frame",
+                transition = r.MotionStills is not null ? r.FollowingAction is not null ? "continuous_into_motion_window" : "continuous_from_motion_window" : r.OpeningFrame is null ? "hard_cut" : "continuous_from_opening_frame",
                 previousShotProvided = r.NearbyShots.Any(s => s.StartsWith("Previous shot", StringComparison.OrdinalIgnoreCase)),
                 nextShotProvided = r.NearbyShots.Any(s => s.StartsWith("Next shot", StringComparison.OrdinalIgnoreCase)),
-                mustOpenDifferentlyFromPrevious = r.OpeningFrame is null },
+                mustOpenDifferentlyFromPrevious = r.OpeningFrame is null && r.MotionStills is null },
             r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.Appearances,
             referenceImagesAttached = images.Count > 0 || modFrames.Count > 0,
             references = r.Shot.Images.Select((b, i) => new { picture = i + 1, b.Name, b.AiUseHint, b.Crop, purpose = b.Purpose?.ToString(), use = b.Use?.ToString(),
@@ -80,11 +85,14 @@ public static class PromptComposer
         foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
         foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
         if (openingFrame is not null) message.Contents.Add(new DataContent(openingFrame, "image/png"));
+        foreach (var frame in motionStills ?? []) message.Contents.Add(new DataContent(frame, "image/png"));
         var instructions = reader.ReadToEnd() + "\nBefore returning JSON, verify that all six headings are present exactly once and in order. " +
             "Do not stop after detailed_description: overall_soundscape and non_diegetic_music are required even when there is no dialogue, no Audio input, or no music. " +
             "Use the supplied shot.Atmosphere and shot.Music as the sound directions. Always give non_diegetic_music explicit text; write 'No non-diegetic music.' when none is intended. " +
             "Silence is still an explicit sound direction, not a reason to omit a heading. State generatedDurationSeconds using digits followed by 'seconds'.";
-        if (r.OpeningFrame is not null) instructions += OpeningFrameInstructions(attach);
+        if (r.MotionStills is not null && r.FollowingAction is not null) instructions += "\nGenerate a lead-in that plays forward in time and arrives naturally at the supplied ending motion window. The final attachments are ordered context stills from the existing opening, earliest to latest. followingAction describes footage that already exists after your new action. Do not repeat its action or dialogue. Describe the requested earlier shot.Description, then arrive at the ending context with matching subject movement, camera motion, identity and sound. Only new shot.Dialogue is spoken. Do not reverse the video or soundtrack; there is no cut, fade or new composition at the join.";
+        else if (r.MotionStills is not null) instructions += "\nThis is a continuous extension. The final attachments are ordered context stills, earliest to latest. Preserve subject motion, camera motion, identity and sound context into the next action. precedingAction describes completed action; do not repeat it or its dialogue. Only the new shot.Dialogue is spoken. There is no cut or new opening composition. Treat the short motion prefix as already happening, then describe the requested next action.";
+        else if (r.OpeningFrame is not null) instructions += OpeningFrameInstructions(attach);
         else if (r.NearbyShots.Any(s => s.StartsWith("Previous shot", StringComparison.OrdinalIgnoreCase))) instructions +=
             "\nThe NearbyShots context may include a Previous shot entry with an accepted/composed prompt. Treat that previous shot as continuity context, not as a template to copy. " +
             "This shot follows the previous one in a normal hard cut. Preserve continuity of characters, props, wardrobe, environment and rough spatial orientation, but design a clearly distinct opening image. " +

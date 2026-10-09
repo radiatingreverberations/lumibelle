@@ -33,6 +33,7 @@ public sealed partial class FileShotStore
         if (Directory.Exists(stage)) Directory.Delete(stage, true);
         Directory.CreateDirectory(stage);
         try {
+            if (source.Composition is not null) return await TrimCombinedAsync(projectId, request, source, folder, stage, dir, d, ct);
             var result = ShotCopy.Of(source);
             result.Id = request.ResultId; result.Directory = result.Id.ToString("D"); result.CreatedUtc = clock.GetUtcNow();
             result.Timings = null; result.FrameArchiveRemoval = null;
@@ -69,28 +70,9 @@ public sealed partial class FileShotStore
                 var verified = await RefinementPackages.InspectAsync(Path.Combine(folder, H3RefinementPackage.FileName), source.Snapshot, source.Refinement, ct);
                 if (verified != package) throw new WorkspaceStoreException("The source latent package changed.");
                 await TakeTrimming.CopyVerifiedAsync(Path.Combine(folder, H3RefinementPackage.FileName), Path.Combine(stage, H3RefinementPackage.FileName), package.Bytes, package.Sha256, ct);
-                IReadOnlyList<AiVideoInput> inputs;
-                string InputPath(AiVideoInput input) => source.RetainedSource is not null
-                    ? Path.Combine(folder, TakeTrimming.InputsFolder, input.FileName)
-                    : CapturedInputStore.Resolve(Path.Combine(dir, "shots", "runs", source.RunId.ToString("D")), input.FileName, input.Sha256);
-                if (source.RetainedSource is { } retained) inputs = retained.Inputs;
-                else {
-                    if (jobs is null || source.AiJobId is not { } jobId) throw new WorkspaceStoreException("The captured generation inputs are unavailable; restore the saved request before trimming this take with latents.");
-                    var job = (await jobs.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == jobId) ?? throw new WorkspaceStoreException("The captured generation request is unavailable.");
-                    var captured = AiVideoJobHandler.Read(job, await jobs.ReadSnapshotAsync(jobId, ct));
-                    if (captured.BatchId != source.RunId || captured.Snapshot != source.Snapshot &&
-                        !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(captured.Snapshot, AtomicJsonFile.Options), System.Text.Json.JsonSerializer.SerializeToElement(source.Snapshot, AtomicJsonFile.Options)))
-                        throw new WorkspaceStoreException("The captured generation request does not match this take.");
-                    inputs = captured.Inputs;
-                }
-                result.RetainedSource = new(ShotCopy.Of(inputs));
-                TakeTrimming.Validate(result);
-                Directory.CreateDirectory(Path.Combine(stage, TakeTrimming.InputsFolder));
-                foreach (var input in inputs) {
-                    await RefinementPackages.VerifyFileAsync(InputPath(input), input.Bytes, input.Sha256, ct);
-                    await TakeTrimming.CopyVerifiedAsync(InputPath(input), Path.Combine(stage, TakeTrimming.InputsFolder, input.FileName), input.Bytes, input.Sha256, ct);
-                }
             }
+            if (source.RefinementPackage is not null || source.RetainedSource is not null)
+                await RetainInputsAsync(result, folder, stage, ct);
             progress?.Report("Encoding the trimmed video and audio…");
             await (mediaTools ?? new ProductionMediaTools()).TrimTakeAsync(Path.Combine(folder, "video.mp4"), source.HasLosslessFrames ? Path.Combine(pngFolder, "frame-%04d.png") : null,
                 Path.Combine(stage, "video.mp4"), request.StartFrame, request.EndFrameExclusive, source.Fps, source.Snapshot.Settings, ct);

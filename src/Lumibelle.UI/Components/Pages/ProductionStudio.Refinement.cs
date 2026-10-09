@@ -93,12 +93,16 @@ public partial class ProductionStudio
     }
     private async Task AnotherVersion()
     {
-        var root = ReviewTake?.Refinement is not null ? ReviewTake.RunId : _refinementJob;
+        var root = ReviewTake is { } reviewed && (reviewed.Refinement is not null || TakeDisplay.HasExtensionReplay(reviewed)) ? reviewed.RunId : _refinementJob;
         if (_refinementBusy || root is null) return;
         _refinementBusy = true; _reviewError = null;
         if (!_videoAppendCommands.TryGetValue(root.Value, out var command)) _videoAppendCommands[root.Value] = command = Guid.NewGuid();
         try
         {
+            if (ReviewTake is { } extended && TakeDisplay.HasExtensionReplay(extended)) {
+                _refinementEnqueue = await VideoRequests.CaptureExtensionVersionAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, extended.Id, _lifetime.Token);
+                await EnqueueRefinement(); return;
+            }
             if (ReviewTake is { Trim: { } trim } take && _videoRequests.GetValueOrDefault(root.Value)?.OutputTrim != new TakeTrimRange(trim.SourceStartFrame, trim.SourceEndFrameExclusive)) {
                 _refinementEnqueue = await VideoRequests.CaptureTrimmedVersionAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, take.Id, _lifetime.Token);
                 await EnqueueRefinement();

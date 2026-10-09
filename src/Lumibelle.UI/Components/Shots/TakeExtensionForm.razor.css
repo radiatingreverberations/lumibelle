@@ -1,0 +1,7 @@
+.take-extension-form { display: grid; gap: .7rem; padding: 1rem; border: 1px solid var(--mud-palette-lines-default); border-radius: .5rem; min-width: 0; }
+label { display: grid; gap: .3rem; }
+input, textarea, select { max-width: 100%; width: 100%; min-width: 0; box-sizing: border-box; }
+input[type=checkbox], input[type=radio] { width: auto; }
+.check-row { display: flex; align-items: center; gap: .5rem; }
+fieldset { display: grid; gap: .5rem; min-width: 0; }
+.shots-actions { display: flex; flex-wrap: wrap; gap: .5rem; }

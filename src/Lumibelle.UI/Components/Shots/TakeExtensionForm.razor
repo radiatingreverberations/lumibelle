@@ -1,0 +1,87 @@
+@using System.Text.Json
+@using lumibelle.Services.Shots
+@using lumibelle.Services.Production
+@using lumibelle.Services.AI
+@inject AiTextJobCapture TextRequests
+@inject AiJobCoordinator Jobs
+@inject IAiJobStore JobStore
+@inject IAiReviewGate Reviews
+@implements IDisposable
+<section class="take-extension-form" aria-label="@(Leading ? "Lead into take" : "Extend take")">
+    <h3>@(Leading ? $"Lead into frame {Start + 1}" : $"Extend from frame {End}")</h3>
+    <p>Retain frames @(Leading ? Start + 1 : 1)–@(Leading ? Source.FrameCount : End) of @Source.FrameCount · @Source.Width × @Source.Height · @Source.Fps fps</p>
+    @if (Aligned is { } aligned && aligned != (Leading ? StartFrame : EndFrameExclusive)) {
+        <label class="check-row"><input type="checkbox" @bind="_savedMotion" disabled="@Busy" />Use nearby saved motion boundary · frame @(Leading ? aligned + 1 : aligned)</label>
+    }
+    <p class="field-hint">@H3Motion.Label(Route) · @Context frames of context. The overlap is removed from the delivered extension.</p>
+    <label>Added duration (seconds)<input aria-label="Added duration" type="number" min="1" max="@((362 - Context) / 24d)" step="0.25" @bind="_seconds" disabled="@Busy" /></label>
+    @if (Generation is { } frames) { <p role="status">Adds @(((frames - Context) / 24d).ToString("0.###")) s · @(frames - Context) new frames (@frames generated including context)</p> }
+    else { <p role="alert">Choose a duration that fits within 362 generated frames including context.</p> }
+    <label>@(Leading ? "Lead-in action" : "Next action")<textarea aria-label="@(Leading ? "Lead-in action" : "Next action")" rows="3" @bind="_action" disabled="@Busy"></textarea></label>
+    <label>New dialogue<textarea aria-label="New dialogue" rows="2" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" disabled="@Busy"></textarea></label>
+    <div class="shots-actions"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.Production" SelectionChanged="s => _model = s" Disabled="@(Busy || _composing)" /><button disabled="@(Busy || _composing || _model is null || Generation is null || string.IsNullOrWhiteSpace(_action))" @onclick="Compose">@(Leading ? "Compose lead-in prompt" : "Compose extension prompt")</button></div>
+    @if (_compositionJob is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(jobId)" /> }
+    <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="9" value="@Prompt" @onchange="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@Busy"></textarea></label>
+    <fieldset disabled="@Busy"><legend>Result</legend>
+        <label class="check-row"><input type="radio" name="extension-destination" checked="@_combine" @onchange="() => _combine = true" />@(Leading ? "Prepend to this take" : "Extend this take")</label>
+        <label class="check-row"><input type="radio" name="extension-destination" checked="@(!_combine)" @onchange="() => _combine = false" />@(Leading ? "Separate lead-in shot" : "Separate continuation shot")</label>
+        @if (!_combine) { <label>Destination shot<select aria-label="@(Leading ? "Lead-in destination" : "Continuation destination")" @bind="_destination"><option value="">@(Leading ? "New shot before the source" : "New shot after the source")</option>@foreach (var shot in Destinations) { <option value="@shot.Id">@shot.Title</option> }</select></label> }
+        <label class="check-row"><input type="checkbox" @bind="_lossless" />Save lossless frames for the new generation</label>
+    </fieldset>
+    <p class="field-hint">Standard sampling · fresh latents retained. Review the result, then explicitly select it for production.</p>
+    @if ((Error ?? _error) is { } error) { <p role="alert">@error</p> }
+    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel preparing" : "Cancel")</button><button class="primary-action" disabled="@(Busy || _composing || Generation is null || string.IsNullOrWhiteSpace(_action))" @onclick="() => Queue.InvokeAsync(Options)">@(Leading ? "Queue lead-in" : "Queue extension")</button></div>
+</section>
+@code {
+    [Parameter, EditorRequired] public ShotTake Source { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public int EndFrameExclusive { get; set; }
+    [Parameter] public int StartFrame { get; set; }
+    [Parameter] public TakeExtensionDirection Direction { get; set; }
+    [Parameter] public IReadOnlyList<Shot> Destinations { get; set; } = [];
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+    [Parameter] public EventCallback<TakeExtensionOptions> Queue { get; set; }
+    private double _seconds = 5;
+    private bool _combine = true, _savedMotion = true, _lossless, _composing;
+    private string _action = "", _dialogue = "", _destination = "";
+    private string? _prompt, _error;
+    private TextModelSelectionState? _model;
+    private Guid? _compositionJob;
+    private readonly CancellationTokenSource _life = new();
+    private int End => _savedMotion ? H3Motion.AlignedEnd(Source, EndFrameExclusive) ?? EndFrameExclusive : EndFrameExclusive;
+    private bool Leading => Direction == TakeExtensionDirection.Before;
+    protected override void OnInitialized() { _savedMotion = !Leading; }
+    private int? Aligned => Leading ? H3Motion.AlignedStart(Source, StartFrame) : H3Motion.AlignedEnd(Source, EndFrameExclusive);
+    private int Start => _savedMotion ? H3Motion.AlignedStart(Source, StartFrame) ?? StartFrame : StartFrame;
+    private MotionContextRoute Route => (Leading ? H3Motion.CanUseLeadingLatents(Source, Start) : H3Motion.CanUseLatents(Source, End)) ? MotionContextRoute.SavedLatents : Context == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames;
+    private ShotTake ContextTake => (Leading ? H3Motion.Head(Source, Start).Segment : H3Motion.Tail(Source, End).Segment).Source;
+    private int Context => H3Motion.Window(Leading ? Source.FrameCount - Start : End);
+    private int? Generation { get { try { return H3Motion.GenerationFrames(Context, _seconds); } catch { return null; } } }
+    private IReadOnlyList<ShotDialogue> Dialogue => _dialogue.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => { var colon = line.IndexOf(':'); return new ShotDialogue { Speaker = colon < 0 ? "" : line[..colon].Trim(), Text = colon < 0 ? line.Trim() : line[(colon + 1)..].Trim() }; }).ToArray();
+    private TakeExtensionOptions Options => new(Source.Id, Leading ? Source.FrameCount : End, _seconds, _action, Dialogue, Prompt, _combine, Guid.TryParse(_destination, out var id) ? id : null, _lossless) { Direction = Direction, StartFrame = Leading ? Start : 0 };
+    private string Prompt { get {
+        if (_prompt is not null) return _prompt;
+        try { return H3Policy.Compile(AiVideoJobCapture.ExtensionShot(ContextTake, new(Source.Id, Leading ? Source.FrameCount : End, _seconds, _action, Dialogue, null), Generation ?? 124), ContextTake.Snapshot.ReferenceGuidance, ContextTake.Snapshot.Appearances, motionContext: true); }
+        catch (lumibelle.Services.Story.WorkspaceStoreException) { return ""; }
+    } }
+    private async Task Compose() {
+        if (_model is null) return; _composing = true; _error = null;
+        try {
+            var submission = await TextRequests.ComposeExtensionAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), ProjectId, Options, _model.Model, _model.FollowsDefault, _life.Token);
+            _compositionJob = submission.Id; await Jobs.EnqueueAsync(submission, _life.Token);
+            while (!_life.IsCancellationRequested) {
+                await Task.Delay(500, _life.Token);
+                var job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id);
+                if (job is null || job.LocksTarget) continue;
+                var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _life.Token);
+                if (result is { Error: null }) _prompt = PromptComposer.Parse(result.Raw, submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<PromptCompositionRequest>()).Prompt;
+                else _error = result?.Error ?? job.Error ?? "The composition did not return a prompt.";
+                break;
+            }
+        } catch (OperationCanceledException) { } catch (Exception e) { _error = e.Message; }
+        finally { _composing = false; }
+    }
+    public void Dispose() { _life.Cancel(); _life.Dispose(); }
+}

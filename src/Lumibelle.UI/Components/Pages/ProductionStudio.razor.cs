@@ -281,7 +281,7 @@ public partial class ProductionStudio
         if (_trimCancellation is not null && id != _reviewTakeId) _trimCancellation.Cancel();
         _trimmingTake = null;
         _reviewTakeId = id; _frameDestination = null; _continueFrame = null; _refiningTake = null;
-        if (_doc.Takes.FirstOrDefault(t => t.Id == id) is { Refinement: not null } take) _refinementJob = take.RunId;
+        if (_doc.Takes.FirstOrDefault(t => t.Id == id) is { } take && (take.Refinement is not null || take.Extension is not null)) _refinementJob = take.RunId;
     }
     private void CloseFrameDestination() { _frameDestination = null; _restoreFrameFocus = true; }
     private async Task MutateMedia(Func<long, Task<ShotDocument>> operation)

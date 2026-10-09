@@ -50,10 +50,10 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         var dir = await files.DirectoryAsync(project, ct);
         var rows = (await trash.ListAsync(ct)).Items.Where(r => r.ProjectId == project).ToArray();
         var doc = await shots.LoadAsync(project, ct); List<Guid> takes = []; long takeBytes = 0;
-        foreach (var take in doc.Takes.Where(t => t.HasLosslessFrames))
+        foreach (var take in doc.Takes.Where(t => t.HasAnyLosslessFrames))
         {
             var folder = FileShotStore.ArchiveDirectory(dir, take);
-            var bytes = take.Frames.Select(f => f.FileName).Distinct().Select(f => FileShotStore.ArchivePath(folder, f)).Where(File.Exists).Sum(f => new FileInfo(f).Length);
+            var bytes = TakeBundles.Contexts(take).SelectMany(c => c.Take.Frames.Select(f => c.Prefix + f.FileName)).Distinct().Select(f => TakeBundles.Under(folder, f)).Where(File.Exists).Sum(f => new FileInfo(f).Length);
             if (bytes > 0) { takes.Add(take.Id); takeBytes += bytes; }
         }
         List<Guid> media = []; long reelBytes = 0;
@@ -101,7 +101,7 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         });
         await Run(CompactionPart.TakeArchives, "Removing lossless take archives…", async () => {
             var doc = await shots.LoadAsync(project, ct);
-            var takes = doc.Takes.Where(t => t.HasLosslessFrames && plan.Takes.Contains(t.Id)).Select(t => t.Id).ToArray();
+            var takes = doc.Takes.Where(t => t.HasAnyLosslessFrames && plan.Takes.Contains(t.Id)).Select(t => t.Id).ToArray();
             if (takes.Length == 0) return;
             doc = await shots.RemoveFrameArchivesAsync(project, takes, doc.Revision, ct);
             foreach (var take in doc.Takes.Where(t => takes.Contains(t.Id)))

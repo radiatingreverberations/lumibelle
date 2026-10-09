@@ -1,0 +1,64 @@
+import { test, expect } from './fixtures.js';
+import { submitPlanning } from './text-assistance-tools.js';
+import { composeProduction, generateTakes, toolsTab } from './workspace-tools.js';
+
+const review = page => page.locator('.shot-review-dialog');
+const state = async (request, id) => (await request.get(`/fixtures/${id}/shots`)).json();
+async function setup(page, request) {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/approved`);
+  await page.goto(`/projects/${id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await submitPlanning(page);
+  await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await page.getByLabel('Duration (seconds)').fill('1');
+  await page.getByLabel('Duration (seconds)').blur();
+  await expect.poll(async () => (await state(request, id)).shots[0].duration).toBe(1);
+  await composeProduction(page); await toolsTab(page, 'Generate');
+  await page.getByLabel('Save lossless frames', { exact: true }).setChecked(true);
+  await page.getByLabel('Save latents', { exact: true }).setChecked(true);
+  await generateTakes(page); await expect(review(page)).toBeVisible();
+  return id;
+}
+
+test('extend preserves the source, reviews the join and leaves selection explicit', async ({ page, request }) => {
+  test.setTimeout(150000);
+  const id = await setup(page, request); const before = await state(request, id); const source = before.takes[0];
+  await review(page).getByRole('button', { name: 'Extend…', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Extend take', exact: true });
+  await expect(form.getByLabel('Added duration', { exact: true })).toHaveValue('5');
+  await expect(form.getByLabel('Next action', { exact: true })).toHaveValue('');
+  await expect(form.getByLabel('New dialogue', { exact: true })).toHaveValue('');
+  await expect(form).toContainText('Saved motion');
+  await form.getByLabel('Next action', { exact: true }).fill('She walks onwards, lifting her hand.');
+  await form.getByLabel('Added duration', { exact: true }).fill('2');
+  await form.getByRole('button', { name: 'Queue extension', exact: true }).click();
+  await expect.poll(async () => (await state(request, id)).takes.filter(t => t.composition).length, { timeout: 45000 }).toBe(1);
+  const after = await state(request, id); const extended = after.takes.find(t => t.composition);
+  await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${extended.id}`);
+  await expect(review(page).getByRole('slider', { name: 'Video position' })).toHaveAttribute('max', String(extended.composition.segments.reduce((n, s) => n + s.endFrameExclusive - s.startFrame, 0) - 1));
+  expect(after.shots[0].selectedTakeId).toBeNull(); expect(after.shots[0].duration).toBe(before.shots[0].duration);
+  expect(extended.composition.segments[0].source.refinementPackage.sha256).toBe(source.refinementPackage.sha256);
+  const download = await request.get(`/media/projects/${id}/takes/${extended.id}`); expect(download.ok()).toBe(true);
+  await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await expect(form).toBeVisible(); await form.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  const refine = review(page).getByRole('region', { name: 'Refine take', exact: true });
+  await expect(refine).toContainText('final segment'); await expect(refine.getByLabel('Output size').locator('option')).toHaveCount(1);
+  await refine.getByRole('button', { name: 'Back to review', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  const trim = review(page).getByRole('region', { name: 'Trim take', exact: true });
+  await expect(trim.getByLabel('Snap end for continuation')).toBeVisible();
+  await trim.getByLabel('Snap end for continuation').uncheck();
+  await trim.getByRole('slider', { name: 'Trim start frame', exact: true }).press('ArrowRight');
+  await expect(trim).toContainText('Exact-frame mode');
+  await trim.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await review(page).getByRole('button', { name: 'Extend…', exact: true }).click();
+  await expect(form).toBeVisible();
+  expect(await form.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await form.getByLabel('Next action', { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'obj/extension-narrow.png', fullPage: true });
+});

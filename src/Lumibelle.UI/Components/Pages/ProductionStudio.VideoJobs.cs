@@ -43,10 +43,10 @@ public partial class ProductionStudio
     private IReadOnlyList<VideoCandidate>? VideoCandidates(AiJobHeader job) => _runs.FirstOrDefault(r => r.Id == job.Batch?.RootId)?.Candidates;
     private AiJobHeader? CandidateJob(int number) => AiJobs.View.Jobs.FirstOrDefault(j => _reviewRun is not null &&
         j.Batch?.RootId == _reviewRun.Id && j.Batch!.Candidates.Any(c => c.Number == number));
-    private static string? RecoveryLabel(AiJobHeader? job) => job is null || job.LocksTarget ? null :
+    private string? RecoveryLabel(AiJobHeader? job) => job is null || job.LocksTarget ? null :
         job.CanRecoverCancelledOutputs ? "Recover completed takes" :
         job.RemoteUnconfirmed || job.Recovery == AiJobRecovery.CheckStatus ? "Reconnect/check status" :
-        job.Recovery == AiJobRecovery.RetryOutput ? "Retry download/save" : null;
+        job.Recovery == AiJobRecovery.RetryOutput ? _videoRequests.GetValueOrDefault(job.Batch?.RootId ?? job.Id)?.Extension is not null ? "Retry saving extension" : "Retry download/save" : null;
     private bool CanAddVideoTake => _reviewRun is { } run && _videoRequests.TryGetValue(run.Id, out var request) &&
         request.OutputShotId == _selected && !_mediaBusy &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.Video && j.Target.TakeId is null && j.Target.ProjectId == Id && j.Target.ShotId == request.OutputShotId &&
@@ -89,8 +89,11 @@ public partial class ProductionStudio
         if (_reviewRun is { } review && !_doc.Takes.Any(t => t.Id == _reviewTakeId && ReviewContains(t)))
             SelectTake(_doc.Takes.FirstOrDefault(t => t.RunId == review.Id)?.Id);
         if (_reviewOpen && _trimmingTake is null && _refinementJob is { } refinementId) {
-            foreach (var trimmed in _doc.Takes.Where(t => t.RunId == refinementId && t.Trim is { } trim && t.Id == TakeTrimming.OutputId(trim.ParentTakeId)).OrderBy(t => t.CreatedUtc))
-                if (_openedRefinedTrims.Add(trimmed.Id)) SelectTake(trimmed.Id);
+            foreach (var trimmed in _doc.Takes.Where(t => t.RunId == refinementId && (t.Composition is not null || t.Trim is { } trim && t.Id == TakeTrimming.OutputId(trim.ParentTakeId))).OrderBy(t => t.CreatedUtc))
+                if (_openedRefinedTrims.Add(trimmed.Id)) {
+                    if (trimmed.Composition is not null && _runs.FirstOrDefault(r => r.Id == trimmed.RunId) is { } extensionRun) _reviewRun = extensionRun.Copy();
+                    SelectTake(trimmed.Id);
+                }
         }
     }
     private readonly HashSet<Guid> _openedRefinedTrims = [];

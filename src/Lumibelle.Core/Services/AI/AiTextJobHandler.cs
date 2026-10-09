@@ -98,7 +98,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         // its generated block/shot/proposal identities, not run its parser again.
         if (await context.ReadAsync<AiTextJobResult>(AiJobArtifact.Result, ct) is { Complete: true } complete)
         {
-            if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && production is not null && complete.Error is null)
+            if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && request.Payload<PromptCompositionRequest>().MotionStills is null && production is not null && complete.Error is null)
                 await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct);
             if (request.Repair is null && request.Kind == AiJobKind.ReelComposition && reels is not null && complete.Error is null)
                 await ApplyReel(context, request, complete, ct);
@@ -288,7 +288,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             AiJobKind.PromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
             AiJobKind.Guidance => request.Payload<GuidanceRequest>().InspectionImage is null ? 0 : 1,
             AiJobKind.PromptComposition => request.Payload<PromptCompositionRequest>().InspectReferenceImages == false
-                ? 0 : request.Payload<PromptCompositionRequest>() is var composition ? composition.Images.Count + RefModFrameCount(request) + (composition.OpeningFrame is null ? 0 : 1) : 0,
+                ? 0 : request.Payload<PromptCompositionRequest>() is var composition ? composition.Images.Count + RefModFrameCount(request) + (composition.OpeningFrame is null ? 0 : 1) + (composition.MotionStills?.Count ?? 0) : 0,
             AiJobKind.ReelComposition => request.Payload<ReelCompositionRequest>().Images.Count + RefModFrameCount(request),
             _ => 0
         };
@@ -321,7 +321,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
     {
         var parsed = AiTextResults.Parse(request, raw.Raw, raw.FinishReason) with { OpenRouterUsage = raw.OpenRouterUsage, VisualBrief = raw.VisualBrief };
         await PersistAsync(context, () => context.SaveResultAsync(parsed), ct);
-        if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && production is not null && parsed.Error is null)
+        if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && request.Payload<PromptCompositionRequest>().MotionStills is null && production is not null && parsed.Error is null)
             await PersistAsync(context, async () => { await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct); }, ct);
         if (request.Repair is null && request.Kind == AiJobKind.ReelComposition && reels is not null && parsed.Error is null)
             await PersistAsync(context, () => ApplyReel(context, request, parsed, ct), ct);

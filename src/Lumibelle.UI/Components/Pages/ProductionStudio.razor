@@ -179,7 +179,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button @onclick="() => OpenExtension(take)">Extend…</button><button @onclick="() => OpenLeadIn(take)">Lead into…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -668,30 +668,20 @@ else
                     @if (_trimmingTake == take.Id) {
                         <TakeTrimEditor @key="take.Id" ProjectId="Id" Take="take" Busy="@(_trimCancellation is not null)" Progress="@_trimProgress" Error="@_trimError" Saved="SaveTrim" Cancel="CloseTrim" />
                     } else {
-                        <TakePlayer @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                        <TakePlayer @ref="_joinPlayer" @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" LeadIntoRequested="OpenLeadInto" />
+                    }
+                    @if (take.Composition is { } composition) {
+                        @if (composition.Segments.Count > 1 || composition.HasJoinPreview) { <button @onclick="PreviewJoin">Preview join</button> }
+                        @if (_joinPreviewTake == take.Id) { <section aria-label="Join preview"><video aria-label="Join preview" controls autoplay playsinline style="width:100%" src="@($"/media/projects/{Id}/takes/{take.Id}/join-preview")"></video><button @onclick="() => _joinPreviewTake = null">Close join preview</button></section> }
+                        <p class="field-hint">@composition.Segments.Count generation segments · visible @((take.FrameCount / take.Fps).ToString("0.###")) s.@(take.RefinementPackage is null ? "" : $" Full source latents retained · final generation {(take.Snapshot.FrameCount / take.Fps):0.###} s.")</p>
                     }
                     @if (take.Trim is { } trimmed) {
                         <p class="take-trim-details">Trimmed from @trimmed.ParentTakeId.ToString()[..8] · frames @(trimmed.StartFrame + 1)–@trimmed.EndFrameExclusive of @trimmed.ParentFrameCount</p>
-                        @if (take.RetainedSource is not null) { <p class="field-hint">Full source latents retained · @take.Snapshot.FrameCount frames · @((take.Snapshot.FrameCount / take.Fps).ToString("0.###")) s</p> }
+                        @if (take.RefinementPackage is not null) { <p class="field-hint">Full source latents retained · @take.Snapshot.FrameCount frames · @((take.Snapshot.FrameCount / take.Fps).ToString("0.###")) s</p> }
                     }
                     @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
                     {
-                        <section class="take-continue-panel" aria-label="Continue from this frame">
-                            <h3>Continue from frame @(continuing.Index + 1)</h3>
-                            <p class="field-hint">Takes of the chosen shot open exactly on this frame, so it plays on from here.</p>
-                            <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is null)" @onchange="() => _continueTarget = null" />A new shot after “@(_doc.Shots.FirstOrDefault(s => s.Id == take.ShotId)?.Title)”</label>
-                            @if (ContinueTargets(take).Any())
-                            {
-                                <label class="check-row"><input type="radio" name="continue-target" checked="@(_continueTarget is not null)" @onchange="() => _continueTarget = ContinueTargets(take).First().Id" />An existing shot</label>
-                                <select aria-label="Shot to start from this frame" disabled="@(_continueTarget is null)" value="@_continueTarget" @onchange="e => _continueTarget = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null">
-                                    @foreach (var target in ContinueTargets(take))
-                                    {
-                                        <option value="@target.Id">@(_doc.Shots.IndexOf(target) + 1). @target.Title@(target.StartFrame is not null ? " · replaces its starting frame" : "")</option>
-                                    }
-                                </select>
-                            }
-                            <div class="shots-actions"><button class="take-continue-confirm" @onclick="ConfirmContinue">@(_continueTarget is null ? "Add shot" : "Start it here")</button><button @onclick="CloseContinue">Cancel</button></div>
-                        </section>
+                        <TakeExtensionForm @key="continuing" Source="take" ProjectId="Id" EndFrameExclusive="@(continuing.Index + 1)" StartFrame="continuing.Index" Direction="_extensionDirection" Destinations="@(ContinueTargets(take).ToArray())" Busy="@_refinementBusy" Error="@_reviewError" Cancel="CloseContinue" Queue="QueueExtension" />
                     }
                     @if (_frameDestination is { } destination && destination.TakeId == take.Id)
                     {
@@ -709,9 +699,10 @@ else
                     }
                     @* Everything below describes the take rather than acting on it, so it is grouped and collapsed. *@
                     <section class="take-review-details" aria-label="Take details">
-                        <p class="take-review-file">@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archive" : "MP4 only") · @Bytes(take.Bytes) total <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></p>
+                        <p class="take-review-file">@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archives" : take.HasVisibleLosslessFrames ? "Mixed lossless and MP4 segments" : "MP4 only") · @Bytes(take.Bytes) total <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></p>
                         <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
                         <RefinementDetails Take="take" />
+                        <TakeSegmentDetails Take="take" />
                         <VideoPerformanceDetails Take="take" />
                         <VideoLoraDetails Snapshot="take.Snapshot" />
                         <ShotInputPreview ProjectId="Id" Shot="take.Snapshot.Shot" Guidance="take.Snapshot.ReferenceGuidance" Restored="InputsRestored" />
@@ -742,9 +733,11 @@ else
 </DialogContent>
 <Status>@if (ReviewTake is { } regenTake) {
     <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
+    <MudButton OnClick="() => OpenExtension(regenTake)">Extend…</MudButton>
+    <MudButton OnClick="() => OpenLeadIn(regenTake)">Lead into…</MudButton>
     <MudButton OnClick="() => OpenTrim(regenTake)" Disabled="@(_trimCancellation is not null)">Trim…</MudButton>
     <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
-    @if (regenTake.Refinement is not null) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Refine the same take again with a new seed">Another version</MudButton> }
+    @if (regenTake.Refinement is not null || TakeDisplay.HasExtensionReplay(regenTake)) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Replay the captured request with a new seed">Another version</MudButton> }
 }</Status>
 <Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton>@if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Filled" Color="Color.Primary">One more take</MudButton> }</Actions></InlineDialog>
 

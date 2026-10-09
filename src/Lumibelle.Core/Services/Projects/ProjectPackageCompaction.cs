@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -19,10 +20,10 @@ internal static class ProjectPackageCompaction
     internal static HashSet<Guid> LeaveOutTakeArchives(ProjectPackageState state, DateTimeOffset now)
     {
         var changed = new HashSet<Guid>();
-        foreach (var take in ProjectPackageRefinement.AllTakes(state).Where(t => t.Frames.Count > 0))
+        foreach (var take in ProjectPackageRefinement.AllTakes(state).Where(t => t.HasAnyLosslessFrames))
         {
-            take.FrameArchiveRemoval = new(now, take.Frames.DistinctBy(f => f.FileName).Select(f => new FrameArchiveFile(f.FileName, f.Bytes)).ToArray(), now);
-            take.Frames = []; changed.Add(take.Id);
+            take.FrameArchiveRemoval = new(now, TakeBundles.RemoveArchives(take, now), now);
+            changed.Add(take.Id);
         }
         return changed;
     }
