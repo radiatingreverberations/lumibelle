@@ -124,7 +124,7 @@ public sealed partial class FileAssetStore
             if (index >= take.FrameCount) throw new WorkspaceStoreException("Choose an available frame.");
             var path = Path.Combine(dir, "shots", "takes", take.Directory);
             return new(await (frameReader ?? TakeFrameReader.Shared).OpenAsync(path, take, index, ct),
-                new(library.ProjectId, take.ShotId, take.Id, index, index / take.Fps, take.Fps, take.Width, take.Height) { Lossless = take.HasLosslessFrames });
+                new(library.ProjectId, take.ShotId, take.Id, index, index / take.Fps, take.Fps, take.Width, take.Height) { Lossless = take.IsLosslessFrame(index) });
         }
         var parent = request.Parent!;
         var image = library.Assets.SingleOrDefault(a => a.Id == parent.AssetId)?.Images.SingleOrDefault(i => i.Id == parent.ImageId)

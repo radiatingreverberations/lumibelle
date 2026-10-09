@@ -12,7 +12,7 @@ namespace lumibelle.Services.Shots;
 // "video" and "audio". ComfyUI's stock SaveLatent writes each as a separate .latent file
 // (tensor "latent_tensor"); Lumibelle combines them after download and splits them again
 // for LoadLatent. Only sizes are kept as metadata, so the package holds no prompt or settings.
-public static class RefinementPackages
+public static partial class RefinementPackages
 {
     public const long MaximumBytes = 8L * 1024 * 1024 * 1024;
     private const int Version = 2;

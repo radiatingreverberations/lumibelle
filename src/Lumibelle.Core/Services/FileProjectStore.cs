@@ -136,7 +136,7 @@ public sealed class FileProjectStore : IProjectStore
             cancellationToken.ThrowIfCancellationRequested();
             // Rename within the same parent: readers see either no project or a complete manifest.
             DurableFile.FlushDirectory(staging);
-            Directory.Move(staging, ProjectDirectory(project.Id));
+            await DurableFile.MoveDirectoryAsync(staging, ProjectDirectory(project.Id), cancellationToken);
             return project;
         }
         catch (Exception exception) when (IsStorageError(exception))

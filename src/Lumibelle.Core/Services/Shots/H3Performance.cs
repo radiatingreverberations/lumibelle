@@ -81,19 +81,19 @@ public static class H3Performance
         };
     }
 
-    internal static string Apply(H3PerformanceProfile p, string model, Action<string, string, object> node)
+    internal static string Apply(H3PerformanceProfile p, string model, Action<string, string, object> node, string prefix = "")
     {
         object Link(string id) => new object[] { id, 0 };
         if (p.Attention != H3AttentionBackend.ServerDefault)
         {
             if (p.Attention == H3AttentionBackend.Sage)
-                node("30", SageNode, new { model = Link(model), sage_attention = "auto", allow_compile = false });
-            else node("30", "ModelAttentionBackend", new { model = Link(model), attention = p.Attention == H3AttentionBackend.Kitchen ? "comfy kitchen attention" : "pytorch attention" });
-            model = "30";
+                node(prefix + "30", SageNode, new { model = Link(model), sage_attention = "auto", allow_compile = false });
+            else node(prefix + "30", "ModelAttentionBackend", new { model = Link(model), attention = p.Attention == H3AttentionBackend.Kitchen ? "comfy kitchen attention" : "pytorch attention" });
+            model = prefix + "30";
         }
         if (p.SolAttention)
         {
-            node("31", "BlockSparseAttention", new Dictionary<string, object>
+            node(prefix + "31", "BlockSparseAttention", new Dictionary<string, object>
             {
                 ["model"] = Link(model), ["selection"] = "Sol-Attn (adaptive tau)", ["selection.tau"] = p.Tau,
                 ["start_percent"] = p.StartPercent, ["end_percent"] = p.EndPercent, ["min_tokens"] = p.MinimumTokens,
@@ -101,7 +101,7 @@ public static class H3Performance
                 // Diagnostics distinguish sparse execution from the node's intentional dense paths.
                 ["verbose"] = true
             });
-            model = "31";
+            model = prefix + "31";
         }
         return model;
     }

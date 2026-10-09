@@ -12,6 +12,8 @@ public sealed record AiVideoInput(string FileName, bool Audio, long Bytes, strin
 }
 public sealed record AiVideoJobRequest(int Version, Guid BatchId, VideoSnapshot Snapshot, IReadOnlyList<AiVideoInput> Inputs)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TakeExtensionRequest? Extension { get; init; }
     public TakeRefinement? Refinement { get; init; }
     public TakeTrimRange? OutputTrim { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

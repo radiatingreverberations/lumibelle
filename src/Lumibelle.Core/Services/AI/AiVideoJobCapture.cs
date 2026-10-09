@@ -151,6 +151,14 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         var request = new AiVideoJobRequest(2, id, take.Snapshot, ShotCopy.Of(source.Inputs)) { Refinement = refinement,
             OutputTrim = take.Trim is { } trim ? new(trim.SourceStartFrame, trim.SourceEndFrameExclusive) : null,
             DestinationShotId = take.ShotId != take.Snapshot.Shot.Id ? take.ShotId : null };
+        if (take.Composition is { } composition) {
+            var last = composition.Segments[^1]; var prefix = take.FrameCount - (last.EndFrameExclusive - last.StartFrame);
+            var capture = ShotCopy.Of(take); capture.Extension = null;
+            var manifest = new List<CapturedMotionFile>(); var folder = Path.Combine(await shots.RunDirectoryAsync(projectId, id, ct), H3Motion.SourceFolder);
+            foreach (var file in TakeBundles.Files(capture).Distinct()) { await using var stream = File.OpenRead(TakeBundles.Under(folder, file)); manifest.Add(new(file, stream.Length, Convert.ToHexString(await SHA256.HashDataAsync(stream, ct)))); }
+            request = request with { Extension = new(capture, Math.Max(1, prefix), prefix > 0, manifest),
+                OutputTrim = new((last.Source.Trim?.SourceStartFrame ?? 0) + last.StartFrame, (last.Source.Trim?.SourceStartFrame ?? 0) + last.EndFrameExclusive) };
+        }
         AiVideoJobPolicy.Validate(request);
         if (take.RetainedSource is null)
             await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await shots.RunDirectoryAsync(projectId, source.BatchId, ct), request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
@@ -178,17 +186,35 @@ public static class AiVideoJobPolicy
             throw new WorkspaceStoreException("Invalid queued video request.");
         var s = r.Snapshot;
         if (r.OutputTrim is { } trim) {
-            if (r.Refinement is null || s.Reel is not null) throw new WorkspaceStoreException("An output trim requires a shot refinement.");
+            if (r.Refinement is null && r.Extension is null || s.Reel is not null) throw new WorkspaceStoreException("An output trim requires a shot refinement or extension.");
             TakeTrimming.Range(trim.StartFrame, trim.EndFrameExclusive, s.FrameCount);
         }
         if (r.DestinationShotId is { } destination && (destination == Guid.Empty || s.Reel is not null ||
-            r.Refinement is null && s.RegenerationSource is null && s.Dub is null))
+            r.Refinement is null && r.Extension is null && s.RegenerationSource is null && s.Dub is null))
             throw new WorkspaceStoreException("Invalid destination for the captured take request.");
         ShotDubbing.ValidateSnapshot(s);
         if (s.RegenerationSource is { } origin && (origin.TakeId == Guid.Empty || origin.Seed < 0 || origin.Width < 1 || origin.Height < 1 || s.Reel is not null || r.Refinement is not null))
             throw new WorkspaceStoreException("Invalid source take for regeneration.");
         if ((s.Reel is not null) != (r.Version == 3) || s.Reel is not null && r.Refinement is not null) throw new WorkspaceStoreException("Invalid reel request version.");
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null); H3Policy.ValidateSettings(s.Settings);
+        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null); H3Policy.ValidateSettings(s.Settings);
+        if (s.Motion is { } capturedMotion) H3Motion.Validate(capturedMotion, s);
+        if (r.Extension is { } extension) {
+            if (s.Motion is null && r.Refinement is null || extension.Source.Snapshot.ProjectId != s.ProjectId || extension.SourceFiles is not { Count: > 0 })
+                throw new WorkspaceStoreException("Invalid captured extension source.");
+            TakeBundles.Validate(extension, s.ProjectId);
+            if (extension.ReplayLastSegment) {
+                var last = extension.Source.Composition?.Segments[^1];
+                if (last is null || !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(last.Source.Snapshot, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(s, AtomicJsonFile.Options)) ||
+                    !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(last.Source.Refinement, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(r.Refinement, AtomicJsonFile.Options)) ||
+                    r.OutputTrim is not { } replayRange || replayRange.StartFrame < (last.Source.Trim?.SourceStartFrame ?? 0) + last.StartFrame ||
+                    replayRange.EndFrameExclusive > (last.Source.Trim?.SourceStartFrame ?? 0) + last.EndFrameExclusive)
+                    throw new WorkspaceStoreException("The replay does not match the retained final generation.");
+            }
+            if (r.Refinement is null && !extension.ReplayLastSegment && (s.Motion!.SourceTakeId != extension.Source.Id || s.Motion.EndFrameExclusive != extension.RetainedFrames ||
+                s.Width != extension.Source.Width || s.Height != extension.Source.Height ||
+                s.Motion.Route == MotionContextRoute.SavedLatents && !H3Motion.CanUseLatents(extension.Source, extension.RetainedFrames)))
+                throw new WorkspaceStoreException("The motion context does not match the captured extension source.");
+        }
         H3Performance.Validate(s.Performance);
         H3Presets.Validate(s);
         H3Loras.ValidateSnapshot(s);
@@ -199,7 +225,9 @@ public static class AiVideoJobPolicy
             RefinementPolicy.Validate(refinement, s);
             if (s.PreviewUpscale is not null || s.RegenerationSource is not null) throw new WorkspaceStoreException("Invalid captured refinement context.");
         }
-        var size = s.Reel is { } reel ? VideoResolutions.Size(reel.Recipe) : VideoResolutions.Size(s.Shot);
+        var size = s.Motion is not null ? (Width: s.Width, Height: s.Height) : s.Reel is { } reel ? VideoResolutions.Size(reel.Recipe) : VideoResolutions.Size(s.Shot);
+        if (s.Motion is not null && (s.Width < 32 || s.Height < 32 || s.Width % 32 != 0 || s.Height % 32 != 0 || s.FrameCount != s.Motion.GenerationFrames || !s.CaptureRefinementData))
+            throw new WorkspaceStoreException("Invalid motion generation size or latent retention.");
         var fingerprint = s.Reel is { } reelContext ? VideoResolutions.Fingerprint(reelContext.Recipe) : H3Policy.Fingerprint(s.Shot);
         if (s.ReferenceGuidance is null || s.Appearances is null || !ValidPrompt(s) || s.Fingerprint != fingerprint ||
             s.FrameCount != H3Policy.Frames(s.Shot.Duration!.Value) ||
@@ -228,6 +256,7 @@ public static class AiVideoJobPolicy
             return s.Production is null && s.Profile == reel.Recipe.PresetVersion && s.Prompt == reel.Recipe.Prompt &&
                 H3Policy.Fingerprint(s.Shot) == H3Policy.Fingerprint(ReferenceReels.Inputs(reel.Recipe)) && reel.Character.AssetId == reel.Recipe.AssetId;
         }
+        if (s.Profile == H3Motion.Profile && s.Motion is not null) { ProductionPolicy.ValidateGenerationPrompt(s.Prompt); return s.Production is null; }
         if (s.Production is null) return s.Profile == H3Policy.Profile && s.Prompt == H3Policy.Compile(s.Shot, s.ReferenceGuidance, s.Appearances);
         var p = s.Production;
         if (s.Profile != ProductionPolicy.Profile || p.CompositionId == Guid.Empty || p.Version < 1 || p.Revision is null || p.Revision.Id == Guid.Empty || p.Revision.Prompt != s.Prompt || p.Images is null ||
@@ -240,6 +269,10 @@ public static class AiVideoJobPolicy
         Validate(request);
         if (request.Refinement is { } refinement)
             await RefinementPackages.VerifyFileAsync(Path.Combine(directory, "inputs", H3RefinementPackage.FileName), refinement.SourcePackage.Bytes, refinement.SourcePackage.Sha256, ct);
+        foreach (var file in request.Snapshot.Motion?.Files ?? [])
+            await RefinementPackages.VerifyFileAsync(TakeBundles.Under(Path.Combine(directory, "inputs"), file.FileName), file.Bytes, file.Sha256, ct);
+        foreach (var file in request.Extension?.SourceFiles ?? [])
+            await RefinementPackages.VerifyFileAsync(TakeBundles.Under(Path.Combine(directory, H3Motion.SourceFolder), file.FileName), file.Bytes, file.Sha256, ct);
         foreach (var input in request.Inputs)
         {
             await using var file = File.OpenRead(CapturedInputStore.Resolve(directory, input.FileName, input.Sha256));
@@ -272,6 +305,10 @@ public static class AiVideoJobPolicy
             DurableFile.Flush(target + ".tmp");
             File.Move(target + ".tmp", target, overwrite: true);
         }
+        if (request.Snapshot.Motion is { } motion)
+            await TakeBundles.CopyCapturedAsync(motion.Files, Path.Combine(sourceDirectory, "inputs"), inputs, ct);
+        if (request.Extension is { } extension)
+            await TakeBundles.CopyCapturedAsync(extension.SourceFiles, Path.Combine(sourceDirectory, H3Motion.SourceFolder), Path.Combine(directory, H3Motion.SourceFolder), ct);
         await ValidatePreparedFilesAsync(request, directory, ct);
     }
     public static VideoRun Run(AiVideoJobRequest request) => new() { Id = request.BatchId, Snapshot = ShotCopy.Of(request.Snapshot), Refinement = ShotCopy.Of(request.Refinement),

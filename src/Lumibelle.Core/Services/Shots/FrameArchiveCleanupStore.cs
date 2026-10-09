@@ -25,13 +25,13 @@ public sealed class FrameArchiveCleanupStore(ProjectFiles projects, IShotStore s
             try
             {
                 var doc = await shots.LoadAsync(project.Id, ct); var dir = await projects.DirectoryAsync(project.Id, ct);
-                foreach (var take in doc.Takes.Where(t => t.HasLosslessFrames || t.FrameArchiveRemoval is { CompletedUtc: null }))
+                foreach (var take in doc.Takes.Where(t => t.HasAnyLosslessFrames || t.FrameArchiveRemoval is { CompletedUtc: null }))
                 {
                     long bytes = 0; string? issue = take.FrameArchiveRemoval?.Error;
                     try
                     {
                         var folder = FileShotStore.ArchiveDirectory(dir, take);
-                        foreach (var file in take.FrameArchiveRemoval?.Files.Select(f => f.FileName) ?? take.Frames.Select(f => f.FileName).Distinct())
+                        foreach (var file in take.FrameArchiveRemoval?.Files.Select(f => f.FileName) ?? TakeBundles.Contexts(take).SelectMany(c => c.Take.Frames.Select(f => c.Prefix + f.FileName)).Distinct())
                         {
                             var path = FileShotStore.ArchivePath(folder, file);
                             if (File.Exists(path)) bytes += new FileInfo(path).Length;

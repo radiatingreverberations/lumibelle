@@ -4,7 +4,7 @@
 <section class="take-player" @ref="_element" aria-label="Take player" @onkeydown="KeyDown">
     <div class="take-player-stage" style="aspect-ratio:@Take.Width / @Take.Height">
         <video data-ai-candidate="@Take.Id" playsinline preload="metadata" src="@VideoUrl" aria-label="Generated take"></video>
-        <img class="take-paused-frame" alt="@(Take.HasLosslessFrames ? "Lossless frame" : "MP4 frame") @(_index + 1) of @Take.FrameCount" hidden />
+        <img class="take-paused-frame" alt="@(Take.IsLosslessFrame(_index) ? "Lossless frame" : "MP4 frame") @(_index + 1) of @Take.FrameCount" hidden />
     </div>
     <div class="take-transport">
         <button type="button" data-action="play" aria-label="@(_playing ? "Pause" : "Play")">@(_playing ? "Pause" : "Play")</button>
@@ -15,11 +15,12 @@
         <label class="take-volume">Volume<input data-action="volume" type="range" min="0" max="1" step="0.05" value="1" /></label>
         <button type="button" data-action="fullscreen">Fullscreen</button>
     </div>
-    @if (!Take.HasLosslessFrames) { <p class="field-hint">Frames are extracted from compressed MP4 video; @(Take.FrameArchiveRemoval is null ? "no lossless archive was saved." : "the lossless archive was removed.")</p> }
+    @if (!Take.HasLosslessFrames && Take.HasVisibleLosslessFrames) { <p class="field-hint">This take mixes lossless and MP4 segments. Frames use each segment’s lossless archive when available.</p> }
+    else if (!Take.HasLosslessFrames) { <p class="field-hint">Frames are extracted from compressed MP4 video; @(Take.FrameArchiveRemoval is null ? "no lossless archive was saved." : "the lossless archive was removed.")</p> }
     <div class="take-frame-actions">
         <span role="status">@(_playing ? "Playing" : $"Frame {_index + 1} / {Take.FrameCount} · {(_index / Take.Fps):0.000} s")@(!_playing && !_ready && _error is null ? " · Loading frame…" : "")</span>
         <span class="take-frame-buttons">
-            @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" disabled="@(_saving || (!_playing && !_ready))" title="Add a shot after this one that starts exactly on this frame" @onclick="() => Capture(ContinueRequested)">Continue from this frame</button> }
+            @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" disabled="@(_saving || (!_playing && !_ready))" title="Extend this take or create a separate continuation from this frame" @onclick="() => Capture(ContinueRequested)">Continue from this frame</button> }
             @if (ShowSaveFrame) { <button type="button" class="take-save-frame" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(SaveRequested)">Save frame to Assets</button> }
         </span>
     </div>
@@ -38,6 +39,7 @@
     private (int, int)? _appliedRange;
     public async Task<int> CaptureFrameAsync() => _player is null || _disposed ? -1 : await _player.InvokeAsync<int>("pauseForSave");
     public async Task PauseAsync() { if (_player is not null && !_disposed) await _player.InvokeVoidAsync("pause"); }
+    public async Task PreviewJoinAsync(int frame) { if (_player is not null && !_disposed) await _player.InvokeVoidAsync("previewJoin", frame); }
     private ElementReference _element;
     private IJSObjectReference? _module, _player;
     private DotNetObjectReference<TakePlayer>? _reference;

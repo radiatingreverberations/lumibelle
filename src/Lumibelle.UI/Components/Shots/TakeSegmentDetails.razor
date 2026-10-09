@@ -1,0 +1,22 @@
+@if (Take.Composition is { } composition)
+{
+    <details><summary>Generation segments</summary>
+        <ol>
+            @foreach (var (segment, first) in VisibleSegments()) {
+                <li>Visible frames @(first + 1)–@(first + segment.EndFrameExclusive - segment.StartFrame):
+                    source @segment.Source.Id.ToString()[..8], frames @(segment.StartFrame + 1)–@segment.EndFrameExclusive of @segment.Source.FrameCount.
+                    Full generation: @segment.Source.Snapshot.FrameCount frames · @((segment.Source.Snapshot.FrameCount / Take.Fps).ToString("0.###")) s.
+                    @(segment.Source.HasLosslessFrames ? "Lossless frames retained." : "MP4 frames.")
+                    @(segment.Source.RefinementPackage is null ? "" : "Full source latents retained.")</li>
+            }
+        </ol>
+        @if (Take.Snapshot.Motion is { } motion) { <p>@lumibelle.Services.Shots.H3Motion.Label(motion.Route) · @motion.Frames context frames removed from the delivered extension.</p> }
+    </details>
+}
+@code {
+    [Parameter, EditorRequired] public ShotTake Take { get; set; } = null!;
+    private IEnumerable<(TakeSegment, int)> VisibleSegments() {
+        var first = 0;
+        foreach (var segment in Take.Composition!.Segments) { yield return (segment, first); first += segment.EndFrameExclusive - segment.StartFrame; }
+    }
+}

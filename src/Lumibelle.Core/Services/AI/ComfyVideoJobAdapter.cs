@@ -39,11 +39,12 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var scope = candidates.Count == 1 ? ComfyMultiTakeWorkflow.CandidateOperation(candidates[0]) : ComfyMultiTakeWorkflow.Operation;
         var prepared = await cache.EnsureAsync(context, request.Snapshot, scope, ct);
         var refine = await RefineSourceAsync(request, directory, ct);
+        var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct, prepared);
         if (candidates.Count == 1)
-            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared, refine);
+            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared, refine, motion);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared, refine), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared, refine, motion), clientId);
     }
     // Uploads a refinement's saved latents; null for normal generation.
     private async Task<ComfyH3Video.RefineSource?> RefineSourceAsync(AiVideoJobRequest request, string directory, CancellationToken ct)
@@ -63,6 +64,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var configuration = await video.CheckAsync(new() { ComfyUrl = s.ExecutionComfyUrl, H3 = s.Settings with {
             Performance = H3Performance.Preferences(s.Performance), LatentUpscaler = request.Refinement?.Upscaler ?? s.Settings.LatentUpscaler } }, ct);
         H3Loras.CheckSubmission(s, configuration.OptionalLoras);
+        if (s.Motion is { } motion) await video.CheckMotionAsync(s.ExecutionComfyUrl, motion.Route, ct);
         if (ReelRefMods.Uses(s.Shot) && configuration.RefModIssue is { } refmodIssue) throw new WorkspaceStoreException(refmodIssue);
         if (s.Shot.Videos.Any(v => v.EffectiveVisuals == ReelVisuals.FullReel) && configuration.VideoReferenceIssue is { } videoIssue) throw new WorkspaceStoreException(videoIssue);
         if (request.Refinement is { } refinement)
@@ -83,16 +85,18 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
     {
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
         var refine = await RefineSourceAsync(request, directory, ct);
+        var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
-        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded, refine: refine);
+        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded, refine: refine, motion: motion);
     }
     public async Task<Func<string, object>> PrepareBatchWorkflowAsync(AiVideoJobRequest request, IReadOnlyList<AiBatchCandidate> candidates, string directory, CancellationToken ct)
     {
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
         var refine = await RefineSourceAsync(request, directory, ct);
+        var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, refine: refine), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, refine: refine, motion: motion), clientId);
     }
     public Task<ShotTake> DownloadAsync(AiVideoJobRequest request, VideoCandidate candidate, string directory, Func<string, Task> progress, CancellationToken ct) =>
         video.DownloadAsync(AiVideoJobPolicy.Run(request), candidate, directory, progress, ct);

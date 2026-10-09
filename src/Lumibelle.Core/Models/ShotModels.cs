@@ -150,18 +150,38 @@ public sealed record ShotFrame(int Index, string FileName, long Bytes)
 }
 public sealed record ShotTake
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TakeComposition? Composition { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasAnyLosslessFrames => FrameArchiveRemoval is null && TakeBundlesAvailable();
+    private bool TakeBundlesAvailable() => Frames.Count > 0 || Composition?.Segments.Any(s => s.Source.HasAnyLosslessFrames) == true || Extension?.Source.HasAnyLosslessFrames == true;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TakeExtensionRequest? Extension { get; set; }
     public TakeTrim? Trim { get; set; }
     public RetainedRefinementSource? RetainedSource { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
-    public int FrameCount => Trim is { } trim ? trim.EndFrameExclusive - trim.StartFrame : Snapshot.FrameCount;
+    public int FrameCount => Composition is { } composition ? composition.Segments.Sum(s => s.EndFrameExclusive - s.StartFrame) : Trim is { } trim ? trim.EndFrameExclusive - trim.StartFrame : Snapshot.FrameCount;
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasLosslessFrames => FrameArchiveRemoval is null && (Trim?.LosslessFrames ?? (Refinement is not null || Snapshot.OutputPolicy?.SaveLosslessFrames != false));
+    public bool HasLosslessFrames => FrameArchiveRemoval is null && (Composition is { } composition ? composition.Segments.All(s => s.Source.HasLosslessFrames) : Trim?.LosslessFrames ?? (Refinement is not null || Snapshot.OutputPolicy?.SaveLosslessFrames != false));
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public FrameArchiveRemoval? FrameArchiveRemoval { get; set; }
     public VideoTakeTimings? Timings { get; set; }
     public H3RefinementPackage? RefinementPackage { get; set; }
     public TakeRefinement? Refinement { get; set; }
     public Guid? AiJobId { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasVisibleLosslessFrames => FrameArchiveRemoval is null && (Composition is { } c ? c.Segments.Any(s => s.Source.HasLosslessFrames) : HasLosslessFrames);
+    public bool IsLosslessFrame(int frame)
+    {
+        if (frame < 0 || frame >= FrameCount || FrameArchiveRemoval is not null) return false;
+        if (Composition is null) return HasLosslessFrames;
+        foreach (var segment in Composition.Segments) {
+            var count = segment.EndFrameExclusive - segment.StartFrame;
+            if (frame < count) return segment.Source.IsLosslessFrame(segment.StartFrame + frame);
+            frame -= count;
+        }
+        return false;
+    }
     public Guid Id { get; set; } = Guid.NewGuid();
     // Current library owner; Snapshot.Shot retains the original generation context.
     public Guid ShotId { get; set; }
@@ -205,6 +225,7 @@ public sealed record ShotDocument
     public List<ShotPlanningReview> PlanningReviews { get; set; } = [];
     public List<ShotTakePublication> TakePublications { get; set; } = [];
     public List<TakeTrimRequest> TrimPublications { get; set; } = [];
+    public List<TakeExtensionPublication> ExtensionPublications { get; set; } = [];
     public ShotDocument Copy() => ShotCopy.Of(this);
 }
 public sealed record ShotTakePublication(Guid TakeId, Guid RunId, Guid ShotId, Guid? JobId, int Candidate, string Fingerprint, DateTimeOffset PublishedUtc);
@@ -233,6 +254,8 @@ public sealed record TrashedVoice(Guid Id, VoiceReference Voice, ReferenceAsset 
 public sealed record VideoSnapshot(Guid ProjectId, long SourceRevision, Shot Shot, string Prompt, string Fingerprint,
     string ComfyUrl, H3Settings Settings, int Width, int Height, int FrameCount, string Profile = "h3-single-take-v1")
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TakeMotionContext? Motion { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public TakeRegenerationSource? RegenerationSource { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

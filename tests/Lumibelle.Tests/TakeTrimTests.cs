@@ -143,7 +143,15 @@ public sealed partial class ShotTests
         public bool HasAudio = true;
         public int Width = 32, Height = 32;
         public Func<CancellationToken, Task>? OnTrim;
+        public Task CaptureMotionAudioAsync(string source, string target, int start, int end, double fps, H3Settings settings, CancellationToken ct) => Task.CompletedTask;
+        public async Task AssembleTakeAsync(IReadOnlyList<TakeAssemblyMedia> segments, string target, H3Settings settings, CancellationToken ct) {
+            Trims++; if (Fail) throw new IOException("Simulated local assembly failure");
+            if (OnTrim is not null) await OnTrim(ct);
+            _frames = segments.Sum(s => s.EndFrameExclusive - s.StartFrame);
+            await File.WriteAllBytesAsync(target, [1, 2, 3], ct);
+        }
         private int _frames;
+        public int Frames { set => _frames = value; }
         public async Task TrimTakeAsync(string source, string? frames, string target, int start, int end, double fps, H3Settings settings, CancellationToken ct) {
             Trims++; if (Fail) throw new IOException("Simulated local encoder failure");
             if (OnTrim is not null) await OnTrim(ct);

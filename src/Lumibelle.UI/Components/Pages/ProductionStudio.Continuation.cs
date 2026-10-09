@@ -17,7 +17,7 @@ public partial class ProductionStudio
         _frameDestination = null; _reviewError = null;
         _continueFrame = (take.Id, index); _continueTarget = null;
     }
-    private void CloseContinue() { _continueFrame = null; _restoreFrameFocus = true; }
+    private void CloseContinue() { if (_extensionPreparation is not null) { _extensionPreparation.Cancel(); return; } _continueFrame = null; _restoreFrameFocus = true; }
     /// <summary>The shots a frame can be continued in: any shot but the one the take belongs to.</summary>
     private IEnumerable<Shot> ContinueTargets(ShotTake take) => _doc.Shots.Where(s => s.Id != take.ShotId);
 

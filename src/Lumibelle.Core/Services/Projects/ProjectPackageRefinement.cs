@@ -14,43 +14,52 @@ internal static class ProjectPackageRefinement
     internal static async Task RewriteAsync(ProjectPackagePlan plan, IReadOnlyDictionary<Guid, ShotTake> originals,
         string scratch, CancellationToken ct)
     {
-        var takes = AllTakes(plan.State).ToDictionary(t => t.Id);
-        var done = new HashSet<Guid>(); var visiting = new HashSet<Guid>();
-        async Task One(ShotTake take, int depth = 0)
-        {
-            if (depth > 128) throw new WorkspaceStoreException("Refinement provenance is too deep to transfer safely.");
-            if (done.Contains(take.Id)) return;
-            if (!visiting.Add(take.Id)) throw new WorkspaceStoreException("Cyclic refinement provenance in this project.");
-            if (take.Refinement is { } refinement && takes.TryGetValue(refinement.ParentTakeId, out var parent))
-            {
-                await One(parent, depth + 1);
-                if (parent.RefinementPackage is { } updated && originals[parent.Id].RefinementPackage is { } before && before.Id == refinement.SourcePackage.Id)
-                    take.Refinement = refinement with { SourcePackage = updated };
-            }
-            if (take.RefinementPackage is not null)
-            {
-                var relative = $"shots/takes/{take.Id:D}/{H3RefinementPackage.FileName}";
-                var source = plan.Sources[relative]; var original = originals[take.Id];
+        var updated = new Dictionary<Guid, H3RefinementPackage>();
+        foreach (var take in AllTakes(plan.State)) {
+            var before = TakeBundles.Contexts(originals[take.Id]).ToDictionary(c => c.Prefix, c => c.Take);
+            foreach (var (context, prefix) in TakeBundles.Contexts(take)) {
+                if (context.RetainedSource?.RefinementInput is { } replayPackage) {
+                    var replayPath = $"shots/takes/{take.Id:D}/{prefix}{TakeTrimming.InputsFolder}/{TakeTrimming.RefinementInputFile}";
+                    var replaySource = plan.Sources[replayPath];
+                    await RefinementPackages.VerifyFileAsync(replaySource.Physical, replayPackage.Bytes, replayPackage.Sha256, ct);
+                    Directory.CreateDirectory(scratch);
+                    var replayOutput = Path.Combine(scratch, Guid.NewGuid().ToString("D") + ".safetensors");
+                    var replaySnapshot = context.Snapshot with { Width = replayPackage.Width, Height = replayPackage.Height, FrameCount = replayPackage.FrameCount };
+                    await RewriteHeaderAsync(replaySource.Physical, replayOutput, replaySnapshot, null, ct);
+                    var retained = await RefinementPackages.InspectAsync(replayOutput, replaySnapshot, null, ct);
+                    context.RetainedSource = context.RetainedSource with { RefinementInput = retained }; updated[retained.Id] = retained;
+                    plan.Sources[replayPath] = new(replayPath, replayOutput, retained.Bytes, retained.Sha256);
+                }
+                if (context.RefinementPackage is not { } originalPackage) continue;
+                var relative = $"shots/takes/{take.Id:D}/{prefix}{H3RefinementPackage.FileName}";
+                var source = plan.Sources[relative]; var original = before[prefix];
                 var verified = await RefinementPackages.InspectAsync(source.Physical, original.Snapshot, original.Refinement, ct);
                 if (verified != original.RefinementPackage) throw new WorkspaceStoreException("A retained refinement package changed before export.");
-                var output = Path.Combine(scratch, take.Id.ToString("D") + ".safetensors");
                 Directory.CreateDirectory(scratch);
-                await RewriteHeaderAsync(source.Physical, output, take.Snapshot, take.Refinement, ct);
-                var package = await RefinementPackages.InspectAsync(output, take.Snapshot, take.Refinement, ct);
-                take.RefinementPackage = package;
+                var output = Path.Combine(scratch, Guid.NewGuid().ToString("D") + ".safetensors");
+                await RewriteHeaderAsync(source.Physical, output, context.Snapshot, context.Refinement, ct);
+                var package = await RefinementPackages.InspectAsync(output, context.Snapshot, context.Refinement, ct);
+                context.RefinementPackage = package; updated[package.Id] = package;
                 plan.Sources[relative] = new(relative, output, package.Bytes, package.Sha256);
             }
-            // Take.Bytes includes MP4, distinct archive segments and the refinement file.
-            // Header sanitization changes package size, so retain accurate storage accounting.
-            long size = new FileInfo(plan.Sources[$"shots/takes/{take.Id:D}/video.mp4"].Physical).Length;
-            foreach (var frame in take.Frames.DistinctBy(f => f.FileName))
-                size = checked(size + new FileInfo(plan.Sources[$"shots/takes/{take.Id:D}/{frame.FileName}"].Physical).Length);
-            take.Bytes = checked(size + (take.RefinementPackage?.Bytes ?? 0));
-            if (take.RetainedSource is { } retained) take.Bytes = checked(take.Bytes + retained.Inputs.Sum(i => i.Bytes));
-            visiting.Remove(take.Id); done.Add(take.Id);
         }
-        foreach (var take in takes.Values) await One(take);
+        foreach (var take in AllTakes(plan.State)) {
+            foreach (var (context, prefix) in TakeBundles.Contexts(take)) {
+                if (context.Refinement is { } refinement && updated.TryGetValue(refinement.SourcePackage.Id, out var package)) context.Refinement = refinement with { SourcePackage = package };
+                if (context.Extension is { } extension) {
+                    var manifest = new List<CapturedMotionFile>();
+                    foreach (var file in extension.SourceFiles) {
+                        var path = $"shots/takes/{take.Id:D}/{prefix}{H3Motion.SourceFolder}/{file.FileName}";
+                        await using var stream = File.OpenRead(plan.Sources[path].Physical);
+                        manifest.Add(new(file.FileName, stream.Length, Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream, ct))));
+                    }
+                    context.Extension = extension with { SourceFiles = manifest };
+                }
+                context.Bytes = TakeBundles.Files(context).Distinct().Sum(f => new FileInfo(plan.Sources[$"shots/takes/{take.Id:D}/{prefix}{f}"].Physical).Length);
+            }
+        }
     }
+
     internal static IEnumerable<ShotTake> AllTakes(ProjectPackageState state) =>
         state.Shots.Takes.Concat(state.Shots.Trash.Where(t => t.Take is not null).Select(t => t.Take!));
     internal static async Task RewriteHeaderAsync(string source, string output, VideoSnapshot snapshot, TakeRefinement? refinement, CancellationToken ct)

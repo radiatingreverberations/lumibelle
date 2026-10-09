@@ -36,6 +36,17 @@ public sealed class ProjectFiles(ApplicationPaths paths, IProjectStore projects,
 // was still cached, leaving zero-filled media. Flush just before the rename.
 public static class DurableFile
 {
+    public static async Task MoveDirectoryAsync(string source, string destination, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++) {
+            ct.ThrowIfCancellationRequested();
+            try { Directory.Move(source, destination); return; }
+            // Windows scanners can briefly hold newly written media or manifests open.
+            catch (IOException e) when (OperatingSystem.IsWindows() && attempt < 3 &&
+                (e.HResult & 0xffff) is 5 or 32 or 33 && Directory.Exists(source) && !Directory.Exists(destination))
+            { await Task.Delay(50 * (attempt + 1), ct); }
+        }
+    }
     public static void Flush(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);

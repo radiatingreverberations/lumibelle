@@ -7,10 +7,12 @@ namespace lumibelle.Services.Shots;
 
 internal static class H3PromptCompiler
 {
-    internal static string Compile(Shot shot, IReadOnlyList<ShotReferenceGuidance>? guidance, IReadOnlyList<ShotAppearanceContext>? appearances)
+    internal static string Compile(Shot shot, IReadOnlyList<ShotReferenceGuidance>? guidance, IReadOnlyList<ShotAppearanceContext>? appearances, bool motionContext = false)
     {
         var characters = ShotReferences.Characters(shot);
-        var speakers = shot.Dialogue.Select(d => ShotReferences.Character(shot, d.Speaker)!).DistinctBy(c => c.Id).ToList();
+        var speakerNames = shot.Dialogue.Select(d => d.Speaker);
+        if (motionContext) speakerNames = speakerNames.Concat(shot.Voices.Select(v => v.Speaker));
+        var speakers = speakerNames.Select(name => ShotReferences.Character(shot, name)!).DistinctBy(c => c.Id).ToList();
         // Picture numbers follow submission order; several pictures may describe one subject.
         var groups = shot.Images.Select((image, index) => (Image: image, Picture: index + 1))
             .Where(x => !ReferenceSetups.IsAnchor(x.Image))

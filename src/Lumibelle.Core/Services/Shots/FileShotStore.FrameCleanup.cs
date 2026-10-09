@@ -9,11 +9,18 @@ public sealed partial class FileShotStore
     {
         if (take.FrameArchiveRemoval is not { } removal) return;
         if (removal.RequestedUtc == default || removal.CompletedUtc < removal.RequestedUtc || removal.Files is null ||
-            removal.Files.Count == 0 || removal.Files.Count > 16 || removal.Files.Any(f => f is null || f.Bytes < 0 || !ArchiveFileName(f.FileName)) ||
+            removal.Files.Count == 0 || removal.Files.Any(f => f is null || f.Bytes < 0 || !ArchiveBundleName(f.FileName)) ||
             removal.Files.Select(f => f.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != removal.Files.Count || take.Frames.Count != 0)
             throw new WorkspaceStoreException("Invalid frame archive cleanup record.");
     }
     private static bool ArchiveFileName(string file) => Enumerable.Range(0, 16).Any(i => file == LosslessFrameArchive.FileName(i));
+    private static bool ArchiveBundleName(string file)
+    {
+        var parts = file.Split('/'); var i = 0;
+        if (parts[0] == H3Motion.SourceFolder) i++;
+        if (parts.Length - i > 1) { if (parts.Length - i != 3 || parts[i] != "segments" || !Guid.TryParseExact(parts[i + 1], "D", out _)) return false; i += 2; }
+        return parts.Length == i + 1 && ArchiveFileName(parts[i]);
+    }
     internal static string ArchiveDirectory(string projectDirectory, ShotTake take)
     {
         if (take.Directory != take.Id.ToString("D")) throw new WorkspaceStoreException("Invalid take directory.");
@@ -28,8 +35,8 @@ public sealed partial class FileShotStore
     }
     internal static string ArchivePath(string directory, string file)
     {
-        if (!ArchiveFileName(file)) throw new WorkspaceStoreException("Invalid frame archive filename.");
-        var path = Path.Combine(directory, file);
+        if (!ArchiveBundleName(file)) throw new WorkspaceStoreException("Invalid frame archive filename.");
+        var path = TakeBundles.Under(directory, file);
         if (File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new WorkspaceStoreException("Archive cleanup does not delete linked media files.");
         return path;
@@ -39,25 +46,25 @@ public sealed partial class FileShotStore
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var document = await Read(dir, projectId, ct); Revision(document, expectedRevision);
         var selected = document.Takes.Where(t => takeIds.Contains(t.Id)).ToArray();
-        if (takeIds.Count == 0 || selected.Length != takeIds.Count || selected.Any(t => !t.HasLosslessFrames && t.FrameArchiveRemoval?.CompletedUtc is not null))
+        if (takeIds.Count == 0 || selected.Length != takeIds.Count || selected.Any(t => !t.HasAnyLosslessFrames && t.FrameArchiveRemoval?.CompletedUtc is not null))
             throw new WorkspaceStoreException("The selected archives changed. Refresh storage cleanup and try again.");
         var media = mediaTools ?? new ProductionMediaTools();
         foreach (var take in selected)
         {
-            if (!take.HasLosslessFrames && take.FrameArchiveRemoval is null) throw new WorkspaceStoreException("This take has no lossless archive.");
+            if (!take.HasAnyLosslessFrames && take.FrameArchiveRemoval is null) throw new WorkspaceStoreException("This take has no lossless archive.");
             var folder = ArchiveDirectory(dir, take); var video = Path.Combine(folder, "video.mp4");
             // Ensure frame access remains possible before accepting an irreversible removal.
             var info = await media.VideoInfoAsync(video, take.Snapshot.Settings, ct);
             if (info.Width != take.Width || info.Height != take.Height || info.Frames != take.FrameCount || info.Fps != take.Fps)
                 throw new WorkspaceStoreException("The saved MP4 does not match this take. Its lossless archive was retained.");
             await media.ExtractFrameAsync(video, 0, take.Width, take.Height, take.Snapshot.Settings, ct);
-            foreach (var file in take.FrameArchiveRemoval?.Files.Select(f => f.FileName) ?? take.Frames.Select(f => f.FileName).Distinct())
+            foreach (var file in take.FrameArchiveRemoval?.Files.Select(f => f.FileName) ?? TakeBundles.Contexts(take).SelectMany(c => c.Take.Frames.Select(f => c.Prefix + f.FileName)).Distinct())
                 _ = ArchivePath(folder, file);
         }
         foreach (var take in selected.Where(t => t.FrameArchiveRemoval is null))
         {
-            take.FrameArchiveRemoval = new(clock.GetUtcNow(), take.Frames.DistinctBy(f => f.FileName).Select(f => new FrameArchiveFile(f.FileName, f.Bytes)).ToArray());
-            take.Frames = [];
+            var now = clock.GetUtcNow(); var removed = TakeBundles.RemoveArchives(take, now);
+            take.FrameArchiveRemoval = new(now, removed);
         }
         // Persist the user's intent and MP4 fallback first. A disk-full failure deletes nothing.
         document = await Publish(dir, document, ct);

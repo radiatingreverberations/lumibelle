@@ -12,6 +12,10 @@ public sealed record VideoFileInfo(int Width, int Height, int Frames, double Fps
 }
 public interface IProductionMediaTools
 {
+    Task AssembleTakeAsync(IReadOnlyList<TakeAssemblyMedia> segments, string target, H3Settings settings, CancellationToken ct)
+        => throw new WorkspaceStoreException("Extension assembly is unavailable.");
+    Task CaptureMotionAudioAsync(string source, string target, int start, int end, double fps, H3Settings settings, CancellationToken ct)
+        => throw new WorkspaceStoreException("Motion audio capture is unavailable.");
     Task TrimTakeAsync(string source, string? framePattern, string target, int start, int end, double fps, H3Settings settings, CancellationToken ct)
         => throw new WorkspaceStoreException("Take trimming is unavailable.");
     Task ExportCutAsync(IReadOnlyList<CutExportSegment> segments, string target, H3Settings settings, CancellationToken ct)
@@ -61,7 +65,7 @@ public sealed partial class ProductionMediaTools : IProductionMediaTools
     }
     public async Task<byte[]> ExtractFrameAsync(string path, int index, int width, int height, H3Settings settings, CancellationToken ct)
     {
-        if (index is < 0 or >= 362) throw new WorkspaceStoreException("Choose an available frame.");
+        if (index < 0) throw new WorkspaceStoreException("Choose an available frame.");
         var info = new ProcessStartInfo(settings.Ffmpeg) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "-hide_banner", "-loglevel", "error", "-nostdin", "-threads", "1", "-i", path, "-map", "0:v:0", "-vf",
             $"select=eq(n\\,{index})", "-frames:v", "1", "-fps_mode", "passthrough", "-map_metadata", "-1", "-threads", "1", "-f", "image2pipe", "-c:v", "png", "pipe:1" }) info.ArgumentList.Add(arg);

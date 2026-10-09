@@ -19,73 +19,64 @@ async function setup(page, request) {
 }
 const shots = async (request, project) => (await (await request.get(`/fixtures/${project.id}/shots`)).json());
 
-test('a paused take frame starts a new shot that opens on it, and its takes and prompt receive that frame', async ({ page, request }) => {
-  test.setTimeout(120000);
+test('paused-frame extension captures ordered motion stills and supports both continuation destinations', async ({ page, request }) => {
+  test.setTimeout(150000);
   const project = await setup(page, request);
-  await composeProduction(page);
-  await generateTakes(page);
+  await composeProduction(page); await generateTakes(page);
   const review = page.locator('.shot-review-dialog');
   await expect(review).toBeVisible({ timeout: 20000 });
+  const source = (await shots(request, project)).takes[0];
   const position = review.getByRole('slider', { name: 'Video position' });
-  await position.focus(); await page.keyboard.press('End');
+  await position.press('End');
   await expect(review.locator('.take-player')).toHaveAttribute('data-frame-index', '38');
-  // Details describe the take; the frame actions sit with the player.
-  await expect(review.getByRole('region', { name: 'Take details' })).toContainText('Download MP4');
   await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
-  const continuing = review.getByRole('region', { name: 'Continue from this frame' });
-  await expect(continuing).toContainText('Continue from frame 39');
-  // A lone shot has nowhere else to continue, so it is added after this one.
-  await expect(continuing.getByLabel('Shot to start from this frame')).toHaveCount(0);
-  await continuing.getByRole('button', { name: 'Add shot', exact: true }).click();
-  await expect(review).toBeHidden();
-
-  await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
-  const [source, next] = (await shots(request, project)).shots;
-  const take = (await shots(request, project)).takes.find(t => t.shotId === source.id);
-  expect(next.title).toBe(`${source.title} (cont.)`);
-  expect(next.sceneId).toBe(source.sceneId);
-  expect(next.startFrame).toEqual({ takeId: take.id, frame: 38 });
-  expect(next.description).toBe('');
-
-  const card = page.getByRole('group', { name: 'Starts from' });
-  await expect(card).toContainText(`${source.title} · Take 1 · frame 39 of 39`);
-  await expect(card.locator('img')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${take.id}/frames/38`);
-  await expect(page.locator('.shot-outline-item.selected')).toContainText('(cont.)');
-
-  // The prompt is composed seeing the frame after the references, and the take is generated from it.
-  await page.getByLabel('Duration (seconds)').fill('1'); await page.getByLabel('Duration (seconds)').blur();
-  await page.getByLabel('Action and camera').fill('She looks up from the doorway and smiles.'); await page.getByLabel('Action and camera').blur();
+  const form = review.getByRole('region', { name: 'Extend take', exact: true });
+  await expect(form).toContainText('Retain frames 1–39 of 39');
+  await expect(form.getByLabel('Next action', { exact: true })).toHaveValue('');
+  await expect(form.getByLabel('New dialogue', { exact: true })).toHaveValue('');
+  await form.getByLabel('Next action', { exact: true }).fill('She looks up from the doorway and smiles.');
+  await form.getByLabel('Added duration', { exact: true }).fill('1');
   const before = (await (await request.get('/fixtures/compositions')).json()).length;
-  await composeProduction(page);
-  const compositions = await (await request.get('/fixtures/compositions')).json();
-  expect(compositions.length).toBe(before + 1);
-  const composed = compositions.at(-1);
-  expect(composed.context.cutContinuity.transition).toBe('continuous_from_opening_frame');
-  expect(composed.images.length).toBe(composed.context.references.length + 1);
-  await closeShotSetup(page);
-  await generateTakes(page);
-  await expect(review).toBeVisible({ timeout: 20000 });
-  await expect(review.locator('.take-started-from')).toContainText(`Started from ${source.title} · Take 1 · frame 39 of 39`);
-  const runs = await (await request.get(`/fixtures/${project.id}/video-runs`)).json();
-  const run = runs.find(r => r.snapshot.shot.id === next.id);
-  expect(run.inputs.at(-1).fileName).toBe('start-frame.png');
-
-  // An existing shot can start from a frame too, for example with a cutaway between them.
-  const nextTake = (await shots(request, project)).takes.find(t => t.shotId === next.id);
+  await form.getByRole('button', { name: 'Text model options', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
+  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Close', exact: true }).click();
+  await form.getByRole('button', { name: 'Compose extension prompt', exact: true }).click();
+  await expect.poll(async () => (await (await request.get('/fixtures/compositions')).json()).length).toBe(before + 1);
+  await expect(form.getByRole('button', { name: 'Queue extension', exact: true })).toBeEnabled();
+  const composed = (await (await request.get('/fixtures/compositions')).json()).at(-1);
+  expect(composed.context.cutContinuity.transition).toBe('continuous_from_motion_window');
+  expect(composed.context.precedingAction).toBe(source.snapshot.shot.description);
+  expect(composed.context.shot.dialogue).toEqual([]);
+  expect(composed.context.motionStillsInTimeOrder).toHaveLength(3);
+  expect(composed.images.length).toBe(composed.context.references.length + 3);
+  await expect(form.getByLabel('Extension prompt', { exact: true })).not.toHaveValue('');
+  await form.getByLabel('Separate continuation shot', { exact: true }).check();
+  await expect(form.getByLabel('Continuation destination')).toHaveValue('');
+  await form.getByRole('button', { name: 'Queue extension', exact: true }).click();
+  await expect.poll(async () => (await shots(request, project)).takes.filter(t => t.composition).length, { timeout: 45000 }).toBe(1);
+  let doc = await shots(request, project); const next = doc.shots[1];
+  expect(doc.shots).toHaveLength(2); expect(next.startFrame ?? null).toBeNull();
+  const separate = doc.takes.find(t => t.composition);
+  expect(separate.shotId).toBe(next.id); expect(separate.composition.segments).toHaveLength(1);
+  expect(doc.shots[0].selectedTakeId).toBeNull(); expect(next.selectedTakeId).toBeNull();
+  await expect(review.locator('video')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${separate.id}`);
+  await review.getByRole('button', { name: 'Preview join', exact: true }).click();
+  const preview = review.locator('video[aria-label="Join preview"]');
+  await expect(preview).toBeVisible();
+  expect((await request.get(`/media/projects/${project.id}/takes/${separate.id}/join-preview`)).ok()).toBe(true);
+  await review.getByRole('button', { name: 'Close join preview', exact: true }).click();
+  await review.getByRole('slider', { name: 'Video position' }).press('End');
   await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
-  await continuing.getByRole('radio', { name: 'An existing shot' }).check();
-  await continuing.getByLabel('Shot to start from this frame').selectOption(source.id);
-  await continuing.getByRole('button', { name: 'Start it here', exact: true }).click();
-  await expect(review).toBeHidden();
-  await expect(page.locator('.shot-outline-item.selected')).not.toContainText('(cont.)');
-  await expect.poll(async () => (await shots(request, project)).shots[0].startFrame ?? null).toMatchObject({ takeId: nextTake.id });
-  await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
-
-  // Removing it makes the shot cut in again.
-  await page.getByRole('button', { name: 'Remove the starting frame', exact: true }).click();
-  await expect(card).toBeHidden();
-  await expect.poll(async () => (await shots(request, project)).shots[0].startFrame ?? null).toBeNull();
-  expect((await shots(request, project)).shots[1].startFrame).toMatchObject({ takeId: take.id, frame: 38 });
+  await form.getByLabel('Next action', { exact: true }).fill('She carries on walking.');
+  await form.getByLabel('Added duration', { exact: true }).fill('1');
+  await form.getByLabel('Separate continuation shot', { exact: true }).check();
+  await form.getByLabel('Continuation destination').selectOption(doc.shots[0].id);
+  await form.getByRole('button', { name: 'Queue extension', exact: true }).click();
+  await expect.poll(async () => (await shots(request, project)).takes.filter(t => t.composition).length, { timeout: 45000 }).toBe(2);
+  doc = await shots(request, project);
+  expect(doc.shots).toHaveLength(2);
+  expect(doc.takes.filter(t => t.composition && t.shotId === doc.shots[0].id)).toHaveLength(1);
+  expect(doc.shots[0].startFrame ?? null).toBeNull();
 });
 
 test('copying references from the previous shot adds its production take\'s last frame as a continuity picture', async ({ page, request }) => {

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.Story;
+using lumibelle.Services.Shots;
 
 namespace lumibelle.Services.Projects;
 
@@ -45,10 +46,13 @@ internal static class ProjectPackageFormat
         if (p.Length == 4 && p[0] == "assets" && Id(p[1]))
             return p[2] == "images" && ImageExtensions.Contains(Path.GetExtension(p[3]).ToLowerInvariant()) ||
                 p[2] == "voices" && AudioExtensions.Contains(Path.GetExtension(p[3]).ToLowerInvariant());
-        if (p.Length == 4 && p[0] == "shots" && p[1] == "takes" && Id(p[2]))
-            return p[3] is "video.mp4" or "refinement.safetensors" || ArchiveName(p[3]);
-        if (p.Length == 5 && p[0] == "shots" && p[1] == "takes" && Id(p[2]) && p[3] == "refinement-inputs")
-            return p[4] == Path.GetFileName(p[4]) && Path.GetExtension(p[4]) is ".png" or ".wav" or ".mp4";
+        if (p.Length >= 4 && p[0] == "shots" && p[1] == "takes" && Id(p[2])) {
+            var i = 3;
+            if (p[i] == "extension-source") i++;
+            if (i < p.Length && p[i] == "segments") { if (i + 2 >= p.Length || !Id(p[i + 1])) return false; i += 2; }
+            if (p.Length == i + 1) return p[i] is "video.mp4" or "join-preview.mp4" or "refinement.safetensors" || ArchiveName(p[i]);
+            return p.Length == i + 2 && p[i] == "refinement-inputs" && (p[i + 1] == TakeTrimming.RefinementInputFile || Path.GetExtension(p[i + 1]) is ".png" or ".wav" or ".mp4" or ".latent");
+        }
         if (p.Length == 3 && p[0] == "reference-videos" && Id(p[1]))
             return p[2] is "media.json" or "video.mp4" or "frame-archive.json" || KeyframeName(p[2]);
         if (p.Length == 4 && p[0] == "reference-videos" && Id(p[1]) && p[2] == "lossless") return ArchiveName(p[3]);

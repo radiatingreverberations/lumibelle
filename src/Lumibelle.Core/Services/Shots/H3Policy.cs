@@ -50,7 +50,7 @@ public static class H3Policy
             s.TimeoutSeconds is < 30 or > 86400) throw new WorkspaceStoreException("Video settings are invalid. Set a timeout from 30 to 86400 seconds.");
         H3Performance.Validate(s.Performance);
     }
-    public static void Validate(Shot s, bool ready = false, bool requireScene = true)
+    public static void Validate(Shot s, bool ready = false, bool requireScene = true, bool motionContext = false)
     {
         if (s is not null) lumibelle.Services.Production.ReferenceVideos.Validate(s, ready);
         if (s is null || s.Id == Guid.Empty || string.IsNullOrWhiteSpace(s.Title) || s.Title.Length > 500 || s.Description is null ||
@@ -105,7 +105,7 @@ public static class H3Policy
         foreach (var voice in s.Voices)
             if (voice.VoiceId == Guid.Empty || voice.AssetId == Guid.Empty || !double.IsFinite(voice.Start) || voice.Start < 0 ||
                 !double.IsFinite(voice.Duration) || voice.Duration is < 1 or > 15 || string.IsNullOrWhiteSpace(voice.Speaker) ||
-                ready && !s.Dialogue.Any(d => string.Equals(d.Speaker.Trim(), voice.Speaker.Trim(), StringComparison.OrdinalIgnoreCase)) &&
+                ready && !motionContext && !s.Dialogue.Any(d => string.Equals(d.Speaker.Trim(), voice.Speaker.Trim(), StringComparison.OrdinalIgnoreCase)) &&
                 !(voice.CharacterAssetId is { } owner && s.CharacterVoices?.Any(c => c.AssetId == owner && c.Source == CharacterVoiceSource.Recording && string.IsNullOrEmpty(c.Speaker)) == true)) throw new WorkspaceStoreException("Assign each voice to a dialogue speaker and a 1–15 second excerpt.");
         if (s.Voices.Select(v => v.Speaker.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != s.Voices.Count)
             throw new WorkspaceStoreException("Assign only one voice reference to each speaker.");
@@ -141,11 +141,11 @@ public static class H3Policy
         }
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(json, AtomicJsonFile.Options)));
     }
-    public static string Compile(Shot s, IReadOnlyList<ShotReferenceGuidance>? guidance = null, IReadOnlyList<ShotAppearanceContext>? appearances = null)
+    public static string Compile(Shot s, IReadOnlyList<ShotReferenceGuidance>? guidance = null, IReadOnlyList<ShotAppearanceContext>? appearances = null, bool motionContext = false)
     {
-        Validate(s, true);
+        Validate(s, true, motionContext: motionContext);
         if (s.Characters.Any(c => c.Appearance is not null) && (appearances is null || !s.Characters.Where(c => c.Appearance is not null).Select(c => c.Id).SequenceEqual(appearances.Select(a => a.CharacterId))))
             throw new WorkspaceStoreException("Refresh the captured character looks before compiling the prompt.");
-        return H3PromptCompiler.Compile(s, guidance, appearances);
+        return H3PromptCompiler.Compile(s, guidance, appearances, motionContext);
     }
 }
