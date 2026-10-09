@@ -132,14 +132,18 @@ guide positioned at frame 136 of a 175-frame generation. Browser tests cover bot
 entry points, both destinations, prompt composition with following-action
 context, explicit selection, join review, narrow layouts and exact trimmed starts.
 
-The October 9 live lead-in attempt did not submit a GPU prompt: ComfyUI at
-`127.0.0.1:8188` stopped responding before preflight completed. Real lead-in visual
-quality remains unverified; the eight completed runs above cover forward
-extensions only. To reuse a saved smoke source without another source-generation
-run, set `LUMIBELLE_LIVE_MOTION_LEAD_IN_SOURCE` to a case directory containing
-`take.json` and its owned `take/` bundle. With the other live-test variables below,
-this runs four real jobs: saved-motion lead-in, exact-frame lead-in, Refine and
-Rework. These are opt-in GPU operations.
+After the ComfyUI restart, the [October 9 lead-in smoke test](lead-in-smoke-2026-10-09.md)
+completed four real jobs: saved-motion lead-in, exact-frame lead-in, Refine and
+Rework. Every retained lossless frame and delivered generated frame matched its
+source archive. Held ending latents matched within float32 rounding, source
+hashes stayed unchanged, and Refine preserved the full generated source audio
+exactly when decoded to PCM. Sampled join frames were reviewed; speech
+intelligibility and motion quality still need human playback review.
+
+To reuse a saved smoke source without another source-generation run, set
+`LUMIBELLE_LIVE_MOTION_LEAD_IN_SOURCE` to a case directory containing `take.json`
+and its owned `take/` bundle. With the other live-test variables below, this runs
+those four real jobs. These are opt-in GPU operations.
 
 For another manual run, set `LUMIBELLE_LIVE_MOTION_URL`,
 `LUMIBELLE_LIVE_MOTION_SETTINGS` (an ai-settings.json file), and
