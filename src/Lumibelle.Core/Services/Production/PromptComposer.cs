@@ -56,10 +56,10 @@ public static class PromptComposer
         var message = new ChatMessage(ChatRole.User, Data(r, new
         {
             shot = new { r.Shot.Title, r.Shot.Description, r.Shot.Duration, r.Shot.Dialogue, r.Shot.Characters, r.Shot.Atmosphere, r.Shot.Music, r.Shot.Aspect },
-            generatedDurationSeconds = Shots.H3Policy.Seconds(r.Shot.Duration!.Value), r.SceneContext, r.NearbyShots, r.PrecedingAction,
+            generatedDurationSeconds = Shots.H3Policy.Seconds(r.Shot.Duration!.Value), r.SceneContext, r.NearbyShots, r.PrecedingAction, r.FollowingAction,
             motionStillsInTimeOrder = r.MotionStills,
             cutContinuity = new {
-                transition = r.MotionStills is not null ? "continuous_from_motion_window" : r.OpeningFrame is null ? "hard_cut" : "continuous_from_opening_frame",
+                transition = r.MotionStills is not null ? r.FollowingAction is not null ? "continuous_into_motion_window" : "continuous_from_motion_window" : r.OpeningFrame is null ? "hard_cut" : "continuous_from_opening_frame",
                 previousShotProvided = r.NearbyShots.Any(s => s.StartsWith("Previous shot", StringComparison.OrdinalIgnoreCase)),
                 nextShotProvided = r.NearbyShots.Any(s => s.StartsWith("Next shot", StringComparison.OrdinalIgnoreCase)),
                 mustOpenDifferentlyFromPrevious = r.OpeningFrame is null && r.MotionStills is null },
@@ -90,7 +90,8 @@ public static class PromptComposer
             "Do not stop after detailed_description: overall_soundscape and non_diegetic_music are required even when there is no dialogue, no Audio input, or no music. " +
             "Use the supplied shot.Atmosphere and shot.Music as the sound directions. Always give non_diegetic_music explicit text; write 'No non-diegetic music.' when none is intended. " +
             "Silence is still an explicit sound direction, not a reason to omit a heading. State generatedDurationSeconds using digits followed by 'seconds'.";
-        if (r.MotionStills is not null) instructions += "\nThis is a continuous extension. The final attachments are ordered context stills, earliest to latest. Preserve subject motion, camera motion, identity and sound context into the next action. precedingAction describes completed action; do not repeat it or its dialogue. Only the new shot.Dialogue is spoken. There is no cut or new opening composition. Treat the short motion prefix as already happening, then describe the requested next action.";
+        if (r.MotionStills is not null && r.FollowingAction is not null) instructions += "\nGenerate a lead-in that plays forward in time and arrives naturally at the supplied ending motion window. The final attachments are ordered context stills from the existing opening, earliest to latest. followingAction describes footage that already exists after your new action. Do not repeat its action or dialogue. Describe the requested earlier shot.Description, then arrive at the ending context with matching subject movement, camera motion, identity and sound. Only new shot.Dialogue is spoken. Do not reverse the video or soundtrack; there is no cut, fade or new composition at the join.";
+        else if (r.MotionStills is not null) instructions += "\nThis is a continuous extension. The final attachments are ordered context stills, earliest to latest. Preserve subject motion, camera motion, identity and sound context into the next action. precedingAction describes completed action; do not repeat it or its dialogue. Only the new shot.Dialogue is spoken. There is no cut or new opening composition. Treat the short motion prefix as already happening, then describe the requested next action.";
         else if (r.OpeningFrame is not null) instructions += OpeningFrameInstructions(attach);
         else if (r.NearbyShots.Any(s => s.StartsWith("Previous shot", StringComparison.OrdinalIgnoreCase))) instructions +=
             "\nThe NearbyShots context may include a Previous shot entry with an accepted/composed prompt. Treat that previous shot as continuity context, not as a template to copy. " +

@@ -27,13 +27,17 @@ public sealed partial class AiVideoJobCapture
     }
     public async Task<AiJobSubmission> CaptureExtensionAsync(Guid id, Guid tab, Guid projectId, TakeExtensionOptions options, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(options.Action)) throw new WorkspaceStoreException("Describe the next action before queueing an extension.");
+        var leading = options.Direction == TakeExtensionDirection.Before;
+        if (!Enum.IsDefined(options.Direction)) throw new WorkspaceStoreException("Invalid extension direction.");
+        if (string.IsNullOrWhiteSpace(options.Action)) throw new WorkspaceStoreException(leading ? "Describe the lead-in action before queueing." : "Describe the next action before queueing an extension.");
         var captured = false;
         try {
-        var (source, motion) = await shots.CaptureExtensionAsync(projectId, options.SourceTakeId, id, options.EndFrameExclusive, options.AddedSeconds, options.Combine, ct);
+        var (source, motion) = leading
+            ? await shots.CaptureLeadInAsync(projectId, options.SourceTakeId, id, options.StartFrame, options.AddedSeconds, options.Combine, ct)
+            : await shots.CaptureExtensionAsync(projectId, options.SourceTakeId, id, options.EndFrameExclusive, options.AddedSeconds, options.Combine, ct);
         captured = true;
         var take = source.Source;
-        var contextTake = H3Motion.Tail(take, options.EndFrameExclusive).Segment;
+        var contextTake = leading ? H3Motion.Head(take, options.StartFrame).Segment : H3Motion.Tail(take, options.EndFrameExclusive).Segment;
         var shot = ExtensionShot(contextTake.Source, options, motion.GenerationFrames);
         shot.Id = take.ShotId;
         var document = await shots.LoadAsync(projectId, ct);
@@ -42,10 +46,11 @@ public sealed partial class AiVideoJobCapture
         if (options.DestinationShotId is { } destination) shot.Id = document.Shots.SingleOrDefault(s => s.Id == destination)?.Id ?? throw new WorkspaceStoreException("The continuation shot is unavailable.");
         else if (!options.Combine) {
             var original = document.Shots.SingleOrDefault(s => s.Id == take.ShotId) ?? throw new WorkspaceStoreException("Restore the source shot before adding its continuation.");
-            var continuation = ProductionPolicy.Continuation(original, take, options.EndFrameExclusive - 1);
+            var continuation = ProductionPolicy.Continuation(original, take, leading ? options.StartFrame : options.EndFrameExclusive - 1);
             continuation.StartFrame = null; continuation.Description = options.Action; continuation.Dialogue = ShotCopy.Of(options.Dialogue.ToList());
             continuation.Duration = (motion.GenerationFrames - motion.Frames) / 24d;
-            document.Shots.Insert(document.Shots.IndexOf(original) + 1, continuation);
+            if (leading) continuation.Title = original.Title + " · Lead-in";
+            document.Shots.Insert(document.Shots.IndexOf(original) + (leading ? 0 : 1), continuation);
             addShot = true;
             shot.Id = continuation.Id; shot.Title = continuation.Title;
         }
@@ -73,7 +78,7 @@ public sealed partial class AiVideoJobCapture
             request = request with { Snapshot = request.Snapshot with { SourceRevision = document.Revision } };
         }
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request), project.Name,
-            shot.Title + " · Extend", tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
+            shot.Title + (leading ? " · Lead into" : " · Extend"), tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
         } catch {
             if (captured) {
                 var run = await shots.RunDirectoryAsync(projectId, id, CancellationToken.None);

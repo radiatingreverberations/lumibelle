@@ -63,9 +63,11 @@ public sealed partial class ShotTests
     [Theory]
     [InlineData(39, TakeRefinementMode.Refine)] [InlineData(22, TakeRefinementMode.Rework)]
     [InlineData(5, TakeRefinementMode.Refine)] [InlineData(1, TakeRefinementMode.Rework)]
-    public void FrameGuidedRefinementHoldsTheFreshFullSourcesVideoAndAudioContext(int frames, TakeRefinementMode mode)
+    [InlineData(39, TakeRefinementMode.Refine, true)] [InlineData(22, TakeRefinementMode.Rework, true)]
+    [InlineData(5, TakeRefinementMode.Refine, true)] [InlineData(1, TakeRefinementMode.Rework, true)]
+    public void FrameGuidedRefinementHoldsTheFreshFullSourcesVideoAndAudioContext(int frames, TakeRefinementMode mode, bool leading = false)
     {
-        var motion = new TakeMotionContext(Guid.NewGuid(), frames == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames, 0, frames, frames, 175, []);
+        var motion = new TakeMotionContext(Guid.NewGuid(), frames == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames, 0, frames, frames, 175, []) { Direction = leading ? TakeExtensionDirection.Before : TakeExtensionDirection.After };
         var snapshot = Snapshot(Guid.NewGuid(), Ready()) with { FrameCount = 175, CaptureRefinementData = true, Profile = H3Motion.Profile, Motion = motion };
         var refinement = new TakeRefinement(Guid.NewGuid(), new(Guid.NewGuid(), 100, new('A', 64), 32, 32, 175), mode, 32, 32, "h3.safetensors", H3UpscalerImplementation.Lbh);
         var files = Enumerable.Range(0, frames).ToDictionary(i => $"motion-frame-{i:D2}.png", i => $"frame-{i}.png");
@@ -77,6 +79,9 @@ public sealed partial class ShotTests
         Assert.Equal(H3Motion.AudioBoundary(frames), Input("motion-audio-held", "width").GetInt32());
         Assert.Equal(H3Motion.AudioBoundary(175), Input("motion-audio-new", "width").GetInt32());
         Assert.Equal("multiply", Input("motion-audio-mask", "operation").GetString());
+        Assert.Equal(leading ? 175 - frames : 0, Input("motion-guide", "frame_idx").GetInt32());
+        Assert.Equal(leading ? H3Motion.AudioBoundary(175) - H3Motion.AudioBoundary(frames) : 0, Input("motion-audio-mask", "x").GetInt32());
+        Assert.Equal(leading ? "motion-new-batch" : "motion-held-batch", Input("motion-mask-batch", "image1")[0].GetString());
         Assert.Equal(0, Input("motion-audio-held", "value").GetDouble());
         Assert.Equal("motion-video-mask", Input("refine-motion-video", "mask")[0].GetString());
         Assert.Equal("motion-audio-mask", Input("refine-motion-audio", "mask")[0].GetString());
@@ -88,7 +93,8 @@ public sealed partial class ShotTests
     [Theory]
     [InlineData("F32", 56)] [InlineData("F32", 73)] [InlineData("F32", 124)]
     [InlineData("F16", 73)] [InlineData("BF16", 73)]
-    public async Task MotionInputsCopyExactTensorPlanesWithoutScalingOrChangingTheSource(string dtype, int end)
+    [InlineData("F32", 56, true)] [InlineData("F16", 73, true)] [InlineData("BF16", 124, true)]
+    public async Task MotionInputsCopyExactTensorPlanesWithoutScalingOrChangingTheSource(string dtype, int end, bool leading = false)
     {
         Directory.CreateDirectory(_root);
         var sourceFrames = 124; var outputFrames = 175;
@@ -108,7 +114,7 @@ public sealed partial class ShotTests
         var package = Path.Combine(_root, "full.safetensors");
         await RefinementPackages.ComposeAsync(video, audio, package, Guid.NewGuid(), 64, 32, sourceFrames, _ct);
         var originalHash = SHA256.HashData(await File.ReadAllBytesAsync(package, _ct));
-        await RefinementPackages.PrepareMotionAsync(package, Path.Combine(_root, "motion"), end, outputFrames, _ct);
+        await RefinementPackages.PrepareMotionAsync(package, Path.Combine(_root, "motion"), end - 39, outputFrames, leading, _ct);
         foreach (var (name, source, temporalAxis, start, kept, targetTime) in new[] {
             ("video", sourceVideo, 2, (end - 39) / 17 * 5, 12, H3Motion.VideoSteps(outputFrames)),
             ("audio", sourceAudio, 3, H3Motion.AudioBoundary(end - 39), 65, H3Motion.AudioBoundary(outputFrames)) }) {
@@ -124,14 +130,15 @@ public sealed partial class ShotTests
             var planes = temporalAxis == 2 ? shape[0] * shape[1] : shape[0] * shape[1] * shape[2];
             for (var plane = 0; plane < planes; plane++) {
                 var originalOffset = (int)((plane * source.Shape[temporalAxis] + start) * stride);
-                var outputOffset = 8 + headerLength + plane * targetTime * stride;
+                var planeOffset = 8 + headerLength + plane * targetTime * stride;
+                var outputOffset = planeOffset + (leading ? targetTime - kept : 0) * stride;
                 Assert.Equal(source.Data.AsSpan(originalOffset, kept * stride).ToArray(), bytes.AsSpan(outputOffset, kept * stride).ToArray());
-                Assert.All(bytes.AsSpan(outputOffset + kept * stride, (targetTime - kept) * stride).ToArray(), b => Assert.Equal(0, b));
+                Assert.All(bytes.AsSpan(leading ? planeOffset : outputOffset + kept * stride, (targetTime - kept) * stride).ToArray(), b => Assert.Equal(0, b));
             }
         }
         using var mask = await Image.LoadAsync<Rgb24>(Path.Combine(_root, "motion", "motion-audio-mask.png"), _ct);
         Assert.Equal(H3Motion.AudioBoundary(outputFrames), mask.Width); Assert.Equal(2, mask.Height);
-        for (var x = 0; x < mask.Width; x++) for (var y = 0; y < mask.Height; y++) Assert.Equal(x < 65 ? new Rgb24(0, 0, 0) : new Rgb24(255, 255, 255), mask[x, y]);
+        for (var x = 0; x < mask.Width; x++) for (var y = 0; y < mask.Height; y++) Assert.Equal((leading ? x >= mask.Width - 65 : x < 65) ? new Rgb24(0, 0, 0) : new Rgb24(255, 255, 255), mask[x, y]);
         Assert.Equal(originalHash, SHA256.HashData(await File.ReadAllBytesAsync(package, _ct)));
     }
 

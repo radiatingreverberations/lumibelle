@@ -152,11 +152,11 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
             OutputTrim = take.Trim is { } trim ? new(trim.SourceStartFrame, trim.SourceEndFrameExclusive) : null,
             DestinationShotId = take.ShotId != take.Snapshot.Shot.Id ? take.ShotId : null };
         if (take.Composition is { } composition) {
-            var last = composition.Segments[^1]; var prefix = take.FrameCount - (last.EndFrameExclusive - last.StartFrame);
+            var last = H3Motion.GeneratedSegment(take);
             var capture = ShotCopy.Of(take); capture.Extension = null;
             var manifest = new List<CapturedMotionFile>(); var folder = Path.Combine(await shots.RunDirectoryAsync(projectId, id, ct), H3Motion.SourceFolder);
             foreach (var file in TakeBundles.Files(capture).Distinct()) { await using var stream = File.OpenRead(TakeBundles.Under(folder, file)); manifest.Add(new(file, stream.Length, Convert.ToHexString(await SHA256.HashDataAsync(stream, ct)))); }
-            request = request with { Extension = new(capture, Math.Max(1, prefix), prefix > 0, manifest),
+            request = request with { Extension = new(capture, take.FrameCount, true, manifest) { ReplacementSegmentKey = last.Key, Direction = take.Snapshot.Motion?.Direction ?? TakeExtensionDirection.After },
                 OutputTrim = new((last.Source.Trim?.SourceStartFrame ?? 0) + last.StartFrame, (last.Source.Trim?.SourceStartFrame ?? 0) + last.EndFrameExclusive) };
         }
         AiVideoJobPolicy.Validate(request);
@@ -199,20 +199,23 @@ public static class AiVideoJobPolicy
         H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null); H3Policy.ValidateSettings(s.Settings);
         if (s.Motion is { } capturedMotion) H3Motion.Validate(capturedMotion, s);
         if (r.Extension is { } extension) {
-            if (s.Motion is null && r.Refinement is null || extension.Source.Snapshot.ProjectId != s.ProjectId || extension.SourceFiles is not { Count: > 0 })
+            if (s.Motion is null && r.Refinement is null || extension.Source is null || extension.Source.Snapshot.ProjectId != s.ProjectId || extension.SourceFiles is not { Count: > 0 } ||
+                extension.Direction != (s.Motion?.Direction ?? TakeExtensionDirection.After))
                 throw new WorkspaceStoreException("Invalid captured extension source.");
             TakeBundles.Validate(extension, s.ProjectId);
             if (extension.ReplayLastSegment) {
-                var last = extension.Source.Composition?.Segments[^1];
+                var last = extension.Source.Composition is null ? null : extension.ReplacementSegmentKey is { } replayKey
+                    ? extension.Source.Composition.Segments.Single(s => s.Key == replayKey) : H3Motion.GeneratedSegment(extension.Source);
                 if (last is null || !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(last.Source.Snapshot, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(s, AtomicJsonFile.Options)) ||
                     !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(last.Source.Refinement, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(r.Refinement, AtomicJsonFile.Options)) ||
                     r.OutputTrim is not { } replayRange || replayRange.StartFrame < (last.Source.Trim?.SourceStartFrame ?? 0) + last.StartFrame ||
                     replayRange.EndFrameExclusive > (last.Source.Trim?.SourceStartFrame ?? 0) + last.EndFrameExclusive)
-                    throw new WorkspaceStoreException("The replay does not match the retained final generation.");
+                    throw new WorkspaceStoreException("The replay does not match the retained generation.");
             }
-            if (r.Refinement is null && !extension.ReplayLastSegment && (s.Motion!.SourceTakeId != extension.Source.Id || s.Motion.EndFrameExclusive != extension.RetainedFrames ||
+            if (r.Refinement is null && !extension.ReplayLastSegment && (extension.ReplacementSegmentKey is not null || s.Motion!.SourceTakeId != extension.Source.Id || s.Motion.Direction != extension.Direction ||
+                (extension.Direction == TakeExtensionDirection.Before ? s.Motion.StartFrame != extension.PrefixStartFrame : s.Motion.EndFrameExclusive != extension.RetainedFrames) ||
                 s.Width != extension.Source.Width || s.Height != extension.Source.Height ||
-                s.Motion.Route == MotionContextRoute.SavedLatents && !H3Motion.CanUseLatents(extension.Source, extension.RetainedFrames)))
+                s.Motion.Route == MotionContextRoute.SavedLatents && !(extension.Direction == TakeExtensionDirection.Before ? H3Motion.CanUseLeadingLatents(extension.Source, extension.PrefixStartFrame) : H3Motion.CanUseLatents(extension.Source, extension.RetainedFrames))))
                 throw new WorkspaceStoreException("The motion context does not match the captured extension source.");
         }
         H3Performance.Validate(s.Performance);

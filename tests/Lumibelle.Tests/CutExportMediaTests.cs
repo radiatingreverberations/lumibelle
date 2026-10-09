@@ -158,6 +158,20 @@ public sealed class CutExportMediaTests : IDisposable
             Assert.Equal(0, double.Parse(stream.GetProperty("start_time").GetString()!, CultureInfo.InvariantCulture));
     }
 
+    [Fact(Skip = OptIn, SkipUnless = nameof(MediaTestsEnabled))]
+    public async Task LeadInAssemblyRemovesTheEndingOverlapAndRetainsFollowingAudio()
+    {
+        var red = await Fixture("red"); var blue = await Fixture("blue", 2);
+        var full = Path.Combine(_directory, "lead-in-full.mp4");
+        await _media.AssembleTakeAsync([new(red, null, 0, 17, 24), new(blue, null, 0, 39, 24)], full, _settings, _timeout.Token);
+        var result = Path.Combine(_directory, "lead-in-combined.mp4");
+        await _media.AssembleTakeAsync([new(full, null, 0, 17, 24), new(blue, null, 3, 42, 24)], result, _settings, _timeout.Token);
+        await AssertVideo(result, 56, 56 / 24d, true);
+        await AssertColor(result, 0, true); await AssertColor(result, 16, true);
+        await AssertColor(result, 17, false); await AssertColor(result, 55, false);
+        var audio = await Audio(result);
+        Assert.True(Rms(audio, .1, .5) < .002); Assert.True(Rms(audio, 1, 2.2) > .02);
+    }
     private async Task<string> Fixture(string color, double? audioSeconds = null, int fps = 24, int width = 64)
     {
         Directory.CreateDirectory(_directory);

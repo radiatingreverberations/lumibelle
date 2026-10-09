@@ -17,6 +17,8 @@ public interface IShotStore
     Task<ShotDocument> PublishTakeAsync(Guid projectId, ShotTake take, string stagingDirectory, CancellationToken ct = default);
     Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureExtensionAsync(Guid projectId, Guid takeId, Guid runId, int endFrameExclusive, double addedSeconds, bool combine, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Motion-aware extension capture is unavailable.");
+    Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureLeadInAsync(Guid projectId, Guid takeId, Guid runId, int startFrame, double addedSeconds, bool combine, CancellationToken ct = default)
+        => throw new WorkspaceStoreException("Lead-in capture is unavailable.");
     Task<ShotDocument> PublishExtensionAsync(Guid projectId, AiVideoJobRequest request, Guid fullTakeId, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Extension publication is unavailable.");
     Task<AiVideoJobRequest> CaptureExtensionVersionAsync(Guid projectId, Guid takeId, Guid runId, CancellationToken ct = default)

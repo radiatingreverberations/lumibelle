@@ -12,7 +12,7 @@ public sealed partial class FileShotStore
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var document = await Read(dir, projectId, ct);
         var take = document.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("Restore this take before making another version.");
-        var retainedInputs = take.RetainedSource ?? throw new WorkspaceStoreException("The final segment's captured inputs are unavailable.");
+        var retainedInputs = take.RetainedSource ?? throw new WorkspaceStoreException("The generated segment's captured inputs are unavailable.");
         var folder = ArchiveDirectory(dir, take); var run = await RunDirectoryAsync(projectId, runId, ct); var inputs = Path.Combine(run, "inputs");
         if (Directory.Exists(inputs)) throw new WorkspaceStoreException("This version already has captured inputs. Retry its saved request.");
         Directory.CreateDirectory(inputs);
@@ -21,12 +21,12 @@ public sealed partial class FileShotStore
             intent = captured;
             await TakeBundles.CopyCapturedAsync(intent.SourceFiles, Path.Combine(folder, H3Motion.SourceFolder), Path.Combine(run, H3Motion.SourceFolder), ct);
         } else {
-            var lastVisible = take.Composition?.Segments[^1] ?? throw new WorkspaceStoreException("This take has no captured extension request.");
-            if (lastVisible.Source.Snapshot.Motion is null && lastVisible.Source.Refinement is null) throw new WorkspaceStoreException("The final segment has no extension request to replay.");
+            var lastVisible = take.Composition is not null ? H3Motion.GeneratedSegment(take) : throw new WorkspaceStoreException("This take has no captured extension request.");
+            if (lastVisible.Source.Snapshot.Motion is null && lastVisible.Source.Refinement is null) throw new WorkspaceStoreException("The generated segment has no extension request to replay.");
             var source = ShotCopy.Of(take); source.Extension = null;
             var manifest = await TakeBundles.CopyAsync(source, folder, Path.Combine(run, H3Motion.SourceFolder), ct);
-            var prefix = take.FrameCount - (lastVisible.EndFrameExclusive - lastVisible.StartFrame);
-            intent = new(source, Math.Max(1, prefix), prefix > 0, manifest) { ReplayLastSegment = true };
+            intent = new(source, take.FrameCount, true, manifest) { ReplayLastSegment = true, ReplacementSegmentKey = lastVisible.Key,
+                Direction = take.Snapshot.Motion?.Direction ?? TakeExtensionDirection.After };
         }
         foreach (var input in retainedInputs.Inputs) await TakeTrimming.CopyVerifiedAsync(Path.Combine(folder, TakeTrimming.InputsFolder, input.FileName), Path.Combine(inputs, input.FileName), input.Bytes, input.Sha256, ct);
         await TakeBundles.CopyCapturedAsync(take.Snapshot.Motion?.Files ?? [], Path.Combine(folder, TakeTrimming.InputsFolder), inputs, ct);
@@ -36,7 +36,7 @@ public sealed partial class FileShotStore
                 : Path.Combine(folder, H3Motion.SourceFolder, H3RefinementPackage.FileName);
             await TakeTrimming.CopyVerifiedAsync(original, Path.Combine(inputs, H3RefinementPackage.FileName), refinement.SourcePackage.Bytes, refinement.SourcePackage.Sha256, ct);
         }
-        var last = take.Composition!.Segments[^1];
+        var last = H3Motion.GeneratedSegment(take);
         return new(2, runId, take.Snapshot, ShotCopy.Of(retainedInputs.Inputs)) { Extension = ShotCopy.Of(intent), Refinement = take.Refinement,
             OutputTrim = new((last.Source.Trim?.SourceStartFrame ?? 0) + last.StartFrame, (last.Source.Trim?.SourceStartFrame ?? 0) + last.EndFrameExclusive),
             DestinationShotId = take.ShotId == take.Snapshot.Shot.Id ? null : take.ShotId };
@@ -48,16 +48,17 @@ public sealed partial class FileShotStore
             var original = source.Composition!.Segments.First(s => s.Source.Id == range.Source.Id && range.StartFrame >= s.StartFrame && range.EndFrameExclusive <= s.EndFrameExclusive);
             await TakeBundles.CopyAsync(range.Source, Path.Combine(folder, "segments", original.Key.ToString("D")), Path.Combine(stage, "segments", range.Key.ToString("D")), ct);
         }
-        var last = ranges[^1]; var result = ShotCopy.Of(last.Source);
+        var originalGenerated = H3Motion.GeneratedSegment(source);
+        var last = ranges.FirstOrDefault(s => s.Source.Id == originalGenerated.Source.Id) ?? ranges.OrderBy(s => s.GenerationOrder).Last(); var result = ShotCopy.Of(last.Source);
         result.Id = request.ResultId; result.Directory = result.Id.ToString("D"); result.ShotId = source.ShotId; result.CreatedUtc = clock.GetUtcNow();
         result.Frames = []; result.FrameArchiveRemoval = null; result.Extension = null; result.Timings = null;
-        result.Composition = new(ranges, Math.Max(0, Math.Min(source.Composition!.JoinFrame - request.StartFrame, request.EndFrameExclusive - request.StartFrame - 1)));
+        result.Composition = new(ranges, Math.Max(0, Math.Min(source.Composition!.JoinFrame - request.StartFrame, request.EndFrameExclusive - request.StartFrame - 1))) { GeneratedSegmentKey = last.Key };
         result.Trim = new(source.Id, source.FrameCount, request.StartFrame, request.EndFrameExclusive, request.StartFrame, request.EndFrameExclusive, source.HasLosslessFrames);
         var lastFolder = Path.Combine(stage, "segments", last.Key.ToString("D"));
         if (result.RefinementPackage is { } package) await TakeTrimming.CopyVerifiedAsync(Path.Combine(lastFolder, H3RefinementPackage.FileName), Path.Combine(stage, H3RefinementPackage.FileName), package.Bytes, package.Sha256, ct);
         await RetainInputsAsync(result, lastFolder, stage, ct);
         await AssembleSegmentsAsync(result, stage, ct);
-        if (source.Extension is { } extension && last.Source.Id == source.Composition.Segments[^1].Source.Id) {
+        if (source.Extension is { Direction: TakeExtensionDirection.After, ReplacementSegmentKey: null } extension && last.Source.Id == source.Composition.Segments[^1].Source.Id) {
             var prefixLength = extension.Combine ? extension.RetainedFrames - extension.PrefixStartFrame : 0;
             result.Extension = extension with { Combine = extension.Combine && request.StartFrame < prefixLength,
                 PrefixStartFrame = extension.PrefixStartFrame + Math.Min(request.StartFrame, Math.Max(0, prefixLength - 1)) };
@@ -95,12 +96,13 @@ public sealed partial class FileShotStore
             var result = ShotCopy.Of(full); result.Id = resultId; result.Directory = resultId.ToString("D");
             result.Frames = []; result.FrameArchiveRemoval = null; result.Trim = null; result.Timings = null; result.Extension = ShotCopy.Of(intent);
             await TakeBundles.CopyCapturedAsync(intent.SourceFiles, sourceFolder, Path.Combine(stage, H3Motion.SourceFolder), ct);
-            var segments = new List<TakeSegment>();
+            var segments = new List<TakeSegment>(); int? replacementIndex = null;
             if (intent.Combine) {
                 var ranges = TakeBundles.Range(intent.Source, intent.PrefixStartFrame, intent.RetainedFrames);
                 var originalRanges = intent.Source.Composition?.Segments;
                 foreach (var range in ranges) {
                     var old = originalRanges?.First(s => s.Source.Id == range.Source.Id && range.StartFrame >= s.StartFrame && range.EndFrameExclusive <= s.EndFrameExclusive);
+                    if (old?.Key == intent.ReplacementSegmentKey && intent.ReplacementSegmentKey is not null) { replacementIndex = segments.Count; continue; }
                     var from = old is null ? sourceFolder : Path.Combine(sourceFolder, "segments", old.Key.ToString("D"));
                     await TakeBundles.CopyAsync(range.Source, from, Path.Combine(stage, "segments", range.Key.ToString("D")), ct);
                     segments.Add(range);
@@ -110,9 +112,13 @@ public sealed partial class FileShotStore
             var leafKey = Guid.NewGuid(); var leafFolder = Path.Combine(stage, "segments", leafKey.ToString("D"));
             await TakeBundles.CopyAsync(leaf, ArchiveDirectory(dir, full), leafFolder, ct);
             await RetainInputsAsync(leaf, ArchiveDirectory(dir, full), leafFolder, ct);
-            var visible = request.OutputTrim ?? new(request.Snapshot.Motion!.Frames, full.FrameCount);
-            segments.Add(new(leafKey, leaf, visible.StartFrame, visible.EndFrameExclusive));
-            result.Composition = new(segments, intent.Combine ? intent.RetainedFrames - intent.PrefixStartFrame - 1 : 0);
+            var leading = intent.Direction == TakeExtensionDirection.Before;
+            var visible = request.OutputTrim ?? (leading ? new TakeTrimRange(0, full.FrameCount - request.Snapshot.Motion!.Frames) : new(request.Snapshot.Motion!.Frames, full.FrameCount));
+            var insertAt = replacementIndex ?? (leading ? 0 : segments.Count);
+            var generationOrder = checked((intent.Source.Composition?.Segments.Max(s => s.GenerationOrder) ?? 0) + 1);
+            segments.Insert(insertAt, new(leafKey, leaf, visible.StartFrame, visible.EndFrameExclusive) { GenerationOrder = generationOrder });
+            var preceding = segments.Take(insertAt).Sum(s => s.EndFrameExclusive - s.StartFrame);
+            result.Composition = new(segments, intent.Combine ? Math.Max(0, leading ? preceding + visible.EndFrameExclusive - visible.StartFrame - 1 : preceding - 1) : 0) { GeneratedSegmentKey = leafKey };
             if (full.RefinementPackage is { } package)
                 await TakeTrimming.CopyVerifiedAsync(Path.Combine(leafFolder, H3RefinementPackage.FileName), Path.Combine(stage, H3RefinementPackage.FileName), package.Bytes, package.Sha256, ct);
             await RetainInputsAsync(result, ArchiveDirectory(dir, full), stage, ct);
@@ -139,10 +145,12 @@ public sealed partial class FileShotStore
     {
         if (take.Composition is not { Segments.Count: 1 } composition || take.Extension is not { } extension) return;
         var end = extension.RetainedFrames; var start = Math.Max(extension.PrefixStartFrame, end - (int)take.Fps);
-        await (mediaTools ?? new ProductionMediaTools()).AssembleTakeAsync([
-            new(Path.Combine(stage, H3Motion.SourceFolder, "video.mp4"), null, start, end, take.Fps),
-            new(Path.Combine(stage, "video.mp4"), null, 0, Math.Min((int)take.Fps, take.FrameCount), take.Fps)
-        ], Path.Combine(stage, "join-preview.mp4"), take.Snapshot.Settings, ct);
+        TakeAssemblyMedia[] preview = extension.Direction == TakeExtensionDirection.Before ? [
+            new(Path.Combine(stage, "video.mp4"), null, Math.Max(0, take.FrameCount - (int)take.Fps), take.FrameCount, take.Fps),
+            new(Path.Combine(stage, H3Motion.SourceFolder, "video.mp4"), null, extension.PrefixStartFrame, Math.Min(end, extension.PrefixStartFrame + (int)take.Fps), take.Fps)
+        ] : [new(Path.Combine(stage, H3Motion.SourceFolder, "video.mp4"), null, start, end, take.Fps),
+            new(Path.Combine(stage, "video.mp4"), null, 0, Math.Min((int)take.Fps, take.FrameCount), take.Fps)];
+        await (mediaTools ?? new ProductionMediaTools()).AssembleTakeAsync(preview, Path.Combine(stage, "join-preview.mp4"), take.Snapshot.Settings, ct);
         take.Composition = composition with { HasJoinPreview = true };
     }
     private async Task AssembleSegmentsAsync(ShotTake result, string stage, CancellationToken ct)
@@ -201,12 +209,16 @@ public sealed partial class FileShotStore
         if (File.Exists(Path.Combine(target, "video.mp4")))
             take.Bytes = TakeBundles.Files(take).Distinct().Sum(f => new FileInfo(TakeBundles.Under(target, f)).Length);
     }
-    public async Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureExtensionAsync(Guid projectId, Guid takeId, Guid runId, int endFrameExclusive, double addedSeconds, bool combine, CancellationToken ct = default)
+    public Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureExtensionAsync(Guid projectId, Guid takeId, Guid runId, int endFrameExclusive, double addedSeconds, bool combine, CancellationToken ct = default)
+        => CaptureMotionCoreAsync(projectId, takeId, runId, endFrameExclusive, addedSeconds, combine, false, ct);
+    public Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureLeadInAsync(Guid projectId, Guid takeId, Guid runId, int startFrame, double addedSeconds, bool combine, CancellationToken ct = default)
+        => CaptureMotionCoreAsync(projectId, takeId, runId, startFrame, addedSeconds, combine, true, ct);
+    private async Task<(TakeExtensionRequest Source, TakeMotionContext Motion)> CaptureMotionCoreAsync(Guid projectId, Guid takeId, Guid runId, int boundary, double addedSeconds, bool combine, bool leading, CancellationToken ct)
     {
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var document = await Read(dir, projectId, ct);
         var take = ShotCopy.Of(document.Takes.SingleOrDefault(t => t.Id == takeId) ?? throw new WorkspaceStoreException("Restore the source take before extending it."));
-        TakeTrimming.Range(0, endFrameExclusive, take.FrameCount);
+        TakeTrimming.Range(leading ? boundary : 0, leading ? take.FrameCount : boundary, take.FrameCount);
         var run = await RunDirectoryAsync(projectId, runId, ct);
         var captured = Path.Combine(run, H3Motion.SourceFolder); var inputs = Path.Combine(run, "inputs");
         if (Directory.Exists(captured) || Directory.Exists(inputs)) throw new WorkspaceStoreException("This extension already has captured inputs. Retry its saved request.");
@@ -221,28 +233,31 @@ public sealed partial class FileShotStore
                 var relative = Path.Combine("segments", segment.Key.ToString("D"));
                 await RetainInputsAsync(segment.Source, Path.Combine(sourceFolder, relative), Path.Combine(captured, relative), ct);
             }
-            var (tail, localEnd) = H3Motion.Tail(take, endFrameExclusive);
-            var count = H3Motion.Window(endFrameExclusive);
-            var route = H3Motion.CanUseLatents(take, endFrameExclusive) ? MotionContextRoute.SavedLatents : count == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames;
+            var (tail, localBoundary) = leading ? H3Motion.Head(take, boundary) : H3Motion.Tail(take, boundary);
+            var count = H3Motion.Window(leading ? take.FrameCount - boundary : boundary);
+            var contextStart = leading ? boundary : boundary - count;
+            var route = (leading ? H3Motion.CanUseLeadingLatents(take, boundary) : H3Motion.CanUseLatents(take, boundary)) ? MotionContextRoute.SavedLatents : count == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames;
             var generation = H3Motion.GenerationFrames(count, addedSeconds);
             var leafFolder = take.Composition is null ? captured : Path.Combine(captured, "segments", tail.Key.ToString("D"));
             if (route == MotionContextRoute.SavedLatents) {
                 var package = tail.Source.RefinementPackage!;
                 var path = Path.Combine(leafFolder, H3RefinementPackage.FileName);
                 await RefinementPackages.VerifyFileAsync(path, package.Bytes, package.Sha256, ct);
-                await RefinementPackages.PrepareMotionAsync(path, inputs, (tail.Source.Trim?.SourceStartFrame ?? 0) + localEnd, generation, ct);
+                await RefinementPackages.PrepareMotionAsync(path, inputs, (tail.Source.Trim?.SourceStartFrame ?? 0) + localBoundary - (leading ? 0 : count), generation, leading, ct);
             } else {
                 for (var i = 0; i < count; i++) {
-                    await using var frame = await (frameReader ?? TakeFrameReader.Shared).OpenAsync(captured, take, endFrameExclusive - count + i, ct);
+                    await using var frame = await (frameReader ?? TakeFrameReader.Shared).OpenAsync(captured, take, contextStart + i, ct);
                     await using var output = File.Create(Path.Combine(inputs, $"motion-frame-{i:D2}.png")); await frame.CopyToAsync(output, ct);
                 }
-                await (mediaTools ?? new ProductionMediaTools()).CaptureMotionAudioAsync(Path.Combine(captured, "video.mp4"), Path.Combine(inputs, "motion-audio.wav"), endFrameExclusive - count, endFrameExclusive, take.Fps, take.Snapshot.Settings, ct);
+                await (mediaTools ?? new ProductionMediaTools()).CaptureMotionAudioAsync(Path.Combine(captured, "video.mp4"), Path.Combine(inputs, "motion-audio.wav"), contextStart, contextStart + count, take.Fps, take.Snapshot.Settings, ct);
             }
             var manifest = new List<CapturedMotionFile>();
             foreach (var path in Directory.EnumerateFiles(inputs)) { await using var file = File.OpenRead(path); manifest.Add(new(Path.GetFileName(path), file.Length, Convert.ToHexString(await SHA256.HashDataAsync(file, ct)))); }
             var sourceManifest = new List<CapturedMotionFile>();
             foreach (var relative in TakeBundles.Files(take).Distinct()) { await using var file = File.OpenRead(TakeBundles.Under(captured, relative)); sourceManifest.Add(new(relative, file.Length, Convert.ToHexString(await SHA256.HashDataAsync(file, ct)))); }
-            return (new(take, endFrameExclusive, combine, sourceManifest), new(take.Id, route, endFrameExclusive - count, endFrameExclusive, count, generation, manifest));
+            var direction = leading ? TakeExtensionDirection.Before : TakeExtensionDirection.After;
+            return (new(take, leading ? take.FrameCount : boundary, combine, sourceManifest) { PrefixStartFrame = leading ? boundary : 0, Direction = direction },
+                new(take.Id, route, contextStart, contextStart + count, count, generation, manifest) { Direction = direction });
         }
         catch { if (Directory.Exists(captured)) Directory.Delete(captured, true); if (Directory.Exists(inputs)) Directory.Delete(inputs, true); throw; }
     }

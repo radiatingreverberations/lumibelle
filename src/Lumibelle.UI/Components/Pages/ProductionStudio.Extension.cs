@@ -13,6 +13,11 @@ public partial class ProductionStudio
         _trimmingTake = _refiningTake = null;
         OpenContinue(take.FrameCount - 1);
     }
+    private async Task OpenLeadIn(ShotTake take) {
+        if (!_reviewOpen || ReviewTake?.Id != take.Id) await OpenTake(take);
+        _trimmingTake = _refiningTake = null;
+        OpenLeadInto(0);
+    }
     private async Task QueueExtension(TakeExtensionOptions options) {
         if (_refinementBusy || _refinementEnqueue is not null) return;
         _refinementBusy = true; _reviewError = null;
@@ -22,7 +27,7 @@ public partial class ProductionStudio
             if (!await Save()) return;
             _refinementEnqueue = await VideoRequests.CaptureExtensionAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, options, preparation.Token);
             await EnqueueRefinement(); _continueFrame = null;
-            Notify("Extension queued. The result opens for review; production selection stays explicit.");
+            Notify((options.Direction == TakeExtensionDirection.Before ? "Lead-in" : "Extension") + " queued. The result opens for review; production selection stays explicit.");
         } catch (OperationCanceledException) { _reviewError = "Extension preparation cancelled."; }
         catch (Exception e) { _reviewError = e.Message; }
         finally { _extensionPreparation = null; _refinementBusy = false; }

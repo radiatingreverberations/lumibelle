@@ -90,7 +90,7 @@ public sealed partial class ComfyH3Video
                 if (batch is null) batch = id;
                 else { node(id + "-batch", "ImageBatch", new { image1 = Link(batch), image2 = Link(id) }); batch = id + "-batch"; }
             }
-            var values = new Dictionary<string, object> { ["positive"] = Link("5"), ["latent"] = Link("5", latentPort), ["frame_idx"] = 0, ["vae"] = Link("3"), ["image"] = Link(batch!) };
+            var values = new Dictionary<string, object> { ["positive"] = Link("5"), ["latent"] = Link("5", latentPort), ["frame_idx"] = motion.Context.Direction == TakeExtensionDirection.Before ? motion.Context.GenerationFrames - motion.Context.Frames : 0, ["vae"] = Link("3"), ["image"] = Link(batch!) };
             if (motion.Files.TryGetValue("motion-audio.wav", out var audio)) { node("motion-audio", "LoadAudio", new { audio }); values["audio"] = Link("motion-audio"); values["audio_vae"] = Link("4"); }
             node("motion-guide", StartFrameNode, values); guided = "motion-guide";
             return Link("5", latentPort);
@@ -112,7 +112,8 @@ public sealed partial class ComfyH3Video
             node("motion-" + part.Item1 + "-image", "MaskToImage", new { mask = Link("motion-" + part.Item1) });
             node("motion-" + part.Item1 + "-batch", "RepeatImageBatch", new { image = Link("motion-" + part.Item1 + "-image"), amount = part.Item3 });
         }
-        node("motion-mask-batch", "ImageBatch", new { image1 = Link("motion-held-batch"), image2 = Link("motion-new-batch") });
+        var leading = motion.Context.Direction == TakeExtensionDirection.Before;
+        node("motion-mask-batch", "ImageBatch", new { image1 = Link(leading ? "motion-new-batch" : "motion-held-batch"), image2 = Link(leading ? "motion-held-batch" : "motion-new-batch") });
         node("motion-video-mask", "ImageToMask", new { image = Link("motion-mask-batch"), channel = "red" });
         if (motion.Context.Route == MotionContextRoute.SavedLatents) {
             node("motion-audio-mask-image", "LoadImage", new { image = motion.Files["motion-audio-mask.png"] });
@@ -120,7 +121,7 @@ public sealed partial class ComfyH3Video
         } else {
             node("motion-audio-new", "SolidMask", new { value = 1.0, width = H3Motion.AudioBoundary(motion.Context.GenerationFrames), height = 2 });
             node("motion-audio-held", "SolidMask", new { value = 0.0, width = H3Motion.AudioBoundary(motion.Context.Frames), height = 2 });
-            node("motion-audio-mask", "MaskComposite", new { destination = Link("motion-audio-new"), source = Link("motion-audio-held"), x = 0, y = 0, operation = "multiply" });
+            node("motion-audio-mask", "MaskComposite", new { destination = Link("motion-audio-new"), source = Link("motion-audio-held"), x = leading ? H3Motion.AudioBoundary(motion.Context.GenerationFrames) - H3Motion.AudioBoundary(motion.Context.Frames) : 0, y = 0, operation = "multiply" });
         }
     }
 }

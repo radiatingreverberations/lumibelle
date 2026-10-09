@@ -31,33 +31,36 @@ def main():
     audio = torch.arange(1 * 32 * 2 * 292, dtype=torch.float32).reshape(1, 32, 2, 292)
     original_video = video.clone()
     original_audio = audio.clone()
-    video_mask = torch.ones(52, 1, 1)
-    video_mask[:12] = 0
-    audio_mask = torch.ones(1, 2, 292)
-    audio_mask[..., :65] = 0
-    held = SolidMask.execute(0.0, 65, 2).result[0]
-    fresh = SolidMask.execute(1.0, 292, 2).result[0]
-    assert torch.equal(MaskComposite.execute(fresh, held, 0, 0, "multiply").result[0], audio_mask)
-    masked_video = nodes.SetLatentNoiseMask().set_mask({"samples": video}, video_mask)[0]
-    masked_audio = nodes.SetLatentNoiseMask().set_mask({"samples": audio}, audio_mask)[0]
-    joined = LTXVConcatAVLatent.execute(masked_video, masked_audio).result[0]
-    streams = joined["samples"].unbind()
-    masks = joined["noise_mask"].unbind()
-    assert torch.equal(streams[0], original_video)
-    assert torch.equal(streams[1], original_audio)
-    for index, (stream, mask, held, axis) in enumerate(zip(streams, masks, [12, 65], [2, 3])):
-        expanded = comfy.utils.reshape_mask(mask, stream.shape)
-        assert expanded.shape == stream.shape
-        prefix = [slice(None)] * stream.ndim
-        prefix[axis] = slice(0, held)
-        tail = [slice(None)] * stream.ndim
-        tail[axis] = slice(held, None)
-        assert torch.count_nonzero(expanded[tuple(prefix)]) == 0
-        assert torch.all(expanded[tuple(tail)] == 1)
-        noise = torch.randn_like(stream)
-        transported = noise * expanded + stream * (1 - expanded)
-        assert torch.equal(transported[tuple(prefix)], stream[tuple(prefix)])
-        print(f"stream {index}: {tuple(stream.shape)}, preserved {held} temporal steps")
+    for leading in (False, True):
+        video_mask = torch.ones(52, 1, 1)
+        video_mask[-12:] = 0 if leading else 1
+        video_mask[:12] = 1 if leading else 0
+        audio_mask = torch.ones(1, 2, 292)
+        audio_mask[..., -65:] = 0 if leading else 1
+        audio_mask[..., :65] = 1 if leading else 0
+        held = SolidMask.execute(0.0, 65, 2).result[0]
+        fresh = SolidMask.execute(1.0, 292, 2).result[0]
+        assert torch.equal(MaskComposite.execute(fresh, held, 292 - 65 if leading else 0, 0, "multiply").result[0], audio_mask)
+        masked_video = nodes.SetLatentNoiseMask().set_mask({"samples": video}, video_mask)[0]
+        masked_audio = nodes.SetLatentNoiseMask().set_mask({"samples": audio}, audio_mask)[0]
+        joined = LTXVConcatAVLatent.execute(masked_video, masked_audio).result[0]
+        streams = joined["samples"].unbind()
+        masks = joined["noise_mask"].unbind()
+        assert torch.equal(streams[0], original_video)
+        assert torch.equal(streams[1], original_audio)
+        for index, (stream, mask, held, axis) in enumerate(zip(streams, masks, [12, 65], [2, 3])):
+            expanded = comfy.utils.reshape_mask(mask, stream.shape)
+            assert expanded.shape == stream.shape
+            prefix = [slice(None)] * stream.ndim
+            prefix[axis] = slice(-held, None) if leading else slice(0, held)
+            tail = [slice(None)] * stream.ndim
+            tail[axis] = slice(0, -held) if leading else slice(held, None)
+            assert torch.count_nonzero(expanded[tuple(prefix)]) == 0
+            assert torch.all(expanded[tuple(tail)] == 1)
+            noise = torch.randn_like(stream)
+            transported = noise * expanded + stream * (1 - expanded)
+            assert torch.equal(transported[tuple(prefix)], stream[tuple(prefix)])
+            print(f"{'ending' if leading else 'opening'} stream {index}: {tuple(stream.shape)}, preserved {held} temporal steps")
 
     # LoadLatent's format marker must prevent legacy scaling. Avoid writing into ComfyUI's inputs.
     with tempfile.TemporaryDirectory(prefix="lumibelle-motion-contract-") as temp:
@@ -70,6 +73,15 @@ def main():
             assert torch.equal(loaded, original_video)
         finally:
             nodes.folder_paths.get_annotated_filepath = original_resolver
+    from comfy_extras.nodes_minimax_h3 import MiniMaxH3AddGuide
+    class GuideVAE:
+        def encode(self, frames):
+            assert frames.shape == (39, 32, 64, 3)
+            return torch.zeros(1, 24, 12, 2, 4)
+    guide = MiniMaxH3AddGuide.execute([[torch.zeros(1, 1), {}]], joined, 136,
+                                     vae=GuideVAE(), image=torch.zeros(39, 32, 64, 3)).result[0]
+    assert guide[0][1]["minimax_keyframes"][0]["resolved_frame_index"] == 136
+    print("PASS: stock ending guide anchors 39 ordered frames at frame 136 of 175.")
     assert not torch.cuda.is_initialized()
     print("PASS: stock mask transport, context preservation, latent shapes and LoadLatent scaling (CPU).")
 

@@ -82,15 +82,25 @@ public static class TakeBundles
         if (take.Extension is { } extension) Validate(extension, take.Snapshot.ProjectId);
         if (take.Composition is not { } composition) return;
         if (composition.Segments is not { Count: > 0 } || composition.JoinFrame < 0 || composition.JoinFrame >= take.FrameCount ||
-            composition.Segments.Any(s => s.Key == Guid.Empty || s.Source is null || s.Source.Composition is not null || s.Source.Extension is not null ||
+            composition.GeneratedSegmentKey is { } generated && !composition.Segments.Any(s => s.Key == generated) ||
+            composition.Segments.Any(s => s.Key == Guid.Empty || s.GenerationOrder < 0 || s.Source is null || s.Source.Composition is not null || s.Source.Extension is not null ||
                 s.Source.Width != take.Width || s.Source.Height != take.Height || s.Source.Fps != take.Fps || s.StartFrame < 0 || s.EndFrameExclusive <= s.StartFrame || s.EndFrameExclusive > s.Source.FrameCount) ||
             composition.Segments.DistinctBy(s => s.Key).Count() != composition.Segments.Count)
             throw new WorkspaceStoreException("Invalid retained take segments.");
+        if (composition.GeneratedSegmentKey is not null) {
+            var generatedSource = H3Motion.GeneratedSegment(take).Source;
+            if (take.RefinementPackage != generatedSource.RefinementPackage || take.Refinement != generatedSource.Refinement ||
+                !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(take.Snapshot, AtomicJsonFile.Options),
+                    System.Text.Json.JsonSerializer.SerializeToElement(generatedSource.Snapshot, AtomicJsonFile.Options)))
+                throw new WorkspaceStoreException("The take's refinement data does not match its generated segment.");
+        }
         foreach (var segment in composition.Segments) FileShotStore.Validate(new() { ProjectId = take.Snapshot.ProjectId, Takes = [segment.Source] }, take.Snapshot.ProjectId);
     }
     public static void Validate(TakeExtensionRequest extension, Guid projectId)
     {
-        if (extension.Source is null || extension.Source.Extension is not null || extension.Source.Snapshot.ProjectId != projectId || extension.SourceFiles is null ||
+        if (extension.Source is null || extension.Source.Extension is not null || !Enum.IsDefined(extension.Direction) || extension.Source.Snapshot.ProjectId != projectId || extension.SourceFiles is null ||
+            extension.ReplacementSegmentKey is { } replacement && (extension.Source.Composition is null || !extension.Combine || extension.PrefixStartFrame != 0 ||
+                extension.RetainedFrames != extension.Source.FrameCount || !extension.Source.Composition.Segments.Any(s => s.Key == replacement)) ||
             extension.SourceFiles.DistinctBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).Count() != extension.SourceFiles.Count ||
             !Files(extension.Source).ToHashSet(StringComparer.Ordinal).SetEquals(extension.SourceFiles.Select(f => f.FileName)))
             throw new WorkspaceStoreException("Invalid captured extension bundle.");

@@ -179,7 +179,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button @onclick="() => OpenExtension(take)">Extend…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button @onclick="() => OpenExtension(take)">Extend…</button><button @onclick="() => OpenLeadIn(take)">Lead into…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -668,7 +668,7 @@ else
                     @if (_trimmingTake == take.Id) {
                         <TakeTrimEditor @key="take.Id" ProjectId="Id" Take="take" Busy="@(_trimCancellation is not null)" Progress="@_trimProgress" Error="@_trimError" Saved="SaveTrim" Cancel="CloseTrim" />
                     } else {
-                        <TakePlayer @ref="_joinPlayer" @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" />
+                        <TakePlayer @ref="_joinPlayer" @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" LeadIntoRequested="OpenLeadInto" />
                     }
                     @if (take.Composition is { } composition) {
                         @if (composition.Segments.Count > 1 || composition.HasJoinPreview) { <button @onclick="PreviewJoin">Preview join</button> }
@@ -681,7 +681,7 @@ else
                     }
                     @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
                     {
-                        <TakeExtensionForm @key="continuing" Source="take" ProjectId="Id" EndFrameExclusive="@(continuing.Index + 1)" Destinations="@(ContinueTargets(take).ToArray())" Busy="@_refinementBusy" Error="@_reviewError" Cancel="CloseContinue" Queue="QueueExtension" />
+                        <TakeExtensionForm @key="continuing" Source="take" ProjectId="Id" EndFrameExclusive="@(continuing.Index + 1)" StartFrame="continuing.Index" Direction="_extensionDirection" Destinations="@(ContinueTargets(take).ToArray())" Busy="@_refinementBusy" Error="@_reviewError" Cancel="CloseContinue" Queue="QueueExtension" />
                     }
                     @if (_frameDestination is { } destination && destination.TakeId == take.Id)
                     {
@@ -734,6 +734,7 @@ else
 <Status>@if (ReviewTake is { } regenTake) {
     <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
     <MudButton OnClick="() => OpenExtension(regenTake)">Extend…</MudButton>
+    <MudButton OnClick="() => OpenLeadIn(regenTake)">Lead into…</MudButton>
     <MudButton OnClick="() => OpenTrim(regenTake)" Disabled="@(_trimCancellation is not null)">Trim…</MudButton>
     <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
     @if (regenTake.Refinement is not null || TakeDisplay.HasExtensionReplay(regenTake)) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Replay the captured request with a new seed">Another version</MudButton> }

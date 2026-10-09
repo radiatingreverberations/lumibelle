@@ -37,6 +37,29 @@ public static class H3Motion
         return segment.Source.RefinementPackage is { } package && package.Width == take.Width && package.Height == take.Height &&
             localEnd - segment.StartFrame >= ContextFrames && rawEnd % 17 == 5;
     }
+    public static (TakeSegment Segment, int LocalStart) Head(ShotTake take, int start)
+    {
+        TakeTrimming.Range(start, take.FrameCount, take.FrameCount);
+        var (segment, localEnd) = Tail(take, start + 1);
+        return (segment, localEnd - 1);
+    }
+    public static TakeSegment GeneratedSegment(ShotTake take) => take.Composition!.GeneratedSegmentKey is { } key
+        ? take.Composition.Segments.Single(s => s.Key == key) : take.Composition.Segments[^1];
+    public static bool CanUseLeadingLatents(ShotTake take, int start)
+    {
+        var (segment, localStart) = Head(take, start);
+        var rawStart = (segment.Source.Trim?.SourceStartFrame ?? 0) + localStart;
+        return segment.Source.RefinementPackage is { } package && package.Width == take.Width && package.Height == take.Height &&
+            segment.EndFrameExclusive - localStart >= ContextFrames && rawStart % 17 == 0;
+    }
+    public static int? AlignedStart(ShotTake take, int start)
+    {
+        var (segment, localStart) = Head(take, start);
+        if (segment.Source.RefinementPackage is not { } package || package.Width != take.Width || package.Height != take.Height) return null;
+        var rawStart = (segment.Source.Trim?.SourceStartFrame ?? 0) + localStart;
+        var delta = (17 - rawStart % 17) % 17;
+        return segment.EndFrameExclusive - localStart - delta >= ContextFrames ? start + delta : null;
+    }
     public static int? AlignedEnd(ShotTake take, int end)
     {
         var (segment, localEnd) = Tail(take, end);
@@ -50,7 +73,7 @@ public static class H3Motion
     public static Guid OutputId(Guid fullTakeId) => new(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fullTakeId + ":extension"))[..16]);
     public static void Validate(TakeMotionContext motion, VideoSnapshot snapshot)
     {
-        if (motion.SourceTakeId == Guid.Empty || !Enum.IsDefined(motion.Route) || motion.StartFrame < 0 || motion.EndFrameExclusive - motion.StartFrame != motion.Frames ||
+        if (motion.SourceTakeId == Guid.Empty || !Enum.IsDefined(motion.Route) || !Enum.IsDefined(motion.Direction) || motion.StartFrame < 0 || motion.EndFrameExclusive - motion.StartFrame != motion.Frames ||
             motion.Frames is not (1 or 5 or 22 or 39) || motion.GenerationFrames != snapshot.FrameCount || motion.GenerationFrames <= motion.Frames || motion.GenerationFrames > 362 ||
             motion.GenerationFrames % 17 != 5 || motion.Route == MotionContextRoute.SavedLatents && motion.Frames != 39 ||
             motion.Route == MotionContextRoute.SingleFrame && motion.Frames != 1 || motion.Files is null || motion.Files.Count == 0 ||

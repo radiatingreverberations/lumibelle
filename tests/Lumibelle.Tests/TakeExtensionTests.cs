@@ -137,7 +137,8 @@ public sealed partial class ShotTests
         var refinement = await f.CaptureService.CaptureRefinementAsync(Guid.NewGuid(), Guid.NewGuid(), f.Project.Id, combined.Id, mode, full.Width, full.Height, _ct);
         var refinedRequest = refinement.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
         Assert.Equal(new TakeTrimRange(39, full.FrameCount), refinedRequest.OutputTrim);
-        Assert.Equal(parent.FrameCount, refinedRequest.Extension!.RetainedFrames);
+        Assert.Equal(combined.FrameCount, refinedRequest.Extension!.RetainedFrames);
+        Assert.Equal(combined.Composition.GeneratedSegmentKey, refinedRequest.Extension.ReplacementSegmentKey);
         Assert.Equal(full.FrameCount, refinedRequest.Snapshot.FrameCount); Assert.Equal(full.RefinementPackage, refinedRequest.Refinement!.SourcePackage);
         var idempotent = await f.Shots.PublishExtensionAsync(f.Project.Id, request, full.Id, _ct);
         Assert.Equal(document.Revision, idempotent.Revision);

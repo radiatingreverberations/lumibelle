@@ -12,10 +12,13 @@ public sealed partial class AiTextJobCapture
     {
         if (!TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
         var store = shots ?? throw new WorkspaceStoreException("Shot storage is unavailable.");
-        var (captured, motion) = await store.CaptureExtensionAsync(projectId, options.SourceTakeId, id, options.EndFrameExclusive, options.AddedSeconds, options.Combine, ct);
+        var leading = options.Direction == TakeExtensionDirection.Before;
+        var (captured, motion) = leading
+            ? await store.CaptureLeadInAsync(projectId, options.SourceTakeId, id, options.StartFrame, options.AddedSeconds, options.Combine, ct)
+            : await store.CaptureExtensionAsync(projectId, options.SourceTakeId, id, options.EndFrameExclusive, options.AddedSeconds, options.Combine, ct);
         var run = await store.RunDirectoryAsync(projectId, id, ct);
         try {
-        var take = captured.Source; var contextTake = H3Motion.Tail(take, options.EndFrameExclusive).Segment; var shot = AiVideoJobCapture.ExtensionShot(contextTake.Source, options, motion.GenerationFrames);
+        var take = captured.Source; var contextTake = leading ? H3Motion.Head(take, options.StartFrame).Segment : H3Motion.Tail(take, options.EndFrameExclusive).Segment; var shot = AiVideoJobCapture.ExtensionShot(contextTake.Source, options, motion.GenerationFrames);
         shot.Id = take.ShotId;
         var directory = Path.Combine(await store.RunDirectoryAsync(projectId, id, ct), H3Motion.SourceFolder);
         var contextFolder = take.Composition is null ? directory : Path.Combine(directory, "segments", contextTake.Key.ToString("D"));
@@ -34,7 +37,9 @@ public sealed partial class AiTextJobCapture
         }
         var mods = ReelRefMods.Uses(shot) ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, shot, ct) : Array.Empty<RefModInspectionFrame>();
         var request = new PromptCompositionRequest(projectId, id, 1, take.Snapshot.Fingerprint, take.Snapshot.Fingerprint, shot, "", [], contextTake.Source.Snapshot.ReferenceGuidance!, contextTake.Source.Snapshot.Appearances!, identities,
-            "Continue the captured motion into the next action.", options.Prompt ?? "", "", model, followsDefault) { PrecedingAction = contextTake.Source.Snapshot.Shot.Description, MotionStills = stillIds };
+            leading ? "Generate the preceding action leading into the captured opening motion." : "Continue the captured motion into the next action.", options.Prompt ?? "", "", model, followsDefault) {
+                PrecedingAction = leading ? null : contextTake.Source.Snapshot.Shot.Description,
+                FollowingAction = leading ? contextTake.Source.Snapshot.Shot.Description : null, MotionStills = stillIds };
         return await BuildAsync(id, tab, AiJobKind.PromptComposition, new(projectId, ShotId: take.ShotId, CompositionId: id), shot.Title + " · Compose extension", request,
             model, followsDefault, Copy(await settings.LoadAsync(ct)), ProductionPolicy.Profile, PromptComposer.BuildMessages(request, images, mods, motionStills: stills), .7f, null, ct);
         } finally {

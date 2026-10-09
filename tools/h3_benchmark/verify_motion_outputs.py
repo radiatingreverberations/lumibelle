@@ -29,7 +29,7 @@ def tensor(path, key):
     return entry["shape"], values
 
 
-def compare(source, source_key, output, output_key, axis, held):
+def compare(source, source_key, output, output_key, axis, held, ending=False):
     shape, before = tensor(source, source_key)
     after_shape, after = tensor(output, output_key)
     assert shape == after_shape, (shape, after_shape)
@@ -38,7 +38,7 @@ def compare(source, source_key, output, output_key, axis, held):
     maximum = total = 0.0
     count = planes * held * stride
     for plane in range(planes):
-        start = plane * shape[axis] * stride
+        start = (plane * shape[axis] + (shape[axis] - held if ending else 0)) * stride
         for i in range(start, start + held * stride):
             difference = abs(before[i] - after[i])
             assert math.isfinite(difference)
@@ -74,7 +74,7 @@ def verify(directory):
                     if not source.is_file():
                         source = folder / "extension-source" / "refinement.safetensors"
                     key = name
-                result[name] = compare(source, key, folder / "refinement.safetensors", name, axis, held)
+                result[name] = compare(source, key, folder / "refinement.safetensors", name, axis, held, motion.get("direction") == "Before")
         results.append(result)
     assert results, "No completed live cases were found."
     return results

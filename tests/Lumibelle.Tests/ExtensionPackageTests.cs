@@ -9,8 +9,8 @@ namespace Lumibelle.Tests;
 
 public sealed partial class ProjectPackageTests
 {
-    [Theory] [InlineData(false)] [InlineData(true)]
-    public async Task CombinedTakeRoundTripsAllOwnedBundlesAndCanReplayWithoutParentsOrQueue(bool refined)
+    [Theory] [InlineData(false, false)] [InlineData(true, false)] [InlineData(false, true)] [InlineData(true, true)]
+    public async Task CombinedTakeRoundTripsAllOwnedBundlesAndCanReplayWithoutParentsOrQueue(bool refined, bool leading)
     {
         var ct = TestContext.Current.CancellationToken;
         using var source = new Fixture(); using var target = new Fixture(); var project = await source.Create();
@@ -21,7 +21,8 @@ public sealed partial class ProjectPackageTests
         var original = new ShotTake { Id = originalId, ShotId = snapshot.Shot.Id, Directory = originalId.ToString("D"), RunId = Guid.NewGuid(), Snapshot = snapshot,
             Width = snapshot.Width, Height = snapshot.Height, Candidate = 1, RetainedSource = new([]), RefinementPackage = originalPackage };
         var motionFile = new CapturedMotionFile("motion-frame-00.png", Pixel.Length, Convert.ToHexString(SHA256.HashData(Pixel)));
-        var motion = new TakeMotionContext(originalId, MotionContextRoute.SingleFrame, 38, 39, 1, snapshot.FrameCount, [motionFile]);
+        var motion = new TakeMotionContext(originalId, MotionContextRoute.SingleFrame, 38, 39, 1, snapshot.FrameCount, [motionFile]) { Direction = leading ? TakeExtensionDirection.Before : TakeExtensionDirection.After };
+        if (leading) motion = motion with { StartFrame = 0, EndFrameExclusive = 1 };
         var outputSnapshot = snapshot with { Motion = motion, Profile = H3Motion.Profile };
         var fullId = Guid.NewGuid(); var fullDir = $"shots/takes/{fullId:D}";
         await source.Bytes(project, fullDir + "/video.mp4", [1, 2, 3]);
@@ -41,7 +42,7 @@ public sealed partial class ProjectPackageTests
         await TakeBundles.CopyAsync(original, Path.Combine(source.Root(project), originalDir), Path.Combine(folder, "segments", a.ToString("D")), ct);
         await TakeBundles.CopyAsync(full, Path.Combine(source.Root(project), fullDir), Path.Combine(folder, "segments", b.ToString("D")), ct);
         await TakeBundles.CopyAsync(full, Path.Combine(source.Root(project), fullDir), folder, ct);
-        var combined = full with { Id = takeId, Directory = takeId.ToString("D"), Frames = [], Composition = new([new(a, original, 0, 39), new(b, full, 1, 39)], 38), Extension = new(original, 39, true, capturedFiles) };
+        var combined = full with { Id = takeId, Directory = takeId.ToString("D"), Frames = [], Composition = new(leading ? [new(b, full, 0, 38), new(a, original, 0, 39)] : [new(a, original, 0, 39), new(b, full, 1, 39)], 38) { GeneratedSegmentKey = b }, Extension = new(original, 39, true, capturedFiles) { Direction = motion.Direction } };
         await source.Save(project, "shots.json", new ShotDocument { ProjectId = project.Id, Shots = [snapshot.Shot], Takes = [combined] });
         var export = await source.Service.ExportAsync(project.Id, new(), ct: ct);
         await using var stream = (await source.Service.OpenExportAsync(project.Id, export.Id, ct))!;
@@ -53,7 +54,8 @@ public sealed partial class ProjectPackageTests
         Assert.Equal(Directory.EnumerateFiles(importedFolder, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length), imported.Bytes);
         var replay = await store.CaptureExtensionVersionAsync(project.Id, imported.Id, Guid.NewGuid(), ct);
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(replay, await store.RunDirectoryAsync(project.Id, replay.BatchId, ct), ct);
-        Assert.Equal(new TakeTrimRange(1, 39), replay.OutputTrim);
+        Assert.Equal(leading ? new TakeTrimRange(0, 38) : new(1, 39), replay.OutputTrim);
+        Assert.Equal(b, imported.Composition.GeneratedSegmentKey); Assert.Equal(motion.Direction, replay.Snapshot.Motion!.Direction);
         Assert.Equal(Pixel, await File.ReadAllBytesAsync(Path.Combine(importedFolder, TakeTrimming.InputsFolder, motionFile.FileName), ct));
         Assert.Equal(outputPackage.Sha256, imported.RefinementPackage!.Sha256);
         if (refined) Assert.Equal(originalPackage, replay.Refinement!.SourcePackage);

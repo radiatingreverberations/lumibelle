@@ -21,6 +21,7 @@
         <span role="status">@(_playing ? "Playing" : $"Frame {_index + 1} / {Take.FrameCount} · {(_index / Take.Fps):0.000} s")@(!_playing && !_ready && _error is null ? " · Loading frame…" : "")</span>
         <span class="take-frame-buttons">
             @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" disabled="@(_saving || (!_playing && !_ready))" title="Extend this take or create a separate continuation from this frame" @onclick="() => Capture(ContinueRequested)">Continue from this frame</button> }
+            @if (LeadIntoRequested.HasDelegate) { <button type="button" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(LeadIntoRequested)">Lead into this frame</button> }
             @if (ShowSaveFrame) { <button type="button" class="take-save-frame" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(SaveRequested)">Save frame to Assets</button> }
         </span>
     </div>
@@ -34,6 +35,7 @@
     [Parameter] public bool ShowSaveFrame { get; set; } = true;
     /// <summary>Receives the paused frame index to start a new shot from; the button shows only when set.</summary>
     [Parameter] public EventCallback<int> ContinueRequested { get; set; }
+    [Parameter] public EventCallback<int> LeadIntoRequested { get; set; }
     [Parameter] public int RangeStart { get; set; }
     [Parameter] public int? RangeEndExclusive { get; set; }
     private (int, int)? _appliedRange;

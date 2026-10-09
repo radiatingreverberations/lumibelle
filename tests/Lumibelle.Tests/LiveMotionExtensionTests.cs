@@ -102,10 +102,11 @@ public sealed partial class ShotTests
             return take;
         }
 
-        async Task<ShotTake> Extend(string name, ShotTake source, int end, bool single = false)
+        async Task<ShotTake> Extend(string name, ShotTake source, int end, bool single = false, bool leading = false)
         {
             var run = Guid.NewGuid();
-            var (captured, motion) = await store.CaptureExtensionAsync(f.Project.Id, source.Id, run, end, 2, true, _ct);
+            var (captured, motion) = leading ? await store.CaptureLeadInAsync(f.Project.Id, source.Id, run, end, 2, true, _ct)
+                : await store.CaptureExtensionAsync(f.Project.Id, source.Id, run, end, 2, true, _ct);
             if (single) {
                 var inputs = Path.Combine(await store.RunDirectoryAsync(f.Project.Id, run, _ct), "inputs");
                 foreach (var item in motion.Files) File.Delete(Path.Combine(inputs, item.FileName));
@@ -115,28 +116,42 @@ public sealed partial class ShotTests
                 var bytes = await File.ReadAllBytesAsync(path, _ct);
                 motion = new(source.Id, MotionContextRoute.SingleFrame, end - 1, end, 1, H3Motion.GenerationFrames(1, 2), [new("motion-frame-00.png", bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)))]);
             }
-            var next = AiVideoJobCapture.ExtensionShot(H3Motion.Tail(source, end).Segment.Source,
-                new(source.Id, end, 2, "She keeps walking steadily right while the camera continues tracking beside her. She says, The door is just ahead. Continuous footsteps and courtyard ambience.", [new() { Speaker = "Riley", Text = "The door is just ahead." }], null, SaveLosslessFrames: true), motion.GenerationFrames);
+            var next = AiVideoJobCapture.ExtensionShot((leading ? H3Motion.Head(source, end).Segment : H3Motion.Tail(source, end).Segment).Source,
+                new(source.Id, source.FrameCount, 2, leading ? "An adult woman in a blue jacket approaches the courtyard from the left, already walking steadily right as the camera tracks beside her. She says, Here we go. Her forward movement leads naturally into the supplied ending motion window. Continuous footsteps and courtyard ambience. Play forward in time."
+                    : "She keeps walking steadily right while the camera continues tracking beside her. She says, The door is just ahead. Continuous footsteps and courtyard ambience.",
+                    [new() { Speaker = "Riley", Text = leading ? "Here we go." : "The door is just ahead." }], null, SaveLosslessFrames: true), motion.GenerationFrames);
             var snapshot = sourceSnapshot with { Shot = next, Prompt = H3Policy.Compile(next, motionContext: true), Fingerprint = H3Policy.Fingerprint(next),
                 FrameCount = motion.GenerationFrames, Profile = H3Motion.Profile, Motion = motion, Sampling = H3Policy.Sampling(next, settings), Preset = H3Presets.Capture(next, settings) };
             var result = await Run(name, snapshot, run, captured);
-            Assert.Equal(end + motion.GenerationFrames - motion.Frames, result.FrameCount);
+            Assert.Equal((leading ? source.FrameCount - end : end) + motion.GenerationFrames - motion.Frames, result.FrameCount);
             Assert.Equal(source.RefinementPackage!.Sha256, captured.Source.RefinementPackage!.Sha256);
             // Exact pixels on each side of archive boundaries and the retained endpoint.
-            foreach (var index in new[] { 0, 23, 24, end - 1 }.Where(i => i < end).Distinct()) {
+            foreach (var index in new[] { leading ? end : 0, 23, 24, leading ? source.FrameCount - 1 : end - 1 }.Where(i => leading ? i >= end : i < end).Distinct()) {
                 await using var before = await store.OpenAsync(f.Project.Id, source.Id, ShotTrashKind.Take, index, ct: _ct);
-                await using var after = await store.OpenAsync(f.Project.Id, result.Id, ShotTrashKind.Take, index, ct: _ct);
+                await using var after = await store.OpenAsync(f.Project.Id, result.Id, ShotTrashKind.Take, leading ? motion.GenerationFrames - motion.Frames + index - end : index, ct: _ct);
                 Assert.Equal(await SHA256.HashDataAsync(before!.Content, _ct), await SHA256.HashDataAsync(after!.Content, _ct));
             }
             return result;
         }
 
-        var original = await Run("source", sourceSnapshot, Guid.NewGuid());
-        await Extend("single-frame", original, original.FrameCount, single: true);
-        await Extend("frames-exact", original, original.FrameCount - 1);
-        var first = await Extend("saved-motion-1", original, original.FrameCount);
-        var second = await Extend("saved-motion-2", first, first.FrameCount);
-        await Extend("saved-motion-3", second, second.FrameCount);
+        ShotTake first;
+        if (Environment.GetEnvironmentVariable("LUMIBELLE_LIVE_MOTION_LEAD_IN_SOURCE") is { Length: > 0 } savedSource) {
+            var original = (await AtomicJsonFile.ReadAsync<ShotTake>(Path.Combine(savedSource, "take.json"), _ct))!;
+            var stage = Path.Combine(await store.RunDirectoryAsync(f.Project.Id, original.RunId, _ct), "lead-in-import");
+            await TakeBundles.CopyAsync(original, Path.Combine(savedSource, "take"), stage, _ct);
+            original.Snapshot = original.Snapshot with { ProjectId = f.Project.Id, Shot = original.Snapshot.Shot with { Id = shot.Id } };
+            original.ShotId = shot.Id; sourceSnapshot = original.Snapshot;
+            await store.PublishTakeAsync(f.Project.Id, original, stage, _ct);
+            first = await Extend("saved-lead-in", original, 0, leading: true);
+            await Extend("frames-lead-in", original, 1, leading: true);
+        } else {
+            var original = await Run("source", sourceSnapshot, Guid.NewGuid());
+            await Extend("single-frame", original, original.FrameCount, single: true);
+            await Extend("frames-exact", original, original.FrameCount - 1);
+            first = await Extend("saved-motion-1", original, original.FrameCount);
+            var second = await Extend("saved-motion-2", first, first.FrameCount);
+            await Extend("saved-motion-3", second, second.FrameCount);
+        }
         foreach (var mode in new[] { TakeRefinementMode.Refine, TakeRefinementMode.Rework }) {
             var run = Guid.NewGuid();
             var refinement = await store.CaptureRefinementAsync(f.Project.Id, first.Id, run, mode, first.Width, first.Height, settings.LatentUpscaler, check.PreviewUpscaling.Implementation!.Value, _ct);
@@ -147,13 +162,13 @@ public sealed partial class ShotTests
                 await using var content = File.OpenRead(TakeBundles.Under(directory, relative));
                 manifest.Add(new(relative, content.Length, Convert.ToHexString(await SHA256.HashDataAsync(content, _ct))));
             }
-            var last = first.Composition!.Segments[^1];
-            var prefix = first.FrameCount - (last.EndFrameExclusive - last.StartFrame);
-            var result = await Run(mode.ToString().ToLowerInvariant(), first.Snapshot, run, new(source, prefix, true, manifest), refinement, new(last.StartFrame, last.EndFrameExclusive));
+            var last = H3Motion.GeneratedSegment(first);
+            var result = await Run(mode.ToString().ToLowerInvariant(), first.Snapshot, run,
+                new(source, first.FrameCount, true, manifest) { ReplacementSegmentKey = last.Key, Direction = first.Snapshot.Motion!.Direction }, refinement, new(last.StartFrame, last.EndFrameExclusive));
             Assert.Equal(first.FrameCount, result.FrameCount);
             if (mode == TakeRefinementMode.Refine) Assert.Equal(
                 await AudioHash(Path.Combine(projectDirectory, "shots", "takes", last.Source.Directory, "video.mp4"), _ct),
-                await AudioHash(Path.Combine(projectDirectory, "shots", "takes", result.Composition!.Segments[^1].Source.Directory, "video.mp4"), _ct));
+                await AudioHash(Path.Combine(projectDirectory, "shots", "takes", H3Motion.GeneratedSegment(result).Source.Directory, "video.mp4"), _ct));
         }
     }
 }

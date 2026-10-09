@@ -9,11 +9,13 @@ public static partial class RefinementPackages
 {
     // Derived inputs only: the complete retained package is never edited or relabelled.
     public static async Task PrepareMotionAsync(string source, string destination, int rawEnd, int generationFrames, CancellationToken ct)
+        => await PrepareMotionAsync(source, destination, rawEnd - H3Motion.ContextFrames, generationFrames, false, ct);
+    public static async Task PrepareMotionAsync(string source, string destination, int rawStart, int generationFrames, bool leading, CancellationToken ct)
     {
         var (_, tensors, dataStart) = await ReadHeaderAsync(source, ct);
         Directory.CreateDirectory(destination);
         var context = H3Motion.ContextFrames;
-        var rawStart = rawEnd - context;
+        var rawEnd = rawStart + context;
         if (rawStart < 0 || rawStart % 17 != 0 || generationFrames % 17 != 5 || generationFrames > 362)
             throw new WorkspaceStoreException("This boundary cannot reuse saved motion latents.");
         foreach (var name in new[] { "video", "audio" }) {
@@ -35,17 +37,23 @@ public static partial class RefinementPackages
             await WriteHeaderAsync(output, header, ct);
             var buffer = new byte[131072];
             for (long plane = 0; plane < planes; plane++) {
+                if (leading) {
+                    Array.Clear(buffer); long padding = (targetTime - count) * stride;
+                    while (padding > 0) { var n = (int)Math.Min(buffer.Length, padding); await output.WriteAsync(buffer.AsMemory(0, n), ct); padding -= n; }
+                }
                 input.Position = dataStart + tensor.Start + (plane * sourceTime + start) * stride;
                 long remaining = count * stride;
                 while (remaining > 0) { var n = (int)Math.Min(buffer.Length, remaining); await input.ReadExactlyAsync(buffer.AsMemory(0, n), ct); await output.WriteAsync(buffer.AsMemory(0, n), ct); remaining -= n; }
-                Array.Clear(buffer); remaining = (targetTime - count) * stride;
+                Array.Clear(buffer); remaining = leading ? 0 : (targetTime - count) * stride;
                 while (remaining > 0) { var n = (int)Math.Min(buffer.Length, remaining); await output.WriteAsync(buffer.AsMemory(0, n), ct); remaining -= n; }
             }
             await output.FlushAsync(ct); output.Flush(true);
         }
         var audioLength = H3Motion.AudioBoundary(generationFrames);
         using var mask = new Image<Rgb24>(audioLength, 2);
-        for (var x = H3Motion.AudioBoundary(context); x < audioLength; x++) for (var y = 0; y < 2; y++) mask[x, y] = new(255, 255, 255);
+        var held = H3Motion.AudioBoundary(context);
+        for (var x = 0; x < audioLength; x++) if (leading ? x < audioLength - held : x >= held)
+            for (var y = 0; y < 2; y++) mask[x, y] = new(255, 255, 255);
         await mask.SaveAsPngAsync(Path.Combine(destination, "motion-audio-mask.png"), ct);
     }
 }

@@ -131,6 +131,7 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CompositionInput? OpeningFrame { get; init; }
     public string? PrecedingAction { get; init; }
+    public string? FollowingAction { get; init; }
     public IReadOnlyList<CompositionInput>? MotionStills { get; init; }
 }
 /// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
