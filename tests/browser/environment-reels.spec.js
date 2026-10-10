@@ -195,7 +195,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   const card = picker.locator(`[data-reel-id="${reel.id}"]`);
-  await expect(card).toContainText('Environment reel');
+  await expect(card.locator('.media-kind')).toHaveAttribute('title', /^Environment reel ·/);
   await card.getByRole('button', { name: `Preview ${reel.name}`, exact: true }).click();
   await expect(card.getByRole('button', { name: `Add reel ${reel.name}`, exact: true })).toBeEnabled();
   await card.locator('.add-reel').click();

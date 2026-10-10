@@ -124,8 +124,8 @@ else
                     @if (!HasCoverage(source)) {
                         <div class="shot-start-guide" role="status"><strong>Start with this shot’s direction</strong><p>Describe the action and camera, choose references, then compose the prompt. No script is required.@if (source.SceneId is not null) { <text> Or use <button type="button" @onclick="OpenSingleShotDraft">Draft shot</button> to draft from the linked script scene.</text> }</p></div>
                     }
-                    <div class="shot-inline-fields shot-metadata"><label>Scene <span class="field-hint">(optional)</span><select aria-label="Scene" @ref="_shotSceneField" value="@source.SceneId" @onchange="AssignScene"><option value="">Standalone shot · no script link</option>@foreach (var entry in Scenes.Select((scene, index) => (Scene: scene, Number: index + 1))) { <option value="@entry.Scene.Id">@entry.Number. @entry.Scene.Title</option> }</select></label>
-                        <label>Duration (seconds)<input @ref="_shotDurationField" type="number" min="1" max="15" step="0.1" value="@Invariant(source.Duration)" @onchange="DurationChanged" /></label></div>
+                    <div class="shot-inline-fields shot-metadata"><label><span>Scene <span class="field-hint">(optional)</span></span><select aria-label="Scene" @ref="_shotSceneField" value="@source.SceneId" @onchange="AssignScene"><option value="">Standalone shot · no script link</option>@foreach (var entry in Scenes.Select((scene, index) => (Scene: scene, Number: index + 1))) { <option value="@entry.Scene.Id">@entry.Number. @entry.Scene.Title</option> }</select></label>
+                        <label><span>Duration (seconds)</span><input @ref="_shotDurationField" type="number" min="1" max="15" step="0.1" value="@Invariant(source.Duration)" @onchange="DurationChanged" /></label></div>
 
                     @if (SourceLinesChanged(source)) {
                         <div class="shot-source-changed" role="status"><p>The script lines this shot was made from have changed. Check its action and dialogue against them.</p>

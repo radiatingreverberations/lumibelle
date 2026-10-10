@@ -61,7 +61,8 @@ public sealed class UnifiedReferenceEditorTests : BunitContext
         Assert.Single(e.FindAll(".video-reference-list li")); Assert.Single(e.FindAll(".picker-grid video"));
         e.Find(".video-reference-list .reference-settings-button").Click(); Click(e, "Replace reel");
         Assert.Empty(e.FindAll("[data-reference]"));
-        Assert.Equal("Reels", e.Find(".media-filters [aria-pressed=true]").TextContent);
+        Assert.Equal("Reels", e.Find("select[aria-label='Reference type']").GetAttribute("value"));
+        Assert.True(e.Find("select[aria-label='Reference type']").HasAttribute("disabled"));
         e.Find($"[data-reel-id='{library.Reels[1].Id}'] .add-reel").Click(); Click(e, "Apply changes");
         var video = Assert.Single(saved!.Inputs.Videos); Assert.Equal(original.Id, video.Id);
         Assert.Equal(library.Reels[1].Media, video.Media); Assert.Equal(library.Reels[1].UseGuidance, video.Description);
@@ -101,9 +102,9 @@ public sealed class UnifiedReferenceEditorTests : BunitContext
         picker.FindAll("button").Single(b => b.TextContent.Trim() == "Show more").Click();
         Assert.Equal(56, picker.FindAll(".picker-grid > *").Count);
         var before = picker.FindAll("[data-reel-id]").Select(n => n.GetAttribute("data-reel-id")).ToArray();
-        picker.FindAll(".media-filters button").Single(b => b.TextContent == "Images").Click();
+        picker.Find("select[aria-label='Reference type']").Change("Images");
         Assert.Empty(picker.FindAll("[data-reel-id]")); Assert.Single(picker.FindAll("[data-reference]"));
-        picker.FindAll(".media-filters button").Single(b => b.TextContent == "Reels").Click();
+        picker.Find("select[aria-label='Reference type']").Change("Reels");
         picker.FindAll("button").Single(b => b.TextContent.Trim() == "Show more").Click();
         Assert.Equal(before, picker.FindAll("[data-reel-id]").Select(n => n.GetAttribute("data-reel-id")));
         picker.Find("input[type=search]").Input("Angle 54"); Assert.Single(picker.FindAll("[data-reel-id]"));
@@ -124,9 +125,9 @@ public sealed class UnifiedReferenceEditorTests : BunitContext
         picker.Find("select[aria-label=Asset]").Change(owner.Id.ToString());
         picker.Find("select[aria-label=Look]").Change(look.Id.ToString());
         Assert.Single(picker.FindAll("[data-reference]")); Assert.Single(picker.FindAll("[data-reel-id]"));
-        picker.FindAll(".media-filters button").Single(b => b.TextContent == "Images").Click();
+        picker.Find("select[aria-label='Reference type']").Change("Images");
         picker.Find("select[aria-label=Origin]").Change("Cropped"); Assert.Empty(picker.FindAll("[data-reference]"));
-        picker.FindAll(".media-filters button").Single(b => b.TextContent == "All").Click();
+        picker.Find("select[aria-label='Reference type']").Change("All");
         Assert.Empty(picker.FindAll("select[aria-label=Origin]"));
         Assert.Single(picker.FindAll("[data-reference]")); Assert.Single(picker.FindAll("[data-reel-id]"));
         picker.Find("select[aria-label=Look]").Change("general"); Assert.Empty(picker.FindAll(".picker-grid > *"));
@@ -135,6 +136,6 @@ public sealed class UnifiedReferenceEditorTests : BunitContext
     public void OrdinaryImagePickerCannotSelectReels()
     {
         var picker = Render<ProjectImagePicker>(p => p.Add(c => c.Library, Library()).Add(c => c.BrowseOnly, true));
-        Assert.Single(picker.FindAll("[data-reference]")); Assert.Empty(picker.FindAll("[data-reel-id]")); Assert.Empty(picker.FindAll(".media-filters"));
+        Assert.Single(picker.FindAll("[data-reference]")); Assert.Empty(picker.FindAll("[data-reel-id]")); Assert.Empty(picker.FindAll("select[aria-label='Reference type']"));
     }
 }

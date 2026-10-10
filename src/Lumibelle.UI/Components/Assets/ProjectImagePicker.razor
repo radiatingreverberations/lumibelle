@@ -1,11 +1,11 @@
 <section @ref="_picker" class="project-image-picker" aria-label="@(IncludeReels ? "Project reference picker" : "Project image picker")" tabindex="-1">
-    @if (IncludeReels) {
-        <div class="media-filters" role="group" aria-label="Reference types">
-            @foreach (var kind in new[] { "All", "Images", "Reels" }) { <button type="button" aria-pressed="@(EffectiveKind == kind ? "true" : "false")" disabled="@(OnlyKind is not null && kind != OnlyKind)" @onclick="() => ChangeKind(kind)">@kind</button> }
-        </div>
-    }
     <label>@(IncludeReels ? "Search references" : "Search images")<input type="search" @bind="_search" @bind:event="oninput" placeholder="Name, asset, tags…" /></label>
     <div class="picker-filters">
+        @if (IncludeReels) {
+            <label>Type<select aria-label="Reference type" @bind:get="EffectiveKind" @bind:set="ChangeKind" disabled="@(OnlyKind is not null)">
+                <option>All</option><option>Images</option><option>Reels</option>
+            </select></label>
+        }
         <label>Asset<select aria-label="Asset" value="@_asset" @onchange="ChangeAsset"><option value="">All assets</option>@foreach (var asset in Library.Assets) { <option value="@asset.Id">@asset.Name</option> }</select></label>
         <label>Look<select aria-label="Look" @bind="_look"><option value="all">All looks</option><option value="general">General / unassigned</option>@foreach (var look in Library.Assets.Where(a => a.Id == _asset).SelectMany(a => a.Looks).Where(l => !l.Archived)) { <option value="@look.Id">@look.Name</option> }</select></label>
         @if (!IncludeReels || EffectiveKind == "Images") { <label>Origin<select aria-label="Origin" @bind="_origin"><option value="all">All images</option><option value="VideoFrame">Video frames</option><option value="Cropped">Cropped copies</option></select></label> }
@@ -36,15 +36,19 @@
             } else if (choice is AssetReferenceChoice.Reel reelChoice) {
                 var reel = reelChoice.Media;
                 var assigned = ExcludedVideoMedia.Contains(reel.Media.Id);
+                var soundtrack = !reel.Media.HasAudio ? "Silent clip" : reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent ? "Soundtrack off by default" : "Soundtrack available";
+                var look = reelChoice.Asset.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name;
                 <article class="picker-reel" @key="reel.Id" data-reel-id="@reel.Id">
                     <div class="reel-preview">
                     @if (_preview == reel.Id) { <video controls autoplay preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(Library.ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(Library.ProjectId, reel.Media.Id)" aria-label="Preview @reel.Name"></video> }
                     else { <button type="button" class="reel-preview-button" aria-label="Preview @reel.Name" @onclick="() => _preview = reel.Id"><ReferenceVideoThumbnail ProjectId="Library.ProjectId" MediaId="reel.Media.Id" /><span class="reel-preview-label" aria-hidden="true">▶ Preview</span></button> }
+                    <span class="reel-audio-badge" title="@soundtrack">@(!reel.Media.HasAudio ? "Silent" : reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent ? "Audio off" : "Audio")</span>
                     </div>
-                    <small class="media-kind">@(reelChoice.Asset.Category switch { AssetCategory.Environment => "Environment reel", AssetCategory.Prop => "Prop reel", _ => "Character reel" }) · @reel.Media.Duration.ToString("0.###") s</small>
-                    <strong>@reel.Name</strong><small>@reelChoice.Asset.Name@if (reelChoice.Asset.Category == AssetCategory.Character) { <span> · @(reelChoice.Asset.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name ?? "General / unassigned")</span> }</small>
-                    <small class="reel-resolution" title="@VideoResolutions.Dimensions(reel)"><span class="sr-only">Resolution: </span>@VideoResolutions.Badge(reel)<span class="sr-only"> · @VideoResolutions.Dimensions(reel)</span></small>
-                    <small>@(!reel.Media.HasAudio ? "Silent clip" : reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent ? "Soundtrack off by default" : "Soundtrack available")</small>
+                    <div class="picker-reel-caption">
+                        <strong title="@reel.Name">@reel.Name</strong>
+                        <small title="@(reelChoice.Asset.Name + (look is null ? "" : " · " + look))">@reelChoice.Asset.Name@if (look is not null) { <span> · @look</span> }</small>
+                        <small class="media-kind" title="@($"{reelChoice.Asset.Category} reel · {reel.Media.Duration:0.###} s · {VideoResolutions.Badge(reel)} · {VideoResolutions.Dimensions(reel)} · {soundtrack}")">Reel · @reel.Media.Duration.ToString("0.#") s · @VideoResolutions.Badge(reel.Media)</small>
+                    </div>
                     <button type="button" class="add-reel" aria-label="@(ReelAction is null ? $"Add reel {reel.Name}" : $"{ReelAction} with {reel.Name}")" disabled="@(assigned || MaximumReels <= 0)" @onclick="() => PickReel(reelChoice)">@(assigned ? "Already selected" : ReelAction ?? "Add reel")</button>
                 </article>
             }
@@ -74,7 +78,7 @@
     private string _kind = "All";
     private Guid? _preview;
     private string EffectiveKind => OnlyKind ?? _kind;
-    private void ChangeKind(string kind) { _kind = kind; _limit = 48; _preview = null; }
+    private void ChangeKind(string? kind) { _kind = kind ?? "All"; _limit = 48; _preview = null; }
     private IEnumerable<AssetReferenceChoice> Gallery {
         get {
             IEnumerable<AssetReferenceChoice> images = Choices.Select(x => new AssetReferenceChoice.Image(x.Asset, x.Image));

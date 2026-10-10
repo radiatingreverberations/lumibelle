@@ -44,7 +44,6 @@
             @if (_replacing is { } replacing && _draft.Images.FirstOrDefault(i => i.Id == replacing) is { } priorImage) { <p class="reference-browser-notice" role="status">Replacing Picture @(_draft.Images.IndexOf(priorImage) + 1): @priorImage.Name. Choose an image below.<button @onclick="() => _replacing = null">Cancel replacement</button></p> }
             else if (ReelTarget is not null) { <p class="reference-browser-notice" role="status">Choose the replacement reel below.<button @onclick="() => { _replacingVideo = null; _swapVideo = null; }">Cancel replacement</button></p> }
             else if (ResolvedReferences.For(_draft).Pictures.Count >= 9) { <p class="reference-browser-notice" role="status">All 9 picture slots are used. Replace an image, remove a picture, or reduce a reel's keyframes to add another.</p> }
-            else { <p class="reference-browser-hint">Add images or reels below, then review and Apply changes.</p> }
             @if (_selectionNotice is not null) { <p class="reference-selection-notice" role="status">@_selectionNotice</p> }
         </BrowserNotice>
         <SelectionToolbar>

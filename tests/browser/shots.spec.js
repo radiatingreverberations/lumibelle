@@ -95,7 +95,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await shotAction(page, 'Duplicate');
   await toolsTab(page, 'References');
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
-  await page.locator('.manual-reference-dialog').getByRole('button', { name: 'Images', exact: true }).click();
+  await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
   await page.getByLabel('Origin', { exact: true }).selectOption('VideoFrame');
   await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse after arrival/ }).click();
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -196,7 +196,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await page.getByRole('link', { name: 'Shots', exact: true }).click();
     await toolsTab(page, 'References');
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
-    await page.locator('.manual-reference-dialog').getByRole('button', { name: 'Images', exact: true }).click();
+    await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
     await page.getByLabel('Origin', { exact: true }).selectOption('Cropped');
     await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse face crop/ }).click();
     await page.locator('.manual-reference-dialog').getByRole('tab', { name: /^Selected references/ }).click();

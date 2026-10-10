@@ -455,7 +455,9 @@
 .studio-workspace[data-studio=Shots] .shot-editor > .workspace-pane-body { container-type:inline-size; padding:16px; }
 .studio-workspace[data-studio=Shots] .shot-coverage { padding:0 0 16px; }
 .studio-workspace[data-studio=Shots] .shot-metadata { gap:16px; margin-bottom:16px; flex-wrap:nowrap; }
-.studio-workspace[data-studio=Shots] .shot-metadata > label { margin:0; min-width:0; }
+.studio-workspace[data-studio=Shots] .shot-metadata > label { display:flex; flex-direction:column; justify-content:space-between; margin:0; min-width:0; }
+.studio-workspace[data-studio=Shots] .shot-metadata .field-hint { line-height:inherit; margin:0; }
+.studio-workspace[data-studio=Shots] .shot-metadata :is(input,select) { height:40px; box-sizing:border-box; }
 .studio-workspace[data-studio=Shots] .shot-metadata > label:last-child { flex:0 0 150px; }
 .shot-creative-workspace { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; margin-bottom:24px; }
 .studio-workspace[data-studio=Shots] .shot-direction { margin:0; display:flex; flex-direction:column; min-width:0; }

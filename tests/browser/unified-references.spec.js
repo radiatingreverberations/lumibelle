@@ -34,12 +34,12 @@ for (const narrow of [false, true]) test(`mixed references apply together and Un
   const player = card.locator('video'); await expect.poll(() => player.evaluate(v => v.readyState)).toBeGreaterThan(0);
   await player.evaluate(v => { v.muted = true; v.currentTime = 2; }); await expect.poll(() => player.evaluate(v => v.currentTime)).toBeGreaterThanOrEqual(2);
   await expect(editor.locator('.video-reference-list > li')).toHaveCount(0);
-  await editor.getByRole('button', { name: 'Reels', exact: true }).click(); await expect(editor.locator('[data-reference]')).toHaveCount(0);
+  await editor.getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Reels'); await expect(editor.locator('[data-reference]')).toHaveCount(0);
   await card.locator('.add-reel').click(); await expect(card.locator('.add-reel')).toBeDisabled();
-  await editor.getByRole('button', { name: 'All', exact: true }).click();
+  await editor.getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('All');
   await expect(editor.locator('[data-reference]').first()).toBeVisible();
   await page.screenshot({ path: `artifacts/unified-reference-gallery-${narrow ? 'narrow' : 'desktop'}.png` });
-  await editor.getByRole('button', { name: 'Images', exact: true }).click(); await expect(editor.getByLabel('Origin', { exact: true })).toBeVisible();
+  await editor.getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images'); await expect(editor.getByLabel('Origin', { exact: true })).toBeVisible();
   await expect(editor.locator('[data-reel-id]')).toHaveCount(0);
   const image = library.assets[0].images[0];
   await editor.locator(`[data-reference="${library.assets[0].id}/${image.id}"]`).click();
@@ -53,7 +53,7 @@ for (const narrow of [false, true]) test(`mixed references apply together and Un
   expect((await state(request, id)).inputs.videos).toHaveLength(0);
   await editor.getByRole('button', { name: 'Apply changes', exact: true }).click(); await expect(editor).not.toBeVisible();
   const saved = await state(request, id); expect(saved.inputs.images[0].crop.width).toBe(.5); expect(saved.inputs.videos[0].media.id).toBe(reel.media.id);
-  await open(page); await expect(editor.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await open(page); await expect(editor.getByRole('combobox', { name: 'Reference type', exact: true })).toHaveValue('All');
   expect(await editor.locator('.picker-grid > [data-reel-id], .picker-grid > [data-reference]').evaluateAll(nodes => nodes.map(n => n.dataset.reelId || n.dataset.reference))).toEqual(initial);
   await page.keyboard.press('Escape'); await expect(editor).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeFocused();
