@@ -112,7 +112,7 @@
     private Task Import() => Run(async ct => {
         if (_import is null) return;
         var result = await Packages.CommitImportAsync(_import.Token, ct);
-        _progress = new("Project imported. No generation was started."); _import = null;
+        _progress = new("Project imported."); _import = null;
         if (!_disposed) await Imported.InvokeAsync(result);
     });
     private Task DiscardImport() => Run(async ct => {

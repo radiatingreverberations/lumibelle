@@ -64,6 +64,10 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
     }
     public static void Validate(ShotDocument d, Guid id)
     {
+        if (d.ProjectCopies is null || d.ProjectCopies.Any(r => r is null || r.Id == Guid.Empty || r.SourceProjectId == Guid.Empty || !lumibelle.Services.Assets.AssetReusePolicy.IsHash(r.Fingerprint) ||
+            r.ShotIds is null || r.ShotIds.Count == 0 || r.ShotIds.Contains(Guid.Empty) || r.ShotIds.Distinct().Count() != r.ShotIds.Count || r.CopiedUtc == default) ||
+            d.ProjectCopies.DistinctBy(r => r.Id).Count() != d.ProjectCopies.Count)
+            throw new WorkspaceStoreException("Invalid shot-copy acknowledgements.");
         if (d.TrimPublications is null || d.TrimPublications.Any(r => r is null || r.ResultId == Guid.Empty || r.TakeId == Guid.Empty || r.ResultId == r.TakeId || r.StartFrame < 0 || r.EndFrameExclusive <= r.StartFrame) || d.TrimPublications.DistinctBy(r => r.ResultId).Count() != d.TrimPublications.Count)
             throw new WorkspaceStoreException("Invalid trim publication receipts.");
         if (d.ExtensionPublications is null || d.ExtensionPublications.Any(r => r.ResultId == Guid.Empty || r.FullTakeId == Guid.Empty || !RefinementPolicy.Hash(r.Fingerprint)) || d.ExtensionPublications.DistinctBy(r => r.ResultId).Count() != d.ExtensionPublications.Count)
@@ -79,6 +83,11 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         foreach (var shot in d.Shots) { H3Policy.Validate(shot); if (shot.SelectedTakeId is { } selected && !d.Takes.Any(t => t.Id == selected && t.ShotId == shot.Id)) throw new WorkspaceStoreException("The selected take no longer exists."); }
         foreach (var t in d.Takes.Concat(d.Trash.Where(t => t.Take is not null).Select(t => t.Take!)))
         {
+            if (t.CopyRequest is { } copied) {
+                lumibelle.Services.AI.AiVideoJobPolicy.Validate(copied);
+                if (t.CopySource is null || copied.BatchId != t.RunId || ReferenceSetups.Hash(copied.Snapshot) != ReferenceSetups.Hash(t.Snapshot))
+                    throw new WorkspaceStoreException("A copied take does not match its retained request.");
+            }
             TakeTrimming.Validate(t);
             TakeBundles.Validate(t);
             if (t.Snapshot.Motion is { } motion) H3Motion.Validate(motion, t.Snapshot);

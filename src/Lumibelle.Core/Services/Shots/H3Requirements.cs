@@ -32,7 +32,7 @@ public static class H3Requirements
     private const string Drbaph = "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/blob/main/";
     private static readonly H3Badge Default = new("Default", "Lumibelle's default choice.");
     // Common GPU memory sizes, and the working room sampling needs beyond the model weights at preview size.
-    private static readonly int[] CardSizes = [8, 12, 16, 24, 32, 48, 80];
+    private static readonly int[] CardSizes = [8, 12, 16, 20, 24, 32, 48, 80];
     private const double SamplingRoomGb = 3;
     // An estimate from the file size of the smallest common card that holds a model fully. Smaller cards
     // still work: ComfyUI streams the rest from system memory, more slowly. Only the model needs this;
@@ -68,7 +68,10 @@ public static class H3Requirements
         new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors")
             { Size = "12 GB", Format = "W4A8", Tags = [new("Finetune", "Singularity v1.3 at about half the size.")] },
         new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
-            { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] }]);
+            { Size = "21 GB", Format = "int8", Tags = [new("Merge", "A plain FL2VA/Ref2VA merge of the official weights, without further training.")] },
+        new("minimax_h3_hybrid_fl2va_ref2va_b25-49_w6a8.safetensors", "https://huggingface.co/binglingzhimeng/minimax_h3_hybrid_fl2va_ref2va_b25-49_w6a8/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49_w6a8.safetensors",
+            "Requires ComfyUI with W6A8 support. Native acceleration needs an NVIDIA Ampere or newer GPU.")
+            { Size = "16 GB", Format = "W6A8", Tags = [new("Merge", "The b25-49 FL2VA/Ref2VA merge in a smaller format, without further training.")] }]);
     public static readonly H3Requirement Encoder = new("encoder", H3RequirementKind.File, "Encoder", "models/text_encoders", [
         new("qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors") { Size = "16 GB", Format = "NVFP4", Tags = [Default, Template] },
         new("qwen3vl_32b_minimax_h3_int8_convrot.safetensors", ComfyOrg + "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors") { Size = "27 GB", Format = "int8" },

@@ -6,22 +6,32 @@
 @inject AiJobCoordinator Jobs
 @inject IAiJobStore JobStore
 @inject IAiReviewGate Reviews
+@inject IAssetStore AssetStore
 @implements IDisposable
 <section class="take-extension-form" aria-label="@(Leading ? "Lead into take" : "Extend take")">
     <div class="take-panel-heading"><h3>@(Leading ? $"Lead into frame {Start + 1}" : $"Extend from frame {End}")</h3>@HeaderActions</div>
-    <p>Retain frames @(Leading ? Start + 1 : 1)–@(Leading ? Source.FrameCount : End) of @Source.FrameCount · @Source.Width × @Source.Height · @Source.Fps fps</p>
+    <p class="field-hint extension-source">Retain frames @(Leading ? Start + 1 : 1)–@(Leading ? Source.FrameCount : End) of @Source.FrameCount · @H3Motion.Label(Route) · @CountLabel(Context, "context frame")</p>
     @if (Aligned is { } aligned && aligned != (Leading ? StartFrame : EndFrameExclusive)) {
         <label class="check-row"><input type="checkbox" @bind="_savedMotion" disabled="@Busy" />Use nearby saved motion boundary · frame @(Leading ? aligned + 1 : aligned)</label>
     }
-    <p class="field-hint">@H3Motion.Label(Route) · @Context frames of context. The overlap is removed from the delivered extension.</p>
-    <label>Added duration (seconds)<input aria-label="Added duration" type="number" min="1" max="@((362 - Context) / 24d)" step="0.25" @bind="_seconds" disabled="@Busy" /></label>
-    @if (Generation is { } frames) { <p role="status">Adds @(((frames - Context) / 24d).ToString("0.###")) s · @(frames - Context) new frames (@frames generated including context)</p> }
-    else { <p role="alert">Choose a duration that fits within 362 generated frames including context.</p> }
-    <label>@(Leading ? "Lead-in action" : "Next action")<textarea aria-label="@(Leading ? "Lead-in action" : "Next action")" rows="3" @bind="_action" @bind:event="oninput" disabled="@Busy"></textarea></label>
-    <label>New dialogue<textarea aria-label="New dialogue" rows="2" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" @bind:event="oninput" disabled="@Busy"></textarea></label>
-    <div class="shots-actions"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.Production" SelectionChanged="s => _model = s" Disabled="@(Busy || _composing)" /><button disabled="@(Busy || _composing || _model is null || Generation is null || string.IsNullOrWhiteSpace(_action))" @onclick="Compose">@(Leading ? "Compose lead-in prompt" : "Compose extension prompt")</button></div>
-    @if (_compositionJob is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(jobId)" /> }
-    <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="9" value="@Prompt" @oninput="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@Busy"></textarea></label>
+    <div class="extension-setup-row">
+        <div class="extension-duration"><label>Added duration (seconds)<input aria-label="Added duration" type="number" min="1" max="@((362 - Context) / 24d)" step="0.25" @bind="_seconds" disabled="@(Busy || _composing)" /></label>
+            @if (Generation is { } frames) { <small class="field-hint" role="status" title="@($"{frames} generated frames including context; overlap is removed.")">Adds @(((frames - Context) / 24d).ToString("0.###")) s · @(frames - Context) new frames</small> }
+            else { <small role="alert">Duration exceeds the 362-frame limit.</small> }
+        </div>
+        <div class="extension-references" aria-label="Extension references">
+            <div class="extension-reference-heading"><strong>References</strong><button type="button" disabled="@(Busy || _composing)" @onclick="OpenReferences">Manage references</button></div>
+            <span>@ReferenceSummary</span>
+            <small class="field-hint">@(_references is null ? "From the original take" : "Customized for this extension")@if (_references is not null) { <button type="button" class="text-button" disabled="@(Busy || _composing)" @onclick="ResetReferences">Reset</button> }</small>
+        </div>
+    </div>
+    <div class="extension-writing-row">
+        <label>@(Leading ? "Lead-in action" : "Next action")<textarea aria-label="@(Leading ? "Lead-in action" : "Next action")" rows="3" @bind="_action" @bind:event="oninput" disabled="@(Busy || _composing)"></textarea></label>
+        <label>New dialogue<textarea aria-label="New dialogue" rows="3" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" @bind:event="oninput" disabled="@(Busy || _composing)"></textarea></label>
+    </div>
+    <div class="shots-actions extension-compose-actions"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.Production" SelectionChanged="s => _model = s" Disabled="@(Busy || _composing)" /><TextRequestAction @ref="_composeAction" Primary="true" Label="@(Leading ? "Compose lead-in prompt" : "Compose extension prompt")" Request="CompositionPresentation" Preparing="_compositionPreparing" HasError="@(CompositionPresentation?.Inspectable != true && _compositionError is not null)" Disabled="@(Busy || _composing || _model is null || Generation is null || string.IsNullOrWhiteSpace(_action))" OnStart="StartComposition" OnReview="InspectComposition" /></div>
+    <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="6" value="@Prompt" @oninput="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@(Busy || _composing)"></textarea></label>
+    @if (_referenceReview) { <label class="check-row extension-prompt-review"><input type="checkbox" @bind="_promptReviewed" disabled="@(Busy || _composing)" />References changed. I checked the Picture, Video and Audio labels in this prompt.</label> }
     <fieldset disabled="@Busy"><legend>Result</legend>
         <label class="check-row"><input type="radio" name="extension-destination" checked="@_combine" @onchange="() => _combine = true" />@(Leading ? "Prepend to this take" : "Extend this take")</label>
         <label class="check-row"><input type="radio" name="extension-destination" checked="@(!_combine)" @onchange="() => _combine = false" />@(Leading ? "Separate lead-in shot" : "Separate continuation shot")</label>
@@ -30,8 +40,23 @@
     </fieldset>
     <p class="field-hint">Standard sampling · fresh latents retained. Review the result, then explicitly select it for production.</p>
     @if ((Error ?? _error) is { } error) { <p role="alert">@error</p> }
-    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel preparing" : "Cancel")</button><button class="primary-action" disabled="@(Busy || _composing || Generation is null || string.IsNullOrWhiteSpace(_action))" @onclick="() => Queue.InvokeAsync(Options)">@(Leading ? "Queue lead-in" : "Queue extension")</button></div>
+    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel preparing" : "Cancel")</button><button class="primary-action" disabled="@(Busy || _composing || Generation is null || string.IsNullOrWhiteSpace(_action) || _referenceReview && !_promptReviewed)" @onclick="() => Queue.InvokeAsync(Options)">@(Leading ? "Queue lead-in" : "Queue extension")</button></div>
 </section>
+<InlineDialog Visible="_referencesOpen" VisibleChanged="v => _referencesOpen = v" Options="ReferenceDialogOptions" Class="shot-reference-dialog" Title="Manage references" Context="@(Leading ? "This lead-in only" : "This extension only")" CloseLabel="Close extension references"><DialogContent>
+    @if (_referenceDraft is not null && _referenceLibrary is not null) {
+        <ShotReferenceEditor @key="_referenceDraft" Shot="_referenceDraft" Library="_referenceLibrary" AllowReels="true" AllowOtherShotSwaps="false" ReferencesApplied="ApplyReferences" ImageSaved="s => _referenceLibrary = s.Library" Cancelled="() => _referencesOpen = false" />
+    }
+</DialogContent></InlineDialog>
+<AiAssistDialog Visible="_compositionOpen" VisibleChanged="v => _compositionOpen = v" Title="@(Leading ? "Lead-in prompt response" : "Extension prompt response")" Class="text-request-dialog"><ChildContent>
+    @if (CompositionJob is { } job) {
+        <AiResultAcknowledgement Observed="@(_compositionResult is not null ? new[] { job } : [])" />
+        <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
+    }
+    @if ((_compositionError ?? _compositionResult?.Error ?? CompositionJob?.Error) is { } error) { <p class="field-error" role="alert">@error</p> }
+    <div class="request-details"><h4>Saved response</h4><pre tabindex="0">@(_compositionResult?.Raw ?? (_composing ? "Waiting for the response…" : "No response was saved."))</pre></div>
+</ChildContent><Actions>
+    @if (!_composing) { <MudButton Disabled="Busy" OnClick="NewComposition">New request</MudButton> }
+</Actions></AiAssistDialog>
 @code {
     [Parameter, EditorRequired] public ShotTake Source { get; set; } = null!;
     [Parameter] public Guid ProjectId { get; set; }
@@ -45,15 +70,24 @@
     [Parameter] public EventCallback Cancel { get; set; }
     [Parameter] public EventCallback<TakeExtensionOptions> Queue { get; set; }
     private double _seconds = 5;
-    private bool _combine = true, _savedMotion = true, _lossless, _composing;
+    private bool _combine = true, _savedMotion = true, _lossless, _composing, _compositionPreparing, _compositionOpen, _disposed, _referencesOpen, _referenceReview, _promptReviewed;
+    private TakeExtensionReferences? _references;
+    private Shot? _referenceDraft;
+    private AssetLibrary? _referenceLibrary;
+    private static readonly DialogOptions ReferenceDialogOptions = new() { FullWidth = true, MaxWidth = MaxWidth.ExtraLarge, CloseButton = false, BackdropClick = false };
     private string _action = "", _dialogue = "", _destination = "";
-    private string? _prompt, _error;
+    private string? _prompt, _error, _compositionError;
     private TextModelSelectionState? _model;
     private Guid? _compositionJob;
+    private AiTextJobResult? _compositionResult;
+    private TextRequestAction? _composeAction;
+    private AiJobHeader? CompositionJob => Jobs.View.Jobs.FirstOrDefault(j => j.Id == _compositionJob);
+    private TextRequestPresentation? CompositionPresentation => CompositionJob is { } job ? new(job, "Writing prompt…", _compositionError is not null || _compositionResult?.Error is not null ? TextRequestOutcome.Invalid : TextRequestOutcome.Response) : null;
     private readonly CancellationTokenSource _life = new();
     private int End => _savedMotion ? H3Motion.AlignedEnd(Source, EndFrameExclusive) ?? EndFrameExclusive : EndFrameExclusive;
     private bool Leading => Direction == TakeExtensionDirection.Before;
-    protected override void OnInitialized() { _savedMotion = !Leading; }
+    protected override void OnInitialized() { _savedMotion = !Leading; Jobs.Changed += JobsChanged; }
+    private void JobsChanged() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
     private int? Aligned => Leading ? H3Motion.AlignedStart(Source, StartFrame) : H3Motion.AlignedEnd(Source, EndFrameExclusive);
     private int Start => _savedMotion ? H3Motion.AlignedStart(Source, StartFrame) ?? StartFrame : StartFrame;
     private MotionContextRoute Route => (Leading ? H3Motion.CanUseLeadingLatents(Source, Start) : H3Motion.CanUseLatents(Source, End)) ? MotionContextRoute.SavedLatents : Context == 1 ? MotionContextRoute.SingleFrame : MotionContextRoute.Frames;
@@ -61,28 +95,60 @@
     private int Context => H3Motion.Window(Leading ? Source.FrameCount - Start : End);
     private int? Generation { get { try { return H3Motion.GenerationFrames(Context, _seconds); } catch { return null; } } }
     private IReadOnlyList<ShotDialogue> Dialogue => _dialogue.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => { var colon = line.IndexOf(':'); return new ShotDialogue { Speaker = colon < 0 ? "" : line[..colon].Trim(), Text = colon < 0 ? line.Trim() : line[(colon + 1)..].Trim() }; }).ToArray();
-    private TakeExtensionOptions Options => new(Source.Id, Leading ? Source.FrameCount : End, _seconds, _action, Dialogue, Prompt, _combine, Guid.TryParse(_destination, out var id) ? id : null, _lossless) { Direction = Direction, StartFrame = Leading ? Start : 0 };
+    private TakeExtensionOptions DraftOptions => new(Source.Id, Leading ? Source.FrameCount : End, _seconds, _action, Dialogue, null, _combine, Guid.TryParse(_destination, out var id) ? id : null, _lossless) { Direction = Direction, StartFrame = Leading ? Start : 0, References = _references };
+    private TakeExtensionOptions Options => DraftOptions with { Prompt = Prompt };
+    private Shot ReferenceShot => _references?.Inputs ?? ContextTake.Snapshot.Shot;
+    private static string CountLabel(int count, string label) => $"{count} {label}{(count == 1 ? "" : "s")}";
+    private string ReferenceSummary => $"{CountLabel(ResolvedReferences.For(ReferenceShot).Pictures.Count, "picture")} · {CountLabel(ReferenceShot.Videos.Count, "reel")} · {CountLabel(ResolvedReferences.For(ReferenceShot).Audio.Count, "audio input")}";
+    private async Task OpenReferences() {
+        try {
+            _referenceLibrary = await AssetStore.LoadAsync(ProjectId, _life.Token);
+            _referenceDraft = AiVideoJobCapture.ExtensionShot(ContextTake, DraftOptions, Generation ?? 124);
+            _referencesOpen = true; _error = null;
+        } catch (Exception e) { _error = e.Message; }
+    }
+    private void ApplyReferences(ReferenceSelection selection) {
+        var draft = selection.Inputs.Copy();
+        var guidance = ShotReferences.Resolve(draft, _referenceLibrary!, new());
+        var appearances = ShotLooks.Capture(draft, _referenceLibrary!);
+        static string Signature(Shot shot) => JsonSerializer.Serialize(new { shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, Characters = ShotReferences.Characters(shot), shot.ContinuityFrame }, AtomicJsonFile.Options);
+        if (Signature(draft) == Signature(_referenceDraft!) &&
+            ShotReferences.SameEffective(guidance, _references?.Guidance ?? ContextTake.Snapshot.ReferenceGuidance) &&
+            appearances.SequenceEqual(_references?.Appearances ?? ContextTake.Snapshot.Appearances)) {
+            _referencesOpen = false; return;
+        }
+        _references = new(draft, guidance, appearances);
+        ReferencesChanged(); _referencesOpen = false;
+    }
+    private void ResetReferences() { _references = null; ReferencesChanged(); }
+    private void ReferencesChanged() { _referenceReview = !string.IsNullOrWhiteSpace(_prompt); _promptReviewed = false; }
     private string Prompt { get {
         if (_prompt is not null) return _prompt;
-        try { return H3Policy.Compile(AiVideoJobCapture.ExtensionShot(ContextTake, new(Source.Id, Leading ? Source.FrameCount : End, _seconds, _action, Dialogue, null), Generation ?? 124), ContextTake.Snapshot.ReferenceGuidance, ContextTake.Snapshot.Appearances, motionContext: true); }
+        try { return H3Policy.Compile(AiVideoJobCapture.ExtensionShot(ContextTake, DraftOptions, Generation ?? 124), _references?.Guidance ?? ContextTake.Snapshot.ReferenceGuidance, _references?.Appearances ?? ContextTake.Snapshot.Appearances, motionContext: true); }
         catch (lumibelle.Services.Story.WorkspaceStoreException) { return ""; }
     } }
+    private Task InspectComposition() { _compositionOpen = true; return Task.CompletedTask; }
+    private Task StartComposition() => _compositionError is not null ? InspectComposition() : Compose();
+    private void NewComposition() { _compositionOpen = false; _compositionError = null; _composeAction?.StartFresh(); }
     private async Task Compose() {
-        if (_model is null) return; _composing = true; _error = null;
+        if (_model is null || _composing) return;
+        _composing = true; _compositionPreparing = true; _compositionError = null; _compositionResult = null; _compositionJob = null;
         try {
             var submission = await TextRequests.ComposeExtensionAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), ProjectId, Options, _model.Model, _model.FollowsDefault, _life.Token);
             _compositionJob = submission.Id; await Jobs.EnqueueAsync(submission, _life.Token);
+            _compositionPreparing = false; await InvokeAsync(StateHasChanged);
             while (!_life.IsCancellationRequested) {
                 await Task.Delay(500, _life.Token);
                 var job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id);
                 if (job is null || job.LocksTarget) continue;
                 var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _life.Token);
-                if (result is { Error: null }) _prompt = PromptComposer.Parse(result.Raw, submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<PromptCompositionRequest>()).Prompt;
-                else _error = result?.Error ?? job.Error ?? "The composition did not return a prompt.";
+                _compositionResult = result;
+                if (result is { Error: null }) { _prompt = PromptComposer.Parse(result.Raw, submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<PromptCompositionRequest>()).Prompt; _referenceReview = false; _promptReviewed = false; }
+                else _compositionError = result?.Error ?? job.Error ?? "The composition did not return a prompt.";
                 break;
             }
-        } catch (OperationCanceledException) { } catch (Exception e) { _error = e.Message; }
-        finally { _composing = false; }
+        } catch (OperationCanceledException) { } catch (Exception e) { _compositionError = e.Message; }
+        finally { _composing = false; _compositionPreparing = false; }
     }
-    public void Dispose() { _life.Cancel(); _life.Dispose(); }
+    public void Dispose() { _disposed = true; Jobs.Changed -= JobsChanged; _life.Cancel(); _life.Dispose(); }
 }

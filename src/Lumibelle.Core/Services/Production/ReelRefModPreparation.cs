@@ -57,7 +57,7 @@ public sealed class ReelRefModPreparation(IAssetStore assets, IReferenceVideoSto
         return captured;
     }
 
-    private static ReelRefModReference UnbuiltReference(Guid project, ReelRefModRecipe recipe, string server)
+    internal static ReelRefModReference UnbuiltReference(Guid project, ReelRefModRecipe recipe, string server)
     {
         // Stable local identity, not a submitted job. Cache builds use their own
         // journaled operation identity and never write a result for this address.

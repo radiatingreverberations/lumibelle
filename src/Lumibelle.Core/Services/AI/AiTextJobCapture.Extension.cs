@@ -22,12 +22,19 @@ public sealed partial class AiTextJobCapture
         shot.Id = take.ShotId;
         var directory = Path.Combine(await store.RunDirectoryAsync(projectId, id, ct), H3Motion.SourceFolder);
         var contextFolder = take.Composition is null ? directory : Path.Combine(directory, "segments", contextTake.Key.ToString("D"));
-        var inputs = contextTake.Source.RetainedSource!.Inputs.Where(i => i.EffectiveKind == VideoInputKind.Image).ToArray();
         var images = new List<byte[]>(); var identities = new List<CompositionInput>();
-        var pictures = ResolvedReferences.For(shot).Pictures;
-        for (var i = 0; i < inputs.Length; i++) {
-            images.Add(await File.ReadAllBytesAsync(Path.Combine(contextFolder, TakeTrimming.InputsFolder, inputs[i].FileName), ct));
-            identities.Add(new(pictures[i].BindingId, inputs[i].Sha256));
+        if (options.References is { } references) {
+            AiVideoJobCapture.ValidateExtensionReferences(shot, references, await assets.LoadAsync(projectId, ct), await store.LoadAsync(projectId, ct));
+            var selected = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, contextTake.Source.Snapshot.Settings, store);
+            images.AddRange(selected.Select(i => i.Bytes)); identities.AddRange(selected.Select(i => i.Identity));
+        }
+        else {
+            var inputs = contextTake.Source.RetainedSource!.Inputs.Where(i => i.EffectiveKind == VideoInputKind.Image).ToArray();
+            var pictures = ResolvedReferences.For(shot).Pictures;
+            for (var i = 0; i < inputs.Length; i++) {
+                images.Add(await File.ReadAllBytesAsync(Path.Combine(contextFolder, TakeTrimming.InputsFolder, inputs[i].FileName), ct));
+                identities.Add(new(pictures[i].BindingId, inputs[i].Sha256));
+            }
         }
         var stills = new List<byte[]>(); var stillIds = new List<CompositionInput>();
         foreach (var frame in new[] { motion.StartFrame, (motion.StartFrame + motion.EndFrameExclusive - 1) / 2, motion.EndFrameExclusive - 1 }.Distinct()) {
@@ -36,7 +43,7 @@ public sealed partial class AiTextJobCapture
             stills.Add(pixels); stillIds.Add(new(take.Id, Convert.ToHexString(SHA256.HashData(pixels))));
         }
         var mods = ReelRefMods.Uses(shot) ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, shot, ct) : Array.Empty<RefModInspectionFrame>();
-        var request = new PromptCompositionRequest(projectId, id, 1, take.Snapshot.Fingerprint, take.Snapshot.Fingerprint, shot, "", [], contextTake.Source.Snapshot.ReferenceGuidance!, contextTake.Source.Snapshot.Appearances!, identities,
+        var request = new PromptCompositionRequest(projectId, id, 1, take.Snapshot.Fingerprint, take.Snapshot.Fingerprint, shot, "", [], options.References?.Guidance ?? contextTake.Source.Snapshot.ReferenceGuidance!, options.References?.Appearances ?? contextTake.Source.Snapshot.Appearances!, identities,
             leading ? "Generate the preceding action leading into the captured opening motion." : "Continue the captured motion into the next action.", options.Prompt ?? "", "", model, followsDefault) {
                 PrecedingAction = leading ? null : contextTake.Source.Snapshot.Shot.Description,
                 FollowingAction = leading ? contextTake.Source.Snapshot.Shot.Description : null, MotionStills = stillIds };

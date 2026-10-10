@@ -1,0 +1,100 @@
+@using lumibelle.Services.Shots
+@inherits ProjectAwareComponent
+@inject IShotProjectCopyStore Copies
+@inject IProjectStore Projects
+
+<InlineDialog Visible="Visible" VisibleChanged="Close" Title="Copy shots to project" CloseLabel="Close copy shots" CloseDisabled="_busy" Options="Options" Class="shot-bulk-dialog shot-copy-dialog">
+    <Summary>Copy shots, their reference assets, saved takes and relevant script scenes. Originals stay here.</Summary>
+    <DialogContent>
+        @if (_result is not null) {
+            <div class="shot-copy-complete" role="status"><h3>@_result.ShotIds.Count @(_result.ShotIds.Count == 1 ? "shot" : "shots") copied</h3><p>The destination has independent media copies.</p><a href="@ProjectLink(_result.ProjectId, "/shots")">Open destination shots →</a></div>
+        }
+        else {
+            <div class="shot-bulk-layout">
+                <div class="shot-copy-selection">
+                    <div class="shot-copy-range dialog-form">
+                        <label>From shot<input type="number" min="1" max="@Items.Count" @bind="_from" @bind:event="oninput" disabled="@Locked" /></label>
+                        <label>Through shot<input type="number" min="1" max="@Items.Count" @bind="_through" @bind:event="oninput" disabled="@Locked" /></label>
+                        <button type="button" class="lumi-button" @onclick="SelectRange" disabled="@(Locked || _from < 1 || _through < _from || _through > Items.Count)">Select range</button>
+                    </div>
+                    <ShotPicker Items="Items" SelectedIds="_selected" SelectedIdsChanged="SelectionChanged" Disabled="Locked" />
+                </div>
+                <aside class="shot-bulk-settings">
+                    <label>Destination project<select @bind="_destination" disabled="@(_busy || _pending is not null)"><option value="@Guid.Empty">Choose a project…</option>@foreach (var project in _projects) { <option value="@project.Id">@project.Name</option> }</select></label>
+                    <h3>Included in this copy</h3>
+                    @if (_preview is { } preview) {
+                        <dl class="shot-bulk-impact"><div><dt>Shots</dt><dd>@preview.Shots</dd></div><div><dt>Saved takes</dt><dd>@preview.Takes</dd></div><div><dt>Reference assets</dt><dd>@preview.Assets</dd></div><div><dt>Script scenes</dt><dd>@preview.Scenes</dd></div></dl>
+                    }
+                    else { <p role="status">@(_loading ? "Checking references…" : "Select the shots to copy.")</p> }
+                    <p class="field-hint">Added to the end of the destination in their current order. Shared reference assets are copied once, including their images, looks, reels and voices.</p>
+                    <p class="field-hint">Prompts are copied as drafts for review. Saved takes keep their media and generation details; AI jobs stay in the source project.</p>
+                </aside>
+            </div>
+        }
+    </DialogContent>
+    <Status>
+        @if (_progress is not null) { <p role="status">@_progress</p> }
+        @if (_error is not null) { <p role="alert">@_error</p> }
+        @if (_pending is not null && !_busy && _result is null) { <p class="field-hint">Some references or script scenes may already be saved. Retry resumes this copy without adding duplicate shots.</p> }
+    </Status>
+    <Actions>
+        <MudButton OnClick="() => Close(false)" Disabled="_busy">@(_result is not null ? "Close" : "Cancel")</MudButton>
+        @if (_result is null) { <MudButton OnClick="Copy" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || _loading || _preview is null || _destination == Guid.Empty)">@(_busy ? "Copying…" : _pending is not null ? "Retry copy" : $"Copy {_selected.Count} {(_selected.Count == 1 ? "shot" : "shots")}")</MudButton> }
+    </Actions>
+</InlineDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public IReadOnlyList<ShotPickerItem> Items { get; set; } = [];
+    [Parameter] public Guid? InitialShotId { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    [Parameter] public EventCallback<bool> BusyChanged { get; set; }
+    private IReadOnlyList<ProjectInfo> _projects = [];
+    private HashSet<Guid> _selected = [];
+    private Guid _destination;
+    private int _from = 1, _through = 1, _version;
+    private bool _busy, _loading, _wasVisible;
+    private string? _error, _progress;
+    private ShotProjectCopyPreview? _preview;
+    private ShotProjectCopyRequest? _pending;
+    private ShotProjectCopyResult? _result;
+    private bool Locked => _busy || _pending is not null;
+    private DialogOptions Options => new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_busy };
+    protected override async Task OnParametersSetAsync() {
+        var opening = Visible && !_wasVisible;
+        _wasVisible = Visible;
+        if (!opening) return;
+        _version++; _selected = []; _preview = null; _pending = null; _result = null;
+        _destination = Guid.Empty; _from = _through = 1; _error = _progress = null;
+        try { _projects = (await Projects.ListAsync()).Projects.Where(p => p.Id != ProjectId).OrderBy(p => p.Name).ToArray(); }
+        catch (Exception e) { _error = e.Message; }
+        if (InitialShotId is { } id) {
+            var item = Items.FirstOrDefault(i => i.Id == id);
+            if (item is not null) { _from = _through = item.Number; await SelectionChanged([id]); }
+        }
+    }
+    private Task SelectRange() => SelectionChanged(Items.Where(i => i.Number >= _from && i.Number <= _through).Select(i => i.Id).ToHashSet());
+    private async Task SelectionChanged(HashSet<Guid> selected) {
+        if (Locked) return;
+        _selected = selected; _preview = null; _error = null; var version = ++_version;
+        _loading = true;
+        try { var preview = selected.Count == 0 ? null : await Copies.PreviewAsync(ProjectId, selected); if (version == _version) _preview = preview; }
+        catch (Exception e) { if (version == _version) _error = e.Message; }
+        finally { if (version == _version) _loading = false; }
+    }
+    private async Task Copy() {
+        if (_busy || _preview is null || _destination == Guid.Empty) return;
+        _busy = true; _error = null;
+        await BusyChanged.InvokeAsync(true);
+        var progress = new Progress<string>(message => { if (!_busy || _result is not null) return; _progress = message; _ = InvokeAsync(StateHasChanged); });
+        try {
+            var selection = new ShotProjectCopyRequest(Guid.NewGuid(), ProjectId, _destination, Items.Where(i => _selected.Contains(i.Id)).Select(i => i.Id).ToArray(), _preview.ShotRevision, _preview.ProductionRevision, _preview.ScriptRevision);
+            _pending ??= await Copies.FindPendingAsync(selection) ?? selection;
+            _result = await Copies.CopyAsync(_pending, progress);
+        }
+        catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; _progress = null; await BusyChanged.InvokeAsync(false); }
+    }
+    private Task Close(bool visible) => visible || _busy ? Task.CompletedTask : Closed.InvokeAsync();
+}

@@ -50,7 +50,7 @@ else
         }
 @if (_planningError is not null) { <p role="alert">@_planningError</p> }</ChildContent>
 <Actions><MudButton Class="ai-assist-action" OnClick="Draft" Disabled="@(_planning || _planningSubmitting || _pendingPlanning is not null || _model?.Ready != true || _sceneSelection.Count == 0)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shots</MudButton>@if (_pendingPlanning is not null) { <button @onclick="RetryPlanningEnqueueAsync">Retry saving request</button> }</Actions>
-</TextAssistance><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
+</TextAssistance><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotProjectCopy()">Copy to project…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
             <label class="shots-status-filter"><span class="visually-hidden">Prompt status</span><select aria-label="Filter shots by prompt status" @bind="_promptStatusFilter">
                 <option value="all">All shots</option><option value="attention">Needs prompt attention</option>
                 <option value="missing">Prompt missing</option><option value="changed">References changed</option><option value="review">Review prompt</option>
@@ -76,6 +76,7 @@ else
                     <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || SceneNeighbour(item, 1) is null)" OnClick="() => MoveShotInScene(item.Id, 1)">Move down</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="@(ShotListLocked || sceneCount < 2)" OnClick="() => OpenShotMove(item.Id)">Move to…</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => DuplicateShotRow(item.Id)">Duplicate</MudMenuItem>
+                    <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => OpenShotProjectCopy(item.Id)">Copy to project…</MudMenuItem>
                     <MudMenuItem role="menuitem" Href="@ProjectLink(Id, $"/dubs?shotId={item.Id}")">Language versions</MudMenuItem>
                     <MudMenuItem role="menuitem" Disabled="ShotListLocked" OnClick="() => OpenShotDeletion(item.Id)" Class="danger-link">Delete</MudMenuItem>
                 </MudMenu>
@@ -882,3 +883,5 @@ else
     </DialogContent>
     <DialogActions><MudButton OnClick="() => _moveTakesOpen = false" Disabled="_mediaBusy">Cancel</MudButton><MudButton OnClick="MoveSelectedTakes" Disabled="@(_mediaBusy || _moveDestination is null)" Color="Color.Primary" Variant="Variant.Filled">Move takes</MudButton></DialogActions>
 </InlineDialog>
+
+<ShotProjectCopyDialog Visible="_copyShotsOpen" ProjectId="Id" Items="@_doc.Shots.Select((shot, index) => PickerItem(_doc, shot, index)).ToArray()" InitialShotId="_copyInitialShot" BusyChanged="value => _copyShotsBusy = value" Closed="() => _copyShotsOpen = false" />
