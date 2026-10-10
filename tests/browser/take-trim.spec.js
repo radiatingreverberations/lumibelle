@@ -23,7 +23,7 @@ async function setup(page, request, lossless = true) {
   return id;
 }
 async function trim(page, start, end) {
-  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Trim', exact: true }).click();
   const editor = review(page).getByRole('region', { name: 'Trim take', exact: true });
   await expect(editor.getByRole('button', { name: 'Save trimmed version' })).toBeDisabled();
   const first = editor.getByRole('slider', { name: 'Trim start frame' });
@@ -32,15 +32,16 @@ async function trim(page, start, end) {
   const last = editor.getByRole('slider', { name: 'Trim end frame' });
   await last.focus(); await page.keyboard.press('End');
   for (let i = Number(await last.getAttribute('max')); i > end; i--) await page.keyboard.press('ArrowLeft');
-  const position = editor.getByRole('slider', { name: 'Video position' });
+  const player = review(page).locator('.take-player');
+  const position = player.getByRole('slider', { name: 'Video position' });
   await expect(position).toHaveAttribute('min', String(start));
   await expect(position).toHaveAttribute('max', String(end - 1));
   await position.press('Home');
-  await expect(editor.locator('.take-player')).toHaveAttribute('data-frame-index', String(start));
+  await expect(player).toHaveAttribute('data-frame-index', String(start));
   await editor.getByRole('button', { name: 'Set start here', exact: true }).click();
-  await editor.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(editor.locator('.take-player')).toHaveAttribute('data-frame-index', String(end - 1));
-  await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  await player.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(player).toHaveAttribute('data-frame-index', String(end - 1));
+  await expect(player.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   await editor.getByRole('button', { name: 'Set end here', exact: true }).click();
   await expect(editor).toContainText(`Keep ${end - start} frames`);
   await editor.getByRole('button', { name: 'Save trimmed version' }).click();
@@ -91,7 +92,7 @@ test('trim preserves full latents and refinement reapplies the range and reviews
   expect(revised).toBeTruthy();
   await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${revised.id}`);
   await page.setViewportSize({ width: 390, height: 844 });
-  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Trim', exact: true }).click();
   await expect(review(page).getByRole('slider', { name: 'Trim start frame' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
@@ -108,7 +109,7 @@ test('MP4-only trim creates local frame numbering and continuation uses its last
   await expect(review(page).locator('.take-player')).toHaveAttribute('data-frame-index', '24');
   await review(page).locator('.shot-candidate').filter({ has: page.locator(`[data-shot-take="${shortened.id}"]`) }).getByRole('button', { name: 'Use this take', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots[0].selectedTakeId).toBe(shortened.id);
-  await review(page).getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
   const extension = review(page).getByRole('region', { name: 'Extend take', exact: true });
   await expect(extension).toContainText('Retain frames 1–25 of 25');
   await expect(extension).toContainText('re-encoded context');

@@ -58,7 +58,7 @@ test('presets, setup and optional archives survive autosave and queue capture', 
   expect(first.frames).toHaveLength(0); expect(first.snapshot.preset.key).toBe('larry');
   expect(first.snapshot.outputPolicy.saveLosslessFrames).toBe(false);
   await expect(review.getByText(/Frames are extracted from compressed MP4/)).toBeVisible();
-  await expect(review.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeEnabled();
+  await expect(review.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
   await review.getByText('Performance and timings', { exact: true }).click();
   await expect(review.getByText('Not requested', { exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/h3-presets-desktop.png', fullPage: true });

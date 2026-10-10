@@ -24,7 +24,11 @@ window.lumibelleShots = {
     async restoreReviewFocus(closed) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const active = document.activeElement;
-        if (!closed) document.querySelector('.shot-review-dialog .take-save-frame')?.focus();
+        if (!closed) {
+            const player = document.querySelector('.shot-review-dialog .take-player');
+            const trigger = [...(player?.querySelectorAll('[data-take-panel]') ?? [])].find(button => button.dataset.takePanel === player.dataset.lastPanel);
+            (trigger ?? player?.querySelector('.take-save-frame'))?.focus();
+        }
         // Mud restores a valid original trigger itself. An automatically opened review
         // can have no surviving trigger (generation disabled it), so provide a fallback.
         else if (!active || active === document.body || !active.isConnected || active.closest('.shot-review-dialog'))

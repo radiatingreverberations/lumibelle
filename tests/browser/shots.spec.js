@@ -63,8 +63,8 @@ test('approved script to reviewed shots, background takes, independent continuit
   await expect(position).toHaveValue('38');
   await page.keyboard.press('ArrowLeft');
   await expect(position).toHaveValue('37');
-  await expect(review.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeEnabled();
-  await review.getByRole('button', { name: 'Save frame to Assets', exact: true }).click();
+  await expect(review.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
+  await review.getByRole('button', { name: 'Save frame', exact: true }).click();
   const destination = review.locator('.image-copy-panel');
   await destination.getByLabel('New asset name').fill('Arrival state');
   await destination.getByLabel('Image name', { exact: true }).fill('Mouse after arrival');
@@ -144,8 +144,8 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     const position = review.getByRole('slider', { name: 'Video position' });
     await position.focus(); await page.keyboard.press('End');
     await expect(review.locator('.take-player')).toHaveAttribute('data-frame-index', '38');
-    await expect(review.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeEnabled();
-    await review.getByRole('button', { name: 'Save frame to Assets', exact: true }).click();
+    await expect(review.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
+    await review.getByRole('button', { name: 'Save frame', exact: true }).click();
     const destination = review.locator('.image-copy-panel');
     await destination.getByLabel('New asset name').fill('Arrival state');
     await destination.getByLabel('Image name', { exact: true }).fill('Mouse paused at doorway');
@@ -234,10 +234,11 @@ test('the take player ignores stale frames, retries missing archives and follows
   await expect(player.locator('.take-paused-frame')).toBeVisible();
   await seek(30);
   await expect(player.getByRole('alert')).toContainText('unavailable');
-  await expect(player.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeDisabled();
+  await player.getByRole('button', { name: 'Save frame', exact: true }).click();
+  await expect(review.locator('.image-copy-panel')).toHaveCount(0);
   missing = false; await player.getByRole('button', { name: 'Retry frame', exact: true }).click();
   await expect(player).toHaveAttribute('data-frame-index', '30');
-  await expect(player.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeEnabled();
+  await expect(player.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
   await seek(20);
   await review.getByRole('button', { name: 'Take 2', exact: true }).click();
   await expect(player).toHaveAttribute('data-frame-index', '0');
@@ -250,7 +251,7 @@ test('the take player ignores stale frames, retries missing archives and follows
   });
   await player.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.presentedTime)).toBeGreaterThan(.1);
-  await player.getByRole('button', { name: 'Save frame to Assets', exact: true }).click();
+  await player.getByRole('button', { name: 'Save frame', exact: true }).click();
   await expect(review.locator('.image-copy-panel')).toBeVisible();
   const presented = await page.evaluate(() => window.presentedTime);
   await expect(player).toHaveAttribute('data-frame-index', String(Math.floor(presented * 24 + .0001)));
@@ -282,10 +283,10 @@ test('paused seeking without presented-frame callbacks requires the archived fra
   await player.getByRole('slider', { name: 'Video position' }).focus(); await page.keyboard.press('End');
   await expect(player).toHaveAttribute('data-frame-index', String((await state()).takes[0].frames.length - 1));
   await expect(player.locator('.take-paused-frame')).toBeVisible();
-  await player.getByRole('button', { name: 'Save frame to Assets', exact: true }).click();
+  await player.getByRole('button', { name: 'Save frame', exact: true }).click();
   await expect(review.getByLabel('Destination asset')).toBeFocused();
   await review.locator('.image-copy-panel').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(player.getByRole('button', { name: 'Save frame to Assets', exact: true })).toBeFocused();
+  await expect(player.getByRole('button', { name: 'Save frame', exact: true })).toBeFocused();
 });
 
 test('a shot on retired 8-step Turbo survives reload and one more take preserves its captured sampling', async ({ page, request }) => {

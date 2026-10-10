@@ -180,14 +180,16 @@ else
                         <article class="unified-take-card @(SourceShot?.SelectedTakeId == take.Id ? "is-selected" : "")" data-take-id="@take.Id">
                             <button class="take-preview" @onclick="() => OpenTake(take)"><img data-ai-candidate="@take.Id" src="@TakeUrl(take.Id, 0)" alt="Play take @(ShotTakes.IndexOf(take) + 1)" loading="lazy" /><span class="take-play">▶ Play</span><span class="take-resolution-badge" title="@TakeDisplay.Dimensions(take)">@TakeDisplay.Badge(take)</span></button>
                             <div class="take-caption">
+                                <div class="take-caption-heading">
                                 @if (SelectingTakes) { <label class="check-row"><input type="checkbox" aria-label="Select take @(ShotTakes.IndexOf(take) + 1)" checked="@_moveTakeIds.Contains(take.Id)" @onchange="e => SelectTakeForMove(take.Id, e.Value is true)" /><strong>Take @(ShotTakes.IndexOf(take) + 1)</strong></label> }
                                 else { <strong>Take @(ShotTakes.IndexOf(take) + 1)</strong> }
+                                <span class="take-duration">@TakeDisplay.Duration(take)</span>
                                 @if (IsNewTake(take)) { <span class="new-take-badge">New</span> }
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
-                                <time>@take.CreatedUtc.ToLocalTime().ToString("g")</time>
-                                <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button @onclick="() => OpenExtension(take)">Extend…</button><button @onclick="() => OpenLeadIn(take)">Lead into…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
-                                <details><summary>Details</summary><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
+                                </div>
+                                <TakeSummary Take="take" Changes="TakeChanges(take)" Compact="true" />
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <details><summary>Details</summary><p><time>@take.CreatedUtc.ToLocalTime().ToString("g")</time></p><p>@TakeDisplay.Dimensions(take)</p><TakeGenerationDetails Take="take" /><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
                     }</div>
@@ -654,51 +656,52 @@ else
 </InlineDialog>
 
 <InlineDialog Visible="_reviewOpen" VisibleChanged="ReviewVisibility" Options="LargeDialog" Class="shot-review-dialog" DefaultFocus="DefaultFocus.FirstChild"
-              Title="@(_reviewRun?.Snapshot.Shot.Title ?? "Video takes")" Context="@(_reviewRun is { } titled ? $"Take review · Batch {titled.Id.ToString()[..8]}" : "Take review")" CloseLabel="Close take review"><DialogContent>
+              Title="@(_reviewRun?.Snapshot.Shot.Title ?? "Video takes")" Context="Take review" CloseLabel="Close take review"><DialogContent>
 <DialogEscape Pressed="() => ReviewVisibility(false)" />
 <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedVideoJobs.Where(j => _reviewRun is not null && (j.Batch?.RootId == _reviewRun.Id || j.Id == _refinementJob)).ToArray())" MediaByJob="@(_observedVideoJobs.ToDictionary(j => j.Id, j => (j.Batch?.Candidates ?? []).Where(c => _doc.Takes.Any(t => t.Id == c.Id)).Select(c => c.Id).ToArray()))" />
     @if (_reviewRun is { } review)
     {
-        <p role="status">@review.Status</p>
+
         @if (ReviewVideoJob is { } videoJob)
         {
-            <AiJobProgressView Job="videoJob" Queue="AiJobs.View" Progress="@(AiJobs.Progress(videoJob.Id) ?? _videoProgress.GetValueOrDefault(videoJob.Id))" VideoCandidates="VideoCandidates(videoJob)" />
+            <AiJobProgressView Job="videoJob" Queue="AiJobs.View" Progress="@(AiJobs.Progress(videoJob.Id) ?? _videoProgress.GetValueOrDefault(videoJob.Id))" VideoCandidates="VideoCandidates(videoJob)" ShowBatchSummary="false" />
             @if (videoJob.LocksTarget) { <button @onclick="() => CancelGeneration(videoJob.Id)">Cancel remaining takes</button> }
             @if (videoJob.CanRecoverCancelledOutputs) { <button @onclick="() => RecoverVideoOutputs(videoJob.Id)">Recover completed takes</button> }
         }
         <div class="shot-review-layout">
-            <div>
+            <div class="take-review-main">
                 @if (ReviewTake is { } take)
                 {
+                    <div class="take-review-media-bar">
+                        <span>@TakeDisplay.Dimensions(take) · @TakeDisplay.Duration(take) · @take.FrameCount <span title="@(take.HasLosslessFrames ? "Paused frames come from the saved lossless archive." : take.HasVisibleLosslessFrames ? "Each segment uses its lossless archive when available; other frames are extracted from MP4." : $"Frames are extracted from compressed MP4 video; {(take.FrameArchiveRemoval is null ? "no lossless archive was saved." : "the lossless archive was removed.")}")">@(take.HasLosslessFrames ? "lossless frames" : take.HasVisibleLosslessFrames ? "frames · mixed sources" : "MP4 frames")</span></span>
+                        <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a>
+                    </div>
                     @if (RefinementSource is { } source)
                     {
                         <TakeRefinementForm Source="source" Busy="@(_refinementBusy || _refinementEnqueue is not null)" Issue="@_refinementIssue" ContextChanged="@(_doc.Shots.FirstOrDefault(s => s.Id == source.ShotId) is not { } current || !TakeMatches(source, current))" Cancel="CloseRefinement" Refresh="CheckRefinementSetup" Queue="QueueRefinement" />
                     }
-                    @if (_trimmingTake == take.Id) {
-                        <TakeTrimEditor @key="take.Id" ProjectId="Id" Take="take" Busy="@(_trimCancellation is not null)" Progress="@_trimProgress" Error="@_trimError" Saved="SaveTrim" Cancel="CloseTrim" />
-                    } else {
-                        <TakePlayer @ref="_joinPlayer" @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" LeadIntoRequested="OpenLeadInto" />
-                    }
+                    <TakePlayer @ref="_joinPlayer" @key="take.Id" ProjectId="Id" Take="take" SaveRequested="OpenFrameDestination" ContinueRequested="OpenContinue" LeadIntoRequested="OpenLeadInto" TrimRequested="() => OpenTrim(take)"
+                        ActivePanel="ActiveReviewPanel" PanelId="take-review-tool-panel" ClosePanelRequested="CloseReviewPanel" ActionsDisabled="ReviewPanelBusy" FrameChanged="ReviewFrameChanged"
+                        RangeStart="@(_trimmingTake == take.Id ? _trimStart : 0)" RangeEndExclusive="@(_trimmingTake == take.Id ? _trimEnd : null)" />
                     @if (take.Composition is { } composition) {
                         @if (composition.Segments.Count > 1 || composition.HasJoinPreview) { <button @onclick="PreviewJoin">Preview join</button> }
                         @if (_joinPreviewTake == take.Id) { <section aria-label="Join preview"><video aria-label="Join preview" controls autoplay playsinline style="width:100%" src="@($"/media/projects/{Id}/takes/{take.Id}/join-preview")"></video><button @onclick="() => _joinPreviewTake = null">Close join preview</button></section> }
-                        <p class="field-hint">@composition.Segments.Count generation segments · visible @((take.FrameCount / take.Fps).ToString("0.###")) s.@(take.RefinementPackage is null ? "" : $" Full source latents retained · final generation {(take.Snapshot.FrameCount / take.Fps):0.###} s.")</p>
                     }
-                    @if (take.Trim is { } trimmed) {
-                        <p class="take-trim-details">Trimmed from @trimmed.ParentTakeId.ToString()[..8] · frames @(trimmed.StartFrame + 1)–@trimmed.EndFrameExclusive of @trimmed.ParentFrameCount</p>
-                        @if (take.RefinementPackage is not null) { <p class="field-hint">Full source latents retained · @take.Snapshot.FrameCount frames · @((take.Snapshot.FrameCount / take.Fps).ToString("0.###")) s</p> }
-                    }
-                    @if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
-                    {
-                        <TakeExtensionForm @key="continuing" Source="take" ProjectId="Id" EndFrameExclusive="@(continuing.Index + 1)" StartFrame="continuing.Index" Direction="_extensionDirection" Destinations="@(ContinueTargets(take).ToArray())" Busy="@_refinementBusy" Error="@_reviewError" Cancel="CloseContinue" Queue="QueueExtension" />
-                    }
-                    @if (_frameDestination is { } destination && destination.TakeId == take.Id)
-                    {
-                        <ImageCopyPanel @key="destination" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index"
-                            InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
-                    }
-                    <TakeSummary Take="take" Changes="TakeChanges(take)" />
-                    @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p class="take-started-from">Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
+                    <div id="take-review-tool-panel" class="take-review-tool-panel" hidden="@(ActiveReviewPanel is null)">
+                        @if (_trimmingTake == take.Id) {
+                            <TakeTrimEditor @key="take.Id" ProjectId="Id" Take="take" Player="_joinPlayer" RangeChanged="TrimRangeChanged" HeaderActions="CloseTakePanelButton" Busy="@(_trimCancellation is not null)" Progress="@_trimProgress" Error="@_trimError" Saved="SaveTrim" Cancel="CloseTrim" />
+                        }
+                        else if (_continueFrame is { } continuing && continuing.TakeId == take.Id)
+                        {
+                            <TakeExtensionForm @key="(take.Id, _extensionDirection)" Source="take" ProjectId="Id" EndFrameExclusive="@(continuing.Index + 1)" StartFrame="continuing.Index" Direction="_extensionDirection" HeaderActions="CloseTakePanelButton" Destinations="@(ContinueTargets(take).ToArray())" Busy="@_refinementBusy" Error="@_reviewError" Cancel="CloseContinue" Queue="QueueExtension" />
+                        }
+                        else if (_frameDestination is { } destination && destination.TakeId == take.Id)
+                        {
+                            <ImageCopyPanel @key="destination.TakeId" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index" HeaderActions="CloseTakePanelButton"
+                                InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
+                        }
+                    </div>
+                    <TakeSummary Take="take" Changes="TakeChanges(take)" Compact="true" />
                     @if (_refinementEnqueue is not null) { <button disabled="@_refinementBusy" @onclick="RetryRefinementEnqueue">Retry queueing captured refinement</button> }
                     @if (RefinementJob is { } refinementJob)
                     {
@@ -708,8 +711,17 @@ else
                     }
                     @* Everything below describes the take rather than acting on it, so it is grouped and collapsed. *@
                     <section class="take-review-details" aria-label="Take details">
-                        <p class="take-review-file">@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archives" : take.HasVisibleLosslessFrames ? "Mixed lossless and MP4 segments" : "MP4 only") · @Bytes(take.Bytes) total <a href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></p>
-                        <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary><p>@take.Snapshot.Settings.Model · @(take.Refinement is null ? H3Policy.QualityLabel(take.Snapshot.Shot) + " · seed " + take.Seed : "Original preview: " + H3Policy.QualityLabel(take.Snapshot.Shot))</p><pre class="shot-source">@take.Snapshot.Prompt</pre><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
+                        <details><summary>@(take.Refinement is null ? "Generation details" : "Original generation context")</summary>
+                            <TakeGenerationDetails Take="take" />
+                            <p>@take.FrameCount frames · @(take.HasLosslessFrames ? "Lossless WebP archives" : take.HasVisibleLosslessFrames ? "Mixed lossless and MP4 segments" : "MP4 only") · @Bytes(take.Bytes) total</p>
+                            <p>Batch @take.RunId · @take.CreatedUtc.ToLocalTime().ToString("g")</p>
+                            @if (take.Trim is { } trimmed) { <p>Trimmed from @trimmed.ParentTakeId.ToString()[..8] · frames @(trimmed.StartFrame + 1)–@trimmed.EndFrameExclusive of @trimmed.ParentFrameCount</p> }
+                            @if ((take.Trim is not null || take.Composition is not null) && take.RefinementPackage is not null) { <p>Full source latents retained · @take.Snapshot.FrameCount frames · @((take.Snapshot.FrameCount / take.Fps).ToString("0.###")) s</p> }
+                            @if (take.Snapshot.Shot.StartFrame is { } startedFrom) { <p>Started from @StartFrameLabel(startedFrom, _doc.Takes.FirstOrDefault(t => t.Id == startedFrom.TakeId))</p> }
+                            <p>@take.Snapshot.Settings.Model</p>
+                            <pre class="shot-source">@take.Snapshot.Prompt</pre>
+                            <details><summary>Captured request</summary><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(take.Snapshot, AtomicJsonFile.Options)</pre></details>
+                        </details>
                         <RefinementDetails Take="take" />
                         <TakeSegmentDetails Take="take" />
                         <VideoPerformanceDetails Take="take" />
@@ -719,12 +731,15 @@ else
                 }
                 else { <p>No saved take selected. Completed videos appear here.</p> }
             </div>
-            <div class="shot-candidates" aria-label="Take candidates">
+            <aside class="take-review-sidebar" aria-label="Batch takes">
+                <div class="take-review-batch-heading"><h3>Batch takes</h3>@if (review.Candidates.Count > 1) { <span role="status">@review.Candidates.Count(c => c.State == VideoCandidateState.Complete)/@review.Candidates.Count saved</span> }</div>
+                <p class="take-review-status" role="status">@review.Status</p>
+                <div class="shot-candidates" aria-label="Take candidates">
                 @foreach (var candidate in review.Candidates)
                 {
                     var saved = _doc.Takes.FirstOrDefault(t => t.Id == candidate.TakeId);
                     <article class="shot-candidate" @key="candidate.TakeId">
-                        @if (saved is not null) { <button data-shot-take="@saved.Id" aria-pressed="@(_reviewTakeId == saved.Id ? "true" : "false")" @onclick="() => SelectTake(saved.Id)"><img data-ai-candidate="@saved.Id" src="@TakeUrl(saved.Id, 0)" alt="" loading="lazy" />Take @candidate.Number</button><button disabled="@_mediaBusy" @onclick="() => ToggleSelectedTake(saved)">@(_doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(_mediaBusy || _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id)" @onclick="() => DiscardTake(saved)">Discard</button> }
+                        @if (saved is not null) { <button data-shot-take="@saved.Id" aria-pressed="@(_reviewTakeId == saved.Id ? "true" : "false")" @onclick="() => SelectTake(saved.Id)"><img data-ai-candidate="@saved.Id" src="@TakeUrl(saved.Id, 0)" alt="" loading="lazy" />Take @candidate.Number</button><button class="@(_reviewTakeId == saved.Id && _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId != saved.Id ? "take-use-primary" : null)" disabled="@_mediaBusy" @onclick="() => ToggleSelectedTake(saved)">@(_doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(_mediaBusy || _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id)" @onclick="() => DiscardTake(saved)">Discard</button> }
                         else { <strong>Take @candidate.Number</strong><p>@(candidate.State == VideoCandidateState.Complete ? "Discarded · recoverable in Trash" : candidate.State)</p> }
                         @if (candidate.Error is not null) { <p role="alert">@candidate.Error</p> }
                         @if (candidate.State != VideoCandidateState.Complete && CandidateJob(candidate.Number)?.CanRecoverCancelledOutputs != true && RecoveryLabel(CandidateJob(candidate.Number)) is { } recoveryLabel)
@@ -733,7 +748,8 @@ else
                     <TakeVersions ProjectId="Id" ParentId="candidate.TakeId" Runs="_runs" Takes="_doc.Takes" SelectedId="_reviewTakeId" ProductionId="@(_doc.Shots.FirstOrDefault(s => s.Id == ReviewTake?.ShotId)?.SelectedTakeId)" Busy="_mediaBusy" Select="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake"
                         Remove="RemoveFailedVersion" Retry="RetryFailedVersion" RetryLabel="run => RecoveryLabel(BatchJob(run.Id))" />
                 }
-            </div>
+                </div>
+            </aside>
         </div>
         @if (_undoTrash is not null) { <p role="status">Take moved to Trash. <button disabled="@_mediaBusy" @onclick="UndoDiscard">Undo</button></p> }
         @if (_notice is not null) { <p role="status">@_notice @if (_savedFrameImage is { } saved) { <a href="@(ProjectLink(Id, $"/assets?assetId={saved.AssetId}&imageId={saved.ImageId}"))">View in Assets</a> }</p> }
@@ -741,14 +757,13 @@ else
     }
 </DialogContent>
 <Status>@if (ReviewTake is { } regenTake) {
-    <MudButton OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
-    <MudButton OnClick="() => OpenExtension(regenTake)">Extend…</MudButton>
-    <MudButton OnClick="() => OpenLeadIn(regenTake)">Lead into…</MudButton>
-    <MudButton OnClick="() => OpenTrim(regenTake)" Disabled="@(_trimCancellation is not null)">Trim…</MudButton>
-    <MudButton @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
-    @if (regenTake.Refinement is not null || TakeDisplay.HasExtensionReplay(regenTake)) { <MudButton OnClick="AnotherVersion" Disabled="_refinementBusy" title="Replay the captured request with a new seed">Another version</MudButton> }
-}</Status>
-<Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton>@if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Filled" Color="Color.Primary">One more take</MudButton> }</Actions></InlineDialog>
+    <MudButton Variant="Variant.Outlined" OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
+    <MudButton Variant="Variant.Outlined" @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
+    @if (regenTake.Refinement is not null || TakeDisplay.HasExtensionReplay(regenTake)) { <MudButton Variant="Variant.Outlined" OnClick="AnotherVersion" Disabled="_refinementBusy" title="Replay the captured request with a new seed">Another version</MudButton> }
+}
+@if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Outlined">One more take</MudButton> }
+</Status>
+<Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton></Actions></InlineDialog>
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />
 
@@ -811,6 +826,10 @@ else
         }
     </DialogActions>
 </InlineDialog>
+
+@code {
+    private RenderFragment CloseTakePanelButton => @<button type="button" class="take-panel-close" disabled="@ReviewPanelBusy" @onclick="CloseReviewPanel">Close panel <span aria-hidden="true">×</span></button>;
+}
 
 <InlineDialog Visible="_deleteShotsOpen" VisibleChanged="CloseShotDeletion" Options="DeleteShotsOptions" Class="@($"shot-delete-dialog {(_singleDeleteShotId is null ? "shot-bulk-dialog" : "shot-single-delete-dialog")}")"
               Title="@(_singleDeleteShotId is null ? "Delete shots" : "Delete shot?")" Context="@SingleDeleteShot?.Title" CloseLabel="Close delete shots" CloseDisabled="_deletingShots">

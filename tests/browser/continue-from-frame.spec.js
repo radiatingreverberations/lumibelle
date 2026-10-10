@@ -29,7 +29,7 @@ test('paused-frame extension captures ordered motion stills and supports both co
   const position = review.getByRole('slider', { name: 'Video position' });
   await position.press('End');
   await expect(review.locator('.take-player')).toHaveAttribute('data-frame-index', '38');
-  await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await review.getByRole('button', { name: 'Continue', exact: true }).click();
   const form = review.getByRole('region', { name: 'Extend take', exact: true });
   await expect(form).toContainText('Retain frames 1–39 of 39');
   await expect(form.getByLabel('Next action', { exact: true })).toHaveValue('');
@@ -66,7 +66,7 @@ test('paused-frame extension captures ordered motion stills and supports both co
   expect((await request.get(`/media/projects/${project.id}/takes/${separate.id}/join-preview`)).ok()).toBe(true);
   await review.getByRole('button', { name: 'Close join preview', exact: true }).click();
   await review.getByRole('slider', { name: 'Video position' }).press('End');
-  await review.getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await review.getByRole('button', { name: 'Continue', exact: true }).click();
   await form.getByLabel('Next action', { exact: true }).fill('She carries on walking.');
   await form.getByLabel('Added duration', { exact: true }).fill('1');
   await form.getByLabel('Separate continuation shot', { exact: true }).check();

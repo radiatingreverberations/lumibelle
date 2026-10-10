@@ -5,24 +5,26 @@
     <div class="take-player-stage" style="aspect-ratio:@Take.Width / @Take.Height">
         <video data-ai-candidate="@Take.Id" playsinline preload="metadata" src="@VideoUrl" aria-label="Generated take"></video>
         <img class="take-paused-frame" alt="@(Take.IsLosslessFrame(_index) ? "Lossless frame" : "MP4 frame") @(_index + 1) of @Take.FrameCount" hidden />
+        @if (!_playing && !_ready && _error is null) { <span class="take-frame-loading" role="status">Loading frame…</span> }
     </div>
     <div class="take-transport">
         <button type="button" data-action="play" aria-label="@(_playing ? "Pause" : "Play")">@(_playing ? "Pause" : "Play")</button>
         <button type="button" data-action="previous" aria-label="Previous frame">‹</button>
-        <input data-action="seek" type="range" min="0" max="@(Take.FrameCount - 1)" value="0" step="1" aria-label="Video position" />
+        <span class="take-seek">
+            <input data-action="seek" type="range" min="0" max="@(Take.FrameCount - 1)" value="0" step="1" aria-label="Video position" />
+            <span class="take-frame-position" aria-hidden="true">Frame 1 · 0.000 s</span>
+        </span>
         <button type="button" data-action="next" aria-label="Next frame">›</button>
         <button type="button" data-action="mute" aria-label="Mute audio" aria-pressed="false">Sound</button>
         <label class="take-volume">Volume<input data-action="volume" type="range" min="0" max="1" step="0.05" value="1" /></label>
         <button type="button" data-action="fullscreen">Fullscreen</button>
     </div>
-    @if (!Take.HasLosslessFrames && Take.HasVisibleLosslessFrames) { <p class="field-hint">This take mixes lossless and MP4 segments. Frames use each segment’s lossless archive when available.</p> }
-    else if (!Take.HasLosslessFrames) { <p class="field-hint">Frames are extracted from compressed MP4 video; @(Take.FrameArchiveRemoval is null ? "no lossless archive was saved." : "the lossless archive was removed.")</p> }
     <div class="take-frame-actions">
-        <span role="status">@(_playing ? "Playing" : $"Frame {_index + 1} / {Take.FrameCount} · {(_index / Take.Fps):0.000} s")@(!_playing && !_ready && _error is null ? " · Loading frame…" : "")</span>
-        <span class="take-frame-buttons">
-            @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" disabled="@(_saving || (!_playing && !_ready))" title="Extend this take or create a separate continuation from this frame" @onclick="() => Capture(ContinueRequested)">Continue from this frame</button> }
-            @if (LeadIntoRequested.HasDelegate) { <button type="button" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(LeadIntoRequested)">Lead into this frame</button> }
-            @if (ShowSaveFrame) { <button type="button" class="take-save-frame" disabled="@(_saving || (!_playing && !_ready))" @onclick="() => Capture(SaveRequested)">Save frame to Assets</button> }
+        <span class="take-frame-buttons" role="group" aria-label="Take tools">
+            @if (ContinueRequested.HasDelegate) { <button type="button" class="take-continue-frame" data-take-panel="Continue" aria-expanded="@(ActivePanel == TakeToolPanel.Continue ? "true" : "false")" aria-controls="@PanelId" disabled="@(_saving || ActionsDisabled)" title="Extend this take or create a separate continuation from this frame" @onclick="() => ToggleFramePanel(TakeToolPanel.Continue, ContinueRequested)"><span>Continue</span><svg class="take-panel-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" /></svg></button> }
+            @if (LeadIntoRequested.HasDelegate) { <button type="button" data-take-panel="LeadInto" title="Create footage leading into this frame" aria-expanded="@(ActivePanel == TakeToolPanel.LeadInto ? "true" : "false")" aria-controls="@PanelId" disabled="@(_saving || ActionsDisabled)" @onclick="() => ToggleFramePanel(TakeToolPanel.LeadInto, LeadIntoRequested)"><span>Lead into</span><svg class="take-panel-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" /></svg></button> }
+            @if (TrimRequested.HasDelegate) { <button type="button" data-take-panel="Trim" aria-expanded="@(ActivePanel == TakeToolPanel.Trim ? "true" : "false")" aria-controls="@PanelId" disabled="@(_saving || ActionsDisabled)" @onclick="() => ActivePanel == TakeToolPanel.Trim ? ClosePanelRequested.InvokeAsync() : TrimRequested.InvokeAsync()"><span>Trim</span><svg class="take-panel-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" /></svg></button> }
+            @if (ShowSaveFrame) { <button type="button" class="take-save-frame" data-take-panel="SaveFrame" title="Save this frame to Assets" aria-expanded="@(ActivePanel == TakeToolPanel.SaveFrame ? "true" : "false")" aria-controls="@PanelId" disabled="@(_saving || ActionsDisabled)" @onclick="() => ToggleFramePanel(TakeToolPanel.SaveFrame, SaveRequested)"><span>Save frame</span><svg class="take-panel-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" /></svg></button> }
         </span>
     </div>
     @if (_error is not null) { <p role="alert">@_error <button type="button" @onclick="Retry">Retry frame</button></p> }
@@ -36,6 +38,12 @@
     /// <summary>Receives the paused frame index to start a new shot from; the button shows only when set.</summary>
     [Parameter] public EventCallback<int> ContinueRequested { get; set; }
     [Parameter] public EventCallback<int> LeadIntoRequested { get; set; }
+    [Parameter] public EventCallback TrimRequested { get; set; }
+    [Parameter] public TakeToolPanel? ActivePanel { get; set; }
+    [Parameter] public string? PanelId { get; set; }
+    [Parameter] public bool ActionsDisabled { get; set; }
+    [Parameter] public EventCallback ClosePanelRequested { get; set; }
+    [Parameter] public EventCallback<int> FrameChanged { get; set; }
     [Parameter] public int RangeStart { get; set; }
     [Parameter] public int? RangeEndExclusive { get; set; }
     private (int, int)? _appliedRange;
@@ -45,7 +53,7 @@
     private ElementReference _element;
     private IJSObjectReference? _module, _player;
     private DotNetObjectReference<TakePlayer>? _reference;
-    private int _index; private bool _playing, _ready, _saving, _disposed; private string? _error;
+    private int _index; private int? _reportedFrame; private bool _playing, _ready, _saving, _disposed; private string? _error;
     private string VideoUrl => $"/media/projects/{ProjectId}/takes/{Take.Id}";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -74,10 +82,18 @@
     [JSInvokable] public Task PlayerState(int index, bool playing, bool ready, string? error)
     {
         if (_disposed) return Task.CompletedTask;
-        _index = index; _playing = playing; _ready = ready; _error = error;
-        return InvokeAsync(StateHasChanged);
+        return InvokeAsync(async () => {
+            _index = index; _playing = playing; _ready = ready; _error = error;
+            if (!playing && _reportedFrame != index) {
+                _reportedFrame = index;
+                await FrameChanged.InvokeAsync(index);
+            }
+            StateHasChanged();
+        });
     }
-    // Both frame actions pause on the displayed frame first, so they act on exactly the frame shown.
+    // Frame actions wait for a pending seek before opening their panel.
+    private Task ToggleFramePanel(TakeToolPanel panel, EventCallback<int> requested) =>
+        ActivePanel == panel ? ClosePanelRequested.InvokeAsync() : Capture(requested);
     private async Task Capture(EventCallback<int> requested)
     {
         if (_player is null || _saving) return;

@@ -21,7 +21,8 @@ async function setup(page, request, duration = 1) {
 test('lead-in prepends new footage, preserves the source and reviews its first segment', async ({ page, request }) => {
   test.setTimeout(150000);
   const id = await setup(page, request); const before = await state(request, id); const source = before.takes[0];
-  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  await review(page).getByRole('slider', { name: 'Video position' }).press('Home');
+  await review(page).getByRole('button', { name: 'Lead into', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
   await expect(form).toContainText('Lead into frame 1'); await expect(form).toContainText('Retain frames 1–39 of 39');
   await expect(form).toContainText('Saved motion'); await expect(form.getByLabel('Added duration', { exact: true })).toHaveValue('5');
@@ -44,7 +45,8 @@ test('lead-in prepends new footage, preserves the source and reviews its first s
   await expect(refine).toContainText('lead-in segment');
   await refine.getByRole('button', { name: 'Back to review', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  await review(page).getByRole('slider', { name: 'Video position' }).press('Home');
+  await review(page).getByRole('button', { name: 'Lead into', exact: true }).click();
   await expect(form).toBeVisible(); expect(await form.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await form.getByLabel('Lead-in action', { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'obj/lead-in-narrow.png', fullPage: true });
@@ -56,7 +58,7 @@ test('paused lead-in captures following motion and saves a separate shot before 
   const position = review(page).getByRole('slider', { name: 'Video position' });
   await position.press('Home'); for (let i = 0; i < 3; i++) await position.press('ArrowRight');
   await expect(review(page).locator('.take-player')).toHaveAttribute('data-frame-index', '3');
-  await review(page).getByRole('button', { name: 'Lead into this frame', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Lead into', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
   await expect(form).toContainText('Retain frames 4–39 of 39'); await expect(form).toContainText('re-encoded context');
   await form.getByLabel('Lead-in action', { exact: true }).fill('She approaches before reaching the doorway.');
@@ -88,7 +90,7 @@ test('paused lead-in captures following motion and saves a separate shot before 
 test('a trimmed opening stays exact until a nearby saved-motion boundary is explicitly chosen', async ({ page, request }) => {
   test.setTimeout(150000);
   await setup(page, request, 5);
-  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Trim', exact: true }).click();
   const trim = review(page).getByRole('region', { name: 'Trim take', exact: true });
   await trim.getByLabel('Snap end for continuation').uncheck();
   await trim.getByRole('slider', { name: 'Trim start frame', exact: true }).press('Home');
@@ -96,7 +98,8 @@ test('a trimmed opening stays exact until a nearby saved-motion boundary is expl
   await trim.getByRole('slider', { name: 'Trim end frame', exact: true }).evaluate(el => { el.value = '80'; el.dispatchEvent(new Event('input', { bubbles: true })); });
   await trim.getByRole('button', { name: 'Save trimmed version', exact: true }).click();
   await expect(review(page).getByRole('region', { name: 'Trim take', exact: true })).not.toBeVisible();
-  await review(page).getByRole('button', { name: 'Lead into…', exact: true }).click();
+  await review(page).getByRole('slider', { name: 'Video position' }).press('Home');
+  await review(page).getByRole('button', { name: 'Lead into', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Lead into take', exact: true });
   await expect(form).toContainText('Retain frames 1–77 of 77'); await expect(form).toContainText('re-encoded context');
   const nearby = form.getByRole('checkbox', { name: /Use nearby saved motion boundary/ });

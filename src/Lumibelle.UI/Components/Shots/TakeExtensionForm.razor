@@ -8,7 +8,7 @@
 @inject IAiReviewGate Reviews
 @implements IDisposable
 <section class="take-extension-form" aria-label="@(Leading ? "Lead into take" : "Extend take")">
-    <h3>@(Leading ? $"Lead into frame {Start + 1}" : $"Extend from frame {End}")</h3>
+    <div class="take-panel-heading"><h3>@(Leading ? $"Lead into frame {Start + 1}" : $"Extend from frame {End}")</h3>@HeaderActions</div>
     <p>Retain frames @(Leading ? Start + 1 : 1)–@(Leading ? Source.FrameCount : End) of @Source.FrameCount · @Source.Width × @Source.Height · @Source.Fps fps</p>
     @if (Aligned is { } aligned && aligned != (Leading ? StartFrame : EndFrameExclusive)) {
         <label class="check-row"><input type="checkbox" @bind="_savedMotion" disabled="@Busy" />Use nearby saved motion boundary · frame @(Leading ? aligned + 1 : aligned)</label>
@@ -17,11 +17,11 @@
     <label>Added duration (seconds)<input aria-label="Added duration" type="number" min="1" max="@((362 - Context) / 24d)" step="0.25" @bind="_seconds" disabled="@Busy" /></label>
     @if (Generation is { } frames) { <p role="status">Adds @(((frames - Context) / 24d).ToString("0.###")) s · @(frames - Context) new frames (@frames generated including context)</p> }
     else { <p role="alert">Choose a duration that fits within 362 generated frames including context.</p> }
-    <label>@(Leading ? "Lead-in action" : "Next action")<textarea aria-label="@(Leading ? "Lead-in action" : "Next action")" rows="3" @bind="_action" disabled="@Busy"></textarea></label>
-    <label>New dialogue<textarea aria-label="New dialogue" rows="2" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" disabled="@Busy"></textarea></label>
+    <label>@(Leading ? "Lead-in action" : "Next action")<textarea aria-label="@(Leading ? "Lead-in action" : "Next action")" rows="3" @bind="_action" @bind:event="oninput" disabled="@Busy"></textarea></label>
+    <label>New dialogue<textarea aria-label="New dialogue" rows="2" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" @bind:event="oninput" disabled="@Busy"></textarea></label>
     <div class="shots-actions"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.Production" SelectionChanged="s => _model = s" Disabled="@(Busy || _composing)" /><button disabled="@(Busy || _composing || _model is null || Generation is null || string.IsNullOrWhiteSpace(_action))" @onclick="Compose">@(Leading ? "Compose lead-in prompt" : "Compose extension prompt")</button></div>
     @if (_compositionJob is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(jobId)" /> }
-    <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="9" value="@Prompt" @onchange="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@Busy"></textarea></label>
+    <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="9" value="@Prompt" @oninput="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@Busy"></textarea></label>
     <fieldset disabled="@Busy"><legend>Result</legend>
         <label class="check-row"><input type="radio" name="extension-destination" checked="@_combine" @onchange="() => _combine = true" />@(Leading ? "Prepend to this take" : "Extend this take")</label>
         <label class="check-row"><input type="radio" name="extension-destination" checked="@(!_combine)" @onchange="() => _combine = false" />@(Leading ? "Separate lead-in shot" : "Separate continuation shot")</label>
@@ -35,6 +35,7 @@
 @code {
     [Parameter, EditorRequired] public ShotTake Source { get; set; } = null!;
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter] public int EndFrameExclusive { get; set; }
     [Parameter] public int StartFrame { get; set; }
     [Parameter] public TakeExtensionDirection Direction { get; set; }

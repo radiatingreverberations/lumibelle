@@ -1,8 +1,7 @@
 @using lumibelle.Services.Shots
 <section class="take-trim-editor" aria-label="Trim take">
-    <h3>Trim take</h3>
+    <div class="take-panel-heading"><h3>Trim take</h3>@HeaderActions</div>
     <p>Choose the first and last frames to keep. Saving creates a new version.</p>
-    <TakePlayer @ref="_player" ProjectId="ProjectId" Take="Take" ShowSaveFrame="false" RangeStart="_start" RangeEndExclusive="EffectiveEnd" />
     <div class="trim-boundaries">
         <label>First frame: @(_start + 1)<input type="range" aria-label="Trim start frame" min="0" max="@(_end - 1)" step="1" @bind:get="_start" @bind:set="StartChanged" @bind:event="oninput" disabled="@Busy" /></label>
         <label>Last frame: @EffectiveEnd<input type="range" aria-label="Trim end frame" min="@(_start + 1)" max="@Take.FrameCount" step="1" @bind:get="_end" @bind:set="EndChanged" @bind:event="oninput" disabled="@Busy" /></label>
@@ -18,20 +17,29 @@
 @code {
     [Parameter, EditorRequired] public ShotTake Take { get; set; } = default!;
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public TakePlayer? Player { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public EventCallback<(int Start, int End)> RangeChanged { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public string? Progress { get; set; }
     [Parameter] public string? Error { get; set; }
     [Parameter] public EventCallback<TakeTrimRequest> Saved { get; set; }
     [Parameter] public EventCallback Cancel { get; set; }
-    private TakePlayer? _player;
+    private (int Start, int End)? _reportedRange;
     private int _start, _end;
     private bool _snap = true;
     private int EffectiveEnd => _snap && H3Motion.AlignedEnd(Take, _end) is { } aligned && aligned > _start ? aligned : _end;
     private Guid _takeId, _resultId;
     protected override void OnParametersSet() { if (_takeId != Take.Id) { _takeId = Take.Id; _start = 0; _end = Take.FrameCount; _resultId = Guid.NewGuid(); } }
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (_reportedRange != (_start, EffectiveEnd)) {
+            _reportedRange = (_start, EffectiveEnd);
+            await RangeChanged.InvokeAsync((_start, EffectiveEnd));
+        }
+    }
     private void StartChanged(int value) { _start = Math.Clamp(value, 0, _end - 1); _resultId = Guid.NewGuid(); }
     private void EndChanged(int value) { _end = Math.Clamp(value, _start + 1, Take.FrameCount); _resultId = Guid.NewGuid(); }
-    private async Task SetStart() { var frame = _player is null ? -1 : await _player.CaptureFrameAsync(); if (frame >= 0) { _start = Math.Min(frame, _end - 1); _resultId = Guid.NewGuid(); } }
-    private async Task SetEnd() { var frame = _player is null ? -1 : await _player.CaptureFrameAsync(); if (frame >= 0) { _end = Math.Max(frame + 1, _start + 1); _resultId = Guid.NewGuid(); } }
+    private async Task SetStart() { var frame = Player is null ? -1 : await Player.CaptureFrameAsync(); if (frame >= 0) { _start = Math.Min(frame, _end - 1); _resultId = Guid.NewGuid(); } }
+    private async Task SetEnd() { var frame = Player is null ? -1 : await Player.CaptureFrameAsync(); if (frame >= 0) { _end = Math.Max(frame + 1, _start + 1); _resultId = Guid.NewGuid(); } }
     private Task Save() => Saved.InvokeAsync(new(Take.Id, _resultId, _start, EffectiveEnd));
 }
