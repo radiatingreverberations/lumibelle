@@ -3,6 +3,10 @@
 .reference-summary > span { min-width:0; overflow-wrap:anywhere; }
 .reference-summary strong { display:block; color:var(--ink); font-size:var(--lumi-font-size-compact); }
 .reference-summary small { display:block; color:var(--muted); font-size:var(--lumi-font-size-meta); margin-top:3px; }
+.reference-quick-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.reference-quick-actions ::deep button { padding:3px 8px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--plum); background:var(--surface); font-size:var(--lumi-font-size-meta); }
+.reference-quick-actions ::deep button.is-active { background:var(--wash); border-color:var(--plum); }
+.reference-quick-actions ::deep button:focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
 .reference-summary ::deep .crop-thumbnail,.reference-summary ::deep .reel-thumbnail { width:58px; height:58px; flex:none; }
 .reference-action-buttons { display:grid; grid-template-columns:repeat(3,32px); gap:4px; align-self:center; }
 .reference-selection-row .reference-action-buttons[role=group] ::deep button { display:flex; align-items:center; justify-content:center; width:32px; height:32px; min-height:32px; padding:0; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--muted); background:var(--surface); }

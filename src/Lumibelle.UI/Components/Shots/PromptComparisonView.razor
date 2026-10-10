@@ -1,18 +1,22 @@
-<div class="prompt-comparison" aria-label="Prompt comparison">
-    @foreach (var side in new[] { (Name: "Current prompt", Blocks: _changes.Before, Removed: true), (Name: "Suggested prompt", Blocks: _changes.After, Removed: false) })
+<div class="prompt-comparison" aria-label="@Label">
+    @foreach (var side in new[] { (Name: BeforeLabel, Blocks: _changes.Before, Removed: true), (Name: AfterLabel, Blocks: _changes.After, Removed: false) })
     {
         <section class="prompt-comparison-side @(side.Removed ? "before" : "after")" aria-label="@side.Name">
             <h3>@side.Name <small>@(side.Removed ? "− Removed text" : "+ Added text")</small></h3>
-            @if (side.Blocks.Count == 0) { <p class="field-hint">Empty prompt</p> }
+            @if (side.Blocks.Count == 0) { <p class="field-hint">@EmptyLabel</p> }
             <pre class="prompt-comparison-text" tabindex="0" aria-label="@side.Name text">@foreach (var line in side.Blocks) { <span class="@(IsHeading(line.Text) ? "prompt-comparison-heading" : null)">@foreach (var span in line.Spans) { if (!span.Changed) { @span.Text } else if (side.Removed) { <del>@span.Text</del> } else { <ins>@span.Text</ins> } }</span> }</pre>
         </section>
     }
 </div>
-@if (_changes.Simplified) { <p class="field-hint">Large changes are highlighted by line. Both complete prompts are shown.</p> }
+@if (_changes.Simplified) { <p class="field-hint">Large changes are highlighted by line. Both complete versions are shown.</p> }
 
 @code {
     [Parameter] public string Before { get; set; } = "";
     [Parameter] public string After { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "Prompt comparison";
+    [Parameter] public string BeforeLabel { get; set; } = "Current prompt";
+    [Parameter] public string AfterLabel { get; set; } = "Suggested prompt";
+    [Parameter] public string EmptyLabel { get; set; } = "Empty prompt";
     private string? _before, _after;
     private ScreenplayChanges _changes = new([], [], false);
     protected override void OnParametersSet()

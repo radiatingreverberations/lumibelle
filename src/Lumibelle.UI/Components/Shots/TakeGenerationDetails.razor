@@ -1,0 +1,17 @@
+@using lumibelle.Services.Production
+<div class="take-generation-details">
+    <p>@H3Policy.QualityLabel(Take.Snapshot.Shot) · <span class="take-seed">Seed @Take.Seed</span></p>
+    @if (Take.Snapshot.AppliedLoras is { Count: > 0 } loras) {
+        <p>LoRA@(loras.Count == 1 ? "" : "s") · @string.Join(", ", loras.Select(l => $"{l.Reference.Name} ({l.Strength:0.##})"))</p>
+    }
+    else {
+        <p>No additional LoRA</p>
+    }
+    @if (Take.Snapshot.Production is { } setup) { <p>Setup · @setup.Name</p> }
+    @if (Take.Snapshot.RegenerationSource is { } source) {
+        <p>Regenerated from @source.Width × @source.Height · @(Take.Seed == source.Seed ? "same seed" : "different seed")</p>
+    }
+</div>
+@code {
+    [Parameter, EditorRequired] public ShotTake Take { get; set; } = null!;
+}

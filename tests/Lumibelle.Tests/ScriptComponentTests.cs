@@ -5,6 +5,8 @@ using lumibelle.Components.Script;
 using lumibelle.Models;
 using lumibelle.Services;
 using lumibelle.Services.AI;
+using lumibelle.Services.Assets;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,8 @@ public sealed class ScriptComponentTests : BunitContext
         _history = new(new QueuedAssistantHistoryStore(new(files, new()), _jobs));
         var settings = new FakeAiSettingsStore { Value = new() { DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "test/model", HasOpenRouterKey = true } };
         var assets = new FakeAssetStore(_store.Document.ProjectId);
+        Services.AddSingleton<IAssetStore>(assets);
+        Services.AddSingleton<IShotStore>(new FileShotStore(files, TimeProvider.System));
         var enhancer = new PromptEnhancer(_providers, settings, assets); var guidance = new GuidanceAssistant(_providers, settings, assets);
         _queue = new(_jobs, settings, [_assistant], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
         Services.AddSingleton(_queue); Services.AddSingleton<IAiJobStore>(_jobs); Services.AddSingleton<IAiReviewGate>(_reviews);

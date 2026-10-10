@@ -7,8 +7,31 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     const seek = root.querySelector('[data-action=seek]'), cache = new Map(), requests = new Map(), listeners = [];
     let index = 0, ready = false, disposed = false, version = 0, presented = null, callback = null, selecting = null;
     let rangeStart = 0, rangeEnd = count;
+    const framePosition = root.querySelector('.take-frame-position');
+    let inspectTimer;
+    const updatePosition = () => {
+        const label = `Frame ${index + 1} · ${(index / fps).toFixed(3)} s`;
+        framePosition.textContent = label;
+        seek.setAttribute('aria-valuetext', `Frame ${index + 1} of ${count}, ${(index / fps).toFixed(3)} seconds`);
+        framePosition.style.setProperty('--seek-progress', (index - rangeStart) / Math.max(1, rangeEnd - rangeStart - 1));
+    };
+    const inspectPosition = () => {
+        root.dataset.frameInspect = '';
+        clearTimeout(inspectTimer);
+        inspectTimer = setTimeout(() => delete root.dataset.frameInspect, 1200);
+    };
     const on = (el, event, action) => { el.addEventListener(event, action); listeners.push(() => el.removeEventListener(event, action)); };
-    const notify = error => { if (!disposed) dotnet.invokeMethodAsync('PlayerState', index, !video.paused, ready, error ?? null).catch(() => {}); };
+    const seekWaiters = new Set();
+    const waitForSeek = () => !video.seeking ? Promise.resolve() : new Promise(resolve => {
+        const done = () => {
+            video.removeEventListener('seeked', done); video.removeEventListener('error', done);
+            seekWaiters.delete(done); resolve();
+        };
+        seekWaiters.add(done);
+        video.addEventListener('seeked', done, { once: true });
+        video.addEventListener('error', done, { once: true });
+    });
+    const notify = error => { updatePosition(); if (!disposed) dotnet.invokeMethodAsync('PlayerState', index, !video.paused, ready, error ?? null).catch(() => {}); };
     const prune = () => {
         for (const [i, url] of cache) if (Math.abs(i - index) > (lossless ? 2 : 0)) { URL.revokeObjectURL(url); cache.delete(i); }
         for (const [i, req] of requests) if (Math.abs(i - index) > (lossless ? 2 : 0)) { req.controller.abort(); requests.delete(i); }
@@ -49,8 +72,10 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
         selecting = new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
             .then(() => disposed || token !== version || !video.paused ? -1 : select(frameAt(presented ?? video.currentTime, fps, count)));
     };
-    let joinEnd = null;
+    let joinEnd = null, previewVersion = 0;
     const seekTo = i => {
+        ++previewVersion;
+        inspectPosition();
         joinEnd = null;
         video.pause(); presented = null;
         const target = Math.max(rangeStart, Math.min(rangeEnd - 1, i));
@@ -61,7 +86,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     const track = (_, metadata) => {
         if (disposed) return;
         presented = metadata.mediaTime;
-        if (!video.paused) { index = frameAt(presented, fps, count); seek.value = index;
+        if (!video.paused) { index = frameAt(presented, fps, count); seek.value = index; updatePosition();
             if (index >= (joinEnd ?? rangeEnd) - 1) { video.pause(); seekTo((joinEnd ?? rangeEnd) - 1); }
         }
         callback = video.requestVideoFrameCallback(track);
@@ -73,7 +98,7 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(video, 'play', () => { ++version; frame.hidden = true; ready = false; notify(); });
     on(video, 'timeupdate', () => {
         if (!video.paused && !video.requestVideoFrameCallback) {
-            index = frameAt(video.currentTime, fps, count); seek.value = index;
+            index = frameAt(video.currentTime, fps, count); seek.value = index; updatePosition();
             if (index >= (joinEnd ?? rangeEnd) - 1) { video.pause(); seekTo((joinEnd ?? rangeEnd) - 1); }
         }
     });
@@ -84,7 +109,10 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
             video.play().catch(() => notify('Playback could not start.'));
         } else video.pause();
     });
-    for (const button of root.querySelectorAll('.take-save-frame, .take-continue-frame')) on(button, 'click', () => video.pause());
+    for (const button of root.querySelectorAll('[data-take-panel]')) on(button, 'click', () => {
+        root.dataset.lastPanel = button.dataset.takePanel;
+        if (button.getAttribute('aria-expanded') !== 'true') video.pause();
+    });
     on(root.querySelector('[data-action=previous]'), 'click', () => seekTo(index - 1));
     on(root.querySelector('[data-action=next]'), 'click', () => seekTo(index + 1));
     on(seek, 'input', () => seekTo(Number(seek.value)));
@@ -95,7 +123,10 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     return {
         async previewJoin(join) {
             rangeStart = 0; rangeEnd = count;
-            await seekTo(Math.max(0, join - Math.round(fps)));
+            const pending = seekTo(Math.max(0, join - Math.round(fps)));
+            const preview = previewVersion;
+            await pending;
+            if (disposed || preview !== previewVersion) return;
             joinEnd = Math.min(count, join + Math.round(fps) + 1);
             frame.hidden = true;
             video.play().catch(() => notify('Playback could not start.'));
@@ -103,11 +134,18 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
         setRange(start, end) {
             rangeStart = Math.max(0, Math.min(count - 1, start)); rangeEnd = Math.max(rangeStart + 1, Math.min(count, end));
             seek.min = rangeStart; seek.max = rangeEnd - 1;
+            updatePosition();
             if (index < rangeStart || index >= rangeEnd) return seekTo(rangeStart);
         },
-        pause: () => video.pause(),
+        pause: () => { ++previewVersion; video.pause(); },
         async pauseForSave() {
+            // A panel action also cancels a join preview that is still loading its first frame.
+            ++previewVersion;
             if (!video.paused) await new Promise(resolve => { video.addEventListener('pause', resolve, { once: true }); video.pause(); });
+            // A native seek can invalidate the first frame request before its seeked
+            // handler starts the replacement. Wait for that handler before capturing.
+            await waitForSeek();
+            if (disposed) return -1;
             if (ready) return index;
             let pending;
             do { pending = selecting; if (pending) await pending; } while (!disposed && pending !== selecting);
@@ -117,6 +155,8 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
         step: delta => seekTo(index + delta),
         dispose() {
             disposed = true; ++version; video.pause(); listeners.forEach(fn => fn());
+            for (const done of seekWaiters) done();
+            clearTimeout(inspectTimer);
             if (callback !== null) video.cancelVideoFrameCallback(callback);
             for (const req of requests.values()) req.controller.abort();
             for (const url of cache.values()) URL.revokeObjectURL(url);

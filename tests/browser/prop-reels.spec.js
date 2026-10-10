@@ -92,7 +92,8 @@ test('prop reel composes, generates and is offered to Shots', async ({ page, req
   await page.getByRole('button', { name: 'Manage references', exact: true }).click();
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   const card = picker.locator(`[data-reel-id="${reel.id}"]`);
-  await expect(card).toContainText('Prop reel');
+  await expect(card).toContainText('Armchair orbit');
+  await expect(card.locator('.media-kind')).toHaveAttribute('title', /^Prop reel ·/);
   await card.locator('.add-reel').click();
   await expect(picker.getByLabel('Visuals', { exact: true })).toHaveValue('Keyframes');
   await picker.getByLabel('Visuals', { exact: true }).selectOption('FullReel');

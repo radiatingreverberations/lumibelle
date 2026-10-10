@@ -16,6 +16,7 @@ public partial class ProductionStudio
     {
         if (ReviewTake is not { } take) return;
         _frameDestination = null; _reviewError = null;
+        _trimmingTake = null; _refiningTake = null;
         _continueFrame = (take.Id, index); _continueTarget = null;
         _extensionDirection = TakeExtensionDirection.After;
     }

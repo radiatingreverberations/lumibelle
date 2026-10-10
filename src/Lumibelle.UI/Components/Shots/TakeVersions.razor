@@ -2,7 +2,7 @@
     <section class="take-versions" aria-label="Trimmed versions">
         <article class="shot-candidate">
             <button data-shot-take="@trimmed.Id" aria-pressed="@(SelectedId == trimmed.Id ? "true" : "false")" @onclick="() => Select.InvokeAsync(trimmed.Id)"><img src="@($"/media/projects/{ProjectId}/takes/{trimmed.Id}/frames/0")" alt="" loading="lazy" />Trimmed · @TakeDisplay.Duration(trimmed)</button>
-            <button disabled="@Busy" @onclick="() => Use.InvokeAsync(trimmed)">@(ProductionId == trimmed.Id ? "Deselect take" : "Use this take")</button><button disabled="@(Busy || ProductionId == trimmed.Id)" @onclick="() => Discard.InvokeAsync(trimmed)">Discard</button>
+            <button class="@(SelectedId == trimmed.Id && ProductionId != trimmed.Id ? "take-use-primary" : null)" disabled="@Busy" @onclick="() => Use.InvokeAsync(trimmed)">@(ProductionId == trimmed.Id ? "Deselect take" : "Use this take")</button><button disabled="@(Busy || ProductionId == trimmed.Id)" @onclick="() => Discard.InvokeAsync(trimmed)">Discard</button>
         </article>
         <TakeVersions ProjectId="ProjectId" ParentId="trimmed.Id" Runs="Runs" Takes="Takes" SelectedId="SelectedId" ProductionId="ProductionId" Busy="Busy" Select="Select" Use="Use" Discard="Discard" Remove="Remove" Retry="Retry" RetryLabel="RetryLabel" Ancestors="@(Ancestors.Append(trimmed.Id).ToArray())" />
     </section>
@@ -31,7 +31,7 @@
                 @if (saved is not null)
                 {
                     <button data-shot-take="@saved.Id" aria-pressed="@(SelectedId == saved.Id ? "true" : "false")" @onclick="() => Select.InvokeAsync(saved.Id)"><img src="@($"/media/projects/{ProjectId}/takes/{saved.Id}/frames/0")" alt="" loading="lazy" />@RefinementPolicy.Label(saved)</button>
-                    <button disabled="@Busy" @onclick="() => Use.InvokeAsync(saved)">@(ProductionId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(Busy || ProductionId == saved.Id)" @onclick="() => Discard.InvokeAsync(saved)">Discard</button>
+                    <button class="@(SelectedId == saved.Id && ProductionId != saved.Id ? "take-use-primary" : null)" disabled="@Busy" @onclick="() => Use.InvokeAsync(saved)">@(ProductionId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(Busy || ProductionId == saved.Id)" @onclick="() => Discard.InvokeAsync(saved)">Discard</button>
                 }
                 else { <strong>Version @candidate.Number</strong><p>@(candidate.State == VideoCandidateState.Complete ? "Discarded · recoverable in Trash" : candidate.State)</p> }
             </article>

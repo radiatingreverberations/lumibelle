@@ -16,6 +16,8 @@
                     <p class="field-hint assistant-target" role="status">@(WholeDocumentOperation ? "Whole script" : TargetDescription)</p>
                     @if (!WholeDocumentOperation) { <button class="capture-target" disabled="@_generating" @onclick="() => ChooseScopeAsync(_scope)">@(_scope == ScriptScope.Passage ? "Use selected passage" : _scope == ScriptScope.Document ? "Use whole script" : $"Use current {_scope.ToString().ToLowerInvariant()}")</button> }
                     <label for="script-instructions">Instructions<textarea id="script-instructions" @bind="InstructionsValue" @bind:event="oninput" rows="5" placeholder="Describe what you want to change…"></textarea></label>
+                    <ScriptProjectContextPicker ProjectId="ProjectId" Disabled="@(_generating || _applying)" Changed="value => _projectContext = value" />
+                    @if (!string.IsNullOrWhiteSpace(_projectContext)) { <p class="field-hint">Attached project details will inform this proposal. Review the script changes before applying.</p> }
                     <p class="context-estimate">Current script + instructions@(_attachedDiscussion.Count > 0 ? $" + {_attachedDiscussion.Count} attached discussions" : "") · ≈@EstimatedTokens.ToString("N0") input tokens</p>
                     @if (_runs.Any(r => r.Operation == WritingOperation.Discuss && r.Status == AssistantRunStatus.Completed))
                     {

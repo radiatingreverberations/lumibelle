@@ -111,7 +111,7 @@ public static class H3Policy
             throw new WorkspaceStoreException("Assign only one voice reference to each speaker.");
         lumibelle.Services.Production.CharacterVoices.Validate(s);
         if (ready && (s.Duration is null || string.IsNullOrWhiteSpace(s.Description) || requireScene && (s.ApprovedScriptId is null || s.SceneId is null)))
-            throw new WorkspaceStoreException("Choose an approved scene, describe the shot, and set its duration before generating.");
+            throw new WorkspaceStoreException(requireScene ? "Choose a script scene, describe the shot, and set its duration before generating." : "Describe the shot and set its duration before generating.");
     }
     public static string Fingerprint(Shot shot)
     {
@@ -143,7 +143,7 @@ public static class H3Policy
     }
     public static string Compile(Shot s, IReadOnlyList<ShotReferenceGuidance>? guidance = null, IReadOnlyList<ShotAppearanceContext>? appearances = null, bool motionContext = false)
     {
-        Validate(s, true, motionContext: motionContext);
+        Validate(s, true, requireScene: false, motionContext: motionContext);
         if (s.Characters.Any(c => c.Appearance is not null) && (appearances is null || !s.Characters.Where(c => c.Appearance is not null).Select(c => c.Id).SequenceEqual(appearances.Select(a => a.CharacterId))))
             throw new WorkspaceStoreException("Refresh the captured character looks before compiling the prompt.");
         return H3PromptCompiler.Compile(s, guidance, appearances, motionContext);

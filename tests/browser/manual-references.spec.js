@@ -115,3 +115,26 @@ test('crop cancellation stays in the picker and restores focus without changing 
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).shots[0].images).toHaveLength(0);
 });
+
+test('visible replacement preserves picture order and stays staged until Apply', async ({ page, request }) => {
+  const { library, state, editor } = await setup(page, request);
+  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  const room = library.assets[1], person = library.assets[0];
+  const choose = (a, i) => editor.locator(`[data-reference="${a.id}/${i.id}"]`);
+  await expect(choose(room, room.images[0])).toContainText('Add image');
+  await choose(room, room.images[0]).click();
+  await editor.getByRole('button', { name: 'Picture 1: Reference settings', exact: true }).click();
+  await editor.getByRole('button', { name: 'Picture 1: Replace image', exact: true }).click();
+  await expect(editor.getByRole('status').filter({ hasText: 'Replacing Picture 1:' })).toBeVisible();
+  await expect(choose(person, person.images[0])).toContainText('Replace Picture 1');
+  await choose(person, person.images[0]).click();
+  await expect(editor.locator('.reference-summary').first()).toContainText(person.name);
+  await expect(editor.getByRole('heading', { name: 'Pictures · 1/9', exact: true })).toBeVisible();
+  await expect(editor.getByRole('status').filter({ hasText: 'Replaced Picture 1' })).toBeVisible();
+  await editor.getByRole('button', { name: 'Voices', exact: true }).click();
+  await expect(editor.getByRole('heading', { name: 'Voices', exact: true })).toBeInViewport();
+  await editor.getByRole('button', { name: 'Pictures · 1/9', exact: true }).click();
+  await expect(editor.getByRole('heading', { name: 'Pictures · 1/9', exact: true })).toBeInViewport();
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect((await state()).shots[0].images).toHaveLength(0);
+});

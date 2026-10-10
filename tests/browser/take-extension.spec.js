@@ -25,7 +25,8 @@ async function setup(page, request) {
 test('extend preserves the source, reviews the join and leaves selection explicit', async ({ page, request }) => {
   test.setTimeout(150000);
   const id = await setup(page, request); const before = await state(request, id); const source = before.takes[0];
-  await review(page).getByRole('button', { name: 'Extend…', exact: true }).click();
+  await review(page).getByRole('slider', { name: 'Video position' }).press('End');
+  await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Extend take', exact: true });
   await expect(form.getByLabel('Added duration', { exact: true })).toHaveValue('5');
   await expect(form.getByLabel('Next action', { exact: true })).toHaveValue('');
@@ -42,13 +43,13 @@ test('extend preserves the source, reviews the join and leaves selection explici
   expect(extended.composition.segments[0].source.refinementPackage.sha256).toBe(source.refinementPackage.sha256);
   const download = await request.get(`/media/projects/${id}/takes/${extended.id}`); expect(download.ok()).toBe(true);
   await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
-  await review(page).getByRole('button', { name: 'Continue from this frame', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(form).toBeVisible(); await form.getByRole('button', { name: 'Cancel', exact: true }).click();
   await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
   const refine = review(page).getByRole('region', { name: 'Refine take', exact: true });
   await expect(refine).toContainText('final segment'); await expect(refine.getByLabel('Output size').locator('option')).toHaveCount(1);
   await refine.getByRole('button', { name: 'Back to review', exact: true }).click();
-  await review(page).getByRole('button', { name: 'Trim…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Trim', exact: true }).click();
   const trim = review(page).getByRole('region', { name: 'Trim take', exact: true });
   await expect(trim.getByLabel('Snap end for continuation')).toBeVisible();
   await trim.getByLabel('Snap end for continuation').uncheck();
@@ -56,7 +57,8 @@ test('extend preserves the source, reviews the join and leaves selection explici
   await expect(trim).toContainText('Exact-frame mode');
   await trim.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await review(page).getByRole('button', { name: 'Extend…', exact: true }).click();
+  await review(page).getByRole('slider', { name: 'Video position' }).press('End');
+  await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(form).toBeVisible();
   expect(await form.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await form.getByLabel('Next action', { exact: true }).scrollIntoViewIfNeeded();

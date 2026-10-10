@@ -18,7 +18,7 @@ public partial class ProductionStudio
     // The saved script's current heading wins, so renaming a scene shows up without reassigning its shots.
     private string? SceneTitle(Shot shot) => (shot.SceneId is { } scene ? Scenes.FirstOrDefault(s => s.Id == scene)?.Title : null) is { Length: > 0 } title
         ? title : string.IsNullOrWhiteSpace(shot.SceneTitle) ? null : shot.SceneTitle;
-    private string SceneLabel(Shot shot) => SceneTitle(shot) ?? (shot.SceneId is null ? "No scene" : "Untitled scene");
+    private string SceneLabel(Shot shot) => SceneTitle(shot) ?? (shot.SceneId is null ? "Standalone shots" : "Untitled scene");
     private bool SceneCollapsed(Shot shot) => _collapsedScenes.Contains(SceneKey(shot));
     private async Task ToggleScene(Shot shot)
     {

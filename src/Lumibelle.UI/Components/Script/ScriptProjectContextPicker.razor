@@ -1,0 +1,56 @@
+@inject IShotStore Shots
+@inject IAssetStore AssetStore
+
+<details class="script-project-context">
+    <summary>Attach shots or assets @(_selected.Count > 0 ? $"· {_selected.Count} selected" : "(optional)")</summary>
+    <p>Use saved shot action, dialogue, and asset descriptions to draft or revise the script. Images and videos are not sent.</p>
+    @if (!_loaded) { <button type="button" disabled="@(Disabled || _loading)" @onclick="Load">@(_loading ? "Loading…" : "Choose shots or assets")</button> }
+    else {
+        <label>Find shots or assets<input type="search" @bind="_search" @bind:event="oninput" placeholder="Title, name, or scene…" disabled="@Disabled" /></label>
+        <div class="context-choices">
+            @foreach (var group in _entries.Where(e => e.Label.Contains(_search, StringComparison.OrdinalIgnoreCase)).GroupBy(e => e.Kind)) {
+                <fieldset disabled="@Disabled"><legend>@group.Key</legend>
+                @foreach (var entry in group) { <label class="context-choice"><input type="checkbox" checked="@_selected.Contains(entry.Id)" @onchange="e => Select(entry.Id, e.Value is true)" />@entry.Label</label> }
+                </fieldset>
+            }
+            @if (!_entries.Any(e => e.Label.Contains(_search, StringComparison.OrdinalIgnoreCase))) { <p>No matching shots or assets.</p> }
+        </div>
+        <div class="context-actions"><button type="button" disabled="@(Disabled || _loading)" @onclick="Load">Refresh saved details</button><button type="button" disabled="@(Disabled || _selected.Count == 0)" @onclick="Clear">Clear attachments</button></div>
+        @if (_selected.Count > 0) { <details><summary>Preview attached details · @_selected.Count</summary><pre>@Context</pre></details> }
+    }
+    @if (_error is not null) { <p role="alert">@_error</p> }
+</details>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<string?> Changed { get; set; }
+    private sealed record Entry(Guid Id, string Kind, string Label, string Text);
+    private List<Entry> _entries = [];
+    private HashSet<Guid> _selected = [];
+    private string _search = "";
+    private string? _error;
+    private bool _loading, _loaded;
+    private string? Context => _selected.Count == 0 ? null : string.Join("\n\n", _entries.Where(e => _selected.Contains(e.Id)).Select(e => e.Kind + " · " + e.Label + "\n" + e.Text));
+    private async Task Select(Guid id, bool value) { if (value) _selected.Add(id); else _selected.Remove(id); await Changed.InvokeAsync(Context); }
+    private async Task Clear() { _selected.Clear(); await Changed.InvokeAsync(null); }
+    private async Task Load()
+    {
+        if (_loading || Disabled) return;
+        _loading = true; _error = null;
+        try {
+            var shots = await Shots.LoadAsync(ProjectId);
+            var assets = await AssetStore.LoadAsync(ProjectId);
+            var entries = shots.Shots.Select((s, i) => new Entry(s.Id, "Shots", $"{i + 1}. {s.Title}" + (string.IsNullOrWhiteSpace(s.SceneTitle) ? "" : $" · {s.SceneTitle}"),
+                Details(("Action and camera", s.Description), ("Dialogue", string.Join("\n", s.Dialogue.Select(d => $"{d.Speaker}: {d.Text}" + (string.IsNullOrWhiteSpace(d.Language) ? "" : $" ({d.Language})")))), ("Atmosphere", s.Atmosphere), ("Music", s.Music)))).ToList();
+            entries.AddRange(assets.Assets.Select(a => new Entry(a.Id, "Assets", a.Name,
+                Details(("Category", a.Category.ToString()), ("Description", a.Description), ("Keep consistent", a.PreservationGuidance), ("Looks", string.Join("\n\n", a.Looks.Where(l => !l.Archived).Select(l => l.Name + "\n" + Details(("Description", l.Description), ("Keep consistent", l.PreservationGuidance)))))))));
+            _entries = entries; _selected.IntersectWith(entries.Select(e => e.Id)); _loaded = true;
+            await Changed.InvokeAsync(Context);
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { _error = "Could not load project details. " + e.Message; }
+        finally { _loading = false; }
+    }
+    private static string Details(params (string Label, string? Value)[] fields) =>
+        string.Join("\n\n", fields.Where(f => !string.IsNullOrWhiteSpace(f.Value)).Select(f => f.Label + ":\n" + f.Value));
+}

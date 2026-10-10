@@ -45,6 +45,7 @@
             <label>Name<input maxlength="240" @bind="_name" /></label>
             @if (_mode == "move") { <p role="status">The destination is saved first. Source media is then moved to its project’s Trash. Saved-shot references or active AI requests can prevent source removal; in that case the destination copy is kept.</p> }
             <p>Copies include descriptions, guidance, images, saved reel keyframes and voice excerpts as applicable. Generation jobs and editable generation recipes are not duplicated.</p>
+            @if (_capturedSource?.Kind is AssetReuseKind.Reel or AssetReuseKind.Asset) { <p class="field-hint">Saved keyframe pictures are kept. If an original picture and its lossless archive are missing, the copy uses the same frame from the MP4 and extracts it when needed.</p> }
         </fieldset>
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </DialogContent>

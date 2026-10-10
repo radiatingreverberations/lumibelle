@@ -12,6 +12,7 @@ public partial class ProductionStudio
         if (_trimCancellation is not null) return;
         if (!_reviewOpen || ReviewTake?.Id != take.Id) await OpenTake(take);
         _trimmingTake = take.Id; _trimError = _trimProgress = null;
+        _trimStart = 0; _trimEnd = take.FrameCount;
         _frameDestination = null; _continueFrame = null; _refiningTake = null;
     }
     private void CloseTrim() {

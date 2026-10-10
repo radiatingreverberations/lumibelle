@@ -104,14 +104,13 @@ public static class ProductionPolicy
         try
         {
             if (ShotPreparationIssue(c.Shot) is { } preparation) return preparation;
-            H3Policy.Validate(ShotVideoDefaults.Capture(c.Shot, project), true);
+            H3Policy.Validate(ShotVideoDefaults.Capture(c.Shot, project), true, requireScene: false);
             return PromptReviewIssue(c, assets, shots, project);
         }
         catch (WorkspaceStoreException e) { return e.Message; }
     }
     public static string? ShotPreparationIssue(Shot shot) =>
-        shot.ApprovedScriptId is null || shot.SceneId is null ? "Choose a scene in Shot before generating."
-        : string.IsNullOrWhiteSpace(shot.Description) ? "Add action and camera direction in Shot before generating."
+        string.IsNullOrWhiteSpace(shot.Description) ? "Add action and camera direction in Shot before generating."
         : shot.Duration is null ? "Set a duration in Shot before generating." : null;
 
     // Reviewing authored text does not require a shot to be ready for generation.

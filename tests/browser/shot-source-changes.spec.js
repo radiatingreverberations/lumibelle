@@ -19,6 +19,7 @@ test('a shot notes when its own script lines change, compares them and can be ma
   await note.getByText('Compare script lines', { exact: true }).click();
   await expect(note.locator('.shot-source-compare section').last()).toContainText('Mira enters and waves.');
   await expect(note.locator('.shot-source-compare section').first()).not.toContainText('Mira enters and waves.');
+  await expect(note.locator('.shot-source-compare ins')).toHaveText(['and', 'waves']);
 
   // Marking it checked takes the current lines as the shot's source, so the note stays gone.
   await note.getByRole('button', { name: 'Mark checked', exact: true }).click();

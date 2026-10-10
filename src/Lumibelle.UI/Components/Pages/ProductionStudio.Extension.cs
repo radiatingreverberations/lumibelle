@@ -8,16 +8,6 @@ public partial class ProductionStudio
     private lumibelle.Components.Shots.TakePlayer? _joinPlayer;
     private CancellationTokenSource? _extensionPreparation;
     private Guid? _joinPreviewTake;
-    private async Task OpenExtension(ShotTake take) {
-        if (!_reviewOpen || ReviewTake?.Id != take.Id) await OpenTake(take);
-        _trimmingTake = _refiningTake = null;
-        OpenContinue(take.FrameCount - 1);
-    }
-    private async Task OpenLeadIn(ShotTake take) {
-        if (!_reviewOpen || ReviewTake?.Id != take.Id) await OpenTake(take);
-        _trimmingTake = _refiningTake = null;
-        OpenLeadInto(0);
-    }
     private async Task QueueExtension(TakeExtensionOptions options) {
         if (_refinementBusy || _refinementEnqueue is not null) return;
         _refinementBusy = true; _reviewError = null;

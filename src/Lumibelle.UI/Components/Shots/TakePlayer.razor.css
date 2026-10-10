@@ -3,18 +3,32 @@
 .take-player-stage video, .take-player-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
 .take-player-stage img { position: absolute; inset: 0; }
 .take-player-stage img[hidden] { display: none; }
-.take-transport { display: flex; gap: .4rem; align-items: center; padding: .65rem; flex-wrap: wrap; }
-.take-transport input[data-action=seek] { flex: 1; min-width: 80px; }
-.take-volume { display: flex; align-items: center; gap: .35rem; font-size: var(--lumi-font-size-meta); }
+.take-frame-loading { position:absolute; top:12px; left:12px; padding:4px 8px; border-radius:var(--lumi-radius-small); background:var(--lumi-media-stage); color:var(--lumi-on-accent); font-size:var(--lumi-font-size-meta); pointer-events:none; }
+.take-seek { position:relative; display:flex; align-items:center; flex:1; min-width:80px; }
+.take-frame-position { position:absolute; bottom:calc(100% + 12px); left:calc(var(--seek-progress, 0) * 100%); transform:translateX(-50%); padding:4px 8px; border-radius:var(--lumi-radius-small); background:var(--lumi-media-stage); color:var(--lumi-on-accent); font-size:var(--lumi-font-size-meta); font-variant-numeric:tabular-nums; white-space:nowrap; pointer-events:none; visibility:hidden; }
+.take-seek:hover .take-frame-position, .take-seek:has(input:focus-visible) .take-frame-position, .take-player[data-frame-inspect] .take-frame-position { visibility:visible; }
+.take-transport { display: flex; gap: 8px; align-items: center; padding:12px; flex-wrap: wrap; }
+.take-transport input[data-action=seek] { width:100%; min-width:0; }
+.take-volume { display: flex; align-items: center; gap: 6px; margin:0; font-size: var(--lumi-font-size-meta); font-weight:400; }
+.take-transport input { margin:0; }
 .take-volume input { width: 65px; }
 .take-player button { border: 1px solid var(--mud-palette-divider, var(--lumi-border)); background: transparent; border-radius: var(--lumi-radius-control); padding: .4rem .65rem; color: inherit; }
-.take-frame-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem .85rem; border-top: 1px solid var(--mud-palette-divider, var(--lumi-border)); font-size: var(--lumi-font-size-ui); flex-wrap: wrap; }
-.take-frame-buttons { display: flex; gap: .5rem; flex-wrap: wrap; }
-.take-player .take-save-frame { background: var(--mud-palette-primary, var(--lumi-accent)); color: var(--lumi-on-accent); font-weight: 600; }
-.take-player .take-continue-frame { font-weight: 600; }
+.take-frame-actions { display: flex; align-items: center; justify-content: space-between; gap:12px; padding:12px; border-top: 1px solid var(--mud-palette-divider, var(--lumi-border)); font-size: var(--lumi-font-size-meta); flex-wrap: wrap; }
+.take-frame-buttons { display:flex; width:100%; }
+.take-frame-buttons > button { display:flex; align-items:center; justify-content:space-between; gap:4px; padding-inline:6px; flex:1; min-width:0; border-radius:0; }
+.take-frame-buttons > button + button { border-left:0; }
+.take-frame-buttons > button:first-child { border-radius:var(--lumi-radius-control) 0 0 var(--lumi-radius-control); }
+.take-frame-buttons > button:last-child { border-radius:0 var(--lumi-radius-control) var(--lumi-radius-control) 0; }
+.take-frame-buttons > button[aria-expanded=true] { background:var(--lumi-surface-selected); color:var(--lumi-accent); box-shadow:inset 0 -2px var(--lumi-accent); }
+.take-panel-chevron { display:block; width:16px; height:16px; flex:none; }
+[aria-expanded=true] > .take-panel-chevron { transform:rotate(180deg); }
+.take-frame-buttons > button:focus-visible { position:relative; z-index:1; }
+.take-player button { font-weight:400; }
+.take-player button:not(:disabled):hover { background:var(--lumi-surface-subtle); }
 .take-player button:disabled { opacity: .5; }
 .take-player button:focus-visible, .take-player input:focus-visible { outline: 2px solid var(--mud-palette-primary, var(--lumi-accent)); outline-offset: 2px; }
 .take-player p[role=alert] { padding: .75rem; }
 .take-player:fullscreen { display: flex; flex-direction: column; justify-content: center; }
 .take-player:fullscreen .take-player-stage { max-height: calc(100dvh - 130px); }
-@media(max-width:600px) { .take-volume { display: none; } .take-transport { gap: .2rem; } .take-transport button { padding: .4rem; font-size: var(--lumi-font-size-meta); } .take-frame-actions { align-items: stretch; } .take-frame-buttons { width: 100%; } .take-save-frame, .take-continue-frame { flex: 1; } .take-player-stage { max-height: 42dvh; } }
+@media(max-width:600px) { .take-volume { display: none; } .take-transport { gap: .2rem; } .take-transport button { padding: .4rem; font-size: var(--lumi-font-size-meta); } .take-frame-actions { align-items: stretch; } .take-frame-buttons { display:grid; grid-template-columns:minmax(0,1fr); width:100%; } .take-frame-buttons button { min-height:36px; } .take-player-stage { max-height: 42dvh; } }
+@media(max-width:600px) { .take-frame-buttons > button + button { border-left:1px solid var(--mud-palette-divider, var(--lumi-border)); border-top:0; } .take-frame-buttons > button:first-child { border-radius:var(--lumi-radius-control) var(--lumi-radius-control) 0 0; } .take-frame-buttons > button:last-child { border-radius:0 0 var(--lumi-radius-control) var(--lumi-radius-control); } }

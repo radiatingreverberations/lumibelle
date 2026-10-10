@@ -228,7 +228,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     }
     public async Task ValidateInputsAsync(VideoSnapshot s, CancellationToken ct)
     {
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null);
+        H3Policy.Validate(s.Shot, true, requireScene: false, motionContext: s.Motion is not null);
         if (s.Shot.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(s.ProjectId, s.Shot.Videos, ct);
         foreach (var b in s.Shot.Images)
         {
@@ -369,7 +369,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     public static object BuildWorkflow(VideoSnapshot s, long seed, string clientId, IReadOnlyList<PreparedVideoInput> inputs,
         IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null, RefineSource? refine = null, MotionSource? motion = null)
     {
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null);
+        H3Policy.Validate(s.Shot, true, requireScene: false, motionContext: s.Motion is not null);
         H3Policy.ValidateSettings(s.Settings);
         H3Performance.Validate(s.Performance);
         H3Presets.Validate(s);

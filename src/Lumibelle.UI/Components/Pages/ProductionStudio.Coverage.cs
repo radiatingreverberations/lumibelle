@@ -49,7 +49,32 @@ public partial class ProductionStudio
     private void EditLine(Guid id, Action<ShotDialogue> edit) => EditCoverage(s => edit(s.Dialogue.Single(d => d.Id == id)));
     private static void Move<T>(List<T> list, T item, int by) { var i = list.IndexOf(item); var to = i + by; if (to < 0 || to >= list.Count) return; list.RemoveAt(i); list.Insert(to, item); }
     private void MoveLine(Guid id, int by) => EditCoverage(s => Move(s.Dialogue, s.Dialogue.Single(d => d.Id == id), by));
-    private async Task AddShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (!await Save() || !await RefreshSavedSource()) return; _openShotView = true; Remember(); _coverageDirty = true; var shot = new Shot(); if (Scenes.FirstOrDefault() is { } scene) SetScene(shot, scene); _doc.Shots.Add(shot); _selected = shot.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
+    private async Task AddShot()
+    {
+        if (_promptEditor is not null) await _promptEditor.FlushAsync();
+        if (!await Save() || !await RefreshSavedSource()) return;
+        var previous = SourceShot;
+        _openShotView = true;
+        Remember();
+        var shot = new Shot();
+        if (previous is null)
+        {
+            if (Scenes.FirstOrDefault() is { } first) SetScene(shot, first);
+            _doc.Shots.Add(shot);
+        }
+        else
+        {
+            if (Scenes.FirstOrDefault(s => s.Id == previous.SceneId) is { } scene) SetScene(shot, scene);
+            _doc.Shots.Insert(_doc.Shots.IndexOf(previous) + 1, shot);
+        }
+        _filter = "";
+        _promptStatusFilter = "all";
+        _collapsedScenes.Remove(SceneKey(shot));
+        _selected = shot.Id;
+        _compositionId = null;
+        _savedComposition = null;
+        CoverageChanged();
+    }
     private async Task DuplicateShot() { if (_promptEditor is not null) await _promptEditor.FlushAsync(); if (SourceShot is null || !await Save()) return; _openShotView = true; Remember(); _coverageDirty = true; var s = lumibelle.Services.Production.ProductionPolicy.CoverageCopy(SourceShot); s.Id = Guid.NewGuid(); s.Title += " (copy)"; s.SelectedTakeId = null; _doc.Shots.Insert(_doc.Shots.IndexOf(SourceShot) + 1, s); _selected = s.Id; _compositionId = null; _savedComposition = null; CoverageChanged(); }
     private void SetScene(Shot shot, ScriptSection scene) { shot.SceneId = scene.Id; shot.SceneTitle = scene.Title; shot.ApprovedScriptId = _approved!.Id; shot.SourceBlockIds = _approved.Blocks.Skip(scene.Start).Take(scene.Count).Select(b => b.Id).ToList(); shot.SourceExcerpt = ScriptStructure.Markdown(_approved.Blocks.Skip(scene.Start).Take(scene.Count)); }
     // A shot keeps the script lines it was made from. Saving the script elsewhere does not concern it;
@@ -75,6 +100,11 @@ public partial class ProductionStudio
     }
     private async Task AssignScene(ChangeEventArgs e)
     {
+        if (string.IsNullOrEmpty(Text(e)))
+        {
+            EditCoverage(s => { s.SceneId = null; s.SceneTitle = ""; s.ApprovedScriptId = null; s.SourceBlockIds = []; s.SourceExcerpt = ""; });
+            return;
+        }
         if (!Guid.TryParse(Text(e), out var id) || !await RefreshSavedSource()) return;
         if (Scenes.FirstOrDefault(s => s.Id == id) is { } scene) EditCoverage(s => SetScene(s, scene));
         else _error = "That scene has been removed from the saved script. Choose another scene.";

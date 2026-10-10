@@ -19,7 +19,7 @@ for (const [mode, narrow, environment] of [['RefMod', false, false], ['RefMod', 
     const tools = page.locator('.reel-tools');
     const manager = page.getByRole('dialog', { name: 'Reel references', exact: true });
     await tools.getByRole('button', { name: 'Manage references', exact: true }).click();
-    await manager.getByRole('button', { name: 'Reels', exact: true }).click();
+    await manager.getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Reels');
     await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
     if (narrow) await manager.getByRole('tab', { name: /^Selected references/ }).click();
     await expect(manager.getByLabel('Visuals', { exact: true })).toHaveValue(mode);
@@ -114,7 +114,7 @@ test('reel references opened while the recipe starts fresh edit the fresh recipe
   const tools = page.locator('.reel-tools');
   const manager = page.getByRole('dialog', { name: 'Reel references', exact: true });
   await tools.getByRole('button', { name: 'Manage references', exact: true }).click();
-  await manager.getByRole('button', { name: 'Reels', exact: true }).click();
+  await manager.getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Reels');
   await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
   await manager.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(manager).not.toBeVisible();

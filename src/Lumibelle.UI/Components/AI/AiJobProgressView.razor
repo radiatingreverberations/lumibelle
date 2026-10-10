@@ -3,7 +3,7 @@
 @inject ILogger<AiJobProgressView> Logger
 @implements IAsyncDisposable
 
-@if (VideoCandidates is { Count: > 1 } candidates)
+@if (ShowBatchSummary && VideoCandidates is { Count: > 1 } candidates)
 {
     <p class="ai-batch-summary" role="status">@candidates.Count(c => c.State == VideoCandidateState.Complete) / @candidates.Count takes saved</p>
 }
@@ -55,6 +55,7 @@ else if (Job.RemoteUnconfirmed)
     [Parameter, EditorRequired] public AiQueueDocument Queue { get; set; } = null!;
     [Parameter] public AiJobProgress? Progress { get; set; }
     [Parameter] public IReadOnlyList<VideoCandidate>? VideoCandidates { get; set; }
+    [Parameter] public bool ShowBatchSummary { get; set; } = true;
     [Parameter] public EventCallback<Guid> PriorityChanged { get; set; }
     private AiJobProgress? _checkpoint;
     private (Guid Id, Guid? Lease)? _loaded;

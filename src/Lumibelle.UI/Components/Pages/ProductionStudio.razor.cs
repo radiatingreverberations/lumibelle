@@ -160,6 +160,7 @@ public partial class ProductionStudio
                 else { current.Version = next.Version; current.GenerationSetupVersion = next.GenerationSetupVersion; current.History = next.History; current.AcceptedRevisionId = next.AcceptedRevisionId; }
                 _globalSetups = await GenerationSetups.LoadAsync(_lifetime.Token);
             }
+            if (Current is null) _dirty = false;
             _saveStatus = "Saved"; _error = null; _saveFailed = false; return true;
         } catch (Exception e) { _error = e.Message; _saveFailed = true; _saveStatus = "Save failed · draft retained"; return false; }
         finally { _saving = false; }
@@ -169,7 +170,37 @@ public partial class ProductionStudio
     private async Task DelayedSave(CancellationToken ct) { try { await Task.Delay(800, ct); await InvokeAsync(async () => { if (!_disposed) { await Save(); StateHasChanged(); } }); } catch (OperationCanceledException) { } }
     private void EditComposition(Action<ProductionComposition> edit) { if (Current is not { } c) return; Remember(); edit(c); Changed(); }
     private void Edit(Action<Shot> edit) => EditComposition(c => { ShotReferences.RetainCharacters(c.Shot); edit(c.Shot); });
-    private async Task UndoEdit() { if (_undo.Count == 0) return; var undo = _undo.Pop(); _doc.Shots = undo.Coverage.Shots; _doc.SceneSetups = undo.Coverage.SceneSetups; if (undo.Setup is { } setup && Current?.Id == setup.Id) { setup.GenerationSetupVersion = Current.GenerationSetupVersion; _production.Compositions[_production.Compositions.IndexOf(Current)] = setup; } _notice = null; CoverageChanged(); await RefreshCompositionResult(); }
+    private async Task UndoEdit()
+    {
+        _saveDelay?.Cancel();
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (_undo.Count == 0) return;
+            var undo = _undo.Pop();
+            _doc.Shots = undo.Coverage.Shots;
+            _doc.SceneSetups = undo.Coverage.SceneSetups;
+            // An added shot may already have autosaved a composition. Undo must leave
+            // that removed shot before the next save tries to update its composition.
+            if (SourceShot is null)
+            {
+                _selected = _doc.Shots.FirstOrDefault(s => s.Id == undo.Setup?.ShotId)?.Id ?? _doc.Shots.FirstOrDefault()?.Id;
+                _compositionId = _production.Compositions.FirstOrDefault(c => c.Id == undo.Setup?.Id && c.ShotId == _selected)?.Id
+                    ?? _production.Compositions.FirstOrDefault(c => c.ShotId == _selected && !c.Archived)?.Id;
+                _savedComposition = Current?.Copy();
+                ValidateTakeFilter();
+            }
+            if (undo.Setup is { } setup && Current?.Id == setup.Id)
+            {
+                setup.GenerationSetupVersion = Current.GenerationSetupVersion;
+                _production.Compositions[_production.Compositions.IndexOf(Current)] = setup;
+            }
+            _notice = null;
+            CoverageChanged();
+            await RefreshCompositionResult();
+        }
+        finally { _saveGate.Release(); }
+    }
     private void ValidateTakeFilter() { if (!TakeSetupOptions.Any(s => s.Id == _takeSetupFilter)) _takeSetupFilter = ""; }
     private bool _selectingShot;
     private async Task Select(Guid id)
@@ -320,13 +351,17 @@ public partial class ProductionStudio
     private async Task OpenFrameDestination(int index)
     {
         if (ReviewTake is not { } take) return;
-        try { _assets = await AssetStore.LoadAsync(Id, _lifetime.Token); _frameDestination = (take.Id, index); _continueFrame = null; _reviewError = null; }
+        try { _assets = await AssetStore.LoadAsync(Id, _lifetime.Token); _frameDestination = (take.Id, index); _continueFrame = null; _trimmingTake = null; _refiningTake = null; _reviewError = null; }
         catch (WorkspaceStoreException e) { _reviewError = e.Message; }
     }
     private async Task<SavedAssetImage> SaveFrameImage(DerivedImageRequest request)
     {
-        var library = await AssetStore.LoadAsync(Id, _lifetime.Token);
-        return await AssetStore.SaveDerivedImageAsync(Id, request, library.Revision, _lifetime.Token);
+        _frameSaveBusy = true; StateHasChanged();
+        try {
+            var library = await AssetStore.LoadAsync(Id, _lifetime.Token);
+            return await AssetStore.SaveDerivedImageAsync(Id, request, library.Revision, _lifetime.Token);
+        }
+        finally { _frameSaveBusy = false; StateHasChanged(); }
     }
     private void FrameImageSaved(SavedAssetImage result)
     {

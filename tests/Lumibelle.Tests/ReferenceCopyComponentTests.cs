@@ -42,6 +42,8 @@ public sealed class ReferenceCopyComponentTests : BunitContext
             .Add(c => c.AllowReels, true).Add(c => c.AllowInference, true).Add(c => c.CopySources, new[] { source })
             .Add(c => c.Cancelled, () => cancelled = true).Add(c => c.ReferencesApplied, (ReferenceSelection s) => applied = s));
         editor.Find("select[aria-label='Copy references from']").Change(source.Id.ToString());
+        Assert.Empty(editor.FindAll(".video-reference-list li"));
+        editor.Find("button[aria-label='Copy references']").Click();
         Assert.Single(editor.FindAll(".video-reference-list li"));
         Assert.Empty(target.Videos); Assert.Equal(originalId, source.Videos[0].Id); Assert.Null(applied);
         Click(editor, "Cancel");
@@ -59,10 +61,12 @@ public sealed class ReferenceCopyComponentTests : BunitContext
         Click(editor, "Replace reel");
         Assert.Contains("Choose the replacement reel", editor.Markup);
         editor.Find("select[aria-label='Copy references from']").Change(source.Id.ToString());
+        editor.Find("button[aria-label='Copy references']").Click();
         Assert.DoesNotContain("Choose the replacement reel", editor.Markup);
         var firstId = editor.Find("[data-video-reference-id]").GetAttribute("data-video-reference-id");
         // Resetting the chooser permits selecting the same source again.
         editor.Find("select[aria-label='Copy references from']").Change(source.Id.ToString());
+        editor.Find("button[aria-label='Copy references']").Click();
         Assert.NotEqual(firstId, editor.Find("[data-video-reference-id]").GetAttribute("data-video-reference-id"));
         Click(editor, "Apply changes");
         Assert.NotNull(applied); Assert.Empty(applied.ReelSources);

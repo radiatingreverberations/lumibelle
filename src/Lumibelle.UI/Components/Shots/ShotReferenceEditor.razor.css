@@ -1,4 +1,11 @@
 .manual-references { min-width:0; width:100%; }
+.reference-section-links { display:flex; flex-wrap:wrap; gap:6px; }
+.reference-section-links button, .reference-browser-notice button { padding:6px 10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--surface); color:var(--plum); font-size:var(--lumi-font-size-meta); }
+.reference-browser-hint { margin:0 0 10px; font-size:var(--lumi-font-size-meta); color:var(--muted); }
+.reference-browser-notice { padding:10px; margin:0 0 10px; border:1px solid var(--plum); border-radius:var(--lumi-radius-control); background:var(--wash); font-size:var(--lumi-font-size-meta); }
+.reference-browser-notice button { display:block; margin-top:6px; background:var(--surface); }
+.reference-selection-notice { margin:0 0 8px; color:var(--plum); font-size:var(--lumi-font-size-meta); }
+[tabindex="-1"]:focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
 h4 { font-size:var(--lumi-font-size-compact); }
 .reference-fields { border: 0; padding:12px; min-width:0; }
 .reference-fields label:not(.soundtrack-choice) { display:grid; gap:5px; margin:12px 0; font-size:var(--lumi-font-size-meta); }

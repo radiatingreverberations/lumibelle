@@ -65,7 +65,10 @@ public sealed record AssistantHistory
 }
 
 public sealed record ScriptAssistantRequest(AssistantRun Run, ScriptDocument Script,
-    IReadOnlyList<ConversationMessage> Conversation, TextModelReference? Selection = null);
+    IReadOnlyList<ConversationMessage> Conversation, TextModelReference? Selection = null)
+{
+    public string? ProjectContext { get; init; }
+}
 public sealed record AssistantUpdate(string? Text = null, string? Status = null,
     List<ScriptBlock>? Blocks = null, string? ValidationError = null, bool Complete = false,
     GenerationProgress? Progress = null, ScriptEditProposal? Edits = null);

@@ -68,7 +68,8 @@ test('delete selection stays explicit after another tab changes the shots, with 
   await page.getByRole('menuitem', { name: 'Delete shots…', exact: true }).click();
   const dialog = page.locator('.shot-delete-dialog');
   const all = dialog.getByRole('button', { name: 'Select all shown', exact: true });
-  await all.focus(); await page.keyboard.press('Enter');
+  await expect(all).toBeEnabled();
+  await all.press('Enter');
   await expect(dialog.getByRole('checkbox').first()).toBeChecked();
   await expect(dialog.getByRole('button', { name: 'Delete 1 shot', exact: true })).toBeEnabled();
   await page.screenshot({ path: 'artifacts/validation/shot-deletion-mobile.png' });

@@ -146,6 +146,80 @@ public sealed class ReferenceCopyTests
     }
 
     [Fact]
+    public void AlternatingSpeakersKeepTheDestinationsCapturedVoiceAndSilenceThePreviousSpeaker()
+    {
+        var (library, riley, _, source) = CharacterVoiceTests.Fixture();
+        var guard = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Noxian Guard", Category = AssetCategory.Character };
+        var recording = new VoiceReference { AssetId = guard.Id, Name = "Guard", Duration = 10, Start = 1, ExcerptDuration = 4 };
+        library.Assets.Add(guard); library.Voices.Add(recording);
+        source.Dialogue = [new() { Speaker = "GUARD", Text = "Are you cheating?" }];
+        CharacterVoices.Set(source, new() { AssetId = riley.Id, CharacterName = riley.Name, Source = CharacterVoiceSource.None }, library);
+        var guardChoice = new CharacterVoiceSelection { AssetId = guard.Id, CharacterName = guard.Name, Speaker = "GUARD", SpeakerConfirmed = true };
+        CharacterVoices.SelectRecording(guardChoice, recording, false); CharacterVoices.Set(source, guardChoice, library);
+        var target = new Shot { Dialogue = [new() { Speaker = "RILEY", Text = "Back to base." }] };
+        var rileyChoice = CharacterVoices.Initial(target, riley, library);
+        rileyChoice.Recording!.Start = 3; rileyChoice.Recording.Duration = 2;
+        CharacterVoices.Set(target, rileyChoice, library);
+        var beforeSource = Json(source); var beforeTarget = Json(target);
+
+        var copy = ReferenceCopies.Into(source, target, library);
+
+        Assert.Empty(copy.Warnings); CharacterVoices.Validate(copy.Inputs);
+        var voice = Assert.Single(copy.Inputs.Voices);
+        Assert.Equal(riley.Id, voice.CharacterAssetId); Assert.Equal("RILEY", voice.Speaker);
+        Assert.Equal(3, voice.Start); Assert.Equal(2, voice.Duration);
+        Assert.Equal(CharacterVoiceSource.None, copy.Inputs.CharacterVoices!.Single(c => c.AssetId == guard.Id).Source);
+        Assert.Contains(copy.Notes!, n => n.Contains("Kept this shot's voice choice for Riley"));
+        Assert.Equal(beforeSource, Json(source)); Assert.Equal(beforeTarget, Json(target));
+    }
+
+    [Fact]
+    public void ANewSpeakingTurnUsesTheDefaultButAnExplicitDestinationNoneStaysNone()
+    {
+        var (library, riley, voice, source) = CharacterVoiceTests.Fixture();
+        source.Dialogue.Clear();
+        CharacterVoices.Set(source, CharacterVoices.Initial(source, riley, library), library);
+        var target = new Shot { Dialogue = [new() { Speaker = "RILEY", Text = "Hello again." }] };
+        var copy = ReferenceCopies.Into(source, target, library);
+        Assert.Empty(copy.Warnings); CharacterVoices.Validate(copy.Inputs);
+        Assert.Equal(voice.Id, Assert.Single(copy.Inputs.Voices).VoiceId);
+        Assert.Contains(copy.Notes!, n => n.Contains("selected their default voice"));
+
+        CharacterVoices.Set(target, new() { AssetId = riley.Id, CharacterName = riley.Name, Source = CharacterVoiceSource.None }, library);
+        var silent = ReferenceCopies.Into(source, target, library);
+        Assert.Empty(silent.Inputs.Voices); Assert.Equal(CharacterVoiceSource.None, silent.Inputs.CharacterVoices![0].Source);
+    }
+
+    [Fact]
+    public void RetainedDestinationReelVoiceUsesTheCopiedReelBinding()
+    {
+        var (library, riley, _, source) = CharacterVoiceTests.Fixture();
+        source.Dialogue.Clear(); CharacterVoices.Set(source, CharacterVoices.Initial(source, riley, library), library);
+        var target = source.Copy(); target.Dialogue = [new() { Speaker = "RILEY", Text = "Hello." }];
+        var reel = target.Videos[0];
+        CharacterVoices.Set(target, new() { AssetId = riley.Id, CharacterName = riley.Name, Source = CharacterVoiceSource.Reel,
+            SourceName = reel.Name, ReelBindingId = reel.Id, ReelMediaId = reel.Media.Id, Speaker = "RILEY", SpeakerConfirmed = true, Excerpt = new(1, 3) }, library);
+        var copy = ReferenceCopies.Into(source, target, library);
+        Assert.Empty(copy.Warnings); CharacterVoices.Validate(copy.Inputs);
+        Assert.Equal(copy.Inputs.Videos[0].Id, copy.Inputs.CharacterVoices![0].ReelBindingId);
+        Assert.NotEqual(reel.Id, copy.Inputs.CharacterVoices[0].ReelBindingId);
+        Assert.Equal(new ReelAudioExcerpt(1, 3), copy.Inputs.Videos[0].AudioExcerpt);
+    }
+
+    [Fact]
+    public void TwoGuardCharactersDoNotClaimTheSameSpeakerBasedOnCopyOrder()
+    {
+        var (library, riley, _, source) = CharacterVoiceTests.Fixture();
+        var silent = new CharacterVoiceSelection { AssetId = riley.Id, CharacterName = "Noxian Guard", Source = CharacterVoiceSource.None };
+        CharacterVoices.Set(source, silent, library);
+        CharacterVoices.Set(source, silent with { AssetId = Guid.NewGuid(), CharacterName = "Second Guard" }, library);
+        var target = new Shot { Dialogue = [new() { Speaker = "GUARD", Text = "Halt." }] };
+        var copy = ReferenceCopies.Into(source, target, library);
+        Assert.Empty(copy.Inputs.Voices);
+        Assert.All(copy.Inputs.CharacterVoices!, c => Assert.Equal(CharacterVoiceSource.None, c.Source));
+    }
+
+    [Fact]
     public void RecordingExcerptsAndExplicitNoneDoNotFollowNewDefaults()
     {
         var (library, character, original, source) = CharacterVoiceTests.Fixture();

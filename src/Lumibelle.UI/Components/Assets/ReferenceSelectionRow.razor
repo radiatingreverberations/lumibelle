@@ -1,7 +1,7 @@
 <li class="reference-selection-row" @attributes="Attributes">
     <div class="reference-summary">
         @Thumbnail
-        <span><strong>@Title</strong>@if (!string.IsNullOrEmpty(Name)) { <small>@Name</small> }<small>@Status</small></span>
+        <span><strong>@Title</strong>@if (!string.IsNullOrEmpty(Name)) { <small>@Name</small> }<small>@Status</small>@if (QuickActions is not null) { <span class="reference-quick-actions">@QuickActions</span> }</span>
     </div>
     <div class="reference-action-buttons" role="group" aria-label="@($"{Label} actions")">
         @Actions
@@ -24,6 +24,7 @@
     [Parameter] public EventCallback Remove { get; set; }
     [Parameter] public RenderFragment? Thumbnail { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? QuickActions { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Attributes { get; set; }
 }

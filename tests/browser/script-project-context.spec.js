@@ -1,0 +1,35 @@
+import { test, expect } from './fixtures.js';
+import { scriptAssist } from './text-assistance-tools.js';
+
+test('selected shot and asset details inform a reviewed script proposal without changing the script on submission', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  const library = await (await request.post(`/fixtures/${id}/images`)).json();
+  await request.post(`/fixtures/${id}/approved`);
+  await request.post(`/fixtures/${id}/production-shot`);
+  const before = (await (await request.get(`/fixtures/${id}`)).json()).script;
+  const shot = (await (await request.get(`/fixtures/${id}/shots`)).json()).shots[0];
+  await page.goto(`/projects/${id}/script`);
+  await scriptAssist(page);
+  await page.locator('#script-scope').selectOption('Document');
+  await page.getByLabel('Instructions', { exact: true }).fill('Reflect the attached shot action and asset descriptions in this script.');
+  await page.getByText('Attach shots or assets (optional)', { exact: true }).click();
+  await page.getByRole('button', { name: 'Choose shots or assets', exact: true }).click();
+  const context = page.locator('.script-project-context');
+  await context.getByRole('checkbox', { name: new RegExp(`1\\. ${shot.title}`) }).check();
+  await context.getByRole('checkbox', { name: library.assets[0].name, exact: true }).check();
+  await context.getByText('Preview attached details · 2', { exact: true }).click();
+  await expect(context.locator('pre')).toContainText(shot.description);
+  await expect(context.locator('pre')).toContainText(library.assets[0].name);
+  await page.getByRole('button', { name: 'Revise', exact: true }).click();
+  const review = page.locator('.script-review-dialog');
+  await expect(review).toBeVisible();
+  await review.getByText('Request details', { exact: true }).click();
+  await expect(review.locator('.submitted-input')).toContainText('SELECTED SHOTS AND ASSETS');
+  await expect(review.locator('.submitted-input')).toContainText(shot.description);
+  const proposed = (await (await request.get(`/fixtures/${id}`)).json()).script;
+  expect(proposed.blocks).toEqual(before.blocks);
+  await review.getByRole('button', { name: 'Apply changes', exact: true }).click();
+  await expect(review).toBeHidden();
+  await expect.poll(async () => (await (await request.get(`/fixtures/${id}`)).json()).script.blocks).not.toEqual(before.blocks);
+  expect((await (await request.get(`/fixtures/${id}/shots`)).json()).shots[0]).toEqual(shot);
+});

@@ -2,8 +2,9 @@
 @inject NavigationManager Navigation
 
 <section class="image-copy-panel" aria-label="Save image to Assets">
-    @if (ShowHeading) { <h3>@(Parent is null ? "Save frame to Assets" : "Save cropped copy")</h3> }
-    @if (Parent is null) { <p class="field-hint">@(FrameDescription ?? $"Frame {FrameIndex + 1} · saved from the take as an independent image.")</p> }
+    @if (ShowHeading) { <div class="take-panel-heading"><h3>@(Parent is null ? "Save frame to Assets" : "Save cropped copy")</h3>@HeaderActions</div> }
+    @if (Parent is null) { <p class="field-hint">@(FrameDescription ?? $"Frame {(_captured?.FrameIndex ?? FrameIndex) + 1} · saved from the take as an independent image.")</p> }
+    @if (_captured?.FrameIndex is { } capturedFrame && capturedFrame != FrameIndex) { <p class="field-hint">Retry keeps frame @(capturedFrame + 1). Choose Change inputs to use the current frame @(FrameIndex + 1).</p> }
     <fieldset disabled="@(_busy || _captured is not null)">
         @if (Parent is not null) { <ImageCropEditor Disabled="@(_busy || _captured is not null)" Url="@SourceUrl" Width="SourceWidth" Height="SourceHeight" CropChanged="c => _crop = c" /> }
         <div class="image-copy-fields">
@@ -41,6 +42,7 @@
     [Parameter] public string SourceUrl { get; set; } = "";
     [Parameter] public string InitialName { get; set; } = "";
     [Parameter] public bool ShowHeading { get; set; } = true;
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter] public string? FrameDescription { get; set; }
     [Parameter] public ReelFrameExport? ReelFrame { get; set; }
     [Parameter] public Guid? InitialAssetId { get; set; }
@@ -49,6 +51,7 @@
     [Parameter] public EventCallback<SavedAssetImage> Saved { get; set; }
     [Parameter] public EventCallback Cancelled { get; set; }
     private string _destination = "new", _assetName = "", _name = "", _notes = "";
+    private string? _previousInitialName;
     private AssetCategory _category = AssetCategory.Reference; private Guid? _look;
     private ElementReference _destinationInput;
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -74,7 +77,17 @@
             if (DestinationAsset?.Looks.Any(l => l.Id == _look && l.Archived) == true) _look = null;
         }
     }
-    private void ChangeInputs() { _captured = null; _error = null; }
+    protected override void OnParametersSet() => UpdateSuggestedNames();
+    private void UpdateSuggestedNames()
+    {
+        if (_captured is not null) return;
+        if (_previousInitialName is { } previous && previous != InitialName) {
+            if (_name == previous) _name = InitialName;
+            if (_assetName == previous) _assetName = InitialName;
+        }
+        _previousInitialName = InitialName;
+    }
+    private void ChangeInputs() { _captured = null; _error = null; UpdateSuggestedNames(); }
     private async Task SaveAsync(bool edit)
     {
         if (_busy || !Valid) return;

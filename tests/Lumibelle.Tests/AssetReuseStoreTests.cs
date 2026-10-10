@@ -190,8 +190,11 @@ public sealed partial class AssetStoreTests
         var saved = await f.Store.SaveAsync(copied.Library with { AssetReuseReceipts = null }, copied.Library.Revision, TestContext.Current.CancellationToken);
         Assert.Single(saved.AssetReuseReceipts!);
     }
-    [Fact]
-    public async Task AssetReuseReelsCopyVideoLosslessArchiveKeyframesAndVoiceDefaultsWithoutOriginalJobs()
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task AssetReuseReelsCopyVideoLosslessArchiveKeyframesAndVoiceDefaultsWithoutOriginalJobs(bool keepArchive, bool keepPicture)
     {
         var f = await AssetReuseFixture(); var library = f.Library; var owner = library.Assets[0];
         byte[] video = [1, 2, 3, 4], sound = [5, 6, 7, 8], segment = [9, 10, 11];
@@ -203,10 +206,13 @@ public sealed partial class AssetStoreTests
         var archive = new ReelFrameArchive(media.Sha256, 64, 48, 48,
             Enumerable.Range(0, 48).Select(i => new ShotFrame(i, $"segment-{i / 24}.webp", segment.Length) { ArchiveFrameIndex = i % 24 }).ToArray(),
             [new("segment-0.webp", segment.Length, Hash(segment)), new("segment-1.webp", segment.Length, Hash(segment))]);
-        foreach (var file in archive.Files) await File.WriteAllBytesAsync(Path.Combine(reelRoot, "lossless", file.FileName), segment, TestContext.Current.CancellationToken);
+        if (keepArchive) foreach (var file in archive.Files) await File.WriteAllBytesAsync(Path.Combine(reelRoot, "lossless", file.FileName), segment, TestContext.Current.CancellationToken);
         await AtomicJsonFile.WriteAsync(Path.Combine(reelRoot, "frame-archive.json"), archive, TestContext.Current.CancellationToken);
         var reel = new AssetReferenceReel { AssetId = owner.Id, Name = "Turn", Media = media, CreatedUtc = DateTimeOffset.UtcNow,
             Keyframes = new() { Frames = [new() { Frame = new(media.Id, AssetReusePolicy.Hash(archive), 12, .5), Notes = "Profile", Crop = new() { Width = .5 } }] } };
+        var pictureName = lumibelle.Services.Production.FileReferenceVideoStore.FrameFileName(reel.Keyframes.Frames[0].Frame);
+        if (keepPicture) await File.WriteAllBytesAsync(Path.Combine(reelRoot, pictureName), Png(64, 48), TestContext.Current.CancellationToken);
+        await AtomicJsonFile.WriteAsync(Path.Combine(reelRoot, "frame-times-v2.json"), new ReelFrameCatalog(media.Sha256, false, Enumerable.Range(0, 48).Select(i => i / 24d).ToArray()), TestContext.Current.CancellationToken);
         var voice = new VoiceReference { AssetId = owner.Id, Name = "Voice", Duration = 4, Start = .5, ExcerptDuration = 2, ContentType = "audio/wav", CreatedUtc = DateTimeOffset.UtcNow };
         voice.FileName = voice.Id.ToString("N") + ".wav";
         var voiceDir = Path.Combine(AssetReuseProject(f.Source.Id), "assets", owner.Id.ToString("D"), "voices"); Directory.CreateDirectory(voiceDir);
@@ -218,11 +224,14 @@ public sealed partial class AssetStoreTests
         var copiedReel = Assert.Single(result.Library.Reels); var copiedVoice = Assert.Single(result.Library.Voices);
         Assert.NotEqual(reel.Id, copiedReel.Id); Assert.NotEqual(media.Id, copiedReel.Media.Id); Assert.Null(copiedReel.Generation);
         Assert.Equal(copiedVoice.Id, result.Library.Assets[0].DefaultVoiceId); Assert.Equal(voice.ExcerptDuration, copiedVoice.ExcerptDuration);
-        Assert.Equal(copiedReel.Media.Id, copiedReel.Keyframes!.Frames[0].Frame.MediaId); Assert.Equal(AssetReusePolicy.Hash(archive), copiedReel.Keyframes.Frames[0].Frame.Source);
+        Assert.Equal(copiedReel.Media.Id, copiedReel.Keyframes!.Frames[0].Frame.MediaId); Assert.Equal(keepArchive || keepPicture ? AssetReusePolicy.Hash(archive) : media.Sha256, copiedReel.Keyframes.Frames[0].Frame.Source);
         Assert.Equal("Profile", copiedReel.Keyframes.Frames[0].Notes); Assert.Equal(.5, copiedReel.Keyframes.Frames[0].Crop!.Width);
         var destination = Path.Combine(AssetReuseProject(f.Target.Id), "reference-videos", copiedReel.Media.Id.ToString("D"));
         Assert.Equal(video, await File.ReadAllBytesAsync(Path.Combine(destination, "video.mp4"), TestContext.Current.CancellationToken));
-        Assert.Equal(segment, await File.ReadAllBytesAsync(Path.Combine(destination, "lossless", archive.Files[0].FileName), TestContext.Current.CancellationToken));
+        if (keepArchive) Assert.Equal(segment, await File.ReadAllBytesAsync(Path.Combine(destination, "lossless", archive.Files[0].FileName), TestContext.Current.CancellationToken));
+        else if (keepPicture) Assert.Equal(Png(64, 48), await File.ReadAllBytesAsync(Path.Combine(destination, pictureName), TestContext.Current.CancellationToken));
+        else Assert.False(File.Exists(Path.Combine(destination, pictureName)));
+        Assert.Equal(AssetReusePolicy.Hash(archive), reel.Keyframes.Frames[0].Frame.Source);
         Assert.Equal(copiedReel.Media, await AtomicJsonFile.ReadAsync<ReferenceVideoMedia>(Path.Combine(destination, "media.json"), TestContext.Current.CancellationToken));
         await using var copiedAudio = await f.Store.OpenVoiceAsync(f.Target.Id, copiedVoice.Id, ct: TestContext.Current.CancellationToken);
         Assert.Equal(sound, await Bytes(copiedAudio!.Content));
