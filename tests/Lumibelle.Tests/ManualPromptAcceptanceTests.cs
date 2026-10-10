@@ -11,15 +11,16 @@ namespace Lumibelle.Tests;
 public sealed partial class ShotTests
 {
     [Theory]
-    [InlineData("duration")]
-    [InlineData("direction")]
-    [InlineData("scene")]
-    public async Task PromptReviewDoesNotRequireGenerationReadiness(string missing)
+    [InlineData("duration", true)]
+    [InlineData("duration", false)]
+    [InlineData("direction", true)]
+    [InlineData("direction", false)]
+    public async Task PromptReviewDoesNotRequireGenerationReadiness(string missing, bool linked)
     {
         var f = Fixture(); var (source, scripts) = ApprovedShot(f.Project.Id);
         if (missing == "duration") source.Duration = null;
         if (missing == "direction") source.Description = "";
-        if (missing == "scene") { source.SceneId = null; source.ApprovedScriptId = null; }
+        if (!linked) { source.SceneId = null; source.ApprovedScriptId = null; source.SceneTitle = ""; source.SourceBlockIds = []; source.SourceExcerpt = ""; }
         await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
         var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
         var jobs = new FileAiJobStore(Path.Combine(_root, "jobs"), _clock);

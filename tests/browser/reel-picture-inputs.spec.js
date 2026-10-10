@@ -16,7 +16,7 @@ for (const narrow of [false, true]) test(`use another reel's keyframes as pictur
   const tools = page.locator('.reel-tools');
   await tools.getByRole('button',{name:'Manage references',exact:true}).click();
   const manager = page.getByRole('dialog',{name:'Reel references',exact:true});
-  await manager.getByRole('button',{name:'Reels',exact:true}).click();
+  await manager.getByRole('combobox',{name:'Reference type',exact:true}).selectOption('Reels');
   await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
   await expect(manager.locator('[data-video-reference-id]')).toHaveCount(1);
   if (narrow) await manager.getByRole('tab',{name:/^Selected references/}).click();
@@ -35,7 +35,7 @@ for (const narrow of [false, true]) test(`use another reel's keyframes as pictur
   const draft = () => library(request,id).then(l=>l.reelDrafts.at(-1));
   expect((await draft()).keyframeReels ?? []).toHaveLength(0);
   await tools.getByRole('button',{name:'Manage references',exact:true}).click();
-  await manager.getByRole('button',{name:'Reels',exact:true}).click();
+  await manager.getByRole('combobox',{name:'Reference type',exact:true}).selectOption('Reels');
   await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
   await expect(manager.locator('[data-video-reference-id]')).toHaveCount(1);
   if (narrow) await manager.getByRole('tab',{name:/^Selected references/}).click();

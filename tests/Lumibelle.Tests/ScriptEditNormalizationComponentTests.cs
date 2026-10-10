@@ -5,6 +5,8 @@ using lumibelle.Components.Script;
 using lumibelle.Models;
 using lumibelle.Services;
 using lumibelle.Services.AI;
+using lumibelle.Services.Assets;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -39,6 +41,8 @@ public sealed class ScriptEditNormalizationComponentTests : BunitContext
         _history = new(new QueuedAssistantHistoryStore(new(files, new()), jobs));
         var settings = new FakeAiSettingsStore { Value = new() { DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "test/model", HasOpenRouterKey = true } };
         var providers = new FakeProviders(); var assets = new FakeAssetStore(_store.Document.ProjectId);
+        Services.AddSingleton<IAssetStore>(assets);
+        Services.AddSingleton<IShotStore>(new FileShotStore(files, TimeProvider.System));
         _queue = new(jobs, settings, [_assistant], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
         Services.AddSingleton(_queue); Services.AddSingleton<IAiJobStore>(jobs); Services.AddSingleton<IAiReviewGate>(new ScriptReviewGate());
         Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, new PromptEnhancer(providers, settings, assets), new GuidanceAssistant(providers, settings, assets)));
