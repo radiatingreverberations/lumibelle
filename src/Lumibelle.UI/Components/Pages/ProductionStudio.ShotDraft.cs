@@ -22,6 +22,7 @@ public partial class ProductionStudio
     private ShotPlanningResult? _shotDraftResult;
     private string _shotDraftRaw = "";
     private ElementReference _shotDraftOriginElement;
+    private Task OpenSingleShotDraft() => _shotDraftAssist?.OpenAsync() ?? Task.CompletedTask;
     // Requests applied to or dismissed from their shot, remembered per project so they stop asking for review.
     private HashSet<Guid> _resolvedShotDrafts = [];
 

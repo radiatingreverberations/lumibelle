@@ -31,6 +31,7 @@
                     <strong>@(!string.IsNullOrWhiteSpace(item.Image.Name) ? item.Image.Name : item.Image.Tags.Count > 0 ? string.Join(", ", item.Image.Tags) : item.Asset.Name)</strong>
                     <small>@(item.Asset.Looks.FirstOrDefault(l => l.Id == item.Image.LookId)?.Name ?? "General") · @item.Asset.Name</small>
                 </span>
+                @if (BrowseOnly) { <span class="picker-image-action">@(Excluded.Contains(reference) ? "Added" : Maximum <= 0 ? "Picture limit reached" : ImageAction ?? "Add image")</span> }
             </button>
             } else if (choice is AssetReferenceChoice.Reel reelChoice) {
                 var reel = reelChoice.Media;
@@ -64,6 +65,7 @@
     [Parameter] public string? OnlyKind { get; set; }
     [Parameter] public int MaximumReels { get; set; } = 3;
     [Parameter] public string? ReelAction { get; set; }
+    [Parameter] public string? ImageAction { get; set; }
     [Parameter] public IReadOnlyList<Guid> ExcludedVideoMedia { get; set; } = [];
     [Parameter] public EventCallback<AssetReferenceChoice> ReferencePicked { get; set; }
     [Parameter] public bool BrowseOnly { get; set; }

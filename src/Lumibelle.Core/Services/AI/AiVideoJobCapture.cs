@@ -57,7 +57,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         shot = shot.Copy(); reviewedGuidance = reviewedGuidance is null ? null : ShotCopy.Of(reviewedGuidance);
         reviewedAppearances = reviewedAppearances is null ? null : ShotCopy.Of(reviewedAppearances);
         var batch = AiBatchDefinition.Create(id, count, seed);
-        H3Policy.Validate(shot, true);
+        H3Policy.Validate(shot, true, requireScene: false);
         var configured = ShotCopy.Of(await settings.LoadAsync(ct));
         var capability = await generator.CheckAsync(configured, ct);
         if (!capability.Ready(shot)) throw new WorkspaceStoreException(capability.Issue(shot));
@@ -69,9 +69,12 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
             throw new WorkspaceStoreException("Project video aspect changed. Refresh the project defaults and review the output dimensions before generating.");
         if (composition is null && (document.Revision != revision || document.Shots.All(s => s.Id != shot.Id || H3Policy.Fingerprint(ShotVideoDefaults.Capture(s, project)) != H3Policy.Fingerprint(shot))))
             throw new WorkspaceConflictException();
-        var approved = await scripts.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct);
-        if (approved is null || !ScriptStructure.Sections(approved.Blocks).Any(s => s.Kind == ScriptBlockKind.Scene && s.Id == shot.SceneId))
-            throw new WorkspaceStoreException("This shot needs an available script scene.");
+        if (shot.ApprovedScriptId is not null || shot.SceneId is not null)
+        {
+            var approved = await scripts.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct);
+            if (approved is null || !ScriptStructure.Sections(approved.Blocks).Any(s => s.Kind == ScriptBlockKind.Scene && s.Id == shot.SceneId))
+                throw new WorkspaceStoreException("This shot's linked script scene is unavailable.");
+        }
         var library = await assets.LoadAsync(projectId, ct); if (composition is null) ShotLooks.Validate(shot, library);
         ProductionVideoContext? composed = null;
         if (composition is not null)
@@ -196,7 +199,7 @@ public static class AiVideoJobPolicy
         if (s.RegenerationSource is { } origin && (origin.TakeId == Guid.Empty || origin.Seed < 0 || origin.Width < 1 || origin.Height < 1 || s.Reel is not null || r.Refinement is not null))
             throw new WorkspaceStoreException("Invalid source take for regeneration.");
         if ((s.Reel is not null) != (r.Version == 3) || s.Reel is not null && r.Refinement is not null) throw new WorkspaceStoreException("Invalid reel request version.");
-        H3Policy.Validate(s.Shot, true, requireScene: s.Reel is null, motionContext: s.Motion is not null); H3Policy.ValidateSettings(s.Settings);
+        H3Policy.Validate(s.Shot, true, requireScene: false, motionContext: s.Motion is not null); H3Policy.ValidateSettings(s.Settings);
         if (s.Motion is { } capturedMotion) H3Motion.Validate(capturedMotion, s);
         if (r.Extension is { } extension) {
             if (s.Motion is null && r.Refinement is null || extension.Source is null || extension.Source.Snapshot.ProjectId != s.ProjectId || extension.SourceFiles is not { Count: > 0 } ||

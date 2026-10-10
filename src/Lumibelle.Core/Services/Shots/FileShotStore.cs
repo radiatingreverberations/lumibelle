@@ -402,7 +402,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             run.Candidates.Select(c => c.Number).Distinct().Count() != run.Candidates.Count || run.Candidates.Select(c => c.TakeId).Distinct().Count() != run.Candidates.Count ||
             run.Inputs.Any(i => i is null || string.IsNullOrWhiteSpace(i.FileName) || i.FileName != Path.GetFileName(i.FileName) || i.FileName.Contains('\\') || i.FileName.Contains('/') || Path.GetExtension(i.FileName) != lumibelle.Services.AI.AiVideoJobPolicy.Extension(i.EffectiveKind)))
             throw new WorkspaceStoreException("Invalid video run record. It has not been submitted.");
-        H3Policy.Validate(run.Snapshot.Shot, true, motionContext: run.Snapshot.Motion is not null); H3Policy.ValidateSettings(run.Snapshot.Settings);
+        H3Policy.Validate(run.Snapshot.Shot, true, requireScene: false, motionContext: run.Snapshot.Motion is not null); H3Policy.ValidateSettings(run.Snapshot.Settings);
         H3PreviewUpscaling.Validate(run.Snapshot);
         if (run.Snapshot.Appearances is null || run.Snapshot.Appearances.Any(a => a is null || a.Start is null) ||
             !run.Snapshot.Shot.Characters.Where(c => c.Appearance is not null).Select(c => c.Id).SequenceEqual(run.Snapshot.Appearances.Select(a => a.CharacterId)))

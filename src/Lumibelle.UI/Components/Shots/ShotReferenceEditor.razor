@@ -10,7 +10,8 @@
         Maximum="@(ReelTarget is not null ? 0 : _replacing is not null ? 1 : 9 - ResolvedReferences.For(_draft).Pictures.Count)" Excluded="Assigned" ImagePicked="Add"
         MaximumReels="@(_replacing is not null ? 0 : ReelTarget is not null ? 1 : 3 - _draft.Videos.Count)" ExcludedVideoMedia="@_draft.Videos.Select(v => v.Media.Id).ToArray()" ReferencePicked="PickReference"
         ReelAction="@(ReelTarget is { } target ? $"Replace Video {_draft.Videos.FindIndex(v => v.Id == target) + 1}" : null)"
-        SelectedCount="@(_draft.Images.Count + (AllowReels ? _draft.Videos.Count : 0))" @bind-SelectedTab="_selectedTab">
+        ImageAction="@(_replacing is { } imageTarget ? $"Replace Picture {_draft.Images.FindIndex(v => v.Id == imageTarget) + 1}" : null)"
+        SelectedCount="@(ResolvedReferences.For(_draft).Pictures.Count + (AllowReels ? _draft.Videos.Count : 0))" @bind-SelectedTab="_selectedTab">
         <Toolbar>
             @if (AssistPicking && AllowReels && AllowInference && !ReelAuthoring)
             {
@@ -21,8 +22,8 @@
             @if (AllowReels && (CopySources.Count > 0 || PreviousCopySource is not null))
             {
                 <div class="reference-copy-toolbar">
-                    <label>Copy references from<select @key="_copyVersion" aria-label="Copy references from" @onchange="CopyFromChanged" disabled="@_busy">
-                        <option value="">Choose a shot to replace these references…</option>
+                    <label><span class="sr-only">Copy references from</span><select aria-label="Copy references from" @bind="_copySource" disabled="@_busy">
+                        <option value="">Copy references from…</option>
                         @if (PreviousCopySource is not null) { <option value="previous">Previous shot · @CopyLabel(PreviousCopySource)</option> }
                         @if (CopySourceNumber is null) { @foreach (var source in OtherCopySources) { <option value="@source.Id">@source.Title</option> } }
                         else
@@ -34,35 +35,53 @@
                             { <optgroup label="Later shots">@foreach (var source in later) { <option value="@source.Id">@CopyLabel(source)</option> }</optgroup> }
                         }
                     </select></label>
+                    <MudButton Variant="Variant.Outlined" aria-label="Copy references" Disabled="@(_busy || string.IsNullOrEmpty(_copySource))" OnClick="() => CopyFromChanged(new ChangeEventArgs { Value = _copySource })">Copy</MudButton>
+                    @if (!string.IsNullOrEmpty(_copySource)) { <small>Replaces this draft's references. Apply changes to save.</small> }
                 </div>
             }
         </Toolbar>
         <BrowserNotice>
-            @if (_replacing is not null) { <p role="status">Choose the replacement image.<button @onclick="() => _replacing = null">Cancel replacement</button></p> }
-            @if (_replacingVideo is not null) { <p role="status">Choose the replacement reel.<button @onclick="() => _replacingVideo = null">Cancel replacement</button></p> }
+            @if (_replacing is { } replacing && _draft.Images.FirstOrDefault(i => i.Id == replacing) is { } priorImage) { <p class="reference-browser-notice" role="status">Replacing Picture @(_draft.Images.IndexOf(priorImage) + 1): @priorImage.Name. Choose an image below.<button @onclick="() => _replacing = null">Cancel replacement</button></p> }
+            else if (ReelTarget is not null) { <p class="reference-browser-notice" role="status">Choose the replacement reel below.<button @onclick="() => { _replacingVideo = null; _swapVideo = null; }">Cancel replacement</button></p> }
+            else if (ResolvedReferences.For(_draft).Pictures.Count >= 9) { <p class="reference-browser-notice" role="status">All 9 picture slots are used. Replace an image, remove a picture, or reduce a reel's keyframes to add another.</p> }
+            else { <p class="reference-browser-hint">Add images or reels below, then review and Apply changes.</p> }
+            @if (_selectionNotice is not null) { <p class="reference-selection-notice" role="status">@_selectionNotice</p> }
         </BrowserNotice>
+        <SelectionToolbar>
+            <div class="reference-section-links" role="group" aria-label="Jump to selected references">
+                <button type="button" @onclick="async () => await _imagesHeading.FocusAsync()">Pictures · @ResolvedReferences.For(_draft).Pictures.Count/9</button>
+                @if (AllowReels) {
+                    <button type="button" @onclick="async () => await _reelsHeading.FocusAsync()">Reels · @_draft.Videos.Count/3</button>
+                    @if (!ReelAuthoring) { <button type="button" @onclick="async () => await _voicesHeading.FocusAsync()">Voices</button> }
+                }
+            </div>
+        </SelectionToolbar>
         <Selection>
-            <h3>@(AllowReels ? "Images" : "Selected references") · @_draft.Images.Count/9</h3>
+            <h3 @ref="_imagesHeading" tabindex="-1">Pictures · @ResolvedReferences.For(_draft).Pictures.Count/9</h3>
+            <p class="reference-browser-hint">@PictureBreakdown. Picture numbers follow this order.</p>
             @if (_draft.Images.Count == 0 && _draft.ContinuityFrame is null) { <p>Choose images from the library. Their order becomes the Picture numbering in your prompt.</p> }
             <ol class="manual-reference-list">
                 @foreach (var binding in _draft.Images)
                 {
                     var number = _draft.Images.IndexOf(binding) + 1;
                     <ReferenceSelectionRow @key="binding.Id" data-reference-id="@binding.Id" Label="@($"Picture {number}")"
-                        Title="@(AllowReels ? $"<Picture {number}>" : $"Picture {number}")" Name="@binding.Name" Status="@($"{Role(binding)} · {(binding.Crop is null ? "Full image" : "Cropped")}")"
+                        Title="@binding.Name" Name="@($"Picture {number}")" Status="@($"{Role(binding)} · {(binding.Crop is null ? "Full image" : "Cropped")}")"
                         Disabled="_busy" First="@(number == 1)" Last="@(number == _draft.Images.Count)" MoveUp="() => Move(binding, -1)" MoveDown="() => Move(binding, 1)" Remove="() => Remove(binding)">
                         <Thumbnail><CropThumbnail Url="@Url(binding)" Width="@(Image(binding)?.Width ?? 0)" Height="@(Image(binding)?.Height ?? 0)" Crop="binding.Crop" Label="@($"Picture {number}")" Failed="() => _missing.Add(binding.Id)" /></Thumbnail>
                         <Actions>
                             <button type="button" class="reference-crop-button @(binding.Crop is not null ? "is-active" : "")" aria-label="@($"Picture {number}: Crop image")" title="Crop image" aria-haspopup="dialog" disabled="@(_busy || Image(binding) is null || _missing.Contains(binding.Id))" @onclick="() => _cropTarget = binding.Id"><MudIcon Icon="@Icons.Material.Outlined.Crop" Size="Size.Small" aria-hidden="true" /></button>
-                            <button type="button" class="reference-settings-button @(_expanded == binding.Id ? "is-active" : "")" aria-label="@($"Picture {number}: Reference settings")" title="Reference use and guidance" aria-expanded="@(_expanded == binding.Id ? "true" : "false")" disabled="@_busy" @onclick="() => _expanded = _expanded == binding.Id ? null : binding.Id"><MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small" aria-hidden="true" /></button>
                         </Actions>
+                        <QuickActions>
+                            <button type="button" aria-label="@($"Picture {number}: Replace image")" disabled="@_busy" @onclick="() => StartImageReplacement(binding)">Replace</button>
+                            <button type="button" class="reference-settings-button @(_expanded == binding.Id ? "is-active" : "")" aria-label="@($"Picture {number}: Reference settings")" aria-expanded="@(_expanded == binding.Id ? "true" : "false")" disabled="@_busy" @onclick="() => _expanded = _expanded == binding.Id ? null : binding.Id">Settings</button>
+                        </QuickActions>
                         <ChildContent>
                         @if (Issue(binding) is { } issue) { <p class="reference-issue" role="status">@issue</p> }
                         @if (RestoreTrashedImage is not null && Trashed(binding) is { } trashed) { <p class="reference-trash-restore">In Trash · @trashed.Remaining(Now) <MudButton OnClick="() => Restore(binding, trashed)" Disabled="_busy" Variant="Variant.Outlined" Size="Size.Small">Restore image</MudButton></p> }
                         @if (_expanded == binding.Id)
                         {
                             <fieldset class="reference-fields" disabled="@_busy">
-                                <legend class="sr-only">Edit Picture @number</legend><button @onclick="() => { _replacing = binding.Id; _replacingVideo = null; _selectedTab = false; }">Replace image</button>
+                                <legend class="sr-only">Edit Picture @number</legend>
                                 @if (AllowInference) { <label>AI use hint<select aria-label="AI use hint" @bind="binding.AiUseHint">@foreach (var hint in new[] { "Auto", "Identity", "Clothing", "Setting", "Prop", "Style", "Framing", "First frame", "Last frame" }) { <option>@hint</option> }</select></label><p class="field-hint">Guides the next AI composition. Your direction and prompt take precedence.</p> }
                                 else {
                                 <ReferenceUseSelect Image="binding" Shot="_draft" Changed="RoleChanged" AllowInference="AllowInference" />
@@ -114,7 +133,7 @@
                 else if (full) { <p class="field-hint">This shot already has 9 pictures.</p> }
             }
             @if (AllowReels) {
-                <h3 class="reel-selection-heading">Reels · @_draft.Videos.Count/3</h3>
+                <h3 @ref="_reelsHeading" tabindex="-1" class="reel-selection-heading">Reels · @_draft.Videos.Count/3</h3>
                 @if (_draft.Videos.Count == 0) { <p>Choose an asset reel. Its guidance will be copied into this @ContextName.</p> }
                 <ol class="manual-reference-list video-reference-list">
                 @foreach (var v in _draft.Videos) {
@@ -124,10 +143,12 @@
                         Disabled="_busy" First="@(index == 0)" Last="@(index == _draft.Videos.Count - 1)" MoveUp="() => MoveVideo(index, -1)" MoveDown="() => MoveVideo(index, 1)" Remove="() => RemoveVideo(v)">
                         <Thumbnail><ReferenceVideoThumbnail ProjectId="Library.ProjectId" MediaId="v.Media.Id" /></Thumbnail>
                         <Actions>
-                            <button type="button" class="reference-settings-button @(_expanded == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Reference settings")" title="Reel reference settings" aria-expanded="@(_expanded == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => _expanded = _expanded == v.Id ? null : v.Id"><MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small" aria-hidden="true" /></button>
                             @if (v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.RefMod) { <button type="button" aria-label="@($"Video {index + 1}: Manage keyframes")" title="Manage keyframes and crops" aria-haspopup="dialog" disabled="@_busy" @onclick="() => _keyframeBinding = v"><MudIcon Icon="@Icons.Material.Outlined.Crop" Size="Size.Small" aria-hidden="true" /></button> }
-                            <button type="button" class="@(_swapVideo == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Replace reel")" title="Replace with another reel of this asset, such as a higher-resolution version" aria-expanded="@(_swapVideo == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => ToggleSwap(v)"><MudIcon Icon="@Icons.Material.Outlined.SwapHoriz" Size="Size.Small" aria-hidden="true" /></button>
                         </Actions>
+                        <QuickActions>
+                            <button type="button" class="@(_swapVideo == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Replace reel")" aria-expanded="@(_swapVideo == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => ToggleSwap(v)">Replace</button>
+                            <button type="button" class="reference-settings-button @(_expanded == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Reference settings")" aria-expanded="@(_expanded == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => _expanded = _expanded == v.Id ? null : v.Id">Settings</button>
+                        </QuickActions>
                         <ChildContent>
                         @if (_swaps.TryGetValue(v.Id, out var swap) && LibraryReel(swap.From) is { } swappedFrom && LibraryReel(swap.To) is { } swappedTo) {
                             <div class="reel-swap-result">
@@ -200,7 +221,7 @@
                     </ReferenceSelectionRow>
                 }
                 </ol>
-                @if (!ReelAuthoring) { <CharacterVoiceEditor Shot="_draft" Library="Library" Disabled="_busy" Changed="() => { _reelVoiceNotice = null; StateHasChanged(); }" /> }
+                @if (!ReelAuthoring) { <h3 @ref="_voicesHeading" tabindex="-1" class="reel-selection-heading">Voices</h3><CharacterVoiceEditor Shot="_draft" Library="Library" Disabled="_busy" Changed="() => { _reelVoiceNotice = null; StateHasChanged(); }" /> }
             }
         </Selection>
         <Footer>

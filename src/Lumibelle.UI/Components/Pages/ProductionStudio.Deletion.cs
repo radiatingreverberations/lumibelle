@@ -8,13 +8,15 @@ namespace lumibelle.Components.Pages;
 public partial class ProductionStudio
 {
     private ShotDocument? _deleteSnapshot;
+    private Guid? _singleDeleteShotId;
+    private Shot? SingleDeleteShot => _deleteSnapshot?.Shots.FirstOrDefault(s => s.Id == _singleDeleteShotId);
     private HashSet<Guid> _deleteShotIds = [];
     private bool _deleteShotsOpen, _deletingShots, _clearProductionSelections, _focusAfterShotDeletion;
     private string? _deleteShotsError;
     private long _deleteDraftVersion;
     private ElementReference _bulkDeleteButton, _addShotButton;
     private static string Counted(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
-    private DialogOptions DeleteShotsOptions => new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_deletingShots };
+    private DialogOptions DeleteShotsOptions => new() { MaxWidth = _singleDeleteShotId is null ? MaxWidth.Large : MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_deletingShots };
     private int DeleteTakeCount => _deleteSnapshot?.Takes.Count(t => _deleteShotIds.Contains(t.ShotId)) ?? 0;
     private int DeleteProductionCount => _deleteSnapshot?.Shots.Count(s => _deleteShotIds.Contains(s.Id) && s.SelectedTakeId is not null) ?? 0;
     private string? DeleteActivityIssue => AiJobs.View.Jobs.Any(j => j.Kind is (AiJobKind.Video or AiJobKind.PromptComposition) && j.Target.ProjectId == Id && j.Target.ShotId is { } shot && _deleteShotIds.Contains(shot) &&
@@ -35,6 +37,7 @@ public partial class ProductionStudio
             if (!SameBaseline(latest)) throw new WorkspaceConflictException();
             _doc = latest; Baseline(latest); _deleteSnapshot = latest.Copy(); _deleteDraftVersion = _version;
             _deleteShotIds = single is { } id && latest.Shots.Any(s => s.Id == id) ? [id] : [];
+            _singleDeleteShotId = single;
             _clearProductionSelections = false; _deleteShotsError = null; _deleteShotsOpen = true;
         }
         catch (Exception e) { _error = e.Message; }

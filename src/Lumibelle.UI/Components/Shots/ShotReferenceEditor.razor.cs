@@ -56,11 +56,25 @@ public partial class ShotReferenceEditor
     private bool _selectedTab, _busy, _focusGuidance, _focusCustomize;
     private string? _error;
     private readonly HashSet<Guid> _missing = [];
-    private ElementReference _guidanceInput, _customizeButton;
+    private ElementReference _guidanceInput, _customizeButton, _imagesHeading, _reelsHeading, _voicesHeading;
+    private string? _selectionNotice;
+    private string _copySource = "";
+    private string PictureBreakdown {
+        get {
+            var parts = new List<string> { $"{_draft.Images.Count} library images" };
+            if (_draft.ContinuityFrame is not null) parts.Add("1 continuity frame");
+            var frames = ResolvedReferences.For(_draft).Pictures.Count - _draft.Images.Count - (_draft.ContinuityFrame is null ? 0 : 1);
+            if (frames > 0) parts.Add($"{frames} reel keyframes");
+            return string.Join(" · ", parts);
+        }
+    }
+    private void StartImageReplacement(ShotImageBinding binding)
+    {
+        _replacing = binding.Id; _replacingVideo = _swapVideo = null; _selectedTab = false; _selectionNotice = null;
+    }
     protected override void OnInitialized() { _draft = Shot.Copy(); _originalVoiceOwners = CharacterVoices.Owners(Shot, Library).ToHashSet(); ShotReferences.RetainCharacters(_draft); _expanded = Expanded; _selectedTab = Expanded is not null; }
     // What a copy did, line by line; warnings ask for a decision before applying.
     private IReadOnlyList<(string Text, bool Warning)>? _copyNotice;
-    private int _copyVersion;
     private void CopyFromChanged(ChangeEventArgs e)
     {
         var value = e.Value?.ToString();
@@ -90,7 +104,8 @@ public partial class ShotReferenceEditor
                 .. (copy.Warnings.Count == 0 ? ["References copied into the draft. Apply changes to keep them."] : Array.Empty<string>()).Select(n => (n, false)),
                 .. (copy.Notes ?? []).Select(n => (n, false)),
                 .. (continuityNotice is null ? Array.Empty<string>() : [continuityNotice]).Select(n => (n, false))];
-            _copyVersion++; // Reset the picker so the same source can be copied again.
+            _copySource = ""; // Reset the picker so the same source can be copied again.
+            _selectionNotice = null;
         }
         catch (WorkspaceStoreException error) { _error = error.Message; }
     }
@@ -122,8 +137,9 @@ public partial class ShotReferenceEditor
         var asset = Library.Assets.First(a => a.Id == reference.AssetId); var image = asset.Images.First(i => i.Id == reference.ImageId);
         var binding = ReferenceSetups.Bind(asset, image, _draft);
         if (AllowInference) { binding.RepresentsId = null; binding.LookId = null; binding.InferUsage = true; binding.Use = null; binding.Purpose = null; binding.Role = "Let AI decide"; }
-        if (_replacing is { } replace && _draft.Images.FirstOrDefault(b => b.Id == replace) is { } prior) { binding.Id = prior.Id; binding.AiUseHint = prior.AiUseHint; _draft.Images[_draft.Images.IndexOf(prior)] = binding; _replacing = null; }
-        else _draft.Images.Add(binding); _expanded = binding.Id; EnsureVoice(asset);
+        if (_replacing is { } replace && _draft.Images.FirstOrDefault(b => b.Id == replace) is { } prior) { binding.Id = prior.Id; binding.AiUseHint = prior.AiUseHint; _draft.Images[_draft.Images.IndexOf(prior)] = binding; _replacing = null; _selectionNotice = $"Replaced Picture {_draft.Images.IndexOf(binding) + 1} with {binding.Name}. Apply changes to save."; }
+        else { _draft.Images.Add(binding); _selectionNotice = $"Added {binding.Name} as Picture {_draft.Images.Count}. Apply changes to save."; }
+        _expanded = binding.Id; EnsureVoice(asset);
     }
     private void Remove(ShotImageBinding b) { if (_replacing == b.Id) _replacing = null; _draft.Images.Remove(b); if (_expanded == b.Id) _expanded = null; }
     private void Move(ShotImageBinding b, int by) { var i = _draft.Images.IndexOf(b); if (i + by < 0 || i + by >= _draft.Images.Count) return; _draft.Images.RemoveAt(i); _draft.Images.Insert(i + by, b); }

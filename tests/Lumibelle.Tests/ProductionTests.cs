@@ -34,10 +34,13 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => store.SaveAsync(f.Project.Id, c, c.Version, _ct));
     }
 
-    [Fact]
-    public async Task ProductionCapturesAcceptedPromptAndRequiresReviewAfterSourceChanges()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ProductionCapturesAcceptedPromptAndRequiresReviewAfterSourceChanges(bool linked)
     {
         var f = Fixture(); var (source, scripts) = ApprovedShot(f.Project.Id);
+        if (!linked) { source.ApprovedScriptId = null; source.SceneId = null; source.SceneTitle = ""; source.SourceBlockIds = []; source.SourceExcerpt = ""; }
         var doc = await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
         var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
         var jobs = new FileAiJobStore(Path.Combine(_root, "jobs"), _clock);

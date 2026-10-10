@@ -84,6 +84,7 @@ public partial class ScriptAssistantPanel
     private string RunStatus(AssistantRun run) => run.Applied || Document.AppliedProposalIds.Contains(run.Id) ? "Applied" : run.Rejected ? "Rejected" : run.Status == AssistantRunStatus.Completed && run.Error is not null ? "Invalid response" :
         run.Status == AssistantRunStatus.Running ? Jobs.View.Jobs.FirstOrDefault(j => j.Id == run.JobId)?.State == AiJobState.Waiting ? "Queued" : "Working" : run.Status.ToString();
     private string _instructions = "";
+    private string? _projectContext;
     private readonly HashSet<Guid> _attachedDiscussion = [];
     private string? _requestDetails;
     private IReadOnlyList<ConversationMessage> AttachedConversation => ScriptAssistant.Conversation(_runs.Where(r => _attachedDiscussion.Contains(r.Id)));
@@ -160,7 +161,7 @@ public partial class ScriptAssistantPanel
             ScriptTarget target;
             try { target = !WholeDocumentOperation && _target is not null ? _target.Capture(Document) : ScriptStructure.Capture(Document, ScriptScope.Document, null); }
             catch (WorkspaceStoreException) { target = new(ScriptScope.Document, "Choose a target", []); }
-            return ScriptAssistant.EstimateInputTokens(new(new AssistantRun { Instructions = _instructions, Operation = Operation, EditFormat = Operation == WritingOperation.Revise ? 1 : 0, Target = target }, Document, AttachedConversation));
+            return ScriptAssistant.EstimateInputTokens(new(new AssistantRun { Instructions = _instructions, Operation = Operation, EditFormat = Operation == WritingOperation.Revise ? 1 : 0, Target = target }, Document, AttachedConversation) { ProjectContext = _projectContext });
         }
     }
     protected override async Task OnInitializedAsync()
@@ -179,7 +180,7 @@ public partial class ScriptAssistantPanel
         try { if (!await _assist.PrepareSubmitAsync()) return; }
         finally { _modelPreparing = false; }
         _submitting = _generating = true; await CloseReview();
-        var model = _model!; var instructions = _instructions; var conversation = AttachedConversation.ToArray(); var followsDefault = _followsDefault;
+        var model = _model!; var instructions = _instructions; var conversation = AttachedConversation.ToArray(); var followsDefault = _followsDefault; var projectContext = _projectContext;
         var target = operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
         _error = null;
         _progress = new(GenerationPhase.Saving, "Saving the script…");
@@ -192,7 +193,7 @@ public partial class ScriptAssistantPanel
             var run = new AssistantRun { SessionId = Session.Id, Operation = operation, Target = context.Target, SourceRevision = context.Document.Revision,
                 SourceFingerprint = ScriptStructure.ContextFingerprint(context.Document), EditFormat = operation == WritingOperation.Revise ? 1 : 0, Instructions = instructions, Backend = model.Backend, Model = model.Model };
             var tab = await Reviews.TabIdAsync();
-            _pendingSubmission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model), followsDefault, _lifetime.Token);
+            _pendingSubmission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model) { ProjectContext = projectContext }, followsDefault, _lifetime.Token);
             _pendingSubmission = _assist.Attribute(_pendingSubmission);
             _originJobId = _restoredJobId = run.Id;
             await EnqueuePendingAsync();

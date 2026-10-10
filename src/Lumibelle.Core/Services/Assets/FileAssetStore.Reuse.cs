@@ -60,6 +60,7 @@ public sealed partial class FileAssetStore : IAssetReuseStore
                                 throw new WorkspaceStoreException("The shared snapshot changed. Refresh the shared library.");
                         }
                         var imported = AssetReusePolicy.Import(package.Content, latest, command, clock.GetUtcNow());
+                        await PrepareCopiedReelFramesAsync(package, contentRoot, command, imported.Library, ct);
                         // All files are verified and installed before the one visible metadata publication.
                         // On interrupted publication, unreferenced files are harmless and a retry verifies them.
                         var installed = await InstallReuseFilesAsync(package, contentRoot, destination, command, ct);

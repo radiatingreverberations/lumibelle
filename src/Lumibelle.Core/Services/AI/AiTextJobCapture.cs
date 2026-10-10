@@ -32,7 +32,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
 
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
         var library = await assets.LoadAsync(projectId, ct); var effective = ShotVideoDefaults.Capture(c.Shot, project);
-        H3Policy.Validate(effective, true);
+        H3Policy.Validate(effective, true, requireScene: false);
         if (effective.Videos.Count > 0) await (referenceVideos ?? throw new WorkspaceStoreException("Reference video storage is unavailable.")).ValidateAsync(projectId, effective.Videos, ct);
         foreach (var binding in effective.Images) if (lumibelle.Services.Production.ProductionPolicy.MediaIssue(binding, library) is { } issue) throw new WorkspaceStoreException(issue);
         if ((ResolvedReferences.For(effective).Pictures.Count > 0 || ReelRefMods.Uses(effective) || effective.StartFrame is not null) && !TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
@@ -101,8 +101,15 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
     {
-        var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
-        var scene = ScriptStructure.Sections(approved.Blocks).FirstOrDefault(s => s.Id == shot.SceneId) ?? throw new WorkspaceStoreException("The script scene is unavailable.");
+        var sceneText = "";
+        // Standalone shots have no script source. A linked shot still reports a broken
+        // source instead of silently discarding context the author expected to use.
+        if (shot.ApprovedScriptId is not null || shot.SceneId is not null)
+        {
+            var approved = await scripts!.LoadSourceAsync(projectId, shot.ApprovedScriptId ?? Guid.Empty, ct) ?? throw new WorkspaceStoreException("The captured source is unavailable.");
+            var scene = ScriptStructure.Sections(approved.Blocks).FirstOrDefault(s => s.Id == shot.SceneId) ?? throw new WorkspaceStoreException("The script scene is unavailable.");
+            sceneText = ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count));
+        }
         var index = source.Shots.FindIndex(s => s.Id == shot.Id);
 
         string NearbyShotSummary(Shot neighbor, string relation)
@@ -124,7 +131,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
         if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
         if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
-        return (ScriptStructure.Markdown(approved.Blocks.Skip(scene.Start).Take(scene.Count)), nearbyShots);
+        return (sceneText, nearbyShots);
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)
     {

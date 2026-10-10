@@ -34,7 +34,8 @@ public sealed partial class FileAssetStore
             var prefix = "reels/" + reel.Media.Id.ToString("D") + "/";
             await Add(ReusePath(root, "video.mp4"), prefix + "video.mp4", ReferenceVideos.MaximumBytes, reel.Media.Sha256, reel.Media.Bytes);
             var archivePath = ReusePath(root, "frame-archive.json");
-            string? archiveIdentity = null, leftOut = null;
+            string? archiveIdentity = null;
+            var omittedSegments = false;
             if (File.Exists(archivePath))
             {
                 var archive = await AtomicJsonFile.ReadAsync<ReelFrameArchive>(archivePath, ct)
@@ -44,28 +45,40 @@ public sealed partial class FileAssetStore
                     throw new WorkspaceStoreException("The reel's lossless frames do not match its video.");
                 if (archive.Files.Any(f => f.FileName != Path.GetFileName(f.FileName) || f.FileName.Contains('\\')))
                     throw new WorkspaceStoreException("The reel archive contains an invalid segment name.");
-                // A compact project package keeps only the index. Copy the reel without it.
-                if (archive.Files.Any(f => !File.Exists(ReusePath(root, "lossless/" + f.FileName)))) leftOut = AssetReusePolicy.Hash(archive);
-                else
+                // Selected lossless pictures remain valid after the archive is compacted.
+                // Preserve the index and exact cached PNGs, never substitute MP4 frames.
+                archiveIdentity = AssetReusePolicy.Hash(archive);
+                await Add(archivePath, prefix + "frame-archive.json", 4 * 1024 * 1024);
+                omittedSegments = archive.Files.Any(f => !File.Exists(ReusePath(root, "lossless/" + f.FileName)));
+                if (!omittedSegments)
                 {
-                    archiveIdentity = AssetReusePolicy.Hash(archive);
-                    await Add(archivePath, prefix + "frame-archive.json", 4 * 1024 * 1024);
                     foreach (var segment in archive.Files)
                         await Add(ReusePath(root, "lossless/" + segment.FileName), prefix + "lossless/" + segment.FileName,
                             AssetReusePolicy.MaximumPackageBytes, segment.Sha256, segment.Bytes);
                 }
             }
             var times = ReusePath(root, "frame-times-v2.json");
-            if (File.Exists(times)) await Add(times, prefix + "frame-times-v2.json", 4 * 1024 * 1024);
+            var needsVideoFrames = false;
             foreach (var view in content.Reels.Where(r => r.Media.Id == reel.Media.Id)) {
                 if (view.Media != reel.Media) throw new WorkspaceStoreException("Two reels disagree about their shared media.");
                 if (view.Keyframes is null) continue;
                 ReferenceVideos.ValidateKeyframes(view.Media, view.Keyframes);
-                if (leftOut is not null && view.Keyframes.Frames.Any(f => f.Frame.Source == leftOut))
-                    throw new WorkspaceStoreException($"“{view.Name}” has keyframes from lossless frames that are not in this project. Choose its keyframes again from the video before copying it.");
                 if (view.Keyframes.Frames.Any(f => f.Frame.Source != reel.Media.Sha256 && f.Frame.Source != archiveIdentity))
                     throw new WorkspaceStoreException("A selected keyframe's source archive is missing or changed.");
+                if (omittedSegments)
+                    foreach (var frame in view.Keyframes.Frames.Select(f => f.Frame).Where(f => f.Source == archiveIdentity).Distinct())
+                    {
+                        var fileName = FileReferenceVideoStore.FrameFileName(frame);
+                        var picture = ReusePath(root, fileName);
+                        if (File.Exists(picture)) await Add(picture, prefix + fileName, MaximumImageBytes);
+                        else needsVideoFrames = true;
+                    }
             }
+            if (needsVideoFrames && referenceVideos is not null)
+                await referenceVideos.FrameCatalogAsync(content.Source.ProjectId, reel.Media, settings is null ? new() : (await settings.LoadAsync(ct)).H3, ct);
+            if (File.Exists(times)) await Add(times, prefix + "frame-times-v2.json", 4 * 1024 * 1024);
+            if (needsVideoFrames && !File.Exists(times))
+                throw new WorkspaceStoreException("The reel needs a video frame index before copying. Open its keyframe editor, then retry the copy.");
         }
         var package = new AssetReusePackage(1, id, name.Trim(), clock.GetUtcNow(), AssetReusePolicy.Hash(content), content, entries.Values.ToArray());
         ValidateReusePackage(package);
@@ -96,13 +109,14 @@ public sealed partial class FileAssetStore
             content.Source.Kind == AssetReuseKind.Voice && content.Voices.SingleOrDefault()?.Id != content.Source.MediaId))
             throw new WorkspaceStoreException("The shared selection contains unexpected media.");
         var known = content.Asset.Images.Select(ReuseImagePath).Concat(content.Voices.Select(ReuseVoicePath)).ToHashSet(StringComparer.Ordinal);
+        var pictures = content.Reels.SelectMany(r => (r.Keyframes?.Frames ?? []).Select(f => $"reels/{r.Media.Id:D}/{FileReferenceVideoStore.FrameFileName(f.Frame)}")).ToHashSet(StringComparer.Ordinal);
         var prefixes = content.Reels.Select(r => "reels/" + r.Media.Id.ToString("D") + "/").Distinct().ToArray();
         foreach (var prefix in prefixes) known.Add(prefix + "video.mp4");
         long total = 0;
         foreach (var entry in package.Files)
         {
             if (entry is null || !ReuseRelativePath(entry.Path) || entry.Bytes <= 0 || entry.Bytes > AssetReusePolicy.MaximumPackageBytes || !AssetReusePolicy.IsHash(entry.Sha256) ||
-                !known.Contains(entry.Path) && !prefixes.Any(p => entry.Path == p + "frame-archive.json" || entry.Path == p + "frame-times-v2.json" ||
+                !known.Contains(entry.Path) && !pictures.Contains(entry.Path) && !prefixes.Any(p => entry.Path == p + "frame-archive.json" || entry.Path == p + "frame-times-v2.json" ||
                     entry.Path.StartsWith(p + "lossless/", StringComparison.Ordinal) && !entry.Path[(p.Length + 9)..].Contains('/')))
                 throw new WorkspaceStoreException("The asset package contains an invalid media file.");
             total = checked(total + entry.Bytes);
@@ -191,17 +205,61 @@ public sealed partial class FileAssetStore
                     archive.Frames.Any(f => f is null || !archive.Files.Any(s => s.FileName == f.FileName)) ||
                     !archive.Frames.Select(f => f.Index).SequenceEqual(Enumerable.Range(0, media.Frames)))
                     throw new WorkspaceStoreException("The shared lossless archive does not match its reel.");
-                foreach (var segment in archive.Files) {
+                var hasSegments = package.Files.Any(f => f.Path.StartsWith(prefix + "lossless/", StringComparison.Ordinal));
+                foreach (var segment in archive.Files.Where(_ => hasSegments)) {
                     var entry = package.Files.SingleOrDefault(f => f.Path == prefix + "lossless/" + segment.FileName);
                     if (entry is null || entry.Bytes != segment.Bytes || !entry.Sha256.Equals(segment.Sha256, StringComparison.OrdinalIgnoreCase))
                         throw new WorkspaceStoreException("The shared lossless archive is incomplete or changed.");
                 }
                 archiveIdentity = AssetReusePolicy.Hash(archive);
+                if (!hasSegments)
+                    foreach (var frame in group.SelectMany(r => r.Keyframes?.Frames ?? []).Select(f => f.Frame).Where(f => f.Source == archiveIdentity).Distinct())
+                    {
+                        var picture = package.Files.SingleOrDefault(f => f.Path == prefix + FileReferenceVideoStore.FrameFileName(frame));
+                        if (picture is not null && picture.Bytes > MaximumImageBytes)
+                            throw new WorkspaceStoreException("A saved keyframe picture is too large.");
+                        if (picture is null) await ReuseVideoCatalogAsync(package, root, media, ct);
+                    }
             }
             foreach (var reel in group.Where(r => r.Keyframes is not null)) {
                 ReferenceVideos.ValidateKeyframes(media, reel.Keyframes!);
                 if (reel.Keyframes!.Frames.Any(f => f.Frame.Source != media.Sha256 && f.Frame.Source != archiveIdentity))
                     throw new WorkspaceStoreException("A shared keyframe's source archive is unavailable.");
+            }
+        }
+    }
+    private static async Task<ReelFrameCatalog> ReuseVideoCatalogAsync(AssetReusePackage package, string root, ReferenceVideoMedia media, CancellationToken ct)
+    {
+        var entry = package.Files.SingleOrDefault(f => f.Path == $"reels/{media.Id:D}/frame-times-v2.json")
+            ?? throw new WorkspaceStoreException("The copied reel's video frame index is missing.");
+        var path = ReusePath(root, entry.Path);
+        if (entry.Bytes > 4 * 1024 * 1024 || new FileInfo(path).Length != entry.Bytes ||
+            !string.Equals(await ReuseFileHashAsync(path, ct), entry.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new WorkspaceStoreException("The copied reel's video frame index changed.");
+        var catalog = await AtomicJsonFile.ReadAsync<ReelFrameCatalog>(path, ct);
+        if (catalog is null || catalog.Lossless || catalog.Source != media.Sha256 || catalog.Timestamps.Count != media.Frames ||
+            catalog.Timestamps.Any(t => !double.IsFinite(t) || t < 0) || !catalog.Timestamps.SequenceEqual(catalog.Timestamps.Order()))
+            throw new WorkspaceStoreException("The copied reel's video frame index is invalid.");
+        return catalog;
+    }
+    private static async Task PrepareCopiedReelFramesAsync(AssetReusePackage package, string root, AssetReuseCommand command, AssetLibrary destination, CancellationToken ct)
+    {
+        await ValidateReuseArchivesAsync(package, root, ct);
+        foreach (var reel in package.Content.Reels)
+        {
+            var prefix = $"reels/{reel.Media.Id:D}/";
+            if (reel.Keyframes is null || package.Files.Any(f => f.Path.StartsWith(prefix + "lossless/", StringComparison.Ordinal))) continue;
+            var copied = destination.Reels.Single(r => r.Id == AssetReusePolicy.Identity(command.Id, "reel", reel.Id));
+            ReelFrameCatalog? video = null;
+            foreach (var frame in reel.Keyframes.Frames)
+            {
+                if (frame.Frame.Source == reel.Media.Sha256 || package.Files.Any(f => f.Path == prefix + FileReferenceVideoStore.FrameFileName(frame.Frame))) continue;
+                video ??= await ReuseVideoCatalogAsync(package, root, reel.Media, ct);
+                // Only the destination switches missing pictures to MP4. Existing lossless
+                // PNGs retain their exact identity; extraction is deferred until needed.
+                var index = copied.Keyframes!.Frames.FindIndex(f => f.Id == AssetReusePolicy.Identity(command.Id, "keyframe", frame.Id));
+                var current = copied.Keyframes.Frames[index];
+                copied.Keyframes.Frames[index] = current with { Frame = current.Frame with { Source = reel.Media.Sha256, Seconds = video.Timestamps[frame.Frame.Index] } };
             }
         }
     }

@@ -177,6 +177,12 @@ h1:focus { outline: none !important; }
 /* Dialog bodies that explain consequences: paragraphs and lists separated, not run together. */
 .dialog-prose > :is(p, ul, ol) { margin: 0; }
 .dialog-prose > * + :is(p, ul, ol) { margin-top: 12px; }
+/* Small task dialogs use the same labelled controls as the studios. */
+.dialog-form > label { display:block; margin:16px 0; color:var(--lumi-text-muted); font-size:var(--lumi-font-size-meta); font-weight:600; }
+.dialog-form > label > :is(input:not([type=checkbox], [type=radio]), select, textarea) { display:block; width:100%; min-width:0; margin-top:6px; padding:8px 10px; min-height:var(--lumi-control-height); border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--ink); font:inherit; font-weight:400; }
+.dialog-form > :first-child { margin-top:0; }
+.dialog-form > :last-child { margin-bottom:0; }
+.dialog-form :focus-visible { outline:2px solid var(--lumi-accent); outline-offset:3px; }
 .mud-dialog { border: 1px solid var(--line); }
 .mud-input-control input, .mud-input-control textarea { font-size: var(--lumi-font-size-ui); }
 .loading-state { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 20px; color: var(--muted); }

@@ -9,7 +9,7 @@ public sealed record ReferenceCopyResult(Shot Inputs, IReadOnlyList<string> Warn
 public static class ReferenceCopies
 {
     // Copy a reference graph into a new destination draft. Never mutate either input,
-    // copy the source dialogue/settings, or silently select a new asset default voice.
+    // copy the source dialogue/settings, or silently change a captured voice.
     public static ReferenceCopyResult Into(Shot source, Shot destination, AssetLibrary library)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -62,11 +62,14 @@ public static class ReferenceCopies
             }
         // Speakers keep their voices; a voice whose source speaker is absent takes the one destination speaker
         // that is clearly the same character, by the cast member its pictures represent or by name.
-        var speaking = choices.Where(c => c.Source != CharacterVoiceSource.None && c.Speaker.Length > 0).ToArray();
-        var matched = new Dictionary<CharacterVoiceSelection, string>();
+        // Silent characters still identify destination speakers. Otherwise a turn from Guard
+        // to Riley incorrectly asks whether the Guard voice should speak Riley's lines.
+        var speaking = choices.Where(c => c.Source == CharacterVoiceSource.None || c.Speaker.Length > 0).ToArray();
+        var matched = new Dictionary<Guid, string>();
         foreach (var choice in speaking)
-            if (speakers.FirstOrDefault(s => s.Equals(choice.Speaker, StringComparison.OrdinalIgnoreCase)) is { } same) matched[choice] = same;
-        foreach (var choice in speaking.Where(c => !matched.ContainsKey(c)))
+            if (speakers.FirstOrDefault(s => s.Equals(choice.Speaker, StringComparison.OrdinalIgnoreCase)) is { } same) matched[choice.AssetId] = same;
+        var candidates = new Dictionary<CharacterVoiceSelection, string>();
+        foreach (var choice in speaking.Where(c => !matched.ContainsKey(c.AssetId)))
         {
             var claimed = matched.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
             var open = speakers.Where(s => !claimed.Contains(s)).ToArray();
@@ -76,16 +79,52 @@ public static class ReferenceCopies
             var found = Candidates(s => cast.Contains(s, StringComparer.OrdinalIgnoreCase)) is [var byCast] ? byCast
                 : Candidates(s => s.Equals(choice.CharacterName.Trim(), StringComparison.OrdinalIgnoreCase)) is [var byName] ? byName
                 : Candidates(s => WordsOf(s).IsSubsetOf(WordsOf(choice.CharacterName))) is [var byWords] ? byWords : null;
-            if (found is not null) { matched[choice] = found; notes.Add($"{choice.CharacterName}'s voice speaks the {found} lines here."); }
+            if (found is not null) candidates[choice] = found;
+        }
+        // Never let source order decide between two characters called e.g. GUARD.
+        foreach (var group in candidates.GroupBy(c => c.Value, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() == 1))
+        {
+            var candidate = group.Single(); matched[candidate.Key.AssetId] = candidate.Value;
+            if (candidate.Key.Source != CharacterVoiceSource.None)
+                notes.Add($"{candidate.Key.CharacterName}'s voice speaks the {candidate.Value} lines here.");
         }
         var unclaimed = speakers.Where(s => !matched.Values.Contains(s, StringComparer.OrdinalIgnoreCase)).ToArray();
         // Set synchronizes the materialized Voices/Videos with their managed choices.
         // Work on a detached array because it replaces entries in CharacterVoices.
         foreach (var choice in choices)
         {
+            if (choice.Source == CharacterVoiceSource.None && matched.TryGetValue(choice.AssetId, out var newSpeaker) &&
+                !source.Dialogue.Any(d => d.Speaker.Trim().Equals(newSpeaker, StringComparison.OrdinalIgnoreCase) ||
+                    WordsOf(d.Speaker).Count > 0 && WordsOf(d.Speaker).IsSubsetOf(WordsOf(choice.CharacterName))))
+            {
+                // None on a shot without this character's lines does not mute their next turn.
+                // Prefer the destination's captured choice; only use a default for a new voice.
+                var existing = destination.CharacterVoices?.FirstOrDefault(c => c.AssetId == choice.AssetId);
+                if (existing is not null)
+                {
+                    var retained = ShotCopy.Of(existing);
+                    retained.Speaker = newSpeaker; retained.SpeakerConfirmed = true;
+                    if (retained.Source == CharacterVoiceSource.Reel)
+                    {
+                        var copiedReel = result.Videos.FirstOrDefault(v => v.Media.Id == retained.ReelMediaId && CharacterVoices.Owner(v, library) == retained.AssetId);
+                        if (copiedReel is not null) retained.ReelBindingId = copiedReel.Id;
+                        else { retained.Source = CharacterVoiceSource.Unselected; warnings.Add($"Choose a voice for {choice.CharacterName}; this shot's voice reel is not among the copied references."); }
+                    }
+                    CharacterVoices.Set(result, retained, library);
+                    notes.Add($"Kept this shot's voice choice for {choice.CharacterName} ({newSpeaker}).");
+                    continue;
+                }
+                if (library.Assets.FirstOrDefault(a => a.Id == choice.AssetId) is { } asset && CharacterVoices.Default(asset, library) is { } voice)
+                {
+                    choice.Speaker = newSpeaker; choice.SpeakerConfirmed = true;
+                    CharacterVoices.SelectRecording(choice, voice, true);
+                    notes.Add($"{choice.CharacterName} speaks here; selected their default voice, {voice.Name}.");
+                }
+                else notes.Add($"{choice.CharacterName} has {newSpeaker} lines here but no default voice. Choose a voice if needed; None was kept.");
+            }
             if (choice.Source != CharacterVoiceSource.None && choice.Speaker.Length > 0)
             {
-                if (matched.TryGetValue(choice, out var speaker)) { choice.Speaker = speaker; choice.SpeakerConfirmed = true; }
+                if (matched.TryGetValue(choice.AssetId, out var speaker)) { choice.Speaker = speaker; choice.SpeakerConfirmed = true; }
                 else if (unclaimed.Length == 0)
                 {
                     // Every line here belongs to someone else, or there are none: this character does not speak.

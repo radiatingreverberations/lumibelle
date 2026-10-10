@@ -107,6 +107,8 @@ test('copying references from the previous shot adds its production take\'s last
   await expect(copyFrom.locator('option[value=previous]')).toHaveText(`Previous shot · 01 · ${source.title}`);
   await expect(copyFrom.locator('optgroup')).toHaveCount(0);
   await copyFrom.selectOption('previous');
+  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toHaveCount(0);
+  await picker.getByRole('button', { name: 'Copy references', exact: true }).click();
   const continuity = picker.getByRole('group', { name: 'Continuity picture' });
   await expect(continuity).toContainText(`${source.title} · last frame`);
   await expect(continuity.locator('img')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${take.id}/frames/38`);
