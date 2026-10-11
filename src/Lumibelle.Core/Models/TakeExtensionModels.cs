@@ -38,6 +38,10 @@ public sealed record TakeExtensionOptions(Guid SourceTakeId, int EndFrameExclusi
 {
     public TakeExtensionDirection Direction { get; init; }
     public int StartFrame { get; init; }
+    public TakeExtensionReferences? References { get; init; }
 }
+// An extension-local draft. Null on the options means reuse the take's exact captured inputs.
+public sealed record TakeExtensionReferences(Shot Inputs, IReadOnlyList<ShotReferenceGuidance> Guidance,
+    IReadOnlyList<ShotAppearanceContext> Appearances);
 public sealed record TakeAssemblyMedia(string Source, string? FramePattern, int StartFrame, int EndFrameExclusive, double Fps);
 public sealed record TakeExtensionPublication(Guid ResultId, Guid FullTakeId, string Fingerprint);

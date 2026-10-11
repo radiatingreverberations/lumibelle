@@ -50,7 +50,12 @@ app.MapLumibelleWeb();
 app.MapCutFixtures();
 app.MapStorageFixtures();
 app.MapReferencePickerFixtures();
+app.MapShotCopyFixtures();
 app.MapCompositionRecoveryFixtures();
+app.MapPost("/fixtures/shutdown", (HttpContext http, IHostApplicationLifetime lifetime) => {
+    http.Response.OnCompleted(() => { lifetime.StopApplication(); return Task.CompletedTask; });
+    return Results.Ok();
+});
 app.MapGet("/fixtures/ai-jobs", async (IAiJobStore jobs) => (await jobs.ReadAsync()).Jobs.Select(j => new { j.Id, j.Target, Kind = j.Kind.ToString(), State = j.State.ToString(), j.Unread, j.CancelRequested, j.ActivityClearedUtc }));
 app.MapGet("/fixtures/ai-jobs/{id:guid}/review", async (Guid id, IAiJobReviewStore reviews) => await reviews.LoadAsync(id));
 app.MapPost("/fixtures/ai-jobs/{id:guid}/unread", async (Guid id, IAiJobStore jobs, AiJobCoordinator coordinator) => {

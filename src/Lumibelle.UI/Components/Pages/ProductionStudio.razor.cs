@@ -139,7 +139,7 @@ public partial class ProductionStudio
     }
     private async Task<bool> SaveForCloseAsync()
     {
-        if (_compositionBusy || _applyingProposal || _imageEditorSaving || BulkGenerateLocked) return false;
+        if (_compositionBusy || _applyingProposal || _imageEditorSaving || BulkGenerateLocked || _copyShotsBusy) return false;
         if (_promptEditor is not null) await _promptEditor.FlushAsync();
         _planningDraftDelay?.Cancel();
         return await SavePlanningDraftAsync() && !_planningDraftDirty && await Save();

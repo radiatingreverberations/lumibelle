@@ -1,5 +1,9 @@
 # Shots studio
 
+In take review, **Continue** and **Lead into** reuse the saved take's captured references. **Manage references** in the extension panel opens an extension-local draft: Apply changes affects only the new footage, and Reset restores the original captured inputs. The selected pictures, reels and audio are used by both prompt composition and generation. A written prompt is preserved when references change; recompose it or check its reference labels before queueing. Newly created continuation shots inherit the extension's customized references.
+
+The extension compose control shows request progress and changes to **Needs attention** when composition fails. Click it to inspect the saved response and error. **New request** returns to the panel for editing and retrying; failed responses leave the current prompt unchanged. Successful compositions can be inspected through **View response** on the same control.
+
 Open **Shots** from a project after approving a script. **Draft shots** captures the selected approved scenes, directing instructions, maximum duration, and starred text model. Review the proposed shots before adding them. Existing shots are preserved. Each shot describes one continuous camera take; dialogue remains editable separately.
 
 The default breakdown maximum is 15 requested seconds. H3 rounds upward to its 17k+5 frame grid at 24 fps, with a maximum of 362 frames (15.083 seconds). Manual edits can use any requested duration from 1 through 15 seconds, independent of an earlier breakdown limit. The compiler produces a deterministic six-section prompt; generating a take does not call a writing model.

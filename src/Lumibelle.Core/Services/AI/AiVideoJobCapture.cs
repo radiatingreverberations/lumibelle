@@ -132,6 +132,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         if (take.RefinementPackage is null) throw new WorkspaceStoreException(TakeDisplay.NoLatents);
         AiVideoJobRequest source;
         if (take.RetainedSource is { } retained) source = new(2, take.RunId, take.Snapshot, ShotCopy.Of(retained.Inputs)) { Refinement = take.Refinement };
+        else if (take.CopyRequest is { } copied) source = ShotCopy.Of(copied);
         else {
             var store = jobs ?? throw new WorkspaceStoreException("Saved video requests are unavailable.");
             var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)

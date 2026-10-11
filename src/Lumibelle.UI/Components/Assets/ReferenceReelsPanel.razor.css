@@ -25,6 +25,7 @@
 .reel-request-status { margin-top:.75rem; }
 .reel-pair-actions { margin:1rem 0; }
 .reel-detail-player { width:100%; max-height:360px; background: var(--lumi-media-stage); }
+.reel-import-preview { height:auto; object-fit:contain; }
 .reel-details-preview { position:static; }
 .reel-detail-disclosures { display:grid; gap:.5rem; }
 .reel-detail-disclosures ::deep > details { border-top: 1px solid var(--line); padding-top:.6rem; }

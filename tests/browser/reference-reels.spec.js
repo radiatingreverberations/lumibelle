@@ -703,6 +703,38 @@ test('pre-submit failures explain their stage and link to the prompt from Setup'
   expect((await library(request,id)).reelDrafts[0].prompt).toContain('5.167 seconds');
 });
 
+for (const narrow of [false, true]) test(`import preview keeps Save in place while media loads (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
+  const {id}=await fixture(page,request,narrow);
+  await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
+  const take=await (await request.post(`/fixtures/${id}/reference-video-take`)).json();
+  let release, pending = 0;
+  const ready = new Promise(resolve => { release = resolve; });
+  await page.route(/\/media\/projects\/[^/]+\/reference-videos\//, async route => {
+    pending++; await ready; await route.continue();
+  });
+  try {
+    await openImport(page);
+    const importer=page.getByRole('dialog', {name:'Import reference reel',exact:true});
+    await importer.getByRole('combobox',{name:'Existing take',exact:true}).selectOption(take.id);
+    await importer.getByRole('button',{name:'Copy selected take'}).click();
+    const player=importer.locator('video'), save=importer.getByRole('button',{name:'Save reel',exact:true});
+    await expect(save).toBeEnabled();
+    await expect.poll(() => pending).toBeGreaterThan(0);
+    await expect.poll(() => player.evaluate(v => v.videoWidth)).toBe(0);
+    expect((await player.boundingBox()).height).toBeGreaterThan(0);
+    await importer.getByLabel('Use guidance',{exact:true}).fill('Saved while the preview loads');
+    const before = await save.boundingBox();
+    release();
+    await expect.poll(() => player.evaluate(v => v.videoWidth)).toBeGreaterThan(0);
+    await player.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const after = await save.boundingBox();
+    expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+    await save.click();
+    await expect(importer).not.toBeVisible();
+    expect((await library(request,id)).reels[0].useGuidance).toBe('Saved while the preview loads');
+  } finally { release(); }
+});
+
 test('renaming preserves another tabs guidance correction', async ({page,request,browser}) => {
   test.setTimeout(90000);
   const {id,owner}=await fixture(page,request);

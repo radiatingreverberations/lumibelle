@@ -16,6 +16,16 @@ public static class WebHosting
     }
     public static void MapLumibelleWeb(this WebApplication app)
     {
+        // SignalR closes its current connections when ApplicationStopping fires.
+        // Browsers can immediately reconnect before Kestrel stops accepting requests;
+        // that new connection missed SignalR's close pass and holds shutdown open.
+        app.Use(async (http, next) => {
+            if (http.Request.Path.StartsWithSegments("/_blazor") && app.Lifetime.ApplicationStopping.IsCancellationRequested) {
+                http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+            await next(http);
+        });
         if (!app.Environment.IsDevelopment()) app.UseExceptionHandler("/Error");
         app.UseStatusCodePagesWithReExecute("/not-found");
         app.UseAntiforgery(); app.MapStaticAssets(); app.MapProductionMedia();

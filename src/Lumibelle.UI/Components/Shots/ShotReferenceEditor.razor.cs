@@ -31,6 +31,7 @@ public partial class ShotReferenceEditor
     [Parameter] public Func<Shot, ShotContinuityFrame?>? ContinuityFrameOf { get; set; }
     [Parameter] public bool AllowReels { get; set; }
     [Parameter] public bool ReelAuthoring { get; set; }
+    [Parameter] public bool AllowOtherShotSwaps { get; set; } = true;
     [Parameter] public Func<DerivedImageRequest, Task<SavedAssetImage>>? SaveImage { get; set; }
     [Parameter] public EventCallback<SavedAssetImage> ImageSaved { get; set; }
     [Parameter] public EventCallback<ReferenceSelection> ReferencesApplied { get; set; }
@@ -234,7 +235,7 @@ public partial class ShotReferenceEditor
             if (from is not { } source || source == next.Id) { _swaps.Remove(v.Id); return; }
             _swaps[v.Id] = new(source, next.Id, false);
             // Only shots are offered the same change elsewhere, and only when the old reel is in the library.
-            if (!ReelAuthoring && ReferencesApplied.HasDelegate && ReferenceServices.GetService<ReelReplacement>() is { } replacement) {
+            if (AllowOtherShotSwaps && !ReelAuthoring && ReferencesApplied.HasDelegate && ReferenceServices.GetService<ReelReplacement>() is { } replacement) {
                 var plan = await replacement.PlanAsync(Library.ProjectId, source, next.Id, _lifetime.Token);
                 _swapOthers[v.Id] = plan.Shots.Count(s => s.ShotId != Shot.Id && s.Issue is null);
             }

@@ -8,7 +8,8 @@ import { root, configuration } from './build-host.js';
 // Browser contexts do not isolate the server's queue, settings, Trash or mock state.
 // Give each test its own real host, including tests that fail before their cleanup.
 export const test = base.extend({
-  baseURL: async ({}, use, testInfo) => {
+  hostLifecycle: async ({}, use) => { await use({}); },
+  baseURL: async ({ hostLifecycle }, use, testInfo) => {
     const directory = await mkdtemp(path.join(tmpdir(), 'lumibelle-browser-'));
     const host = spawn('dotnet', [
       process.env.LUMIBELLE_BROWSER_HOST_DLL ?? path.join(root, 'tests/Lumibelle.BrowserHost/bin', configuration, 'net10.0/Lumibelle.BrowserHost.dll'),
@@ -17,6 +18,8 @@ export const test = base.extend({
       env: { ...process.env, LUMIBELLE_BROWSER_DATA: directory } });
     let output = '';
     const exited = new Promise(resolve => host.once('close', resolve));
+    hostLifecycle.exited = exited;
+    hostLifecycle.output = () => output;
     try {
       const address = await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`Browser host did not start.\n${output}`)), 20000);

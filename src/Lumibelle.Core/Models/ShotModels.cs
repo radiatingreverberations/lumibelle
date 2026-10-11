@@ -151,6 +151,10 @@ public sealed record ShotFrame(int Index, string FileName, long Bytes)
 public sealed record ShotTake
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ShotTakeCopySource? CopySource { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AiVideoJobRequest? CopyRequest { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public TakeComposition? Composition { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasAnyLosslessFrames => FrameArchiveRemoval is null && TakeBundlesAvailable();
@@ -198,6 +202,7 @@ public sealed record ShotTake
     public required VideoSnapshot Snapshot { get; set; }
 }
 public enum ShotTrashKind { Take }
+public sealed record ShotTakeCopySource(Guid ProjectId, Guid TakeId, VideoSnapshot Snapshot);
 public sealed record ShotTrashEntry
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -213,6 +218,7 @@ public sealed record ShotTrashEntry
 }
 public sealed record ShotDocument
 {
+    public List<lumibelle.Services.Shots.ShotProjectCopyReceipt> ProjectCopies { get; set; } = [];
     public int SchemaVersion { get; set; } = 2;
     public List<SceneReferenceSetup> SceneSetups { get; set; } = [];
     public Guid ProjectId { get; set; }

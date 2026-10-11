@@ -29,5 +29,5 @@ public static class TakeDisplay
         ? "Render this translation again from Language versions; its master take fixes the generation settings and input files."
         : take.Refinement is not null
         ? "Regenerate the original take to reuse its generation seed and inputs."
-        : take.AiJobId is null ? "This older take has no captured request. Generate from its setup instead." : null;
+        : take.AiJobId is null && take.CopyRequest is null ? "This older take has no captured request. Generate from its setup instead." : null;
 }

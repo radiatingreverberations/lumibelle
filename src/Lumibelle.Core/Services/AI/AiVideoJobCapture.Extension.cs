@@ -19,11 +19,29 @@ public sealed partial class AiVideoJobCapture
     {
         var shot = ShotCopy.Of(take.Snapshot.Shot);
         shot.Characters = ShotCopy.Of(ShotReferences.Characters(take.Snapshot.Shot).ToList());
+        if (options.References is { } references) {
+            CopyExtensionReferences(shot, references.Inputs);
+        }
         shot.Description = options.Action; shot.Dialogue = ShotCopy.Of(options.Dialogue.ToList());
         shot.Duration = Math.Min(15, generationFrames / 24d); shot.SelectedTakeId = null; shot.StartFrame = null;
         shot.GenerationPreset = "standard"; shot.Turbo = false; shot.UpscalePreview = false; shot.SaveLatents = true;
         shot.SaveLosslessFrames = options.SaveLosslessFrames;
         return shot;
+    }
+    private static void CopyExtensionReferences(Shot target, Shot source)
+    {
+        var inputs = source.Copy();
+        target.Images = inputs.Images; target.Videos = inputs.Videos; target.Voices = inputs.Voices;
+        target.CharacterVoices = inputs.CharacterVoices; target.Characters = ShotReferences.Characters(inputs).ToList();
+        target.ContinuityFrame = inputs.ContinuityFrame;
+    }
+    internal static void ValidateExtensionReferences(Shot shot, TakeExtensionReferences references, AssetLibrary library, ShotDocument document)
+    {
+        H3Policy.Validate(shot, true, requireScene: false, motionContext: true);
+        ShotLooks.Validate(shot, library);
+        if (!ShotReferences.SameEffective(references.Guidance, ShotReferences.Resolve(shot, library, document)) ||
+            !references.Appearances.SequenceEqual(ShotLooks.Capture(shot, library)))
+            throw new WorkspaceStoreException("Reference guidance changed. Reopen extension references and review the prompt.");
     }
     public async Task<AiJobSubmission> CaptureExtensionAsync(Guid id, Guid tab, Guid projectId, TakeExtensionOptions options, CancellationToken ct = default)
     {
@@ -49,23 +67,43 @@ public sealed partial class AiVideoJobCapture
             var continuation = ProductionPolicy.Continuation(original, take, leading ? options.StartFrame : options.EndFrameExclusive - 1);
             continuation.StartFrame = null; continuation.Description = options.Action; continuation.Dialogue = ShotCopy.Of(options.Dialogue.ToList());
             continuation.Duration = (motion.GenerationFrames - motion.Frames) / 24d;
+            if (options.References is not null) CopyExtensionReferences(continuation, shot);
             if (leading) continuation.Title = original.Title + " · Lead-in";
             document.Shots.Insert(document.Shots.IndexOf(original) + (leading ? 0 : 1), continuation);
             addShot = true;
             shot.Id = continuation.Id; shot.Title = continuation.Title;
         }
         var origin = contextTake.Source.Snapshot;
-        var prompt = string.IsNullOrWhiteSpace(options.Prompt) ? H3Policy.Compile(shot, origin.ReferenceGuidance!, origin.Appearances!, motionContext: true) : options.Prompt.Trim();
+        if (options.References is { } references)
+            ValidateExtensionReferences(shot, references, await assets.LoadAsync(projectId, ct), document);
+        var guidance = options.References?.Guidance ?? origin.ReferenceGuidance!;
+        var appearances = options.References?.Appearances ?? origin.Appearances!;
+        var prompt = string.IsNullOrWhiteSpace(options.Prompt) ? H3Policy.Compile(shot, guidance, appearances, motionContext: true) : options.Prompt.Trim();
         ProductionPolicy.ValidateGenerationPrompt(prompt);
         var snapshot = origin with { Shot = shot, Production = null, Profile = H3Motion.Profile, Prompt = prompt, Fingerprint = H3Policy.Fingerprint(shot),
             SourceRevision = document.Revision, Width = take.Width, Height = take.Height, FrameCount = motion.GenerationFrames, Motion = motion,
             Sampling = H3Policy.Sampling(shot, origin.Settings), Preset = H3Presets.Capture(shot, origin.Settings), OutputPolicy = new(options.SaveLosslessFrames),
-            CaptureRefinementData = true, PreviewUpscale = null, RegenerationSource = null, Dub = null };
+            CaptureRefinementData = true, PreviewUpscale = null, RegenerationSource = null, Dub = null,
+            ReferenceGuidance = ShotCopy.Of(guidance), Appearances = ShotCopy.Of(appearances) };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
-        var inputs = contextTake.Source.RetainedSource!.Inputs.Where(i => i.EffectiveKind != VideoInputKind.StartFrame).ToArray();
+        IReadOnlyList<AiVideoInput> inputs;
         var inputFolder = Path.Combine(directory, "inputs");
         var contextFolder = take.Composition is null ? Path.Combine(directory, H3Motion.SourceFolder) : Path.Combine(directory, H3Motion.SourceFolder, "segments", contextTake.Key.ToString("D"));
-        foreach (var input in inputs) await TakeTrimming.CopyVerifiedAsync(Path.Combine(contextFolder, TakeTrimming.InputsFolder, input.FileName), Path.Combine(inputFolder, input.FileName), input.Bytes, input.Sha256, ct);
+        if (options.References is null) {
+            inputs = contextTake.Source.RetainedSource!.Inputs.Where(i => i.EffectiveKind != VideoInputKind.StartFrame).ToArray();
+            foreach (var input in inputs) await TakeTrimming.CopyVerifiedAsync(Path.Combine(contextFolder, TakeTrimming.InputsFolder, input.FileName), Path.Combine(inputFolder, input.FileName), input.Bytes, input.Sha256, ct);
+        }
+        else {
+            var run = new VideoRun { Id = id, Snapshot = snapshot };
+            await generator.PrepareAsync(run, directory, ct);
+            if (!run.InputsPrepared) throw new WorkspaceStoreException("Extension references could not be captured.");
+            var prepared = new List<AiVideoInput>();
+            foreach (var input in run.Inputs) {
+                await using var file = File.OpenRead(Path.Combine(inputFolder, input.FileName));
+                prepared.Add(new(input.FileName, input.Audio, file.Length, Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(file, ct))) { Kind = input.Kind, VideoIndex = input.VideoIndex });
+            }
+            inputs = prepared;
+        }
         var request = new AiVideoJobRequest(2, id, snapshot, inputs) { Extension = source };
         AiVideoJobPolicy.Validate(request); await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, directory, ct);
         var check = await generator.CheckAsync(new() { ComfyUrl = snapshot.ExecutionComfyUrl, H3 = snapshot.Settings }, ct);

@@ -24,11 +24,11 @@ public sealed partial class AiVideoJobCapture
         var take = document.Takes.SingleOrDefault(t => t.Id == takeId)
             ?? throw new WorkspaceStoreException("Restore the source take before regenerating it.");
         if (TakeDisplay.RegenerationIssue(take) is { } issue) throw new WorkspaceStoreException(issue);
-        var sourceJob = (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
-            ?? throw new WorkspaceStoreException("This take's captured request is unavailable.");
-        var source = AiVideoJobHandler.Read(sourceJob, await store.ReadSnapshotAsync(sourceJob.Id, ct));
+        var sourceJob = take.CopyRequest is null ? (await store.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == take.AiJobId)
+            ?? throw new WorkspaceStoreException("This take's captured request is unavailable.") : null;
+        var source = take.CopyRequest ?? AiVideoJobHandler.Read(sourceJob!, await store.ReadSnapshotAsync(sourceJob!.Id, ct));
         if (source.Snapshot.ProjectId != projectId || source.BatchId != take.RunId || source.Snapshot.Reel is not null ||
-            source.Refinement is not null || sourceJob.Batch!.Candidates.Any(c => c.Id == take.Id && c.Number == take.Candidate && c.Seed == take.Seed) != true ||
+            source.Refinement is not null || sourceJob is not null && sourceJob.Batch!.Candidates.Any(c => c.Id == take.Id && c.Number == take.Candidate && c.Seed == take.Seed) != true ||
             !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(take.Snapshot, AtomicJsonFile.Options),
                 JsonSerializer.SerializeToElement(source.Snapshot, AtomicJsonFile.Options)))
             throw new WorkspaceStoreException("The source take does not match its captured request.");
