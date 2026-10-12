@@ -80,7 +80,7 @@ public sealed partial class AiTextJobCapture
             throw new WorkspaceStoreException("The prompt or revision notes changed. Review a fresh environment selection before applying.");
         var source = await shots!.LoadAsync(r.ProjectId, ct);
         var sourceShot = source.Shots.Single(s => s.Id == current.Id);
-        if (r.DirectionContext is not null && ShotDirections.Hash(r.DirectionContext) != ShotDirections.Hash(ShotDirections.Context(source, latest.Shot)))
+        if (ShotDirections.Hash(r.DirectionContext) != ShotDirections.Hash(ShotDirections.Context(source, latest.Shot)))
             throw new WorkspaceStoreException("The direction strategy or dependent shot context changed. Review a fresh environment selection.");
         var context = await ScriptContextAsync(r.ProjectId, document, source, sourceShot, ct);
         if ((r.IncludeSceneText && r.SceneContext != context.SceneText) ||

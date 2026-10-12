@@ -35,6 +35,9 @@ public sealed record EnvironmentShotStaging(Guid ShotId, Guid AssetId, Guid Sele
     public string? DirectionContextFingerprint { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? DirectionFingerprint { get; init; }
+    // Absent on historical staging; v1 hashes semantic content and explicitly captures no direction.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DirectionDependencyVersion { get; init; }
 }
 public sealed record EnvironmentStagingView(Guid BindingId, Guid MediaId, Guid? KeyframeId, int? FrameIndex,
     ImageCropRegion? Crop, string Reason);

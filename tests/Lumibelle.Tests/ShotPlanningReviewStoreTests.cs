@@ -6,6 +6,47 @@ namespace Lumibelle.Tests;
 public sealed partial class ShotTests
 {
     [Fact]
+    public async Task ReviewedBreakdownReturnsEarlierScenesToScriptOrderAndUndoRestoresTheList()
+    {
+        var (project, files, store, _) = Fixture();
+        var plaza = ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. MAIN PLAZA — DAY");
+        var bedroom = ScriptBlock.Create(ScriptBlockKind.Scene, "INT. RILEY'S BEDROOM — NIGHT");
+        await new FileScriptStore(files, _clock).SaveAsync(new() { ProjectId = project.Id, Blocks = [plaza, bedroom] }, 0, cancellationToken: _ct);
+        var later = Ready() with { SceneId = bedroom.Id, Title = "Bedroom" };
+        var original = await store.SaveAsync(project.Id, [later], 0, ct: _ct);
+        var first = Ready() with { SceneId = plaza.Id, Title = "Plaza entrance", Direction = new() };
+        var second = Ready() with { SceneId = plaza.Id, Title = "Podium" };
+        var job = Guid.NewGuid();
+        var saved = await store.ApplyPlanningAsync(project.Id, job, [first, second], original.Revision, _ct);
+        Assert.Equal([first.Id, second.Id, later.Id], saved.Shots.Select(s => s.Id));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(later), System.Text.Json.JsonSerializer.Serialize(saved.Shots[2]));
+        Assert.Empty(lumibelle.Services.Shots.ShotDirections.Freshness(saved.Shots[0], null,
+            lumibelle.Services.Shots.ShotDirections.Neighbours(saved, saved.Shots[0])).Limitations);
+        Assert.Equal(saved.Revision, (await store.ApplyPlanningAsync(project.Id, job, [first, second], original.Revision, _ct)).Revision);
+        var recovered = await store.RecoverAsync(project.Id, saved.Recovery[0].Id, saved.Revision, _ct);
+        Assert.Equal(later.Id, Assert.Single(recovered.Shots).Id);
+    }
+
+    [Fact]
+    public void BreakdownInsertionOrdersNewScenesAndPreservesExistingManualOrder()
+    {
+        var scenes = Enumerable.Range(0, 4).Select(_ => Guid.NewGuid()).ToArray();
+        var sameSceneB = Ready() with { SceneId = scenes[1] };
+        var sameSceneA = Ready() with { SceneId = scenes[1] };
+        var last = Ready() with { SceneId = scenes[3] };
+        var unlinked = Ready() with { SceneId = null };
+        var firstNew = Ready() with { SceneId = scenes[0] };
+        var sameNew = Ready() with { SceneId = scenes[1] };
+        var middleNew = Ready() with { SceneId = scenes[2] };
+        var missing = Ready();
+        var inserted = lumibelle.Services.Shots.ShotPlanningOrder.Insert([sameSceneB, sameSceneA, last, unlinked],
+            [middleNew, sameNew, firstNew, missing], scenes);
+        Assert.Equal([firstNew.Id, sameSceneB.Id, sameSceneA.Id, sameNew.Id, middleNew.Id, last.Id, unlinked.Id, missing.Id], inserted.Select(s => s.Id));
+        Assert.Equal([sameSceneB.Id, sameSceneA.Id, last.Id, unlinked.Id, missing.Id, firstNew.Id],
+            lumibelle.Services.Shots.ShotPlanningOrder.Insert([sameSceneB, sameSceneA, last, unlinked], [missing, firstNew], []).Select(s => s.Id));
+    }
+
+    [Fact]
     public async Task PlanningPublicationIsIdempotentAcrossReopeningUndoAndRecovery()
     {
         var (project, _, store, _) = Fixture(); var original = Ready();

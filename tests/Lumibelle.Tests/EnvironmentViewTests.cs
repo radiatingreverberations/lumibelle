@@ -2,6 +2,7 @@ using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Production;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using Microsoft.Extensions.AI;
 
@@ -9,6 +10,79 @@ namespace Lumibelle.Tests;
 
 public sealed class EnvironmentViewTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ApplyingReviewedViewsDoesNotStaleItsOwnStagingOrApproveOtherDirection(bool staleTiming)
+    {
+        var (r, library) = Fixture();
+        r.Shot.Direction = new() { Intent = new() { Purpose = "Keep the escape route readable" } };
+        ShotDirections.Review(r.Shot, null);
+        if (staleTiming) r.Shot.Duration = 6;
+        var dependencies = r.Shot.Direction.Dependencies;
+        r = r with { DirectionContext = ShotDirections.Context(r.Shot, null), ContextFingerprint = EnvironmentViews.Context(r.Shot, r.DirectingNotes) };
+        var draft = EnvironmentViews.Stage(new(r, [r.Pool[0].Id], [], false) { Staging = Plan }, r.Shot, r.DirectingNotes, library);
+        var freshness = ShotDirections.Freshness(draft, null);
+        Assert.True(freshness.Intent); Assert.True(freshness.Staging);
+        Assert.False(freshness.ReferenceSupport); Assert.Equal(!staleTiming, freshness.Editorial);
+        Assert.Equal(dependencies, draft.Direction!.Dependencies);
+        var context = ShotDirections.Context(draft, null);
+        Assert.Null(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", context));
+        using var composed = JsonDocument.Parse(JsonSerializer.Serialize(EnvironmentViews.CompositionStaging(draft, r.DirectingNotes, "", context)));
+        Assert.Contains("Reference-supported staging", composed.RootElement.GetProperty("status").GetString());
+        if (!staleTiming) {
+            ShotDirections.Review(draft, null);
+            Assert.Null(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", ShotDirections.Context(draft, null)));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ChangingOrRemovingExistingDirectionStillInvalidatesReviewedStaging(bool remove)
+    {
+        var (r, library) = Fixture();
+        r.Shot.Direction = new() { Intent = new() { Purpose = "Stay with the listener" } };
+        ShotDirections.Review(r.Shot, null);
+        r = r with { DirectionContext = ShotDirections.Context(r.Shot, null), ContextFingerprint = EnvironmentViews.Context(r.Shot, r.DirectingNotes) };
+        var draft = EnvironmentViews.Stage(new(r, [r.Pool[0].Id], [], false) { Staging = Plan }, r.Shot, r.DirectingNotes, library);
+        if (remove) draft.Direction = null;
+        else draft.Direction!.Intent.Purpose = "Follow the speaker";
+        Assert.NotNull(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", ShotDirections.Context(draft, null)));
+    }
+
+    [Fact]
+    public void TimingChangesAfterSelectionInvalidateContextEvenWithoutDirectionEdits()
+    {
+        var (r, library) = Fixture();
+        r.Shot.Direction = new() { Editorial = new() { Timing = "Hold for the hesitation" } };
+        ShotDirections.Review(r.Shot, null);
+        r = r with { DirectionContext = ShotDirections.Context(r.Shot, null), ContextFingerprint = EnvironmentViews.Context(r.Shot, r.DirectingNotes) };
+        var draft = EnvironmentViews.Stage(new(r, [r.Pool[0].Id], [], false) { Staging = Plan }, r.Shot, r.DirectingNotes, library);
+        draft.Duration = 7;
+        Assert.NotNull(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", ShotDirections.Context(draft, null)));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void AddingFirstDirectionOrStrategyRequiresStagingReview(bool legacy, bool strategyOnly)
+    {
+        var (r, library) = Fixture();
+        var draft = EnvironmentViews.Stage(new(r, [r.Pool[0].Id], [], false) { Staging = Plan }, r.Shot, r.DirectingNotes, library);
+        if (legacy) draft.EnvironmentStaging = draft.EnvironmentStaging! with { DirectionDependencyVersion = null, DirectionFingerprint = null, DirectionContextFingerprint = null };
+        Assert.Null(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", null));
+        DirectionStrategy? strategy = null;
+        if (strategyOnly) {
+            strategy = new() { SceneId = Guid.NewGuid(), DramaticProgression = "Escape becomes impossible" };
+            draft.DirectionStrategyId = strategy.Id;
+        }
+        else draft.Direction = new() { Intent = new() { Purpose = "Hold on the listener" } };
+        Assert.NotNull(EnvironmentViews.StagingIssue(draft, r.DirectingNotes, "", ShotDirections.Context(draft, strategy)));
+    }
+
     private static readonly EnvironmentStagingPlan Plan = new("Riley stands at the podium facing across it toward the judge; she steps sideways to the passage and returns.",
         "Static side view includes the podium, Riley and the guard at the passage.", "Facing the judge is inferred from the court scene.", "Passage depth is not established.");
     private static readonly byte[] Png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");

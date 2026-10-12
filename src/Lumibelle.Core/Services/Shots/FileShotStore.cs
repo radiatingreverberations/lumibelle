@@ -217,7 +217,9 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         if (capturedStrategies.Any(s => d.DirectionStrategies.Any(old => old.Id == s.Id && ShotDirections.Hash(old) != ShotDirections.Hash(s))))
             throw new WorkspaceStoreException("A reviewed strategy identity already has different content.");
         d.DirectionStrategies.AddRange(capturedStrategies.Where(s => d.DirectionStrategies.All(old => old.Id != s.Id)));
-        d.Shots.AddRange(captured);
+        var script = await new FileScriptStore(files, clock).LoadAsync(projectId, ct);
+        d.Shots = ShotPlanningOrder.Insert(d.Shots, captured, script.Blocks.Where(b => b.Kind == ScriptBlockKind.Scene).Select(b => b.Id));
+        foreach (var shot in captured) ShotDirections.Review(shot, ShotDirections.Strategy(d, shot), ShotDirections.Neighbours(d, shot));
         d.PlanningReviews.Add(new(jobId, clock.GetUtcNow(), captured.Select(s => s.Id).ToArray(), fingerprint));
         return await Publish(dir, d, ct);
     }

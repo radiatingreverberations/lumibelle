@@ -150,6 +150,19 @@ app.MapPost("/fixtures/{id:guid}/approved", async (Guid id, IScriptStore scripts
     d = await scripts.SaveAsync(d with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Scene,"INT. KITCHEN — NIGHT"),ScriptBlock.Create(ScriptBlockKind.Action,"Juniper appears in a saucepan."),ScriptBlock.Create(ScriptBlockKind.Character,"JUNIPER"),ScriptBlock.Create(ScriptBlockKind.Dialogue,"You called?")] }, d.Revision);
     return await scripts.ApproveAsync(id,d.Revision);
 });
+app.MapPost("/fixtures/{id:guid}/planning-order", async (Guid id, IScriptStore scripts, IShotStore shots) =>
+{
+    var plaza = ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. MAIN PLAZA — DAY");
+    var bedroom = ScriptBlock.Create(ScriptBlockKind.Scene, "INT. RILEY'S BEDROOM — NIGHT");
+    var script = await scripts.LoadAsync(id);
+    script = await scripts.SaveAsync(script with { Blocks = [plaza, ScriptBlock.Create(ScriptBlockKind.Action, "Juniper waits beside the podium."), bedroom,
+        ScriptBlock.Create(ScriptBlockKind.Action, "Juniper goes to sleep.")] }, script.Revision);
+    var approved = await scripts.ApproveAsync(id, script.Revision);
+    var document = await shots.LoadAsync(id);
+    await shots.SaveAsync(id, [new() { Title = "Bedroom remains", SceneId = bedroom.Id, SceneTitle = bedroom.Text, ApprovedScriptId = approved.ApprovedSnapshotId,
+        Description = "Juniper goes to sleep.", Duration = 2 }], document.Revision);
+    return new { plaza = plaza.Id, bedroom = bedroom.Id };
+});
 app.MapPost("/fixtures/{id:guid}/coverage-script", async (Guid id, IScriptStore scripts, string mode = "initial") =>
 {
     var d = await scripts.LoadAsync(id);

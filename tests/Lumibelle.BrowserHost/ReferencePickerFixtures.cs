@@ -67,7 +67,7 @@ internal static class ReferencePickerFixtures
             raw.ShotContent[0] = ShotProductionContent.From(c);
             await AtomicJsonFile.WriteAsync(path, raw, CancellationToken.None); return Results.Ok();
         });
-        app.MapPost("/fixtures/{id:guid}/environment-library", async (Guid id, IAssetStore assets, IAssetReelStore reels, IProductionStore production, int extraViews = 0, string notes = "", bool selected = true, bool fullBudget = false) => {
+        app.MapPost("/fixtures/{id:guid}/environment-library", async (Guid id, IAssetStore assets, IAssetReelStore reels, IProductionStore production, IShotStore shots, int extraViews = 0, string notes = "", bool selected = true, bool fullBudget = false, bool directed = false) => {
             var library = await assets.LoadAsync(id); var owner = library.Assets.First();
             owner = owner with { Name = "Plaza environment", Category = AssetCategory.Environment };
             library = await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id == owner.Id ? owner : a).ToList() }, library.Revision);
@@ -82,6 +82,13 @@ internal static class ReferencePickerFixtures
             c.Shot.Images = [ReferenceSetups.Bind(character, character.Images[0], c.Shot)];
             if (fullBudget) c.Shot.Images = Enumerable.Range(0, 9).Select(_ => { var image = ShotCopy.Of(c.Shot.Images[0]); image.Id = Guid.NewGuid(); return image; }).ToList();
             c.Shot.EnvironmentAssetId = selected ? owner.Id : null;
+            if (directed) {
+                var source = await shots.LoadAsync(id);
+                c.Shot.Direction = new() { Intent = new() { Purpose = "Keep the escape route and podium legible together", Attention = "The listener's reaction" },
+                    Staging = new() { Camera = "Static lateral composition" } };
+                ShotDirections.Review(c.Shot, null, ShotDirections.Neighbours(source, c.Shot));
+                await shots.SaveAsync(id, source.Shots.Select(s => s.Id == c.ShotId ? c.Shot.Copy() : s).ToList(), source.Revision);
+            }
             c.Prompt = "My authored prompt";
             await production.SaveAsync(id, c, c.Version);
             return library;

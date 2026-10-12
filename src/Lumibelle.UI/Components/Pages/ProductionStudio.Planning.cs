@@ -355,8 +355,6 @@ public partial class ProductionStudio
         {
             if (!await SavePlanningDraftAsync(force: true) || !await SaveLocked()) return;
             var added = ShotCopy.Of(proposal.Shots);
-            var directedWorkspace = new ShotDocument { Shots = [.. _doc.Shots, .. added], DirectionStrategies = [.. _doc.DirectionStrategies, .. proposal.Strategies] };
-            foreach (var shot in added) ShotDirections.Review(shot, ShotDirections.Strategy(directedWorkspace, shot), ShotDirections.Neighbours(directedWorkspace, shot));
             var before = EditState; var version = _version;
             var saved = await Store.ApplyDirectedPlanningAsync(Id, job.Id, added, proposal.Strategies, _doc.Revision, _lifetime.Token);
             Baseline(saved);
@@ -364,7 +362,9 @@ public partial class ProductionStudio
             else
             {
                 // A background acknowledgement must preserve newer editor keystrokes.
-                _undo.Push((Current?.Copy(), before)); _doc.DirectionStrategies.AddRange(saved.DirectionStrategies.Where(s => _doc.DirectionStrategies.All(old => old.Id != s.Id))); _doc.Shots.AddRange(added.Where(s => _doc.Shots.All(current => current.Id != s.Id))); MergeMedia(saved);
+                _undo.Push((Current?.Copy(), before)); _doc.DirectionStrategies.AddRange(saved.DirectionStrategies.Where(s => _doc.DirectionStrategies.All(old => old.Id != s.Id)));
+                var published = saved.Shots.Where(s => added.Any(a => a.Id == s.Id) && _doc.Shots.All(current => current.Id != s.Id)).ToList();
+                _doc.Shots = ShotPlanningOrder.Insert(_doc.Shots, published, Scenes.Select(s => s.Id)); MergeMedia(saved);
             }
             _selected = added[0].Id; _openShotView = true; await SaveCoverageLocked(); _saveStatus = _dirty ? "Unsaved" : "Saved";
             _planningDraftDirty = false; _planningOpen = false; await ReleasePlanningReviewAsync();

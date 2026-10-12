@@ -144,7 +144,7 @@ async function compose(page) {
 }
 for (const narrow of [false, true]) test(`Environment library selection, manual override and composition (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   test.setTimeout(120000);
-  const { id, owner, library } = await fixture(page, request, narrow);
+  const { id, owner, library } = await fixture(page, request, narrow, 'directed=true');
   if (!narrow) {
     await page.getByRole('button', { name: 'Choose environment views', exact: true }).click();
     await page.getByRole('combobox', { name: 'Environment', exact: true }).selectOption('');
@@ -185,6 +185,7 @@ for (const narrow of [false, true]) test(`Environment library selection, manual 
   await expect.poll(async () => (await saved(request, id)).shot.videos.length).toBe(2);
   const after = await saved(request, id);
   expect(after.shot.environmentStaging.plan.blocking).toBe(blocking);
+  await expect(page.locator('.shot-environment-staging > summary')).toHaveText('Reference-supported staging · Reviewed');
   expect(after.shot.environmentStaging.views).toHaveLength(2);
   expect(after.shot.images).toEqual(before.shot.images); expect(after.shot.environmentAssetId).toBe(owner.id);
   expect(after.shot.videos.flatMap(v => v.keyframes.frames).some(f => `Use ${f.name}` === removedLabel)).toBe(false);
@@ -222,6 +223,9 @@ for (const narrow of [false, true]) test(`Environment library selection, manual 
   await compose(page);
   await expect.poll(async () => (await (await request.get('/fixtures/compositions')).json()).length).toBe(1);
   const composition = (await (await request.get('/fixtures/compositions')).json())[0];
+  expect(composition.context.directionContext.intent.purpose).toBe('Keep the escape route and podium legible together');
+  expect(composition.context.directionContext.proposedStaging.camera).toBe('Static lateral composition');
+  expect(composition.context.directionContext.limitations).toContain('Reference support needs review; reference changes do not erase dramatic intent.');
   expect(composition.context.environmentStaging.plan.blocking).toBe(blocking);
   expect(composition.context.environmentStaging.views.map(v => v.picture)).toEqual([2, 3]);
   expect(composition.images).toHaveLength(3);

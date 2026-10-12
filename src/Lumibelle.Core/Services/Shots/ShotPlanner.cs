@@ -73,6 +73,8 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
     private const string DirectionInstructions = "Before proposing shots, assess the scene's dramatic beats, what the audience learns or does not yet know, and how framing and relationships evolve. " +
         "Choose economical coverage: every shot needs a distinct reason to exist. Avoid mechanical speaker-change cuts, redundant setups, decorative movement and uniform durations. " +
         "Keep dramatic intent independent of camera position or imagined architecture. Proposed positions, facing, eyelines and camera placement are staging assumptions until reference-supported. " +
+        "Proposed blocking may fill in unspecified action, but must not contradict authored facts or silently assume an unexplained change of state. " +
+        "Describe necessary movement and transitions explicitly in action and opening/ending compositions; positions, props and physical state must carry coherently between shots. " +
         "Preserve complete ordinary coverage within the maximum duration. An optional long-take idea only explains uninterrupted beats that might justify later manual extension; it must not replace coverage or exceed the clip maximum. " +
         "Return only JSON with contractVersion:4, sceneStrategies:[{sceneId,approach,dramaticProgression,visualProgression,audienceInformation,spatialAnchors}] and shots:[the shot objects described above]. " +
         "Auto adapts the approach to each dramatic beat, guided by the overall scene, rather than classifying its genre. Styles are preferences and can blend. In strategy.approach briefly name the chosen approach or blend and explain why it serves the scene; use plain language. " +

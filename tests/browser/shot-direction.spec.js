@@ -2,6 +2,27 @@ import { test, expect } from './fixtures.js';
 import { openPlanning, planningComposer, submitPlanning } from './text-assistance-tools.js';
 
 for (const width of [1440, 430]) {
+  test(`redrafted earlier scene is inserted before remaining bedroom coverage at ${width}px`, async ({ page, request }) => {
+    const { id } = await (await request.get('/fixtures/new')).json();
+    const scenes = await (await request.post(`/fixtures/${id}/planning-order`)).json();
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/projects/${id}/shots`);
+    await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+    await openPlanning(page);
+    await planningComposer(page).getByRole('checkbox', { name: /RILEY'S BEDROOM/ }).uncheck();
+    await submitPlanning(page);
+    const review = page.locator('.shot-planning-dialog');
+    await review.getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
+    const state = async () => (await (await request.get(`/fixtures/${id}/shots`)).json());
+    await expect.poll(async () => (await state()).shots.length).toBe(2);
+    expect((await state()).shots.map(s => s.sceneId)).toEqual([scenes.plaza, scenes.bedroom]);
+    await expect(review).toBeHidden();
+    await expect(page.locator('section.shot-direction')).not.toContainText('Needs review');
+    await page.reload();
+    await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+    expect((await state()).shots.map(s => s.sceneId)).toEqual([scenes.plaza, scenes.bedroom]);
+  });
+
   test(`scene strategy and direction survive pending review and application at ${width}px`, async ({ page, request }) => {
     const { id } = await (await request.get('/fixtures/new')).json();
     await request.post(`/fixtures/${id}/approved`);

@@ -33,6 +33,8 @@ public sealed class ShotDirectionTests
             Assert.Equal(2, messages.Count); Assert.Contains(ShotDirections.StyleGuidance(style), messages[0].Text);
             Assert.Contains("contractVersion:4", messages[0].Text); Assert.Contains("strategy.approach", messages[0].Text); Assert.Contains("rather than classifying its genre", messages[0].Text); Assert.Contains("Authored instructions override", messages[0].Text);
             Assert.Contains("Protect the pause", messages[1].Text); Assert.NotNull(JsonNode.Parse(messages[1].Text));
+            Assert.Contains("must not contradict authored facts", messages[0].Text);
+            Assert.Contains("Describe necessary movement and transitions explicitly", messages[0].Text);
         }
     }
     [Theory] [InlineData(false)] [InlineData(true)]

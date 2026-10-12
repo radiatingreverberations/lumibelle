@@ -131,14 +131,28 @@ public static class EnvironmentViews
         if (plan?.ReferenceSupport is { } claims && (claims.Count > 30 || claims.Any(c => c is null || string.IsNullOrWhiteSpace(c.Claim) || c.Claim.Length > 4000 || !Enum.IsDefined(c.Status) || c.CandidateIds is null || c.CandidateIds.Distinct().Count() != c.CandidateIds.Count || c.CandidateIds.Any(id => !ids.Contains(id)) || c.Status == ReferenceSupportStatus.Supported && c.CandidateIds.Count == 0)))
             throw new WorkspaceStoreException("Reference support must use captured candidate identities; supported claims need visual evidence.");
     }
-    public static string? StagingIssue(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext = null)
+    private static string StagingDirection(Shot shot) => ShotDirections.Hash(new {
+        shot.DirectionStrategyId, shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced
+    });
+    private static string StagingDirectionContext(ShotDirectionContext? context) => ShotDirections.Hash(context is null ? null : new {
+        context.Strategy, context.Intent, context.ProposedStaging, context.Editorial, context.Advanced
+    });
+    public static string? StagingIssue(Shot shot, string notes, string revisionNotes)
+        => StagingIssue(shot, notes, revisionNotes, null, false);
+    public static string? StagingIssue(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext)
+        => StagingIssue(shot, notes, revisionNotes, directionContext, true);
+    private static string? StagingIssue(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext, bool checkContext)
     {
         if (shot.EnvironmentStaging is not { } staging) return null;
+        var direction = staging.DirectionDependencyVersion == 1 ? StagingDirection(shot)
+            : shot.Direction is null && shot.DirectionStrategyId is null ? null : ShotDirections.Hash(new { shot.Direction, shot.DirectionStrategyId });
         if (staging.ShotId != shot.Id || staging.AssetId != shot.EnvironmentAssetId || staging.ActionFingerprint != StagingAction(shot) ||
             staging.DirectingNotes != notes || staging.RevisionNotes != revisionNotes ||
-            staging.DirectionFingerprint is { } direction && direction != ShotDirections.Hash(new { shot.Direction, shot.DirectionStrategyId }))
+            staging.DirectionFingerprint != direction)
             return "The shot directions or environment changed. Review its staging in Environment before reusing it.";
-        if (staging.DirectionContextFingerprint is { } context && directionContext is not null && context != ShotDirections.Hash(directionContext))
+        var context = staging.DirectionDependencyVersion == 1 ? StagingDirectionContext(directionContext)
+            : directionContext is null ? null : ShotDirections.Hash(directionContext);
+        if (checkContext && staging.DirectionContextFingerprint != context)
             return "The scene strategy or dependent direction changed. Review reference-supported staging again.";
         if (staging.Views.Count == 0 || staging.Views.Any(view => !Matches(shot, view)))
             return "The selected environment pictures or crops changed. Review staging against the current references.";
@@ -149,10 +163,14 @@ public static class EnvironmentViews
         : shot.Videos.Any(v => v.Id == view.BindingId && v.Media.Id == view.MediaId &&
             v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.RefMod && v.Keyframes?.Frames.Any(f =>
                 f.Id == view.KeyframeId && f.Frame.Index == view.FrameIndex && f.Crop == view.Crop) == true);
-    public static object? CompositionStaging(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext = null)
+    public static object? CompositionStaging(Shot shot, string notes, string revisionNotes)
+        => CompositionStaging(shot, notes, revisionNotes, null, false);
+    public static object? CompositionStaging(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext)
+        => CompositionStaging(shot, notes, revisionNotes, directionContext, true);
+    private static object? CompositionStaging(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext, bool checkContext)
     {
         if (shot.EnvironmentStaging is not { } staging) return null;
-        if (StagingIssue(shot, notes, revisionNotes, directionContext) is { } issue) return new { status = "Needs review", concern = issue };
+        if (StagingIssue(shot, notes, revisionNotes, directionContext, checkContext) is { } issue) return new { status = "Needs review", concern = issue };
         var resolved = ResolvedReferences.For(shot);
         return new { status = "Reference-supported staging (reviewed model assessment, not verified geometry)", staging.Plan, staging.Evidence,
             views = staging.Views.Select(v => new { v.Reason,
@@ -209,8 +227,8 @@ public static class EnvironmentViews
                 return new EnvironmentStagingView(bindingId, c.Image?.MediaId ?? c.Reel!.Media.Id,
                     c.Keyframe?.Id, c.Keyframe?.Frame.Index, c.Keyframe?.Crop ?? c.Image?.Crop,
                     application.ViewReasons.FirstOrDefault(v => v.CandidateId == c.Id)?.Reason ?? "Manually selected view; review its support for the staging.");
-            }).ToArray()) { DirectionFingerprint = current.Direction is null && current.DirectionStrategyId is null ? null : ShotDirections.Hash(new { current.Direction, current.DirectionStrategyId }),
-                DirectionContextFingerprint = r.DirectionContext is null ? null : ShotDirections.Hash(r.DirectionContext),
+            }).ToArray()) { DirectionDependencyVersion = 1, DirectionFingerprint = StagingDirection(current),
+                DirectionContextFingerprint = StagingDirectionContext(r.DirectionContext),
                 Evidence = staging.ReferenceSupport is null ? null : r.Pool.Where(c => staging.ReferenceSupport.SelectMany(s => s.CandidateIds).Contains(c.Id)).Select(c => new EnvironmentSupportEvidence(c.Id, c.Sha256, c.Image?.MediaId ?? c.Reel!.Media.Id, c.Keyframe?.Id, c.Keyframe?.Crop ?? c.Image?.Crop)).ToArray() } : null;
         H3Policy.Validate(draft); ReferenceVideos.Validate(draft);
         return draft;
