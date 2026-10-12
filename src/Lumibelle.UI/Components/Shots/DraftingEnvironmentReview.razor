@@ -1,0 +1,31 @@
+@if (Value is { } accepted) {
+    <section class="draft-environment-review" aria-label="Drafting environment assessment">
+        <details open><summary>Environment assessment · @accepted.Snapshot.AssetName</summary>
+            <p class="field-hint">Captured set context · @accepted.InspectedViews.Count() inspected views. This assessment is not verified geometry.</p>
+            @if (Issue is not null) { <p role="status">@Issue</p> }
+            @if (accepted.Snapshot.Constraints.Length > 0) { <p><strong>Authored constraints:</strong> @accepted.Snapshot.Constraints</p> }
+            @if (ReadOnly) {
+                <p>@accepted.Assessment.Summary</p>
+                @if (accepted.Assessment.Concerns.Length > 0) { <p><strong>Conflict or concern:</strong> @accepted.Assessment.Concerns</p> }
+                @if (accepted.Assessment.MissingCoverage.Length > 0) { <p><strong>Additional environment view needed:</strong> @accepted.Assessment.MissingCoverage</p> }
+            } else {
+                <label>Set assessment<textarea rows="2" value="@accepted.Assessment.Summary" @oninput="e => Edit(a => a.Summary = e.Value?.ToString() ?? string.Empty)" /></label>
+                <label>Conflicts or concerns<textarea rows="2" value="@accepted.Assessment.Concerns" @oninput="e => Edit(a => a.Concerns = e.Value?.ToString() ?? string.Empty)" /></label>
+                <label>Additional environment view needed<textarea rows="2" value="@accepted.Assessment.MissingCoverage" @oninput="e => Edit(a => a.MissingCoverage = e.Value?.ToString() ?? string.Empty)" /></label>
+            }
+            <details><summary>Evidence and assumptions</summary>
+                @if (ReadOnly) { <p>@accepted.Assessment.Assumptions</p> }
+                else { <label>Assumptions<textarea rows="2" value="@accepted.Assessment.Assumptions" @oninput="e => Edit(a => a.Assumptions = e.Value?.ToString() ?? string.Empty)" /></label> }
+                @foreach (var claim in accepted.Assessment.Claims) { <p><strong>@claim.Status:</strong> @claim.Claim <small>@string.Join(" · ", claim.CandidateIds.Select(id => accepted.Snapshot.Views.FirstOrDefault(v => v.Id == id)?.Name ?? id))</small></p> }
+                @foreach (var view in accepted.Snapshot.Views) { <p class="field-hint">@view.Name @if (view.Reel is not null) { <span>· @view.Reel.Name · @view.Keyframe!.Frame.Seconds.ToString("0.###") s</span> }</p> }
+            </details>
+        </details>
+    </section>
+}
+@code {
+    [Parameter] public AcceptedDraftingEnvironment? Value { get; set; }
+    [Parameter] public EventCallback<AcceptedDraftingEnvironment> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? Issue { get; set; }
+    private Task Edit(Action<DraftingEnvironmentAssessment> edit) { var copy = ShotCopy.Of(Value!); edit(copy.Assessment); return ValueChanged.InvokeAsync(copy); }
+}

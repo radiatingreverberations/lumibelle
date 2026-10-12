@@ -5,6 +5,7 @@ using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
 using lumibelle.Services.Story;
+using lumibelle.Services.Shots;
 using Microsoft.Extensions.AI;
 
 namespace lumibelle.Services.AI;
@@ -16,7 +17,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
     private const string Operation = "text";
     // First step of a two-step composition; its ComfyUI output is the visual brief.
     private const string BriefOperation = "brief";
-    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection];
+    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection, AiJobKind.SceneEnvironmentSelection];
 
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
@@ -257,6 +258,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             AiJobKind.ShotPlanning => new AiJobTarget(request.Payload<ShotPlanningRequest>().Script.ProjectId, ShotId: request.Payload<ShotPlanningRequest>().SingleShot?.ShotId),
             AiJobKind.ShotTranslation => new AiJobTarget(request.Payload<ShotDubRequest>().ProjectId,
                 ShotId: request.Payload<ShotDubRequest>().ShotId, TakeId: request.Payload<ShotDubRequest>().SourceTakeId),
+            AiJobKind.SceneEnvironmentSelection => new AiJobTarget(request.Payload<SceneEnvironmentSelectionRequest>().ProjectId, ShotId: request.Payload<SceneEnvironmentSelectionRequest>().ShotId, SceneId: request.Payload<SceneEnvironmentSelectionRequest>().SceneId),
             AiJobKind.EnvironmentViewSelection => new AiJobTarget(request.Payload<EnvironmentViewRequest>().ProjectId, ShotId: request.Payload<EnvironmentViewRequest>().Shot.Id, CompositionId: request.Payload<EnvironmentViewRequest>().CompositionId),
             AiJobKind.AssetPicking => new AiJobTarget(request.Payload<AssetPickRequest>().ProjectId, ShotId: request.Payload<AssetPickRequest>().Shot.Id),
             AiJobKind.ReelComposition => new AiJobTarget(request.Payload<ReelCompositionRequest>().ProjectId, request.Payload<ReelCompositionRequest>().Draft.AssetId, ReelId: request.Payload<ReelCompositionRequest>().Draft.Id),
@@ -268,6 +270,12 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         };
         if (expected != job.Target) throw new WorkspaceStoreException("The text request belongs to a different target.");
         if (request.Kind == AiJobKind.AssetPicking) AssetPicker.ValidateRequest(request.Payload<AssetPickRequest>());
+        if (request.Kind == AiJobKind.SceneEnvironmentSelection)
+        {
+            if (request.Profile != DraftingEnvironments.SelectionProfile) throw new WorkspaceStoreException("The scene inspection contract is unavailable.");
+            DraftingEnvironments.SelectionMessages(request.Payload<SceneEnvironmentSelectionRequest>(), request.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray());
+        }
+        if (request.Kind == AiJobKind.ShotPlanning) ShotPlanner.ValidateInspection(request.Payload<ShotPlanningRequest>(), request.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray());
         if (request.Kind == AiJobKind.EnvironmentViewSelection)
         {
             if (request.Profile != EnvironmentViews.Profile && request.Profile != "environment-views-v1") throw new WorkspaceStoreException("The environment selection contract is unavailable.");
@@ -302,6 +310,8 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             AiJobKind.PromptComposition => request.Payload<PromptCompositionRequest>().InspectReferenceImages == false
                 ? 0 : request.Payload<PromptCompositionRequest>() is var composition ? composition.Images.Count + RefModFrameCount(request) + (composition.OpeningFrame is null ? 0 : 1) + (composition.MotionStills?.Count ?? 0) : 0,
             AiJobKind.ReelComposition => request.Payload<ReelCompositionRequest>().Images.Count + RefModFrameCount(request),
+            AiJobKind.ShotPlanning => (request.Payload<ShotPlanningRequest>().InspectionImageHashes?.Count ?? request.Payload<ShotPlanningRequest>().Environments.SelectMany(e => e.Views).Select(v => v.Sha256).Distinct().Count()),
+            AiJobKind.SceneEnvironmentSelection => request.Payload<SceneEnvironmentSelectionRequest>().Candidates.Count,
             AiJobKind.EnvironmentViewSelection => request.Payload<EnvironmentViewRequest>().Candidates.Count,
             AiJobKind.ReelViewSuggestion => request.Payload<ReelViewSuggestionRequest>().Candidates.Count + request.Payload<ReelViewSuggestionRequest>().ReferenceHashes.Count,
             _ => 0

@@ -39,6 +39,12 @@ else
         @if (!PlanningScenes.Any()) { <p role="status">Add a scene heading in <a href="@ProjectLink(Id, "/script")">Script</a> to start drafting shots.</p> }
         else { <p class="field-hint" role="status">@(_sceneSelection.Count == 0 ? "Select at least one scene to draft shots." : $"{Counted(_sceneSelection.Count, "scene")} selected · Existing shots are kept. No video is generated.")</p> }
         <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
+        @foreach (var scene in PlanningScenes.Where(s => _sceneSelection.Contains(s.Id))) {
+            <div class="draft-environment-summary"><strong>@scene.Title</strong><span>@EnvironmentLabel(SceneEnvironment(scene.Id))</span>
+                    <button disabled="@PlanningComposerLocked" @onclick="() => OpenDraftEnvironment(scene.Id)">Choose environment views</button>
+                @if (SceneEnvironment(scene.Id) is { Constraints.Length: > 0 } environment) { <small>Staging constraints: @environment.Constraints</small> }
+            </div>
+        }
         <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="PlanningComposerLocked" />
         <label>Directing instructions (optional)<textarea rows="3" @bind="_instructions" @bind:event="oninput" disabled="@PlanningComposerLocked"></textarea></label>
         @if (_recentInstructions.Count > 0)
@@ -113,6 +119,11 @@ else
                                     @foreach (var recent in _recentInstructions) { <button type="button" class="recent-instruction" title="@recent" disabled="@ShotDraftLocked" @onclick="() => _shotDraftDirections = recent">@recent</button> }
                                 </div>
                             }
+                            @if (identity.SceneId is { } sceneId) {
+                                <div class="draft-environment-summary"><strong>Environment for drafting</strong><span>@EnvironmentLabel(DraftingEnvironments.Effective(Current?.Shot ?? identity, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == sceneId)))</span>
+                                    <button disabled="@ShotDraftLocked" @onclick="() => OpenDraftEnvironment(sceneId, identity)">Choose environment views</button>
+                                </div>
+                            }
                             <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="ShotDraftLocked" />
                             <label>Maximum length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_shotDraftMaximum" disabled="@ShotDraftLocked" /></label>
                             @if (ShotDraftIssue(identity) is { } draftIssue) { <p role="status">@draftIssue</p> }
@@ -141,8 +152,8 @@ else
                         @if (HasCoverage(source) || ShotTakes.Count > 0) { <ShotWorkspacePreview ProjectId="Id" ShotId="source.Id" SelectedTakeId="source.SelectedTakeId" Takes="ShotTakes" Review="OpenTake" /> }
                         <label class="shot-direction">Action and camera<textarea @ref="_shotDirectionField" rows="9" @bind:get="source.Description" @bind:set="value => EditCoverage(s => s.Description = value ?? string.Empty)" @bind:event="oninput" placeholder="Describe the action, staging, and camera movement in one continuous take."></textarea></label>
                     </div>
-                    @if (lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source) is { } strategy) { <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" /> }
-                    <ShotDirectionEditor Value="source.Direction" ValueChanged="d => EditCoverage(s => s.Direction = d)" Freshness="@(lumibelle.Services.Shots.ShotDirections.Freshness(source, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, source)))" Review="() => EditCoverage(s => lumibelle.Services.Shots.ShotDirections.Review(s, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, s), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, s)))" />
+                    @if (lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source) is { } strategy) { <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" /><DraftingEnvironmentReview Value="source.DraftingEnvironment" ReadOnly="true" Issue="@ShotDirections.EnvironmentIssue(_doc, source)" /> }
+                    <ShotDirectionEditor Value="source.Direction" ValueChanged="d => EditCoverage(s => s.Direction = d)" Freshness="@(lumibelle.Services.Shots.ShotDirections.Freshness(_doc, source))" Review="() => EditCoverage(s => lumibelle.Services.Shots.ShotDirections.Review(s, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, s), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, s)))" />
                     <div class="shots-section-heading"><h2>Dialogue <small>@source.Dialogue.Count</small></h2><button @onclick="AddMasterDialogueAsync">+ Line</button></div>
                     @if (source.Dialogue.Count == 0) { <p class="field-hint shot-dialogue-empty">No dialogue in this shot.</p> }
                     @foreach (var line in source.Dialogue)
@@ -401,6 +412,7 @@ else
         <article class="shot-proposal"><h3>@draft.Title · @DurationLabel(draft)</h3><small>@draft.SceneTitle</small><p>@draft.Description</p>
             @foreach (var line in draft.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }
             @if (draft.Characters.Count > 0) { <p class="field-hint">Cast: @string.Join(", ", draft.Characters.Select(c => c.Name))</p> }
+            <DraftingEnvironmentReview Value="draft.DraftingEnvironment" ValueChanged="ReviewSingleEnvironment" />
             <ShotDirectionEditor Value="draft.Direction" ValueChanged="ReviewSingleDirection" Disabled="@(_shotDraftReviewJob is { } j && _resolvedShotDrafts.Contains(j.Id))" />
             <p class="field-hint">Sound: @draft.Atmosphere · Music: @draft.Music</p>
         </article>
@@ -850,7 +862,7 @@ else
             @if (proposal.Error is null) { <p class="field-hint" role="status">@(_planningDraftDirty ? "Saving review decisions…" : "Review decisions saved")</p> }
             <fieldset disabled="@(_applyingProposal || PlanningApplied)"><legend class="sr-only">Review shot appearances</legend>
             @foreach (var group in proposal.Shots.GroupBy(s => s.SceneId)) {
-                @if (proposal.Strategies.FirstOrDefault(s => s.SceneId == group.Key) is { } strategy) { <h3>@group.First().SceneTitle</h3><SceneDirectionStrategyEditor Value="strategy" ValueChanged="value => ReviewStrategy(strategy, value)" Expanded="true" /> }
+                @if (proposal.Strategies.FirstOrDefault(s => s.SceneId == group.Key) is { } strategy) { <h3>@group.First().SceneTitle</h3><SceneDirectionStrategyEditor Value="strategy" ValueChanged="value => ReviewStrategy(strategy, value)" Expanded="true" /><DraftingEnvironmentReview Value="group.First().DraftingEnvironment" ValueChanged="value => ReviewEnvironment(group, value)" /> }
                 @foreach (var s in group) { <article class="shot-proposal" @key="s.Id"><h3>@s.Title · @DurationLabel(s)</h3><small>@s.SceneTitle</small><p>@s.Description</p>@foreach (var line in s.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }<ShotDirectionEditor Value="s.Direction" ValueChanged="d => ReviewDirection(s, d)" /><ShotCastEditor Shot="s" Changed="characters => ReviewAppearances(s, characters)" /></article> }
             }
             </fieldset>
@@ -926,3 +938,5 @@ else
 </InlineDialog>
 
 <ShotProjectCopyDialog Visible="_copyShotsOpen" ProjectId="Id" Items="@_doc.Shots.Select((shot, index) => PickerItem(_doc, shot, index)).ToArray()" InitialShotId="_copyInitialShot" BusyChanged="value => _copyShotsBusy = value" Closed="() => _copyShotsOpen = false" />
+
+<SceneEnvironmentPicker @ref="_draftEnvironmentPicker" ProjectId="Id" Library="_assets" Applied="SaveDraftEnvironment" Closed="ReturnToDrafting" />

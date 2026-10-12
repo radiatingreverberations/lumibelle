@@ -10,7 +10,7 @@
         var reels = Library.Reels.Where(r => r.AssetId == owner.Id).ToArray();
         <p>@owner.Images.Count images · @reels.Length reels · @reels.Sum(r => r.Keyframes?.Frames.Count ?? 0) saved views.
             <a href="@ProjectLink(ProjectId, $"/assets?assetId={owner.Id}")">Manage sources</a></p>
-        <small>Choose views from this library to attach as shot references.</small>
+        <small>@Purpose</small>
         @foreach (var reel in reels.Where(r => r.Keyframes?.Frames.Count is not > 0)) {
             <small class="environment-missing">@reel.Name · Needs keyframes <a href="@ProjectLink(ProjectId, $"/assets?assetId={owner.Id}&view=reels&reelId={reel.Id}")">Choose views in Assets</a></small>
         }
@@ -24,6 +24,7 @@
     [Parameter] public Guid? AssetId { get; set; }
     [Parameter] public EventCallback<Guid?> AssetIdChanged { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string Purpose { get; set; } = "Choose views from this library to attach as shot references.";
     private ReferenceAsset? Owner => Library.Assets.FirstOrDefault(a => a.Id == AssetId && a.Category == AssetCategory.Environment);
     private Task Select(ChangeEventArgs e) => AssetIdChanged.InvokeAsync(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
 }

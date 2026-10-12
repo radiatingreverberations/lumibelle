@@ -8,31 +8,35 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiTextJobCapture
 {
-    public async Task<EnvironmentViewCapture> CaptureEnvironmentViewsAsync(Guid projectId, Guid compositionId, long version,
-        bool includeSceneText, bool includeNearbyShots, CancellationToken ct = default, Guid? environmentAssetId = null)
+    public async Task<EnvironmentSourcePool> CaptureEnvironmentSourcesAsync(Guid projectId, Guid assetId, CancellationToken ct = default)
     {
-        var document = await production!.LoadAsync(projectId, ct);
-        var c = document.Compositions.Single(x => x.Id == compositionId && !x.Archived);
-        if (c.Version != version) throw new WorkspaceConflictException();
         var library = await assets.LoadAsync(projectId, ct);
-        var owner = library.Assets.SingleOrDefault(a => a.Id == (environmentAssetId ?? c.Shot.EnvironmentAssetId) && a.Category == AssetCategory.Environment)
+        var owner = library.Assets.SingleOrDefault(a => a.Id == assetId && a.Category == AssetCategory.Environment)
             ?? throw new WorkspaceStoreException("Choose an available environment asset.");
+        var fingerprint = EnvironmentViews.Sources(library, owner.Id);
         var configured = Copy(await settings.LoadAsync(ct));
         var pictures = new Dictionary<string, byte[]>(); var pool = new List<EnvironmentViewCandidate>(); var warnings = new List<string>();
+        var unavailable = new List<EnvironmentSourceIssue>();
         foreach (var image in owner.Images.OrderByDescending(i => i.IsReference).ThenBy(i => i.Id)) {
             ct.ThrowIfCancellationRequested();
             try {
                 var png = await PrepareImageAsync(projectId, new(owner.Id, image.Id), null, ct);
-                var binding = ReferenceSetups.Bind(owner, image, c.Shot);
+                var binding = new ShotImageBinding { AssetId = owner.Id, MediaId = image.Id, Name = image.Name ?? owner.Name, LookId = image.LookId };
                 binding.Role = "Environment"; binding.RepresentsId = null; binding.InferUsage = true;
                 binding.Use = null; binding.Purpose = null;
                 var id = "image/" + image.Id;
                 pool.Add(new(id, image.Name ?? "Environment image", image.IsReference, image.PreservationGuidance, binding, null, null, ReelViewSuggestions.Hash(png)));
                 pictures.Add(id, png);
-            } catch (Exception e) when (e is IOException or WorkspaceStoreException or AiGenerationException) { warnings.Add($"{image.Name}: image unavailable; restore it in Assets."); }
+            } catch (Exception e) when (e is IOException or WorkspaceStoreException or AiGenerationException) {
+                var warning = $"{image.Name}: image unavailable; restore it in Assets.";
+                warnings.Add(warning); unavailable.Add(new("image/" + image.Id, image.Name ?? owner.Name, warning));
+            }
         }
         foreach (var reel in library.Reels.Where(r => r.AssetId == owner.Id).OrderBy(r => r.Id)) {
-            if (reel.Keyframes?.Frames.Count is not > 0) { warnings.Add($"{reel.Name}: needs keyframes. Choose viewpoints in Assets before using its other angles."); continue; }
+            if (reel.Keyframes?.Frames.Count is not > 0) {
+                var warning = $"{reel.Name}: needs keyframes. Choose viewpoints in Assets before using its other angles.";
+                warnings.Add(warning); unavailable.Add(new("reel/" + reel.Id, reel.Name, warning)); continue;
+            }
             foreach (var frame in reel.Keyframes.Frames) {
                 ct.ThrowIfCancellationRequested();
                 try {
@@ -42,9 +46,28 @@ public sealed partial class AiTextJobCapture
                     pool.Add(new(id, ReelViewSuggestions.Label(frame, reel.Keyframes.Frames.IndexOf(frame) + 1), false,
                         frame.Notes, null, Copy(reel), Copy(frame), ReelViewSuggestions.Hash(png)));
                     pictures.Add(id, png);
-                } catch (Exception e) when (e is IOException or WorkspaceStoreException or AiGenerationException) { warnings.Add($"{reel.Name} · {frame.Frame.Seconds:0.###} s: saved view unavailable."); }
+                } catch (Exception e) when (e is IOException or WorkspaceStoreException or AiGenerationException) {
+                    var warning = $"{reel.Name} · {frame.Frame.Seconds:0.###} s: saved view unavailable.";
+                    warnings.Add(warning); unavailable.Add(new($"reel/{reel.Id}/{frame.Id}", frame.Name ?? reel.Name, warning));
+                }
             }
         }
+        if (EnvironmentViews.Sources(await assets.LoadAsync(projectId, ct), owner.Id) != fingerprint)
+            throw new WorkspaceStoreException("The environment changed during inspection preparation. Try again.");
+        return new(projectId, owner.Id, owner.Name, string.Join("\n", owner.Description, owner.PreservationGuidance), fingerprint, pool, warnings, pictures) { Unavailable = unavailable };
+    }
+    public async Task<EnvironmentViewCapture> CaptureEnvironmentViewsAsync(Guid projectId, Guid compositionId, long version,
+        bool includeSceneText, bool includeNearbyShots, CancellationToken ct = default, Guid? environmentAssetId = null)
+    {
+        var document = await production!.LoadAsync(projectId, ct);
+        var c = document.Compositions.Single(x => x.Id == compositionId && !x.Archived);
+        if (c.Version != version) throw new WorkspaceConflictException();
+        var library = await assets.LoadAsync(projectId, ct);
+        var owner = library.Assets.SingleOrDefault(a => a.Id == (environmentAssetId ?? c.Shot.EnvironmentAssetId) && a.Category == AssetCategory.Environment)
+            ?? throw new WorkspaceStoreException("Choose an available environment asset.");
+        var captured = await CaptureEnvironmentSourcesAsync(projectId, owner.Id, ct);
+        var configured = Copy(await settings.LoadAsync(ct));
+        var pool = captured.Candidates; var pictures = captured.Pictures; var warnings = captured.Warnings;
         var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.Single(s => s.Id == c.ShotId);
         var context = await ScriptContextAsync(projectId, document, source, shot, ct);
         var request = new EnvironmentViewRequest(2, projectId, c.Id, Guid.NewGuid(), owner.Id, owner.Name,

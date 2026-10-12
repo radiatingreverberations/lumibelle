@@ -141,7 +141,7 @@ public partial class ProductionStudio
         try
         {
             var id = Guid.NewGuid();
-            var request = new ShotPlanningRequest(ShotCopy.Of(approved), _assets.Copy(), _sceneSelection.ToArray(), _maximum, _instructions, _model.Model) { CoverageOnly = true, Style = _directingStyle };
+            var request = new ShotPlanningRequest(ShotCopy.Of(approved), _assets.Copy(), _sceneSelection.ToArray(), _maximum, _instructions, _model.Model) { CoverageOnly = true, Style = _directingStyle, Environments = await TextRequests.CaptureDraftingEnvironmentsAsync(Id, _sceneSelection.ToArray(), ct: _lifetime.Token) };
             var followsDefault = _model.FollowsDefault;
             var pending = await TextRequests.PlanShotsAsync(id, await AiReviews.TabIdAsync(), request, followsDefault, _lifetime.Token);
             if (_disposed || Id != project) return;
@@ -234,6 +234,11 @@ public partial class ProductionStudio
         {
             var job = AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id);
             if (job is not null) await ReviewPlanningJobAsync(job);
+            else if (AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.SceneEnvironmentSelection && j.Target.ProjectId == Id) is { Target.SceneId: { } inspectionScene } inspection && Scenes.Any(s => s.Id == inspectionScene)) {
+                var target = _doc.Shots.FirstOrDefault(s => s.Id == inspection.Target.ShotId);
+                await OpenDraftEnvironment(inspectionScene, target);
+                if (_draftEnvironmentPicker is not null) await _draftEnvironmentPicker.InspectSavedAsync(inspection);
+            }
             else if (AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && SingleShotJob(j) && j.Target.ProjectId == Id) is { Target.ShotId: { } shotId } single &&
                 _doc.Shots.Any(s => s.Id == shotId))
             {
@@ -324,7 +329,7 @@ public partial class ProductionStudio
                     ShotReferences.Character(original, prior.Speaker) is { } originalSpeaker &&
                     ShotReferences.Characters(shot).FirstOrDefault(c => c.Id == originalSpeaker.Id) is { } renamed && line.Speaker == renamed.Name)
                     line.Speaker = prior.Speaker;
-        copy.Characters = []; copy.Direction = null; return copy;
+        copy.Characters = []; copy.Direction = null; if (copy.DraftingEnvironment is { } environment) copy.DraftingEnvironment = environment with { Assessment = new() }; return copy;
     }
     private async Task LoadPlanningDraftAsync()
     {
@@ -354,6 +359,7 @@ public partial class ProductionStudio
         try
         {
             if (!await SavePlanningDraftAsync(force: true) || !await SaveLocked()) return;
+            if (_planningRequest is not null) await TextRequests.ValidateDraftingEnvironmentsAsync(_planningRequest, ct: _lifetime.Token);
             var added = ShotCopy.Of(proposal.Shots);
             var before = EditState; var version = _version;
             var saved = await Store.ApplyDirectedPlanningAsync(Id, job.Id, added, proposal.Strategies, _doc.Revision, _lifetime.Token);

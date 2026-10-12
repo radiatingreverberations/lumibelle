@@ -134,9 +134,13 @@ public static class EnvironmentViews
     private static string StagingDirection(Shot shot) => ShotDirections.Hash(new {
         shot.DirectionStrategyId, shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced
     });
-    private static string StagingDirectionContext(ShotDirectionContext? context) => ShotDirections.Hash(context is null ? null : new {
-        context.Strategy, context.Intent, context.ProposedStaging, context.Editorial, context.Advanced
-    });
+    private static string StagingDirectionContext(ShotDirectionContext? context)
+    {
+        var previous = ShotDirections.Hash(context is null ? null : new {
+            context.Strategy, context.Intent, context.ProposedStaging, context.Editorial, context.Advanced
+        });
+        return context?.Environment is null ? previous : ShotDirections.Hash(new { previous, context.Environment });
+    }
     public static string? StagingIssue(Shot shot, string notes, string revisionNotes)
         => StagingIssue(shot, notes, revisionNotes, null, false);
     public static string? StagingIssue(Shot shot, string notes, string revisionNotes, ShotDirectionContext? directionContext)

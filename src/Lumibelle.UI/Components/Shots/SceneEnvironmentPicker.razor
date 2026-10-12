@@ -1,0 +1,187 @@
+@inherits ProjectAwareComponent
+@using System.Text.Json
+@using lumibelle.Components.AI
+@using lumibelle.Services.Shots
+@implements IAsyncDisposable
+@inject AiTextJobCapture Requests
+@inject AiJobCoordinator Jobs
+@inject IAiJobStore JobStore
+@inject IAiReviewGate Reviews
+
+<InlineDialog Visible="_open" VisibleChanged="v => v ? Task.CompletedTask : Back()" Title="Environment for drafting" Context="@_title" CloseDisabled="@(_working || _preparing)"
+    Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false })" Class="scene-environment-dialog">
+<DialogContent>
+    <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_asset" AssetIdChanged="ChangeAsset" Disabled="@(_working || _preparing)" Purpose="Choose inspection views for drafting; generation references stay separate." />
+    <p class="field-hint">These views help plan the scene. Each shot chooses its generation references separately.</p>
+    <label class="inspection-constraints">Staging constraints<textarea rows="2" @bind="_constraints" @bind:event="oninput" disabled="@(_working || _preparing)" placeholder="Specify relationships the empty set cannot establish, such as a character's height relative to a feature."></textarea></label>
+    <TextModelPicker @ref="_picker" ProjectId="ProjectId" Studio="TextAssistantStudio.Shots" SelectionChanged="m => _model = m" Disabled="@(_working || _preparing)" />
+    @if (_model is { SupportsImages: false }) { <p role="status">Choose a vision model for AI selection and drafting with pictures. Manual browsing remains available.</p> }
+    @if (_preparing) { <p role="status">Preparing saved environment views…</p> }
+    @if (_status is not null) { <p role="status">@_status</p> }
+    @if (_error is not null) { <p role="alert">@_error</p> }
+    @if (_job is not null) { <AiJobProgressView Job="_job" Queue="Jobs.View" Progress="Jobs.Progress(_job.Id)" /> }
+    @if (_pool is { } pool) {
+        <div class="inspection-toolbar">
+            <strong>@_selected.Count inspection pictures</strong>
+            <span class="field-hint">Up to @ComfyTextVision.MaximumImages attachments; complete drafting capacity also includes other scenes and text.</span>
+        </div>
+        @if (_selected.Any(id => !pool.Candidates.Any(c => c.Id == id))) {
+            <p role="alert">Some saved views are unavailable. Choose replacements or remove them.</p>
+            <button disabled="@_working" @onclick="RemoveUnavailable">Remove unavailable selections</button>
+        }
+        @if (_selected.Count == 0) { <p class="field-hint">Using this setup without pictures is an explicit text-only choice. The authored constraints still apply.</p> }
+        <div class="inspection-reel-tools">@foreach (var reel in pool.Candidates.Where(c => c.Reel is not null).Select(c => c.Reel!).DistinctBy(r => r.Id)) {
+            <MudButton Disabled="@(_working || _preparing)" OnClick="() => IncludeReel(reel.Id)" Variant="Variant.Outlined" Size="Size.Small">Include saved views · @reel.Name</MudButton>
+        }</div>
+        @if (_result is { } result) { <p>@result.Summary</p>@foreach (var warning in result.Warnings) { <p class="field-hint">@warning</p> } }
+        <div class="environment-view-grid">@foreach (var candidate in pool.Candidates.OrderByDescending(c => _selected.Contains(c.Id))) {
+            <EnvironmentViewCard ProjectId="ProjectId" Candidate="candidate" Selected="@_selected.Contains(candidate.Id)" SelectedChanged="v => Select(candidate.Id, v)" Disabled="@(_working || _preparing)" Reason="@(_result?.Views.FirstOrDefault(v => v.CandidateId == candidate.Id)?.Reason)" />
+        }</div>
+        @foreach (var warning in pool.Warnings) { <p class="field-hint">@warning</p> }
+        <details><summary>Inspection accounting · @_inspected.Count/@pool.Candidates.Count available sources inspected by AI</summary>
+            @foreach (var c in pool.Candidates) { <p>@c.Name · @(_inspected.Contains(c.Id) ? "Inspected" : _working ? "Not yet inspected" : "Not inspected; manual selection available")</p> }
+            @foreach (var source in pool.Unavailable) { <p>@source.Name · Unavailable · @source.Reason</p> }
+        </details>
+        @foreach (var reel in Library.Reels.Where(r => r.AssetId == _asset && r.Keyframes?.Frames.Count is not > 0)) {
+            <p><a href="@ProjectLink(ProjectId, $"/assets?assetId={_asset}&view=reels&reelId={reel.Id}")">Choose keyframes · @reel.Name</a></p>
+        }
+    }
+    @if (_history.Length > 0) { <details><summary>Request history</summary>@foreach (var history in _history) {
+        <button disabled="@_working" @onclick="() => Inspect(history)">@history.CreatedUtc.ToLocalTime().ToString("g") · @history.State</button>
+    }</details> }
+    @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre>@_raw</pre></details> }
+</DialogContent>
+<DialogActions>
+    @if (_working) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
+    else {
+        <MudButton OnClick="Back" Disabled="_preparing">Back</MudButton>
+        @if (_asset is null) { <MudButton OnClick="UseNone" Color="Color.Primary" Variant="Variant.Filled">Use no environment</MudButton> }
+        else {
+            @if (_pool is null) { <MudButton OnClick="Browse" Disabled="_preparing">Browse views</MudButton> }
+            <MudButton Class="ai-assist-action" OnClick="Run" Disabled="@(_preparing || _model?.Ready != true || !_model.SupportsImages)" Variant="Variant.Outlined"><AiAssistIcon />Choose views with AI</MudButton>
+            <MudButton OnClick="Apply" Disabled="@(_preparing || _selected.Count > ComfyTextVision.MaximumImages)" Color="Color.Primary" Variant="Variant.Filled">Use for drafting</MudButton>
+        }
+    }
+</DialogActions>
+</InlineDialog>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public AssetLibrary Library { get; set; } = null!;
+    [Parameter] public EventCallback<DraftingEnvironmentSetup?> Applied { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    private TextModelPicker? _picker;
+    private TextModelSelectionState? _model;
+    private bool _open, _working, _preparing;
+    private Guid _scene;
+    private Guid? _shot, _asset;
+    private string _title = "", _text = "", _instructions = "", _constraints = "", _raw = "";
+    private string? _status, _error;
+    private EnvironmentSourcePool? _pool;
+    private SceneEnvironmentSelectionResult? _result;
+    private AiJobHeader? _job;
+    private AiJobHeader[] _history = [];
+    private HashSet<string> _selected = [], _inspected = [];
+    private Guid _operation;
+    private List<string> _batchWarnings = [];
+    private CancellationTokenSource? _run;
+    private readonly CancellationTokenSource _life = new();
+    private TextModelReference? _initialModel;
+    private bool _setModel;
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (_setModel && _picker is not null) { _setModel = false; await _picker.UseRequestModelAsync(_initialModel); }
+    }
+    public async Task OpenAsync(Guid scene, string title, string text, string instructions, DraftingEnvironmentSetup? setup, Guid? shot = null, TextModelSelectionState? model = null)
+    {
+        _initialModel = model?.FollowsDefault == false ? model.Model : null; _setModel = true;
+        _scene = scene; _shot = shot; _title = title; _text = text; _instructions = instructions;
+        _asset = setup?.AssetId; _constraints = setup?.Constraints ?? ""; _selected = setup?.Views.Select(v => v.Id).ToHashSet() ?? [];
+        _inspected = setup?.Inspection?.Inspected.ToHashSet() ?? []; _operation = setup?.Inspection?.OperationId ?? Guid.Empty;
+        _pool = null; _result = null; _error = null; _status = null; _job = null; _open = true;
+        _history = Jobs.View.Jobs.Where(j => j.Kind == AiJobKind.SceneEnvironmentSelection && j.Target.ProjectId == ProjectId && j.Target.SceneId == scene && j.Target.ShotId == shot).OrderByDescending(j => j.CreatedUtc).ToArray();
+        if (_asset is not null) await Browse();
+        await InvokeAsync(StateHasChanged);
+    }
+    private void ChangeAsset(Guid? asset) { _asset = asset; _pool = null; _selected.Clear(); _inspected.Clear(); _constraints = ""; _result = null; _error = null; }
+    private void Select(string id, bool value) { if (value) _selected.Add(id); else _selected.Remove(id); }
+    private void RemoveUnavailable() => _selected.RemoveWhere(id => !_pool!.Candidates.Any(c => c.Id == id));
+    private void IncludeReel(Guid id) { foreach (var c in _pool!.Candidates.Where(c => c.Reel?.Id == id)) _selected.Add(c.Id); }
+    private async Task Browse()
+    {
+        if (_asset is null || _preparing || _pool is not null) return;
+        _preparing = true; _error = null;
+        try { _pool = await Requests.CaptureEnvironmentSourcesAsync(ProjectId, _asset.Value, _life.Token); }
+        catch (Exception e) { _error = e.Message; }
+        finally { _preparing = false; }
+    }
+    private async Task Run()
+    {
+        if (_working || _picker is null || !await _picker.PrepareSubmitAsync() || _model?.SupportsImages != true) return;
+        await Browse(); if (_pool is null || _pool.Candidates.Count == 0) return;
+        _working = true; _error = null; _result = null; _inspected.Clear();
+        _operation = Guid.NewGuid(); _batchWarnings.Clear();
+        _run?.Dispose(); _run = CancellationTokenSource.CreateLinkedTokenSource(_life.Token);
+        try {
+            var chosen = await EnvironmentInspectionRunner.RunAsync(_pool.Candidates.Select(c => c.Id).ToArray(), InspectBatch, _inspected, _run.Token);
+            _result = chosen is null ? null : chosen with { Warnings = chosen.Warnings.Concat(_batchWarnings).Distinct().ToArray() };
+            if (chosen is not null) _selected = chosen.Views.Select(v => v.CandidateId).ToHashSet();
+            _status = chosen is null ? "No suitable selection. Browse views manually." : "All available sources inspected. Review the selected views before using them.";
+        } catch (OperationCanceledException) { _status = "Selection canceled; inspection is incomplete. Saved setup is unchanged."; }
+        catch (Exception e) { _error = "Inspection incomplete. " + e.Message; }
+        finally { _working = false; }
+    }
+    private async Task<EnvironmentInspectionBatch<SceneEnvironmentSelectionResult>> InspectBatch(IReadOnlyList<string> batch, bool final, int round, CancellationToken ct)
+    {
+        var count = batch.Count; AiJobSubmission submission; SceneEnvironmentSelectionRequest request;
+        while (true) {
+            request = new(ProjectId, _scene, _shot, _text, _instructions, _constraints, _pool!.AssetId, _pool.AssetName, _pool.Guidance,
+                batch.Take(count).Select(id => _pool.Candidates.Single(c => c.Id == id)).ToArray(), final && count == batch.Count) {
+                    OperationId = _operation, SourceIds = _pool.Candidates.Select(c => c.Id).ToArray(),
+                    PreviouslyInspected = _inspected.ToArray(), Unavailable = _pool.Unavailable
+                };
+            submission = await Requests.SelectSceneEnvironmentViewsAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), request, _pool, _model!.Model, _model.FollowsDefault, ct);
+            if (!await Requests.InspectionTooLargeAsync(submission, ct)) break;
+            if (count == 1) throw new WorkspaceStoreException("One view exceeds this model's capacity. Choose another model or select manually.");
+            count = Math.Max(1, count / 2);
+        }
+        _status = $"Inspecting scene views · round {round} · {count} pictures";
+        _job = await Jobs.EnqueueAsync(submission, ct); await InvokeAsync(StateHasChanged);
+        AiTextJobResult? result;
+        while (true) {
+            ct.ThrowIfCancellationRequested();
+            _job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id) ?? _job;
+            result = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, ct);
+            if (_job.State is AiJobState.Completed or AiJobState.NeedsAttention or AiJobState.Cancelled) break;
+            await Task.Delay(250, ct);
+        }
+        _raw = result?.Raw ?? "";
+        if (_job.State != AiJobState.Completed || result is not { Complete: true, Error: null }) throw new WorkspaceStoreException(result?.Error ?? _job.Error ?? "Request stopped.");
+        var parsed = result.Read<SceneEnvironmentSelectionResult>()!;
+        _batchWarnings.AddRange(parsed.Warnings);
+        return new(request.Candidates.Select(c => c.Id).ToArray(), parsed.Views.Select(v => v.CandidateId).ToArray(), request.Final, parsed);
+    }
+    private async Task Inspect(AiJobHeader job) { _job = job; _raw = (await JobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _life.Token))?.Raw ?? ""; }
+    public Task InspectSavedAsync(AiJobHeader job) => Inspect(job);
+    private async Task Cancel() { _run?.Cancel(); if (_job?.LocksTarget == true) await Jobs.CancelAsync(_job.Id); }
+    private async Task UseNone() { await Applied.InvokeAsync(null); _open = false; await Closed.InvokeAsync(); }
+    private async Task Apply()
+    {
+        if (_preparing || _working) return;
+        await Browse(); if (_pool is null) return;
+        if (_selected.Any(id => !_pool.Candidates.Any(c => c.Id == id))) { _error = "A saved view is unavailable. Remove it or choose a replacement."; return; }
+        _preparing = true;
+        try {
+            var setup = new DraftingEnvironmentSetup { AssetId = _pool.AssetId, Constraints = _constraints.Trim(), Views = _pool.Candidates.Where(c => _selected.Contains(c.Id)).ToList(),
+                Inspection = new(_operation, _inspected.ToArray(), _pool.Candidates.Where(c => !_inspected.Contains(c.Id)).Select(c => c.Id).ToArray(), _pool.Unavailable,
+                    _result is not null && _pool.Candidates.All(c => _inspected.Contains(c.Id))) };
+            var current = await Requests.CaptureEnvironmentSourcesAsync(ProjectId, _pool.AssetId, _life.Token);
+            if (_pool.Guidance != current.Guidance) throw new WorkspaceStoreException("Environment guidance changed. Go Back and review a fresh selection.");
+            _ = DraftingEnvironments.Snapshot(_scene, setup, current);
+            await Applied.InvokeAsync(setup);
+            _open = false; await Closed.InvokeAsync();
+        } catch (Exception e) { _error = e.Message; }
+        finally { _preparing = false; }
+    }
+    private async Task Back() { if (_working || _preparing) return; _open = false; await Closed.InvokeAsync(); }
+    public ValueTask DisposeAsync() { _life.Cancel(); _run?.Cancel(); _run?.Dispose(); _life.Dispose(); return ValueTask.CompletedTask; }
+}

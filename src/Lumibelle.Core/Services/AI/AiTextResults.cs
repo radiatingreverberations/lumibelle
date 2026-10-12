@@ -81,6 +81,9 @@ public static class AiTextResults
             case AiJobKind.ReelViewSuggestion:
                 try { return Value(result, ReelViewSuggestions.Parse(raw, request.Payload<ReelViewSuggestionRequest>())); }
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.SceneEnvironmentSelection:
+                try { return Value(result, DraftingEnvironments.ParseSelection(raw, request.Payload<SceneEnvironmentSelectionRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.EnvironmentViewSelection:
                 try { return Value(result, EnvironmentViews.Parse(raw, request.Payload<EnvironmentViewRequest>())); }
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }

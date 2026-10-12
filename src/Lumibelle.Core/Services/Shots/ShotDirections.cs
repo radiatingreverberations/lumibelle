@@ -33,8 +33,13 @@ public static class ShotDirections
         DirectingStyle.KineticAction => "Think Alias or 24.", _ => "Auto can blend approaches as the scene develops."
     };
     public static string Hash<T>(T value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value, AtomicJsonFile.Options))));
-    public static string Target(Shot shot) => Hash(new { shot.Title, shot.Description, shot.Duration, shot.SceneId,
-        shot.SourceBlockIds, shot.SourceExcerpt, shot.Dialogue, shot.Characters, shot.Atmosphere, shot.Music, shot.Direction, shot.DirectionStrategyId });
+    public static string Target(Shot shot)
+    {
+        var previous = Hash(new { shot.Title, shot.Description, shot.Duration, shot.SceneId,
+            shot.SourceBlockIds, shot.SourceExcerpt, shot.Dialogue, shot.Characters, shot.Atmosphere, shot.Music, shot.Direction, shot.DirectionStrategyId });
+        return shot.EnvironmentInspection is null && shot.DraftingEnvironment is null && shot.EnvironmentInspectionDisabled is null
+            ? previous : Hash(new { previous, shot.EnvironmentAssetId, shot.EnvironmentInspection, shot.EnvironmentInspectionDisabled, shot.DraftingEnvironment });
+    }
     public static DirectionDependencies Dependencies(Shot shot, DirectionStrategy? strategy, IEnumerable<SceneShotSummary>? neighbours = null) => new(
         Hash(new { shot.Description, shot.SourceExcerpt, shot.SceneTitle }),
         Hash(strategy is null ? null : new { strategy.Approach, strategy.DramaticProgression, strategy.VisualProgression, strategy.AudienceInformation, strategy.SpatialAnchors }),
@@ -64,13 +69,13 @@ public static class ShotDirections
     }
     public static ShotDirectionContext? Context(Shot shot, DirectionStrategy? strategy, IEnumerable<SceneShotSummary>? neighbours = null)
     {
-        if (shot.Direction is not { } direction && strategy is null) return null;
+        if (shot.Direction is not { } direction && strategy is null && shot.DraftingEnvironment is null) return null;
         var freshness = Freshness(shot, strategy, neighbours);
-        return new(strategy, freshness.Intent ? shot.Direction?.Intent : null, freshness.Staging ? shot.Direction?.Staging : null,
+        return new ShotDirectionContext(strategy, freshness.Intent ? shot.Direction?.Intent : null, freshness.Staging ? shot.Direction?.Staging : null,
             freshness.Editorial ? shot.Direction?.Editorial : null,
-            freshness.Continuity && shot.Direction is { } d ? d.Advanced : null, freshness.Limitations);
+            freshness.Continuity && shot.Direction is { } d ? d.Advanced : null, freshness.Limitations) { Environment = shot.DraftingEnvironment };
     }
-    public static string? Fingerprint(ShotDocument document, Shot shot) => shot.Direction is null && shot.DirectionStrategyId is null ? null
+    public static string? Fingerprint(ShotDocument document, Shot shot) => shot.Direction is null && shot.DirectionStrategyId is null && shot.DraftingEnvironment is null ? null
         : Hash(new { shot.Direction, Context = Context(document, shot) });
     public static DirectionStrategy? Strategy(ShotDocument document, Shot shot) => document.DirectionStrategies.FirstOrDefault(s => s.Id == shot.DirectionStrategyId);
     public static IReadOnlyList<SceneShotSummary> Neighbours(ShotDocument document, Shot shot)
@@ -83,7 +88,26 @@ public static class ShotDirections
     {
         if (shot.Direction is { } d) d.Dependencies = Dependencies(shot, strategy, neighbours);
     }
-    public static ShotDirectionContext? Context(ShotDocument document, Shot shot) => Context(shot, Strategy(document, shot), Neighbours(document, shot));
+    public static string? EnvironmentIssue(ShotDocument document, Shot shot)
+    {
+        if (shot.DraftingEnvironment is not { } accepted) return null;
+        var setup = DraftingEnvironments.Effective(shot, document.SceneSetups.FirstOrDefault(s => s.SceneId == shot.SceneId));
+        if (shot.EnvironmentInspectionDisabled == true || setup is null && accepted.Snapshot.SetupVersion != Guid.Empty || shot.EnvironmentAssetId is { } asset && asset != accepted.LiveAssetId || setup is not null &&
+            (setup.AssetId != accepted.LiveAssetId || DraftingEnvironments.Semantic(setup.AssetId, accepted.Snapshot.Guidance, setup.Constraints, setup.Views) != DraftingEnvironments.Semantic(accepted.LiveAssetId, accepted.Snapshot.Guidance, accepted.Snapshot.Constraints, accepted.Snapshot.Views)))
+            return "Environment setup changed. Staging is based on the earlier captured views and constraints; review or redraft before adopting the new setup.";
+        return null;
+    }
+    public static DirectionFreshness Freshness(ShotDocument document, Shot shot)
+    {
+        var freshness = Freshness(shot, Strategy(document, shot), Neighbours(document, shot));
+        return EnvironmentIssue(document, shot) is { } issue ? freshness with { Staging = false, Continuity = false, ReferenceSupport = false, Limitations = [.. freshness.Limitations, issue] } : freshness;
+    }
+    public static ShotDirectionContext? Context(ShotDocument document, Shot shot)
+    {
+        var context = Context(shot, Strategy(document, shot), Neighbours(document, shot));
+        return context is not null && EnvironmentIssue(document, shot) is { } issue
+            ? context with { ProposedStaging = null, Advanced = null, Environment = null, Limitations = [.. context.Limitations, issue] } : context;
+    }
     public static void ValidateStrategies(IEnumerable<DirectionStrategy> strategies)
     {
         var list = strategies.ToList();

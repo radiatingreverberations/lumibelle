@@ -1,0 +1,15 @@
+<article class="environment-view-card">
+    <label><input type="checkbox" aria-label="Use @Candidate.Name" checked="@Selected" @onchange="e => SelectedChanged.InvokeAsync(e.Value is true)" disabled="@Disabled" /><strong>@Candidate.Name</strong></label>
+    <CropThumbnail MeasureImage="true" Responsive="true" ThumbnailWidth="16" ThumbnailHeight="9" Url="@Url" Label="@Candidate.Name" Width="@(Candidate.Reel?.Media.Width ?? 1)" Height="@(Candidate.Reel?.Media.Height ?? 1)" Crop="@(Candidate.Keyframe?.Crop ?? Candidate.Image?.Crop)" />
+    <small>@(Candidate.Reel is not null ? $"{Candidate.Reel.Name} · {Candidate.Keyframe!.Frame.Seconds:0.###} s" : Candidate.Approved ? "Approved image" : "Unapproved image")</small>
+    <p>@(Reason ?? Candidate.Notes)</p>
+</article>
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public EnvironmentViewCandidate Candidate { get; set; } = null!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public EventCallback<bool> SelectedChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Reason { get; set; }
+    private string Url => Candidate.Image is { } image ? $"/media/projects/{ProjectId}/assets/{image.AssetId}/images/{image.MediaId}" : ReferenceVideos.FrameUrl(ProjectId, Candidate.Keyframe!.Frame);
+}

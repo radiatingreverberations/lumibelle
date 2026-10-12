@@ -177,6 +177,10 @@ public sealed record PromptCompositionResult(string Prompt, string ReferenceUsag
 public sealed record SetupInputs
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? EnvironmentInspectionDisabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? EnvironmentInspection { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? EnvironmentAssetId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EnvironmentShotStaging? EnvironmentStaging { get; set; }
@@ -196,6 +200,6 @@ public sealed record SetupInputs
     public bool Turbo { get; set; } = false;
     public int TurboSteps { get; set; } = 4;
     public IReadOnlyList<LoraSelection>? Loras { get; set; } = null;
-    public static SetupInputs From(Shot s) => new() { EnvironmentAssetId = s.EnvironmentAssetId, EnvironmentStaging = s.EnvironmentStaging, CharacterVoices = s.CharacterVoices, Images = s.Images, Voices = s.Voices, Videos = s.Videos, Aspect = s.Aspect, NativeResolution = s.NativeResolution, Resolution = s.Resolution, UpscalePreview = s.UpscalePreview, GenerationPreset = s.GenerationPreset, SaveLosslessFrames = s.SaveLosslessFrames, SaveLatents = s.SaveLatents, Turbo = s.Turbo, TurboSteps = s.TurboSteps, Loras = s.Loras };
-    public void Apply(Shot s) { s.EnvironmentAssetId = EnvironmentAssetId; s.EnvironmentStaging = EnvironmentStaging; s.CharacterVoices = CharacterVoices; s.Images = Images; s.Voices = Voices; s.Videos = Videos; s.Aspect = Aspect; s.NativeResolution = NativeResolution; s.Resolution = Resolution; s.UpscalePreview = UpscalePreview; s.GenerationPreset = GenerationPreset; s.SaveLosslessFrames = SaveLosslessFrames; s.SaveLatents = SaveLatents; s.Turbo = Turbo; s.TurboSteps = TurboSteps; s.Loras = Loras; }
+    public static SetupInputs From(Shot s) => new() { EnvironmentInspectionDisabled = s.EnvironmentInspectionDisabled, EnvironmentInspection = s.EnvironmentInspection, EnvironmentAssetId = s.EnvironmentAssetId, EnvironmentStaging = s.EnvironmentStaging, CharacterVoices = s.CharacterVoices, Images = s.Images, Voices = s.Voices, Videos = s.Videos, Aspect = s.Aspect, NativeResolution = s.NativeResolution, Resolution = s.Resolution, UpscalePreview = s.UpscalePreview, GenerationPreset = s.GenerationPreset, SaveLosslessFrames = s.SaveLosslessFrames, SaveLatents = s.SaveLatents, Turbo = s.Turbo, TurboSteps = s.TurboSteps, Loras = s.Loras };
+    public void Apply(Shot s) { s.EnvironmentInspectionDisabled = EnvironmentInspectionDisabled; s.EnvironmentInspection = EnvironmentInspection; s.EnvironmentAssetId = EnvironmentAssetId; s.EnvironmentStaging = EnvironmentStaging; s.CharacterVoices = CharacterVoices; s.Images = Images; s.Voices = Voices; s.Videos = Videos; s.Aspect = Aspect; s.NativeResolution = NativeResolution; s.Resolution = Resolution; s.UpscalePreview = UpscalePreview; s.GenerationPreset = GenerationPreset; s.SaveLosslessFrames = SaveLosslessFrames; s.SaveLatents = SaveLatents; s.Turbo = Turbo; s.TurboSteps = TurboSteps; s.Loras = Loras; }
 }

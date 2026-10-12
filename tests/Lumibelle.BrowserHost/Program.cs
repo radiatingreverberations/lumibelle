@@ -431,7 +431,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     public void Dispose() { }
     public object? GetService(Type serviceType, object? serviceKey = null) => null;
     public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    private static string DirectionReply(string raw) {
+    private static string DirectionReply(string raw, string? environmentText = null) {
         var shots = System.Text.Json.Nodes.JsonNode.Parse(raw)!.AsArray();
         foreach (var shot in shots) shot!["direction"] = JsonSerializer.SerializeToNode(new ShotDirection {
             Intent = new() { Purpose = "Reveal the hesitation", Reason = "This changes what the audience expects.", Attention = "The held key", Relationships = "Juniper waits for a response." },
@@ -441,12 +441,27 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
         }, AtomicJsonFile.Options);
         var strategies = shots.Select(shot => shot!["sceneId"]!.GetValue<string>()).Distinct().Select(scene => new { sceneId = scene,
             approach = "Shared framing with attention to the delayed reaction.", dramaticProgression = "Expectation gives way to hesitation.", visualProgression = "Begin shared, then draw attention to the key.", audienceInformation = "Reveal the response after the pause.", spatialAnchors = "Keep Juniper and the doorway understandable." });
-        return JsonSerializer.Serialize(new { contractVersion = 4, sceneStrategies = strategies, shots }, AtomicJsonFile.Options);
+        var envelope = JsonSerializer.SerializeToNode(new { contractVersion = 4, sceneStrategies = strategies, shots }, AtomicJsonFile.Options)!;
+        if (environmentText is not null) {
+            using var context = JsonDocument.Parse(environmentText);
+            if (context.RootElement.TryGetProperty("sceneEnvironments", out var environments)) {
+                envelope["contractVersion"] = 5;
+                foreach (var strategy in envelope["sceneStrategies"]!.AsArray()) {
+                    var environment = environments.EnumerateArray().First(e => e.GetProperty("sceneId").GetString() == strategy!["sceneId"]!.GetValue<string>());
+                    strategy!["environmentAssessment"] = JsonSerializer.SerializeToNode(new DraftingEnvironmentAssessment { Summary = "Use the visible standing side and preserve the oversized podium.", MissingCoverage = "The reverse sightline is not established." }, AtomicJsonFile.Options);
+                }
+            }
+        }
+        return envelope.ToJsonString(AtomicJsonFile.Options);
     }
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if ((list[0].Text ?? "").Contains("Choose the smallest sufficient set of environment reference views for ONE shot."))
+        if ((list[0].Text ?? "").Contains("Choose a compact, complementary set of pictures to help direct the WHOLE scene.")) {
+            using var context = JsonDocument.Parse(last); var candidates = context.RootElement.GetProperty("candidates").EnumerateArray().ToArray();
+            output = JsonSerializer.Serialize(new { summary = "Complementary scene views", views = candidates.GroupBy(c => c.GetProperty("reel").ToString()).Select(g => g.First()).Take(3).Select(c => new { candidateId = c.GetProperty("candidateId").GetString(), reason = "Readable acting area and route" }), warnings = Array.Empty<string>() });
+        }
+        else if ((list[0].Text ?? "").Contains("Choose the smallest sufficient set of environment reference views for ONE shot."))
         {
             using var context = JsonDocument.Parse(last); var root = context.RootElement;
             EnvironmentViews.Enqueue(new { model, context = root.Clone(), images = list.SelectMany(m => m.Contents).OfType<DataContent>().Count() });
@@ -568,7 +583,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 sourceBlockIds = scene.GetProperty("blocks").EnumerateArray().Take(1).Select(b => b.GetProperty("id").GetString()).ToArray(),
                 duration = 2.0, description = "Close on Juniper's hands. " + context.RootElement.GetProperty("directions").GetString(),
                 characters = new[] { new { name = "JUNIPER" } }, dialogue = Array.Empty<object>(), atmosphere = "A quiet room", music = "No music" } });
-            if ((list[0].Text ?? "").Contains("contractVersion:4")) output = DirectionReply(output);
+            if ((list[0].Text ?? "").Contains("contractVersion:4") || (list[0].Text ?? "").Contains("contractVersion:5")) output = DirectionReply(output, last);
         }
         else if ((list[0].Text ?? "").Contains("plan cinematic coverage", StringComparison.OrdinalIgnoreCase))
         {
@@ -600,7 +615,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                         lookId = (string?)null, endLookId = (string?)null } } });
                 output = proposed.ToJsonString();
             }
-            if ((list[0].Text ?? "").Contains("contractVersion:4")) output = DirectionReply(output);
+            if ((list[0].Text ?? "").Contains("contractVersion:4") || (list[0].Text ?? "").Contains("contractVersion:5")) output = DirectionReply(output, last);
             if (last.Contains("FENCED")) output = "```json\n" + output + "\n```";
         }
         else if ((list[0].Text ?? "").Contains("identify reusable visual assets"))

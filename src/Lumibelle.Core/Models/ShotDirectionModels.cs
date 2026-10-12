@@ -58,7 +58,11 @@ public sealed record DirectionDependencies(string Story, string Strategy, string
 public sealed record DirectionFreshness(bool Intent, bool Staging, bool Editorial, bool Continuity, bool ReferenceSupport,
     IReadOnlyList<string> Limitations);
 public sealed record ShotDirectionContext(DirectionStrategy? Strategy, DirectionIntent? Intent, DirectionStaging? ProposedStaging,
-    DirectionEditorial? Editorial, DirectionAdvanced? Advanced, IReadOnlyList<string> Limitations);
+    DirectionEditorial? Editorial, DirectionAdvanced? Advanced, IReadOnlyList<string> Limitations)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AcceptedDraftingEnvironment? Environment { get; init; }
+}
 
 [JsonConverter(typeof(JsonStringEnumConverter<ReferenceSupportStatus>))]
 public enum ReferenceSupportStatus { Supported, Inferred, Missing, Conflicting }

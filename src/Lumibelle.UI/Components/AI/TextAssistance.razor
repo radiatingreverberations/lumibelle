@@ -121,6 +121,8 @@
         await InvokeAsync(StateHasChanged);
     }
     public Task CloseAsync() { _open = false; return InvokeAsync(StateHasChanged); }
+    // Return from a sibling picker without reinitializing the authored composer controls.
+    public Task ResumeAsync() { _open = !Inline; return InvokeAsync(StateHasChanged); }
     public async Task OpenRequestAsync() {
         if (Request is not { } request) return;
         _inspectedId = request.Job.Id; _inspectedRaw = ""; _inspectedResultJob = null; _requestError = null; _requestOpen = true;

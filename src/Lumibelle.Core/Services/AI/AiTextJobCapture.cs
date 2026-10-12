@@ -12,7 +12,7 @@ namespace lumibelle.Services.AI;
 public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProjectStore projects, IAssetStore assets,
     IPromptEnhancer enhancer, IGuidanceAssistant guidance, ICodexClient? codex = null,
     IProductionStore? production = null, IShotStore? shots = null, IScriptStore? scripts = null, IReferenceVideoStore? referenceVideos = null, ReelRefModStore? refmods = null, IProjectDubbingStore? dubbing = null,
-    VisualBriefCache? briefs = null)
+    VisualBriefCache? briefs = null, IAiProviderRegistry? providers = null)
 {
     public static AiJobSubmission Reissue(AiJobHeader job, AiTextJobRequest captured, Guid tab)
     {
@@ -170,9 +170,22 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         ShotDirections.ValidateStrategies(request.Strategies);
         if (request.SingleShot is { } single && (request.SceneIds.Count != 1 || single.ShotId == Guid.Empty || single.Position < 0 || single.Position > single.SceneShots.Count))
             throw new AiGenerationException("Draft a single shot from exactly one saved scene.");
-        return await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
+        var messages = await DraftingMessagesAsync(request, ct);
+        AiModel? catalogModel = null;
+        if (request.Environments.Count > 0 && providers is not null) {
+            var check = await providers.CheckAsync(request.Selection.Backend, configured, cancellationToken: ct);
+            catalogModel = check.Models.FirstOrDefault(m => m.Id == request.Selection.Model);
+            if (messages.SelectMany(m => m.Contents).OfType<DataContent>().Any() && catalogModel?.SupportsImages != true)
+                throw new WorkspaceStoreException(TextVisionPolicy.SetupHint);
+        }
+        var submission = await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
             request.SingleShot is null ? "Draft shots" : "Draft shot", request, request.Selection,
-            followsDefault, configured, ShotPlanner.Profile(request), ShotPlanner.BuildMessages(request), configured.Temperature, null, ct);
+            followsDefault, configured, ShotPlanner.Profile(request), messages, configured.Temperature, null, ct);
+        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        if (ComfyTextCapacity.Assess(snapshot)?.Any(s => s.TooLarge) == true)
+            throw new WorkspaceStoreException("The complete drafting request exceeds this model's capacity. Reduce scenes or inspection views, or choose another model.");
+        DraftingEnvironments.ValidateCapacity(snapshot, catalogModel?.Catalog?.ContextLength);
+        return submission;
     }
     public async Task<AiJobSubmission> EnhanceAsync(Guid id, Guid tab, PromptEnhancementRequest request, CancellationToken ct = default)
     {

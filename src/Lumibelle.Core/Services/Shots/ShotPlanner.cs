@@ -24,6 +24,8 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
     public async IAsyncEnumerable<ShotPlanningUpdate> DraftAsync(ShotPlanningRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         request = ShotCopy.Of(request);
+        if (request.Environments.SelectMany(e => e.Views).Any() && request.InspectionImageHashes?.Count != 0)
+            throw new AiGenerationException("Environment pictures require durable request capture. Submit this draft through Draft shots so its exact images are preserved.");
         var sections = ScriptStructure.Sections(request.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene).ToArray();
         if (request.SceneIds.Count == 0 || request.SceneIds.Any(id => sections.All(s => s.Id != id))) throw new AiGenerationException("Choose saved scenes to break down.");
         H3Policy.Frames(request.MaximumSeconds);
@@ -58,8 +60,19 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         { await foreach (var u in reporting.GetStreamingResponseWithProgressAsync(messages, options, ct)) yield return u; }
         else { await foreach (var u in client.GetStreamingResponseAsync(messages, options, ct)) yield return new(Response: u); }
     }
-    public static List<ChatMessage> BuildMessages(ShotPlanningRequest r)
+    public static List<ChatMessage> BuildMessages(ShotPlanningRequest r, IReadOnlyDictionary<string, byte[]>? pictures = null)
     {
+        SceneShotSummary? Applicable(SceneShotSummary? current) {
+            if (current?.DirectionContext?.Environment is not { } previous ||
+                r.Environments.FirstOrDefault(e => r.SceneIds.Contains(e.SceneId)) is { } effective &&
+                previous.LiveAssetId == effective.AssetId && DraftingEnvironments.Semantic(previous.LiveAssetId, previous.Snapshot.Guidance, previous.Snapshot.Constraints, previous.Snapshot.Views) == effective.Fingerprint)
+                return current;
+            return current with { DirectionContext = current.DirectionContext with {
+                Environment = null, ProposedStaging = null, Advanced = null,
+                Limitations = [.. current.DirectionContext.Limitations, "The current environment differs from the earlier drafting snapshot. Preserve dramatic intent; earlier set-specific staging is unavailable."]
+            } };
+        }
+        if (r.SingleShot is { } single) r = r with { SingleShot = single with { Current = Applicable(single.Current), SceneShots = single.SceneShots.Select(s => Applicable(s)!).ToArray() } };
         var messages = BuildCoverageMessages(r);
         messages[0] = new(ChatRole.System, messages[0].Text + " " + DirectionInstructions + " Directing style: " + ShotDirections.StyleName(r.Style) + ". " + ShotDirections.StyleGuidance(r.Style) +
             " Authored instructions override style preferences. Return the version 4 object contract described above, not a bare array.");
@@ -68,8 +81,39 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             data["existingReviewedStrategies"] = JsonSerializer.SerializeToNode(r.Strategies, AtomicJsonFile.Options);
             messages[1] = new(ChatRole.User, data.ToJsonString(AtomicJsonFile.Options));
         }
+        if (r.Environments.Count > 0) {
+            messages[0] = new(ChatRole.System, messages[0].Text.Replace("version 4", "version 5").Replace("contractVersion:4", "contractVersion:5") + " " + EnvironmentInstructions);
+            var data = JsonNode.Parse(messages[1].Text)!.AsObject();
+            data["sceneEnvironments"] = JsonSerializer.SerializeToNode(r.Environments.Select(e => new {
+                e.SceneId, e.AssetName, e.Guidance, authoredSetConstraints = e.Constraints,
+                views = e.Views.Select(v => new { candidateId = v.Id, imageHash = v.Sha256, v.Name, v.Approved, v.Notes, sourceReel = v.Reel?.Name, seconds = v.Keyframe?.Frame.Seconds })
+            }), AtomicJsonFile.Options);
+            var hashes = r.InspectionImageHashes?.ToArray() ?? r.Environments.SelectMany(e => e.Views).Select(v => v.Sha256).Distinct().ToArray();
+            data["imageManifest"] = JsonSerializer.SerializeToNode(pictures is null ? [] : hashes, AtomicJsonFile.Options);
+            var content = new List<AIContent> { new TextContent(data.ToJsonString(AtomicJsonFile.Options)) };
+            if (pictures is not null) content.AddRange(hashes.Select(h => new DataContent(pictures[h], "image/png")));
+            messages[1] = new(ChatRole.User, content);
+        }
         return messages;
     }
+    public static void ValidateInspection(ShotPlanningRequest r, IReadOnlyList<byte[]> pictures)
+    {
+        var hashes = r.InspectionImageHashes?.ToArray() ?? r.Environments.SelectMany(e => e.Views).Select(v => v.Sha256).Distinct().ToArray();
+        if (hashes.Distinct().Count() != hashes.Length || hashes.Any(h => !r.Environments.SelectMany(e => e.Views).Any(v => v.Sha256 == h)) ||
+            !hashes.SequenceEqual(pictures.Select(lumibelle.Services.Production.ReelViewSuggestions.Hash)))
+            throw new WorkspaceStoreException("Drafting pictures do not match the exact captured inspection manifest.");
+    }
+    private const string EnvironmentInstructions = "Use sceneEnvironments as practical set context before choosing coverage. " +
+        "These pictures describe the set, not a storyboard, generation bindings or instructions to repeat reel camera movement. " +
+        "Preserve story requirements, exact dialogue and authored set constraints including relative scale. Do not shrink architecture, enlarge a character, " +
+        "invent platforms or change the story to obtain a convenient camera view. Design purposeful reaction coverage around obstructions. " +
+        "Distinguish authored facts, metadata, observed evidence and proposed staging. Metadata is not proof of unseen geometry. " +
+        "Only images in imageManifest were inspected; supported visual claims require candidateIds AND image hashes attached to this request. " +
+        "Do not manufacture image citations for authored facts. An unseen angle may be proposed with 'Additional environment view needed'; " +
+        "identify the specific missing relationship rather than a generic disclaimer. Surface story/set conflicts, never silently resolve them. " +
+        "Each sceneStrategy optionally includes environmentAssessment:{summary,assumptions,concerns,missingCoverage,claims:[{claim,status,candidateIds}]}. " +
+        "Status is Supported, Inferred, Missing or Conflicting. Supported requires visible evidence from attached pictures. " +
+        "Use concise reviewable assessments, not geometry certification. With no attached images, there can be no Supported visual claims.";
     private const string DirectionInstructions = "Before proposing shots, assess the scene's dramatic beats, what the audience learns or does not yet know, and how framing and relationships evolve. " +
         "Choose economical coverage: every shot needs a distinct reason to exist. Avoid mechanical speaker-change cuts, redundant setups, decorative movement and uniform durations. " +
         "Keep dramatic intent independent of camera position or imagined architecture. Proposed positions, facing, eyelines and camera placement are staging assumptions until reference-supported. " +
@@ -150,6 +194,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             var sections = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id)).ToArray();
             List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [], directionNotes = [];
             List<DirectionStrategy> strategies = [];
+            var assessments = new Dictionary<Guid, DraftingEnvironmentAssessment>();
             var envelope = JsonNode.Parse(json);
             if (envelope is JsonObject wrapper && wrapper["shots"] is JsonArray shots)
             {
@@ -164,6 +209,12 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                             var section = sections.Single(s => s.Id == strategy.SceneId);
                             strategy.SourceFingerprint = ShotDirections.Hash(r.Script.Blocks.Skip(section.Start).Take(section.Count));
                             strategies.Add(strategy);
+                            if (r.Environments.FirstOrDefault(e => e.SceneId == strategy.SceneId) is { } environment && item?["environmentAssessment"] is { } assessmentNode) {
+                                try {
+                                    var assessment = DraftingEnvironments.ReadAssessment(assessmentNode);
+                                    if (assessment is not null) { DraftingEnvironments.ValidateAssessment(assessment, environment with { Views = environment.Views.Where(v => (r.InspectionImageHashes ?? environment.Views.Select(x => x.Sha256).ToArray()).Contains(v.Sha256)).ToArray() }); assessments[strategy.SceneId] = assessment; }
+                                } catch (JsonException) { directionNotes.Add("The environment assessment was incomplete; review the preserved scene strategy and staging."); }
+                            }
                         } catch (JsonException) { directionNotes.Add("An incomplete scene strategy was omitted; shot coverage remains available for review."); }
                     }
                 json = shots.ToJsonString();
@@ -211,7 +262,12 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 shot.Planning = planning;
                 shot.Id = Guid.NewGuid(); shot.ApprovedScriptId = r.Script.Id; shot.SceneTitle = scene.Title;
                 shot.SourceExcerpt = ScriptStructure.Markdown(blocks.Where(b => resolved.Contains(b.Id)));
-                shot.Images = []; shot.Voices = []; shot.SelectedTakeId = null;
+                shot.Images = []; shot.Videos = []; shot.Voices = []; shot.SelectedTakeId = null;
+                shot.EnvironmentAssetId = null; shot.EnvironmentInspection = null; shot.DraftingEnvironment = null; shot.EnvironmentStaging = null;
+                if (r.Environments.FirstOrDefault(e => e.SceneId == shot.SceneId) is { } env) {
+                    shot.EnvironmentAssetId = env.AssetId;
+                    shot.DraftingEnvironment = new(ShotCopy.Of(env), assessments.GetValueOrDefault(env.SceneId) ?? new() { Concerns = "No environment assessment was supplied; review staging." }) { InspectionImageHashes = r.InspectionImageHashes?.Where(h => env.Views.Any(v => v.Sha256 == h)).ToArray() };
+                }
                 if (shot.Characters is null || shot.Characters.Any(c => c is null)) throw new JsonException();
                 shot.Characters = shot.Characters.Select(c => c with { Id = Guid.NewGuid(), Appearance = r.CoverageOnly || r.SingleShot is not null ? null : c.Appearance }).ToList();
                 H3Policy.Validate(shot, true);
@@ -311,7 +367,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         }
         return previous[b.Length];
     }
-    public static string Profile(ShotPlanningRequest r) => r.SingleShot is not null ? "single-shot-direction-v2" : r.CoverageOnly ? "shot-coverage-direction-v4" : "h3-shot-planner-v2";
+    public static string Profile(ShotPlanningRequest r) => r.Environments.Count > 0 ? (r.SingleShot is null ? "shot-environment-direction-v5" : "single-shot-environment-direction-v3") : r.SingleShot is not null ? "single-shot-direction-v2" : r.CoverageOnly ? "shot-coverage-direction-v4" : "h3-shot-planner-v2";
 
     // Optional model proposals can name a character without selecting a look. Keep that
     // tolerance at the response boundary; persisted appearance assignments require a look.

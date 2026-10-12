@@ -618,3 +618,6 @@
 
 /* Draft this shot sits at the end of the shot heading, where Shot options was. */
 .studio-workspace[data-studio=Shots] .shot-workspace-identity .shot-draft-assist { flex:none; margin-left:auto; }
+
+.draft-environment-summary { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; border-top:1px solid var(--mud-palette-lines-default); padding-block:.65rem; }
+.draft-environment-summary small { flex-basis:100%; }

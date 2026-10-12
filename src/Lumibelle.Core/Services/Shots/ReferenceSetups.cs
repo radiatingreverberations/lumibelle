@@ -52,6 +52,10 @@ public static class ReferenceSetups
         if (setup.SceneId == Guid.Empty || setup.Version == Guid.Empty || setup.Images is null || setup.SceneTitle is null || setup.Images.Count > 100 ||
             setup.Images.Any(i => i is null || i.Image is null) || setup.Images.Select(i => (i.Image.AssetId, i.Image.MediaId)).Distinct().Count() != setup.Images.Count)
             throw new WorkspaceStoreException("Choose a scene and distinct images for its reference setup.");
+        if (setup.Environment is { } environment && (environment.AssetId == Guid.Empty || environment.Version == Guid.Empty ||
+            !library.Assets.Any(a => a.Id == environment.AssetId && a.Category == AssetCategory.Environment) ||
+            environment.Views.Select(v => v.Id).Distinct().Count() != environment.Views.Count))
+            throw new WorkspaceStoreException("Choose an available environment and distinct inspection views.");
         foreach (var item in setup.Images)
         {
             var b = item.Image;

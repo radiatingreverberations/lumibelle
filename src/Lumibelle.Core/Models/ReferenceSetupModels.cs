@@ -13,6 +13,8 @@ public sealed record SceneImageReference
 }
 public sealed record SceneReferenceSetup
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? Environment { get; set; }
     public Guid SceneId { get; set; }
     public string SceneTitle { get; set; } = "";
     public Guid Version { get; set; } = Guid.NewGuid();

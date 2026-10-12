@@ -77,6 +77,10 @@ public partial class ProductionStudio
         // Saving can replace the document with its saved copy, so read the shot again after it.
         if (SourceShot is not { } shot) return;
         if (ShotDraftIssue(shot) is { } issue) { _shotDraftError = issue; return; }
+        if (DraftingEnvironments.Effective(Current?.Shot ?? shot, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == shot.SceneId)) is { Version: var selectionVersion } && selectionVersion == Guid.Empty) {
+            _shotDraftError = "This shot's environment override has no reviewed inspection setup. Choose environment views, then use that setup with pictures or explicitly without pictures.";
+            return;
+        }
         _shotDraftSubmitting = true; _shotDraftError = null;
         var project = Id;
         try
@@ -85,7 +89,7 @@ public partial class ProductionStudio
             var single = new SingleShotDraft(shot.Id, scene.FindIndex(s => s.Id == shot.Id), [.. OtherSceneShots(shot).Select(s => SceneShotSummary.From(s, ShotDirections.Strategy(_doc, s)) with { DirectionContext = ShotDirections.Context(_doc, s) })],
                 HasCoverage(shot) ? SceneShotSummary.From(shot) with { DirectionContext = ShotDirections.Context(_doc, shot) } : null) { TargetFingerprint = ShotDirections.Target(shot) };
             var request = new ShotPlanningRequest(ShotCopy.Of(_approved), _assets.Copy(), [shot.SceneId!.Value], _shotDraftMaximum, _shotDraftDirections.Trim(), _shotDraftModel.Model)
-                { CoverageOnly = true, SingleShot = single, Style = _directingStyle, Strategies = ShotDirections.Strategy(_doc, shot) is { } strategy ? [ShotCopy.Of(strategy)] : [] };
+                { CoverageOnly = true, SingleShot = single, Style = _directingStyle, Environments = await TextRequests.CaptureDraftingEnvironmentsAsync(Id, [shot.SceneId.Value], Current?.Shot ?? shot, _lifetime.Token), Strategies = ShotDirections.Strategy(_doc, shot) is { } strategy ? [ShotCopy.Of(strategy)] : [] };
             var id = Guid.NewGuid();
             var pending = await TextRequests.PlanShotsAsync(id, await AiReviews.TabIdAsync(), request, _shotDraftModel.FollowsDefault, _lifetime.Token);
             if (_disposed || Id != project) return;
@@ -149,8 +153,8 @@ public partial class ProductionStudio
             var savedReview = await ReviewDrafts.LoadAsync(job.Id, _lifetime.Token);
             _shotDraftDraftRevision = savedReview.Revision;
             if (_shotDraftOriginal is { } original && savedReview.Read<ShotPlanningReviewDraft>() is { } edited) {
-                var protectedOriginal = original.Shots.Select(s => { var copy = s.Copy(); copy.Direction = null; return copy; }).ToList();
-                var protectedEdited = edited.Shots.Select(s => { var copy = s.Copy(); copy.Direction = null; return copy; }).ToList();
+                var protectedOriginal = original.Shots.Select(s => { var copy = s.Copy(); copy.Direction = null; if (copy.DraftingEnvironment is { } environment) copy.DraftingEnvironment = environment with { Assessment = new() }; return copy; }).ToList();
+                var protectedEdited = edited.Shots.Select(s => { var copy = s.Copy(); copy.Direction = null; if (copy.DraftingEnvironment is { } environment) copy.DraftingEnvironment = environment with { Assessment = new() }; return copy; }).ToList();
                 if (Json(protectedOriginal) != Json(protectedEdited)) throw new WorkspaceStoreException("The saved shot review does not match its captured coverage.");
                 ValidateReviewStrategies(original.Strategies, edited.Strategies);
                 foreach (var strategy in original.Strategies.Where(s => _shotDraftRequest.Strategies.Any(existing => existing.Id == s.Id)))
@@ -201,12 +205,15 @@ public partial class ProductionStudio
         if (saved is null || !ShotDraftTargetFresh || _shotDraftRequest?.SingleShot?.TargetFingerprint is { } captured && captured != ShotDirections.Target(saved)) {
             _shotDraftError = "This shot changed since the draft was requested. Your authored work is preserved; request a fresh redraft."; return;
         }
+        try { if (_shotDraftRequest is not null) await TextRequests.ValidateDraftingEnvironmentsAsync(_shotDraftRequest, Current?.Shot ?? saved, _lifetime.Token); }
+        catch (WorkspaceStoreException e) { _shotDraftError = e.Message; return; }
         await SaveSingleDirectionReview();
         if (_shotDraftError is not null) return;
         EditCoverage(s =>
         {
             var copy = ShotCopy.Of(draft);
-            s.Direction = copy.Direction; s.DirectionStrategyId = copy.DirectionStrategyId;
+            s.Direction = copy.Direction; s.DirectionStrategyId = copy.DirectionStrategyId; s.DraftingEnvironment = copy.DraftingEnvironment;
+            if (s.EnvironmentAssetId is null && s.EnvironmentInspectionDisabled != true) s.EnvironmentAssetId = copy.EnvironmentAssetId;
             s.Title = copy.Title; s.Description = copy.Description; s.Duration = copy.Duration;
             s.Dialogue = copy.Dialogue; s.Atmosphere = copy.Atmosphere; s.Music = copy.Music;
             s.ApprovedScriptId = copy.ApprovedScriptId; s.SceneId = copy.SceneId; s.SceneTitle = copy.SceneTitle;

@@ -158,12 +158,7 @@
             return $"{pictures}/9 pictures · {reels}/3 reels · includes retained character, prop and continuity references";
         }
     }
-    private RenderFragment ViewCard(EnvironmentViewCandidate c) => @<article class="environment-view-card">
-        <label><input type="checkbox" aria-label="Use @c.Name" checked="@_selected.Contains(c.Id)" @onchange="e => Choose(c.Id, e)" disabled="@_working" /><strong>@c.Name</strong></label>
-        <CropThumbnail MeasureImage="true" Responsive="true" ThumbnailWidth="16" ThumbnailHeight="9" Url="@Url(c)" Label="@c.Name" Width="@(c.Reel?.Media.Width ?? 1)" Height="@(c.Reel?.Media.Height ?? 1)" Crop="@(c.Keyframe?.Crop ?? c.Image?.Crop)" />
-        <small>@(c.Reel is not null ? $"{c.Reel.Name} · {c.Keyframe!.Frame.Seconds:0.###} s" : c.Approved ? "Approved image" : "Unapproved image")</small>
-        <p>@(_result?.Views.FirstOrDefault(v => v.CandidateId == c.Id)?.Reason ?? c.Notes)</p>
-    </article>;
+    private RenderFragment ViewCard(EnvironmentViewCandidate c) => @<EnvironmentViewCard ProjectId="ProjectId" Candidate="c" Selected="@_selected.Contains(c.Id)" SelectedChanged="value => Choose(c.Id, new ChangeEventArgs { Value = value })" Disabled="_working" Reason="@(_result?.Views.FirstOrDefault(v => v.CandidateId == c.Id)?.Reason)" />;
     private string Url(EnvironmentViewCandidate c) => c.Image is { } image ? $"/media/projects/{ProjectId}/assets/{image.AssetId}/images/{image.MediaId}" : ReferenceVideos.FrameUrl(ProjectId, c.Keyframe!.Frame);
     private void Choose(string id, ChangeEventArgs e) { if (e.Value is true) _selected.Add(id); else _selected.Remove(id); }
     private void DeliveryChanged(ChangeEventArgs e) => _refmod = e.Value?.ToString() == "refmod";
@@ -229,46 +224,41 @@
         _working = true; _error = null; _selected.Clear(); _result = null; _browsing = false;
         _run?.Dispose(); _run = CancellationTokenSource.CreateLinkedTokenSource(_life.Token); var ct = _run.Token;
         try {
-            var active = _capture.Request.Pool.Select(c => c.Id).ToList(); var round = 0;
-            while (active.Count > 0) {
-                round++; var winners = new List<string>(); var offset = 0;
-                while (offset < active.Count) {
-                    ct.ThrowIfCancellationRequested();
-                    var count = Math.Min(EnvironmentViews.BatchSize, active.Count - offset); AiJobSubmission submission;
-                    while (true) {
-                        var candidates = active.Skip(offset).Take(count).ToArray();
-                        submission = await Requests.SelectEnvironmentViewsAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), _capture, candidates,
-                            _removed.ToArray(), offset == 0 && count == active.Count, _model.Model, _model.FollowsDefault, ct);
-                        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
-                        if (ComfyTextCapacity.Assess(snapshot)?.Any(s => s.TooLarge) != true) break;
-                        if (count == 1) throw new WorkspaceStoreException("Even one view exceeds this model's capacity. Retry with another model or choose views manually.");
-                        count = Math.Max(1, count / 2);
-                    }
-                    _status = $"Inspecting environment views · round {round} · {offset + 1}–{offset + count} of {active.Count}";
-                    _job = await Jobs.EnqueueAsync(submission, ct); await InvokeAsync(StateHasChanged);
-                    AiTextJobResult? artifact;
-                    while (true) {
-                        ct.ThrowIfCancellationRequested();
-                        _job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id) ?? _job;
-                        artifact = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, ct);
-                        if (_job.State is AiJobState.Completed or AiJobState.NeedsAttention or AiJobState.Cancelled) break;
-                        await Task.Delay(250, ct);
-                    }
-                    _raw = artifact?.Raw ?? "";
-                    if (_job.State != AiJobState.Completed || artifact is not { Complete: true, Error: null })
-                        throw new WorkspaceStoreException(artifact?.Error ?? _job.Error ?? "Selection stopped. Inspect the saved request or choose views manually.");
-                    var result = artifact.Read<EnvironmentViewResult>()!;
-                    var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<EnvironmentViewRequest>();
-                    if (request.Final) {
-                        _request = request; _result = result; _selected = result.Views.Select(v => v.CandidateId).ToHashSet();
-                        SetStaging(result.Staging);
-                        _status = "Review the proposed views before applying them."; return;
-                    }
-                    winners.AddRange(result.Views.Select(v => v.CandidateId)); offset += count;
+            var inspected = new HashSet<string>();
+            var warnings = new List<string>();
+            _result = await EnvironmentInspectionRunner.RunAsync(_capture.Request.Pool.Select(c => c.Id).ToArray(), Inspect, inspected, ct);
+            if (_result is not null) {
+                _result = _result with { Warnings = _result.Warnings.Concat(warnings).Distinct().ToArray() };
+                _selected = _result.Views.Select(v => v.CandidateId).ToHashSet(); SetStaging(_result.Staging);
+                _status = "Review the proposed views before applying them.";
+            } else _status = "No suitable views were found. Choose views manually or try another model.";
+            async Task<EnvironmentInspectionBatch<EnvironmentViewResult>> Inspect(IReadOnlyList<string> batch, bool final, int round, CancellationToken token) {
+                var count = batch.Count; AiJobSubmission submission;
+                while (true) {
+                    submission = await Requests.SelectEnvironmentViewsAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), _capture, batch.Take(count).ToArray(),
+                        _removed.ToArray(), final && count == batch.Count, _model.Model, _model.FollowsDefault, token);
+                    if (!await Requests.InspectionTooLargeAsync(submission, token)) break;
+                    if (count == 1) throw new WorkspaceStoreException("Even one view exceeds this model's capacity. Retry with another model or choose views manually.");
+                    count = Math.Max(1, count / 2);
                 }
-                if (winners.Count == 0) { _result = new("No suitable views were found.", [], []); _status = "Choose views manually or try another model."; return; }
-                if (winners.Count >= active.Count) throw new WorkspaceStoreException("This model cannot compare enough views together. Retry with another model or choose manually.");
-                active = winners.Distinct().ToList();
+                _status = $"Inspecting environment views · round {round} · {count} pictures";
+                _job = await Jobs.EnqueueAsync(submission, token); await InvokeAsync(StateHasChanged);
+                AiTextJobResult? artifact;
+                while (true) {
+                    token.ThrowIfCancellationRequested();
+                    _job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id) ?? _job;
+                    artifact = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, token);
+                    if (_job.State is AiJobState.Completed or AiJobState.NeedsAttention or AiJobState.Cancelled) break;
+                    await Task.Delay(250, token);
+                }
+                _raw = artifact?.Raw ?? "";
+                if (_job.State != AiJobState.Completed || artifact is not { Complete: true, Error: null })
+                    throw new WorkspaceStoreException(artifact?.Error ?? _job.Error ?? "Selection stopped. Inspect the saved request or choose views manually.");
+                var result = artifact.Read<EnvironmentViewResult>()!;
+                warnings.AddRange(result.Warnings);
+                var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<EnvironmentViewRequest>();
+                if (request.Final) _request = request;
+                return new(request.Candidates, result.Views.Select(v => v.CandidateId).ToArray(), request.Final, result);
             }
         } catch (OperationCanceledException) { _status = "Selection cancelled. References are unchanged."; }
         catch (Exception e) { _error = e.Message; }

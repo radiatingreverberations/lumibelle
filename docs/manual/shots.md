@@ -16,6 +16,20 @@ The right panel lists the references first. Its footer then has the output setti
 
 ## Reviewable direction
 
+### Inspect an environment before drafting
+
+In **Draft shots**, each selected scene has **Choose environment views** and a compact summary of its saved inspection setup. Choose an Environment asset, browse its stills and saved keyframes from all its reels, and add **Staging constraints** for facts the empty set cannot show—for example, “Riley cannot see over the podium.” The picker can suggest a compact complementary set with the selected image-capable model, or you can select and replace views manually. **Include saved views** selects one reel's captured keyframes. Reels without keyframes link to their manager; full videos are not inspected and no new frames are extracted.
+
+**Use for drafting** saves the reviewed selection and returns to your unsaved drafting controls. **Back** leaves the saved setup unchanged. Future drafts reuse that selection without another AI selection request. This is an inspection library, not generation references or a storyboard. Newly drafted shots inherit the Environment asset with their generation references empty; choose the pictures for each shot later in **Environment** or **Edit references**.
+
+Image capacity is separate from the nine-picture generation budget. The complete drafting request must fit all selected scenes, their deduplicated pictures, screenplay, constraints and the structured reply. If it does not fit, reduce scenes or inspection views, or choose another model. Drafting remains one request; pictures are never silently dropped. Large picker libraries use bounded inspection and comparison rounds, recording inspected, unavailable and uninspected sources. A stopped scan remains incomplete; manual selection is still available.
+
+**Draft shot** resolves that shot setup's environment override before gathering pictures, guidance and constraints. An override does not borrow another set's views. When it has no reviewed inspection setup, open the picker and confirm either selected views or an explicit setup without pictures. Existing generation references remain untouched by a redraft.
+
+Review the **Environment assessment** once beside the scene strategy. It separates authored constraints, reference-supported claims, assumptions, conflicts and **Additional environment view needed**. Expand evidence to see the captured source names and timestamps. Claims can cite only pictures actually attached to that request. An unseen angle may be proposed, but is not observed geometry. Important reactions and exact story events must survive inconvenient set scale or obstructions; the drafter should not invent a platform to fix its preferred framing.
+
+Applying stores the accepted assessment and exact evidence snapshot separately from the editable setup used by future requests. Later setup changes flag dependent staging, continuity and reference support while preserving intent and the earlier text. Changing review messages or applying a selection does not invalidate it. Undo, recovery and copying preserve these associations; project copies remap live resources and retain original historical evidence identities with an explicit resource mapping. Request inspection retains the actual cropped picture bytes.
+
 **Draft shots** writes a concise scene strategy alongside its coverage in the same request. Adding reviewed shots inserts each scene's coverage in saved script order, so redrafting an earlier scene places it before later scenes already in the list. Additional coverage for an existing scene follows its current shots; existing shots keep their relative order. **Direction style** defaults to **Auto — adapt to the scene**; the last submitted style is remembered per project. Auto can blend approaches across dramatic beats, rather than classify a genre. Its chosen approach and short explanation appear in **Scene strategy**. Your instructions override every style preference. Optional television examples illustrate an approach, not a template to imitate.
 
 | Approach | Preference |

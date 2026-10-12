@@ -1,0 +1,4 @@
+.environment-view-card { border: 1px solid var(--mud-palette-lines-default); border-radius: .5rem; padding: .75rem; height: 100%; }
+label { display: flex; gap: .5rem; align-items: baseline; margin-bottom: .5rem; }
+p { font-size: .9rem; margin-bottom: 0; }
+small { display: block; margin-top: .5rem; }

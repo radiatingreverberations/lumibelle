@@ -89,6 +89,12 @@ public sealed record ShotPlanningSource(Guid Id, string Profile, TextModelRefere
 public sealed record Shot
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? EnvironmentInspection { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? EnvironmentInspectionDisabled { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AcceptedDraftingEnvironment? DraftingEnvironment { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Guid? DirectionStrategyId { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ShotDirection? Direction { get; set; }
@@ -352,6 +358,8 @@ public sealed record VideoRun
 public sealed record ShotPlanningRequest(ScriptSourceSnapshot Script, AssetLibrary Assets, IReadOnlyList<Guid> SceneIds,
     double MaximumSeconds, string Instructions, TextModelReference Selection)
 {
+    public IReadOnlyList<DraftingEnvironmentSnapshot> Environments { get; init; } = [];
+    public IReadOnlyList<string>? InspectionImageHashes { get; init; }
     public bool CoverageOnly { get; init; }
     public DirectingStyle Style { get; init; }
     public IReadOnlyList<DirectionStrategy> Strategies { get; init; } = [];
@@ -374,7 +382,9 @@ public sealed record SceneShotSummary(string Title, double? Duration, string Des
     public string? DirectionFingerprint { get; init; }
     public static SceneShotSummary From(Shot shot, DirectionStrategy? strategy = null) => new(shot.Title, shot.Duration, shot.Description, ShotCopy.Of(shot.Dialogue), [.. shot.SourceBlockIds]) {
         DirectionStrategyId = shot.DirectionStrategyId,
-        DirectionFingerprint = shot.Direction is null && strategy is null ? null : lumibelle.Services.Shots.ShotDirections.Hash(new { shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced, Strategy = strategy })
+        DirectionFingerprint = shot.DraftingEnvironment is not null
+            ? lumibelle.Services.Shots.ShotDirections.Hash(new { shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced, Strategy = strategy, shot.DraftingEnvironment })
+            : shot.Direction is null && strategy is null ? null : lumibelle.Services.Shots.ShotDirections.Hash(new { shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced, Strategy = strategy })
     };
 }
 public sealed record ShotPlanningResult(List<Shot> Shots, string Raw, List<string> UncoveredDialogue, string? Error = null)
