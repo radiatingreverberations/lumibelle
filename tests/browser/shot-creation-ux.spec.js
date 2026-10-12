@@ -31,7 +31,7 @@ for (const existing of [false, true]) {
     await expect.poll(async () => (await state()).shots.length).toBe(original.length + 1);
     // The production composition must exist: this is the case that used to leave
     // Undo pointing at the removed shot and make every subsequent save fail.
-    await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeVisible();
     await expect(page.locator('.shots-heading [role=status]')).toHaveText('Saved');
     await page.locator('.shots-heading').getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(async () => (await state()).shots.map(s => s.id)).toEqual(original.map(s => s.id));

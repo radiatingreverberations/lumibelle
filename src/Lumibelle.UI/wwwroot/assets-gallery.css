@@ -157,7 +157,9 @@
 .compact-image-input span { display:grid; gap:4px; min-width:0; }
 .compact-image-input small { color: var(--muted); font-size:var(--lumi-font-size-small); }
 .manage-image-inputs { width:100%; margin:12px 0 0; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); padding:8px; color: var(--plum); background: transparent; }
-.reel-prompts { margin-top:18px; }.reel-prompts .prompt-document { max-height:420px; overflow:auto; }
+.reel-prompts { margin-top:8px; }
+.reel-prompts .prompt-document { max-height:none; overflow:visible; }
+.reel-setup-dialog .reel-prompts .prompt-editor-host .tiptap { min-height:12rem; }
 .reel-details-fields :is(input,textarea,select),.voice-details-tools :is(input,select) { width:100%; padding:8px; border: 1px solid var(--lumi-control-border); background: transparent; border-radius: var(--lumi-radius-control); color: var(--ink); }
 .reel-details-fields label,.voice-details-tools label { display:block; font-size:var(--lumi-font-size-meta); margin:12px 0; }
 .voice-details-tools audio { width:100%; }

@@ -21,6 +21,7 @@ public sealed class AssetPickingTests
         Assert.Single(catalogue.Assets.Single(a => a.Id == f.Hero.Id).Looks);
         var reel = Assert.Single(catalogue.Candidates, c => c.SourceId == f.Reel.Id);
         Assert.Contains("back view", reel.Description); Assert.Equal(2, reel.KeyframeCount);
+        Assert.Contains("Rear appearance · 1 s: back view", reel.Description);
         Assert.Contains("RefMod", reel.VisualModes); Assert.Equal("Keyframes", reel.PreferredVisualMode);
         var voice = Assert.Single(catalogue.Candidates, c => c.SourceId == f.Voice.Id);
         Assert.True(voice.DefaultVoice); Assert.Equal(1, voice.ExcerptStart); Assert.Equal(5, voice.ExcerptDuration);
@@ -418,7 +419,7 @@ public sealed class AssetPickingTests
         var media = new ReferenceVideoMedia(Guid.NewGuid(), new string('A', 64), 1000, 832, 480, 120, 24, 5, true);
         var reel = new AssetReferenceReel { AssetId = heroId, Name = "Riley blue outfit reel", LookId = look.Id, Media = media, UseGuidance = "Blue outfit from multiple views", Keyframes = new() { Frames = [
             new() { Frame = new(media.Id, media.Sha256, 0, 0), Notes = "front view" },
-            new() { Frame = new(media.Id, media.Sha256, 24, 1), Notes = "back view" }
+            new() { Frame = new(media.Id, media.Sha256, 24, 1), Name = "Rear appearance", Notes = "back view" }
         ] } };
         var library = new AssetLibrary { ProjectId = Guid.NewGuid(), Assets = [hero, environment], Reels = [reel], Voices = [voice] };
         var shot = new Shot { Title = "Arrival", Description = "Riley enters the courtyard", Duration = 5,

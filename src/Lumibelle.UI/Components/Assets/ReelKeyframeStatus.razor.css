@@ -1,0 +1,6 @@
+.reel-keyframe-status { position:relative; z-index:2; font-size:var(--lumi-font-size-small); }
+.reel-keyframe-status button { font:inherit; color:var(--plum); background:transparent; border:1px solid var(--line); border-radius:var(--lumi-radius-small); padding:3px 7px; cursor:pointer; }
+.needs-keyframes button { background:var(--lumi-surface-selected); border-color:var(--plum); font-weight:600; }
+.reel-keyframe-status button:focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
+.reel-keyframe-status button:disabled { opacity:.5; cursor:default; }
+.reel-keyframe-status p { margin:.4rem 0 .75rem; color:var(--muted); line-height:1.5; }

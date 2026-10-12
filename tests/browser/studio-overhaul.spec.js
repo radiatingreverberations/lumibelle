@@ -36,7 +36,7 @@ test('large visual picker stays bounded, preserves click order and enforces nine
   const library = await (await request.post(`/fixtures/${project.id}/ux-images`)).json();
   await request.post(`/fixtures/${project.id}/reference-workspace?silent=true`);
   await page.goto(`/projects/${project.id}/shots`); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.project-image-picker');
   await expect(picker.locator('.picker-grid > button')).toHaveCount(48);
   await picker.getByRole('button', { name: 'Show more', exact: true }).click();
@@ -53,7 +53,7 @@ test('large visual picker stays bounded, preserves click order and enforces nine
   await page.getByRole('button', { name: 'Apply changes' }).click();
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/production`)).json()).compositions[0].inputs.images.map(b => b.mediaId)).toEqual(ordered);
   await expect(page.locator('.compact-reference')).toHaveCount(9);
-  await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 }); await toolsTab(page, 'References');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -109,7 +109,7 @@ test('reference use hints save with the setup and Undo restores the previous hin
   await request.post(`/fixtures/${project.id}/production-shot`);
   await page.goto(`/projects/${project.id}/shots`);
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const dialog = page.locator('.shot-reference-dialog');
   await dialog.locator(`[data-reference="${library.assets[0].id}/${library.assets[0].images[0].id}"]`).click();
   await dialog.getByLabel('Voice for Juniper', { exact: true }).selectOption('none');

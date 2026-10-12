@@ -1,4 +1,5 @@
 @inherits ProjectAwareComponent
+@inject ReelRefModPreparation RefModPreparation
 @using lumibelle.Components.AI
 @inject IProjectStore Projects
 @inject IScriptStore Scripts
@@ -38,6 +39,7 @@ else
         @if (!PlanningScenes.Any()) { <p role="status">Add a scene heading in <a href="@ProjectLink(Id, "/script")">Script</a> to start drafting shots.</p> }
         else { <p class="field-hint" role="status">@(_sceneSelection.Count == 0 ? "Select at least one scene to draft shots." : $"{Counted(_sceneSelection.Count, "scene")} selected · Existing shots are kept. No video is generated.")</p> }
         <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
+        <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="PlanningComposerLocked" />
         <label>Directing instructions (optional)<textarea rows="3" @bind="_instructions" @bind:event="oninput" disabled="@PlanningComposerLocked"></textarea></label>
         @if (_recentInstructions.Count > 0)
         {
@@ -111,6 +113,7 @@ else
                                     @foreach (var recent in _recentInstructions) { <button type="button" class="recent-instruction" title="@recent" disabled="@ShotDraftLocked" @onclick="() => _shotDraftDirections = recent">@recent</button> }
                                 </div>
                             }
+                            <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="ShotDraftLocked" />
                             <label>Maximum length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_shotDraftMaximum" disabled="@ShotDraftLocked" /></label>
                             @if (ShotDraftIssue(identity) is { } draftIssue) { <p role="status">@draftIssue</p> }
                             @if (_shotDraftError is not null) { <p role="alert">@_shotDraftError</p> }
@@ -138,6 +141,8 @@ else
                         @if (HasCoverage(source) || ShotTakes.Count > 0) { <ShotWorkspacePreview ProjectId="Id" ShotId="source.Id" SelectedTakeId="source.SelectedTakeId" Takes="ShotTakes" Review="OpenTake" /> }
                         <label class="shot-direction">Action and camera<textarea @ref="_shotDirectionField" rows="9" @bind:get="source.Description" @bind:set="value => EditCoverage(s => s.Description = value ?? string.Empty)" @bind:event="oninput" placeholder="Describe the action, staging, and camera movement in one continuous take."></textarea></label>
                     </div>
+                    @if (lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source) is { } strategy) { <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" /> }
+                    <ShotDirectionEditor Value="source.Direction" ValueChanged="d => EditCoverage(s => s.Direction = d)" Freshness="@(lumibelle.Services.Shots.ShotDirections.Freshness(source, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, source)))" Review="() => EditCoverage(s => lumibelle.Services.Shots.ShotDirections.Review(s, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, s), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, s)))" />
                     <div class="shots-section-heading"><h2>Dialogue <small>@source.Dialogue.Count</small></h2><button @onclick="AddMasterDialogueAsync">+ Line</button></div>
                     @if (source.Dialogue.Count == 0) { <p class="field-hint shot-dialogue-empty">No dialogue in this shot.</p> }
                     @foreach (var line in source.Dialogue)
@@ -218,7 +223,21 @@ else
                 }</Header>
                 <ChildContent>@if (Selected is { } shot) {
                     <section class="shot-references"><h2 class="shot-references-title">References</h2>
-                        <button class="add-shot-references" @onclick="OpenReferencePicker">Manage references</button>
+                        <div class="shot-reference-actions" role="group" aria-label="Reference actions">
+                            <button aria-label="Copy from shot…" title="Copy references and an optional continuity frame from another shot" @onclick="OpenReferenceCopy" disabled="@(!ReferenceCopySources.Any() || _imageEditorSaving)">Copy</button>
+                            <button aria-label="Choose environment views" title="Choose views from an environment's image and reel library" @onclick="OpenEnvironmentViews" disabled="@_compositionBusy">Environment</button>
+                            <button aria-label="Edit references" title="Add, remove, crop and reorder this setup's references" @onclick="OpenReferencePicker">Edit references</button>
+                        </div>
+                        <p class="field-hint shot-environment-summary">Environment · @(_assets.Assets.FirstOrDefault(a => a.Id == shot.EnvironmentAssetId)?.Name ?? (shot.EnvironmentAssetId is null ? "None selected" : "Unavailable"))</p>
+                        @if (shot.EnvironmentStaging is { } staging) {
+                            <details class="shot-environment-staging"><summary>Reference-supported staging · @(EnvironmentViews.StagingIssue(shot, Current!.DirectingNotes, Current.RevisionNotes, lumibelle.Services.Shots.ShotDirections.Context(_doc, shot)) is null ? "Reviewed" : "Needs review")</summary>
+                                @if (EnvironmentViews.StagingIssue(shot, Current!.DirectingNotes, Current.RevisionNotes, lumibelle.Services.Shots.ShotDirections.Context(_doc, shot)) is { } issue) { <p role="status">@issue</p> }
+                                <p><strong>Blocking:</strong> @staging.Plan.Blocking</p><p><strong>Camera:</strong> @staging.Plan.Camera</p>
+                                @if (!string.IsNullOrWhiteSpace(staging.Plan.Assumptions)) { <p><strong>Assumptions:</strong> @staging.Plan.Assumptions</p> }
+                                @if (!string.IsNullOrWhiteSpace(staging.Plan.Concerns)) { <p><strong>Coverage:</strong> @staging.Plan.Concerns</p> }
+                            </details>
+                        }
+                        <EnvironmentViewComposer @ref="_environmentComposer" @key="Current!.Id" ProjectId="Id" CompositionId="Current!.Id" CompositionVersion="Current!.Version" Shot="shot" DirectingNotes="@Current!.DirectingNotes" Library="_assets" Applied="ApplyEnvironmentViews" EnvironmentChanged="ApplyEnvironmentLibrary" />
                         @if (shot.StartFrame is { } start)
                         {
                             var startTake = StartTake(shot);
@@ -228,7 +247,7 @@ else
                                 <button aria-label="Remove the starting frame" @onclick="RemoveStartFrame">Remove</button>
                             </div>
                         }
-                        <div class="shot-reference-counts"><span>Images <strong>@ResolvedReferences.For(shot).Pictures.Count/9</strong></span><span>Reels <strong>@shot.Videos.Count</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(shot).Count()/3</strong></span></div>
+                        <div class="shot-reference-counts"><span>Images <strong>@ResolvedReferences.For(shot).Pictures.Count/9</strong></span><span>Reels <strong>@ReferenceVideos.ReelSlotCount(shot)</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(shot).Count()/3</strong></span></div>
                         <div class="shot-reference-contact-sheet">
                             @foreach (var picture in ResolvedReferences.For(shot).Pictures)
                             {
@@ -236,16 +255,17 @@ else
                                 var continuity = picture.Continuity; var continuityTake = continuity is null ? null : _doc.Takes.FirstOrDefault(t => t.Id == continuity.TakeId);
                                 var url = image is not null ? ResolveImage(image).Url : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(Id, picture.Keyframe.Frame)
                                     : continuityTake is not null ? TakeUrl(continuityTake.Id, continuity!.Frame) : null;
-                                var name = image?.Name ?? reel?.Name ?? continuity?.Name ?? "Unavailable image";
+                                var name = image?.Name ?? picture.Keyframe?.Name ?? reel?.Name ?? continuity?.Name ?? "Unavailable image";
+                                var sourceLabel = picture.Keyframe is { } keyframe ? $" · {reel?.Name} · {keyframe.Frame.Seconds:0.###} s" : "";
                                 var media = _assets.Assets.FirstOrDefault(a => a.Id == image?.AssetId)?.Images.FirstOrDefault(i => i.Id == image?.MediaId);
-                                <button class="shot-reference-tile" title="@($"Picture {picture.Number} · {name}")" aria-label="@($"Preview Picture {picture.Number} · {name}")" @onclick="() => PreviewPicture(picture.Number)">
+                                <button class="shot-reference-tile" title="@($"Picture {picture.Number} · {name}{sourceLabel}")" aria-label="@($"Preview Picture {picture.Number} · {name}{sourceLabel}")" @onclick="() => PreviewPicture(picture.Number)">
                                     @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? continuityTake?.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? continuityTake?.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
                                     else { <span class="shot-reference-unavailable">Unavailable</span> }
                                     <span class="shot-reference-number">@picture.Number</span>
                                     <span class="shot-reference-name">@name</span>
                                 </button>
                             }
-                            @foreach (var video in shot.Videos)
+                            @foreach (var video in shot.Videos.Where(v => ReferenceVideos.UsesReelSlot(v) || v.UseSoundtrack))
                             {
                                 <button class="shot-reference-tile shot-reference-reel" @key="video.Id" title="@($"Reel · {video.Name} · {(video.EffectiveVisuals == ReelVisuals.None ? "Audio only" : ReelUsageDefaults.Label(video.EffectiveVisuals))}")" aria-label="@($"Preview reel {video.Name}")" @onclick="() => { _previewVideo = video; _videoPreviewOpen = true; }">
                                     <CropThumbnail Url="@ReferenceVideos.ThumbnailUrl(Id, video.Media.Id)" Label="@video.Name" Width="video.Media.Width" Height="video.Media.Height" />
@@ -272,7 +292,7 @@ else
                             </article>
                         }
                         <button class="reference-refresh" @onclick="RefreshDefaults">Refresh Assets</button>
-                        <div class="shots-actions"><strong>Reels · @shot.Videos.Count/3</strong></div>
+                        <div class="shots-actions"><strong>Reels and picture sources · @ReferenceVideos.ReelSlotCount(shot)/3 reel slots</strong></div>
                         @foreach (var video in shot.Videos) {
                             var index = shot.Videos.IndexOf(video); var audio = ReferenceVideos.SoundtrackNumber(shot, index);
                             <article class="shot-reference compact-reference"><div class="reference-row-content">
@@ -377,15 +397,17 @@ else
     @if (_shotDraftError is not null) { <p role="alert">@_shotDraftError</p> }
     @if (ShotDraftProposal is { } draft)
     {
+        @foreach (var strategy in _shotDraftResult!.Strategies) { <SceneDirectionStrategyEditor Value="strategy" ValueChanged="value => ReviewSingleStrategy(strategy, value)" ReadOnly="@(_doc.DirectionStrategies.Any(s => s.Id == strategy.Id))" Expanded="true" /> }
         <article class="shot-proposal"><h3>@draft.Title · @DurationLabel(draft)</h3><small>@draft.SceneTitle</small><p>@draft.Description</p>
             @foreach (var line in draft.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }
             @if (draft.Characters.Count > 0) { <p class="field-hint">Cast: @string.Join(", ", draft.Characters.Select(c => c.Name))</p> }
+            <ShotDirectionEditor Value="draft.Direction" ValueChanged="ReviewSingleDirection" Disabled="@(_shotDraftReviewJob is { } j && _resolvedShotDrafts.Contains(j.Id))" />
             <p class="field-hint">Sound: @draft.Atmosphere · Music: @draft.Music</p>
         </article>
-        @if (_shotDraftResult!.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count > 0)
+        @if (_shotDraftResult!.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count + _shotDraftResult.DirectionNotes.Count > 0)
         {
-            <details class="planning-dialogue-notes"><summary>Review notes · @(_shotDraftResult.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count)</summary>
-                @foreach (var note in _shotDraftResult.DialogueNotes.Concat(_shotDraftResult.SourceNotes).Concat(_shotDraftResult.CoverageNotes)) { <p>@note</p> }
+            <details class="planning-dialogue-notes"><summary>Review notes · @(_shotDraftResult.DialogueNotes.Count + _shotDraftResult.SourceNotes.Count + _shotDraftResult.CoverageNotes.Count + _shotDraftResult.DirectionNotes.Count)</summary>
+                @foreach (var note in _shotDraftResult.DialogueNotes.Concat(_shotDraftResult.SourceNotes).Concat(_shotDraftResult.CoverageNotes).Concat(_shotDraftResult.DirectionNotes)) { <p>@note</p> }
             </details>
         }
         @if (_shotDraftResult.UncoveredDialogue.Count > 0)
@@ -394,6 +416,7 @@ else
         }
         @if (_resolvedShotDrafts.Contains(_shotDraftReviewJob!.Id)) { <p role="status">This draft was already applied or dismissed.</p> }
         else if (!ShotDraftTargetSelected) { <p role="status">Select the shot this draft is for to apply it.</p> }
+        else if (!ShotDraftTargetFresh) { <p role="status">This shot changed after the request. Request a fresh redraft to protect your edits.</p> }
         else if (SourceShot is { } target && HasCoverage(target)) { <p class="field-hint">Applying replaces this shot's title, action, duration, dialogue and sound, and adds any new cast. Undo restores them.</p> }
     }
     @if (_shotDraftRaw.Length > 0) { <details><summary>Response details</summary><pre class="shot-source">@_shotDraftRaw</pre></details> }
@@ -401,7 +424,7 @@ else
     @if (ShotDraftProposal is not null && _shotDraftReviewJob is { } reviewed && !_resolvedShotDrafts.Contains(reviewed.Id))
     {
         <MudButton OnClick="DismissShotDraft">Dismiss</MudButton>
-        <MudButton OnClick="ApplyShotDraft" Disabled="@(!ShotDraftTargetSelected)" Variant="Variant.Filled" Color="Color.Primary">Apply to this shot</MudButton>
+        <MudButton OnClick="ApplyShotDraft" Disabled="@(!ShotDraftTargetFresh)" Variant="Variant.Filled" Color="Color.Primary">Apply to this shot</MudButton>
     }
 </DialogActions></InlineDialog>
 <InlineDialog Visible="_moveShotId is not null" VisibleChanged="v => { if (!v) _moveShotId = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })"
@@ -498,7 +521,8 @@ else
         }
     </div>
 }
-@if ((ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a model that can inspect images.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
+@if (shot.EnvironmentAssetId is not null) { <p class="field-hint">Compose uses the references attached to this setup. Change environment viewpoints with Choose environment views in References.</p> }
+@if ((shot.EnvironmentAssetId is not null || ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a model that can inspect images.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
                         <Actions><MudButton Class="ai-assist-action" @ref="_composeButton" OnClick="ComposePrompt" Disabled="@(!CanCompose)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Revise with AI")</MudButton>@if (_compositionEnqueue is not null) { <button @onclick="RetryCompositionEnqueue">Retry saved request</button> }</Actions>
                     </TextAssistance></div>
                     </ToolbarActions></PromptEditor>
@@ -620,7 +644,16 @@ else
 <InlineDialog Visible="_referenceOpen" VisibleChanged="ImageEditorVisibility" Options="@(LargeDialog with { CloseOnEscapeKey = !_imageEditorSaving })" Class="manual-reference-dialog shot-reference-dialog"
               Title="Manage references" Context="@_imageEditorShot?.Title" CloseLabel="Close manage references" CloseDisabled="_imageEditorSaving">
     <DialogContent>@if (_referenceOpen && _imageEditorShot is not null) {
-        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" CopySourceNumber="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentShotNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
+        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" ShowCopyControls="false" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" CopySourceNumber="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentShotNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
+    }</DialogContent>
+</InlineDialog>
+
+<InlineDialog Visible="_copyReferenceOpen" VisibleChanged="v => { if (!_imageEditorSaving) _copyReferenceOpen = v; }" Options="@(LargeDialog with { MaxWidth = MaxWidth.Small, CloseOnEscapeKey = !_imageEditorSaving })"
+              Class="reference-copy-dialog" Title="Copy references from shot" Context="@_imageEditorShot?.Title" CloseLabel="Close copy references" CloseDisabled="_imageEditorSaving">
+    <DialogContent>@if (_copyReferenceOpen && _imageEditorShot is not null) {
+        <ReferenceCopyPanel Shot="_imageEditorShot" Library="_imageEditorAssets" Sources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" Previous="@PreviousReferenceSource?.Composition.Shot"
+            Number="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" FrameOf="CopyContinuityFrame"
+            Applied="ApplyCopiedReferences" Cancelled="() => _copyReferenceOpen = false" />
     }</DialogContent>
 </InlineDialog>
 
@@ -740,7 +773,11 @@ else
                 {
                     var saved = _doc.Takes.FirstOrDefault(t => t.Id == candidate.TakeId);
                     <article class="shot-candidate" @key="candidate.TakeId">
-                        @if (saved is not null) { <button data-shot-take="@saved.Id" aria-pressed="@(_reviewTakeId == saved.Id ? "true" : "false")" @onclick="() => SelectTake(saved.Id)"><img data-ai-candidate="@saved.Id" src="@TakeUrl(saved.Id, 0)" alt="" loading="lazy" />Take @candidate.Number</button><button class="@(_reviewTakeId == saved.Id && _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId != saved.Id ? "take-use-primary" : null)" disabled="@_mediaBusy" @onclick="() => ToggleSelectedTake(saved)">@(_doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id ? "Deselect take" : "Use this take")</button><button disabled="@(_mediaBusy || _doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id)" @onclick="() => DiscardTake(saved)">Discard</button> }
+                        @if (saved is not null) {
+                            <TakeReviewChoice Take="saved" Label="@($"Take {candidate.Number}")" ThumbnailUrl="@TakeUrl(saved.Id, 0)"
+                                IsViewing="@(_reviewTakeId == saved.Id)" IsSelected="@(_doc.Shots.FirstOrDefault(s => s.Id == saved.ShotId)?.SelectedTakeId == saved.Id)"
+                                Busy="_mediaBusy" View="id => SelectTake(id)" Use="ToggleSelectedTake" Discard="DiscardTake" />
+                        }
                         else { <strong>Take @candidate.Number</strong><p>@(candidate.State == VideoCandidateState.Complete ? "Discarded · recoverable in Trash" : candidate.State)</p> }
                         @if (candidate.Error is not null) { <p role="alert">@candidate.Error</p> }
                         @if (candidate.State != VideoCandidateState.Complete && CandidateJob(candidate.Number)?.CanRecoverCancelledOutputs != true && RecoveryLabel(CandidateJob(candidate.Number)) is { } recoveryLabel)
@@ -792,6 +829,7 @@ else
         @if (_proposal is { } proposal)
         {
             @if (proposal.Error is not null) { <p role="alert">@proposal.Error</p> }
+            @if (proposal.DirectionNotes.Count > 0) { <details><summary>Direction review notes · @proposal.DirectionNotes.Count</summary>@foreach (var note in proposal.DirectionNotes) { <p>@note</p> }</details> }
             @if (proposal.CoverageNotes.Count > 0) {
                 <details class="planning-coverage-notes"><summary>Camera and editing notes · @proposal.CoverageNotes.Count</summary><p>These notes do not prevent application. Keep the proposed wording if it works for you.</p>
                     @foreach (var note in proposal.CoverageNotes) { <p>@note</p> }
@@ -811,7 +849,10 @@ else
             @if (PlanningApplied) { <p role="status">This breakdown was already added. It will not be applied again, even if its shots were later removed.</p> }
             @if (proposal.Error is null) { <p class="field-hint" role="status">@(_planningDraftDirty ? "Saving review decisions…" : "Review decisions saved")</p> }
             <fieldset disabled="@(_applyingProposal || PlanningApplied)"><legend class="sr-only">Review shot appearances</legend>
-            @foreach (var s in proposal.Shots) { <article class="shot-proposal" @key="s.Id"><h3>@s.Title · @DurationLabel(s)</h3><small>@s.SceneTitle</small><p>@s.Description</p>@foreach (var line in s.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }<ShotCastEditor Shot="s" Changed="characters => ReviewAppearances(s, characters)" /></article> }
+            @foreach (var group in proposal.Shots.GroupBy(s => s.SceneId)) {
+                @if (proposal.Strategies.FirstOrDefault(s => s.SceneId == group.Key) is { } strategy) { <h3>@group.First().SceneTitle</h3><SceneDirectionStrategyEditor Value="strategy" ValueChanged="value => ReviewStrategy(strategy, value)" Expanded="true" /> }
+                @foreach (var s in group) { <article class="shot-proposal" @key="s.Id"><h3>@s.Title · @DurationLabel(s)</h3><small>@s.SceneTitle</small><p>@s.Description</p>@foreach (var line in s.Dialogue) { <p><strong>@line.Speaker:</strong> @line.Text</p> }<ShotDirectionEditor Value="s.Direction" ValueChanged="d => ReviewDirection(s, d)" /><ShotCastEditor Shot="s" Changed="characters => ReviewAppearances(s, characters)" /></article> }
+            }
             </fieldset>
         }
         @if (_planningRaw.Length > 0) { <details><summary>Response details · @_planningRequest?.Selection.Name</summary><pre class="shot-source">@_planningRaw</pre></details> }

@@ -18,4 +18,7 @@ public sealed record SceneReferenceSetup
     public Guid Version { get; set; } = Guid.NewGuid();
     public List<SceneImageReference> Images { get; set; } = [];
 }
-public sealed record ShotEditState(List<Shot> Shots, List<SceneReferenceSetup> SceneSetups);
+public sealed record ShotEditState(List<Shot> Shots, List<SceneReferenceSetup> SceneSetups)
+{
+    public List<DirectionStrategy> DirectionStrategies { get; init; } = [];
+}

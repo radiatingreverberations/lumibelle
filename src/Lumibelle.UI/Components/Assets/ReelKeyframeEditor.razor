@@ -7,39 +7,61 @@
 
 <section class="keyframe-editor" aria-label="Reel keyframes">
     <div class="keyframe-body">
+        <p class="field-hint">Save useful viewpoints as keyframes for later shots. Suggest views can choose and name them, or add frames manually.</p>
         @if (_catalog is null) { <p role="status">@(_busy ? "Reading reel frames…" : "Reel frames unavailable.")</p> }
         else {
             <div class="keyframe-columns">
                 <section class="keyframe-player">
+                    <header class="keyframe-section-heading"><h3>Preview</h3><span>Frame @(_index + 1) · @_catalog.Timestamps[_index].ToString("0.###") s</span></header>
                     <video @ref="_player" controls preload="metadata" src="@ReferenceVideos.Url(ProjectId, Media.Id)" aria-label="Reel keyframe playback"></video>
                     <label>Frame timeline<input type="range" min="0" max="@(_catalog.Timestamps.Count - 1)" value="@_index" @onchange="Timeline" disabled="@_busy" /></label>
-                    <div class="keyframe-actions"><button @onclick="() => Step(-1)" disabled="@_busy">Previous frame</button><span>Frame @(_index + 1) · @_catalog.Timestamps[_index].ToString("0.###") s</span><button @onclick="() => Step(1)" disabled="@_busy">Next frame</button></div>
-                    <button @onclick="AddCurrent" disabled="@(_busy || _draft.Frames.Count >= 9 && _replace is null)">@(_replace is null ? "Add current frame" : "Replace with current frame")</button>
-                    <button @ref="_exportButton" @onclick="OpenExport" disabled="@_busy">Save frame to Assets…</button>
-                    @if (_replace is not null) { <button @onclick="() => _replace = null">Cancel replacement</button> }
-                    <p class="field-hint">@(_catalog.Lossless ? "Original lossless frames" : "Frames decoded from the saved video") · Picks use exact extracted pictures, independent of the playback preview.</p>
-                    <img class="exact-frame" src="@ReferenceVideos.FrameUrl(ProjectId, CurrentFrame)" alt="Exact frame at @_catalog.Timestamps[_index].ToString("0.###") seconds" />
+                    <div class="keyframe-step-controls"><button @onclick="() => Step(-1)" disabled="@_busy">Previous frame</button><button @onclick="() => Step(1)" disabled="@_busy">Next frame</button></div>
+                    <div class="keyframe-preview-actions">
+                        <button class="add-frame" @onclick="AddCurrent" disabled="@(_busy || _draft.Frames.Count >= 9 && _replace is null)">@(_replace is null ? "Add current frame" : "Replace with current frame")</button>
+                        <button @ref="_exportButton" @onclick="OpenExport" disabled="@_busy">Save frame to Assets…</button>
+                    </div>
+                    @if (_replace is { } replacing) { <div class="keyframe-replacing" role="status"><span>Choose a frame to replace @ReelViewSuggestions.Label(_draft.Frames.Single(p => p.Id == replacing), _draft.Frames.FindIndex(p => p.Id == replacing) + 1).</span><button @onclick="() => _replace = null">Cancel replacement</button></div> }
+                    <details class="exact-frame-details"><summary>Exact extracted frame · @(_catalog.Lossless ? "Lossless" : "MP4")</summary>
+                        <p class="field-hint">Picks use this extracted picture, independent of the playback preview.</p>
+                        <img class="exact-frame" src="@ReferenceVideos.FrameUrl(ProjectId, CurrentFrame)" alt="Exact frame at @_catalog.Timestamps[_index].ToString("0.###") seconds" />
+                    </details>
                 </section>
                 <section class="keyframe-selection">
-                    <div class="keyframe-actions"><label>Auto-pick up to<input type="number" min="1" max="9" @bind="_count" disabled="@_busy" /></label><span>frames</span><button @onclick="AutoPick" disabled="@_busy">Auto-pick</button><button @onclick="Undo" disabled="@(_busy || _undo is null)">Undo picks</button></div>
-                    @if (_notice is not null) { <p role="status">@_notice</p> }
-                    <p class="field-hint">Suggestions favor distinct, sharp views. Review them and replace any that miss important details.</p>
+                    <header class="keyframe-section-heading"><h3>Selected views</h3><button @onclick="Undo" disabled="@(_busy || _undo is null)">Undo picks</button></header>
+                    <ReelViewAssistant ProjectId="ProjectId" Media="Media" Current="_draft" Count="ViewLimit" Disabled="_busy" RequestedJobId="RequestedJobId" Staged="StageSuggestedViews">
+                        <ToolbarActions>
+                            <div class="keyframe-view-limit"><label>Views<select aria-label="View limit" @bind="_viewLimit" disabled="@_busy"><option value="auto">Automatic</option>@foreach (var count in Enumerable.Range(1, 9)) { <option value="@count">Up to @count</option> }</select></label></div>
+                        </ToolbarActions>
+                    </ReelViewAssistant>
+                    @if (_notice is not null) { <p class="keyframe-notice" role="status">@_notice</p> }
                     <ol class="keyframe-list">
                         @foreach (var pick in _draft.Frames) {
                             var position = _draft.Frames.IndexOf(pick);
                             <li @key="pick.Id">
-                                <button class="keyframe-pick" aria-label="Inspect keyframe @(position + 1)" @onclick="() => Inspect(pick)"><CropThumbnail MeasureImage="true" Url="@ReferenceVideos.FrameUrl(ProjectId, pick.Frame)" Label="@($"Keyframe {position + 1}")" Width="Media.Width" Height="Media.Height" Crop="pick.Crop" /><span>Keyframe @(position + 1) · @pick.Frame.Seconds.ToString("0.###") s</span></button>
-                                <div class="keyframe-actions"><button disabled="@(_busy || position == 0)" aria-label="Move keyframe @(position + 1) up" @onclick="() => Move(pick, -1)">↑</button><button disabled="@(_busy || position == _draft.Frames.Count - 1)" aria-label="Move keyframe @(position + 1) down" @onclick="() => Move(pick, 1)">↓</button><button disabled="@_busy" @onclick="() => _replace = pick.Id">Replace</button><button disabled="@_busy" @onclick="() => Remove(pick)">Remove</button></div>
-                                <label>Frame notes (optional)<input maxlength="20000" @bind="pick.Notes" @bind:event="oninput" disabled="@_busy" /></label>
-                                <details><summary>Crop keyframe</summary><div class="crop-preview"><img src="@ReferenceVideos.FrameUrl(ProjectId, pick.Frame)" alt="Crop source" /><span style="@CropStyle(pick)"></span></div>
-                                    @foreach (var field in new[] { "Width", "Height", "Horizontal", "Vertical" }) {
-                                        <label>@field<input type="range" min="@(field is "Width" or "Height" ? "0.05" : "0")" max="@CropMax(pick, field)" step="0.01" value="@CropValue(pick, field)" @oninput="e => CropChanged(pick, field, e)" disabled="@_busy" /></label>
-                                    }
-                                    <button disabled="@_busy" @onclick="() => pick.Crop = null">Full image</button>
-                                </details>
+                                <div class="keyframe-card-heading">
+                                    <button class="keyframe-pick" aria-label="Inspect keyframe @(position + 1)" @onclick="() => Inspect(pick)"><CropThumbnail MeasureImage="true" Url="@ReferenceVideos.FrameUrl(ProjectId, pick.Frame)" Label="@ReelViewSuggestions.Label(pick, position + 1)" Width="Media.Width" Height="Media.Height" Crop="pick.Crop" /><span><strong>@ReelViewSuggestions.Label(pick, position + 1)</strong><small>@pick.Frame.Seconds.ToString("0.###") s</small></span></button>
+                                    <div class="keyframe-order"><button disabled="@(_busy || position == 0)" aria-label="Move keyframe @(position + 1) up" @onclick="() => Move(pick, -1)">↑</button><button disabled="@(_busy || position == _draft.Frames.Count - 1)" aria-label="Move keyframe @(position + 1) down" @onclick="() => Move(pick, 1)">↓</button></div>
+                                </div>
+                                <div class="keyframe-fields">
+                                    <label>View name (optional)<input maxlength="160" @bind="pick.Name" @bind:event="oninput" disabled="@_busy" /></label>
+                                    <label>Frame notes (optional)<input maxlength="20000" @bind="pick.Notes" @bind:event="oninput" disabled="@_busy" /></label>
+                                </div>
+                                <div class="keyframe-card-footer">
+                                    <div class="keyframe-card-actions"><button disabled="@_busy" @onclick="() => _replace = pick.Id">Replace</button><button disabled="@_busy" @onclick="() => Remove(pick)">Remove</button></div>
+                                    <details><summary>Crop keyframe</summary><div class="crop-preview"><img src="@ReferenceVideos.FrameUrl(ProjectId, pick.Frame)" alt="Crop source" /><span style="@CropStyle(pick)"></span></div>
+                                        @foreach (var field in new[] { "Width", "Height", "Horizontal", "Vertical" }) {
+                                            <label>@field<input type="range" min="@(field is "Width" or "Height" ? "0.05" : "0")" max="@CropMax(pick, field)" step="0.01" value="@CropValue(pick, field)" @oninput="e => CropChanged(pick, field, e)" disabled="@_busy" /></label>
+                                        }
+                                        <button disabled="@_busy" @onclick="() => pick.Crop = null">Full image</button>
+                                    </details>
+                                </div>
                             </li>
                         }
                     </ol>
+                    <details class="keyframe-selection-tools"><summary>More selection tools</summary>
+                        <p class="field-hint">Quick picks uses sharpness and visual differences without AI. It replaces the pending picks without adding view names or notes.</p>
+                        <button @onclick="AutoPick" disabled="@_busy">Quick picks</button>
+                    </details>
                 </section>
             </div>
         }
@@ -58,7 +80,8 @@
         <img src="@ReferenceVideos.FrameUrl(ProjectId, export.Frame)" alt="Frame @(export.Frame.Index + 1) from @exportReel.Name" />
         <ImageCopyPanel @key="export" ProjectId="ProjectId" Library="exportLibrary" ReelFrame="export" ShowHeading="false"
             InitialAssetId="exportReel.AssetId" InitialLookId="exportReel.LookId"
-            InitialName="@($"{exportReel.Name} · {export.Frame.Seconds.ToString("0.###")} s")"
+            InitialName="@(_draft.Frames.FirstOrDefault(f => f.Frame == export.Frame)?.Name is { Length: > 0 } name ? $"{exportReel.Name} · {name}" : $"{exportReel.Name} · {export.Frame.Seconds.ToString("0.###")} s")"
+            InitialNotes="@(_draft.Frames.FirstOrDefault(f => f.Frame == export.Frame)?.Notes ?? "")"
             FrameDescription="@($"Frame {export.Frame.Index + 1} · {export.Frame.Seconds:0.###} s · {(_catalog!.Lossless ? "Lossless archive source" : "Compressed MP4 source")}. Saved as an independent image.")"
             Save="SaveExport" Saved="ExportSaved" Cancelled="CloseExport" />
     </div>
@@ -67,6 +90,7 @@
 
 @code {
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid? RequestedJobId { get; set; }
     [Parameter, EditorRequired] public ReferenceVideoMedia Media { get; set; } = null!;
     [Parameter] public ReelKeyframeSet? Initial { get; set; }
     [Parameter] public EventCallback<ReelKeyframeSet> Applied { get; set; }
@@ -82,7 +106,9 @@
     private bool _focusExport;
     private ReelKeyframeSet _draft = new(); private ReelKeyframeSet? _undo;
     private ReelFrameCatalog? _catalog; private H3Settings _settings = new();
-    private int _count = 3, _index; private bool _busy, _disposed, _saving; private Guid? _replace;
+    private string _viewLimit = "auto";
+    private int ViewLimit => int.TryParse(_viewLimit, out var count) ? count : 9;
+    private int _index; private bool _busy, _disposed, _saving; private Guid? _replace;
     private string? _error, _notice;
     private readonly CancellationTokenSource _lifetime = new();
     private ElementReference _player; private IJSObjectReference? _module;
@@ -110,11 +136,12 @@
     }
     private async Task Suggest()
     {
-        var suggestion = await MediaStore.SuggestFramesAsync(ProjectId, Media, _count, _settings, _lifetime.Token);
+        var suggestion = await MediaStore.SuggestFramesAsync(ProjectId, Media, ViewLimit, _settings, _lifetime.Token);
         _undo = ShotCopy.Of(_draft); _draft = suggestion; _replace = null;
-        _notice = suggestion.Frames.Count < _count ? $"Found {suggestion.Frames.Count} distinct usable views. Add frames manually if you need more." : "Review these suggested views before saving.";
+        _notice = $"Found {suggestion.Frames.Count} distinct usable views from sharpness and visual differences.";
     }
     private Task AutoPick() => Work(Suggest);
+    private void StageSuggestedViews(ReelKeyframeSet frames) { _undo = ShotCopy.Of(_draft); _draft = ShotCopy.Of(frames); _replace = null; _notice = "Review the suggested views, then save keyframes."; }
     private void Undo() { if (_undo is null) return; (_draft, _undo) = (_undo, _draft); _replace = null; }
     private async Task Seek(int index)
     {

@@ -16,7 +16,7 @@ public sealed class EnvironmentReelTests
     public void DefaultsAreEmptySilentWideAndDoNotChangeCharacterRecipes()
     {
         var owner = Owner(); var draft = ReferenceReels.NewDraft(owner);
-        Assert.Equal(ReelFraming.EnvironmentTurn, draft.Framing); Assert.Equal("16:9", draft.Aspect);
+        Assert.Equal(ReelFraming.EnvironmentFullSet, draft.Framing); Assert.Equal("16:9", draft.Aspect);
         Assert.Equal(15, draft.Duration); Assert.Equal(362 / 24d, H3Policy.Seconds(draft.Duration));
         Assert.Equal(ReelCameraDirection.Right, draft.CameraDirection);
         Assert.Empty(draft.Images); Assert.Empty(draft.Prompt); Assert.Empty(draft.UseGuidance);
@@ -50,8 +50,8 @@ public sealed class EnvironmentReelTests
         Assert.Null(AiTextResults.Parse(request, JsonSerializer.Serialize(pair, AtomicJsonFile.Options), "stop").Error);
     }
     [Theory]
-    [InlineData(ReelFraming.EnvironmentTurn, 1)] [InlineData(ReelFraming.EnvironmentTurn, 2)]
-    [InlineData(ReelFraming.EnvironmentPan, 1)] [InlineData(ReelFraming.EnvironmentPath, 2)]
+    [InlineData(ReelFraming.EnvironmentFullSet, 1)] [InlineData(ReelFraming.EnvironmentFullSet, 2)]
+    [InlineData(ReelFraming.EnvironmentFeatureStudy, 1)] [InlineData(ReelFraming.EnvironmentPath, 2)]
     public void EnvironmentPairsCaptureViewsCropsAndContextWithNoAudio(ReelFraming framing, int count)
     {
         var owner = Owner(); var draft = ReferenceReels.NewDraft(owner);
@@ -107,63 +107,49 @@ public sealed class EnvironmentReelTests
         .SelectMany(p => Enum.GetValues<ReelCameraDirection>().Select(d => new object[] { p.Framing, d }));
 
     [Theory]
-    [InlineData(ReelCameraDirection.Right, "left", "right")]
-    [InlineData(ReelCameraDirection.Left, "right", "left")]
-    public void RevealsDescribeScreenTravelAndDifferentDestinations(ReelCameraDirection direction, string exit, string entry)
+    [InlineData(ReelCameraDirection.Right, "clockwise")]
+    [InlineData(ReelCameraDirection.Left, "counterclockwise")]
+    public void FullSetAndFeatureStudyCoverAllSidesWithDifferentFraming(ReelCameraDirection direction, string name)
     {
-        var draft = ReferenceReels.NewDraft(Owner());
-        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentPan); draft.CameraDirection = direction;
-        var pan = ReferenceReels.Views(draft);
-        Assert.Contains($"pans {entry} with large amplitude at fast speed", pan);
-        Assert.Contains($"leave through the {exit} edge", pan);
-        Assert.Contains($"out-of-frame {entry}-hand continuation enters", pan);
-        Assert.Contains("perpendicular to the starting direction", pan);
-        Assert.Contains("by 5.583 seconds", pan); Assert.Contains("until 6.583 seconds", pan);
-
-        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentTurn);
-        var turn = ReferenceReels.Views(draft);
-        Assert.Contains("space behind the opening camera", turn);
-        Assert.Contains("remaining side of the room", turn);
-        Assert.Contains("Only after passing all three other sides", turn);
-
-        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentArc);
-        var arc = ReferenceReels.Views(draft);
-        Assert.Contains($"arc shot to the {entry} with large amplitude at fast speed", arc);
-        Assert.Contains("approximately 90° around the stationary feature", arc);
-        Assert.Contains("distinct side-on viewpoint", arc); Assert.Contains("strong parallax", arc);
-        Assert.DoesNotContain("modest", arc); Assert.DoesNotContain("45°", arc);
-    }
-
-    [Theory]
-    [InlineData(ReelFraming.EnvironmentPullBack, "become substantially smaller", "distinctly wider view")]
-    [InlineData(ReelFraming.EnvironmentApproach, "grows substantially", "new surface detail")]
-    public void CameraTravelHasObservableScaleChangeAndAdaptsPaceToLongerDuration(ReelFraming framing, string scale, string destination)
-    {
-        var draft = ReferenceReels.NewDraft(Owner()); ReferenceReels.SelectCameraPreset(draft, framing);
-        var standard = ReferenceReels.Views(draft);
-        Assert.Contains("with large amplitude at fast speed", standard);
-        Assert.Contains(scale, standard); Assert.Contains(destination, standard);
-        draft.Duration = 12;
-        var longer = ReferenceReels.Views(draft);
-        Assert.Contains("at a steady speed spread across the allotted movement time", longer);
-        Assert.DoesNotContain("at fast speed", longer);
-        Assert.Contains(scale, longer); Assert.Contains(destination, longer);
+        var draft = ReferenceReels.NewDraft(Owner()); draft.CameraDirection = direction;
+        var full = ReferenceReels.Views(draft);
+        Assert.Contains($"Travel {name}, as seen from above", full);
+        Assert.Contains("complete 360° perimeter circuit", full);
+        Assert.Contains("looking inward across the set", full);
+        Assert.Contains("outside the central acting area", full);
+        Assert.Contains("wide views of backgrounds and staging space", full);
+        Assert.Contains("reverse background behind the opening camera", full);
+        Assert.Contains("all three other sides", full);
+        Assert.Contains("Do not approach the centre, zoom in, spin in place", full);
+        Assert.Contains("approximately 360° from the opening position", full);
+        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentFeatureStudy);
+        var feature = ReferenceReels.Views(draft);
+        Assert.Contains("complete 360° orbit", feature);
+        Assert.Contains("whole feature and its immediate surroundings framed", feature);
+        Assert.Contains("not coverage of the entire environment", feature);
+        Assert.Contains("back of the feature", feature);
+        Assert.Contains("all three other angles", feature);
+        Assert.Contains("strong parallax", feature);
+        Assert.Contains(name, feature);
+        Assert.Equal(direction == ReelCameraDirection.Left ? "Counterclockwise" : "Clockwise", ReferenceReels.CameraDirectionLabel(draft, direction));
     }
 
     [Fact]
-    public void CustomPathKeepsAuthoredExtentAndSpeedAndHeldViewsCoverDifferentSides()
+    public void WalkthroughAndCustomFollowAuthoredRoutesWithoutPrescribingAnOrbit()
     {
-        var draft = ReferenceReels.NewDraft(Owner()); ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentPath);
+        var draft = ReferenceReels.NewDraft(Owner());
+        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentWalkthrough);
+        var walk = ReferenceReels.Views(draft);
+        Assert.Contains("revealing how the spaces join", walk);
+        Assert.Contains("author's destination", walk);
+        Assert.Contains("hold the final view completely still until 15.083 seconds", walk);
+        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentPath);
         draft.Instructions = "Move gently from the doorway to the rug at slow speed.";
         var custom = ReferenceReels.Views(draft);
         Assert.Contains("extent and speed they specify", custom);
         Assert.Contains("arriving at the specified destination", custom);
-        Assert.DoesNotContain("large amplitude", custom); Assert.DoesNotContain("fast speed", custom);
-        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentHeldViews);
-        var held = ReferenceReels.Views(draft);
-        Assert.Contains("space behind the opening camera", held);
-        Assert.Contains("four different directions", held);
-        Assert.Contains("screen positions change", held);
+        Assert.DoesNotContain("360°", custom);
+        Assert.DoesNotContain("fast speed", custom);
     }
 
     [Theory, MemberData(nameof(PresetsAndDirections))]
@@ -172,29 +158,31 @@ public sealed class EnvironmentReelTests
         var owner = Owner(); var draft = ReferenceReels.NewDraft(owner);
         ReferenceReels.SelectCameraPreset(draft, framing); draft.CameraDirection = direction;
         draft.Images = [new() { AssetId = owner.Id, MediaId = Guid.NewGuid(), InferUsage = true }];
-        draft.Instructions = "Use the desk as the feature. Keep the brick wall.";
+        draft.Instructions = "Use the desk as the feature. Travel from the doorway along the wall to the desk. Keep the brick wall.";
         var preset = ReferenceReels.CameraPreset(draft)!;
         Assert.Equal(preset.Seconds, draft.Duration);
         var views = ReferenceReels.Views(draft);
         var pair = ReferenceReels.Preset(draft);
         ReferenceReels.ValidatePair(pair, draft);
         Assert.Contains(views, pair.Prompt);
-        Assert.DoesNotContain("[Pan", views);
-        if (preset.UsesDirection) Assert.Contains(direction.ToString().ToLowerInvariant(), views);
         var shots = System.Text.RegularExpressions.Regex.Matches(views, @"\[Shot (\d+)\]").Select(m => m.Groups[1].Value).ToArray();
-        Assert.Equal(framing == ReelFraming.EnvironmentHeldViews ? ["1", "2", "3", "4"] : new[] { "1" }, shots);
+        Assert.Equal(new[] { "1" }, shots);
         var request = new ReelCompositionRequest(Guid.NewGuid(), draft, ReferenceReels.Fingerprint(draft), LookPolicy.Capture(owner, null), []);
         var messages = ReferenceReels.Messages(request, []);
         using var context = JsonDocument.Parse(messages[1].Text!);
         Assert.Equal(views, context.RootElement.GetProperty("presetViews").GetString());
         Assert.Contains("within this one reel", messages[0].Text);
         Assert.Contains("resolve conflicts", messages[0].Text);
-        Assert.Contains("Preserve physical positions and relationships within the room while screen positions change", pair.Prompt);
-        Assert.Contains("Preserve physical positions and relationships within the room while screen positions change", messages[0].Text);
-        Assert.Contains("movement type, amplitude and speed separately", messages[0].Text);
-        Assert.Contains("Do not soften broad coverage", messages[0].Text);
+        Assert.Contains("outside the central acting area", messages[0].Text);
+        Assert.Contains("not a verified reconstruction", messages[0].Text);
+        Assert.Contains("one [Shot 1] section", messages[0].Text);
+        Assert.DoesNotContain("subsequent cuts", messages[0].Text);
+        Assert.Contains("Preserve physical positions and relationships within the environment while screen positions change", pair.Prompt);
+        Assert.Contains("Preserve physical positions and relationships within the environment while screen positions change", messages[0].Text);
         Assert.Contains("physical relationships for retention and use guidance", messages[0].Text);
-        Assert.DoesNotContain("with large amplitude", pair.UseGuidance);
+        Assert.DoesNotContain("first picture establishes the opening composition", messages[0].Text);
+        Assert.DoesNotContain("Establishes the opening composition only", pair.Prompt);
+        Assert.Contains("not a requirement to keep its exact framing", pair.Prompt);
         Assert.Empty(ReferenceReels.Inputs(draft).Voices);
         draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance;
         var inputs = ReferenceReels.Inputs(draft); var settings = new H3Settings(); var size = H3Policy.Size(draft.Aspect, false);
@@ -217,41 +205,41 @@ public sealed class EnvironmentReelTests
     {
         var draft = ReferenceReels.NewDraft(Owner()); draft.Duration = duration;
         var total = H3Policy.Frames(duration) / 24d;
-        foreach (var framing in new[] { ReelFraming.EnvironmentTurn, ReelFraming.EnvironmentHalfTurn }) {
+        foreach (var framing in new[] { ReelFraming.EnvironmentFullSet, ReelFraming.EnvironmentFeatureStudy }) {
             draft.Framing = framing;
             var intervals = System.Text.RegularExpressions.Regex.Matches(ReferenceReels.Views(draft), @"[Ff]rom (\d+(?:\.\d+)?) to (\d+(?:\.\d+)?) seconds")
                 .Select(m => (Start: double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), End: double.Parse(m.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture))).ToArray();
-            Assert.Equal(framing == ReelFraming.EnvironmentTurn ? 8 : 4, intervals.Length);
+            Assert.Equal(8, intervals.Length);
             Assert.Equal(0, intervals[0].Start);
             Assert.InRange(Math.Abs(intervals[^1].End - total), 0, .0005);
             for (var i = 0; i < intervals.Length; i++) {
                 Assert.True(intervals[i].End > intervals[i].Start);
+                Assert.InRange(Math.Abs(intervals[i].Start * 24 - Math.Round(intervals[i].Start * 24)), 0, .012);
                 if (i > 0) Assert.Equal(intervals[i - 1].End, intervals[i].Start);
             }
             Assert.InRange(intervals[^1].End - intervals[^1].Start, .001, 1.001);
         }
-        draft.Framing = ReelFraming.EnvironmentHeldViews;
-        var cuts = System.Text.RegularExpressions.Regex.Matches(ReferenceReels.Views(draft), @"At (\d\d:\d\d\.\d\d\d)")
-            .Select(m => TimeSpan.ParseExact(m.Groups[1].Value, @"mm\:ss\.fff", System.Globalization.CultureInfo.InvariantCulture).TotalSeconds).ToArray();
-        Assert.Equal(3, cuts.Length);
-        Assert.True(cuts[0] > 0 && cuts[0] < cuts[1] && cuts[1] < cuts[2] && cuts[2] < total);
-        Assert.InRange(Math.Abs(cuts[0] - H3Policy.Frames(duration) / 4 / 24d), 0, .001);
+        foreach (var framing in new[] { ReelFraming.EnvironmentWalkthrough, ReelFraming.EnvironmentPath }) {
+            draft.Framing = framing;
+            Assert.Contains($"until {total.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} seconds", ReferenceReels.Views(draft));
+        }
     }
 
     [Fact]
     public void SelectionReuseAndReloadPreserveAuthoredInputs()
     {
         var draft = ReferenceReels.NewDraft(Owner()); draft.Prompt = "My prompt"; draft.UseGuidance = "My guidance";
-        draft.Instructions = "Around the desk"; draft.CameraDirection = ReelCameraDirection.Left;
-        draft.Images = [new() { AssetId = draft.AssetId, MediaId = Guid.NewGuid() }];
+        draft.Instructions = "Around the desk"; draft.CameraDirection = ReelCameraDirection.Left; draft.Duration = 6;
+        draft.Images = [new() { AssetId = draft.AssetId, MediaId = Guid.NewGuid(), Crop = new() { X = 0, Y = 0, Width = .5, Height = 1 } }];
         draft.CheckedInputs = ReferenceReels.InputsFingerprint(draft);
         var before = draft.Copy();
-        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentArc);
-        Assert.Equal(6, draft.Duration); Assert.Null(draft.CheckedInputs);
+        ReferenceReels.SelectCameraPreset(draft, ReelFraming.EnvironmentFeatureStudy);
+        Assert.Equal(15, draft.Duration); Assert.Null(draft.CheckedInputs);
         Assert.Equal(before.Prompt, draft.Prompt); Assert.Equal(before.UseGuidance, draft.UseGuidance);
         Assert.Equal(before.Instructions, draft.Instructions); Assert.Equal(before.Images, draft.Images);
         Assert.Equal(ReelCameraDirection.Left, draft.CameraDirection);
         var source = ReferenceReels.NewDraft(Owner()); source.Instructions = "Saved directions";
+        draft.Duration = 6;
         ReferenceReels.ReuseDirections(draft, source);
         Assert.Equal(source.Framing, draft.Framing); Assert.Equal(source.CameraDirection, draft.CameraDirection);
         Assert.Equal(6, draft.Duration); Assert.Equal(before.Prompt, draft.Prompt); Assert.Equal(before.Images, draft.Images);
@@ -261,19 +249,79 @@ public sealed class EnvironmentReelTests
         Assert.Equal(ReferenceReels.Views(draft), ReferenceReels.Views(reload));
         Assert.NotNull(ReferenceReels.DurationAdvice(draft)); Assert.False(ReferenceReels.ShowKeyframeHint(draft));
         draft.Duration = 10; Assert.True(ReferenceReels.ShowKeyframeHint(draft));
-        Assert.Equal(15, source.Duration);
     }
 
     [Theory]
-    [InlineData(ReelFraming.EnvironmentApproach)] [InlineData(ReelFraming.EnvironmentArc)] [InlineData(ReelFraming.EnvironmentPath)]
-    public void FeatureAndCustomPresetsRequireDirectionsForComposition(ReelFraming framing)
+    [InlineData(ReelFraming.EnvironmentFeatureStudy)] [InlineData(ReelFraming.EnvironmentWalkthrough)] [InlineData(ReelFraming.EnvironmentPath)]
+    public void FeatureAndRoutePresetsRequireDirectionsForComposition(ReelFraming framing)
     {
         var draft = ReferenceReels.NewDraft(Owner()); ReferenceReels.SelectCameraPreset(draft, framing);
         Assert.NotNull(ReferenceReels.CompositionInstructionsIssue(draft));
         Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.ValidateComposition(draft));
-        draft.Instructions = "toward the window";
+        draft.Instructions = "From the doorway, along the wall, to the desk.";
         ReferenceReels.ValidateComposition(draft);
         draft.CameraDirection = (ReelCameraDirection)99;
         Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.ValidateProfile(draft));
+    }
+
+    [Theory]
+    [InlineData(ReelFraming.EnvironmentTurn, 5)] [InlineData(ReelFraming.EnvironmentPan, 6)]
+    [InlineData(ReelFraming.EnvironmentHalfTurn, 8)] [InlineData(ReelFraming.EnvironmentHeldViews, 9)]
+    [InlineData(ReelFraming.EnvironmentPullBack, 10)] [InlineData(ReelFraming.EnvironmentApproach, 11)] [InlineData(ReelFraming.EnvironmentArc, 12)]
+    public void RemovedPresetsRetainHistoryButRequireExplicitReplacement(ReelFraming removed, int storedId)
+    {
+        var draft = ReferenceReels.NewDraft(Owner());
+        draft.Images = [new() { AssetId = draft.AssetId, MediaId = Guid.NewGuid(), Crop = new() { X = 0, Y = 0, Width = .5, Height = 1 } }];
+        var pair = ReferenceReels.Preset(draft); draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance;
+        draft.Framing = removed; draft.Instructions = "My saved directions";
+        var before = ReferenceReels.Fingerprint(draft);
+        var reload = JsonSerializer.Deserialize<ReferenceReelDraft>(JsonSerializer.Serialize(draft, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
+        Assert.Equal(storedId, (int)reload.Framing);
+        Assert.Equal(before, ReferenceReels.Fingerprint(reload));
+        ReferenceReels.Validate(reload); ReferenceReels.ValidatePair(pair, reload);
+        Assert.True(ReferenceReels.NeedsEnvironmentReplacement(reload));
+        Assert.Equal(ReferenceReels.EnvironmentReplacementRequired, ReferenceReels.CompositionInstructionsIssue(reload));
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.Preset(reload));
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.Views(reload));
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.Views(removed));
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.Validate(reload, true));
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.SelectCameraPreset(reload, removed));
+        ReferenceReels.SelectCameraPreset(reload, ReelFraming.EnvironmentFullSet);
+        Assert.False(ReferenceReels.NeedsEnvironmentReplacement(reload));
+        Assert.Equal(draft.Prompt, reload.Prompt); Assert.Equal(draft.UseGuidance, reload.UseGuidance);
+        Assert.Equal(draft.Instructions, reload.Instructions); Assert.Equal(draft.Images, reload.Images);
+        Assert.Equal(before, ReferenceReels.Fingerprint(draft));
+        ReferenceReels.Validate(reload, true);
+    }
+
+    [Fact]
+    public void OnlyFourCoveragePresetsAreAvailableAndStoredIdsAreStable()
+    {
+        Assert.Equal(new[] { ReelFraming.EnvironmentFullSet, ReelFraming.EnvironmentFeatureStudy, ReelFraming.EnvironmentWalkthrough, ReelFraming.EnvironmentPath }, ReferenceReels.Framings(ReferenceReels.NewDraft(Owner())));
+        Assert.Equal(7, (int)ReelFraming.EnvironmentPath); Assert.Equal(21, (int)ReelFraming.PropOrbit); Assert.Equal(27, (int)ReelFraming.PropCustom);
+        Assert.Equal(28, (int)ReelFraming.EnvironmentFullSet); Assert.Equal(29, (int)ReelFraming.EnvironmentFeatureStudy); Assert.Equal(30, (int)ReelFraming.EnvironmentWalkthrough);
+    }
+
+    [Theory]
+    [InlineData(AssetCategory.Environment)] [InlineData(AssetCategory.Character)] [InlineData(AssetCategory.Prop)]
+    public void ImageEntryPointCreatesAnIndependentRecipeWithTheChosenImage(AssetCategory category)
+    {
+        var image = new AssetImage { Id = Guid.NewGuid(), Name = "Opening view", FileName = "view.png", ContentType = "image/png", Width = 64, Height = 64 };
+        var owner = Owner() with { Category = category, Images = [image] };
+        var library = new AssetLibrary { ProjectId = Guid.NewGuid(), Assets = [owner] };
+        var first = ReferenceReels.DraftFromImage(owner, image.Id, library);
+        var second = ReferenceReels.DraftFromImage(owner, image.Id, library);
+        Assert.NotEqual(first.Id, second.Id);
+        var binding = Assert.Single(first.Images);
+        Assert.Equal(owner.Id, binding.AssetId); Assert.Equal(image.Id, binding.MediaId);
+        Assert.Equal(ShotImageKind.AssetImage, binding.Kind); Assert.True(binding.InferUsage);
+        Assert.Empty(first.Prompt); Assert.Empty(first.UseGuidance);
+        ReferenceReels.Validate(first);
+        var unnamedOwner = owner with { Images = [image with { Name = null }] };
+        var unnamed = ReferenceReels.DraftFromImage(unnamedOwner, image.Id, library);
+        Assert.Equal(owner.Name, unnamed.Images[0].Name);
+        ReferenceReels.Validate(unnamed);
+        if (category == AssetCategory.Environment) Assert.Equal(ReelFraming.EnvironmentFullSet, first.Framing);
+        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.DraftFromImage(owner, Guid.NewGuid(), library));
     }
 }

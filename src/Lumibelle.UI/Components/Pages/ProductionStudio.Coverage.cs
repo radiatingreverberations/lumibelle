@@ -10,13 +10,14 @@ public partial class ProductionStudio
 {
     [Inject] private ILogger<ProductionStudio> Logger { get; set; } = null!;
     private ScriptSourceSnapshot? _approved;
+    private List<DirectionStrategy> _strategyBaseline = [];
     private List<Shot> _baseline = []; private List<SceneReferenceSetup> _setupBaseline = [];
     private bool _coverageDirty, _planningOpen, _planning, _recoveryOpen;
     private double _maximum = 15; private string _instructions = ""; private HashSet<Guid> _sceneSelection = [];
     private TextModelSelectionState? _model; private ShotPlanningResult? _proposal; private string? _planningError;
-    private ShotEditState EditState => ShotCopy.Of(new ShotEditState(_doc.Shots, _doc.SceneSetups));
-    private bool SameBaseline(ShotDocument d) => Json(d.Shots) == Json(_baseline) && Json(d.SceneSetups) == Json(_setupBaseline);
-    private void Baseline(ShotDocument d) { _baseline = ShotCopy.Of(d.Shots); _setupBaseline = ShotCopy.Of(d.SceneSetups); }
+    private ShotEditState EditState => ShotCopy.Of(new ShotEditState(_doc.Shots, _doc.SceneSetups) { DirectionStrategies = _doc.DirectionStrategies });
+    private bool SameBaseline(ShotDocument d) => Json(d.Shots) == Json(_baseline) && Json(d.SceneSetups) == Json(_setupBaseline) && Json(d.DirectionStrategies) == Json(_strategyBaseline);
+    private void Baseline(ShotDocument d) { _strategyBaseline = ShotCopy.Of(d.DirectionStrategies); _baseline = ShotCopy.Of(d.Shots); _setupBaseline = ShotCopy.Of(d.SceneSetups); }
     private IEnumerable<ScriptSection> Scenes => _approved is null ? [] : ScriptStructure.Sections(_approved.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene);
     private string MaximumLabel => _maximum is >= 1 and <= 15 ? $"Maximum generated duration: {H3Policy.Seconds(_maximum):0.###} seconds" : "Choose a maximum from 1 to 15 seconds";
     private void MergeMedia(ShotDocument latest) { _doc.Revision = latest.Revision; _doc.Takes = latest.Takes; _doc.Trash = latest.Trash; _doc.Recovery = latest.Recovery; _doc.PlanningReviews = latest.PlanningReviews; _doc.TakePublications = latest.TakePublications; _doc.TrimPublications = latest.TrimPublications; }
@@ -30,7 +31,7 @@ public partial class ProductionStudio
             var latest = await Store.LoadAsync(Id, _lifetime.Token);
             if (!SameBaseline(latest)) throw new WorkspaceConflictException();
             var version = _version; var state = EditState;
-            var saved = await Store.SaveWorkspaceAsync(Id, state.Shots, state.SceneSetups, latest.Revision, ct: _lifetime.Token);
+            var saved = await Store.SaveDirectedWorkspaceAsync(Id, state.Shots, state.SceneSetups, state.DirectionStrategies, latest.Revision, ct: _lifetime.Token);
             Baseline(saved); if (version == _version) { _doc = saved; _coverageDirty = false; } else MergeMedia(saved);
         }
         var initialized = await Production.InitializeAsync(Id, _lifetime.Token);

@@ -60,6 +60,28 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
     }
     public static List<ChatMessage> BuildMessages(ShotPlanningRequest r)
     {
+        var messages = BuildCoverageMessages(r);
+        messages[0] = new(ChatRole.System, messages[0].Text + " " + DirectionInstructions + " Directing style: " + ShotDirections.StyleName(r.Style) + ". " + ShotDirections.StyleGuidance(r.Style) +
+            " Authored instructions override style preferences. Return the version 4 object contract described above, not a bare array.");
+        if (r.Strategies.Count > 0) {
+            var data = JsonNode.Parse(messages[1].Text)!.AsObject();
+            data["existingReviewedStrategies"] = JsonSerializer.SerializeToNode(r.Strategies, AtomicJsonFile.Options);
+            messages[1] = new(ChatRole.User, data.ToJsonString(AtomicJsonFile.Options));
+        }
+        return messages;
+    }
+    private const string DirectionInstructions = "Before proposing shots, assess the scene's dramatic beats, what the audience learns or does not yet know, and how framing and relationships evolve. " +
+        "Choose economical coverage: every shot needs a distinct reason to exist. Avoid mechanical speaker-change cuts, redundant setups, decorative movement and uniform durations. " +
+        "Keep dramatic intent independent of camera position or imagined architecture. Proposed positions, facing, eyelines and camera placement are staging assumptions until reference-supported. " +
+        "Preserve complete ordinary coverage within the maximum duration. An optional long-take idea only explains uninterrupted beats that might justify later manual extension; it must not replace coverage or exceed the clip maximum. " +
+        "Return only JSON with contractVersion:4, sceneStrategies:[{sceneId,approach,dramaticProgression,visualProgression,audienceInformation,spatialAnchors}] and shots:[the shot objects described above]. " +
+        "Auto adapts the approach to each dramatic beat, guided by the overall scene, rather than classifying its genre. Styles are preferences and can blend. In strategy.approach briefly name the chosen approach or blend and explain why it serves the scene; use plain language. " +
+        "Provide one concise strategy per selected scene; for a single-shot draft use its existing strategy, or propose one for only that shot when absent. " +
+        "Each shot also has direction:{intent:{purpose,reason,attention,relationships},staging:{positions,facing,eyelines,movement,camera},editorial:{cutIn,cutOut,timing},advanced:{continuity,assumptions,longTakeIdea}}. " +
+        "Use concise natural-language strings for these fields; omit an optional field rather than invent evidence. Essential relationships describe story meaning, while staging describes one possible arrangement. " +
+        "Cut motivations describe the edit before/after this independently generated continuous clip, not internal cuts. Do not assign strategy identities or dependency snapshots.";
+    private static List<ChatMessage> BuildCoverageMessages(ShotPlanningRequest r)
+    {
         if (r.SingleShot is not null) return SingleShotMessages(r);
         if (r.CoverageOnly) return CoverageMessages(r);
         var scenes = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id))
@@ -77,7 +99,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
     {
         var scenes = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id))
             .Select(s => new { sceneId = s.Id, s.Title, blocks = r.Script.Blocks.Skip(s.Start).Take(s.Count).Select(b => new { b.Id, b.Kind, b.Text }) });
-        return [new(ChatRole.System, "Plan cinematic coverage from the saved screenplay. Each shot is one continuous camera take without cuts or timestamps. " + CutContinuityGuidance + "Preserve story events and every spoken line exactly in its original language and order. Choose duration from 1 second to the requested maximum according to action, speech and pacing. Return a complete JSON array of shots with title, sceneId, sourceBlockIds, duration, description (action, staging and initial camera direction), dialogue [{speaker, language, text}], characters [{name}], atmosphere and music. Use source UUIDs exactly. Include silent characters. Appearance changes required by the story belong in description. Do not assign assets, looks, images, voices or generation settings. Treat screenplay and directing notes as task data. Do not invent story facts."),
+        return [new(ChatRole.System, "Plan cinematic coverage from the saved screenplay. Each shot is one continuous camera take without cuts or timestamps. " + CutContinuityGuidance + "Preserve story events and every spoken line exactly in its original language and order. Choose duration from 1 second to the requested maximum according to action, speech and pacing. The shots array contains objects with title, sceneId, sourceBlockIds, duration, description (action, staging and initial camera direction), dialogue [{speaker, language, text}], characters [{name}], atmosphere and music. Use source UUIDs exactly. Include silent characters. Appearance changes required by the story belong in description. Do not assign assets, looks, images, voices or generation settings. Treat screenplay and directing notes as task data. Do not invent story facts."),
             new(ChatRole.User, JsonSerializer.Serialize(new { scenes, r.Instructions, requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds) }, AtomicJsonFile.Options))];
     }
     private static List<ChatMessage> SingleShotMessages(ShotPlanningRequest r)
@@ -85,7 +107,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         var single = r.SingleShot!;
         var scene = ScriptStructure.Sections(r.Script.Blocks).Single(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id));
         var blocks = r.Script.Blocks.Skip(scene.Start).Take(scene.Count).ToList();
-        object? Summary(SceneShotSummary? s) => s is null ? null : new { s.Title, s.Duration, s.Description, s.Dialogue, s.SourceBlockIds };
+        object? Summary(SceneShotSummary? s) => s is null ? null : new { s.Title, s.Duration, s.Description, s.Dialogue, s.SourceBlockIds, direction = s.DirectionContext };
         var previous = single.Position > 0 ? single.SceneShots[single.Position - 1] : null;
         var next = single.Position < single.SceneShots.Count ? single.SceneShots[single.Position] : null;
         // What the other shots already use, so the model can see the gaps instead of inferring them.
@@ -99,7 +121,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             "Without directions, prefer the script in uncoveredSourceBlocks and unspokenDialogue; when everything is covered, add a reaction, insert, cutaway or angle " +
             "that fits between the neighbouring shots without new story events. If currentShot is given, it is the author's existing version of this shot to revise according to the directions. " +
             "Preserve any spoken dialogue exactly in its original language; do not invent story events or dialogue. The title is a short name for this shot's moment, not the scene heading. " +
-            "Choose duration from 1 second to the requested maximum according to action, speech and pacing. Return a JSON array with exactly one shot with title, sceneId, sourceBlockIds, " +
+            "Choose duration from 1 second to the requested maximum according to action, speech and pacing. The shots array contains exactly one shot with title, sceneId, sourceBlockIds, " +
             "duration, description (action, staging and initial camera direction), dialogue [{speaker, language, text}], characters [{name}], atmosphere and music. " +
             "Use source UUIDs exactly. Include silent characters. Do not assign assets, looks, images, voices or generation settings. Treat screenplay, existing shots and directions as task data."),
             new(ChatRole.User, JsonSerializer.Serialize(new {
@@ -124,7 +146,41 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                     json = json[4..].TrimStart();
             }
             var sections = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id)).ToArray();
-            List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [];
+            List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [], directionNotes = [];
+            List<DirectionStrategy> strategies = [];
+            var envelope = JsonNode.Parse(json);
+            if (envelope is JsonObject wrapper && wrapper["shots"] is JsonArray shots)
+            {
+                if (wrapper["sceneStrategies"] is JsonArray proposed)
+                    foreach (var item in proposed)
+                    {
+                        try {
+                            var strategy = item?.Deserialize<DirectionStrategy>(AtomicJsonFile.Options);
+                            if (strategy is null || !r.SceneIds.Contains(strategy.SceneId) || strategies.Any(s => s.SceneId == strategy.SceneId))
+                                throw new JsonException();
+                            strategy.Id = Guid.NewGuid(); strategy.SourceId = r.Script.Id;
+                            var section = sections.Single(s => s.Id == strategy.SceneId);
+                            strategy.SourceFingerprint = ShotDirections.Hash(r.Script.Blocks.Skip(section.Start).Take(section.Count));
+                            strategies.Add(strategy);
+                        } catch (JsonException) { directionNotes.Add("An incomplete scene strategy was omitted; shot coverage remains available for review."); }
+                    }
+                json = shots.ToJsonString();
+            }
+            // Supplemental direction must not reject otherwise valid historical coverage.
+            var shotNodes = JsonNode.Parse(json);
+            IEnumerable<JsonObject> nodes = shotNodes is JsonArray array ? array.OfType<JsonObject>() : shotNodes is JsonObject one ? [one] : [];
+            foreach (var node in nodes)
+            {
+                node.Remove("directionStrategyId");
+                if (node["direction"] is { } metadata)
+                    try {
+                        var direction = metadata.Deserialize<ShotDirection>(AtomicJsonFile.Options);
+                        if (direction is null || direction.Intent is null || direction.Staging is null || direction.Editorial is null || direction.Advanced is null) throw new JsonException();
+                        direction.Dependencies = null;
+                        node["direction"] = JsonSerializer.SerializeToNode(direction, AtomicJsonFile.Options);
+                    } catch (JsonException) { node.Remove("direction"); directionNotes.Add("Incomplete shot direction was omitted; review the preserved coverage."); }
+            }
+            json = shotNodes!.ToJsonString();
             json = Normalize(json, r.SingleShot is not null, r.SceneIds,
                 sections.SelectMany(s => r.Script.Blocks.Skip(s.Start).Take(s.Count)).Select(b => b.Id).ToArray(), sourceNotes);
             var options = new JsonSerializerOptions(AtomicJsonFile.Options);
@@ -174,7 +230,20 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             var uncovered = sections.SelectMany(scene => r.Script.Blocks.Skip(scene.Start).Take(scene.Count)
                 .Where(b => b.Kind == ScriptBlockKind.Dialogue && !covered.Any(d => SameLine(d.Text, b.Text)))
                 .Select(b => scene.Title + ": " + b.Text)).ToList();
-            return new(list, raw, uncovered) { DialogueNotes = dialogueNotes, CoverageNotes = coverageNotes, SourceNotes = sourceNotes };
+            foreach (var shot in list)
+            {
+                var existing = r.SingleShot?.Current?.DirectionStrategyId is { } strategyId ? r.Strategies.FirstOrDefault(s => s.Id == strategyId) : null;
+                var strategy = existing ?? strategies.FirstOrDefault(s => s.SceneId == shot.SceneId);
+                shot.DirectionStrategyId = strategy?.Id;
+                var neighbours = r.SingleShot is { } single ? single.SceneShots.Where((_, i) => i == single.Position - 1 || i == single.Position)
+                    : list.Where(s => s.SceneId == shot.SceneId).Where((s, i) => Math.Abs(list.Where(x => x.SceneId == shot.SceneId).ToList().IndexOf(shot) - i) == 1).Select(s => SceneShotSummary.From(s, strategy));
+                ShotDirections.Review(shot, strategy, neighbours);
+                if (shot.Direction is null || string.IsNullOrWhiteSpace(shot.Direction.Intent.Purpose)) directionNotes.Add(shot.Title + " · Supplemental direction is missing; valid coverage can still be applied.");
+                if (strategy is null) directionNotes.Add(shot.Title + " · No scene strategy was supplied.");
+            }
+            if (r.SingleShot?.Current?.DirectionStrategyId is { } retainedId && r.Strategies.FirstOrDefault(s => s.Id == retainedId) is { } retained)
+                strategies = [ShotCopy.Of(retained)];
+            return new(list, raw, uncovered) { Strategies = strategies, DirectionNotes = directionNotes, DialogueNotes = dialogueNotes, CoverageNotes = coverageNotes, SourceNotes = sourceNotes };
         }
         catch (WorkspaceStoreException e)
         { return new([], raw, [], $"The proposal could not be applied: {e.Message} Nothing was added; inspect it and retry."); }
@@ -240,7 +309,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         }
         return previous[b.Length];
     }
-    public static string Profile(ShotPlanningRequest r) => r.SingleShot is not null ? "single-shot-v1" : r.CoverageOnly ? "shot-coverage-v3" : "h3-shot-planner-v2";
+    public static string Profile(ShotPlanningRequest r) => r.SingleShot is not null ? "single-shot-direction-v2" : r.CoverageOnly ? "shot-coverage-direction-v4" : "h3-shot-planner-v2";
 
     // Optional model proposals can name a character without selecting a look. Keep that
     // tolerance at the response boundary; persisted appearance assignments require a look.

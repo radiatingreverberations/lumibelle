@@ -1,0 +1,11 @@
+.shot-direction { margin-block: .75rem; }
+.direction-purpose { margin: .35rem 0; font-size: .95rem; }
+.direction-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem 1rem; margin-block: .65rem; }
+.direction-fields label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; min-width: 0; }
+.direction-fields textarea { width: 100%; min-height: 3.5rem; max-height: 15rem; field-sizing: content; resize: vertical; box-sizing: border-box; }
+.direction-status { font-size: .8rem; margin-inline-start: .5rem; color: var(--mud-palette-warning-darken); }
+.direction-advanced { margin-block: .75rem; }
+@media (max-width: 640px) { .direction-fields { grid-template-columns: 1fr; } }
+
+.direction-fields textarea { padding: .5rem .65rem; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); font: inherit; line-height: 1.45; }
+.direction-fields textarea:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 2px; }

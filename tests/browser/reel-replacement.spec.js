@@ -56,7 +56,7 @@ for (const narrow of [false, true]) test(`a shot replaces its reel, also in othe
   const attention = page.locator('.shot-prompt-review');
   await expect(page.locator('.shots-outline')).toContainText('Production test');
   await expect(attention).toHaveCount(0);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
   await expect(refs.locator('[data-video-reference-id]')).toContainText(' MP · ');

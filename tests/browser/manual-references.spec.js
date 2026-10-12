@@ -17,7 +17,7 @@ async function setup(page, request) {
 test('manual hints retain crop, guidance and order without filling other shots', async ({ page, request }) => {
   const { library, state, editor } = await setup(page, request);
   await expect(page.getByRole('button', { name: /Fill this shot|Fill scene shots|Edit scene references/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const person = library.assets[0], room = library.assets[1];
   const choose = async (a, i) => editor.locator(`[data-reference="${a.id}/${i.id}"]`).click();
   await choose(person, person.images[0]);
@@ -47,7 +47,7 @@ test('manual hints retain crop, guidance and order without filling other shots',
   expect((await state()).shots[1].images).toHaveLength(0);
   await page.reload(); await toolsTab(page, 'References');
   await expect(page.locator('.compact-reference .reference-row-content').first()).toContainText('Last frame');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await editor.getByRole('button', { name: 'Remove Picture 1', exact: true }).click();
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).shots[0].images).toEqual(saved.images);
@@ -56,7 +56,7 @@ test('manual hints retain crop, guidance and order without filling other shots',
 test('mobile tabs keep filters and drafts, hide inactive controls, and allow keyboard navigation', async ({ page, request }) => {
   const { library, state, editor } = await setup(page, request);
   await page.setViewportSize({ width: 390, height: 844 }); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await editor.getByLabel('Asset', { exact: true }).selectOption(library.assets[1].id);
   await editor.locator(`[data-reference="${library.assets[1].id}/${library.assets[1].images[0].id}"]`).click();
   const browse = editor.getByRole('tab', { name: 'Browse', exact: true });
@@ -75,13 +75,13 @@ test('mobile tabs keep filters and drafts, hide inactive controls, and allow key
   await page.screenshot({ path: 'artifacts/manual-references-mobile.png' });
   await page.keyboard.press('Escape');
   await expect(editor).not.toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeFocused();
   expect((await state()).shots[0].images).toHaveLength(0);
 });
 
 test('applying references creates one undo step and autosaves the restored selection', async ({ page, request }) => {
   const { library, state, editor } = await setup(page, request);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const room = library.assets[1];
   await editor.locator(`[data-reference="${room.id}/${room.images[0].id}"]`).click();
   await editor.getByLabel('AI use hint', { exact: true }).selectOption('Last frame');
@@ -97,7 +97,7 @@ test('applying references creates one undo step and autosaves the restored selec
 
 test('crop cancellation stays in the picker and restores focus without changing the reference', async ({ page, request }) => {
   const { library, state, editor } = await setup(page, request);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const image = library.assets[0];
   await editor.locator(`[data-reference="${image.id}/${image.images[0].id}"]`).click();
   await expect(editor.locator('.reference-summary')).toContainText('Auto · Full image');
@@ -118,7 +118,7 @@ test('crop cancellation stays in the picker and restores focus without changing 
 
 test('visible replacement preserves picture order and stays staged until Apply', async ({ page, request }) => {
   const { library, state, editor } = await setup(page, request);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const room = library.assets[1], person = library.assets[0];
   const choose = (a, i) => editor.locator(`[data-reference="${a.id}/${i.id}"]`);
   await expect(choose(room, room.images[0])).toContainText('Add image');

@@ -45,6 +45,7 @@ public partial class ProductionStudio
         var c = _production.Compositions.FirstOrDefault(c => c.ShotId == source.Id && c.GenerationSetupId == preset.Id && !c.Archived);
         if (c is null) {
             c = new() { ShotId = source.Id, Shot = ProductionPolicy.CoverageCopy(source), SourceFingerprint = ProductionPolicy.SourceFingerprint(source) };
+            c.Shot.EnvironmentAssetId = Current?.Shot.EnvironmentAssetId;
             preset.Apply(c);
             _production = await Production.SaveAsync(Id, c, 0, _lifetime.Token);
         }

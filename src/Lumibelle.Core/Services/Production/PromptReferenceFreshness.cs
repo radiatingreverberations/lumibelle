@@ -40,7 +40,7 @@ public static class PromptReferenceFreshness
     public static string Fingerprint(Shot shot, IReadOnlyList<ShotReferenceGuidance> guidance)
     {
         var resolved = ResolvedReferences.For(shot);
-        return Profile + ReferenceSetups.Hash(new {
+        var fingerprint = Profile + ReferenceSetups.Hash(new {
             Pictures = resolved.Pictures.Select(p => p.Image is { } image
                 ? Image(image, guidance)
                 : p.Continuity is { } frame ? new { Continuity = new { frame.TakeId, frame.Frame } }
@@ -67,6 +67,8 @@ public static class PromptReferenceFreshness
                 } : null
             }).ToArray()
         });
+        if (shot.EnvironmentAssetId is not null) fingerprint = Profile + ReferenceSetups.Hash(new { Base = fingerprint, shot.EnvironmentAssetId });
+        return shot.EnvironmentStaging is null ? fingerprint : Profile + ReferenceSetups.Hash(new { Base = fingerprint, shot.EnvironmentStaging });
     }
 
     private static object Image(ShotImageBinding image, IReadOnlyList<ShotReferenceGuidance> guidance)
@@ -98,11 +100,17 @@ public static class PromptReferenceFreshness
     private static string Text(string? value) => (value ?? "").Replace("\r\n", "\n").Trim();
 
     public static PromptReferenceCheck Compare(ProductionComposition? composition, string? currentFingerprint)
+        => Compare(composition, currentFingerprint, null, checkDirection: false);
+    public static PromptReferenceCheck Compare(ProductionComposition? composition, string? currentFingerprint, string? directionFingerprint)
+        => Compare(composition, currentFingerprint, directionFingerprint, checkDirection: true);
+    private static PromptReferenceCheck Compare(ProductionComposition? composition, string? currentFingerprint, string? directionFingerprint, bool checkDirection)
     {
         if (composition is null || string.IsNullOrWhiteSpace(composition.Prompt))
             return new(PromptReferenceState.Missing, "Write or compose a prompt for this shot.");
         if (composition.Accepted is not { } accepted)
             return new(PromptReferenceState.NeedsReview, "This prompt has not been reviewed against the selected references.");
+        if (checkDirection && directionFingerprint != accepted.DirectionFingerprint)
+            return new(PromptReferenceState.NeedsReview, "The reviewed direction or scene strategy changed. Check the prompt against the current intent and applicable staging.");
         var baseline = accepted.ReferenceFingerprint;
         if (!IsFingerprint(currentFingerprint))
             return new(PromptReferenceState.NeedsReview, "The references could not be compared. Check the selected references before reviewing the prompt.");

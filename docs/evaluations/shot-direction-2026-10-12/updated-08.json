@@ -1,0 +1,398 @@
+{
+  "name": "Prop handoff",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 42.3272149,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022dramaticProgression\u0022: \u0022A quiet handover of trust. Tess takes the red key, sets a single condition, and gives it to Arlo. The scene ends on what she has given up, with her looking at the empty spot where the key lay.\u0022,\n      \u0022visualProgression\u0022: \u0022Open with an even two-shot that sets the key between them as shared, neutral ground. Move to Tess for the condition. Close in on the hands for the transfer. End on Tess and the empty workbench, so the frame shifts from shared object to her sense of loss.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience learns that the key matters and must return before dark. It never learns what the key opens or why the deadline matters. Coverage keeps that unknown intact by staying on the key and the gesture rather than explaining.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The workbench sits between Tess and Arlo with the red key on it. Tess uses her right hand. Arlo receives with his open left palm and pockets on his left side. The patch of bench where the key lay is the final anchor.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Key Between Them\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n        \u00226a71e214-8a1a-5202-8be5-bd8c09ce2b79\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a balanced medium-wide two-shot across the workbench. Tess and Arlo stand on opposite sides, and the red key rests on the bench centered between them. After a held beat, Tess reaches out and picks up the key in her right hand. Ending: Tess holds the key at chest height, still in the two-shot, and Arlo watches it.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Daytime workshop, still and attentive. Quiet room tone.\u0022,\n      \u0022music\u0022: \u0022None; let the room tone carry the pause.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the geography and the key as the shared object of the scene.\u0022,\n          \u0022reason\u0022: \u0022The audience must see that the key starts between them before anyone claims it.\u0022,\n          \u0022attention\u0022: \u0022The red key on the bench, then Tess\u0027s right hand lifting it.\u0022,\n          \u0022relationships\u0022: \u0022Tess controls the key and Arlo waits; the balance of power rests with her.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Tess and Arlo stand on opposite sides of the workbench with the key centered between them.\u0022,\n          \u0022facing\u0022: \u0022They face each other across the bench.\u0022,\n          \u0022eyelines\u0022: \u0022Both look down at the key, then Arlo\u0027s eyes follow it up as Tess lifts it.\u0022,\n          \u0022movement\u0022: \u0022Tess reaches and lifts the key with her right hand. Arlo stays still.\u0022,\n          \u0022camera\u0022: \u0022Static or near-static side-on two-shot at bench height, keeping both figures and the key readable.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022The scene opens on this composition.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the key is raised and held, moving from the open two-shot to a tighter single on Tess as she speaks.\u0022,\n          \u0022timing\u0022: \u0022Let the key sit for a beat before the pickup so its importance registers.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key is in Tess\u0027s right hand at the end and stays there into the next shot.\u0022,\n          \u0022assumptions\u0022: \u0022The side-on camera and opposite-side positions are staging assumptions; the script says only that the key lies between them.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Before Dark\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022fd57ef0d-deff-5365-aca5-ccfb0a9a802a\u0022,\n        \u0022918c347e-dfa9-5090-bf8c-468844611c98\u0022\n      ],\n      \u0022duration\u0022: 3.5,\n      \u0022description\u0022: \u0022Opening: a medium close-up of Tess over Arlo\u0027s soft-focus shoulder, with the red key visible in her right hand at the lower edge of the frame. Clearly tighter and more angled than the previous two-shot. Tess looks at Arlo and delivers her line evenly. Ending: Tess holds her look on Arlo after the line, and the key is still in her hand.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022TESS\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Bring it back before dark.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate and direct. The condition carries weight.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the single condition attached to the key.\u0022,\n          \u0022reason\u0022: \u0022The line is the scene\u0027s only spoken information and deserves Tess\u0027s face.\u0022,\n          \u0022attention\u0022: \u0022Tess\u0027s expression as she speaks, with the key in frame as a reminder.\u0022,\n          \u0022relationships\u0022: \u0022Tess entrusts and sets terms; Arlo is the one being trusted.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The same positions across the workbench.\u0022,\n          \u0022facing\u0022: \u0022Tess faces Arlo.\u0022,\n          \u0022eyelines\u0022: \u0022Tess looks toward Arlo, slightly off-lens on the side of his shoulder.\u0022,\n          \u0022movement\u0022: \u0022Minimal. Tess keeps the key in her right hand.\u0022,\n          \u0022camera\u0022: \u0022Over-the-shoulder from Arlo\u0027s side, framing Tess in a medium close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut in on the raised key and Tess\u0027s intent to speak.\u0022,\n          \u0022cutOut\u0022: \u0022Cut after her held look, into the physical handover.\u0022,\n          \u0022timing\u0022: \u0022Leave a short silence after the line before cutting.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key stays in Tess\u0027s right hand, and her eyeline matches Arlo\u0027s side of the bench.\u0022,\n          \u0022assumptions\u0022: \u0022The over-the-shoulder placement is a staging choice and is not specified in the script.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Into His Palm\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close insert over the workbench at hand level, showing Arlo\u0027s open left palm held out and Tess\u0027s right hand bringing the red key toward it, with no faces in frame. Tess places the key in his palm. Arlo closes his hand around it. The camera follows his closed left hand as he draws it back and slips the key into a pocket on his left side. Ending: a close frame on Arlo\u0027s left side as his hand leaves the pocket, with the key now out of sight.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Tactile and deliberate. The quiet sounds of hand and pocket.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the transfer of the key clearly and completely.\u0022,\n          \u0022reason\u0022: \u0022The handover is the scene\u0027s central action and reads best close on the hands.\u0022,\n          \u0022attention\u0022: \u0022The red key moving from Tess\u0027s right hand to Arlo\u0027s left palm, then into his pocket.\u0022,\n          \u0022relationships\u0022: \u0022Responsibility passes physically from Tess to Arlo.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Hands meet over the workbench between them.\u0022,\n          \u0022facing\u0022: \u0022Not applicable; the frame isolates the hands.\u0022,\n          \u0022eyelines\u0022: \u0022Off-screen; both characters\u0027 attention is implied on the key.\u0022,\n          \u0022movement\u0022: \u0022Tess places the key, Arlo closes his left hand, then pockets it on his left side.\u0022,\n          \u0022camera\u0022: \u0022A close insert that tilts or pans with Arlo\u0027s left hand to the pocket.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from Tess\u0027s held look to the hands as she acts on her words.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the key is pocketed, back to Tess and what remains.\u0022,\n          \u0022timing\u0022: \u0022Unhurried; give each step of the transfer its own moment.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The giving hand is Tess\u0027s right, the receiving hand Arlo\u0027s open left palm, and the pocket is on Arlo\u0027s left side.\u0022,\n          \u0022assumptions\u0022: \u0022The camera\u0027s follow move is a staging choice; the hand and side details come from the script.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Empty Patch\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening: a medium shot of Tess on her side of the workbench, framed wider than the hand insert and clearly distinct from it, with the bench surface in the foreground. Her hand is now empty. She lowers her gaze to the now empty patch of workbench where the key had rested. Ending: Tess looks down at the bare patch of bench, which sits in the foreground of the frame.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022A quiet afterbeat. The room settles around the absence.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Close the scene on what Tess has let go of.\u0022,\n          \u0022reason\u0022: \u0022The script ends on her look at the empty spot, which carries the emotional aftertaste.\u0022,\n          \u0022attention\u0022: \u0022Tess\u0027s downward gaze and the empty patch of workbench.\u0022,\n          \u0022relationships\u0022: \u0022Tess now has nothing in her hands, and her trust is in Arlo\u0027s keeping.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Tess stays at the workbench. Arlo remains present but out of frame or at the frame edge.\u0022,\n          \u0022facing\u0022: \u0022Tess faces the bench.\u0022,\n          \u0022eyelines\u0022: \u0022Tess looks down at the empty patch where the key lay.\u0022,\n          \u0022movement\u0022: \u0022Tess\u0027s gaze drops; no other significant movement.\u0022,\n          \u0022camera\u0022: \u0022A static medium shot with the bench surface prominent in the foreground.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the pocketed key to Tess, completing the action\u0027s emotional consequence.\u0022,\n          \u0022cutOut\u0022: \u0022The scene ends on Tess\u0027s held look at the empty bench.\u0022,\n          \u0022timing\u0022: \u0022Hold long enough for the absence to register.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key\u0027s former spot on the bench must match its position in the first shot, and Tess\u0027s hands are empty.\u0022,\n          \u0022assumptions\u0022: \u0022Whether Arlo appears in this frame is a staging choice; the script says only that he is present in the scene.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "56eeca49-6dfb-4031-937a-99e2bd9a5e7b",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the geography and the key as the shared object of the scene.",
+            "reason": "The audience must see that the key starts between them before anyone claims it.",
+            "attention": "The red key on the bench, then Tess\u0027s right hand lifting it.",
+            "relationships": "Tess controls the key and Arlo waits; the balance of power rests with her."
+          },
+          "staging": {
+            "positions": "Tess and Arlo stand on opposite sides of the workbench with the key centered between them.",
+            "facing": "They face each other across the bench.",
+            "eyelines": "Both look down at the key, then Arlo\u0027s eyes follow it up as Tess lifts it.",
+            "movement": "Tess reaches and lifts the key with her right hand. Arlo stays still.",
+            "camera": "Static or near-static side-on two-shot at bench height, keeping both figures and the key readable."
+          },
+          "editorial": {
+            "cutIn": "The scene opens on this composition.",
+            "cutOut": "Cut once the key is raised and held, moving from the open two-shot to a tighter single on Tess as she speaks.",
+            "timing": "Let the key sit for a beat before the pickup so its importance registers."
+          },
+          "advanced": {
+            "continuity": "The key is in Tess\u0027s right hand at the end and stays there into the next shot.",
+            "assumptions": "The side-on camera and opposite-side positions are staging assumptions; the script says only that the key lies between them.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "6a45148d5d6759f042a8d8e6f01fc235ecf782b2a5f643ca554d232439bc8c91",
+            "strategy": "ee77b4124fe23da9947fb48b7623369164b403b3ac43a558b18f5ef67a3b713f",
+            "cast": "c57aaf2f39a65f2783a01c2f77854920bac34bb87e156dce25b875ca57029b59",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "72361293f0a15e3530eba0942c1ac05479d501f3b1094f7e500584525b92ab04",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "803fbb3d-b5ab-488b-bbad-3a2e99ececb7",
+        "title": "Key Between Them",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "9206624c-8610-5c22-944c-7d7e991def65",
+          "6a71e214-8a1a-5202-8be5-bd8c09ce2b79"
+        ],
+        "sourceExcerpt": "## INT. WORKSHOP - DAY\n\nA red key rests on the workbench between Tess and Arlo. Tess picks it up in her right hand.",
+        "planning": {
+          "id": "83b5014e-6276-48a2-b6ee-f1273058e7df",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T06:09:15.1215548+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a balanced medium-wide two-shot across the workbench. Tess and Arlo stand on opposite sides, and the red key rests on the bench centered between them. After a held beat, Tess reaches out and picks up the key in her right hand. Ending: Tess holds the key at chest height, still in the two-shot, and Arlo watches it.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "179fb564-088a-41f2-bcbe-0f277e9b965e",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "925cd256-7151-44f2-9fae-4ab2fadc00f5",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Daytime workshop, still and attentive. Quiet room tone.",
+        "music": "None; let the room tone carry the pause.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "56eeca49-6dfb-4031-937a-99e2bd9a5e7b",
+        "direction": {
+          "intent": {
+            "purpose": "Deliver the single condition attached to the key.",
+            "reason": "The line is the scene\u0027s only spoken information and deserves Tess\u0027s face.",
+            "attention": "Tess\u0027s expression as she speaks, with the key in frame as a reminder.",
+            "relationships": "Tess entrusts and sets terms; Arlo is the one being trusted."
+          },
+          "staging": {
+            "positions": "The same positions across the workbench.",
+            "facing": "Tess faces Arlo.",
+            "eyelines": "Tess looks toward Arlo, slightly off-lens on the side of his shoulder.",
+            "movement": "Minimal. Tess keeps the key in her right hand.",
+            "camera": "Over-the-shoulder from Arlo\u0027s side, framing Tess in a medium close-up."
+          },
+          "editorial": {
+            "cutIn": "Cut in on the raised key and Tess\u0027s intent to speak.",
+            "cutOut": "Cut after her held look, into the physical handover.",
+            "timing": "Leave a short silence after the line before cutting."
+          },
+          "advanced": {
+            "continuity": "The key stays in Tess\u0027s right hand, and her eyeline matches Arlo\u0027s side of the bench.",
+            "assumptions": "The over-the-shoulder placement is a staging choice and is not specified in the script.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "350443c9581d97af96aace049ac1584583be45d64c8e3e24856af74703ea2ba8",
+            "strategy": "ee77b4124fe23da9947fb48b7623369164b403b3ac43a558b18f5ef67a3b713f",
+            "cast": "c57aaf2f39a65f2783a01c2f77854920bac34bb87e156dce25b875ca57029b59",
+            "dialogue": "390d06bd6c607f6a7813871efde469681b17c8d7ead174ee1a74de82bac324aa",
+            "duration": "8a199b120cf400d69c300e1dd6eacdc8b0002353e3044bbab21e0125b32c9fd6",
+            "neighbours": "82e3730fa0e22bbdf928d775d4e0706e6e466c9cfdef110c48b25d5b53de608e",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "cb16e6fc-86a1-46c7-aeda-e4beb841a4a6",
+        "title": "Before Dark",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "fd57ef0d-deff-5365-aca5-ccfb0a9a802a",
+          "918c347e-dfa9-5090-bf8c-468844611c98"
+        ],
+        "sourceExcerpt": "### TESS\n\nBring it back before dark.",
+        "planning": {
+          "id": "83b5014e-6276-48a2-b6ee-f1273058e7df",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T06:09:15.1215548+00:00"
+        },
+        "duration": 3.5,
+        "description": "Opening: a medium close-up of Tess over Arlo\u0027s soft-focus shoulder, with the red key visible in her right hand at the lower edge of the frame. Clearly tighter and more angled than the previous two-shot. Tess looks at Arlo and delivers her line evenly. Ending: Tess holds her look on Arlo after the line, and the key is still in her hand.",
+        "dialogue": [
+          {
+            "id": "1f52b7db-baba-42e0-8523-639254548d8d",
+            "speaker": "TESS",
+            "language": "en",
+            "text": "Bring it back before dark."
+          }
+        ],
+        "characters": [
+          {
+            "id": "6ccf3dff-a45b-4a30-abfb-5f0870174304",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "73a0c187-04a2-4020-bc27-c404a73a2c40",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate and direct. The condition carries weight.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "56eeca49-6dfb-4031-937a-99e2bd9a5e7b",
+        "direction": {
+          "intent": {
+            "purpose": "Show the transfer of the key clearly and completely.",
+            "reason": "The handover is the scene\u0027s central action and reads best close on the hands.",
+            "attention": "The red key moving from Tess\u0027s right hand to Arlo\u0027s left palm, then into his pocket.",
+            "relationships": "Responsibility passes physically from Tess to Arlo."
+          },
+          "staging": {
+            "positions": "Hands meet over the workbench between them.",
+            "facing": "Not applicable; the frame isolates the hands.",
+            "eyelines": "Off-screen; both characters\u0027 attention is implied on the key.",
+            "movement": "Tess places the key, Arlo closes his left hand, then pockets it on his left side.",
+            "camera": "A close insert that tilts or pans with Arlo\u0027s left hand to the pocket."
+          },
+          "editorial": {
+            "cutIn": "Cut from Tess\u0027s held look to the hands as she acts on her words.",
+            "cutOut": "Cut once the key is pocketed, back to Tess and what remains.",
+            "timing": "Unhurried; give each step of the transfer its own moment."
+          },
+          "advanced": {
+            "continuity": "The giving hand is Tess\u0027s right, the receiving hand Arlo\u0027s open left palm, and the pocket is on Arlo\u0027s left side.",
+            "assumptions": "The camera\u0027s follow move is a staging choice; the hand and side details come from the script.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "d80f9e77dd1c3ea4964f08320d26397f15ecf6dc7d16bd162e630869260a12fa",
+            "strategy": "ee77b4124fe23da9947fb48b7623369164b403b3ac43a558b18f5ef67a3b713f",
+            "cast": "c57aaf2f39a65f2783a01c2f77854920bac34bb87e156dce25b875ca57029b59",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "93236b242dce49d2aa395725f46434bc31374a3e46f61b1e757180ccba888341",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "1084f837-6842-4a28-abcf-1e4e5309cf65",
+        "title": "Into His Palm",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "ba61e3fc-60e6-5d8c-b4fa-54f6a1882406"
+        ],
+        "sourceExcerpt": "She places it in Arlo\u2019s open left palm. He closes his hand and pockets the key on his left side. Tess looks at the now empty patch of workbench.",
+        "planning": {
+          "id": "83b5014e-6276-48a2-b6ee-f1273058e7df",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T06:09:15.1215548+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a close insert over the workbench at hand level, showing Arlo\u0027s open left palm held out and Tess\u0027s right hand bringing the red key toward it, with no faces in frame. Tess places the key in his palm. Arlo closes his hand around it. The camera follows his closed left hand as he draws it back and slips the key into a pocket on his left side. Ending: a close frame on Arlo\u0027s left side as his hand leaves the pocket, with the key now out of sight.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "10a5529d-1052-4504-8b2b-73f5d993d697",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "c5617fb6-db11-4fcc-961f-81db7d01c92c",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Tactile and deliberate. The quiet sounds of hand and pocket.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "56eeca49-6dfb-4031-937a-99e2bd9a5e7b",
+        "direction": {
+          "intent": {
+            "purpose": "Close the scene on what Tess has let go of.",
+            "reason": "The script ends on her look at the empty spot, which carries the emotional aftertaste.",
+            "attention": "Tess\u0027s downward gaze and the empty patch of workbench.",
+            "relationships": "Tess now has nothing in her hands, and her trust is in Arlo\u0027s keeping."
+          },
+          "staging": {
+            "positions": "Tess stays at the workbench. Arlo remains present but out of frame or at the frame edge.",
+            "facing": "Tess faces the bench.",
+            "eyelines": "Tess looks down at the empty patch where the key lay.",
+            "movement": "Tess\u0027s gaze drops; no other significant movement.",
+            "camera": "A static medium shot with the bench surface prominent in the foreground."
+          },
+          "editorial": {
+            "cutIn": "Cut from the pocketed key to Tess, completing the action\u0027s emotional consequence.",
+            "cutOut": "The scene ends on Tess\u0027s held look at the empty bench.",
+            "timing": "Hold long enough for the absence to register."
+          },
+          "advanced": {
+            "continuity": "The key\u0027s former spot on the bench must match its position in the first shot, and Tess\u0027s hands are empty.",
+            "assumptions": "Whether Arlo appears in this frame is a staging choice; the script says only that he is present in the scene.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "5cae677b91c7f4a824202ac4a20aaa3a0c54bafdd60b91ab5589bd5940a8e00a",
+            "strategy": "ee77b4124fe23da9947fb48b7623369164b403b3ac43a558b18f5ef67a3b713f",
+            "cast": "c57aaf2f39a65f2783a01c2f77854920bac34bb87e156dce25b875ca57029b59",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+            "neighbours": "df5a0b00d6ce27f685ac3b6b1181b3fb56e25f0376f7c76e9814f0b3ab566c92",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "0253c150-fdd2-419e-879b-227ce09d56ab",
+        "title": "The Empty Patch",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "ba61e3fc-60e6-5d8c-b4fa-54f6a1882406"
+        ],
+        "sourceExcerpt": "She places it in Arlo\u2019s open left palm. He closes his hand and pockets the key on his left side. Tess looks at the now empty patch of workbench.",
+        "planning": {
+          "id": "83b5014e-6276-48a2-b6ee-f1273058e7df",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T06:09:15.1215548+00:00"
+        },
+        "duration": 4,
+        "description": "Opening: a medium shot of Tess on her side of the workbench, framed wider than the hand insert and clearly distinct from it, with the bench surface in the foreground. Her hand is now empty. She lowers her gaze to the now empty patch of workbench where the key had rested. Ending: Tess looks down at the bare patch of bench, which sits in the foreground of the frame.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "fbc5e5be-4f7d-4265-b704-df52b51e7e27",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "98b2637b-1cfa-4604-a197-5148882342e8",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A quiet afterbeat. The room settles around the absence.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022dramaticProgression\u0022: \u0022A quiet handover of trust. Tess takes the red key, sets a single condition, and gives it to Arlo. The scene ends on what she has given up, with her looking at the empty spot where the key lay.\u0022,\n      \u0022visualProgression\u0022: \u0022Open with an even two-shot that sets the key between them as shared, neutral ground. Move to Tess for the condition. Close in on the hands for the transfer. End on Tess and the empty workbench, so the frame shifts from shared object to her sense of loss.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience learns that the key matters and must return before dark. It never learns what the key opens or why the deadline matters. Coverage keeps that unknown intact by staying on the key and the gesture rather than explaining.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The workbench sits between Tess and Arlo with the red key on it. Tess uses her right hand. Arlo receives with his open left palm and pockets on his left side. The patch of bench where the key lay is the final anchor.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Key Between Them\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n        \u00226a71e214-8a1a-5202-8be5-bd8c09ce2b79\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a balanced medium-wide two-shot across the workbench. Tess and Arlo stand on opposite sides, and the red key rests on the bench centered between them. After a held beat, Tess reaches out and picks up the key in her right hand. Ending: Tess holds the key at chest height, still in the two-shot, and Arlo watches it.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Daytime workshop, still and attentive. Quiet room tone.\u0022,\n      \u0022music\u0022: \u0022None; let the room tone carry the pause.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the geography and the key as the shared object of the scene.\u0022,\n          \u0022reason\u0022: \u0022The audience must see that the key starts between them before anyone claims it.\u0022,\n          \u0022attention\u0022: \u0022The red key on the bench, then Tess\u0027s right hand lifting it.\u0022,\n          \u0022relationships\u0022: \u0022Tess controls the key and Arlo waits; the balance of power rests with her.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Tess and Arlo stand on opposite sides of the workbench with the key centered between them.\u0022,\n          \u0022facing\u0022: \u0022They face each other across the bench.\u0022,\n          \u0022eyelines\u0022: \u0022Both look down at the key, then Arlo\u0027s eyes follow it up as Tess lifts it.\u0022,\n          \u0022movement\u0022: \u0022Tess reaches and lifts the key with her right hand. Arlo stays still.\u0022,\n          \u0022camera\u0022: \u0022Static or near-static side-on two-shot at bench height, keeping both figures and the key readable.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022The scene opens on this composition.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the key is raised and held, moving from the open two-shot to a tighter single on Tess as she speaks.\u0022,\n          \u0022timing\u0022: \u0022Let the key sit for a beat before the pickup so its importance registers.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key is in Tess\u0027s right hand at the end and stays there into the next shot.\u0022,\n          \u0022assumptions\u0022: \u0022The side-on camera and opposite-side positions are staging assumptions; the script says only that the key lies between them.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Before Dark\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022fd57ef0d-deff-5365-aca5-ccfb0a9a802a\u0022,\n        \u0022918c347e-dfa9-5090-bf8c-468844611c98\u0022\n      ],\n      \u0022duration\u0022: 3.5,\n      \u0022description\u0022: \u0022Opening: a medium close-up of Tess over Arlo\u0027s soft-focus shoulder, with the red key visible in her right hand at the lower edge of the frame. Clearly tighter and more angled than the previous two-shot. Tess looks at Arlo and delivers her line evenly. Ending: Tess holds her look on Arlo after the line, and the key is still in her hand.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022TESS\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Bring it back before dark.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate and direct. The condition carries weight.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the single condition attached to the key.\u0022,\n          \u0022reason\u0022: \u0022The line is the scene\u0027s only spoken information and deserves Tess\u0027s face.\u0022,\n          \u0022attention\u0022: \u0022Tess\u0027s expression as she speaks, with the key in frame as a reminder.\u0022,\n          \u0022relationships\u0022: \u0022Tess entrusts and sets terms; Arlo is the one being trusted.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The same positions across the workbench.\u0022,\n          \u0022facing\u0022: \u0022Tess faces Arlo.\u0022,\n          \u0022eyelines\u0022: \u0022Tess looks toward Arlo, slightly off-lens on the side of his shoulder.\u0022,\n          \u0022movement\u0022: \u0022Minimal. Tess keeps the key in her right hand.\u0022,\n          \u0022camera\u0022: \u0022Over-the-shoulder from Arlo\u0027s side, framing Tess in a medium close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut in on the raised key and Tess\u0027s intent to speak.\u0022,\n          \u0022cutOut\u0022: \u0022Cut after her held look, into the physical handover.\u0022,\n          \u0022timing\u0022: \u0022Leave a short silence after the line before cutting.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key stays in Tess\u0027s right hand, and her eyeline matches Arlo\u0027s side of the bench.\u0022,\n          \u0022assumptions\u0022: \u0022The over-the-shoulder placement is a staging choice and is not specified in the script.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Into His Palm\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close insert over the workbench at hand level, showing Arlo\u0027s open left palm held out and Tess\u0027s right hand bringing the red key toward it, with no faces in frame. Tess places the key in his palm. Arlo closes his hand around it. The camera follows his closed left hand as he draws it back and slips the key into a pocket on his left side. Ending: a close frame on Arlo\u0027s left side as his hand leaves the pocket, with the key now out of sight.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Tactile and deliberate. The quiet sounds of hand and pocket.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the transfer of the key clearly and completely.\u0022,\n          \u0022reason\u0022: \u0022The handover is the scene\u0027s central action and reads best close on the hands.\u0022,\n          \u0022attention\u0022: \u0022The red key moving from Tess\u0027s right hand to Arlo\u0027s left palm, then into his pocket.\u0022,\n          \u0022relationships\u0022: \u0022Responsibility passes physically from Tess to Arlo.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Hands meet over the workbench between them.\u0022,\n          \u0022facing\u0022: \u0022Not applicable; the frame isolates the hands.\u0022,\n          \u0022eyelines\u0022: \u0022Off-screen; both characters\u0027 attention is implied on the key.\u0022,\n          \u0022movement\u0022: \u0022Tess places the key, Arlo closes his left hand, then pockets it on his left side.\u0022,\n          \u0022camera\u0022: \u0022A close insert that tilts or pans with Arlo\u0027s left hand to the pocket.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from Tess\u0027s held look to the hands as she acts on her words.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the key is pocketed, back to Tess and what remains.\u0022,\n          \u0022timing\u0022: \u0022Unhurried; give each step of the transfer its own moment.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The giving hand is Tess\u0027s right, the receiving hand Arlo\u0027s open left palm, and the pocket is on Arlo\u0027s left side.\u0022,\n          \u0022assumptions\u0022: \u0022The camera\u0027s follow move is a staging choice; the hand and side details come from the script.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Empty Patch\u0022,\n      \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening: a medium shot of Tess on her side of the workbench, framed wider than the hand insert and clearly distinct from it, with the bench surface in the foreground. Her hand is now empty. She lowers her gaze to the now empty patch of workbench where the key had rested. Ending: Tess looks down at the bare patch of bench, which sits in the foreground of the frame.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Tess\u0022 },\n        { \u0022name\u0022: \u0022Arlo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022A quiet afterbeat. The room settles around the absence.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Close the scene on what Tess has let go of.\u0022,\n          \u0022reason\u0022: \u0022The script ends on her look at the empty spot, which carries the emotional aftertaste.\u0022,\n          \u0022attention\u0022: \u0022Tess\u0027s downward gaze and the empty patch of workbench.\u0022,\n          \u0022relationships\u0022: \u0022Tess now has nothing in her hands, and her trust is in Arlo\u0027s keeping.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Tess stays at the workbench. Arlo remains present but out of frame or at the frame edge.\u0022,\n          \u0022facing\u0022: \u0022Tess faces the bench.\u0022,\n          \u0022eyelines\u0022: \u0022Tess looks down at the empty patch where the key lay.\u0022,\n          \u0022movement\u0022: \u0022Tess\u0027s gaze drops; no other significant movement.\u0022,\n          \u0022camera\u0022: \u0022A static medium shot with the bench surface prominent in the foreground.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the pocketed key to Tess, completing the action\u0027s emotional consequence.\u0022,\n          \u0022cutOut\u0022: \u0022The scene ends on Tess\u0027s held look at the empty bench.\u0022,\n          \u0022timing\u0022: \u0022Hold long enough for the absence to register.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The key\u0027s former spot on the bench must match its position in the first shot, and Tess\u0027s hands are empty.\u0022,\n          \u0022assumptions\u0022: \u0022Whether Arlo appears in this frame is a staging choice; the script says only that he is present in the scene.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "56eeca49-6dfb-4031-937a-99e2bd9a5e7b",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sourceId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sourceFingerprint": "73166936255dbf04c98bdb5244309b59f7219f506382090d240369a4e75d1261",
+        "dramaticProgression": "A quiet handover of trust. Tess takes the red key, sets a single condition, and gives it to Arlo. The scene ends on what she has given up, with her looking at the empty spot where the key lay.",
+        "visualProgression": "Open with an even two-shot that sets the key between them as shared, neutral ground. Move to Tess for the condition. Close in on the hands for the transfer. End on Tess and the empty workbench, so the frame shifts from shared object to her sense of loss.",
+        "audienceInformation": "The audience learns that the key matters and must return before dark. It never learns what the key opens or why the deadline matters. Coverage keeps that unknown intact by staying on the key and the gesture rather than explaining.",
+        "spatialAnchors": "The workbench sits between Tess and Arlo with the red key on it. Tess uses her right hand. Arlo receives with his open left palm and pockets on his left side. The patch of bench where the key lay is the final anchor."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

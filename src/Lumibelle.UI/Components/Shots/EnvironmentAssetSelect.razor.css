@@ -1,0 +1,6 @@
+.environment-asset-select { margin:.6rem 0; padding:.65rem 0; border-block:1px solid var(--line); }
+.environment-asset-select label { display:flex; align-items:center; gap:.6rem; font-size:var(--lumi-font-size-small); font-weight:600; }
+.environment-asset-select select { flex:1; min-width:0; font:inherit; color:var(--ink); background:var(--lumi-surface); border:1px solid var(--line); border-radius:var(--lumi-radius-control); padding:.4rem; }
+.environment-asset-select p { margin:.45rem 0; font-size:var(--lumi-font-size-small); }
+.environment-asset-select small { display:block; color:var(--muted); }
+.environment-missing { margin-top:.35rem; }

@@ -14,7 +14,7 @@ for (const narrow of [false, true]) test(`use another reel's keyframes as pictur
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready','true');
   await expect(page.locator('.workspace-right')).toBeVisible();
   const tools = page.locator('.reel-tools');
-  await tools.getByRole('button',{name:'Manage references',exact:true}).click();
+  await tools.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true}).click();
   const manager = page.getByRole('dialog',{name:'Reel references',exact:true});
   await manager.getByRole('combobox',{name:'Reference type',exact:true}).selectOption('Reels');
   await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
@@ -34,7 +34,7 @@ for (const narrow of [false, true]) test(`use another reel's keyframes as pictur
   await expect(manager).not.toBeVisible();
   const draft = () => library(request,id).then(l=>l.reelDrafts.at(-1));
   expect((await draft()).keyframeReels ?? []).toHaveLength(0);
-  await tools.getByRole('button',{name:'Manage references',exact:true}).click();
+  await tools.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true}).click();
   await manager.getByRole('combobox',{name:'Reference type',exact:true}).selectOption('Reels');
   await manager.locator(`[data-reel-id='${source.id}'] .add-reel`).click();
   await expect(manager.locator('[data-video-reference-id]')).toHaveCount(1);
@@ -90,7 +90,7 @@ test('a trashed reel picture can be restored from reel references', async ({ pag
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
   const editor = page.locator('.reel-tools'), references = page.locator('.reel-pictures-dialog');
-  await editor.getByRole('button', { name: 'Manage references' }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/ }).click();
   await references.locator(`[data-reference="${owner.id}/${picture.id}"]`).click();
   await references.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect.poll(async () => (await library(request, id)).reelDrafts[0]?.images.length).toBe(1);
@@ -99,7 +99,7 @@ test('a trashed reel picture can be restored from reel references', async ({ pag
   await page.reload();
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
-  await editor.getByRole('button', { name: 'Manage references' }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/ }).click();
   await expect(references.locator('.reference-issue')).toContainText('Restore or replace the unavailable reference.');
   await expect(references.locator('.reference-trash-restore')).toContainText('In Trash · 30 days remaining');
   await references.locator('.reference-trash-restore').screenshot({ path: 'artifacts/reel-picture-restore.png' });

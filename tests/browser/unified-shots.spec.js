@@ -15,7 +15,7 @@ async function fixture(page, request) {
 }
 async function references(page) {
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const dialog = page.locator('.manual-reference-dialog');
   await dialog.locator('[data-reference]').first().click();
   await expect(dialog.getByLabel('Character', { exact: true })).toHaveCount(0);

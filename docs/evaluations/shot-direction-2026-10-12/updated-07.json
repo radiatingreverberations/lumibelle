@@ -1,0 +1,411 @@
+{
+  "name": "Reconciliation",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 46.3584656,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022dramaticProgression\u0022: \u0022Distance between the sisters is made visible, Lea offers the repaired cup into the gap, her line admits the repair is imperfect, Sana\u0027s reply reframes flaws as worth keeping, and Sana removes the object between them to take Lea\u0027s hand. Reconciliation happens through touch, not eye contact, ending in shared quiet attention outward.\u0022,\n      \u0022visualProgression\u0022: \u0022Begin wide and frontal so the empty space reads as the subject. Tighten to bench level with the cup between them for the exchange. Go to a close insert for the hand-taking, then release to a wide view from behind as they watch the sprinklers together.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the gap and the cup before any words, so the cup\u0027s meaning is felt before it is named. The cause of the sisters\u0027 rift is never explained and stays unknown. The hand-taking is the scene\u0027s answer, and the absence of eye contact keeps it restrained.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The bench with the two sisters, Lea on one side and Sana on the other with an empty space between. The repaired cup sits in that space until Sana moves it aside. The gardener and sprinklers are in the garden in front of them, the direction both sisters look.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The empty space\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n        \u002284e7586d-271c-5ee8-b5d5-5de1f1192ad5\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening: a static, frontal wide shot of a garden bench in morning light. Two sisters sit at opposite ends, Lea on one side and Sana on the other, with a clear empty space of bench between them centered in frame. Both look ahead. After a held beat, Lea reaches over and sets a repaired cup down in the middle of the empty space, then draws her hand back. Ending: the same wide frontal composition, with the cup now sitting alone in the gap between the two still sisters.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet morning garden, soft early light, birdsong, stillness between the sisters.\u0022,\n      \u0022music\u0022: \u0022None; let the silence and ambience hold.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the emotional distance as physical space and introduce the cup as the gesture across it.\u0022,\n          \u0022reason\u0022: \u0022The gap must register before anything is said, so the cup reads as an offering.\u0022,\n          \u0022attention\u0022: \u0022The empty bench space, then the cup landing in it.\u0022,\n          \u0022relationships\u0022: \u0022The sisters are estranged or guarded. Lea makes the first move, indirectly.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Lea and Sana at opposite ends of the bench, with the gap centered.\u0022,\n          \u0022facing\u0022: \u0022Both face forward toward the garden.\u0022,\n          \u0022eyelines\u0022: \u0022Both look out, not at each other.\u0022,\n          \u0022movement\u0022: \u0022Only Lea\u0027s reach to place the cup and her withdrawal.\u0022,\n          \u0022camera\u0022: \u0022Locked-off frontal wide at roughly seated eye height.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opener.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the cup has settled, to bring the audience down to the cup\u0027s level for the exchange.\u0022,\n          \u0022timing\u0022: \u0022Hold the empty space for a few seconds before Lea moves, so the absence is felt.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup placement in the center of the gap must match the following shot. Lea\u0027s hand ends back in her own space.\u0022,\n          \u0022assumptions\u0022: \u0022Left/right sides for each sister are a staging choice only.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Worth keeping\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b197968f-ec3b-5a46-b097-af11e0e4a6d8\u0022,\n        \u002253e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd\u0022,\n        \u0022c3d232df-0f54-500a-b64f-8a49ec2cb491\u0022,\n        \u0022b4ef134a-9d68-56c0-8e9a-543f3935bd47\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a low, bench-level angle from the side and slightly in front, with the repaired cup prominent in the foreground on the bench planks. The two sisters are seen in profile beyond it on either side, still apart and facing forward. Lea, not looking at Sana, says her line. A pause. Sana, also looking ahead, answers. Ending: the same low composition with the cup still between them and both sisters in profile, the reply hanging in the air.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022LEA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022It still leaks.\u0022 },\n        { \u0022speaker\u0022: \u0022SANA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022So do most things worth keeping.\u0022 }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate, hushed. Garden ambience continues softly beneath the voices.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Carry the verbal exchange in one take so the cup stays the visual subject of both lines.\u0022,\n          \u0022reason\u0022: \u0022Keeping both sisters and the cup in one frame avoids mechanical speaker cuts and keeps the gap present while they talk.\u0022,\n          \u0022attention\u0022: \u0022The cup in the foreground, with the faces in profile behind it.\u0022,\n          \u0022relationships\u0022: \u0022Lea admits the repair is imperfect. Sana accepts the imperfection, a quiet gesture of forgiveness.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Sisters unchanged at opposite ends, with the cup in the middle.\u0022,\n          \u0022facing\u0022: \u0022Both in profile, facing forward.\u0022,\n          \u0022eyelines\u0022: \u0022Both look ahead, never at each other.\u0022,\n          \u0022movement\u0022: \u0022Minimal; only small shifts in breath or posture.\u0022,\n          \u0022camera\u0022: \u0022Static or near-static low angle at bench height, with the cup in the near foreground.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the wide to the cup\u0027s level, bringing the audience into the object they are talking around.\u0022,\n          \u0022cutOut\u0022: \u0022Cut after Sana\u0027s line lands, as she begins to act on it.\u0022,\n          \u0022timing\u0022: \u0022Allow a real pause between the two lines.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup position matches the previous shot. Sisters\u0027 hands rest in their own space.\u0022,\n          \u0022assumptions\u0022: \u0022The side-angle camera position is a staging proposal.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Sana takes her hand\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close top-down insert on the bench surface, with the cup in the center and Lea\u0027s hand resting at one edge of frame. Sana\u0027s hand enters, moves the cup aside out of the gap, then crosses the now-empty space and takes Lea\u0027s hand. Ending: a close frame on the two clasped hands resting on the bench where the gap was, with the cup pushed off to the side.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Still and tender. Faint garden sounds.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Isolate the decisive gesture: the object between them is removed and replaced by touch.\u0022,\n          \u0022reason\u0022: \u0022The emotional turn of the scene lives entirely in the hands, so it deserves its own frame.\u0022,\n          \u0022attention\u0022: \u0022The cup being moved aside, then the hands meeting.\u0022,\n          \u0022relationships\u0022: \u0022Sana closes the distance Lea only tested. The cup is no longer needed as a go-between.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Hands in the gap between the sisters on the bench.\u0022,\n          \u0022facing\u0022: \u0022Not visible; hands only.\u0022,\n          \u0022eyelines\u0022: \u0022Not shown here. The faces are withheld.\u0022,\n          \u0022movement\u0022: \u0022Sana\u0027s hand moves the cup aside, then takes Lea\u0027s hand.\u0022,\n          \u0022camera\u0022: \u0022Close overhead or high-angle insert, static.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Sana beginning to act after her line.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the hands settle together, opening out to where both sisters are looking.\u0022,\n          \u0022timing\u0022: \u0022Unhurried; let the clasp hold for a beat.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup ends off to one side, not in the gap. Hands remain clasped into the next shot.\u0022,\n          \u0022assumptions\u0022: \u0022Which direction the cup is moved is a staging choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The sprinklers\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n      ],\n      \u0022duration\u0022: 8,\n      \u0022description\u0022: \u0022Opening: a wide shot from behind the bench, with the backs of both sisters seated close at the center and their clasped hands just visible between them. The garden stretches out ahead. Neither turns to the other. In the garden beyond, the gardener turns on the sprinklers and water begins to arc across the lawn. Ending: the same rear wide, with the sisters still hand in hand and still looking out at the running sprinklers.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 },\n        { \u0022name\u0022: \u0022GARDENER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Morning garden opening up, with the hiss and patter of sprinklers starting. A sense of release.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest gentle tone if needed; the sprinkler sound can carry the ending.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Close the scene on shared attention rather than confrontation: together, but looking outward.\u0022,\n          \u0022reason\u0022: \u0022The script specifies that neither looks at the other. Framing from behind keeps their faces private and makes the sprinklers what they share.\u0022,\n          \u0022attention\u0022: \u0022The sisters\u0027 joined hands, then the sprinklers coming on.\u0022,\n          \u0022relationships\u0022: \u0022Reconnected through touch, without needing to say more or meet each other\u0027s eyes.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Sisters on the bench in the foreground, hands joined. The gardener in the mid or deep background in the garden.\u0022,\n          \u0022facing\u0022: \u0022Sisters face away from camera toward the garden.\u0022,\n          \u0022eyelines\u0022: \u0022Both look out at the gardener and sprinklers.\u0022,\n          \u0022movement\u0022: \u0022The gardener turns on the sprinklers and water starts. The sisters stay still.\u0022,\n          \u0022camera\u0022: \u0022Static rear wide, possibly slightly elevated to show the garden beyond.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the hands to their shared point of view outward, reversing the frontal opening of the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end; hold on the sprinklers running.\u0022,\n          \u0022timing\u0022: \u0022Let the sprinklers run for several seconds before the end.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Hands remain clasped. The cup stays aside on the bench, if visible.\u0022,\n          \u0022assumptions\u0022: \u0022The gardener\u0027s distance and the sprinkler layout are staging assumptions.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "f1eea512-3caf-4a0d-8c12-059b0b6c218a",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the emotional distance as physical space and introduce the cup as the gesture across it.",
+            "reason": "The gap must register before anything is said, so the cup reads as an offering.",
+            "attention": "The empty bench space, then the cup landing in it.",
+            "relationships": "The sisters are estranged or guarded. Lea makes the first move, indirectly."
+          },
+          "staging": {
+            "positions": "Lea and Sana at opposite ends of the bench, with the gap centered.",
+            "facing": "Both face forward toward the garden.",
+            "eyelines": "Both look out, not at each other.",
+            "movement": "Only Lea\u0027s reach to place the cup and her withdrawal.",
+            "camera": "Locked-off frontal wide at roughly seated eye height."
+          },
+          "editorial": {
+            "cutIn": "Scene opener.",
+            "cutOut": "Cut once the cup has settled, to bring the audience down to the cup\u0027s level for the exchange.",
+            "timing": "Hold the empty space for a few seconds before Lea moves, so the absence is felt."
+          },
+          "advanced": {
+            "continuity": "Cup placement in the center of the gap must match the following shot. Lea\u0027s hand ends back in her own space.",
+            "assumptions": "Left/right sides for each sister are a staging choice only.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "fb85d1eef6a0a90097250f7521b226e61dfae3c3e50126420d2dde012d99a7f9",
+            "strategy": "136cdf2c92160981bc5fb15004edcebf4785a07011c5f63cfc96487e601a2343",
+            "cast": "f43e41e0b7ccd3aac531e5286d21d295d617f0405727e83f5181806032bcbcf1",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+            "neighbours": "c33d1381cff48e6fcb7e7f6e432190b047e2ee423c750e59e3eae22bfdecf018",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "b019584c-519d-4e28-b396-a49f14ad92f8",
+        "title": "The empty space",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "b30599c2-de00-5514-918e-5b267366f049",
+          "84e7586d-271c-5ee8-b5d5-5de1f1192ad5"
+        ],
+        "sourceExcerpt": "## EXT. GARDEN BENCH - MORNING\n\nAn empty space separates two sisters on a bench. Lea puts a repaired cup in that space.",
+        "planning": {
+          "id": "1c60f0b1-e12e-48d2-94e0-81198ff60974",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T06:08:53.4334701+00:00"
+        },
+        "duration": 6,
+        "description": "Opening: a static, frontal wide shot of a garden bench in morning light. Two sisters sit at opposite ends, Lea on one side and Sana on the other, with a clear empty space of bench between them centered in frame. Both look ahead. After a held beat, Lea reaches over and sets a repaired cup down in the middle of the empty space, then draws her hand back. Ending: the same wide frontal composition, with the cup now sitting alone in the gap between the two still sisters.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "7135751d-4d49-4c19-a950-6d4ad73b33f3",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "914c720e-c706-458a-a4c1-70353b25e121",
+            "name": "SANA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet morning garden, soft early light, birdsong, stillness between the sisters.",
+        "music": "None; let the silence and ambience hold.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "f1eea512-3caf-4a0d-8c12-059b0b6c218a",
+        "direction": {
+          "intent": {
+            "purpose": "Carry the verbal exchange in one take so the cup stays the visual subject of both lines.",
+            "reason": "Keeping both sisters and the cup in one frame avoids mechanical speaker cuts and keeps the gap present while they talk.",
+            "attention": "The cup in the foreground, with the faces in profile behind it.",
+            "relationships": "Lea admits the repair is imperfect. Sana accepts the imperfection, a quiet gesture of forgiveness."
+          },
+          "staging": {
+            "positions": "Sisters unchanged at opposite ends, with the cup in the middle.",
+            "facing": "Both in profile, facing forward.",
+            "eyelines": "Both look ahead, never at each other.",
+            "movement": "Minimal; only small shifts in breath or posture.",
+            "camera": "Static or near-static low angle at bench height, with the cup in the near foreground."
+          },
+          "editorial": {
+            "cutIn": "Cut from the wide to the cup\u0027s level, bringing the audience into the object they are talking around.",
+            "cutOut": "Cut after Sana\u0027s line lands, as she begins to act on it.",
+            "timing": "Allow a real pause between the two lines."
+          },
+          "advanced": {
+            "continuity": "Cup position matches the previous shot. Sisters\u0027 hands rest in their own space.",
+            "assumptions": "The side-angle camera position is a staging proposal.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "59b24e0d3f0c8bccfc2c5817c76181af05da2fd23c51d1b7c54953572f0d8a47",
+            "strategy": "136cdf2c92160981bc5fb15004edcebf4785a07011c5f63cfc96487e601a2343",
+            "cast": "f43e41e0b7ccd3aac531e5286d21d295d617f0405727e83f5181806032bcbcf1",
+            "dialogue": "d0fb9ec63d228d172669fbe92ff7c900dc5f1cc21b4810cdd863d9e6ce5b8fb1",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "e96ff727a45ce0a7a3e90f4627a5d5d7281350885dd2f2673735fa0fb12513a5",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "5f482b96-55da-488a-a4bb-fc60012f3a4f",
+        "title": "Worth keeping",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "b197968f-ec3b-5a46-b097-af11e0e4a6d8",
+          "53e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd",
+          "c3d232df-0f54-500a-b64f-8a49ec2cb491",
+          "b4ef134a-9d68-56c0-8e9a-543f3935bd47"
+        ],
+        "sourceExcerpt": "### LEA\n\nIt still leaks.\n\n### SANA\n\nSo do most things worth keeping.",
+        "planning": {
+          "id": "1c60f0b1-e12e-48d2-94e0-81198ff60974",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T06:08:53.4334701+00:00"
+        },
+        "duration": 7,
+        "description": "Opening: a low, bench-level angle from the side and slightly in front, with the repaired cup prominent in the foreground on the bench planks. The two sisters are seen in profile beyond it on either side, still apart and facing forward. Lea, not looking at Sana, says her line. A pause. Sana, also looking ahead, answers. Ending: the same low composition with the cup still between them and both sisters in profile, the reply hanging in the air.",
+        "dialogue": [
+          {
+            "id": "8ca7fd23-3fb9-45e6-8989-3c16fcc87c13",
+            "speaker": "LEA",
+            "language": "en",
+            "text": "It still leaks."
+          },
+          {
+            "id": "e6e0a33d-8f42-472a-b577-397baa6178ac",
+            "speaker": "SANA",
+            "language": "en",
+            "text": "So do most things worth keeping."
+          }
+        ],
+        "characters": [
+          {
+            "id": "cb017037-580e-4618-95c7-d34446a5b840",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "dfdfc820-d306-4690-9a0e-c28e2610360b",
+            "name": "SANA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate, hushed. Garden ambience continues softly beneath the voices.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "f1eea512-3caf-4a0d-8c12-059b0b6c218a",
+        "direction": {
+          "intent": {
+            "purpose": "Isolate the decisive gesture: the object between them is removed and replaced by touch.",
+            "reason": "The emotional turn of the scene lives entirely in the hands, so it deserves its own frame.",
+            "attention": "The cup being moved aside, then the hands meeting.",
+            "relationships": "Sana closes the distance Lea only tested. The cup is no longer needed as a go-between."
+          },
+          "staging": {
+            "positions": "Hands in the gap between the sisters on the bench.",
+            "facing": "Not visible; hands only.",
+            "eyelines": "Not shown here. The faces are withheld.",
+            "movement": "Sana\u0027s hand moves the cup aside, then takes Lea\u0027s hand.",
+            "camera": "Close overhead or high-angle insert, static."
+          },
+          "editorial": {
+            "cutIn": "Cut on Sana beginning to act after her line.",
+            "cutOut": "Cut once the hands settle together, opening out to where both sisters are looking.",
+            "timing": "Unhurried; let the clasp hold for a beat."
+          },
+          "advanced": {
+            "continuity": "Cup ends off to one side, not in the gap. Hands remain clasped into the next shot.",
+            "assumptions": "Which direction the cup is moved is a staging choice.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "899c2c580271586f921ee061714342df72121fcf9c342af799970f08ff6056e4",
+            "strategy": "136cdf2c92160981bc5fb15004edcebf4785a07011c5f63cfc96487e601a2343",
+            "cast": "f43e41e0b7ccd3aac531e5286d21d295d617f0405727e83f5181806032bcbcf1",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "21730836c7933e598512bd0dfc05ab602342095c0cac47ca4ac4ab79a21b829c",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "78876bc1-0d15-4ff9-8c66-fe90f534e536",
+        "title": "Sana takes her hand",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "8e55cb11-4bef-59fd-9267-436dd754a001"
+        ],
+        "sourceExcerpt": "Sana moves the cup aside and takes Lea\u2019s hand. Neither looks at the other. They watch the gardener turn on the sprinklers.",
+        "planning": {
+          "id": "1c60f0b1-e12e-48d2-94e0-81198ff60974",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T06:08:53.4334701+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a close top-down insert on the bench surface, with the cup in the center and Lea\u0027s hand resting at one edge of frame. Sana\u0027s hand enters, moves the cup aside out of the gap, then crosses the now-empty space and takes Lea\u0027s hand. Ending: a close frame on the two clasped hands resting on the bench where the gap was, with the cup pushed off to the side.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "de9a3781-79c8-497c-a91a-02fd539c99df",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "94f84e3f-d2e8-4fc1-ad4b-519195e8632d",
+            "name": "SANA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Still and tender. Faint garden sounds.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "f1eea512-3caf-4a0d-8c12-059b0b6c218a",
+        "direction": {
+          "intent": {
+            "purpose": "Close the scene on shared attention rather than confrontation: together, but looking outward.",
+            "reason": "The script specifies that neither looks at the other. Framing from behind keeps their faces private and makes the sprinklers what they share.",
+            "attention": "The sisters\u0027 joined hands, then the sprinklers coming on.",
+            "relationships": "Reconnected through touch, without needing to say more or meet each other\u0027s eyes."
+          },
+          "staging": {
+            "positions": "Sisters on the bench in the foreground, hands joined. The gardener in the mid or deep background in the garden.",
+            "facing": "Sisters face away from camera toward the garden.",
+            "eyelines": "Both look out at the gardener and sprinklers.",
+            "movement": "The gardener turns on the sprinklers and water starts. The sisters stay still.",
+            "camera": "Static rear wide, possibly slightly elevated to show the garden beyond."
+          },
+          "editorial": {
+            "cutIn": "Cut from the hands to their shared point of view outward, reversing the frontal opening of the scene.",
+            "cutOut": "Scene end; hold on the sprinklers running.",
+            "timing": "Let the sprinklers run for several seconds before the end."
+          },
+          "advanced": {
+            "continuity": "Hands remain clasped. The cup stays aside on the bench, if visible.",
+            "assumptions": "The gardener\u0027s distance and the sprinkler layout are staging assumptions.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "7ddf886c87d6545e7314240e36fab9befad06f2efea9db1da055c5d877c5edce",
+            "strategy": "136cdf2c92160981bc5fb15004edcebf4785a07011c5f63cfc96487e601a2343",
+            "cast": "a9c5ac8e4d3eb77cda0513e629833805f3c91d7adbbd4df221a9e170174aa98b",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+            "neighbours": "1e8d9466040ab50a790d658665e6fe4b39c8f27445e27bdd5b82a504f9a803ea",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "17c42bf6-9cc1-402f-8540-8b88f9a18ad4",
+        "title": "The sprinklers",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "8e55cb11-4bef-59fd-9267-436dd754a001"
+        ],
+        "sourceExcerpt": "Sana moves the cup aside and takes Lea\u2019s hand. Neither looks at the other. They watch the gardener turn on the sprinklers.",
+        "planning": {
+          "id": "1c60f0b1-e12e-48d2-94e0-81198ff60974",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T06:08:53.4334701+00:00"
+        },
+        "duration": 8,
+        "description": "Opening: a wide shot from behind the bench, with the backs of both sisters seated close at the center and their clasped hands just visible between them. The garden stretches out ahead. Neither turns to the other. In the garden beyond, the gardener turns on the sprinklers and water begins to arc across the lawn. Ending: the same rear wide, with the sisters still hand in hand and still looking out at the running sprinklers.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "27dc04aa-9fde-4855-9991-b58c24f4803a",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "974a49fc-a59f-4742-9492-45266fe589ce",
+            "name": "SANA",
+            "appearance": null
+          },
+          {
+            "id": "a2b4a207-461f-4725-85a3-556e9ff55f44",
+            "name": "GARDENER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Morning garden opening up, with the hiss and patter of sprinklers starting. A sense of release.",
+        "music": "None, or the faintest gentle tone if needed; the sprinkler sound can carry the ending.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022dramaticProgression\u0022: \u0022Distance between the sisters is made visible, Lea offers the repaired cup into the gap, her line admits the repair is imperfect, Sana\u0027s reply reframes flaws as worth keeping, and Sana removes the object between them to take Lea\u0027s hand. Reconciliation happens through touch, not eye contact, ending in shared quiet attention outward.\u0022,\n      \u0022visualProgression\u0022: \u0022Begin wide and frontal so the empty space reads as the subject. Tighten to bench level with the cup between them for the exchange. Go to a close insert for the hand-taking, then release to a wide view from behind as they watch the sprinklers together.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the gap and the cup before any words, so the cup\u0027s meaning is felt before it is named. The cause of the sisters\u0027 rift is never explained and stays unknown. The hand-taking is the scene\u0027s answer, and the absence of eye contact keeps it restrained.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The bench with the two sisters, Lea on one side and Sana on the other with an empty space between. The repaired cup sits in that space until Sana moves it aside. The gardener and sprinklers are in the garden in front of them, the direction both sisters look.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The empty space\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n        \u002284e7586d-271c-5ee8-b5d5-5de1f1192ad5\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening: a static, frontal wide shot of a garden bench in morning light. Two sisters sit at opposite ends, Lea on one side and Sana on the other, with a clear empty space of bench between them centered in frame. Both look ahead. After a held beat, Lea reaches over and sets a repaired cup down in the middle of the empty space, then draws her hand back. Ending: the same wide frontal composition, with the cup now sitting alone in the gap between the two still sisters.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet morning garden, soft early light, birdsong, stillness between the sisters.\u0022,\n      \u0022music\u0022: \u0022None; let the silence and ambience hold.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the emotional distance as physical space and introduce the cup as the gesture across it.\u0022,\n          \u0022reason\u0022: \u0022The gap must register before anything is said, so the cup reads as an offering.\u0022,\n          \u0022attention\u0022: \u0022The empty bench space, then the cup landing in it.\u0022,\n          \u0022relationships\u0022: \u0022The sisters are estranged or guarded. Lea makes the first move, indirectly.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Lea and Sana at opposite ends of the bench, with the gap centered.\u0022,\n          \u0022facing\u0022: \u0022Both face forward toward the garden.\u0022,\n          \u0022eyelines\u0022: \u0022Both look out, not at each other.\u0022,\n          \u0022movement\u0022: \u0022Only Lea\u0027s reach to place the cup and her withdrawal.\u0022,\n          \u0022camera\u0022: \u0022Locked-off frontal wide at roughly seated eye height.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opener.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the cup has settled, to bring the audience down to the cup\u0027s level for the exchange.\u0022,\n          \u0022timing\u0022: \u0022Hold the empty space for a few seconds before Lea moves, so the absence is felt.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup placement in the center of the gap must match the following shot. Lea\u0027s hand ends back in her own space.\u0022,\n          \u0022assumptions\u0022: \u0022Left/right sides for each sister are a staging choice only.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Worth keeping\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b197968f-ec3b-5a46-b097-af11e0e4a6d8\u0022,\n        \u002253e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd\u0022,\n        \u0022c3d232df-0f54-500a-b64f-8a49ec2cb491\u0022,\n        \u0022b4ef134a-9d68-56c0-8e9a-543f3935bd47\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a low, bench-level angle from the side and slightly in front, with the repaired cup prominent in the foreground on the bench planks. The two sisters are seen in profile beyond it on either side, still apart and facing forward. Lea, not looking at Sana, says her line. A pause. Sana, also looking ahead, answers. Ending: the same low composition with the cup still between them and both sisters in profile, the reply hanging in the air.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022LEA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022It still leaks.\u0022 },\n        { \u0022speaker\u0022: \u0022SANA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022So do most things worth keeping.\u0022 }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate, hushed. Garden ambience continues softly beneath the voices.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Carry the verbal exchange in one take so the cup stays the visual subject of both lines.\u0022,\n          \u0022reason\u0022: \u0022Keeping both sisters and the cup in one frame avoids mechanical speaker cuts and keeps the gap present while they talk.\u0022,\n          \u0022attention\u0022: \u0022The cup in the foreground, with the faces in profile behind it.\u0022,\n          \u0022relationships\u0022: \u0022Lea admits the repair is imperfect. Sana accepts the imperfection, a quiet gesture of forgiveness.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Sisters unchanged at opposite ends, with the cup in the middle.\u0022,\n          \u0022facing\u0022: \u0022Both in profile, facing forward.\u0022,\n          \u0022eyelines\u0022: \u0022Both look ahead, never at each other.\u0022,\n          \u0022movement\u0022: \u0022Minimal; only small shifts in breath or posture.\u0022,\n          \u0022camera\u0022: \u0022Static or near-static low angle at bench height, with the cup in the near foreground.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the wide to the cup\u0027s level, bringing the audience into the object they are talking around.\u0022,\n          \u0022cutOut\u0022: \u0022Cut after Sana\u0027s line lands, as she begins to act on it.\u0022,\n          \u0022timing\u0022: \u0022Allow a real pause between the two lines.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup position matches the previous shot. Sisters\u0027 hands rest in their own space.\u0022,\n          \u0022assumptions\u0022: \u0022The side-angle camera position is a staging proposal.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Sana takes her hand\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close top-down insert on the bench surface, with the cup in the center and Lea\u0027s hand resting at one edge of frame. Sana\u0027s hand enters, moves the cup aside out of the gap, then crosses the now-empty space and takes Lea\u0027s hand. Ending: a close frame on the two clasped hands resting on the bench where the gap was, with the cup pushed off to the side.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Still and tender. Faint garden sounds.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Isolate the decisive gesture: the object between them is removed and replaced by touch.\u0022,\n          \u0022reason\u0022: \u0022The emotional turn of the scene lives entirely in the hands, so it deserves its own frame.\u0022,\n          \u0022attention\u0022: \u0022The cup being moved aside, then the hands meeting.\u0022,\n          \u0022relationships\u0022: \u0022Sana closes the distance Lea only tested. The cup is no longer needed as a go-between.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Hands in the gap between the sisters on the bench.\u0022,\n          \u0022facing\u0022: \u0022Not visible; hands only.\u0022,\n          \u0022eyelines\u0022: \u0022Not shown here. The faces are withheld.\u0022,\n          \u0022movement\u0022: \u0022Sana\u0027s hand moves the cup aside, then takes Lea\u0027s hand.\u0022,\n          \u0022camera\u0022: \u0022Close overhead or high-angle insert, static.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Sana beginning to act after her line.\u0022,\n          \u0022cutOut\u0022: \u0022Cut once the hands settle together, opening out to where both sisters are looking.\u0022,\n          \u0022timing\u0022: \u0022Unhurried; let the clasp hold for a beat.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Cup ends off to one side, not in the gap. Hands remain clasped into the next shot.\u0022,\n          \u0022assumptions\u0022: \u0022Which direction the cup is moved is a staging choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The sprinklers\u0022,\n      \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n      ],\n      \u0022duration\u0022: 8,\n      \u0022description\u0022: \u0022Opening: a wide shot from behind the bench, with the backs of both sisters seated close at the center and their clasped hands just visible between them. The garden stretches out ahead. Neither turns to the other. In the garden beyond, the gardener turns on the sprinklers and water begins to arc across the lawn. Ending: the same rear wide, with the sisters still hand in hand and still looking out at the running sprinklers.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022LEA\u0022 },\n        { \u0022name\u0022: \u0022SANA\u0022 },\n        { \u0022name\u0022: \u0022GARDENER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Morning garden opening up, with the hiss and patter of sprinklers starting. A sense of release.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest gentle tone if needed; the sprinkler sound can carry the ending.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Close the scene on shared attention rather than confrontation: together, but looking outward.\u0022,\n          \u0022reason\u0022: \u0022The script specifies that neither looks at the other. Framing from behind keeps their faces private and makes the sprinklers what they share.\u0022,\n          \u0022attention\u0022: \u0022The sisters\u0027 joined hands, then the sprinklers coming on.\u0022,\n          \u0022relationships\u0022: \u0022Reconnected through touch, without needing to say more or meet each other\u0027s eyes.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Sisters on the bench in the foreground, hands joined. The gardener in the mid or deep background in the garden.\u0022,\n          \u0022facing\u0022: \u0022Sisters face away from camera toward the garden.\u0022,\n          \u0022eyelines\u0022: \u0022Both look out at the gardener and sprinklers.\u0022,\n          \u0022movement\u0022: \u0022The gardener turns on the sprinklers and water starts. The sisters stay still.\u0022,\n          \u0022camera\u0022: \u0022Static rear wide, possibly slightly elevated to show the garden beyond.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the hands to their shared point of view outward, reversing the frontal opening of the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end; hold on the sprinklers running.\u0022,\n          \u0022timing\u0022: \u0022Let the sprinklers run for several seconds before the end.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Hands remain clasped. The cup stays aside on the bench, if visible.\u0022,\n          \u0022assumptions\u0022: \u0022The gardener\u0027s distance and the sprinkler layout are staging assumptions.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "f1eea512-3caf-4a0d-8c12-059b0b6c218a",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sourceId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sourceFingerprint": "1dfc3c135c646f8d20ba114d74c2c1f62ba27a4f45ef18722afcb2c98153e5ac",
+        "dramaticProgression": "Distance between the sisters is made visible, Lea offers the repaired cup into the gap, her line admits the repair is imperfect, Sana\u0027s reply reframes flaws as worth keeping, and Sana removes the object between them to take Lea\u0027s hand. Reconciliation happens through touch, not eye contact, ending in shared quiet attention outward.",
+        "visualProgression": "Begin wide and frontal so the empty space reads as the subject. Tighten to bench level with the cup between them for the exchange. Go to a close insert for the hand-taking, then release to a wide view from behind as they watch the sprinklers together.",
+        "audienceInformation": "The audience sees the gap and the cup before any words, so the cup\u0027s meaning is felt before it is named. The cause of the sisters\u0027 rift is never explained and stays unknown. The hand-taking is the scene\u0027s answer, and the absence of eye contact keeps it restrained.",
+        "spatialAnchors": "The bench with the two sisters, Lea on one side and Sana on the other with an empty space between. The repaired cup sits in that space until Sana moves it aside. The gardener and sprinklers are in the garden in front of them, the direction both sisters look."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

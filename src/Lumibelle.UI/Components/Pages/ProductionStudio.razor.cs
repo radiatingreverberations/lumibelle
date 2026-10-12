@@ -142,6 +142,7 @@ public partial class ProductionStudio
         if (_compositionBusy || _applyingProposal || _imageEditorSaving || BulkGenerateLocked || _copyShotsBusy) return false;
         if (_promptEditor is not null) await _promptEditor.FlushAsync();
         _planningDraftDelay?.Cancel();
+        await SaveSingleDirectionReview();
         return await SavePlanningDraftAsync() && !_planningDraftDirty && await Save();
     }
     private async Task<bool> Save() { _saveDelay?.Cancel(); await _saveGate.WaitAsync(); try { return await SaveLocked(); } finally { _saveGate.Release(); } }
@@ -180,6 +181,7 @@ public partial class ProductionStudio
             var undo = _undo.Pop();
             _doc.Shots = undo.Coverage.Shots;
             _doc.SceneSetups = undo.Coverage.SceneSetups;
+            _doc.DirectionStrategies = undo.Coverage.DirectionStrategies;
             // An added shot may already have autosaved a composition. Undo must leave
             // that removed shot before the next save tries to update its composition.
             if (SourceShot is null)
@@ -298,6 +300,12 @@ public partial class ProductionStudio
         await HandleRequestedPlanningAsync();
         await HandleRequestedVideoAsync();
         await HandleRequestedAssetPickAsync();
+        if (RequestedJobId is { } environmentJobId && _handledEnvironmentJob != environmentJobId && _environmentComposer is not null &&
+            AiJobs.View.Jobs.FirstOrDefault(j => j.Id == environmentJobId && j.Kind == AiJobKind.EnvironmentViewSelection && j.Target.ProjectId == Id) is { } environmentJob) {
+            _handledEnvironmentJob = environmentJobId;
+            if (environmentJob.Target.CompositionId is { } environmentSetup && Current?.Id == environmentSetup)
+                await _environmentComposer.OpenSavedAsync(environmentJobId);
+        }
         if (_workspace is not null && _openShotView && SourceShot is not null) { _openShotView = false; await _workspace.ShowCenterAsync("Shot"); }
         if (RequestedJobId is { } id && _handledCompositionJob != id && AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id) is { } job) {
             _handledCompositionJob = id;

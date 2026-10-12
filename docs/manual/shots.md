@@ -14,6 +14,28 @@ The shot list groups shots by script scene. Each thumbnail shows its selected ta
 
 The right panel lists the references first. Its footer then has the output settings, **Prompt** with the prompt's status (highlighted while a missing or unreviewable prompt is what keeps the shot from generating), and **Generate takes**; at the top, the preset's name is a dropdown that switches presets, and the pencil beside it opens **Generation settings** to edit the one in use. A shot that [continues from a frame](#continue-from-a-frame) shows **Starts from** with that frame above its references. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
 
+## Reviewable direction
+
+**Draft shots** writes a concise scene strategy alongside its coverage in the same request. **Direction style** defaults to **Auto — adapt to the scene**; the last submitted style is remembered per project. Auto can blend approaches across dramatic beats, rather than classify a genre. Its chosen approach and short explanation appear in **Scene strategy**. Your instructions override every style preference. Optional television examples illustrate an approach, not a template to imitate.
+
+| Approach | Preference |
+| --- | --- |
+| Auto | Adapt framing, staging and cuts to each beat and explain the choice. Recommended for most scenes. |
+| Ensemble / Classical | Keep relationships visible in shared compositions with clear geography and restrained movement. |
+| Performance Comedy | Protect setups, reactions, physical jokes and awkward pauses. |
+| Prestige Drama | Develop emotion, power relationships and reveals through changes in proximity and attention. |
+| Kinetic Action | Build urgency while preserving objectives, cause and effect, and readable geography. |
+
+Review and edit each **Scene strategy** once above its proposed shots: dramatic progression, visual progression, audience information and spatial anchors. Applying stores a distinct strategy linked to those shots; another breakdown creates a new strategy without rewriting existing shots. **Draft shot** consumes its existing strategy or proposes one for that shot alone. Closing a review preserves pending edits; it does not apply them. Request inspection and retry use the existing drafting controls.
+
+Each shot shows its purpose and short reason. Expand **Direction** to edit intent, essential blocking, facing, eyelines, camera behavior and intended cuts. **Advanced** holds continuity, assumptions and optional long-take ideas. The same editor appears in breakdown review, single-shot review and the shot itself. Accepted scene strategy is expandable context in the editor. Intent describes what the audience should understand; staging describes one possible arrangement, not established architecture. All ordinary clips remain within the requested maximum of 15 seconds. Long-take ideas suggest later manual extension and never replace complete ordinary coverage.
+
+Direction retains its text when inputs change and labels the affected groups **Needs review**. Story/action or strategy changes affect all groups; cast affects staging and continuity; dialogue affects intent and timing/cuts, while opening staging remains available; duration affects timing; neighbouring shots affect editorial transitions and continuity. References, crops and environment changes invalidate reference support while preserving dramatic intent. Review the flagged text and choose **Mark direction reviewed** when it fits. Downstream requests omit stale prescriptions and describe their limitations. Prompt freshness also follows direction changes.
+
+Environment selection receives applicable scene strategy and direction, alongside neighbouring-shot context. It can suggest a different viewpoint or arrangement that achieves the same dramatic purpose. **Reference-supported staging** links model assessments to captured pictures and labels claims supported, inferred, missing or conflicting. This is reviewable reference evidence, not verified geometry. Compose preserves intent and supported relationships, qualifies assumptions and surfaces conflicts instead of silently changing the story.
+
+Applying a redraft changes existing shots only after review. Undo, recovery, shot duplication and project copying preserve direction and linked strategies. Copying references alone does not transfer direction. A single-shot draft captured before later author edits cannot overwrite the changed target. Historical drafts without supplemental metadata remain readable with review notes.
+
 ## References
 
 Choose ordered images and crops in **References**, with optional advisory **AI use hints**. **Copy references from** replaces the draft's references with another shot's. Copying from the previous shot also adds the last frame of its production take as a continuity picture, numbered after the images, so wardrobe, props and the set carry across the cut. **Add the last frame of …**, under the images, adds it without replacing the other references; it needs a production take for that shot. The frame is read from the take rather than saved to Assets; **Remove** drops it before you apply. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.

@@ -1,0 +1,599 @@
+{
+  "name": "Noxian podium",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 47.0412411,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Judgment in the Sunlit Square\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n      \u00228bb38cf5-5462-4833-8b44-8c9cbdb052b6\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Establishing shot. OPENING: A high, wide frame of the sunlit Noxian main plaza. Beyond the rooftops, an enormous black fortress fills the skyline, its battlements bristling with crimson banners. The camera slowly cranes down and pushes in across the square. It passes three curious citizens who stop to watch, seen from behind in the foreground. ENDING: A wide, eye-level frame of the open-air court. The judicial bench sits on one side and the battered defendant\u0027s podium faces it on the other. The three citizens frame the left edge, and the fortress still looms in the background. This end frame sets the geography for the scene: bench on screen right, podium on screen left, spectators to the side.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Citizen 1\u0022 },\n      { \u0022name\u0022: \u0022Citizen 2\u0022 },\n      { \u0022name\u0022: \u0022Citizen 3\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Bright, dry daylight over the square. Imposing and militaristic, with a faintly absurd, mock-solemn air. Distant banners snap in the wind and the city murmurs softly.\u0022,\n    \u0022music\u0022: \u0022A low, pompous brass-and-drum motif that is grand but slightly overplayed, hinting at comedy.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Chair Blocks the Exit\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022f2908c82-0cda-4d6d-a9b5-f4bdd3d33ef8\u0022\n    ],\n    \u0022duration\u0022: 9,\n    \u0022description\u0022: \u0022OPENING: A medium-close shot at podium height, framed from behind the podium on the defendant\u0027s side. The guard\u0027s hands set Riley firmly in place behind the battered podium. The camera holds as Riley glances sideways and quietly edges toward an open passage at the side of the square. The camera pans with her. In the foreground, the seated guard slides his chair into her path without looking up. Riley stops, pauses, and walks back. The camera pans back with her. ENDING: A medium shot of Riley standing once more behind the podium, facing the bench. The guard sits in his blocking position at the edge of frame, still not looking up.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 },\n      { \u0022name\u0022: \u0022Guard\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Dry, deadpan physical comedy. A quiet scrape of the chair legs across the stone.\u0022,\n    \u0022music\u0022: \u0022The brass motif drops out. A single plucked low note lands as the chair stops.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Very Small Reading Glasses\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00221ce579b4-b93a-4911-83a4-d3a66f98718d\u0022,\n      \u00229cb7c748-9d0d-499e-8e2a-5ba69da90cc2\u0022,\n      \u0022c3a7c82b-2510-40be-9223-b1f9783c8add\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022OPENING: A low-angle medium shot from the defendant\u0027s side, looking up at the judicial bench. The Noxian Magistrate sits behind it, armored in black iron and imposing against the sky. He calmly puts on a pair of very small reading glasses. The camera pushes in slowly. ENDING: A medium close-up of the Magistrate. The tiny glasses are perched on his face as he looks screen left toward Riley at the podium and begins his pronouncement, cut off mid-sentence.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022MAGISTRATE\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022You entered Noxus under suspicious circumstances\u2014\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Formal and stern. The tiny glasses undercut his menace.\u0022,\n    \u0022music\u0022: \u0022A sustained low string drone.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022That\u0027s Fair\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022baa5ef46-4b21-4427-9576-99d1acab1859\u0022,\n      \u0022412bb2d9-2f3a-498d-8532-927e55e11c83\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022OPENING AND ENDING: A static, eye-level medium close-up of Riley behind the podium. She looks screen right toward the bench, matching the Magistrate\u0027s eyeline. She interjects with a small, resigned nod. The frame holds steady throughout.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022That\u2019s fair.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Awkward candor.\u0022,\n    \u0022music\u0022: \u0022The drone continues under her line.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Real Charge\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223c3f1286-0dbb-4910-80d4-179e1773d279\u0022,\n      \u0022d8c6b36b-a86f-47f5-b95b-cec736d38f25\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022OPENING: An over-the-shoulder shot from behind Riley\u0027s shoulder at the podium, with the Magistrate at the bench in the background and looking screen left toward her. He continues his sentence, unmoved by her interruption. The camera slowly pushes past her shoulder. ENDING: A clean, tighter shot of the Magistrate over his tiny glasses as he finishes the charge with grave emphasis.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022MAGISTRATE\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022\u2014and knowingly selected Lux for the top lane.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Mock gravity. The true \u0027crime\u0027 lands like a capital offense.\u0022,\n    \u0022music\u0022: \u0022A single ominous timpani hit on the final word.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The First Thing\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00227a00d858-7214-459f-ab41-fac9f7f6df5a\u0022,\n      \u0022e00e60f3-496e-41d7-9b05-5d200d7173b0\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022OPENING: A medium shot of Riley from a slightly low angle beside the podium, wider than her previous close-up. More of the battered podium is visible. She looks screen right toward the bench and answers, trying to steer the conversation. The camera eases in gently. ENDING: A medium close-up of Riley holding her deflecting expression.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022I\u2019d like to focus on the first thing.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Evasive and sheepish.\u0022,\n    \u0022music\u0022: \u0022The timpani resonance fades to near-silence.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Spectator Leans In\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ec53eedb-529d-4b52-8dd5-8c0d9f141a59\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A side-angle medium-wide shot from the spectators\u0027 position. The three citizens are in the foreground, and Riley stands at the podium in the midground. One spectator leans closer, staring at her. The camera holds, then drifts slightly toward Riley. She shifts behind the podium, turning her face away and avoiding their gaze. ENDING: A medium shot of Riley half-hidden behind the podium, angled away from the spectators. The leaning spectator\u0027s shoulder is soft in the foreground.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 },\n      { \u0022name\u0022: \u0022Citizen 1\u0022 },\n      { \u0022name\u0022: \u0022Citizen 2\u0022 },\n      { \u0022name\u0022: \u0022Citizen 3\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Mild public embarrassment.\u0022,\n    \u0022music\u0022: \u0022Silence apart from the ambient plaza murmur.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Her Team\u0027s Statement\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b84785aa-d4c6-4244-8dfa-decf6d343dce\u0022,\n      \u002260fbc714-8a98-4e21-812c-b19510e7333e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A medium shot of the guard, still seated in the chair that blocks the passage. He reads the statement aloud in a flat, procedural tone. The camera pulls back slowly. ENDING: A medium two-shot with the guard in the foreground and Riley behind the podium in the background. She reacts to the statement.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022GUARD\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Her team\u2019s statement: \u201CPlease. We need someone to stand in front.\u201D\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Guard\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Deadpan bureaucracy.\u0022,\n    \u0022music\u0022: \u0022A faint, wry woodwind phrase sneaks in.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022I Can Stand in Front\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ee49a2be-486a-4849-b003-849b6ce486db\u0022,\n      \u0022eabe9046-b5e9-4a4e-b923-9f9853fe5065\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022OPENING AND ENDING: A frontal close-up of Riley at the podium. She looks screen right toward the bench and offers the line with half-hearted conviction. The camera makes a very slight push-in.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022I can stand in front.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Unconvincing bravado.\u0022,\n    \u0022music\u0022: \u0022The woodwind phrase hangs unresolved.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Straighten Up\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022f9181a6a-10b9-44af-bb04-dad0ef66f058\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A wide side-profile shot of the court. The Magistrate at the bench is on screen right and Riley at the podium is on screen left, with the black fortress and crimson banners in the background. The Magistrate peers at her over the podium through his very small reading glasses. The camera slowly dollies in on Riley. She reluctantly straightens behind the podium. ENDING: A medium shot of Riley standing upright and stiff at the podium. The fortress looms behind her.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A silent standoff of authority, comically lopsided.\u0022,\n    \u0022music\u0022: \u0022The pompous brass motif returns briefly and resolves on a dry final note.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "b30882b4-3e6c-4816-8d82-879b1ee9483b",
+        "title": "Judgment in the Sunlit Square",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+          "8bb38cf5-5462-4833-8b44-8c9cbdb052b6"
+        ],
+        "sourceExcerpt": "## EXT. NOXIAN MAIN PLAZA \u2014 DAY\n\nA judicial bench and battered defendant\u2019s podium occupy a sunlit square. Three curious citizens stop to watch. Beyond the rooftops, an enormous black fortress dominates the skyline, its battlements bristling with crimson banners.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 6,
+        "description": "Establishing shot. OPENING: A high, wide frame of the sunlit Noxian main plaza. Beyond the rooftops, an enormous black fortress fills the skyline, its battlements bristling with crimson banners. The camera slowly cranes down and pushes in across the square. It passes three curious citizens who stop to watch, seen from behind in the foreground. ENDING: A wide, eye-level frame of the open-air court. The judicial bench sits on one side and the battered defendant\u0027s podium faces it on the other. The three citizens frame the left edge, and the fortress still looms in the background. This end frame sets the geography for the scene: bench on screen right, podium on screen left, spectators to the side.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "b43029c6-f7bb-4f46-b991-6ba4898852ee",
+            "name": "Citizen 1",
+            "appearance": null
+          },
+          {
+            "id": "14e5828e-e486-4a32-a477-22eae99014ad",
+            "name": "Citizen 2",
+            "appearance": null
+          },
+          {
+            "id": "3937c110-25ee-456f-91d0-f7055f07c361",
+            "name": "Citizen 3",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Bright, dry daylight over the square. Imposing and militaristic, with a faintly absurd, mock-solemn air. Distant banners snap in the wind and the city murmurs softly.",
+        "music": "A low, pompous brass-and-drum motif that is grand but slightly overplayed, hinting at comedy.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "f9c70659-ff3a-4bae-85d0-8bad92c5ad7f",
+        "title": "The Chair Blocks the Exit",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "f2908c82-0cda-4d6d-a9b5-f4bdd3d33ef8"
+        ],
+        "sourceExcerpt": "The guard places Riley behind the podium. She edges toward an open passage. Without looking up, he slides his chair into her path. She returns to the podium.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 9,
+        "description": "OPENING: A medium-close shot at podium height, framed from behind the podium on the defendant\u0027s side. The guard\u0027s hands set Riley firmly in place behind the battered podium. The camera holds as Riley glances sideways and quietly edges toward an open passage at the side of the square. The camera pans with her. In the foreground, the seated guard slides his chair into her path without looking up. Riley stops, pauses, and walks back. The camera pans back with her. ENDING: A medium shot of Riley standing once more behind the podium, facing the bench. The guard sits in his blocking position at the edge of frame, still not looking up.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "05873d62-78b1-4da7-a57b-7939cbfe0262",
+            "name": "Riley",
+            "appearance": null
+          },
+          {
+            "id": "05171688-9df0-4e10-83de-0cd76a2991a8",
+            "name": "Guard",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Dry, deadpan physical comedy. A quiet scrape of the chair legs across the stone.",
+        "music": "The brass motif drops out. A single plucked low note lands as the chair stops.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "2f5f9776-68fd-432f-8628-b6a1381f6e31",
+        "title": "Very Small Reading Glasses",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "1ce579b4-b93a-4911-83a4-d3a66f98718d",
+          "9cb7c748-9d0d-499e-8e2a-5ba69da90cc2",
+          "c3a7c82b-2510-40be-9223-b1f9783c8add"
+        ],
+        "sourceExcerpt": "A NOXIAN MAGISTRATE sits behind the bench, armored in black iron. He puts on very small reading glasses.\n\n### MAGISTRATE\n\nYou entered Noxus under suspicious circumstances\u2014",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 7,
+        "description": "OPENING: A low-angle medium shot from the defendant\u0027s side, looking up at the judicial bench. The Noxian Magistrate sits behind it, armored in black iron and imposing against the sky. He calmly puts on a pair of very small reading glasses. The camera pushes in slowly. ENDING: A medium close-up of the Magistrate. The tiny glasses are perched on his face as he looks screen left toward Riley at the podium and begins his pronouncement, cut off mid-sentence.",
+        "dialogue": [
+          {
+            "id": "0d013e36-0613-4f57-9b28-63e1d993e236",
+            "speaker": "MAGISTRATE",
+            "language": "en",
+            "text": "You entered Noxus under suspicious circumstances\u2014"
+          }
+        ],
+        "characters": [
+          {
+            "id": "0828af55-a990-4234-9a19-e4511bef4ab0",
+            "name": "Magistrate",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Formal and stern. The tiny glasses undercut his menace.",
+        "music": "A sustained low string drone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "f3b0a25f-a854-4c0e-9a6c-d75d5a29787e",
+        "title": "That\u0027s Fair",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "baa5ef46-4b21-4427-9576-99d1acab1859",
+          "412bb2d9-2f3a-498d-8532-927e55e11c83"
+        ],
+        "sourceExcerpt": "### RILEY\n\nThat\u2019s fair.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 3,
+        "description": "OPENING AND ENDING: A static, eye-level medium close-up of Riley behind the podium. She looks screen right toward the bench, matching the Magistrate\u0027s eyeline. She interjects with a small, resigned nod. The frame holds steady throughout.",
+        "dialogue": [
+          {
+            "id": "14c43fd5-2069-4b4f-a049-bf6e2aaf659c",
+            "speaker": "RILEY",
+            "language": "en",
+            "text": "That\u2019s fair."
+          }
+        ],
+        "characters": [
+          {
+            "id": "09ec9cd3-5bc8-46a0-90ae-c84f2e8fb131",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Awkward candor.",
+        "music": "The drone continues under her line.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "3955384a-8f20-454a-b47a-f0afb123cdbd",
+        "title": "The Real Charge",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "3c3f1286-0dbb-4910-80d4-179e1773d279",
+          "d8c6b36b-a86f-47f5-b95b-cec736d38f25"
+        ],
+        "sourceExcerpt": "### MAGISTRATE\n\n\u2014and knowingly selected Lux for the top lane.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 4,
+        "description": "OPENING: An over-the-shoulder shot from behind Riley\u0027s shoulder at the podium, with the Magistrate at the bench in the background and looking screen left toward her. He continues his sentence, unmoved by her interruption. The camera slowly pushes past her shoulder. ENDING: A clean, tighter shot of the Magistrate over his tiny glasses as he finishes the charge with grave emphasis.",
+        "dialogue": [
+          {
+            "id": "d28bfd4d-f53e-4aef-9922-5a683739e8bf",
+            "speaker": "MAGISTRATE",
+            "language": "en",
+            "text": "\u2014and knowingly selected Lux for the top lane."
+          }
+        ],
+        "characters": [
+          {
+            "id": "72d9d60b-5ba5-475e-8a6e-f49dea1ccf57",
+            "name": "Magistrate",
+            "appearance": null
+          },
+          {
+            "id": "6f80adda-10bc-4661-8dd4-5ce77ca65d62",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Mock gravity. The true \u0027crime\u0027 lands like a capital offense.",
+        "music": "A single ominous timpani hit on the final word.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "742e9610-7760-48b4-a98e-165b36fd20a1",
+        "title": "The First Thing",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "7a00d858-7214-459f-ab41-fac9f7f6df5a",
+          "e00e60f3-496e-41d7-9b05-5d200d7173b0"
+        ],
+        "sourceExcerpt": "### RILEY\n\nI\u2019d like to focus on the first thing.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 4,
+        "description": "OPENING: A medium shot of Riley from a slightly low angle beside the podium, wider than her previous close-up. More of the battered podium is visible. She looks screen right toward the bench and answers, trying to steer the conversation. The camera eases in gently. ENDING: A medium close-up of Riley holding her deflecting expression.",
+        "dialogue": [
+          {
+            "id": "9782867e-1ea6-45d7-8a38-afa66aeebe5a",
+            "speaker": "RILEY",
+            "language": "en",
+            "text": "I\u2019d like to focus on the first thing."
+          }
+        ],
+        "characters": [
+          {
+            "id": "d5be0105-d4ee-4c1c-80d4-ae1792e403ab",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Evasive and sheepish.",
+        "music": "The timpani resonance fades to near-silence.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "7c0e1cf9-31cd-44c3-9929-b8ac019e72db",
+        "title": "The Spectator Leans In",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "ec53eedb-529d-4b52-8dd5-8c0d9f141a59"
+        ],
+        "sourceExcerpt": "A spectator leans closer. Riley shifts behind the podium, avoiding their gaze.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 5,
+        "description": "OPENING: A side-angle medium-wide shot from the spectators\u0027 position. The three citizens are in the foreground, and Riley stands at the podium in the midground. One spectator leans closer, staring at her. The camera holds, then drifts slightly toward Riley. She shifts behind the podium, turning her face away and avoiding their gaze. ENDING: A medium shot of Riley half-hidden behind the podium, angled away from the spectators. The leaning spectator\u0027s shoulder is soft in the foreground.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "9b9def90-6c21-404f-a786-851b7e2d39fc",
+            "name": "Riley",
+            "appearance": null
+          },
+          {
+            "id": "9d7cba71-dc8e-44ec-a16c-4c1961951ca7",
+            "name": "Citizen 1",
+            "appearance": null
+          },
+          {
+            "id": "46f021f0-a0ff-4827-b2fe-161fcbdb809e",
+            "name": "Citizen 2",
+            "appearance": null
+          },
+          {
+            "id": "df691be9-a003-434e-a5eb-6bb1a8ddb5c7",
+            "name": "Citizen 3",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Mild public embarrassment.",
+        "music": "Silence apart from the ambient plaza murmur.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "142fd16c-a4e8-4e20-a7cc-daaff8432be8",
+        "title": "Her Team\u0027s Statement",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "b84785aa-d4c6-4244-8dfa-decf6d343dce",
+          "60fbc714-8a98-4e21-812c-b19510e7333e"
+        ],
+        "sourceExcerpt": "### GUARD\n\nHer team\u2019s statement: \u201CPlease. We need someone to stand in front.\u201D",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 5,
+        "description": "OPENING: A medium shot of the guard, still seated in the chair that blocks the passage. He reads the statement aloud in a flat, procedural tone. The camera pulls back slowly. ENDING: A medium two-shot with the guard in the foreground and Riley behind the podium in the background. She reacts to the statement.",
+        "dialogue": [
+          {
+            "id": "ebc5fdb1-f818-49a8-8bb7-7acbd49e51e2",
+            "speaker": "GUARD",
+            "language": "en",
+            "text": "Her team\u2019s statement: \u201CPlease. We need someone to stand in front.\u201D"
+          }
+        ],
+        "characters": [
+          {
+            "id": "5ae6ec15-dce1-46e4-8ab3-a920437ae2ca",
+            "name": "Guard",
+            "appearance": null
+          },
+          {
+            "id": "2726ac53-9788-4550-94e9-a5522e921b05",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Deadpan bureaucracy.",
+        "music": "A faint, wry woodwind phrase sneaks in.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "dd352cb6-b21c-4df1-ada8-198878f89830",
+        "title": "I Can Stand in Front",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "ee49a2be-486a-4849-b003-849b6ce486db",
+          "eabe9046-b5e9-4a4e-b923-9f9853fe5065"
+        ],
+        "sourceExcerpt": "### RILEY\n\nI can stand in front.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 3,
+        "description": "OPENING AND ENDING: A frontal close-up of Riley at the podium. She looks screen right toward the bench and offers the line with half-hearted conviction. The camera makes a very slight push-in.",
+        "dialogue": [
+          {
+            "id": "4d092bdd-76b0-4db9-9bfd-b94674106df0",
+            "speaker": "RILEY",
+            "language": "en",
+            "text": "I can stand in front."
+          }
+        ],
+        "characters": [
+          {
+            "id": "eeca1d35-f152-4f38-b936-a2d1552ddc06",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Unconvincing bravado.",
+        "music": "The woodwind phrase hangs unresolved.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "39369fa5-4b6d-44ef-872d-f40e8e904883",
+        "title": "Straighten Up",
+        "approvedScriptId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneId": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "sceneTitle": "EXT. NOXIAN MAIN PLAZA \u2014 DAY",
+        "sourceBlockIds": [
+          "f9181a6a-10b9-44af-bb04-dad0ef66f058"
+        ],
+        "sourceExcerpt": "The magistrate peers at her over the podium. She reluctantly straightens.",
+        "planning": {
+          "id": "3c0fdcfb-19dd-4106-8ff8-d62049a09f2b",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5001563e-5d6b-4818-bf6e-44740aaeb01a"
+          ],
+          "createdUtc": "2026-10-12T05:57:10.097172+00:00"
+        },
+        "duration": 5,
+        "description": "OPENING: A wide side-profile shot of the court. The Magistrate at the bench is on screen right and Riley at the podium is on screen left, with the black fortress and crimson banners in the background. The Magistrate peers at her over the podium through his very small reading glasses. The camera slowly dollies in on Riley. She reluctantly straightens behind the podium. ENDING: A medium shot of Riley standing upright and stiff at the podium. The fortress looms behind her.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "fe69b9a0-5301-4971-9a6e-e669969ad6a6",
+            "name": "Magistrate",
+            "appearance": null
+          },
+          {
+            "id": "a4d08b0b-e3f5-4322-aa38-e175b51988fb",
+            "name": "Riley",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A silent standoff of authority, comically lopsided.",
+        "music": "The pompous brass motif returns briefly and resolves on a dry final note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Judgment in the Sunlit Square\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n      \u00228bb38cf5-5462-4833-8b44-8c9cbdb052b6\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Establishing shot. OPENING: A high, wide frame of the sunlit Noxian main plaza. Beyond the rooftops, an enormous black fortress fills the skyline, its battlements bristling with crimson banners. The camera slowly cranes down and pushes in across the square. It passes three curious citizens who stop to watch, seen from behind in the foreground. ENDING: A wide, eye-level frame of the open-air court. The judicial bench sits on one side and the battered defendant\u0027s podium faces it on the other. The three citizens frame the left edge, and the fortress still looms in the background. This end frame sets the geography for the scene: bench on screen right, podium on screen left, spectators to the side.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Citizen 1\u0022 },\n      { \u0022name\u0022: \u0022Citizen 2\u0022 },\n      { \u0022name\u0022: \u0022Citizen 3\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Bright, dry daylight over the square. Imposing and militaristic, with a faintly absurd, mock-solemn air. Distant banners snap in the wind and the city murmurs softly.\u0022,\n    \u0022music\u0022: \u0022A low, pompous brass-and-drum motif that is grand but slightly overplayed, hinting at comedy.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Chair Blocks the Exit\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022f2908c82-0cda-4d6d-a9b5-f4bdd3d33ef8\u0022\n    ],\n    \u0022duration\u0022: 9,\n    \u0022description\u0022: \u0022OPENING: A medium-close shot at podium height, framed from behind the podium on the defendant\u0027s side. The guard\u0027s hands set Riley firmly in place behind the battered podium. The camera holds as Riley glances sideways and quietly edges toward an open passage at the side of the square. The camera pans with her. In the foreground, the seated guard slides his chair into her path without looking up. Riley stops, pauses, and walks back. The camera pans back with her. ENDING: A medium shot of Riley standing once more behind the podium, facing the bench. The guard sits in his blocking position at the edge of frame, still not looking up.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 },\n      { \u0022name\u0022: \u0022Guard\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Dry, deadpan physical comedy. A quiet scrape of the chair legs across the stone.\u0022,\n    \u0022music\u0022: \u0022The brass motif drops out. A single plucked low note lands as the chair stops.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Very Small Reading Glasses\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00221ce579b4-b93a-4911-83a4-d3a66f98718d\u0022,\n      \u00229cb7c748-9d0d-499e-8e2a-5ba69da90cc2\u0022,\n      \u0022c3a7c82b-2510-40be-9223-b1f9783c8add\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022OPENING: A low-angle medium shot from the defendant\u0027s side, looking up at the judicial bench. The Noxian Magistrate sits behind it, armored in black iron and imposing against the sky. He calmly puts on a pair of very small reading glasses. The camera pushes in slowly. ENDING: A medium close-up of the Magistrate. The tiny glasses are perched on his face as he looks screen left toward Riley at the podium and begins his pronouncement, cut off mid-sentence.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022MAGISTRATE\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022You entered Noxus under suspicious circumstances\u2014\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Formal and stern. The tiny glasses undercut his menace.\u0022,\n    \u0022music\u0022: \u0022A sustained low string drone.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022That\u0027s Fair\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022baa5ef46-4b21-4427-9576-99d1acab1859\u0022,\n      \u0022412bb2d9-2f3a-498d-8532-927e55e11c83\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022OPENING AND ENDING: A static, eye-level medium close-up of Riley behind the podium. She looks screen right toward the bench, matching the Magistrate\u0027s eyeline. She interjects with a small, resigned nod. The frame holds steady throughout.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022That\u2019s fair.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Awkward candor.\u0022,\n    \u0022music\u0022: \u0022The drone continues under her line.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Real Charge\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223c3f1286-0dbb-4910-80d4-179e1773d279\u0022,\n      \u0022d8c6b36b-a86f-47f5-b95b-cec736d38f25\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022OPENING: An over-the-shoulder shot from behind Riley\u0027s shoulder at the podium, with the Magistrate at the bench in the background and looking screen left toward her. He continues his sentence, unmoved by her interruption. The camera slowly pushes past her shoulder. ENDING: A clean, tighter shot of the Magistrate over his tiny glasses as he finishes the charge with grave emphasis.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022MAGISTRATE\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022\u2014and knowingly selected Lux for the top lane.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Mock gravity. The true \u0027crime\u0027 lands like a capital offense.\u0022,\n    \u0022music\u0022: \u0022A single ominous timpani hit on the final word.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The First Thing\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00227a00d858-7214-459f-ab41-fac9f7f6df5a\u0022,\n      \u0022e00e60f3-496e-41d7-9b05-5d200d7173b0\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022OPENING: A medium shot of Riley from a slightly low angle beside the podium, wider than her previous close-up. More of the battered podium is visible. She looks screen right toward the bench and answers, trying to steer the conversation. The camera eases in gently. ENDING: A medium close-up of Riley holding her deflecting expression.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022I\u2019d like to focus on the first thing.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Evasive and sheepish.\u0022,\n    \u0022music\u0022: \u0022The timpani resonance fades to near-silence.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Spectator Leans In\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ec53eedb-529d-4b52-8dd5-8c0d9f141a59\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A side-angle medium-wide shot from the spectators\u0027 position. The three citizens are in the foreground, and Riley stands at the podium in the midground. One spectator leans closer, staring at her. The camera holds, then drifts slightly toward Riley. She shifts behind the podium, turning her face away and avoiding their gaze. ENDING: A medium shot of Riley half-hidden behind the podium, angled away from the spectators. The leaning spectator\u0027s shoulder is soft in the foreground.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 },\n      { \u0022name\u0022: \u0022Citizen 1\u0022 },\n      { \u0022name\u0022: \u0022Citizen 2\u0022 },\n      { \u0022name\u0022: \u0022Citizen 3\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Mild public embarrassment.\u0022,\n    \u0022music\u0022: \u0022Silence apart from the ambient plaza murmur.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Her Team\u0027s Statement\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b84785aa-d4c6-4244-8dfa-decf6d343dce\u0022,\n      \u002260fbc714-8a98-4e21-812c-b19510e7333e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A medium shot of the guard, still seated in the chair that blocks the passage. He reads the statement aloud in a flat, procedural tone. The camera pulls back slowly. ENDING: A medium two-shot with the guard in the foreground and Riley behind the podium in the background. She reacts to the statement.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022GUARD\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Her team\u2019s statement: \u201CPlease. We need someone to stand in front.\u201D\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Guard\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Deadpan bureaucracy.\u0022,\n    \u0022music\u0022: \u0022A faint, wry woodwind phrase sneaks in.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022I Can Stand in Front\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ee49a2be-486a-4849-b003-849b6ce486db\u0022,\n      \u0022eabe9046-b5e9-4a4e-b923-9f9853fe5065\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022OPENING AND ENDING: A frontal close-up of Riley at the podium. She looks screen right toward the bench and offers the line with half-hearted conviction. The camera makes a very slight push-in.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022RILEY\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022I can stand in front.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Unconvincing bravado.\u0022,\n    \u0022music\u0022: \u0022The woodwind phrase hangs unresolved.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Straighten Up\u0022,\n    \u0022sceneId\u0022: \u00225001563e-5d6b-4818-bf6e-44740aaeb01a\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022f9181a6a-10b9-44af-bb04-dad0ef66f058\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022OPENING: A wide side-profile shot of the court. The Magistrate at the bench is on screen right and Riley at the podium is on screen left, with the black fortress and crimson banners in the background. The Magistrate peers at her over the podium through his very small reading glasses. The camera slowly dollies in on Riley. She reluctantly straightens behind the podium. ENDING: A medium shot of Riley standing upright and stiff at the podium. The fortress looms behind her.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Magistrate\u0022 },\n      { \u0022name\u0022: \u0022Riley\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A silent standoff of authority, comically lopsided.\u0022,\n    \u0022music\u0022: \u0022The pompous brass motif returns briefly and resolves on a dry final note.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

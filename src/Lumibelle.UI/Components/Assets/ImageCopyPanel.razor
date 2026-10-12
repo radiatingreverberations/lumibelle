@@ -41,6 +41,7 @@
     [Parameter] public int SourceHeight { get; set; }
     [Parameter] public string SourceUrl { get; set; } = "";
     [Parameter] public string InitialName { get; set; } = "";
+    [Parameter] public string InitialNotes { get; set; } = "";
     [Parameter] public bool ShowHeading { get; set; } = true;
     [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter] public string? FrameDescription { get; set; }
@@ -64,6 +65,7 @@
     protected override void OnInitialized()
     {
         _name = InitialName;
+        _notes = InitialNotes;
         _assetName = InitialName;
         if (InitialAssetId is { } assetId && Library.Assets.Any(a => a.Id == assetId))
         {

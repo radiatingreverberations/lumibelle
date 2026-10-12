@@ -79,7 +79,7 @@ public sealed partial class ShotTests
         var job = Guid.NewGuid();
         await jobs.EnqueueAsync(AiJobSubmission.Create(job, AiJobKind.PromptComposition, AiBackend.OpenRouter, new(f.Project.Id, ShotId: source.Id, CompositionId: b.Id), "Project", "Existing request", Guid.NewGuid(), new { preserved = true }), _ct);
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
-        Assert.Equal(3, migrated.SchemaVersion);
+        Assert.Equal(4, migrated.SchemaVersion);
         Assert.All(migrated.Compositions, c => Assert.Equal(a.Prompt, c.Prompt));
         var earlier = Assert.Single(migrated.EarlierSetupContent);
         Assert.Equal(b.Id, earlier.SetupId); Assert.Equal(b.Prompt, earlier.Content.Prompt);
@@ -90,5 +90,46 @@ public sealed partial class ShotTests
         var reopened = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(migrated.Revision, reopened.Revision);
         Assert.Equal(JsonSerializer.Serialize(earlier), JsonSerializer.Serialize(Assert.Single(reopened.EarlierSetupContent)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EnvironmentMigrationRecoversOneLibraryAndPreservesConflictingSetupChoices(bool conflicting)
+    {
+        var f = Fixture(); var source = Ready();
+        await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
+        var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct);
+        var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
+        var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
+        var environment = Guid.NewGuid();
+        var first = new ProductionComposition { ShotId = source.Id, Version = 2 };
+        var alternate = new ProductionComposition { ShotId = source.Id, Version = 3, Name = "Alternate" };
+        first.Shot.EnvironmentAssetId = conflicting ? Guid.NewGuid() : null;
+        alternate.Shot.EnvironmentAssetId = environment;
+        // Version 3 stored the environment under each setup's Inputs, outside shared references.
+        var content = ShotProductionContent.From(first); content.EnvironmentAssetId = null;
+        content.Prompt = "Keep my authored prompt.";
+        content.Images = [new() { AssetId = Guid.NewGuid(), MediaId = Guid.NewGuid(), Name = "Shared character" }];
+        var path = Path.Combine(dir, "production.json");
+        await AtomicJsonFile.WriteAsync(path, new ProductionDocument {
+            SchemaVersion = 3, ProjectId = f.Project.Id, Revision = 5,
+            Compositions = [first, alternate], ShotContent = [content]
+        }, _ct);
+        var original = await File.ReadAllBytesAsync(path, _ct);
+        var migrated = await store.InitializeAsync(f.Project.Id, _ct);
+        Assert.Equal(4, migrated.SchemaVersion);
+        Assert.All(migrated.Compositions, c => Assert.Equal(conflicting ? null : (Guid?)environment, c.Shot.EnvironmentAssetId));
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "production-before-shared-environment.json"), _ct));
+        if (conflicting) Assert.Equal(new[] { first.Shot.EnvironmentAssetId, alternate.Shot.EnvironmentAssetId }.Order(),
+            migrated.EarlierSetupContent.Select(e => e.Content.EnvironmentAssetId).Order());
+        else Assert.Empty(migrated.EarlierSetupContent);
+        Assert.All(migrated.EarlierSetupContent, e => { Assert.Equal(content.Prompt, e.Content.Prompt); Assert.Equal(content.Images, e.Content.Images); });
+        using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(path, _ct));
+        Assert.All(saved.RootElement.GetProperty("compositions").EnumerateArray(), c => Assert.False(c.GetProperty("inputs").TryGetProperty("environmentAssetId", out _)));
+        var edited = migrated.Compositions.Single(c => c.Id == alternate.Id);
+        edited.Shot.EnvironmentAssetId = null;
+        await store.SaveAsync(f.Project.Id, edited, edited.Version, _ct);
+        Assert.All((await store.LoadAsync(f.Project.Id, _ct)).Compositions, c => Assert.Null(c.Shot.EnvironmentAssetId));
     }
 }

@@ -117,7 +117,7 @@ public sealed class ReelRefModStore(ProjectFiles files)
             var reference = video.Reel.RefMod!;
             for (var i = 0; i < reference.Recipe.LatentFrames; i++)
                 result.Add(new(video.Number, i + 1, video.Reel.Name, video.Reel.Keyframes!.Frames[i].Notes,
-                    reference.Recipe.FrameHashes[i], await PreviewAsync(project, reference, i, ct)));
+                    reference.Recipe.FrameHashes[i], await PreviewAsync(project, reference, i, ct)) { ViewName = video.Reel.Keyframes.Frames[i].Name });
         }
         return result;
     }

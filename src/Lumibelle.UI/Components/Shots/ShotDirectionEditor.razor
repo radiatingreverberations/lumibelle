@@ -1,0 +1,68 @@
+@using lumibelle.Services.Shots
+
+@if (Value is { } direction)
+{
+    <section class="shot-direction" aria-label="Shot direction">
+        @if (!string.IsNullOrWhiteSpace(direction.Intent.Purpose))
+        {
+            <p class="direction-purpose"><strong>@direction.Intent.Purpose</strong> @direction.Intent.Reason</p>
+        }
+        <details>
+            <summary>Direction @if (Freshness?.Limitations.Count > 0) { <span class="direction-status">Needs review</span> }</summary>
+            @if (Freshness?.Limitations.Count > 0)
+            {
+                <ul class="field-hint" role="status">@foreach (var limitation in Freshness.Limitations) { <li>@limitation</li> }</ul>
+            }
+            <div class="direction-fields">
+                @foreach (var field in Essential)
+                {
+                    <label>@field.Label<textarea rows="2" value="@field.Get(direction)" disabled="@Disabled" @oninput="e => Edit(field.Set, e)" /></label>
+                }
+            </div>
+            <details class="direction-advanced"><summary>Advanced</summary>
+                <div class="direction-fields">
+                    @foreach (var field in Advanced)
+                    {
+                        <label>@field.Label<textarea rows="2" value="@field.Get(direction)" disabled="@Disabled" @oninput="e => Edit(field.Set, e)" /></label>
+                    }
+                </div>
+                <p class="field-hint">Staging is proposed, not measured geometry. Long-take ideas suggest later manual extension; they do not change this clip.</p>
+            </details>
+            @if (Review.HasDelegate && Freshness?.Limitations.Count > 0)
+            {
+                <button disabled="@Disabled" @onclick="() => Review.InvokeAsync()">Mark direction reviewed</button>
+            }
+        </details>
+    </section>
+}
+
+@code {
+    [Parameter] public ShotDirection? Value { get; set; }
+    [Parameter] public EventCallback<ShotDirection> ValueChanged { get; set; }
+    [Parameter] public DirectionFreshness? Freshness { get; set; }
+    [Parameter] public EventCallback Review { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private sealed record Field(string Label, Func<ShotDirection, string> Get, Action<ShotDirection, string> Set);
+    private static readonly Field[] Essential = [
+        new("Purpose", d => d.Intent.Purpose, (d,v) => d.Intent.Purpose=v),
+        new("Why this shot", d => d.Intent.Reason, (d,v) => d.Intent.Reason=v),
+        new("Audience attention", d => d.Intent.Attention, (d,v) => d.Intent.Attention=v),
+        new("Essential relationships", d => d.Intent.Relationships, (d,v) => d.Intent.Relationships=v),
+        new("Positions", d => d.Staging.Positions, (d,v) => d.Staging.Positions=v),
+        new("Facing", d => d.Staging.Facing, (d,v) => d.Staging.Facing=v),
+        new("Eyelines", d => d.Staging.Eyelines, (d,v) => d.Staging.Eyelines=v),
+        new("Movement", d => d.Staging.Movement, (d,v) => d.Staging.Movement=v),
+        new("Camera behavior", d => d.Staging.Camera, (d,v) => d.Staging.Camera=v),
+        new("Cut in", d => d.Editorial.CutIn, (d,v) => d.Editorial.CutIn=v),
+        new("Cut out", d => d.Editorial.CutOut, (d,v) => d.Editorial.CutOut=v),
+        new("Performance and timing", d => d.Editorial.Timing, (d,v) => d.Editorial.Timing=v)
+    ];
+    private static readonly Field[] Advanced = [
+        new("Continuity", d => d.Advanced.Continuity, (d,v) => d.Advanced.Continuity=v),
+        new("Assumptions", d => d.Advanced.Assumptions, (d,v) => d.Advanced.Assumptions=v),
+        new("Long-take idea (informational)", d => d.Advanced.LongTakeIdea, (d,v) => d.Advanced.LongTakeIdea=v)
+    ];
+    private Task Edit(Action<ShotDirection,string> set, ChangeEventArgs e) {
+        var copy = ShotCopy.Of(Value!); set(copy, e.Value?.ToString() ?? ""); return ValueChanged.InvokeAsync(copy);
+    }
+}

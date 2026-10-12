@@ -79,7 +79,7 @@ test('takes compare shared shot inputs across generation setups and remain usabl
   await page.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill(changedPrompt);
   await expect.poll(async () => (await setups())[0].prompt).toBe(changedPrompt);
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.manual-reference-dialog');
   await picker.locator('[data-reference]').first().click();
   await picker.getByLabel('AI use hint').selectOption('Setting');

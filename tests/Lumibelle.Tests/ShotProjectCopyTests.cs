@@ -11,6 +11,45 @@ namespace Lumibelle.Tests;
 
 public sealed partial class ShotTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectCopyRemapsEnvironmentLibraryAndSelectionProvenance(bool attachImage)
+    {
+        var f = Fixture(); var target = Fixture(); var source = Ready(); source.SceneId = null; source.ApprovedScriptId = null;
+        await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
+        var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Plaza", Category = AssetCategory.Environment };
+        var library = await f.Assets.SaveAsync(new() { ProjectId = f.Project.Id, Assets = [asset] }, 0, _ct);
+        if (attachImage) {
+            using var png = new MemoryStream(AssetStoreTests.Png(40, 32));
+            library = await f.Assets.AddImageAsync(f.Project.Id, asset.Id, png, new("plaza.png", [], AssetImageOrigin.Imported), library.Revision, _ct);
+        }
+        var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == f.Project.Id ? f.Project : target.Project) };
+        var production = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
+        var c = (await production.InitializeAsync(f.Project.Id, _ct)).Compositions[0]; c.Shot.EnvironmentAssetId = asset.Id;
+        var selection = Guid.NewGuid();
+        if (attachImage) {
+            c.Shot.Images = [new() { AssetId = asset.Id, MediaId = library.Assets[0].Images[0].Id, EnvironmentSelectionId = selection, Name = "Gate reverse", Notes = "Keep gate height", Crop = new() { Width = .5 } }];
+            c.Shot.EnvironmentStaging = new(c.Shot.Id, asset.Id, selection, EnvironmentViews.StagingAction(c.Shot), "", "",
+                new("Face across the podium.", "Static side view.", "Facing inferred.", ""),
+                [new(c.Shot.Images[0].Id, c.Shot.Images[0].MediaId, null, null, c.Shot.Images[0].Crop, "Gate defines the route.")]);
+        }
+        await production.SaveAsync(f.Project.Id, c, c.Version, _ct);
+        var copier = new ShotProjectCopyStore(f.Files, f.Shots, production, new FileScriptStore(f.Files, _clock), f.Assets, f.Assets, _clock);
+        var preview = await copier.PreviewAsync(f.Project.Id, [source.Id], _ct); Assert.Equal(1, preview.Assets);
+        await copier.CopyAsync(new(Guid.NewGuid(), f.Project.Id, target.Project.Id, [source.Id], preview.ShotRevision, preview.ProductionRevision, preview.ScriptRevision), ct: _ct);
+        var copiedAsset = Assert.Single((await f.Assets.LoadAsync(target.Project.Id, _ct)).Assets);
+        Assert.NotEqual(asset.Id, copiedAsset.Id);
+        var copied = Assert.Single((await production.LoadAsync(target.Project.Id, _ct)).Compositions).Shot;
+        Assert.Equal(copiedAsset.Id, copied.EnvironmentAssetId); Assert.Empty(copied.Videos);
+        if (attachImage) {
+            var image = Assert.Single(copied.Images); Assert.Equal(copiedAsset.Id, image.AssetId); Assert.Equal(selection, image.EnvironmentSelectionId);
+            Assert.Equal("Gate reverse", image.Name); Assert.Equal("Keep gate height", image.Notes); Assert.Equal(.5, image.Crop!.Width);
+            Assert.Equal(copied.Id, copied.EnvironmentStaging!.ShotId); Assert.Equal(copiedAsset.Id, copied.EnvironmentStaging.AssetId);
+            Assert.Equal(image.MediaId, copied.EnvironmentStaging.Views.Single().MediaId);
+            Assert.Null(EnvironmentViews.StagingIssue(copied, "", ""));
+        } else Assert.Empty(copied.Images);
+    }
     [Fact]
     public async Task ProjectCopyOwnsStartingAndContinuityFramesFromAnUnselectedShot()
     {
@@ -155,7 +194,11 @@ public sealed partial class ShotTests
         var first = Ready(); first.Title = "First"; first.SceneId = scene.Id; first.SceneTitle = scene.Text; first.ApprovedScriptId = null; first.SourceBlockIds = [scene.Id, action.Id];
         first.Characters = [new(Guid.NewGuid(), "Mira") { Appearance = new(asset.Id, look.Id) }];
         var second = first.Copy(); second.Id = Guid.NewGuid(); second.Title = "Second";
-        await f.Shots.SaveAsync(f.Project.Id, [first, second], 0, ct: _ct);
+        var strategy = new DirectionStrategy { SceneId = scene.Id, DramaticProgression = "Shared purpose becomes isolation", VisualProgression = "Begin wide, end on Mira", SpatialAnchors = "Mira faces the staff" };
+        first.DirectionStrategyId = second.DirectionStrategyId = strategy.Id;
+        first.Direction = new() { Intent = new() { Purpose = "Reveal the decision" }, Staging = new() { Facing = "Toward the staff" } };
+        ShotDirections.Review(first, strategy);
+        await f.Shots.SaveDirectedWorkspaceAsync(f.Project.Id, [first, second], [], [strategy], 0, ct: _ct);
         var jobs = new FileAiJobStore(Path.Combine(_root, "copy-jobs"), _clock);
         var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == f.Project.Id ? f.Project : target.Project) };
         var production = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, jobs);
@@ -180,6 +223,8 @@ public sealed partial class ShotTests
         var request = new ShotProjectCopyRequest(Guid.NewGuid(), f.Project.Id, target.Project.Id, [second.Id, first.Id], preview.ShotRevision, preview.ProductionRevision, preview.ScriptRevision);
         var result = await copier.CopyAsync(request, ct: _ct);
         var copied = await f.Shots.LoadAsync(target.Project.Id, _ct);
+        var copiedStrategy = Assert.Single(copied.DirectionStrategies); Assert.NotEqual(strategy.Id, copiedStrategy.Id); Assert.NotEqual(scene.Id, copiedStrategy.SceneId);
+        Assert.All(copied.Shots, s => Assert.Equal(copiedStrategy.Id, s.DirectionStrategyId)); Assert.Equal("Reveal the decision", copied.Shots[0].Direction!.Intent.Purpose);
         Assert.Equal(new[] { "First", "Second" }, copied.Shots.Select(s => s.Title));
         Assert.All(copied.Shots, s => { Assert.DoesNotContain(s.Id, new[] { first.Id, second.Id }); Assert.Null(s.ApprovedScriptId); Assert.Equal("16:9", s.AspectOverride); });
         var copiedScript = await scripts.LoadAsync(target.Project.Id, _ct);

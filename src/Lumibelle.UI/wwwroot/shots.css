@@ -147,9 +147,17 @@
 .shot-review-dialog .shot-candidate { display:flex; flex-wrap:wrap; gap:8px; padding:8px; }
 .shot-review-dialog .shot-candidate button { margin:0; min-height:36px; padding:6px 8px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--ink); font:inherit; font-size:var(--lumi-font-size-meta); }
 .shot-review-dialog .shot-candidate > button:not([data-shot-take]) { flex:1 1 auto; min-width:0; }
-.shot-review-dialog .shot-candidate button[aria-pressed=true] { background:var(--lumi-surface-selected); border-color:var(--lumi-accent); }
-/* Emphasize adopting the viewed take; secondary editing and generation actions stay neutral. */
-.shot-review-dialog .shot-candidate button.take-use-primary { background:var(--lumi-accent); border-color:var(--lumi-accent); color:var(--lumi-on-accent); }
+.shot-review-dialog .shot-candidate button[data-shot-take] { flex:1 0 100%; min-width:0; text-align:left; }
+.shot-review-dialog .shot-candidate button[aria-pressed=true] { background:var(--lumi-surface-subtle); border-color:var(--lumi-text-muted); }
+.shot-review-dialog .shot-candidate button.take-choice-selected { background:var(--lumi-surface-selected); border-color:var(--lumi-accent); }
+.take-choice-caption { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; margin-top:6px; }
+.take-choice-states { display:inline-flex; align-items:center; flex-wrap:wrap; gap:4px 8px; font-size:var(--lumi-font-size-small); }
+.take-selected-badge { padding:2px 7px; border-radius:999px; background:var(--lumi-accent); color:var(--lumi-on-accent); font-weight:600; }
+.take-viewing-badge { color:var(--lumi-text-muted); }
+@media (max-width:700px) {
+    .take-choice-caption { flex-direction:column; align-items:flex-start; }
+    .take-choice-states { min-height:22px; }
+}
 .shot-review-dialog .shot-candidate button:not(:disabled):hover { filter:brightness(.96); }
 .shot-review-dialog .shot-candidate button:disabled { opacity:.5; }
 .take-review-file { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:10px 0; font-size:var(--lumi-font-size-meta); color: var(--lumi-text-muted); }
@@ -541,6 +549,9 @@
 .workspace-pane:is(.shot-controls, .reel-tools) .shot-references-title { margin:0; font-size:var(--lumi-font-size-ui); }
 .workspace-pane:is(.shot-controls, .reel-tools) .add-shot-references { margin:0; width:auto; font-size:var(--lumi-font-size-small); }
 .shot-references > :not(.shot-references-title):not(.add-shot-references) { grid-column:1 / -1; }
+.shot-reference-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.workspace-pane.shot-controls .shot-reference-actions > button { flex:1 0 auto; padding:7px 8px; font-size:var(--lumi-font-size-small); white-space:nowrap; }
+.shot-references > .field-hint { margin:0; }
 .shot-reference-counts { display:flex; flex-wrap:wrap; gap:6px 14px; color:var(--muted); font-size:var(--lumi-font-size-small); }
 .shot-reference-counts strong { color:var(--ink); font-weight:550; }
 .shot-reference-contact-sheet { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }

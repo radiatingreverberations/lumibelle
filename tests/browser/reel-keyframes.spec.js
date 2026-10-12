@@ -42,7 +42,7 @@ for (const lossless of [true, false]) test(`manual frame selection follows exact
   if (!lossless) expect(catalog.playbackOrigin).toBeGreaterThan(.03);
   await page.goto(`/projects/${id}/assets`);
   const editor = await manager(page, reel);
-  await expect(editor.getByRole('button', { name: 'Auto-pick', exact: true })).toBeEnabled();
+  await expect(editor.getByRole('button', { name: 'Suggest reel views', exact: true })).toBeEnabled();
   for (let remaining = await editor.locator('.keyframe-list > li').count(); remaining > 0; remaining--) {
     await editor.getByRole('button', { name: 'Remove', exact: true }).first().click();
     await expect(editor.locator('.keyframe-list > li')).toHaveCount(remaining - 1);
@@ -84,16 +84,24 @@ for (const narrow of [false, true]) test(`keyframe defaults and setup overrides 
   test.setTimeout(100000);
   const { id, reel, owner } = await fixture(page, request, narrow);
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}`);
-  let editor = await manager(page, reel);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  const reelCard = page.locator(`[data-media-id="${reel.id}"]`);
+  await expect(reelCard.getByRole('button', { name: 'Needs keyframes', exact: true })).toBeVisible();
+  await page.screenshot({ path: `artifacts/reel-needs-keyframes-${narrow ? 'narrow' : 'desktop'}.png` });
+  await reelCard.getByRole('button', { name: 'Needs keyframes', exact: true }).click();
+  let editor = page.locator('.keyframe-editor');
   await expect(editor.locator('.keyframe-list > li')).toHaveCount(1);
   await expect(editor.getByText(/Found 1 distinct usable views/)).toBeVisible();
   const suggested = Number((await editor.locator('.keyframe-pick img').getAttribute('src')).match(/frames\/(\d+)/)[1]);
   await expect.poll(() => editor.locator('.exact-frame').evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
   await manual(page, editor, 48);
   await expect(editor.locator('.keyframe-list > li')).toHaveCount(2);
-  await editor.getByLabel('Auto-pick up to', { exact: true }).fill('9');
+  await expect(editor.getByLabel('View limit', { exact: true })).toHaveValue('auto');
+  await editor.getByLabel('View limit', { exact: true }).selectOption('9');
   await expect(editor.locator('.keyframe-list > li')).toHaveCount(2); // N alone never replaces picks.
-  await editor.getByRole('button', { name: 'Auto-pick', exact: true }).click();
+  await expect(editor.getByRole('button', { name: 'Quick picks', exact: true })).not.toBeVisible();
+  await editor.getByText('More selection tools', { exact: true }).click();
+  await editor.getByRole('button', { name: 'Quick picks', exact: true }).click();
   await expect(editor.locator('.keyframe-list > li')).toHaveCount(1);
   await editor.getByRole('button', { name: 'Undo picks', exact: true }).click();
   await expect(editor.locator('.keyframe-list > li')).toHaveCount(2);
@@ -107,16 +115,19 @@ for (const narrow of [false, true]) test(`keyframe defaults and setup overrides 
   await editor.getByRole('button', { name: 'Save keyframes', exact: true }).click();
   await expect(editor).not.toBeVisible();
   const defaults = (await library(request, id)).reels.find(r => r.id === reel.id).keyframes;
+  await expect(reelCard.getByRole('button', { name: 'Needs keyframes', exact: true })).not.toBeVisible();
+  await expect(reelCard.getByRole('button', { name: '2 keyframes', exact: true })).toBeVisible();
   expect(defaults.frames.map(f => f.frame.index)).toEqual([48, suggested]);
   expect(defaults.frames[0].crop.width).toBe(.5);
   editor = await manager(page, reel);
   await editor.getByRole('button', { name: 'Remove', exact: true }).first().click();
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await library(request, id)).reels.find(r => r.id === reel.id).keyframes).toEqual(defaults);
+  await expect(reelCard.getByRole('button', { name: '2 keyframes', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: `Actions for ${reel.name}`, exact: true })).toBeFocused();
 
   await page.goto(`/projects/${id}/shots`); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   await refs.locator(`[data-reel-id="${reel.id}"] .add-reel`).click();
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
@@ -150,7 +161,7 @@ for (const narrow of [false, true]) test(`keyframe defaults and setup overrides 
   await reelTile.click();
   await expect(page.getByLabel('Reference video playback', { exact: true })).toHaveAttribute('src', new RegExp(`/reference-videos/${reel.media.id}$`));
   await page.getByRole('button', { name: 'Close video preview', exact: true }).click();
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
   await refs.locator('.video-reference-list .reference-settings-button').click();
   await refs.getByLabel('Visuals', { exact: true }).selectOption('None');
@@ -168,7 +179,7 @@ test('Compose sees exact keyframes and generation captures no video input', asyn
   test.setTimeout(90000);
   const { id, reel } = await fixture(page, request, false);
   await page.reload(); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   await refs.locator('[data-reference]').first().click();
   await refs.locator(`[data-reel-id="${reel.id}"] .add-reel`).click();

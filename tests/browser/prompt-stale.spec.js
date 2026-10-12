@@ -21,7 +21,7 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   await expect(prompt).not.toHaveClass(/stale/);
   await expect(prompt).not.toHaveAttribute('title');
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').nth(0).click();
   const manager = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references' }) });
   await manager.getByRole('button', { name: 'Apply changes', exact: true }).click();

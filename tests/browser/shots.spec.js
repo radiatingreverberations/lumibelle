@@ -27,7 +27,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { project, state } = await setup(page, request);
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').first().click();
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await editShotReference(page);
@@ -94,7 +94,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await review.getByRole('button', { name: 'Close', exact: true }).click();
   await shotAction(page, 'Duplicate');
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
   await page.getByLabel('Origin', { exact: true }).selectOption('VideoFrame');
   await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse after arrival/ }).click();
@@ -195,7 +195,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await page.screenshot({ path: `test-results/frame-assets-${workflow}-mobile.png`, fullPage: true });
     await page.getByRole('link', { name: 'Shots', exact: true }).click();
     await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
     await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
     await page.getByLabel('Origin', { exact: true }).selectOption('Cropped');
     await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse face crop/ }).click();
@@ -457,7 +457,7 @@ test('character voice upload, excerpt selection and shot assignment', async ({ p
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole('link', { name: 'Shots', exact: true }).click();
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   if (!await refs.getByLabel('Voice for Juniper', { exact: true }).count())
     await refs.getByLabel('Add character voice', { exact: true }).selectOption(library.voices[0].assetId);
@@ -523,7 +523,7 @@ test('shared preservation defaults, local overrides and captured take guidance r
   await expect.poll(async () => (await library()).assets.find(a => a.id === person.id).images[0].preservationGuidance).toBe('Preserve the gray hoodie.');
   await page.getByRole('link', { name: 'Shots', exact: true }).click();
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const reference = page.locator('.manual-reference-dialog');
   await reference.locator(`[data-reference="${person.id}/${person.images[0].id}"]`).click();
   await reference.getByLabel('Voice for Juniper', { exact: true }).selectOption('none');

@@ -17,6 +17,7 @@ public partial class ShotReferenceEditor
     [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = null!;
     [Parameter] public IReadOnlyList<Shot> CopySources { get; set; } = [];
     [Parameter] public Shot? PreviousCopySource { get; set; }
+    [Parameter] public bool ShowCopyControls { get; set; } = true;
     /// <summary>A shot's number in the shot list, to order and label the shots to copy from around this one.</summary>
     [Parameter] public Func<Shot, int>? CopySourceNumber { get; set; }
     [Parameter] public int CurrentShotNumber { get; set; }
@@ -180,11 +181,11 @@ public partial class ShotReferenceEditor
         if (_busy || !AllowReels || choice is not AssetReferenceChoice.Reel selected || _draft.Videos.Any(v => v.Media.Id == selected.Media.Media.Id)) return;
         var reel = selected.Media;
         var prior = _draft.Videos.FirstOrDefault(v => v.Id == _replacingVideo);
-        if (prior is null && _draft.Videos.Count >= 3) return;
         var binding = new ShotVideoBinding { Id = prior?.Id ?? Guid.NewGuid(), Media = reel.Media, Name = reel.Name, Description = reel.UseGuidance,
             UseSoundtrack = !ReelAuthoring && selected.Asset.Category != AssetCategory.Character && reel.Media.HasAudio && reel.Generation?.Recipe.VoiceMode != ReelVoiceMode.Silent, Speaker = null, OwnerAssetId = selected.Asset.Id,
             Visuals = ReelUsageDefaults.Initial(selected.Asset), Keyframes = reel.Keyframes is null ? null : ShotCopy.Of(reel.Keyframes), OwnerCategory = selected.Asset.Category,
             AudioExcerpt = new(0, Math.Min(15, reel.Media.Duration)) };
+        if (ReferenceVideos.ReelSlotCount(_draft) - (prior is not null && ReferenceVideos.UsesReelSlot(prior) ? 1 : 0) + (ReferenceVideos.UsesReelSlot(binding) ? 1 : 0) > 3) return;
         if (binding.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.RefMod && binding.Keyframes is null) {
             _busy = true; _preparingFrames = true; _error = null;
             try { binding.Keyframes = await ReelMedia.SuggestFramesAsync(Library.ProjectId, reel.Media, 3, (await AiSettings.LoadAsync(_lifetime.Token)).H3, _lifetime.Token); }

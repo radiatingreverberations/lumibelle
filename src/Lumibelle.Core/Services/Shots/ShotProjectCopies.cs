@@ -21,6 +21,7 @@ public sealed record ShotProjectCopyPackage(ShotProjectCopyRequest Request, List
     List<AssetReuseCommand> Assets, Dictionary<Guid, Guid> Identities)
 {
     public List<ScriptSourceSnapshot> ScriptSources { get; init; } = [];
+    public List<DirectionStrategy> DirectionStrategies { get; init; } = [];
 }
 
 public interface IShotProjectCopyStore
@@ -72,6 +73,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
     {
         var ids = new HashSet<Guid>();
         foreach (var shot in Inputs(source, selected)) {
+            if (shot.EnvironmentAssetId is { } environment) ids.Add(environment);
             foreach (var image in shot.Images) ids.Add(image.AssetId);
             foreach (var voice in shot.Voices) { ids.Add(voice.AssetId); if (voice.CharacterAssetId is { } character) ids.Add(character); }
             foreach (var voice in shot.CharacterVoices ?? []) ids.Add(voice.AssetId);
@@ -207,8 +209,9 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         }
         if (copiedShots.Any(s => latest.Shots.Any(existing => existing.Id == s.Id)) || copiedTakes.Any(t => latest.Takes.Any(existing => existing.Id == t.Id)))
             throw new WorkspaceStoreException("A copied shot identity already exists without its acknowledgement. Nothing was overwritten.");
-        latest.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Before copying shots from another project", ShotCopy.Of(latest.Shots)) { SceneSetups = ShotCopy.Of(latest.SceneSetups) });
+        latest.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Before copying shots from another project", ShotCopy.Of(latest.Shots)) { SceneSetups = ShotCopy.Of(latest.SceneSetups), DirectionStrategies = ShotCopy.Of(latest.DirectionStrategies) });
         latest.Recovery = latest.Recovery.Take(30).ToList();
+        latest.DirectionStrategies.AddRange(Remap(package.DirectionStrategies, package.Identities, request.DestinationProjectId));
         latest.Shots.AddRange(copiedShots); latest.Takes.AddRange(copiedTakes);
         latest.ProjectCopies.Add(new(request.Id, fingerprint, request.SourceProjectId, copiedShots.Select(s => s.Id).ToArray(), clock.GetUtcNow()));
         latest.Revision++; latest.UpdatedUtc = clock.GetUtcNow();
@@ -237,6 +240,8 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         var map = new Dictionary<Guid, Guid> { [request.SourceProjectId] = request.DestinationProjectId };
         void Add(Guid id, string kind) => map.TryAdd(id, AssetReusePolicy.Identity(request.Id, kind, id));
         foreach (var shot in selected) Add(shot.Id, "shot");
+        var strategies = data.Shots.DirectionStrategies.Where(s => selected.Any(shot => shot.DirectionStrategyId == s.Id)).ToList();
+        foreach (var strategy in strategies) Add(strategy.Id, "direction-strategy");
         foreach (var block in blocks) Add(block.Id, "script-block");
         var compositions = data.Production.Compositions.Where(c => selected.Any(s => s.Id == c.ShotId)).Select(c => c.Copy()).ToList();
         foreach (var composition in compositions) Add(composition.Id, "composition");
@@ -260,7 +265,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
             // A copied take is not a new publication by the original AI request.
             take.AiJobId = null;
         }
-        return new(request, selected.Select(s => s.Copy()).ToList(), compositions.Select(c => new ShotProjectCopySetup(c, c.Shot.Copy())).ToList(), blocks, copiedTakes, commands, map);
+        return new(request, selected.Select(s => s.Copy()).ToList(), compositions.Select(c => new ShotProjectCopySetup(c, c.Shot.Copy())).ToList(), blocks, copiedTakes, commands, map) { DirectionStrategies = ShotCopy.Of(strategies) };
     }
 
     private static T Remap<T>(T value, IReadOnlyDictionary<Guid, Guid> map, Guid destination)

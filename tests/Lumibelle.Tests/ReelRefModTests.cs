@@ -281,15 +281,21 @@ public sealed partial class ShotTests
     public void RefModTrialComposerMapsSourcePreviewsToVideoNotPictureLabels()
     {
         var mod = RefModBinding(2); var shot = Ready() with { Videos = [mod] };
+        mod.Keyframes!.Frames[0].Name = "Toward judge platform";
         var request = new PromptCompositionRequest(Guid.NewGuid(), Guid.NewGuid(), 1, "baseline", "source", shot,
             "scene", [], [], [], [], "", "", "", new(AiBackend.OpenRouter, "mock", "Mock"), false);
         var frames = Enumerable.Range(0, 2).Select(i => new RefModInspectionFrame(1, i + 1, mod.Name,
-            mod.Keyframes!.Frames[i].Notes, mod.RefMod!.Recipe.FrameHashes[i], Encoding.UTF8.GetBytes("frame" + i))).ToArray();
+            mod.Keyframes!.Frames[i].Notes, mod.RefMod!.Recipe.FrameHashes[i], Encoding.UTF8.GetBytes("frame" + i)) { ViewName = mod.Keyframes.Frames[i].Name }).ToArray();
         var messages = PromptComposer.BuildMessages(request, [], frames);
         Assert.Equal(3, messages[1].Contents.Count);
         using var payload = JsonDocument.Parse(messages[1].Text!);
         Assert.Equal(1, payload.RootElement.GetProperty("sparseVisualReferences")[0].GetProperty("video").GetInt32());
         Assert.Empty(payload.RootElement.GetProperty("references").EnumerateArray());
+        Assert.Equal("Toward judge platform", payload.RootElement.GetProperty("sparseInspectionAttachments")[0].GetProperty("viewName").GetString());
+        var brief = PromptComposer.BuildBriefMessages(request, [], frames);
+        using var briefPayload = JsonDocument.Parse(brief[1].Text!);
+        Assert.Equal("Toward judge platform", briefPayload.RootElement.GetProperty("refModPreviewAttachments")[0].GetProperty("viewName").GetString());
+        Assert.Equal("Angle 0", briefPayload.RootElement.GetProperty("refModPreviewAttachments")[0].GetProperty("notes").GetString());
         Assert.Contains("never create Picture identifiers", messages[0].Text);
         Assert.Throws<WorkspaceStoreException>(() => PromptComposer.BuildMessages(request, []));
         Assert.Throws<WorkspaceStoreException>(() => PromptComposer.BuildMessages(request, [], frames.Reverse().ToArray()));

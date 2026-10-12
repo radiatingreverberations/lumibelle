@@ -80,7 +80,7 @@ test('reference and voice drafts apply together, cancel crops, and reject concur
   await toolsTab(page, 'References');
   const state = async () => (await (await request.get(`/fixtures/${id}/production`)).json()).compositions[0].inputs;
   const details = page.locator('.manual-reference-dialog');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await details.locator(`[data-reference="${library.assets[0].id}/${library.assets[0].images[0].id}"]`).click();
   await details.getByLabel('Voice for Juniper', { exact: true }).selectOption('none');
   await details.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -91,7 +91,7 @@ test('reference and voice drafts apply together, cancel crops, and reject concur
   await cropReference(page, details);
   await details.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).images[0]).toEqual(original);
-  await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeFocused();
   await editShotReference(page);
   await details.getByLabel('AI use hint', { exact: true }).selectOption('First frame');
   await details.getByRole('button', { name: 'Customize for this setup' }).click();
@@ -131,7 +131,7 @@ test('reference and voice drafts apply together, cancel crops, and reject concur
   await details.getByLabel('AI use hint', { exact: true }).selectOption('Setting');
   await page.keyboard.press('Escape');
   await expect(page.locator('.workspace-right')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeFocused();
   await expect(page.getByRole('button', { name: 'Generate takes', exact: true })).toBeInViewport();
   await page.screenshot({ path: 'test-results/workspace-shots-mobile.png' });
 });

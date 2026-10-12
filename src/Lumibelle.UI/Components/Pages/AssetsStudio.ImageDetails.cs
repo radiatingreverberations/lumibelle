@@ -19,6 +19,14 @@ public partial class AssetsStudio
     [Parameter] public string? RequestedView { get; set; }
 
     private async Task OpenDetails(Guid imageId) { _openImageDetails = true; await OpenPreview(imageId); }
+    private Task CreateReelFromImage(Guid imageId) => TransitionTools(async () => {
+        if (_reels is null) return;
+        _imageReviewError = await _reels.CreateFromImageAsync(imageId);
+        if (_imageReviewError is not null) return;
+        await ClosePreview();
+        await RevealReelTools();
+        await RememberAssetPosition();
+    });
     private async Task<string?> ApplyImageDetails(ImageMetadataEdit edit)
     {
         if (edit.ProjectId != Id) return "This project is no longer open. Your details were not changed.";

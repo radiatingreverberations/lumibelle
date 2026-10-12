@@ -1,6 +1,7 @@
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
+using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using Microsoft.Extensions.AI;
@@ -76,6 +77,12 @@ public static class AiTextResults
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.AssetPicking:
                 try { return Value(result, lumibelle.Services.Production.AssetPicker.Parse(raw, request.Payload<AssetPickRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.ReelViewSuggestion:
+                try { return Value(result, ReelViewSuggestions.Parse(raw, request.Payload<ReelViewSuggestionRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.EnvironmentViewSelection:
+                try { return Value(result, EnvironmentViews.Parse(raw, request.Payload<EnvironmentViewRequest>())); }
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.PromptComposition:
                 try { return Value(result, lumibelle.Services.Production.PromptComposer.Parse(raw, request.Payload<PromptCompositionRequest>())); }

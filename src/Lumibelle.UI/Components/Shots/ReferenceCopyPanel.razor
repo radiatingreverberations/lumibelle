@@ -1,0 +1,113 @@
+@using lumibelle.Services.Shots
+
+<div class="reference-copy-panel">
+    <label>Copy from shot<select aria-label="Copy from shot" value="@_sourceId" @onchange="SourceChanged" disabled="@_busy">
+        @foreach (var source in Sources.OrderBy(s => Math.Abs(Number(s) - CurrentNumber)).ThenBy(Number)) {
+            <option value="@source.Id">@Number(source) · @source.Title@(source.Id == Previous?.Id ? " · Previous shot" : "")</option>
+        }
+    </select></label>
+    @if (_copy is { } copy && _draft is { } draft) {
+        <p class="field-hint">Replaces this shot's references and environment library. Action, dialogue and prompt text stay as they are; the prompt will need review.</p>
+        <p class="reference-copy-budget">@ResolvedReferences.For(draft).Pictures.Count/9 pictures · @ReferenceVideos.ReelSlotCount(draft)/3 reels · @ResolvedReferences.For(draft).Audio.Count/3 audio</p>
+        <label>Environment library<select aria-label="Environment library" value="@(_environmentId?.ToString() ?? "")" @onchange="EnvironmentChanged" disabled="@_busy">
+            <option value="">None selected</option>
+            @foreach (var environment in Library.Assets.Where(a => a.Category == AssetCategory.Environment).OrderBy(a => a.Name)) {
+                <option value="@environment.Id">@environment.Name</option>
+            }
+            @if (_environmentId is { } missing && !Library.Assets.Any(a => a.Id == missing && a.Category == AssetCategory.Environment)) { <option value="@missing" disabled>Unavailable environment</option> }
+        </select></label>
+        @if (_environmentId is null) { <p class="field-hint">No environment library selected. Copied pictures still work as references; choose a library to select other views for this shot.</p> }
+        else { <p class="field-hint">Copies the current reference views. Use Environment after copying to choose different views for this shot.</p> }
+        <div class="reference-copy-pictures">
+            @foreach (var picture in ResolvedReferences.For(draft).Pictures) {
+                var image = picture.Image; var frame = picture.Keyframe;
+                var name = image?.Name ?? frame?.Name ?? picture.Continuity?.Name ?? picture.Reel?.Name ?? "Reference";
+                var media = Library.Assets.FirstOrDefault(a => a.Id == image?.AssetId)?.Images.FirstOrDefault(i => i.Id == image?.MediaId);
+                var url = image is not null ? $"/media/projects/{Library.ProjectId}/assets/{image.AssetId}/images/{image.MediaId}"
+                    : frame is not null ? ReferenceVideos.FrameUrl(Library.ProjectId, frame.Frame)
+                    : picture.Continuity is { } continuity ? $"/media/projects/{Library.ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}" : null;
+                <div title="@name">
+                    @if (url is not null) { <CropThumbnail Responsive="true" ThumbnailWidth="16" ThumbnailHeight="9" MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? picture.Reel?.Media.Width ?? 16)" Height="@(media?.Height ?? picture.Reel?.Media.Height ?? 9)" Crop="@(image?.Crop ?? frame?.Crop)" /> }
+                    <small>@picture.Number · @name</small>
+                </div>
+            }
+        </div>
+        @foreach (var reel in draft.Videos.Where(ReferenceVideos.UsesReelSlot)) { <p>Reel · @reel.Name · @ReelUsageDefaults.Label(reel.EffectiveVisuals)</p> }
+        @foreach (var audio in ResolvedReferences.For(draft).Audio) { <p>Audio · @(audio.SourceName ?? audio.Speaker ?? $"Audio {audio.Number}")</p> }
+        @if (_frame is null) { <p class="field-hint">This shot has no selected take for a continuity picture. You can still copy its references.</p> }
+        else { <div class="reference-copy-continuity">
+            <label class="check-row"><input type="checkbox" aria-label="Include continuity picture" checked="@_includeFrame" @onchange="IncludeChanged" disabled="@(_busy || _frame is null || ResolvedReferences.For(copy.Inputs).Pictures.Count >= 9)" />Include a frame from the source shot's selected take</label>
+            <label>Frame<select aria-label="Continuity frame" value="@(_first ? "first" : "last")" @onchange="FrameChanged" disabled="@(_busy || _frame is null)"><option value="last">Last frame</option><option value="first">First frame</option></select></label>
+            @if (ResolvedReferences.For(copy.Inputs).Pictures.Count >= 9) { <p class="field-hint">The copied references fill all nine picture slots. Make room in Manage references before adding a continuity picture.</p> }
+        </div> }
+        @foreach (var warning in copy.Warnings) { <p class="field-hint">@warning</p> }
+        @foreach (var note in copy.Notes ?? []) { <p class="field-hint">@note</p> }
+        @if (_issue is not null) { <p role="alert">@_issue</p> }
+    }
+    @if (_error is not null) { <p role="alert">@_error</p> }
+    <div class="reference-copy-actions">
+        <MudButton OnClick="() => Cancelled.InvokeAsync()" Disabled="_busy">Cancel</MudButton>
+        <MudButton OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || _draft is null || _issue is not null)">@(_busy ? "Copying…" : "Copy references")</MudButton>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Shot Shot { get; set; } = null!;
+    [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = null!;
+    [Parameter] public IReadOnlyList<Shot> Sources { get; set; } = [];
+    [Parameter] public Shot? Previous { get; set; }
+    [Parameter, EditorRequired] public Func<Shot, int> Number { get; set; } = null!;
+    [Parameter] public int CurrentNumber { get; set; }
+    [Parameter, EditorRequired] public Func<Shot, bool, ShotContinuityFrame?> FrameOf { get; set; } = null!;
+    [Parameter] public EventCallback<ReferenceSelection> Applied { get; set; }
+    [Parameter] public EventCallback Cancelled { get; set; }
+    private Guid? _sourceId;
+    private Guid? _environmentId;
+    private ReferenceCopyResult? _copy;
+    private Shot? _draft;
+    private ShotContinuityFrame? _frame;
+    private bool _first, _includeFrame, _busy;
+    private string? _error, _issue;
+    protected override void OnInitialized() { _sourceId = Previous?.Id ?? Sources.OrderBy(s => Math.Abs(Number(s) - CurrentNumber)).FirstOrDefault()?.Id; PrepareSource(); }
+    private void SourceChanged(ChangeEventArgs e) { _sourceId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; PrepareSource(); }
+    private void PrepareSource()
+    {
+        _copy = null; _draft = null; _error = null;
+        if (Sources.FirstOrDefault(s => s.Id == _sourceId) is not { } source) return;
+        try {
+            _copy = ReferenceCopies.Into(source, Shot, Library);
+            _environmentId = _copy.Inputs.EnvironmentAssetId;
+            _first = Number(source) > CurrentNumber;
+            _frame = FrameOf(source, _first);
+            _includeFrame = _frame is not null && ResolvedReferences.For(_copy.Inputs).Pictures.Count < 9;
+            Stage();
+        } catch (Exception e) { _error = e.Message; }
+    }
+    private void IncludeChanged(ChangeEventArgs e) { _includeFrame = e.Value is true; Stage(); }
+    private void EnvironmentChanged(ChangeEventArgs e) { _environmentId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; Stage(); }
+    private void FrameChanged(ChangeEventArgs e)
+    {
+        _first = e.Value?.ToString() == "first";
+        if (Sources.FirstOrDefault(s => s.Id == _sourceId) is { } source) _frame = FrameOf(source, _first);
+        Stage();
+    }
+    private void Stage()
+    {
+        if (_copy is null) return;
+        _draft = _copy.Inputs.Copy(); _draft.EnvironmentAssetId = _environmentId; _draft.ContinuityFrame = _includeFrame ? _frame : null; _issue = null; _error = null;
+        try {
+            if (_environmentId is { } environment && !Library.Assets.Any(a => a.Id == environment && a.Category == AssetCategory.Environment))
+                throw new WorkspaceStoreException("Choose an available environment library, or None selected.");
+            H3Policy.Validate(_draft); ReferenceVideos.Validate(_draft);
+        }
+        catch (Exception e) { _issue = e.Message; }
+    }
+    private async Task Apply()
+    {
+        if (_busy || _draft is null || _issue is not null) return;
+        _busy = true; _error = null;
+        try { await Applied.InvokeAsync(new ReferenceSelection(_draft.Copy(), new Dictionary<Guid, Guid>())); }
+        catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; }
+    }
+}

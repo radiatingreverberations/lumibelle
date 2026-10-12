@@ -7,7 +7,7 @@ test('Assets shares the crop and selection layout while retaining source-only ed
   await page.setViewportSize({ width: 1173, height: 1000 });
   await page.goto(`/projects/${id}/assets`);
   await page.locator('.asset-media-card[data-media-kind=Image] .media-select').first().click();
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.image-input-manager-dialog');
   const donor = library.assets[1];
   await picker.locator(`[data-reference="${donor.id}/${donor.images[0].id}"]`).click();
@@ -38,7 +38,7 @@ test('Assets shares the crop and selection layout while retaining source-only ed
   await page.screenshot({ path: 'artifacts/shared-picker-assets-mobile.png' });
   await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.setViewportSize({ width: 1173, height: 1000 });
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await expect(picker.locator('.reference-selection-row')).toHaveCount(1);
 });
 
@@ -50,7 +50,7 @@ for (const [width, height] of [[1010, 650], [390, 700]]) test(`a short window ke
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const grid = page.locator('.reference-browser .picker-grid');
   await expect(grid).toBeVisible();
   // The toolbar and filters must not squeeze the gallery to a sliver; the browse column scrolls instead.
@@ -71,7 +71,7 @@ test('Shots restores a trashed picture from Manage references and applies it', a
     await page.goto(`/projects/${id}/shots`);
     await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
     await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
-    await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+    await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
     return page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   };
   let picker = await open();
@@ -95,6 +95,8 @@ test('Shots restores a trashed picture from Manage references and applies it', a
 });
 
 for (const [width, height] of [[1150, 745], [1400, 1000]]) test(`Manage references keeps its header compact in a short window (${width}x${height})`, async ({ page, request }) => {
+  // Measure the final layout, not MudBlazor's opening scale animation.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/prop-reel-owner`); // A prop needs no voice choice.
   const owner = (await (await request.get(`/fixtures/${id}`)).json()).assets.assets[0];
@@ -104,21 +106,19 @@ for (const [width, height] of [[1150, 745], [1400, 1000]]) test(`Manage referenc
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(picker).toBeHidden();
   await page.locator('[data-shot-id]').nth(1).click();
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
-  await expect(picker.getByLabel('Copy references from')).toBeVisible();
-  // Measure after the opening animation, which scales the dialog.
-  await expect.poll(() => picker.evaluate(d => Math.abs(d.getBoundingClientRect().height - parseFloat(getComputedStyle(d).height)) < 1)).toBe(true);
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await expect(picker.getByLabel('Copy references from')).toHaveCount(0);
   const box = async selector => picker.locator(selector).first().boundingBox();
-  const assist = await box('.asset-pick-assistant'), copy = await box('.reference-copy-toolbar'), columns = await box('.manual-reference-columns');
-  expect(Math.abs(assist.y - copy.y)).toBeLessThan(8); // Assist and Copy references share one row.
+  const assist = await box('.asset-pick-assistant'), columns = await box('.manual-reference-columns');
+  expect(assist.y).toBeLessThan(columns.y);
   expect((await box('.mud-dialog-title')).height).toBeLessThan(height <= 800 ? 60 : 100);
   expect(columns.height).toBeGreaterThan(height <= 800 ? 440 : 600);
   expect((await box('.reference-editor-footer')).y + (await box('.reference-editor-footer')).height).toBeLessThanOrEqual(height);
   await picker.locator('.asset-pick-assistant > summary').click();
-  expect((await box('.asset-pick-assistant')).width).toBeGreaterThan(copy.width * 1.5); // An opened Assist takes the full width.
+  expect((await box('.asset-pick-assistant')).width).toBeGreaterThan(columns.width * .9); // An opened Assist takes the full width.
 });

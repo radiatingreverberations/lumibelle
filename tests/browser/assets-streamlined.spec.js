@@ -70,12 +70,12 @@ for (const narrow of [false, true]) test(`streamlined gallery keeps drafts and s
   await expect(context.locator('span')).toHaveText(shown === owner.name ? 'General' : `${owner.name} · General`);
   await expect(page.locator('.asset-tools-header .asset-tool-context')).toHaveCount(1);
   await expect(prompt).toHaveValue(''); await prompt.fill('Keep this edit instruction');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const manager = page.locator('.image-input-manager-dialog');
   await manager.locator(`[data-reference="${lib.assets[1].id}/${lib.assets[1].images[0].id}"]`).click();
   await manager.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('.compact-image-input')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await manager.locator(`[data-reference="${lib.assets[1].id}/${lib.assets[1].images[0].id}"]`).click();
   await manager.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(page.locator('.compact-image-input')).toHaveCount(2);

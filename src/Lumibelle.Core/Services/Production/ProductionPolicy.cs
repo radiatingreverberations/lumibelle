@@ -20,6 +20,7 @@ public static class ProductionPolicy
             s.Id, s.Title, s.ApprovedScriptId, s.SceneId, s.SceneTitle, s.SourceBlockIds, s.SourceExcerpt,
             s.Duration, s.Description, s.Dialogue, Characters = ShotReferences.Characters(s).Select(c => new { c.Id, c.Name }), s.Atmosphere, s.Music
         });
+        if (s.Direction is not null || s.DirectionStrategyId is not null) source = ReferenceSetups.Hash(new { Source = source, s.Direction, s.DirectionStrategyId });
         // The starting frame joins only when set, so prompts composed before it existed keep their fingerprint.
         return s.StartFrame is null ? source : ReferenceSetups.Hash(new { Source = source, s.StartFrame });
     }
@@ -36,13 +37,13 @@ public static class ProductionPolicy
         {
             Title = title.Length > 500 ? title[..500] : title, ApprovedScriptId = source.ApprovedScriptId, SceneId = source.SceneId,
             SceneTitle = source.SceneTitle, SourceBlockIds = [.. source.SourceBlockIds], SourceExcerpt = source.SourceExcerpt,
-            Characters = ShotCopy.Of(ShotReferences.Characters(source).ToList()), Atmosphere = source.Atmosphere, Music = source.Music,
+            Characters = ShotCopy.Of(ShotReferences.Characters(source).ToList()), Atmosphere = source.Atmosphere, Music = source.Music, EnvironmentAssetId = source.EnvironmentAssetId,
             StartFrame = new(take.Id, frame)
         };
     }
     public static Shot CoverageCopy(Shot source)
     {
-        var s = new Shot(); CopyCoverage(source, s); s.SelectedTakeId = null; return s;
+        var s = new Shot { EnvironmentAssetId = source.EnvironmentAssetId }; CopyCoverage(source, s); s.SelectedTakeId = null; return s;
     }
     public static void CopyCoverage(Shot source, Shot target)
     {
@@ -50,6 +51,7 @@ public static class ProductionPolicy
         target.Id = source.Id; target.Title = source.Title; target.ApprovedScriptId = source.ApprovedScriptId;
         target.SceneId = source.SceneId; target.SceneTitle = source.SceneTitle; target.SourceBlockIds = [..source.SourceBlockIds];
         target.SourceExcerpt = source.SourceExcerpt; target.Planning = source.Planning; target.Duration = source.Duration;
+        target.Direction = ShotCopy.Of(source.Direction); target.DirectionStrategyId = source.DirectionStrategyId;
         target.Description = source.Description; target.Dialogue = ShotCopy.Of(source.Dialogue);
         target.Characters = ShotReferences.Characters(source).Select(c => c with { Appearance = looks.GetValueOrDefault(c.Id) }).ToList();
         target.Atmosphere = source.Atmosphere; target.Music = source.Music; target.StartFrame = source.StartFrame;
@@ -73,6 +75,9 @@ public static class ProductionPolicy
         // Shot LoRAs join the context only when chosen, so prompts reviewed before they existed keep their fingerprint.
         if (shot.ShotLoras is { Count: > 0 } own) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ShotLoras = own });
         if (shot.ContinuityFrame is { } continuity) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ContinuityFrame = continuity });
+        if (shot.EnvironmentAssetId is { } environment) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, EnvironmentAssetId = environment });
+        if (shot.EnvironmentStaging is { } staging) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, EnvironmentStaging = staging });
+        if (shot.Direction is not null || shot.DirectionStrategyId is not null) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, Direction = ShotDirections.Context(shots, shot) });
         return fingerprint;
     }
     // What changed since a composition request, in the author's terms, so a changed

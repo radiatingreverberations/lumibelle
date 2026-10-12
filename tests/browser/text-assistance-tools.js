@@ -4,6 +4,8 @@ export const extractionComposer = page => page.locator('.ai-assist-dialog').filt
 
 export async function openPlanning(page) {
   const actions = page.locator('.shots-library-tools');
+  if (!await actions.isVisible() && await page.getByRole('button', { name: 'Show Shots', exact: true }).isVisible())
+    await page.getByRole('button', { name: 'Show Shots', exact: true }).click();
   const start = actions.getByRole('button', { name: 'Draft shots', exact: true });
   // After a reload the control can show an earlier request until it learns that request is out of date,
   // then switch to Draft shots. Retry with whichever control is current instead of waiting on a stale one.

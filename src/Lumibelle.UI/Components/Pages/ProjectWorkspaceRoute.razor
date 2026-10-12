@@ -17,6 +17,7 @@ else { <p role="status">Opening workspace…</p> }
     [Parameter] public string? Section { get; set; }
     [SupplyParameterFromQuery] public Guid? AssetId { get; set; }
     [SupplyParameterFromQuery] public Guid? ImageId { get; set; }
+    [SupplyParameterFromQuery] public Guid? ReelId { get; set; }
     [SupplyParameterFromQuery] public Guid? ShotId { get; set; }
     [SupplyParameterFromQuery] public Guid? TakeId { get; set; }
     [SupplyParameterFromQuery] public Guid? SetupId { get; set; }
@@ -80,7 +81,7 @@ else { <p role="status">Opening workspace…</p> }
         if (studio == "script") p["JobId"] = JobId!;
         if (studio == "dubs") { p["RequestedJobId"] = JobId!; p["RequestedShotId"] = ShotId!; p["RequestedTakeId"] = TakeId!; }
         if (studio is "assets" or "shots") { p["RequestedJobId"] = JobId!; p["RequestedView"] = View!; }
-        if (studio == "assets") { p["RequestedAssetId"] = AssetId!; p["RequestedImageId"] = ImageId!; p["EditRequestedImage"] = Edit; }
+        if (studio == "assets") { p["RequestedAssetId"] = AssetId!; p["RequestedImageId"] = ImageId!; p["RequestedReelId"] = ReelId!; p["EditRequestedImage"] = Edit; }
         if (studio == "shots") { p["RequestedShotId"] = ShotId!; p["RequestedCompositionId"] = SetupId!; }
         return p;
     }

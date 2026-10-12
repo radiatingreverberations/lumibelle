@@ -89,7 +89,7 @@ test('prop reel composes, generates and is offered to Shots', async ({ page, req
   expect(reel.generation.snapshot.profile).toBe('prop-reel-v1'); expect(reel.assetId).toBe(asset.id);
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`); await tools(page);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   const card = picker.locator(`[data-reel-id="${reel.id}"]`);
   await expect(card).toContainText('Armchair orbit');
@@ -116,7 +116,7 @@ test('a short window leaves the reel recipe room to scroll between its fixed hea
   await expect(footer.getByRole('button', { name: 'Prompt', exact: true })).toBeAttached();
   // The headers and footer squeezed the recipe to about 160 pixels; the compact footer and headers keep it usable.
   expect(await editor.locator('.workspace-pane-body').evaluate(b => b.clientHeight)).toBeGreaterThanOrEqual(240);
-  await expect(editor.locator('.workspace-pane-body').getByRole('button', { name: 'Manage references', exact: true })).toBeVisible();
+  await expect(editor.locator('.workspace-pane-body').getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeVisible();
   // The Prompt step says what Generate is missing.
   await expect(footer.getByRole('button', { name: 'Prompt', exact: true })).toContainText('Missing');
   await expect(footer.getByRole('button', { name: 'Prompt', exact: true })).toBeInViewport();

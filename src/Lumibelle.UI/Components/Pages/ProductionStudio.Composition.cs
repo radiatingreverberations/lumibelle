@@ -8,6 +8,57 @@ namespace lumibelle.Components.Pages;
 
 public partial class ProductionStudio
 {
+    private lumibelle.Components.Shots.EnvironmentViewComposer? _environmentComposer;
+    private Guid? _environmentComposition;
+    private long _environmentVersion;
+    private Guid? _handledEnvironmentJob;
+    private async Task OpenEnvironmentViews()
+    {
+        if (Current is null || _environmentComposer is null || _compositionBusy) return;
+        if (_promptEditor is not null) await _promptEditor.FlushAsync();
+        if (await Save()) {
+            _environmentComposition = Current.Id; _environmentVersion = Current.Version;
+            await _environmentComposer.OpenAsync(Current.Version, _includeSceneText, _includeNearbyShots);
+        }
+    }
+    private async Task ApplyEnvironmentLibrary(Guid? assetId)
+    {
+        void CheckTarget() {
+            if (Current is not { } c || c.Id != _environmentComposition || c.Version != _environmentVersion || _dirty || _compositionBusy)
+                throw new WorkspaceStoreException("The setup changed. Reopen Environment to select its library.");
+        }
+        await _saveGate.WaitAsync(_lifetime.Token);
+        try {
+            CheckTarget();
+            var library = await AssetStore.LoadAsync(Id, _lifetime.Token);
+            if (assetId is not null && !library.Assets.Any(a => a.Id == assetId && a.Category == AssetCategory.Environment))
+                throw new WorkspaceStoreException("This environment is no longer available. Choose another library.");
+            CheckTarget();
+            if (Current!.Shot.EnvironmentAssetId != assetId) {
+                EditComposition(c => { c.Shot.EnvironmentAssetId = assetId; c.Shot.EnvironmentStaging = null; });
+                if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save the environment library.");
+            }
+            _assets = library;
+        } finally { _saveGate.Release(); }
+    }
+    private async Task ApplyEnvironmentViews(EnvironmentViewApplication application)
+    {
+        if (Current is not { } c || c.Id != application.Request.CompositionId || _compositionBusy) throw new WorkspaceStoreException("Choose the original setup before applying these views.");
+        await _saveGate.WaitAsync(_lifetime.Token);
+        try {
+            if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save the setup.");
+            await TextRequests.ValidateEnvironmentSelectionAsync(application, c.Shot, c.DirectingNotes, _lifetime.Token);
+            var library = await AssetStore.LoadAsync(Id, _lifetime.Token);
+            var draft = EnvironmentViews.Stage(application, c.Shot, c.DirectingNotes, library);
+            if (ReelRefMods.Uses(draft)) draft = await RefModPreparation.CaptureAsync(Id, draft, _lifetime.Token);
+            await VideoReferences.ValidateAsync(Id, draft.Videos, _lifetime.Token);
+            if (Current?.Id != c.Id) throw new WorkspaceStoreException("The setup changed. Reopen Choose environment views to review its references.");
+            EnvironmentViews.Stage(application, Current.Shot, Current.DirectingNotes, await AssetStore.LoadAsync(Id, _lifetime.Token));
+            EditComposition(d => { d.Shot.EnvironmentAssetId = draft.EnvironmentAssetId; d.Shot.EnvironmentStaging = draft.EnvironmentStaging; d.Shot.Images = draft.Images; d.Shot.Videos = draft.Videos; });
+            if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save environment views.");
+            _assets = library;
+        } finally { _saveGate.Release(); }
+    }
     private PromptDraftRecovery? _compositionRecovery;
     private Guid? _recoveryJob;
     private string? _recoveryRaw;
@@ -143,10 +194,11 @@ public partial class ProductionStudio
         catch (Exception e) { _compositionError = e.Message; }
         finally { _compositionBusy = false; }
     }
-    private bool CanCompose => Current is { Archived: false } && !_compositionBusy && _compositionEnqueue is null &&
-        _compositionModel?.Ready == true &&
-        ((Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages) &&
+    private bool CompositionAvailable => Current is { Archived: false } && !_compositionBusy && _compositionEnqueue is null &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == Current.ShotId && j.LocksTarget);
+    private bool CanCompose => CompositionAvailable &&
+        _compositionModel?.Ready == true &&
+        ((Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages);
     private bool CanClearPrompt => Current is { Archived: false } c && !_compositionBusy && _compositionEnqueue is null &&
         (c.Prompt.Length > 0 || c.RevisionNotes.Length > 0 || c.ReferenceUsage.Length > 0 || c.ReviewJobId is not null) &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == c.ShotId && j.LocksTarget);
@@ -167,13 +219,14 @@ public partial class ProductionStudio
     private async Task ComposePrompt()
     {
         if (!CanCompose || Current is null || _compositionAssist is null || !await _compositionAssist.PrepareSubmitAsync()) return;
+        var model = _compositionModel!;
         _compositionBusy = true; _compositionError = null;
         try
         {
             if (_promptEditor is not null) await _promptEditor.FlushAsync();
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
-            var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
+            var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, model.Model, model.FollowsDefault, _lifetime.Token,
                 _includeSceneText, _includeNearbyShots);
             if (!_composeOversized && OversizedComposition(submission)) return;
             _compositionStages = null;

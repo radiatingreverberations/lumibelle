@@ -36,6 +36,8 @@ public sealed record H3Settings
 public enum ShotImageKind { AssetImage, ContinuityFrame }
 public sealed record ShotImageBinding
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? EnvironmentSelectionId { get; set; }
     public string AiUseHint { get; set; } = "Auto";
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool InferUsage { get; set; }
@@ -86,6 +88,14 @@ public sealed record ShotVoiceBinding
 public sealed record ShotPlanningSource(Guid Id, string Profile, TextModelReference Model, double RequestedMaximum, int EffectiveMaximumFrames, string Instructions, IReadOnlyList<Guid> SceneIds, DateTimeOffset CreatedUtc);
 public sealed record Shot
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DirectionStrategyId { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ShotDirection? Direction { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? EnvironmentAssetId { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public EnvironmentShotStaging? EnvironmentStaging { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<CharacterVoiceSelection>? CharacterVoices { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -143,6 +153,7 @@ public sealed record ShotStartFrame(Guid TakeId, int Frame);
 public sealed record ShotRecovery(Guid Id, DateTimeOffset CreatedUtc, string Reason, List<Shot> Shots)
 {
     public List<SceneReferenceSetup> SceneSetups { get; init; } = [];
+    public List<DirectionStrategy> DirectionStrategies { get; init; } = [];
 }
 public sealed record ShotFrame(int Index, string FileName, long Bytes)
 {
@@ -221,6 +232,7 @@ public sealed record ShotDocument
     public List<lumibelle.Services.Shots.ShotProjectCopyReceipt> ProjectCopies { get; set; } = [];
     public int SchemaVersion { get; set; } = 2;
     public List<SceneReferenceSetup> SceneSetups { get; set; } = [];
+    public List<DirectionStrategy> DirectionStrategies { get; set; } = [];
     public Guid ProjectId { get; set; }
     public long Revision { get; set; }
     public DateTimeOffset? UpdatedUtc { get; set; }
@@ -341,26 +353,44 @@ public sealed record ShotPlanningRequest(ScriptSourceSnapshot Script, AssetLibra
     double MaximumSeconds, string Instructions, TextModelReference Selection)
 {
     public bool CoverageOnly { get; init; }
+    public DirectingStyle Style { get; init; }
+    public IReadOnlyList<DirectionStrategy> Strategies { get; init; } = [];
     // Set when drafting one existing shot in place rather than breaking down whole scenes.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public SingleShotDraft? SingleShot { get; init; }
 }
 /// <summary>One shot drafted at its place in a scene. The scene's other shots, in order, are context the new shot should not repeat;
 /// Position is the index among them where this shot sits. Current is the shot's existing content, if any, for the directions to revise.</summary>
-public sealed record SingleShotDraft(Guid ShotId, int Position, IReadOnlyList<SceneShotSummary> SceneShots, SceneShotSummary? Current);
+public sealed record SingleShotDraft(Guid ShotId, int Position, IReadOnlyList<SceneShotSummary> SceneShots, SceneShotSummary? Current)
+{
+    public string? TargetFingerprint { get; init; }
+}
 public sealed record SceneShotSummary(string Title, double? Duration, string Description, IReadOnlyList<ShotDialogue> Dialogue, IReadOnlyList<Guid> SourceBlockIds)
 {
-    public static SceneShotSummary From(Shot shot) => new(shot.Title, shot.Duration, shot.Description, ShotCopy.Of(shot.Dialogue), [.. shot.SourceBlockIds]);
+    public ShotDirection? Direction { get; init; }
+    public ShotDirectionContext? DirectionContext { get; init; }
+    public Guid? DirectionStrategyId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? DirectionFingerprint { get; init; }
+    public static SceneShotSummary From(Shot shot, DirectionStrategy? strategy = null) => new(shot.Title, shot.Duration, shot.Description, ShotCopy.Of(shot.Dialogue), [.. shot.SourceBlockIds]) {
+        DirectionStrategyId = shot.DirectionStrategyId,
+        DirectionFingerprint = shot.Direction is null && strategy is null ? null : lumibelle.Services.Shots.ShotDirections.Hash(new { shot.Direction?.Intent, shot.Direction?.Staging, shot.Direction?.Editorial, shot.Direction?.Advanced, Strategy = strategy })
+    };
 }
 public sealed record ShotPlanningResult(List<Shot> Shots, string Raw, List<string> UncoveredDialogue, string? Error = null)
 {
+    public List<DirectionStrategy> Strategies { get; init; } = [];
+    public List<string> DirectionNotes { get; init; } = [];
     public List<string> DialogueNotes { get; init; } = [];
     public List<string> CoverageNotes { get; init; } = [];
     public List<string> SourceNotes { get; init; } = [];
 }
 public sealed record ShotPlanningUpdate(GenerationProgress? Progress = null, ShotPlanningResult? Result = null);
 public sealed record ShotPlanningReview(Guid JobId, DateTimeOffset AppliedUtc, IReadOnlyList<Guid> ShotIds, string Fingerprint);
-public sealed record ShotPlanningReviewDraft(List<Shot> Shots);
+public sealed record ShotPlanningReviewDraft(List<Shot> Shots)
+{
+    public List<DirectionStrategy> Strategies { get; init; } = [];
+}
 public sealed record H3Configuration(bool StandardReady, bool TurboReady, string Message,
     IReadOnlyList<string> Models, IReadOnlyList<string> Encoders, IReadOnlyList<string> Vaes, IReadOnlyList<string> Loras)
 {

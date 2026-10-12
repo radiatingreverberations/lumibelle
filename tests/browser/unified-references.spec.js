@@ -12,7 +12,7 @@ async function fixture(page, request, narrow = false) {
   await page.reload(); await toolsTab(page, 'References');
   return { id, library, editor: page.locator('.manual-reference-dialog') };
 }
-async function open(page) { await toolsTab(page, 'References'); await page.getByRole('button', { name: 'Manage references', exact: true }).click(); }
+async function open(page) { await toolsTab(page, 'References'); await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click(); }
 for (const narrow of [false, true]) test(`mixed references apply together and Undo restores both (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   test.setTimeout(90000);
   const { id, library, editor } = await fixture(page, request, narrow);
@@ -56,7 +56,7 @@ for (const narrow of [false, true]) test(`mixed references apply together and Un
   await open(page); await expect(editor.getByRole('combobox', { name: 'Reference type', exact: true })).toHaveValue('All');
   expect(await editor.locator('.picker-grid > [data-reel-id], .picker-grid > [data-reference]').evaluateAll(nodes => nodes.map(n => n.dataset.reelId || n.dataset.reference))).toEqual(initial);
   await page.keyboard.press('Escape'); await expect(editor).not.toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage references', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeFocused();
   if (narrow) await page.getByRole('button', { name: 'Close Shot tools', exact: true }).click();
   await page.locator('.shots-heading').getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).inputs.images.length).toBe(0);

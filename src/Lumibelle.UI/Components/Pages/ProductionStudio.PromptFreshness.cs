@@ -51,6 +51,6 @@ public partial class ProductionStudio
             try { fingerprint = PromptReferenceFreshness.Fingerprint(composition.Shot, ShotReferences.Resolve(composition.Shot, _assets, _doc)); }
             catch (Exception e) when (e is WorkspaceStoreException or InvalidOperationException) { /* Show review needed, not a false current state. */ }
         }
-        return PromptReferenceFreshness.Compare(composition, fingerprint);
+        return PromptReferenceFreshness.Compare(composition, fingerprint, composition is null ? null : ShotDirections.Fingerprint(_doc, composition.Shot));
     }
 }

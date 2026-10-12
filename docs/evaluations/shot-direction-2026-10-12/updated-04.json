@@ -1,0 +1,310 @@
+{
+  "name": "Physical comedy",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 36.3576377,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022dramaticProgression\u0022: \u0022A routine trip through a swinging door turns into a chain of near-disasters. The door opens into Nell\u0027s path, the top tray tilts, and she rescues it by balancing it on her head. Bo\u0027s attempt to help ends with the door shut and both of them stuck on the same side. The tray tower survives intact, and Nell\u0027s deadpan line caps the gag.\u0022,\n      \u0022visualProgression\u0022: \u0022Start wide so the full physical comedy plays without interruption: the tower, the door and both bodies. Move closer for the duck-under and the lost handle, where the key detail is small. Finish on a still, frontal two-shot that holds the absurd tableau for the line.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees each mishap as it happens, with no withheld information. The comedy comes from escalation and from the irony that everything is balanced while nothing works. The detail of the handle must read clearly so the trap makes sense.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The swinging door is the fixed anchor. Nell approaches it carrying the tray tower. Bo is on the far side and opens the door toward her. After the door closes, both stand on the same side with the door behind or beside them.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Door Swings In\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening composition: a wide, side-on view of the banquet hall. Nell enters frame carrying a tall tower of empty trays toward a swinging door. The door swings open toward her and Bo appears in the doorway. Nell stops short and the top tray tilts dangerously. In one smooth motion she catches it on her head and balances it there. Ending composition: still wide, Nell frozen with the tray on her head and the tower steady, facing Bo in the open doorway.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Bright daytime banquet hall, busy service energy, the clatter of trays\u0022,\n      \u0022music\u0022: \u0022Light, bouncy comic underscore that pauses when the tray tilts\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Set up the gag and play the first near-disaster in full.\u0022,\n          \u0022reason\u0022: \u0022Physical comedy reads best when bodies, props and the door share one frame and one take.\u0022,\n          \u0022attention\u0022: \u0022The tower of trays, the door opening and the tilting top tray.\u0022,\n          \u0022relationships\u0022: \u0022Nell is competent under pressure. Bo is an unexpected obstacle.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Nell approaches the door from one side of frame. Bo is beyond the door.\u0022,\n          \u0022facing\u0022: \u0022Nell faces the door. Bo faces Nell as the door opens.\u0022,\n          \u0022eyelines\u0022: \u0022Nell\u0027s eyes jump from the door up to the tilting tray.\u0022,\n          \u0022movement\u0022: \u0022Nell walks, stops suddenly, and dips and rises to catch the tray on her head.\u0022,\n          \u0022camera\u0022: \u0022A static or barely drifting wide profile that keeps the door and the whole tower in frame.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on Bo\u0027s move to help, into a closer angle for the next mishap.\u0022,\n          \u0022timing\u0022: \u0022Steady approach, a sharp stop, then a held beat on the balance.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The tray stays on Nell\u0027s head and the tower stays in her hands. The door is open with Bo in the doorway.\u0022,\n          \u0022assumptions\u0022: \u0022The side-on wide angle and the direction of Nell\u0027s approach are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Ducking Under\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a lower medium shot from near the door, looking up at the tray tower, with Bo in the foreground starting to duck. Bo ducks under the tower to help Nell. As he passes, he accidentally takes the door handle with him. The door swings closed behind them. Ending composition: the handle in Bo\u0027s hand as the door clicks shut.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Tense comic hush, then the soft thud of the door closing\u0022,\n      \u0022music\u0022: \u0022The underscore tiptoes, then lands on a small sting as the door shuts\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Bo\u0027s well-meant help causing the trap.\u0022,\n          \u0022reason\u0022: \u0022The handle is a small detail and needs a closer angle to register clearly.\u0022,\n          \u0022attention\u0022: \u0022Bo\u0027s duck under the tower, the handle and the closing door.\u0022,\n          \u0022relationships\u0022: \u0022Bo\u0027s eagerness to help backfires on both of them.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Bo moves from the doorway to Nell\u0027s side, passing under the tower.\u0022,\n          \u0022facing\u0022: \u0022Bo faces Nell as he ducks. Nell stays rigid, balancing.\u0022,\n          \u0022eyelines\u0022: \u0022Nell\u0027s eyes may flick down toward Bo without moving her head.\u0022,\n          \u0022movement\u0022: \u0022Bo crouches and scoots under the tower. The door swings shut behind him.\u0022,\n          \u0022camera\u0022: \u0022A low angle that tilts or pans slightly to follow Bo and land on the handle and the door.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Bo\u0027s motion from the wide shot to this low, closer angle.\u0022,\n          \u0022cutOut\u0022: \u0022Cut from the handle detail to the stuck pair seen frontally.\u0022,\n          \u0022timing\u0022: \u0022Quick and economical, so the door shut lands as the punchline.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Nell holds the tray on her head throughout. After this shot the door is closed and Bo holds the handle.\u0022,\n          \u0022assumptions\u0022: \u0022The screenplay does not specify the mechanics. This plan reads \u0027takes the door handle with him\u0027 as the handle detaching in Bo\u0027s hand, which leaves them unable to reopen the door.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Excellent Teamwork\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022,\n        \u0022209674cd-f899-50f6-88f7-7cd1c4f6724f\u0022,\n        \u0022a78b34bd-a0ef-5005-bda9-2d863a6e3723\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening composition: a frontal medium two-shot of Nell and Bo standing side by side on the same side of the closed door, trapped. Nell still has a tray balanced on her head and the tower perfectly steady. Bo holds the door handle. A held, deadpan beat. Nell delivers her line without moving. Ending composition: the same still tableau, both motionless and the trays perfectly balanced.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022Nell\u0022,\n          \u0022language\u0022: \u0022English\u0022,\n          \u0022text\u0022: \u0022Excellent teamwork.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Comic stillness, with muffled hall noise beyond the door\u0022,\n      \u0022music\u0022: \u0022Silence for the beat, then a tiny comic button after the line\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Hold the absurd tableau and land the deadpan punchline.\u0022,\n          \u0022reason\u0022: \u0022A still, symmetrical frame lets the irony of perfect balance and total failure sit.\u0022,\n          \u0022attention\u0022: \u0022Nell\u0027s dry delivery against the perfectly balanced trays.\u0022,\n          \u0022relationships\u0022: \u0022Nell\u0027s dry irony toward Bo, with the two of them now stuck together.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Nell and Bo stand side by side with the closed door behind them.\u0022,\n          \u0022facing\u0022: \u0022Both face roughly toward the camera.\u0022,\n          \u0022eyelines\u0022: \u0022Nell looks straight ahead or slides her eyes toward Bo for the line.\u0022,\n          \u0022movement\u0022: \u0022None. Stillness is the joke.\u0022,\n          \u0022camera\u0022: \u0022A locked-off frontal medium two-shot.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the handle detail to reveal the pair stuck together.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on a hold after the line.\u0022,\n          \u0022timing\u0022: \u0022Pause, then the line, then a short hold.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The door stays closed, the handle stays in Bo\u0027s hand, and the tray stays on Nell\u0027s head with the tower intact.\u0022,\n          \u0022assumptions\u0022: \u0022The frontal angle and the side-by-side arrangement are staging choices.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "8823bf34-d0a4-40e1-bb6c-f8654c4ea498",
+        "direction": {
+          "intent": {
+            "purpose": "Set up the gag and play the first near-disaster in full.",
+            "reason": "Physical comedy reads best when bodies, props and the door share one frame and one take.",
+            "attention": "The tower of trays, the door opening and the tilting top tray.",
+            "relationships": "Nell is competent under pressure. Bo is an unexpected obstacle."
+          },
+          "staging": {
+            "positions": "Nell approaches the door from one side of frame. Bo is beyond the door.",
+            "facing": "Nell faces the door. Bo faces Nell as the door opens.",
+            "eyelines": "Nell\u0027s eyes jump from the door up to the tilting tray.",
+            "movement": "Nell walks, stops suddenly, and dips and rises to catch the tray on her head.",
+            "camera": "A static or barely drifting wide profile that keeps the door and the whole tower in frame."
+          },
+          "editorial": {
+            "cutIn": "Opens the scene.",
+            "cutOut": "Cut on Bo\u0027s move to help, into a closer angle for the next mishap.",
+            "timing": "Steady approach, a sharp stop, then a held beat on the balance."
+          },
+          "advanced": {
+            "continuity": "The tray stays on Nell\u0027s head and the tower stays in her hands. The door is open with Bo in the doorway.",
+            "assumptions": "The side-on wide angle and the direction of Nell\u0027s approach are staging choices.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "7a4050b2705e6d702d679057e90f88ea95d77def44d1a7bc56d916de5971f46f",
+            "strategy": "5bdd6faa9d8130d6ee1eda5db503e97971b6c34c78f557579bb6650d033fd618",
+            "cast": "acadf57e332c52474a526bc23330f783a8e23d81a2fcc855de30593ac20beef9",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+            "neighbours": "67c47413a773a5b1142e7ae74b19b27c462e5696f0fd73be9e207c009d24ae16",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "bceaeeba-44c0-4be1-acc0-34ca62f69ecd",
+        "title": "The Door Swings In",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.",
+        "planning": {
+          "id": "534eb79c-212c-466a-8b92-7905c202c1cb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T06:07:48.8132806+00:00"
+        },
+        "duration": 6,
+        "description": "Opening composition: a wide, side-on view of the banquet hall. Nell enters frame carrying a tall tower of empty trays toward a swinging door. The door swings open toward her and Bo appears in the doorway. Nell stops short and the top tray tilts dangerously. In one smooth motion she catches it on her head and balances it there. Ending composition: still wide, Nell frozen with the tray on her head and the tower steady, facing Bo in the open doorway.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "1f9e5702-fcc6-4a1a-923e-a23ab6624340",
+            "name": "Nell",
+            "appearance": null
+          },
+          {
+            "id": "1ab4e0a0-e2a1-440a-b8c9-967a0606978f",
+            "name": "Bo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Bright daytime banquet hall, busy service energy, the clatter of trays",
+        "music": "Light, bouncy comic underscore that pauses when the tray tilts",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "8823bf34-d0a4-40e1-bb6c-f8654c4ea498",
+        "direction": {
+          "intent": {
+            "purpose": "Show Bo\u0027s well-meant help causing the trap.",
+            "reason": "The handle is a small detail and needs a closer angle to register clearly.",
+            "attention": "Bo\u0027s duck under the tower, the handle and the closing door.",
+            "relationships": "Bo\u0027s eagerness to help backfires on both of them."
+          },
+          "staging": {
+            "positions": "Bo moves from the doorway to Nell\u0027s side, passing under the tower.",
+            "facing": "Bo faces Nell as he ducks. Nell stays rigid, balancing.",
+            "eyelines": "Nell\u0027s eyes may flick down toward Bo without moving her head.",
+            "movement": "Bo crouches and scoots under the tower. The door swings shut behind him.",
+            "camera": "A low angle that tilts or pans slightly to follow Bo and land on the handle and the door."
+          },
+          "editorial": {
+            "cutIn": "Cut on Bo\u0027s motion from the wide shot to this low, closer angle.",
+            "cutOut": "Cut from the handle detail to the stuck pair seen frontally.",
+            "timing": "Quick and economical, so the door shut lands as the punchline."
+          },
+          "advanced": {
+            "continuity": "Nell holds the tray on her head throughout. After this shot the door is closed and Bo holds the handle.",
+            "assumptions": "The screenplay does not specify the mechanics. This plan reads \u0027takes the door handle with him\u0027 as the handle detaching in Bo\u0027s hand, which leaves them unable to reopen the door.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "aa97c1d3bb131e95ae94c64107d06d5e92018ab0b29bce24d4718c2c8864f626",
+            "strategy": "5bdd6faa9d8130d6ee1eda5db503e97971b6c34c78f557579bb6650d033fd618",
+            "cast": "d1eae66e45f804c82e46bd1ff988bb47761bd0223c3c97f90f95fa304f93b5c3",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+            "neighbours": "3da56fe3a6c6c9ec42ae34612551410b88e1c5bddf63fa84b06efc6ac18361fa",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "3bcde652-68f0-4c2b-ae3f-df0ac7aa9545",
+        "title": "Ducking Under",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.",
+        "planning": {
+          "id": "534eb79c-212c-466a-8b92-7905c202c1cb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T06:07:48.8132806+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a lower medium shot from near the door, looking up at the tray tower, with Bo in the foreground starting to duck. Bo ducks under the tower to help Nell. As he passes, he accidentally takes the door handle with him. The door swings closed behind them. Ending composition: the handle in Bo\u0027s hand as the door clicks shut.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "23b7cc62-7c95-4e9e-b31e-fd533ab9420f",
+            "name": "Bo",
+            "appearance": null
+          },
+          {
+            "id": "39d1f95f-29e1-4c3d-8d99-cadc848a617f",
+            "name": "Nell",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Tense comic hush, then the soft thud of the door closing",
+        "music": "The underscore tiptoes, then lands on a small sting as the door shuts",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "8823bf34-d0a4-40e1-bb6c-f8654c4ea498",
+        "direction": {
+          "intent": {
+            "purpose": "Hold the absurd tableau and land the deadpan punchline.",
+            "reason": "A still, symmetrical frame lets the irony of perfect balance and total failure sit.",
+            "attention": "Nell\u0027s dry delivery against the perfectly balanced trays.",
+            "relationships": "Nell\u0027s dry irony toward Bo, with the two of them now stuck together."
+          },
+          "staging": {
+            "positions": "Nell and Bo stand side by side with the closed door behind them.",
+            "facing": "Both face roughly toward the camera.",
+            "eyelines": "Nell looks straight ahead or slides her eyes toward Bo for the line.",
+            "movement": "None. Stillness is the joke.",
+            "camera": "A locked-off frontal medium two-shot."
+          },
+          "editorial": {
+            "cutIn": "Cut from the handle detail to reveal the pair stuck together.",
+            "cutOut": "Ends the scene on a hold after the line.",
+            "timing": "Pause, then the line, then a short hold."
+          },
+          "advanced": {
+            "continuity": "The door stays closed, the handle stays in Bo\u0027s hand, and the tray stays on Nell\u0027s head with the tower intact.",
+            "assumptions": "The frontal angle and the side-by-side arrangement are staging choices.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "475e3d6a43921d2dca43351d601fce9cf495dcbba948b578ec602f3b6f5c914f",
+            "strategy": "5bdd6faa9d8130d6ee1eda5db503e97971b6c34c78f557579bb6650d033fd618",
+            "cast": "acadf57e332c52474a526bc23330f783a8e23d81a2fcc855de30593ac20beef9",
+            "dialogue": "fe379dca3e782879bdd6a4bdeca66d9b19070be4e11ada721a7e6293d59a6868",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "67c47413a773a5b1142e7ae74b19b27c462e5696f0fd73be9e207c009d24ae16",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "d6a91489-b545-459b-872f-0f82238a7d85",
+        "title": "Excellent Teamwork",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e",
+          "209674cd-f899-50f6-88f7-7cd1c4f6724f",
+          "a78b34bd-a0ef-5005-bda9-2d863a6e3723"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.\n\n### NELL\n\nExcellent teamwork.",
+        "planning": {
+          "id": "534eb79c-212c-466a-8b92-7905c202c1cb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T06:07:48.8132806+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a frontal medium two-shot of Nell and Bo standing side by side on the same side of the closed door, trapped. Nell still has a tray balanced on her head and the tower perfectly steady. Bo holds the door handle. A held, deadpan beat. Nell delivers her line without moving. Ending composition: the same still tableau, both motionless and the trays perfectly balanced.",
+        "dialogue": [
+          {
+            "id": "d1d390a4-a174-4d6f-9193-99609ef8a12a",
+            "speaker": "Nell",
+            "language": "English",
+            "text": "Excellent teamwork."
+          }
+        ],
+        "characters": [
+          {
+            "id": "3ea31bef-8d69-4fc1-a9c9-ae3f890d102e",
+            "name": "Nell",
+            "appearance": null
+          },
+          {
+            "id": "d0b61425-ce45-493f-8ddb-0c0eebf918d1",
+            "name": "Bo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Comic stillness, with muffled hall noise beyond the door",
+        "music": "Silence for the beat, then a tiny comic button after the line",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022dramaticProgression\u0022: \u0022A routine trip through a swinging door turns into a chain of near-disasters. The door opens into Nell\u0027s path, the top tray tilts, and she rescues it by balancing it on her head. Bo\u0027s attempt to help ends with the door shut and both of them stuck on the same side. The tray tower survives intact, and Nell\u0027s deadpan line caps the gag.\u0022,\n      \u0022visualProgression\u0022: \u0022Start wide so the full physical comedy plays without interruption: the tower, the door and both bodies. Move closer for the duck-under and the lost handle, where the key detail is small. Finish on a still, frontal two-shot that holds the absurd tableau for the line.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees each mishap as it happens, with no withheld information. The comedy comes from escalation and from the irony that everything is balanced while nothing works. The detail of the handle must read clearly so the trap makes sense.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The swinging door is the fixed anchor. Nell approaches it carrying the tray tower. Bo is on the far side and opens the door toward her. After the door closes, both stand on the same side with the door behind or beside them.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Door Swings In\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening composition: a wide, side-on view of the banquet hall. Nell enters frame carrying a tall tower of empty trays toward a swinging door. The door swings open toward her and Bo appears in the doorway. Nell stops short and the top tray tilts dangerously. In one smooth motion she catches it on her head and balances it there. Ending composition: still wide, Nell frozen with the tray on her head and the tower steady, facing Bo in the open doorway.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Bright daytime banquet hall, busy service energy, the clatter of trays\u0022,\n      \u0022music\u0022: \u0022Light, bouncy comic underscore that pauses when the tray tilts\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Set up the gag and play the first near-disaster in full.\u0022,\n          \u0022reason\u0022: \u0022Physical comedy reads best when bodies, props and the door share one frame and one take.\u0022,\n          \u0022attention\u0022: \u0022The tower of trays, the door opening and the tilting top tray.\u0022,\n          \u0022relationships\u0022: \u0022Nell is competent under pressure. Bo is an unexpected obstacle.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Nell approaches the door from one side of frame. Bo is beyond the door.\u0022,\n          \u0022facing\u0022: \u0022Nell faces the door. Bo faces Nell as the door opens.\u0022,\n          \u0022eyelines\u0022: \u0022Nell\u0027s eyes jump from the door up to the tilting tray.\u0022,\n          \u0022movement\u0022: \u0022Nell walks, stops suddenly, and dips and rises to catch the tray on her head.\u0022,\n          \u0022camera\u0022: \u0022A static or barely drifting wide profile that keeps the door and the whole tower in frame.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on Bo\u0027s move to help, into a closer angle for the next mishap.\u0022,\n          \u0022timing\u0022: \u0022Steady approach, a sharp stop, then a held beat on the balance.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The tray stays on Nell\u0027s head and the tower stays in her hands. The door is open with Bo in the doorway.\u0022,\n          \u0022assumptions\u0022: \u0022The side-on wide angle and the direction of Nell\u0027s approach are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Ducking Under\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a lower medium shot from near the door, looking up at the tray tower, with Bo in the foreground starting to duck. Bo ducks under the tower to help Nell. As he passes, he accidentally takes the door handle with him. The door swings closed behind them. Ending composition: the handle in Bo\u0027s hand as the door clicks shut.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Tense comic hush, then the soft thud of the door closing\u0022,\n      \u0022music\u0022: \u0022The underscore tiptoes, then lands on a small sting as the door shuts\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Bo\u0027s well-meant help causing the trap.\u0022,\n          \u0022reason\u0022: \u0022The handle is a small detail and needs a closer angle to register clearly.\u0022,\n          \u0022attention\u0022: \u0022Bo\u0027s duck under the tower, the handle and the closing door.\u0022,\n          \u0022relationships\u0022: \u0022Bo\u0027s eagerness to help backfires on both of them.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Bo moves from the doorway to Nell\u0027s side, passing under the tower.\u0022,\n          \u0022facing\u0022: \u0022Bo faces Nell as he ducks. Nell stays rigid, balancing.\u0022,\n          \u0022eyelines\u0022: \u0022Nell\u0027s eyes may flick down toward Bo without moving her head.\u0022,\n          \u0022movement\u0022: \u0022Bo crouches and scoots under the tower. The door swings shut behind him.\u0022,\n          \u0022camera\u0022: \u0022A low angle that tilts or pans slightly to follow Bo and land on the handle and the door.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Bo\u0027s motion from the wide shot to this low, closer angle.\u0022,\n          \u0022cutOut\u0022: \u0022Cut from the handle detail to the stuck pair seen frontally.\u0022,\n          \u0022timing\u0022: \u0022Quick and economical, so the door shut lands as the punchline.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Nell holds the tray on her head throughout. After this shot the door is closed and Bo holds the handle.\u0022,\n          \u0022assumptions\u0022: \u0022The screenplay does not specify the mechanics. This plan reads \u0027takes the door handle with him\u0027 as the handle detaching in Bo\u0027s hand, which leaves them unable to reopen the door.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Excellent Teamwork\u0022,\n      \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022,\n        \u0022209674cd-f899-50f6-88f7-7cd1c4f6724f\u0022,\n        \u0022a78b34bd-a0ef-5005-bda9-2d863a6e3723\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening composition: a frontal medium two-shot of Nell and Bo standing side by side on the same side of the closed door, trapped. Nell still has a tray balanced on her head and the tower perfectly steady. Bo holds the door handle. A held, deadpan beat. Nell delivers her line without moving. Ending composition: the same still tableau, both motionless and the trays perfectly balanced.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022Nell\u0022,\n          \u0022language\u0022: \u0022English\u0022,\n          \u0022text\u0022: \u0022Excellent teamwork.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        {\n          \u0022name\u0022: \u0022Nell\u0022\n        },\n        {\n          \u0022name\u0022: \u0022Bo\u0022\n        }\n      ],\n      \u0022atmosphere\u0022: \u0022Comic stillness, with muffled hall noise beyond the door\u0022,\n      \u0022music\u0022: \u0022Silence for the beat, then a tiny comic button after the line\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Hold the absurd tableau and land the deadpan punchline.\u0022,\n          \u0022reason\u0022: \u0022A still, symmetrical frame lets the irony of perfect balance and total failure sit.\u0022,\n          \u0022attention\u0022: \u0022Nell\u0027s dry delivery against the perfectly balanced trays.\u0022,\n          \u0022relationships\u0022: \u0022Nell\u0027s dry irony toward Bo, with the two of them now stuck together.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Nell and Bo stand side by side with the closed door behind them.\u0022,\n          \u0022facing\u0022: \u0022Both face roughly toward the camera.\u0022,\n          \u0022eyelines\u0022: \u0022Nell looks straight ahead or slides her eyes toward Bo for the line.\u0022,\n          \u0022movement\u0022: \u0022None. Stillness is the joke.\u0022,\n          \u0022camera\u0022: \u0022A locked-off frontal medium two-shot.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the handle detail to reveal the pair stuck together.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on a hold after the line.\u0022,\n          \u0022timing\u0022: \u0022Pause, then the line, then a short hold.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The door stays closed, the handle stays in Bo\u0027s hand, and the tray stays on Nell\u0027s head with the tower intact.\u0022,\n          \u0022assumptions\u0022: \u0022The frontal angle and the side-by-side arrangement are staging choices.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "8823bf34-d0a4-40e1-bb6c-f8654c4ea498",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sourceId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sourceFingerprint": "7883cc412af2fa1aca249c9ef7a433de3f74aab6cfddabb768b00edce1b9a473",
+        "dramaticProgression": "A routine trip through a swinging door turns into a chain of near-disasters. The door opens into Nell\u0027s path, the top tray tilts, and she rescues it by balancing it on her head. Bo\u0027s attempt to help ends with the door shut and both of them stuck on the same side. The tray tower survives intact, and Nell\u0027s deadpan line caps the gag.",
+        "visualProgression": "Start wide so the full physical comedy plays without interruption: the tower, the door and both bodies. Move closer for the duck-under and the lost handle, where the key detail is small. Finish on a still, frontal two-shot that holds the absurd tableau for the line.",
+        "audienceInformation": "The audience sees each mishap as it happens, with no withheld information. The comedy comes from escalation and from the irony that everything is balanced while nothing works. The detail of the handle must read clearly so the trap makes sense.",
+        "spatialAnchors": "The swinging door is the fixed anchor. Nell approaches it carrying the tray tower. Bo is on the far side and opens the door toward her. After the door closes, both stand on the same side with the door behind or beside them."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

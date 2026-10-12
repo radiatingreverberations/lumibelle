@@ -42,7 +42,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     }
     private static void ValidateDocument(ProductionDocument d, Guid project)
     {
-        if (d.SchemaVersion is not (2 or 3) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
+        if (d.SchemaVersion is not (2 or 3 or 4) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
             d.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 ||
                 string.IsNullOrWhiteSpace(c.Name) || c.History is null || c.Prompt is null || c.DirectingNotes is null || c.RevisionNotes is null || c.ReferenceUsage is null ||
                 c.History.Any(r => r is null) || c.History.Select(r => r.Id).Distinct().Count() != c.History.Count || c.AcceptedRevisionId is not null && c.Accepted is null) ||
@@ -72,7 +72,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             raw = new() { ProjectId = project };
             await Publish(dir, raw, ct);
         }
-        var d = await Read(dir, project, ct); var changed = raw.SchemaVersion == 2;
+        var d = await Read(dir, project, ct); var changed = raw.SchemaVersion < 4;
         foreach (var shot in source.Shots.Where(s => d.Compositions.All(c => c.ShotId != s.Id)))
         {
             d.Compositions.Add(new() { ShotId = shot.Id, Name = "Default setup", Version = 1,
@@ -203,6 +203,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             model = request.Model;
         }
         var revision = new CompositionPromptRevision(Guid.NewGuid(), clock.GetUtcNow(), c.Prompt, c.ReferenceUsage, context, c.SourceFingerprint, job, model, imageData.Select(i => i.Identity).ToArray()) {
+            DirectionFingerprint = ShotDirections.Fingerprint(source, effective),
             ReferenceFingerprint = PromptReferenceFreshness.Fingerprint(effective, ShotReferences.Resolve(effective, library, source))
         };
         c.History.Add(revision); c.AcceptedRevisionId = revision.Id; c.ReviewJobId = null; c.Version++;
@@ -239,6 +240,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         c.Prompt = result.Prompt; c.ReferenceUsage = result.ReferenceUsage; c.AppliedJobId = job; c.ReviewJobId = null;
         c.SourceFingerprint = ProductionPolicy.SourceFingerprint(c.Shot);
         var revision = new CompositionPromptRevision(Guid.NewGuid(), clock.GetUtcNow(), c.Prompt, c.ReferenceUsage, request.ContextFingerprint, c.SourceFingerprint, job, request.Model, request.Images) {
+            DirectionFingerprint = request.DirectionContext is null ? null : ShotDirections.Hash(new { request.Shot.Direction, Context = request.DirectionContext }),
             ReferenceFingerprint = PromptReferenceFreshness.Fingerprint(request.Shot, request.Guidance)
         };
         c.History.Add(revision); c.AcceptedRevisionId = revision.Id; c.Version++;

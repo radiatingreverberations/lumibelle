@@ -144,7 +144,7 @@ test('deleted shots can be drafted from the latest saved script despite an older
   await expect(dialog(page)).not.toBeVisible();
   await expect(planningComposer(page)).not.toContainText('captured source');
   await expect(planningComposer(page).getByLabel('Directing instructions (optional)')).toHaveValue('');
-  await expect(planningComposer(page).getByRole('checkbox', { name: 'INT. BEDROOM — NIGHT', exact: true })).toBeChecked();
+  await expect(planningComposer(page).getByRole('checkbox', { name: /^(?:1\. )?INT\. BEDROOM — NIGHT$/ })).toBeChecked();
   await submitPlanning(page);
   await dialog(page).getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(1);
@@ -173,7 +173,7 @@ test('an old review offers a new breakdown and clears its job link without submi
   await expect(planningComposer(page)).not.toContainText('captured approval');
   await expect(planningComposer(page).getByLabel('Directing instructions (optional)')).toHaveValue('');
   await expect(planningComposer(page).getByLabel('Maximum shot length (seconds)')).toHaveValue('15');
-  await expect(planningComposer(page).getByRole('checkbox', { name: 'INT. BEDROOM — NIGHT', exact: true })).toBeChecked();
+  await expect(planningComposer(page).getByRole('checkbox', { name: /^(?:1\. )?INT\. BEDROOM — NIGHT$/ })).toBeChecked();
   const { slug } = await (await request.get(`/fixtures/${id}/project-route`)).json();
   await expect(page).toHaveURL(`/projects/${slug}/shots?view=grid#focus`);
   expect(await jobs(request, id)).toHaveLength(1);

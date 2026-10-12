@@ -49,7 +49,7 @@ export async function openReelAssist(page) {
 }
 export async function chooseReelReferences(page, references) {
   await showToolsPane(page);
-  await reelTools(page).getByRole('button', { name: 'Manage references', exact: true }).click();
+  await reelTools(page).getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   for (const reference of references) await pictures.locator(`[data-reference="${reference}"]`).click();
   return pictures;

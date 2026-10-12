@@ -1,0 +1,499 @@
+{
+  "name": "Ensemble accusation",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 46.9988929,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022dramaticProgression\u0022: \u0022An accusation lands through evidence (the letter). Len names it as Mara\u0027s. Mara offers a denial that is also a counter-accusation. The youngest councillor\u0027s glance at Len briefly leaves the question open. Then the council collectively rejects Mara, and she refuses to yield.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens on a geography of separation: five seated councillors against one standing figure. It tightens into the exchange over the letter. A single reaction close-up briefly breaks the council\u0027s unity. It ends wide from Mara\u0027s end of the table as the council physically turns its backs, leaving Mara isolated but upright.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience does not learn who wrote the letter. Len\u0027s certainty and Mara\u0027s composed reply both remain plausible. The youngest councillor\u0027s look at Len plants a doubt without confirming it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022A long table with five seated council members. One end is open, and Mara stands there alone. The sealed letter sits on the table in front of Mara, and Len is within reach of it. All placements are staging assumptions until reference-supported.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Letter Is Placed\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022, \u0022947b65d4-3ec0-5aa6-b767-1cd41916ab8b\u0022],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a wide, slightly elevated frame of the night council room. Five council members sit together along the table, and Mara stands alone at its open end. Len reaches down the table and places a sealed letter in front of Mara, then withdraws his hand. The camera holds mostly still, with a slow, slight push in. Ending: still wide, the letter resting before Mara, Mara and the seated council facing each other across the empty length of the table.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}, {\u0022name\u0022: \u0022Len\u0022}, {\u0022name\u0022: \u0022Youngest Councillor\u0022}, {\u0022name\u0022: \u0022Council Members\u0022}],\n      \u0022atmosphere\u0022: \u0022Night interior with low, formal light pooled over the table and darkness at the edges. Hushed, tense stillness.\u0022,\n      \u0022music\u0022: \u0022Near silence; at most a faint low sustained tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the power imbalance and introduce the evidence.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography of one standing against five seated before the accusation lands.\u0022,\n          \u0022attention\u0022: \u0022Mara\u0027s isolation, then Len\u0027s hand and the letter.\u0022,\n          \u0022relationships\u0022: \u0022The council is united and seated; Mara is alone and standing. Len acts as the council\u0027s accuser.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Council members are grouped along the table, with Mara at the open end and Len nearest to her.\u0022,\n          \u0022facing\u0022: \u0022The council faces toward Mara; Mara faces the table.\u0022,\n          \u0022eyelines\u0022: \u0022Most eyes are on Mara as Len places the letter.\u0022,\n          \u0022movement\u0022: \u0022Len reaches and sets the letter down, then sits back.\u0022,\n          \u0022camera\u0022: \u0022A wide, slightly elevated frame from the far side of the table with a slow, subtle push in.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the letter and Len as he speaks, once the letter is down.\u0022,\n          \u0022timing\u0022: \u0022Measured. Let the silence before the accusation register.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The letter stays sealed and remains in front of Mara for the rest of the scene.\u0022,\n          \u0022assumptions\u0022: \u0022Camera position and table orientation are assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Your Seal\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u002295159caf-2434-5c2e-a732-8137692090e1\u0022, \u00229bb76fd5-85a6-5b7a-b652-d66dc3e2ec94\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close, low angle on the sealed letter on the table, with Len soft in the background. Focus racks to Len, now framed in a medium close-up, as he delivers his line with flat certainty, looking toward Mara. Ending: a medium close-up on Len, the letter\u0027s edge soft in the foreground.\u0022,\n      \u0022dialogue\u0022: [\n        {\u0022speaker\u0022: \u0022LEN\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Your seal. Your handwriting.\u0022}\n      ],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Len\u0022}],\n      \u0022atmosphere\u0022: \u0022Quiet and controlled; the room seems to hold its breath.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Tie the evidence to Len\u0027s accusation.\u0022,\n          \u0022reason\u0022: \u0022Linking the object and the speaker in one take makes the letter the weight behind his words.\u0022,\n          \u0022attention\u0022: \u0022The seal first, then Len\u0027s face.\u0022,\n          \u0022relationships\u0022: \u0022Len presents the evidence as conclusive.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The letter is in the foreground; Len is seated behind it.\u0022,\n          \u0022facing\u0022: \u0022Len faces toward Mara.\u0022,\n          \u0022eyelines\u0022: \u0022Len looks at Mara, slightly off-lens on her side.\u0022,\n          \u0022movement\u0022: \u0022No large movement.\u0022,\n          \u0022camera\u0022: \u0022A low table-level frame with a rack focus from the letter to Len.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the wide on the completed placement of the letter. The close object frame is clearly distinct.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Mara for her reply.\u0022,\n          \u0022timing\u0022: \u0022Brief. The line is clipped.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Len\u0027s eyeline matches Mara\u0027s position at the open end.\u0022,\n          \u0022assumptions\u0022: \u0022Len\u0027s seat being nearest Mara is assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Someone Has Learned Both\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022e8f901e7-1748-5f10-95c5-b3b5b668a635\u0022, \u00225d314760-ea59-5a03-b44c-71e4265cbe63\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a medium close-up on Mara, standing, the seated council soft and out of focus beyond her. She looks from the letter up to Len and answers evenly. She holds her gaze afterward. Ending: Mara in a steady medium close-up, unbowed.\u0022,\n      \u0022dialogue\u0022: [\n        {\u0022speaker\u0022: \u0022MARA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Then someone has learned both.\u0022}\n      ],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}],\n      \u0022atmosphere\u0022: \u0022Still. Her composure cools the room.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Give Mara her denial and implied counter-accusation.\u0022,\n          \u0022reason\u0022: \u0022Her steadiness must be read in her face, at her own level.\u0022,\n          \u0022attention\u0022: \u0022Mara\u0027s eyes moving from the letter to Len.\u0022,\n          \u0022relationships\u0022: \u0022Mara does not plead. She returns the suspicion to the room.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Mara stands at the open end of the table.\u0022,\n          \u0022facing\u0022: \u0022She faces toward Len and the council.\u0022,\n          \u0022eyelines\u0022: \u0022She looks down to the letter, then up to Len, matching his eyeline.\u0022,\n          \u0022movement\u0022: \u0022Only her gaze shifts.\u0022,\n          \u0022camera\u0022: \u0022A static camera at standing eye level, slightly lower than her eyes so she keeps her stature.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Len\u0027s completed line to her answer.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the youngest councillor\u0027s reaction after Mara\u0027s held look.\u0022,\n          \u0022timing\u0022: \u0022Leave a beat after the line for the implication to land.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Mara remains standing throughout.\u0022,\n          \u0022assumptions\u0022: \u0022The direction of her look toward Len is a staging assumption.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Youngest Looks at Len\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022472912ca-cf32-5892-9a45-72adcc8e111c\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a close-up on the youngest councillor, seated among the others, eyes on Mara. Their eyes then move to Len and hold there. Ending: a close-up of the youngest councillor looking toward Len.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Youngest Councillor\u0022}],\n      \u0022atmosphere\u0022: \u0022A silent flicker of doubt.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest held note.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Plant uncertainty within the council.\u0022,\n          \u0022reason\u0022: \u0022This glance is the only sign of hesitation, so it needs isolation.\u0022,\n          \u0022attention\u0022: \u0022The movement of the eyes from Mara to Len.\u0022,\n          \u0022relationships\u0022: \u0022The youngest briefly questions Len rather than Mara.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The youngest councillor is seated at the table.\u0022,\n          \u0022facing\u0022: \u0022Toward Mara at first.\u0022,\n          \u0022eyelines\u0022: \u0022From Mara to Len.\u0022,\n          \u0022movement\u0022: \u0022Eyes only, perhaps a slight turn of the head.\u0022,\n          \u0022camera\u0022: \u0022A static close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from Mara\u0027s held look to a listener reacting to her words.\u0022,\n          \u0022cutOut\u0022: \u0022Cut wide as the council begins turning away.\u0022,\n          \u0022timing\u0022: \u0022Short and precise.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The eyeline directions must match the positions of Mara and Len.\u0022,\n          \u0022assumptions\u0022: \u0022The youngest\u0027s seat position is assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Council Turns Away\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022472912ca-cf32-5892-9a45-72adcc8e111c\u0022],\n      \u0022duration\u0022: 10,\n      \u0022description\u0022: \u0022Opening: a wide frame from behind and beside Mara at the open end of the table, her shoulder in the foreground and the whole seated council facing her down the length of the table, the letter before her. One by one, the council members turn their chairs away from Mara. Mara stays standing and does not move. Ending: Mara upright in the foreground, facing a table of turned backs.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}, {\u0022name\u0022: \u0022Len\u0022}, {\u0022name\u0022: \u0022Youngest Councillor\u0022}, {\u0022name\u0022: \u0022Council Members\u0022}],\n      \u0022atmosphere\u0022: \u0022Chairs scrape one after another in the silence, a slow ritual of rejection.\u0022,\n      \u0022music\u0022: \u0022A low, restrained tone may rise beneath the final turns, or silence holds.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the council\u0027s collective judgment and Mara\u0027s refusal to yield.\u0022,\n          \u0022reason\u0022: \u0022The rejection unfolds in sequence and needs to play in one uninterrupted frame from Mara\u0027s side.\u0022,\n          \u0022attention\u0022: \u0022Each chair turning in turn, with Mara\u0027s stillness constant in the foreground.\u0022,\n          \u0022relationships\u0022: \u0022The council closes ranks against Mara. She stays apart and unbowed.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Mara is in the foreground at the open end; the council is seated down the table.\u0022,\n          \u0022facing\u0022: \u0022The council turns from facing Mara to facing away.\u0022,\n          \u0022eyelines\u0022: \u0022Mara looks down the table at them.\u0022,\n          \u0022movement\u0022: \u0022The chairs turn one by one; Mara stays still.\u0022,\n          \u0022camera\u0022: \u0022A static wide frame, possibly with a very slow drift closer to Mara.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the youngest councillor\u0027s close-up to the reverse wide as the turning begins. The difference in scale and angle avoids a jump.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on Mara standing alone.\u0022,\n          \u0022timing\u0022: \u0022Let each turn have its own beat, and hold at the end.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The letter remains on the table in front of Mara, and Mara never sits.\u0022,\n          \u0022assumptions\u0022: \u0022The order of the turning chairs and Mara\u0027s exact placement are assumed.\u0022,\n          \u0022longTakeIdea\u0022: \u0022Could be extended manually to hold longer on Mara after the last chair turns, within the clip maximum.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the power imbalance and introduce the evidence.",
+            "reason": "The audience needs the geography of one standing against five seated before the accusation lands.",
+            "attention": "Mara\u0027s isolation, then Len\u0027s hand and the letter.",
+            "relationships": "The council is united and seated; Mara is alone and standing. Len acts as the council\u0027s accuser."
+          },
+          "staging": {
+            "positions": "Council members are grouped along the table, with Mara at the open end and Len nearest to her.",
+            "facing": "The council faces toward Mara; Mara faces the table.",
+            "eyelines": "Most eyes are on Mara as Len places the letter.",
+            "movement": "Len reaches and sets the letter down, then sits back.",
+            "camera": "A wide, slightly elevated frame from the far side of the table with a slow, subtle push in."
+          },
+          "editorial": {
+            "cutIn": "Opens the scene.",
+            "cutOut": "Cut to the letter and Len as he speaks, once the letter is down.",
+            "timing": "Measured. Let the silence before the accusation register."
+          },
+          "advanced": {
+            "continuity": "The letter stays sealed and remains in front of Mara for the rest of the scene.",
+            "assumptions": "Camera position and table orientation are assumed.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "1c997b6d8505fbec2d18097775ef389454cebb7ec4efb82406ee7620d33003bf",
+            "strategy": "1d64031eb3ec2c046aae4e92400ea487f5f5c5a83b73c67130432e367fcef59b",
+            "cast": "35ce402bbd985b15e416925c6981cccdd9a873f87ff59ff28ae914fac7ee73b7",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "1719f6bb458d2abc73f1f709fd2895dcccddcc40a1a1f66680fcff3276b050f0",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "cd5cef56-49bf-4d3a-b30c-48d03fd70312",
+        "title": "The Letter Is Placed",
+        "approvedScriptId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneTitle": "INT. COUNCIL ROOM - NIGHT",
+        "sourceBlockIds": [
+          "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+          "947b65d4-3ec0-5aa6-b767-1cd41916ab8b"
+        ],
+        "sourceExcerpt": "## INT. COUNCIL ROOM - NIGHT\n\nFive council members sit together. Mara stands alone at the open end of their table. Len places a sealed letter in front of her.",
+        "planning": {
+          "id": "8d18663e-2daf-4fce-8fb9-0bc348aff518",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b"
+          ],
+          "createdUtc": "2026-10-12T06:06:48.9848737+00:00"
+        },
+        "duration": 7,
+        "description": "Opening: a wide, slightly elevated frame of the night council room. Five council members sit together along the table, and Mara stands alone at its open end. Len reaches down the table and places a sealed letter in front of Mara, then withdraws his hand. The camera holds mostly still, with a slow, slight push in. Ending: still wide, the letter resting before Mara, Mara and the seated council facing each other across the empty length of the table.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "3188928e-bcd3-4eff-b688-4f3c7d6a6bb3",
+            "name": "Mara",
+            "appearance": null
+          },
+          {
+            "id": "c05a8816-fcb6-4cc1-a48b-5db5c6a5b48b",
+            "name": "Len",
+            "appearance": null
+          },
+          {
+            "id": "a997421d-ac53-484d-900a-3eb33cdd0fca",
+            "name": "Youngest Councillor",
+            "appearance": null
+          },
+          {
+            "id": "0a76a4c6-6baa-4f20-9ab1-8cd74f8354b9",
+            "name": "Council Members",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Night interior with low, formal light pooled over the table and darkness at the edges. Hushed, tense stillness.",
+        "music": "Near silence; at most a faint low sustained tone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "direction": {
+          "intent": {
+            "purpose": "Tie the evidence to Len\u0027s accusation.",
+            "reason": "Linking the object and the speaker in one take makes the letter the weight behind his words.",
+            "attention": "The seal first, then Len\u0027s face.",
+            "relationships": "Len presents the evidence as conclusive."
+          },
+          "staging": {
+            "positions": "The letter is in the foreground; Len is seated behind it.",
+            "facing": "Len faces toward Mara.",
+            "eyelines": "Len looks at Mara, slightly off-lens on her side.",
+            "movement": "No large movement.",
+            "camera": "A low table-level frame with a rack focus from the letter to Len."
+          },
+          "editorial": {
+            "cutIn": "Cut from the wide on the completed placement of the letter. The close object frame is clearly distinct.",
+            "cutOut": "Cut to Mara for her reply.",
+            "timing": "Brief. The line is clipped."
+          },
+          "advanced": {
+            "continuity": "Len\u0027s eyeline matches Mara\u0027s position at the open end.",
+            "assumptions": "Len\u0027s seat being nearest Mara is assumed.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "29456ead40ca611fbf586c809c92c605a6285627855cc8215fc0a6aadd0560a3",
+            "strategy": "1d64031eb3ec2c046aae4e92400ea487f5f5c5a83b73c67130432e367fcef59b",
+            "cast": "10912517da885e548aea631f4a5ed5f46abd748af6a354cddc7ba50a6d58eaae",
+            "dialogue": "11960071990129eb437ca17beb0a2fac2da71a7d9374b59823b8b499ac0a7f30",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "2fd4dd4927c0e5c72c158ee7f21f98c8694e40366f14a23588fea0c4ae3a969a",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "7868c4e4-03b0-4864-b80b-c5dc9c6cd4b7",
+        "title": "Your Seal",
+        "approvedScriptId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneTitle": "INT. COUNCIL ROOM - NIGHT",
+        "sourceBlockIds": [
+          "95159caf-2434-5c2e-a732-8137692090e1",
+          "9bb76fd5-85a6-5b7a-b652-d66dc3e2ec94"
+        ],
+        "sourceExcerpt": "### LEN\n\nYour seal. Your handwriting.",
+        "planning": {
+          "id": "8d18663e-2daf-4fce-8fb9-0bc348aff518",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b"
+          ],
+          "createdUtc": "2026-10-12T06:06:48.9848737+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a close, low angle on the sealed letter on the table, with Len soft in the background. Focus racks to Len, now framed in a medium close-up, as he delivers his line with flat certainty, looking toward Mara. Ending: a medium close-up on Len, the letter\u0027s edge soft in the foreground.",
+        "dialogue": [
+          {
+            "id": "842d92fc-7edb-4037-abab-145fd2a72712",
+            "speaker": "LEN",
+            "language": "en",
+            "text": "Your seal. Your handwriting."
+          }
+        ],
+        "characters": [
+          {
+            "id": "94d4bbbf-c602-412b-bc54-24fb3c4c8db2",
+            "name": "Len",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet and controlled; the room seems to hold its breath.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "direction": {
+          "intent": {
+            "purpose": "Give Mara her denial and implied counter-accusation.",
+            "reason": "Her steadiness must be read in her face, at her own level.",
+            "attention": "Mara\u0027s eyes moving from the letter to Len.",
+            "relationships": "Mara does not plead. She returns the suspicion to the room."
+          },
+          "staging": {
+            "positions": "Mara stands at the open end of the table.",
+            "facing": "She faces toward Len and the council.",
+            "eyelines": "She looks down to the letter, then up to Len, matching his eyeline.",
+            "movement": "Only her gaze shifts.",
+            "camera": "A static camera at standing eye level, slightly lower than her eyes so she keeps her stature."
+          },
+          "editorial": {
+            "cutIn": "Cut on Len\u0027s completed line to her answer.",
+            "cutOut": "Cut to the youngest councillor\u0027s reaction after Mara\u0027s held look.",
+            "timing": "Leave a beat after the line for the implication to land."
+          },
+          "advanced": {
+            "continuity": "Mara remains standing throughout.",
+            "assumptions": "The direction of her look toward Len is a staging assumption.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "773186f8cf867fbadbf8217a5b9ba89135d9f73b522584dfa47c69b634e7ab04",
+            "strategy": "1d64031eb3ec2c046aae4e92400ea487f5f5c5a83b73c67130432e367fcef59b",
+            "cast": "73221510a62bc188b41737edbaf774ef8cf1a8473db1b2ba98eca1118f01e85d",
+            "dialogue": "b1f25b60626f958f8a00a85ee82a7c982179b5effaac9ad4ad335ec7ecd23b5d",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "78d825b73fc43bc477a5a6763ca0715b5a3455518e9f626a8b8c63525569cd37",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "bd312c03-d78d-450b-a0a4-973e64ffedc9",
+        "title": "Someone Has Learned Both",
+        "approvedScriptId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneTitle": "INT. COUNCIL ROOM - NIGHT",
+        "sourceBlockIds": [
+          "e8f901e7-1748-5f10-95c5-b3b5b668a635",
+          "5d314760-ea59-5a03-b44c-71e4265cbe63"
+        ],
+        "sourceExcerpt": "### MARA\n\nThen someone has learned both.",
+        "planning": {
+          "id": "8d18663e-2daf-4fce-8fb9-0bc348aff518",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b"
+          ],
+          "createdUtc": "2026-10-12T06:06:48.9848737+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a medium close-up on Mara, standing, the seated council soft and out of focus beyond her. She looks from the letter up to Len and answers evenly. She holds her gaze afterward. Ending: Mara in a steady medium close-up, unbowed.",
+        "dialogue": [
+          {
+            "id": "e88f1c44-3bb9-429f-81bb-0a7511711c2f",
+            "speaker": "MARA",
+            "language": "en",
+            "text": "Then someone has learned both."
+          }
+        ],
+        "characters": [
+          {
+            "id": "b5c7be39-ee15-49b4-86e1-650ab9346b77",
+            "name": "Mara",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Still. Her composure cools the room.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "direction": {
+          "intent": {
+            "purpose": "Plant uncertainty within the council.",
+            "reason": "This glance is the only sign of hesitation, so it needs isolation.",
+            "attention": "The movement of the eyes from Mara to Len.",
+            "relationships": "The youngest briefly questions Len rather than Mara."
+          },
+          "staging": {
+            "positions": "The youngest councillor is seated at the table.",
+            "facing": "Toward Mara at first.",
+            "eyelines": "From Mara to Len.",
+            "movement": "Eyes only, perhaps a slight turn of the head.",
+            "camera": "A static close-up."
+          },
+          "editorial": {
+            "cutIn": "Cut from Mara\u0027s held look to a listener reacting to her words.",
+            "cutOut": "Cut wide as the council begins turning away.",
+            "timing": "Short and precise."
+          },
+          "advanced": {
+            "continuity": "The eyeline directions must match the positions of Mara and Len.",
+            "assumptions": "The youngest\u0027s seat position is assumed.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "e1b143305d25e725d0104f40ad39a8aa85197054f39a50be6d2322cbee768554",
+            "strategy": "1d64031eb3ec2c046aae4e92400ea487f5f5c5a83b73c67130432e367fcef59b",
+            "cast": "4ff35e659f1fbf73786a419966526a087d5aadce8afaa57f6750459ec8014a08",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "c9030ea0eb34f16ae9282bbfe12266643b36c28f3c50fe12b5094f7813dc8520",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "30bfa4ba-2b17-4fd7-a288-5138634ddd5d",
+        "title": "The Youngest Looks at Len",
+        "approvedScriptId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneTitle": "INT. COUNCIL ROOM - NIGHT",
+        "sourceBlockIds": [
+          "472912ca-cf32-5892-9a45-72adcc8e111c"
+        ],
+        "sourceExcerpt": "The youngest councillor looks at Len. One by one the others turn their chairs away from Mara. Mara stays standing.",
+        "planning": {
+          "id": "8d18663e-2daf-4fce-8fb9-0bc348aff518",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b"
+          ],
+          "createdUtc": "2026-10-12T06:06:48.9848737+00:00"
+        },
+        "duration": 3,
+        "description": "Opening: a close-up on the youngest councillor, seated among the others, eyes on Mara. Their eyes then move to Len and hold there. Ending: a close-up of the youngest councillor looking toward Len.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "7f920073-9ea0-4aba-a7d0-c2b799ae8c66",
+            "name": "Youngest Councillor",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A silent flicker of doubt.",
+        "music": "None, or the faintest held note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "direction": {
+          "intent": {
+            "purpose": "Show the council\u0027s collective judgment and Mara\u0027s refusal to yield.",
+            "reason": "The rejection unfolds in sequence and needs to play in one uninterrupted frame from Mara\u0027s side.",
+            "attention": "Each chair turning in turn, with Mara\u0027s stillness constant in the foreground.",
+            "relationships": "The council closes ranks against Mara. She stays apart and unbowed."
+          },
+          "staging": {
+            "positions": "Mara is in the foreground at the open end; the council is seated down the table.",
+            "facing": "The council turns from facing Mara to facing away.",
+            "eyelines": "Mara looks down the table at them.",
+            "movement": "The chairs turn one by one; Mara stays still.",
+            "camera": "A static wide frame, possibly with a very slow drift closer to Mara."
+          },
+          "editorial": {
+            "cutIn": "Cut from the youngest councillor\u0027s close-up to the reverse wide as the turning begins. The difference in scale and angle avoids a jump.",
+            "cutOut": "Ends the scene on Mara standing alone.",
+            "timing": "Let each turn have its own beat, and hold at the end."
+          },
+          "advanced": {
+            "continuity": "The letter remains on the table in front of Mara, and Mara never sits.",
+            "assumptions": "The order of the turning chairs and Mara\u0027s exact placement are assumed.",
+            "longTakeIdea": "Could be extended manually to hold longer on Mara after the last chair turns, within the clip maximum."
+          },
+          "dependencies": {
+            "story": "284ab2bf2d2298d97a6b3cfa77529bb631a8ba4a020af81de219ce9fb098e3bf",
+            "strategy": "1d64031eb3ec2c046aae4e92400ea487f5f5c5a83b73c67130432e367fcef59b",
+            "cast": "35ce402bbd985b15e416925c6981cccdd9a873f87ff59ff28ae914fac7ee73b7",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+            "neighbours": "c9a756b09bccca714f95b07a61690fef817f789b5a8227622dd257b257d5b540",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "f997a81a-229e-4b12-aa4f-5800a9d38b87",
+        "title": "The Council Turns Away",
+        "approvedScriptId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sceneTitle": "INT. COUNCIL ROOM - NIGHT",
+        "sourceBlockIds": [
+          "472912ca-cf32-5892-9a45-72adcc8e111c"
+        ],
+        "sourceExcerpt": "The youngest councillor looks at Len. One by one the others turn their chairs away from Mara. Mara stays standing.",
+        "planning": {
+          "id": "8d18663e-2daf-4fce-8fb9-0bc348aff518",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b"
+          ],
+          "createdUtc": "2026-10-12T06:06:48.9848737+00:00"
+        },
+        "duration": 10,
+        "description": "Opening: a wide frame from behind and beside Mara at the open end of the table, her shoulder in the foreground and the whole seated council facing her down the length of the table, the letter before her. One by one, the council members turn their chairs away from Mara. Mara stays standing and does not move. Ending: Mara upright in the foreground, facing a table of turned backs.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "5f22b298-edb1-467e-a8f8-9df3405b7aec",
+            "name": "Mara",
+            "appearance": null
+          },
+          {
+            "id": "0b449698-2d31-49f4-b550-6cd26b333093",
+            "name": "Len",
+            "appearance": null
+          },
+          {
+            "id": "42e523d1-73f2-4caa-8685-22c25865c870",
+            "name": "Youngest Councillor",
+            "appearance": null
+          },
+          {
+            "id": "78017d2c-c9ee-44f5-82e4-0a00662817f2",
+            "name": "Council Members",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Chairs scrape one after another in the silence, a slow ritual of rejection.",
+        "music": "A low, restrained tone may rise beneath the final turns, or silence holds.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022dramaticProgression\u0022: \u0022An accusation lands through evidence (the letter). Len names it as Mara\u0027s. Mara offers a denial that is also a counter-accusation. The youngest councillor\u0027s glance at Len briefly leaves the question open. Then the council collectively rejects Mara, and she refuses to yield.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens on a geography of separation: five seated councillors against one standing figure. It tightens into the exchange over the letter. A single reaction close-up briefly breaks the council\u0027s unity. It ends wide from Mara\u0027s end of the table as the council physically turns its backs, leaving Mara isolated but upright.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience does not learn who wrote the letter. Len\u0027s certainty and Mara\u0027s composed reply both remain plausible. The youngest councillor\u0027s look at Len plants a doubt without confirming it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022A long table with five seated council members. One end is open, and Mara stands there alone. The sealed letter sits on the table in front of Mara, and Len is within reach of it. All placements are staging assumptions until reference-supported.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Letter Is Placed\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022, \u0022947b65d4-3ec0-5aa6-b767-1cd41916ab8b\u0022],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a wide, slightly elevated frame of the night council room. Five council members sit together along the table, and Mara stands alone at its open end. Len reaches down the table and places a sealed letter in front of Mara, then withdraws his hand. The camera holds mostly still, with a slow, slight push in. Ending: still wide, the letter resting before Mara, Mara and the seated council facing each other across the empty length of the table.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}, {\u0022name\u0022: \u0022Len\u0022}, {\u0022name\u0022: \u0022Youngest Councillor\u0022}, {\u0022name\u0022: \u0022Council Members\u0022}],\n      \u0022atmosphere\u0022: \u0022Night interior with low, formal light pooled over the table and darkness at the edges. Hushed, tense stillness.\u0022,\n      \u0022music\u0022: \u0022Near silence; at most a faint low sustained tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the power imbalance and introduce the evidence.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography of one standing against five seated before the accusation lands.\u0022,\n          \u0022attention\u0022: \u0022Mara\u0027s isolation, then Len\u0027s hand and the letter.\u0022,\n          \u0022relationships\u0022: \u0022The council is united and seated; Mara is alone and standing. Len acts as the council\u0027s accuser.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Council members are grouped along the table, with Mara at the open end and Len nearest to her.\u0022,\n          \u0022facing\u0022: \u0022The council faces toward Mara; Mara faces the table.\u0022,\n          \u0022eyelines\u0022: \u0022Most eyes are on Mara as Len places the letter.\u0022,\n          \u0022movement\u0022: \u0022Len reaches and sets the letter down, then sits back.\u0022,\n          \u0022camera\u0022: \u0022A wide, slightly elevated frame from the far side of the table with a slow, subtle push in.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the letter and Len as he speaks, once the letter is down.\u0022,\n          \u0022timing\u0022: \u0022Measured. Let the silence before the accusation register.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The letter stays sealed and remains in front of Mara for the rest of the scene.\u0022,\n          \u0022assumptions\u0022: \u0022Camera position and table orientation are assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Your Seal\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u002295159caf-2434-5c2e-a732-8137692090e1\u0022, \u00229bb76fd5-85a6-5b7a-b652-d66dc3e2ec94\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a close, low angle on the sealed letter on the table, with Len soft in the background. Focus racks to Len, now framed in a medium close-up, as he delivers his line with flat certainty, looking toward Mara. Ending: a medium close-up on Len, the letter\u0027s edge soft in the foreground.\u0022,\n      \u0022dialogue\u0022: [\n        {\u0022speaker\u0022: \u0022LEN\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Your seal. Your handwriting.\u0022}\n      ],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Len\u0022}],\n      \u0022atmosphere\u0022: \u0022Quiet and controlled; the room seems to hold its breath.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Tie the evidence to Len\u0027s accusation.\u0022,\n          \u0022reason\u0022: \u0022Linking the object and the speaker in one take makes the letter the weight behind his words.\u0022,\n          \u0022attention\u0022: \u0022The seal first, then Len\u0027s face.\u0022,\n          \u0022relationships\u0022: \u0022Len presents the evidence as conclusive.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The letter is in the foreground; Len is seated behind it.\u0022,\n          \u0022facing\u0022: \u0022Len faces toward Mara.\u0022,\n          \u0022eyelines\u0022: \u0022Len looks at Mara, slightly off-lens on her side.\u0022,\n          \u0022movement\u0022: \u0022No large movement.\u0022,\n          \u0022camera\u0022: \u0022A low table-level frame with a rack focus from the letter to Len.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the wide on the completed placement of the letter. The close object frame is clearly distinct.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Mara for her reply.\u0022,\n          \u0022timing\u0022: \u0022Brief. The line is clipped.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Len\u0027s eyeline matches Mara\u0027s position at the open end.\u0022,\n          \u0022assumptions\u0022: \u0022Len\u0027s seat being nearest Mara is assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Someone Has Learned Both\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022e8f901e7-1748-5f10-95c5-b3b5b668a635\u0022, \u00225d314760-ea59-5a03-b44c-71e4265cbe63\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a medium close-up on Mara, standing, the seated council soft and out of focus beyond her. She looks from the letter up to Len and answers evenly. She holds her gaze afterward. Ending: Mara in a steady medium close-up, unbowed.\u0022,\n      \u0022dialogue\u0022: [\n        {\u0022speaker\u0022: \u0022MARA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Then someone has learned both.\u0022}\n      ],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}],\n      \u0022atmosphere\u0022: \u0022Still. Her composure cools the room.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Give Mara her denial and implied counter-accusation.\u0022,\n          \u0022reason\u0022: \u0022Her steadiness must be read in her face, at her own level.\u0022,\n          \u0022attention\u0022: \u0022Mara\u0027s eyes moving from the letter to Len.\u0022,\n          \u0022relationships\u0022: \u0022Mara does not plead. She returns the suspicion to the room.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Mara stands at the open end of the table.\u0022,\n          \u0022facing\u0022: \u0022She faces toward Len and the council.\u0022,\n          \u0022eyelines\u0022: \u0022She looks down to the letter, then up to Len, matching his eyeline.\u0022,\n          \u0022movement\u0022: \u0022Only her gaze shifts.\u0022,\n          \u0022camera\u0022: \u0022A static camera at standing eye level, slightly lower than her eyes so she keeps her stature.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on Len\u0027s completed line to her answer.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the youngest councillor\u0027s reaction after Mara\u0027s held look.\u0022,\n          \u0022timing\u0022: \u0022Leave a beat after the line for the implication to land.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Mara remains standing throughout.\u0022,\n          \u0022assumptions\u0022: \u0022The direction of her look toward Len is a staging assumption.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Youngest Looks at Len\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022472912ca-cf32-5892-9a45-72adcc8e111c\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a close-up on the youngest councillor, seated among the others, eyes on Mara. Their eyes then move to Len and hold there. Ending: a close-up of the youngest councillor looking toward Len.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Youngest Councillor\u0022}],\n      \u0022atmosphere\u0022: \u0022A silent flicker of doubt.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest held note.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Plant uncertainty within the council.\u0022,\n          \u0022reason\u0022: \u0022This glance is the only sign of hesitation, so it needs isolation.\u0022,\n          \u0022attention\u0022: \u0022The movement of the eyes from Mara to Len.\u0022,\n          \u0022relationships\u0022: \u0022The youngest briefly questions Len rather than Mara.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The youngest councillor is seated at the table.\u0022,\n          \u0022facing\u0022: \u0022Toward Mara at first.\u0022,\n          \u0022eyelines\u0022: \u0022From Mara to Len.\u0022,\n          \u0022movement\u0022: \u0022Eyes only, perhaps a slight turn of the head.\u0022,\n          \u0022camera\u0022: \u0022A static close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from Mara\u0027s held look to a listener reacting to her words.\u0022,\n          \u0022cutOut\u0022: \u0022Cut wide as the council begins turning away.\u0022,\n          \u0022timing\u0022: \u0022Short and precise.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The eyeline directions must match the positions of Mara and Len.\u0022,\n          \u0022assumptions\u0022: \u0022The youngest\u0027s seat position is assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Council Turns Away\u0022,\n      \u0022sceneId\u0022: \u0022a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022472912ca-cf32-5892-9a45-72adcc8e111c\u0022],\n      \u0022duration\u0022: 10,\n      \u0022description\u0022: \u0022Opening: a wide frame from behind and beside Mara at the open end of the table, her shoulder in the foreground and the whole seated council facing her down the length of the table, the letter before her. One by one, the council members turn their chairs away from Mara. Mara stays standing and does not move. Ending: Mara upright in the foreground, facing a table of turned backs.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{\u0022name\u0022: \u0022Mara\u0022}, {\u0022name\u0022: \u0022Len\u0022}, {\u0022name\u0022: \u0022Youngest Councillor\u0022}, {\u0022name\u0022: \u0022Council Members\u0022}],\n      \u0022atmosphere\u0022: \u0022Chairs scrape one after another in the silence, a slow ritual of rejection.\u0022,\n      \u0022music\u0022: \u0022A low, restrained tone may rise beneath the final turns, or silence holds.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the council\u0027s collective judgment and Mara\u0027s refusal to yield.\u0022,\n          \u0022reason\u0022: \u0022The rejection unfolds in sequence and needs to play in one uninterrupted frame from Mara\u0027s side.\u0022,\n          \u0022attention\u0022: \u0022Each chair turning in turn, with Mara\u0027s stillness constant in the foreground.\u0022,\n          \u0022relationships\u0022: \u0022The council closes ranks against Mara. She stays apart and unbowed.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Mara is in the foreground at the open end; the council is seated down the table.\u0022,\n          \u0022facing\u0022: \u0022The council turns from facing Mara to facing away.\u0022,\n          \u0022eyelines\u0022: \u0022Mara looks down the table at them.\u0022,\n          \u0022movement\u0022: \u0022The chairs turn one by one; Mara stays still.\u0022,\n          \u0022camera\u0022: \u0022A static wide frame, possibly with a very slow drift closer to Mara.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from the youngest councillor\u0027s close-up to the reverse wide as the turning begins. The difference in scale and angle avoids a jump.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on Mara standing alone.\u0022,\n          \u0022timing\u0022: \u0022Let each turn have its own beat, and hold at the end.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The letter remains on the table in front of Mara, and Mara never sits.\u0022,\n          \u0022assumptions\u0022: \u0022The order of the turning chairs and Mara\u0027s exact placement are assumed.\u0022,\n          \u0022longTakeIdea\u0022: \u0022Could be extended manually to hold longer on Mara after the last chair turns, within the clip maximum.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "e431167b-073b-46f2-8886-35c7727f8b21",
+        "sceneId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sourceId": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "sourceFingerprint": "d343d5be3c479d11755642def0ceb9761a989f7f312cf515ae44f18880b29db2",
+        "dramaticProgression": "An accusation lands through evidence (the letter). Len names it as Mara\u0027s. Mara offers a denial that is also a counter-accusation. The youngest councillor\u0027s glance at Len briefly leaves the question open. Then the council collectively rejects Mara, and she refuses to yield.",
+        "visualProgression": "The scene opens on a geography of separation: five seated councillors against one standing figure. It tightens into the exchange over the letter. A single reaction close-up briefly breaks the council\u0027s unity. It ends wide from Mara\u0027s end of the table as the council physically turns its backs, leaving Mara isolated but upright.",
+        "audienceInformation": "The audience does not learn who wrote the letter. Len\u0027s certainty and Mara\u0027s composed reply both remain plausible. The youngest councillor\u0027s look at Len plants a doubt without confirming it.",
+        "spatialAnchors": "A long table with five seated council members. One end is open, and Mara stands there alone. The sealed letter sits on the table in front of Mara, and Len is within reach of it. All placements are staging assumptions until reference-supported."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

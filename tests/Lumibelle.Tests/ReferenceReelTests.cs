@@ -229,6 +229,33 @@ public sealed class ReferenceReelTests
 
 public sealed partial class AssetStoreTests
 {
+    [Fact]
+    public async Task RemovedEnvironmentRecipesRemainEditableAndCapturedReelsRemainUnchanged()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (project, store) = CreateStore(); var owner = Asset("Plaza") with { Category = AssetCategory.Environment };
+        await store.SaveAsync(new() { ProjectId = project.Id, Assets = [owner] }, 0, ct);
+        var recipe = ReferenceReels.NewDraft(owner);
+        recipe.Framing = ReelFraming.EnvironmentArc; recipe.Instructions = "Around the podium";
+        recipe.Prompt = "Captured old prompt"; recipe.UseGuidance = "Captured old guidance";
+        recipe = await store.SaveDraftAsync(project.Id, recipe, 0, ct);
+        var snapshot = new VideoSnapshot(project.Id, 0, ReferenceReels.Inputs(recipe), recipe.Prompt, "", "", new(), 64, 64, 362, ReferenceReels.EnvironmentProfile);
+        var reel = new AssetReferenceReel { AssetId = owner.Id, Media = new(Guid.NewGuid(), new('A', 64), 15, 64, 64, 362, 24, 362 / 24d, false),
+            Generation = new(recipe.Copy(), Guid.NewGuid(), Guid.NewGuid(), 1, 42, snapshot) };
+        await store.PublishReelAsync(project.Id, reel, ct);
+        var captured = JsonSerializer.Serialize(reel.Generation, AtomicJsonFile.Options);
+        recipe.Instructions = "Keep this unfinished edit";
+        recipe = await store.SaveDraftAsync(project.Id, recipe, recipe.Revision, ct);
+        ReferenceReels.SelectCameraPreset(recipe, ReelFraming.EnvironmentFullSet);
+        await store.SaveDraftAsync(project.Id, recipe, recipe.Revision, ct);
+        var library = await store.LoadAsync(project.Id, ct);
+        Assert.Equal(captured, JsonSerializer.Serialize(Assert.Single(library.Reels).Generation, AtomicJsonFile.Options));
+        var saved = Assert.Single(library.ReelDrafts);
+        Assert.Equal(ReelFraming.EnvironmentFullSet, saved.Framing);
+        Assert.Equal("Captured old prompt", saved.Prompt); Assert.Equal("Captured old guidance", saved.UseGuidance);
+        Assert.Equal("Keep this unfinished edit", saved.Instructions);
+    }
+
     [Theory]
     [InlineData(AssetCategory.Character, ReelVoiceMode.NewVoice)]
     [InlineData(AssetCategory.Character, ReelVoiceMode.ExistingRecording)]

@@ -1,0 +1,307 @@
+{
+  "name": "Interruption",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 26.3849581,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Unfinished Confession\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u002296b772bc-4207-59ee-8a24-593a9a33d41f\u0022,\n      \u0022d053dd0f-20ca-523c-8f76-81d6a66ede46\u0022,\n      \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a static medium-wide two-shot across the night kitchen. The FATHER stands at the counter beside the stove, with the kettle heating behind him. His DAUGHTER stands close beside him and faces him. The camera holds at chest height and pushes in slowly. The FATHER gathers himself and begins to speak, struggling to get the words out. As his sentence breaks off, steam rises from the kettle spout behind him and the kettle starts to whistle. Ending composition: a tighter two-shot that holds both faces in profile, with the steaming kettle visible between them in the background.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022FATHER\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022What I should have told you years ago\u2014\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet late-night domestic tension. The kitchen is dim and lit only by warm practical lights. The house is still, apart from the rising hiss of the kettle.\u0022,\n    \u0022music\u0022: \u0022No score. Only the ambient room tone and the building kettle whistle.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022She Silences the Kettle\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a close shot over the FATHER\u0027s shoulder from behind, framed on the shrieking kettle on the stove. The DAUGHTER\u0027s arm reaches past him into the frame. The camera tilts and pans up along her arm as she switches the kettle off. The whistle dies away. Ending composition: a close-up of the DAUGHTER\u0027s face just past the FATHER\u0027s shoulder. Her eyes stay fixed on him the whole time, and she never looks at the kettle.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A sharp break in the noise. The whistle stops and the silence that follows feels heavy.\u0022,\n    \u0022music\u0022: \u0022None. The fading whistle gives way to near silence.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Go On\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00220ab4ecaa-d492-5d1e-9771-6a6534e2fc33\u0022,\n      \u0022a6d3ed58-e1b5-5174-8101-8309a8715cc0\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a frontal medium close-up of the DAUGHTER from the FATHER\u0027s side of the eyeline. The FATHER is a soft, out-of-focus edge in the foreground of the frame. The camera stays still. She keeps looking straight at him and speaks quietly but firmly. Ending composition: the same steady frame, holding on her expectant stare after the line.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022DAUGHTER\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Go on.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n      { \u0022name\u0022: \u0022FATHER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed and intimate. Her patience is both gentle and a challenge.\u0022,\n    \u0022music\u0022: \u0022None.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Words That Won\u0027t Come\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a reverse close-up of the FATHER, framed from just beside the DAUGHTER\u0027s eyeline. He is lit warmly from the side. The camera holds still. He opens his mouth to continue, but no words come. His jaw works and he cannot go on. Ending composition: a tight close-up of his face, his lips parted and his eyes cast down.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Painful and suspended. A silence full of things left unsaid.\u0022,\n    \u0022music\u0022: \u0022None. Only a faint room tone.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Chair Beside Her\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a low medium-wide shot from the kitchen table, with the empty chair prominent in the foreground. The DAUGHTER is in the background beside the FATHER. She turns from him, steps to the table and pulls out the chair beside her. The chair legs scrape softly on the floor. The camera eases back slightly as she moves. Ending composition: a wide frame with the pulled-out chair in the foreground, the DAUGHTER standing beside it, and the FATHER still at the counter looking at the offered seat.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n      { \u0022name\u0022: \u0022FATHER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A small, tender invitation. The tension eases slightly but is not yet resolved.\u0022,\n    \u0022music\u0022: \u0022None. The soft scrape of the chair stands out in the silence.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "bbfd1361-91da-42e0-aee6-c0452b3d28b7",
+        "title": "The Unfinished Confession",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+          "96b772bc-4207-59ee-8a24-593a9a33d41f",
+          "d053dd0f-20ca-523c-8f76-81d6a66ede46",
+          "17dd3b83-7ae9-56cc-ad12-feaaf9b0053c"
+        ],
+        "sourceExcerpt": "## INT. FAMILY KITCHEN - NIGHT\n\n### FATHER\n\nWhat I should have told you years ago\u2014\n\nThe kettle whistles. His daughter reaches past him and switches it off, keeping her eyes on him.",
+        "planning": {
+          "id": "26deabc4-304e-46b1-a3eb-bd4bda4c9a85",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T05:58:22.0596725+00:00"
+        },
+        "duration": 6,
+        "description": "Opening composition: a static medium-wide two-shot across the night kitchen. The FATHER stands at the counter beside the stove, with the kettle heating behind him. His DAUGHTER stands close beside him and faces him. The camera holds at chest height and pushes in slowly. The FATHER gathers himself and begins to speak, struggling to get the words out. As his sentence breaks off, steam rises from the kettle spout behind him and the kettle starts to whistle. Ending composition: a tighter two-shot that holds both faces in profile, with the steaming kettle visible between them in the background.",
+        "dialogue": [
+          {
+            "id": "3db13fbe-4c39-4835-b872-bda2857a997e",
+            "speaker": "FATHER",
+            "language": "en",
+            "text": "What I should have told you years ago\u2014"
+          }
+        ],
+        "characters": [
+          {
+            "id": "b15885ba-d8b8-48b8-ae1a-3d84273b62c4",
+            "name": "FATHER",
+            "appearance": null
+          },
+          {
+            "id": "0ae10725-f02a-4ad3-af6d-ec9dc9a4195f",
+            "name": "DAUGHTER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet late-night domestic tension. The kitchen is dim and lit only by warm practical lights. The house is still, apart from the rising hiss of the kettle.",
+        "music": "No score. Only the ambient room tone and the building kettle whistle.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "bfef93cc-1fca-40e8-973f-a2359ef9468f",
+        "title": "She Silences the Kettle",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "17dd3b83-7ae9-56cc-ad12-feaaf9b0053c"
+        ],
+        "sourceExcerpt": "The kettle whistles. His daughter reaches past him and switches it off, keeping her eyes on him.",
+        "planning": {
+          "id": "26deabc4-304e-46b1-a3eb-bd4bda4c9a85",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T05:58:22.0596725+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a close shot over the FATHER\u0027s shoulder from behind, framed on the shrieking kettle on the stove. The DAUGHTER\u0027s arm reaches past him into the frame. The camera tilts and pans up along her arm as she switches the kettle off. The whistle dies away. Ending composition: a close-up of the DAUGHTER\u0027s face just past the FATHER\u0027s shoulder. Her eyes stay fixed on him the whole time, and she never looks at the kettle.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "b9bf826f-29d7-49e9-93c1-55e33f64625a",
+            "name": "FATHER",
+            "appearance": null
+          },
+          {
+            "id": "5a4b6feb-e62c-401f-8037-6529f8eb9648",
+            "name": "DAUGHTER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A sharp break in the noise. The whistle stops and the silence that follows feels heavy.",
+        "music": "None. The fading whistle gives way to near silence.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "a09ecc9c-6ff2-4cc2-8d0c-bbd38ebf9203",
+        "title": "Go On",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "0ab4ecaa-d492-5d1e-9771-6a6534e2fc33",
+          "a6d3ed58-e1b5-5174-8101-8309a8715cc0"
+        ],
+        "sourceExcerpt": "### DAUGHTER\n\nGo on.",
+        "planning": {
+          "id": "26deabc4-304e-46b1-a3eb-bd4bda4c9a85",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T05:58:22.0596725+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a frontal medium close-up of the DAUGHTER from the FATHER\u0027s side of the eyeline. The FATHER is a soft, out-of-focus edge in the foreground of the frame. The camera stays still. She keeps looking straight at him and speaks quietly but firmly. Ending composition: the same steady frame, holding on her expectant stare after the line.",
+        "dialogue": [
+          {
+            "id": "3b6a9bee-ca6d-4a46-94a2-c659bf76d70b",
+            "speaker": "DAUGHTER",
+            "language": "en",
+            "text": "Go on."
+          }
+        ],
+        "characters": [
+          {
+            "id": "31e170bd-b53b-43de-ada5-360303f54647",
+            "name": "DAUGHTER",
+            "appearance": null
+          },
+          {
+            "id": "737921ca-d4af-448e-89f8-0cf0e634d1a4",
+            "name": "FATHER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Hushed and intimate. Her patience is both gentle and a challenge.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "45c8864b-27cb-4c43-b02e-989984f383d1",
+        "title": "Words That Won\u0027t Come",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "5ad851c2-018a-52f8-a04f-ed82dcd95b5a"
+        ],
+        "sourceExcerpt": "He opens his mouth but cannot continue. She pulls out the chair beside her.",
+        "planning": {
+          "id": "26deabc4-304e-46b1-a3eb-bd4bda4c9a85",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T05:58:22.0596725+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a reverse close-up of the FATHER, framed from just beside the DAUGHTER\u0027s eyeline. He is lit warmly from the side. The camera holds still. He opens his mouth to continue, but no words come. His jaw works and he cannot go on. Ending composition: a tight close-up of his face, his lips parted and his eyes cast down.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "6bf99794-63d0-4068-a13d-1a4a8b9979a6",
+            "name": "FATHER",
+            "appearance": null
+          },
+          {
+            "id": "e0555c5d-2193-491c-9ba5-30ec192beb5e",
+            "name": "DAUGHTER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Painful and suspended. A silence full of things left unsaid.",
+        "music": "None. Only a faint room tone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "0022fdca-daf3-4aec-8685-0324da98fcee",
+        "title": "The Chair Beside Her",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "5ad851c2-018a-52f8-a04f-ed82dcd95b5a"
+        ],
+        "sourceExcerpt": "He opens his mouth but cannot continue. She pulls out the chair beside her.",
+        "planning": {
+          "id": "26deabc4-304e-46b1-a3eb-bd4bda4c9a85",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T05:58:22.0596725+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a low medium-wide shot from the kitchen table, with the empty chair prominent in the foreground. The DAUGHTER is in the background beside the FATHER. She turns from him, steps to the table and pulls out the chair beside her. The chair legs scrape softly on the floor. The camera eases back slightly as she moves. Ending composition: a wide frame with the pulled-out chair in the foreground, the DAUGHTER standing beside it, and the FATHER still at the counter looking at the offered seat.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "c06bc242-f574-44af-b1f1-15a2c64277a3",
+            "name": "DAUGHTER",
+            "appearance": null
+          },
+          {
+            "id": "5ef15f3e-02b4-4e4d-90e5-65c4ddf0ce49",
+            "name": "FATHER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A small, tender invitation. The tension eases slightly but is not yet resolved.",
+        "music": "None. The soft scrape of the chair stands out in the silence.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Unfinished Confession\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u002296b772bc-4207-59ee-8a24-593a9a33d41f\u0022,\n      \u0022d053dd0f-20ca-523c-8f76-81d6a66ede46\u0022,\n      \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a static medium-wide two-shot across the night kitchen. The FATHER stands at the counter beside the stove, with the kettle heating behind him. His DAUGHTER stands close beside him and faces him. The camera holds at chest height and pushes in slowly. The FATHER gathers himself and begins to speak, struggling to get the words out. As his sentence breaks off, steam rises from the kettle spout behind him and the kettle starts to whistle. Ending composition: a tighter two-shot that holds both faces in profile, with the steaming kettle visible between them in the background.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022FATHER\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022What I should have told you years ago\u2014\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet late-night domestic tension. The kitchen is dim and lit only by warm practical lights. The house is still, apart from the rising hiss of the kettle.\u0022,\n    \u0022music\u0022: \u0022No score. Only the ambient room tone and the building kettle whistle.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022She Silences the Kettle\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a close shot over the FATHER\u0027s shoulder from behind, framed on the shrieking kettle on the stove. The DAUGHTER\u0027s arm reaches past him into the frame. The camera tilts and pans up along her arm as she switches the kettle off. The whistle dies away. Ending composition: a close-up of the DAUGHTER\u0027s face just past the FATHER\u0027s shoulder. Her eyes stay fixed on him the whole time, and she never looks at the kettle.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A sharp break in the noise. The whistle stops and the silence that follows feels heavy.\u0022,\n    \u0022music\u0022: \u0022None. The fading whistle gives way to near silence.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Go On\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00220ab4ecaa-d492-5d1e-9771-6a6534e2fc33\u0022,\n      \u0022a6d3ed58-e1b5-5174-8101-8309a8715cc0\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a frontal medium close-up of the DAUGHTER from the FATHER\u0027s side of the eyeline. The FATHER is a soft, out-of-focus edge in the foreground of the frame. The camera stays still. She keeps looking straight at him and speaks quietly but firmly. Ending composition: the same steady frame, holding on her expectant stare after the line.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022DAUGHTER\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Go on.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n      { \u0022name\u0022: \u0022FATHER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed and intimate. Her patience is both gentle and a challenge.\u0022,\n    \u0022music\u0022: \u0022None.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Words That Won\u0027t Come\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a reverse close-up of the FATHER, framed from just beside the DAUGHTER\u0027s eyeline. He is lit warmly from the side. The camera holds still. He opens his mouth to continue, but no words come. His jaw works and he cannot go on. Ending composition: a tight close-up of his face, his lips parted and his eyes cast down.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022FATHER\u0022 },\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Painful and suspended. A silence full of things left unsaid.\u0022,\n    \u0022music\u0022: \u0022None. Only a faint room tone.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Chair Beside Her\u0022,\n    \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a low medium-wide shot from the kitchen table, with the empty chair prominent in the foreground. The DAUGHTER is in the background beside the FATHER. She turns from him, steps to the table and pulls out the chair beside her. The chair legs scrape softly on the floor. The camera eases back slightly as she moves. Ending composition: a wide frame with the pulled-out chair in the foreground, the DAUGHTER standing beside it, and the FATHER still at the counter looking at the offered seat.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n      { \u0022name\u0022: \u0022FATHER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A small, tender invitation. The tension eases slightly but is not yet resolved.\u0022,\n    \u0022music\u0022: \u0022None. The soft scrape of the chair stands out in the silence.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

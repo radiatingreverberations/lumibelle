@@ -80,7 +80,7 @@ for (const narrow of [false, true]) test(`extension reference drafts apply, canc
   await expect(summary).toContainText('From the original take');
   await form.getByLabel('Next action', { exact: true }).fill('The camera slowly moves into the room.');
   await form.getByLabel('Extension prompt', { exact: true }).fill('Keep this authored prompt while changing the references.');
-  const manage = form.getByRole('button', { name: 'Manage references', exact: true });
+  const manage = form.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true });
   const editor = page.locator('.shot-reference-dialog').filter({ has: page.getByRole('button', { name: 'Close extension references', exact: true }) });
   await manage.click(); await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(summary).toContainText('From the original take');

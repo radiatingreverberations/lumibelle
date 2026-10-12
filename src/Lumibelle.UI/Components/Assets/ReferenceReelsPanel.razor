@@ -26,7 +26,8 @@
                 <video controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(ProjectId, reel.Media.Id)" aria-label="Play @reel.Name"></video>
                 <strong>@reel.Name</strong><small>@reel.Media.Duration.ToString("0.###") s · @reel.CreatedUtc.ToLocalTime().ToString("g") · @(EnvironmentReel ? "Environment" : PropReel ? "Prop" : Owner.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name ?? "General")</small>
                 <small>@(reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent || !reel.Media.HasAudio ? "Visual reference · soundtrack off by default" : "Soundtrack available")</small>
-                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button><button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
+                <ReelKeyframeStatus Keyframes="reel.Keyframes" Disabled="_busy" Open="() => ManageKeyframes(reel)" />
+                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button>@if (CanRegenerate(reel)) { <button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> } }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
             </article>
         }
     </div>
@@ -67,20 +68,20 @@
                 <section class="shot-references reel-pictures" aria-label="Reel visual references">
                     <h2 class="shot-references-title">References</h2>
                     <button class="add-shot-references" disabled="@_busy" @onclick="() => OpenPictures()">Manage references</button>
-                    <div class="shot-reference-counts"><span>Images <strong>@resolved.Pictures.Count/9</strong></span><span>Reels <strong>@inputs.Videos.Count</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(inputs).Count()/3</strong></span></div>
+                    <div class="shot-reference-counts"><span>Images <strong>@resolved.Pictures.Count/9</strong></span><span>Reels <strong>@ReferenceVideos.ReelSlotCount(inputs)</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(inputs).Count()/3</strong></span></div>
                     <div class="shot-reference-contact-sheet">
                         @foreach (var picture in resolved.Pictures) {
                             var image = picture.Image; var reel = picture.Reel;
                             var media = image is not null ? PictureMedia(image) : null;
                             var url = image is not null && media is not null ? $"/media/projects/{ProjectId}/assets/{image.AssetId}/images/{image.MediaId}" : picture.Keyframe is not null ? ReferenceVideos.FrameUrl(ProjectId, picture.Keyframe.Frame) : null;
-                            var name = image?.Name ?? reel?.Name ?? "Unavailable image";
+                            var name = image?.Name ?? picture.Keyframe?.Name ?? reel?.Name ?? "Unavailable image";
                             <button class="shot-reference-tile" title="@($"Picture {picture.Number} · {name}")" aria-label="@($"Edit Picture {picture.Number} · {name}")" disabled="@_busy" @onclick="() => OpenPictures(image?.Id ?? reel?.Id)">
                                 @if (url is not null) { <CropThumbnail MeasureImage="@(media is null)" Url="@url" Label="@name" Width="@(media?.Width ?? reel?.Media.Width ?? 1)" Height="@(media?.Height ?? reel?.Media.Height ?? 1)" Crop="@(image?.Crop ?? picture.Keyframe?.Crop)" /> }
                                 else { <span class="shot-reference-unavailable">Unavailable</span> }
                                 <span class="shot-reference-number">@picture.Number</span><span class="shot-reference-name">@name</span>
                             </button>
                         }
-                        @foreach (var video in inputs.Videos) {
+                        @foreach (var video in inputs.Videos.Where(v => ReferenceVideos.UsesReelSlot(v) || v.UseSoundtrack)) {
                             <button class="shot-reference-tile shot-reference-reel" @key="video.Id" title="@($"Reel · {video.Name} · {(video.EffectiveVisuals == ReelVisuals.None ? "Audio only" : ReelUsageDefaults.Label(video.EffectiveVisuals))}")" aria-label="@($"Preview reel {video.Name}")" disabled="@_busy" @onclick="() => _previewReferenceVideo = video">
                                 <CropThumbnail Url="@ReferenceVideos.ThumbnailUrl(ProjectId, video.Media.Id)" Label="@video.Name" Width="video.Media.Width" Height="video.Media.Height" />
                                 <span class="shot-reference-number" aria-hidden="true">▶</span><span class="shot-reference-name">@video.Name</span>
@@ -159,7 +160,7 @@
                     @* Prompt, right above with its status, says what is missing; an overlay hint here covered that button. *@
                     <span class="reel-generate-target generation-primary-action" tabindex="@(!HasPromptPair ? 0 : (int?)null)" role="group"
                         title="@(!HasPromptPair ? "Add a prompt and use guidance in Prompt." : null)" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
-                        <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair)" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
+                        <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair || ReferenceReels.NeedsEnvironmentReplacement(_draft))" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
                     </span>
                     @if (videoJob is not null) { <MudButton Class="shot-review-latest" OnClick="() => ViewJob(videoJob)" Color="Color.Primary" Size="Size.Small" aria-label="@(ActiveVideo is null ? "Review latest batch" : "View request")" title="@(ActiveVideo is null ? "Review latest batch" : "View request")">Review</MudButton> }
                 </div>
@@ -176,7 +177,8 @@
         @if (_draft is not null) {
             <section id="reel-setup-prompt-panel" hidden="@(_setupTab != "Prompt")">
                 <fieldset class="reel-form" disabled="@_busy">
-                    <div class="reel-fields"><label>Reel name<input @bind="_draft.Name" @bind:event="oninput" @bind:after="Changed" maxlength="500" /></label>@if (_draft.LookId is not null) { <p class="field-hint">Saved destination: @Owner.Looks.FirstOrDefault(l => l.Id == _draft.LookId)?.Name <button @onclick="ClearDraftLook">Use unassigned</button></p> }</div>
+                    <div class="reel-fields reel-name-fields"><label>Reel name<input @bind="_draft.Name" @bind:event="oninput" @bind:after="Changed" maxlength="500" /></label>@if (EnvironmentReel) { <span class="reel-silent-note">Silent reference</span> }@if (_draft.LookId is not null) { <p class="field-hint">Saved destination: @Owner.Looks.FirstOrDefault(l => l.Id == _draft.LookId)?.Name <button @onclick="ClearDraftLook">Use unassigned</button></p> }</div>
+                    @if (!EnvironmentReel) {
                     <details class="reel-voice-options"><summary>@(CameraReel ? "Audio · Silent" : $"Voice and dialogue · {VoiceModeLabel}")</summary>
                         @if (CameraReel) { <p class="field-hint">Silent visual reference · no dialogue or audio inputs.</p> }
                         else {
@@ -194,22 +196,32 @@
                         }
                         }
                     </details>
-                    <details class="reel-direction-options"><summary>Framing and direction · @ReferenceReels.Label(_draft.Framing)</summary>
+                    }
+                    <details class="reel-direction-options" open="@ReferenceReels.NeedsEnvironmentReplacement(_draft)"><summary>@(EnvironmentReel ? "Coverage and route" : "Framing and direction") · @(ReferenceReels.NeedsEnvironmentReplacement(_draft) ? "Choose coverage" : ReferenceReels.Label(_draft.Framing))</summary>
+                        <div class="@(EnvironmentReel ? "reel-coverage-overview" : null)">
                         <div class="reel-fields reel-camera-settings">
-                            <label>@(CameraReel ? "Camera preset" : "Framing preset")<select aria-label="@(CameraReel ? "Camera preset" : "Framing preset")" value="@_draft.Framing" @onchange="ChangeFraming" disabled="@_busy">@foreach (var framing in ReferenceReels.Framings(_draft)) { <option value="@framing">@ReferenceReels.Label(framing)</option> }</select></label>
+                            <label>@(CameraReel ? "Camera preset" : "Framing preset")<select aria-label="@(CameraReel ? "Camera preset" : "Framing preset")" value="@(ReferenceReels.NeedsEnvironmentReplacement(_draft) ? "" : _draft.Framing.ToString())" @onchange="ChangeFraming" disabled="@_busy">@if (ReferenceReels.NeedsEnvironmentReplacement(_draft)) { <option value="" disabled>Choose coverage…</option> }@foreach (var framing in ReferenceReels.Framings(_draft)) { <option value="@framing">@ReferenceReels.Label(framing)</option> }</select></label>
                             @if (CameraReel) {
-                                @if (ReferenceReels.CameraPreset(_draft)?.UsesDirection == true) { <label>Direction<select aria-label="Camera direction" @bind="_draft.CameraDirection" @bind:after="Changed" disabled="@_busy"><option value="@ReelCameraDirection.Right">Right</option><option value="@ReelCameraDirection.Left">Left</option></select></label> }
+                                @if (ReferenceReels.CameraPreset(_draft)?.UsesDirection == true) { <label>Direction<select aria-label="Camera direction" @bind="_draft.CameraDirection" @bind:after="Changed" disabled="@_busy"><option value="@ReelCameraDirection.Right">@ReferenceReels.CameraDirectionLabel(_draft, ReelCameraDirection.Right)</option><option value="@ReelCameraDirection.Left">@ReferenceReels.CameraDirectionLabel(_draft, ReelCameraDirection.Left)</option></select></label> }
                             }
                         </div>
                         <CharacterReelCaptureOptions Draft="_draft" Disabled="_busy" Changed="Changed" />
                         @if (ReferenceReels.CameraPreset(_draft) is { } cameraPreset) {
-                            <p class="field-hint reel-camera-summary">@cameraPreset.Summary</p>
+                            @if (EnvironmentReel) { <EnvironmentReelCoverage Framing="_draft.Framing" Direction="@(_draft.CameraDirection ?? ReelCameraDirection.Right)" /> }
+                            else { <p class="field-hint reel-camera-summary">@cameraPreset.Summary</p> }
+                        }
+                        </div>
+                        @if (ReferenceReels.CameraPreset(_draft) is not null) {
                             @if (ReferenceReels.DurationAdvice(_draft) is { } advice) { <p class="field-hint" role="status">@advice</p> }
                             @if (ReferenceReels.ShowKeyframeHint(_draft)) { <p class="field-hint reel-keyframe-hint">@ReferenceReels.LongReelKeyframeHint</p> }
+                            <div class="reel-coverage-resources">
                             <details class="reel-camera-timeline"><summary>Camera timing</summary><p class="field-hint reel-framing-plan">@FramingPlan</p></details>
+                            @if (EnvironmentReel) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide ↗</a> }
+                            </div>
                         } else if (ReferenceReels.IsCharacterCapture(_draft)) {
                             <details class="reel-camera-timeline"><summary>Capture timing</summary><p class="field-hint reel-framing-plan">@FramingPlan</p></details>
-                        } else { <p class="field-hint reel-framing-plan">@FramingPlan</p> }
+                        } else { <p class="field-hint reel-framing-plan" role="status">@FramingPlan</p> }
+                        @if (EnvironmentReel && ReferenceReels.CameraPreset(_draft) is null) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide ↗</a> }
                         @if (ReusableDirections.Any()) {
                             <details class="reel-reuse-directions"><summary>Reuse directions from a reel</summary>
                                 <label>Saved reel<select aria-label="Saved reel" @bind="_directionSourceId" @bind:after="() => _directionsNotice = null" disabled="@_busy"><option value="">Choose a reel…</option>@foreach (var saved in ReusableDirections) { <option value="@saved.Id">@DirectionSourceLabel(saved)</option> }</select></label>
@@ -222,9 +234,8 @@
                                 @if (_directionsNotice is not null) { <p role="status">@_directionsNotice</p> }
                             </details>
                         }
-                        <label>Instructions<textarea rows="4" @bind="_draft.Instructions" @bind:event="oninput" @bind:after="Changed" disabled="@_busy" placeholder="@(CameraReel ? ReferenceReels.CameraPreset(_draft)?.RequiredInstructions ?? (PropReel ? "Describe the camera move, or details to show and preserve…" : "Describe the starting view, route and destination, or features to preserve…") : "For example: include a close-up of the hands…")"></textarea></label>
-                        <p class="field-hint">Assist inspects the selected cropped pictures. Your instructions can adjust the @(CameraReel ? "camera" : "framing") plan.</p>
-                        <p class="field-hint">Your framing preset and custom directions are saved with each generated reel for reuse.</p>
+                        <label class="reel-instructions">Instructions<textarea rows="3" @bind="_draft.Instructions" @bind:event="oninput" @bind:after="Changed" disabled="@_busy" placeholder="@(CameraReel ? ReferenceReels.CameraPreset(_draft)?.RequiredInstructions ?? (PropReel ? "Describe the camera move, or details to show and preserve…" : "Describe the starting view, route and destination, or features to preserve…") : "For example: include a close-up of the hands…")"></textarea></label>
+                        <p class="field-hint reel-instructions-hint">Assist uses your cropped pictures and these directions. The preset and directions are saved with the reel for reuse.</p>
                     </details>
                 </fieldset>
                 <section class="reel-prompts"><div class="reel-pair-actions">
@@ -237,8 +248,7 @@
                     </ChildContent>
                     <Actions><MudButton Class="ai-assist-action" OnClick="Compose" Disabled="@(_busy || _model?.Ready != true || !_model.SupportsImages || !ReferenceReels.HasVisualReferences(_draft) || InstructionsIssue is not null || ActiveComposition is not null || _enqueue is not null)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />@(_draft.Prompt.Length == 0 ? "Compose pair" : "Revise pair")</MudButton></Actions>
                 </TextAssistance></div>
-                @if (!HasPromptPair) { <p class="field-hint">Set framing and direction above, then use Assist to compose from your references, or write both texts yourself.</p> }
-                <PromptEditor @key="_draft.Id" @ref="_prompt" HistoryKey="@($"{_promptHistoryScope}:{_draft.Id}")" Text="@_draft.Prompt" TextChanged="PromptChanged" />
+                <PromptEditor @key="_draft.Id" @ref="_prompt" HistoryKey="@($"{_promptHistoryScope}:{_draft.Id}")" Text="@_draft.Prompt" TextChanged="PromptChanged" Placeholder="Compose the prompt pair with Assist, or write your H3 prompt here." />
                 <label>Use guidance<textarea rows="5" @bind="_draft.UseGuidance" @bind:event="oninput" @bind:after="Changed"></textarea></label>
                 <p class="field-hint">Intended uses of this reel. Review the actual clip after generation and correct this guidance if needed.</p>
                 @if (_draft.CheckedInputs != ReferenceReels.InputsFingerprint(_draft) && _draft.Prompt.Length > 0) { <p role="status">Check prompts · Inputs or instructions changed. Review both texts before generating.</p> }
@@ -327,6 +337,7 @@
 <SectionContent SectionId="DetailsSection"><StudioPane Class="reel-details-tools" Label="Reel follow-up"><ChildContent>
     @if (SelectedReel is { } selected) {
         <video class="reel-detail-player" controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, selected.Media.Id)" src="@ReferenceVideos.Url(ProjectId, selected.Media.Id)"></video>
+        <ReelKeyframeStatus Keyframes="selected.Keyframes" Explain="true" Disabled="_busy" Open="() => ManageKeyframes(selected)" />
         <p class="field-hint">Create similar loads the saved recipe into Create for you to review and adjust.</p>
         <MudButton OnClick="() => EditReel(selected)">Edit details</MudButton>
         @if (selected.Generation is null) { <p class="field-hint">This imported clip has no generation recipe.</p> }
@@ -335,7 +346,7 @@
 </ChildContent><Footer>
     @if (SelectedReel is { } selected) {
         <button @onclick="() => Variation(selected)" disabled="@(selected.Generation is null || !CanClearCreation)" title="@(selected.Generation is null ? "No saved creation recipe is available for this reel." : "Load the saved prompt, inputs and settings into Create.")">Create similar</button>
-        @if (selected.Generation is not null) { <button @onclick="() => Regenerate(selected)" disabled="@_busy">Regenerate…</button> }
+        @if (CanRegenerate(selected)) { <button @onclick="() => Regenerate(selected)" disabled="@_busy">Regenerate…</button> }
     }
 </Footer></StudioPane></SectionContent>
 }
@@ -352,7 +363,7 @@
     @if (!_confirmDetailsClose && _details is { } detail) {
         @if (detail.Generation is not null) {
             <MudButton OnClick="() => Variation(detail)" Disabled="@(_busy || !CanVary(detail))" title="@(CanVary(detail) ? null : VaryBusy)">Create similar</MudButton>
-            <MudButton OnClick="() => Regenerate(detail)" Disabled="_busy">Regenerate…</MudButton>
+            @if (CanRegenerate(detail)) { <MudButton OnClick="() => Regenerate(detail)" Disabled="_busy">Regenerate…</MudButton> }
         }
         <MudButton OnClick="() => ManageKeyframes(detail)" Disabled="_busy">Manage keyframes…</MudButton>
         @if (CanReplace(detail)) { <MudButton OnClick="() => ReplaceInShots(detail)" Disabled="_busy">Replace in shots…</MudButton> }
@@ -370,6 +381,7 @@
     <div class="media-details-preview reel-details-preview">
         <video class="reel-detail-player" controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, detail.Media.Id)" src="@ReferenceVideos.Url(ProjectId, detail.Media.Id)"></video>
         <p class="field-hint">@VideoResolutions.Dimensions(detail) · @VideoResolutions.Badge(detail) · @detail.Media.Duration.ToString("0.###") seconds · @(detail.Media.HasAudio ? "Soundtrack available" : "Silent")</p>
+        <ReelKeyframeStatus Keyframes="detail.Keyframes" Explain="true" Disabled="_busy" Open="() => ManageKeyframes(detail)" />
         @if (CameraReel && (detail.Generation?.Recipe is { } savedRecipe ? ReferenceReels.ShowKeyframeHint(savedRecipe) : detail.Media.Duration >= 10)) { <p class="field-hint reel-keyframe-notice">@ReferenceReels.LongReelKeyframeHint</p> }
         <div class="reel-detail-disclosures">
             <details>
@@ -407,7 +419,7 @@
     </DialogContent><DialogActions><MudButton OnClick="() => _importOpen = false" Disabled="@_busy">Close</MudButton><MudButton OnClick="SaveImport" Disabled="@(_busy || _imported is null)" Variant="Variant.Filled" Color="Color.Primary">Save reel</MudButton></DialogActions></InlineDialog>
 
 <InlineDialog Visible="_keyframeReel is not null" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@_keyframeReel?.Name"><DialogContent>
-@if (_keyframeReel is { } frameReel) { <ReelKeyframeEditor @key="frameReel.Id" ProjectId="ProjectId" Media="frameReel.Media" Initial="frameReel.Keyframes" SaveImage="SaveFrameImage" Applied="SaveKeyframes" Cancelled="() => _keyframeReel = null" /> }
+@if (_keyframeReel is { } frameReel) { <ReelKeyframeEditor @key="frameReel.Id" ProjectId="ProjectId" Media="frameReel.Media" Initial="frameReel.Keyframes" RequestedJobId="RequestedJobId" SaveImage="SaveFrameImage" Applied="SaveKeyframes" Cancelled="() => _keyframeReel = null" /> }
 </DialogContent></InlineDialog>
 
 <ReelReplacementDialog ProjectId="ProjectId" Reel="_replaceReel" Library="Library" Closed="() => _replaceReel = null" />

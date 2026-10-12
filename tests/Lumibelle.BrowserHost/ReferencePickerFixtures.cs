@@ -42,6 +42,50 @@ internal static class ReferencePickerFixtures
 {
     public static void MapReferencePickerFixtures(this WebApplication app)
     {
+        app.MapGet("/fixtures/{id:guid}/environment-setup", async (Guid id, IProductionStore production) => {
+            var c = (await production.LoadAsync(id)).Compositions[0]; return new { c.Id, c.ShotId, c.Shot, c.Prompt };
+        });
+        app.MapPost("/fixtures/{id:guid}/environment-copy-source", async (Guid id, IProductionStore production, ProjectFiles files) => {
+            var document = await production.LoadAsync(id); var source = document.Compositions[0];
+            var alternate = source.Copy(); alternate.Id = Guid.NewGuid(); alternate.Name = "Environment preset";
+            alternate.GenerationSetupId = null; alternate.GenerationSetupVersion = 0;
+            source.Shot.EnvironmentAssetId = null;
+            document.Compositions.Add(alternate); document.SchemaVersion = 3;
+            foreach (var content in document.ShotContent) content.EnvironmentAssetId = null;
+            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            return Results.Ok();
+        });
+        app.MapPost("/fixtures/{id:guid}/picture-ten", async (Guid id, IProductionStore production, IAssetStore assets, ProjectFiles files) => {
+            var c = (await production.LoadAsync(id)).Compositions[0];
+            var library = await assets.LoadAsync(id); var reel = library.Reels.First();
+            c.Shot.Images = Enumerable.Range(0, 8).Select(_ => { var b = ShotCopy.Of(c.Shot.Images[0]); b.Id = Guid.NewGuid(); return b; }).ToList();
+            c.Shot.Videos = [new() { Name = reel.Name, Media = reel.Media, OwnerAssetId = reel.AssetId, OwnerCategory = AssetCategory.Environment,
+                Visuals = ReelVisuals.Keyframes, Keyframes = new() { Frames = reel.Keyframes!.Frames.Take(2).ToList() } }];
+            // Simulate an older over-budget document without weakening the real save validation.
+            var path = Path.Combine(await files.DirectoryAsync(id, CancellationToken.None), "production.json");
+            var raw = (await AtomicJsonFile.ReadAsync<ProductionDocument>(path, CancellationToken.None))!;
+            raw.ShotContent[0] = ShotProductionContent.From(c);
+            await AtomicJsonFile.WriteAsync(path, raw, CancellationToken.None); return Results.Ok();
+        });
+        app.MapPost("/fixtures/{id:guid}/environment-library", async (Guid id, IAssetStore assets, IAssetReelStore reels, IProductionStore production, int extraViews = 0, string notes = "", bool selected = true, bool fullBudget = false) => {
+            var library = await assets.LoadAsync(id); var owner = library.Assets.First();
+            owner = owner with { Name = "Plaza environment", Category = AssetCategory.Environment };
+            library = await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id == owner.Id ? owner : a).ToList() }, library.Revision);
+            foreach (var reel in library.Reels.ToArray()) {
+                library = await reels.SaveReelAsync(id, reel with { AssetId = owner.Id, Keyframes = new() { Frames = (extraViews > 0 ? Enumerable.Range(0, extraViews) : new[] { 0, 24, 48 }).Select(index => new ReelKeyframe {
+                    Name = reel.Name + " view " + index, Notes = "Keep the doorway design.", Crop = new() { Width = .8 },
+                    Frame = new(reel.Media.Id, reel.Media.Sha256, index, index / 24d) }).ToList() } }, library.Revision);
+            }
+            if (library.Reels.Count > 0) library = await reels.SaveReelAsync(id, library.Reels[0] with { Id = Guid.NewGuid(), Name = "Unkeyframed survey", Keyframes = null }, library.Revision);
+            var doc = await production.InitializeAsync(id); var c = doc.Compositions[0]; c.DirectingNotes = notes;
+            var character = library.Assets.First(a => a.Id != owner.Id && a.Images.Count > 0);
+            c.Shot.Images = [ReferenceSetups.Bind(character, character.Images[0], c.Shot)];
+            if (fullBudget) c.Shot.Images = Enumerable.Range(0, 9).Select(_ => { var image = ShotCopy.Of(c.Shot.Images[0]); image.Id = Guid.NewGuid(); return image; }).ToList();
+            c.Shot.EnvironmentAssetId = selected ? owner.Id : null;
+            c.Prompt = "My authored prompt";
+            await production.SaveAsync(id, c, c.Version);
+            return library;
+        });
         // Seed saved source angles and an asset default; providers remain mocked.
         app.MapPost("/fixtures/{id:guid}/reel-reference-default", async (Guid id, ReelVisuals mode, IAssetStore assets,
             IAssetReelStore reels, IAiSettingsStore settings, IVideoGenerator generator) => {

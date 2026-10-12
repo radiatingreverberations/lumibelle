@@ -1,0 +1,314 @@
+{
+  "name": "Sustained dialogue",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 23.3768475,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Waiting Beside the Covered Telescope\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022fa292184-e7b7-51d5-b3cf-7a13fec3503e\u0022\n    ],\n    \u0022duration\u0022: 8,\n    \u0022description\u0022: \u0022Opening composition: a wide, low-angle frame of the observatory interior in pale pre-dawn light. The covered telescope dominates the center, and the two astronomers stand small beside it, the older on frame left and the younger on frame right. The camera slowly dollies forward as the younger astronomer reaches toward the cover. The older astronomer gently places a hand over hers and lowers it. The younger reaches again, and again the older steadies her hand. Ending composition: a medium-wide two-shot at waist height, both figures in profile with the cover between them and their joined hands at center frame.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed, expectant pre-dawn stillness; cool blue-grey light and deep shadows around the instrument.\u0022,\n    \u0022music\u0022: \u0022A sparse, sustained low string tone, barely audible.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Let It Be Something You Do Not Understand\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a3349e1b-723a-57ab-a3f6-6988668ff183\u0022,\n      \u0022200900f8-011c-5ffd-bf4c-5433329cfc3d\u0022\n    ],\n    \u0022duration\u0022: 10,\n    \u0022description\u0022: \u0022Opening composition: a clearly distinct close-up over the younger astronomer\u0027s shoulder, centered on the older astronomer\u0027s face, which is softly lit by the cool dawn light. Her hand is still resting on the younger\u0027s hand at the lower edge of the frame. She speaks calmly and deliberately. On \u0027Wait,\u0027 the camera pushes in very slowly. She holds the younger\u0027s gaze through the final line. Ending composition: a tight close-up of the older astronomer, eyes steady, looking toward frame right at the younger.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022OLDER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate, patient and quietly tender.\u0022,\n    \u0022music\u0022: \u0022The low tone continues and is joined by a faint, slow piano note.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022And If It Disappears?\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a5b8d717-76ce-53d6-892f-6c52f7060a26\u0022,\n      \u002202139e6d-6786-54e8-850b-13dd46cfef4d\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a reverse close-up of the younger astronomer, framed slightly off-center facing frame left toward the older, with the edge of the telescope cover soft in the background. She glances briefly toward the cover, then back to the older astronomer as she asks her question. The camera is static. Ending composition: the younger\u0027s face in close-up, eyes searching, waiting for an answer.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022YOUNGER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022And if it disappears?\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022YOUNGER\u0022 },\n      { \u0022name\u0022: \u0022OLDER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A small, vulnerable uncertainty in the quiet room.\u0022,\n    \u0022music\u0022: \u0022The music holds on a single suspended note.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Seen It Together\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e594744d-d953-5048-8f26-6e78d8c27d87\u0022,\n      \u0022a606b105-4c0a-572a-8121-346fc223781d\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a medium two-shot from the side, both astronomers in profile facing each other at chest height, with the older on frame left and the younger on frame right, matching the established geography. The older astronomer answers gently. As she finishes, both turn toward the covered telescope, and each places a hand on the cover. The camera is static. Ending composition: both astronomers looking at the cover, hands resting on it together.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022OLDER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022Then we will have seen it together.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Reassurance and shared resolve.\u0022,\n    \u0022music\u0022: \u0022The piano resolves into a warmer chord.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Lifting the Cover at Dawn\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b8c2cdba-3881-51b4-ba05-355f6e18afaf\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Opening composition: a high wide angle looking down across the telescope, with both astronomers on either side of it gripping the cover, distinctly separate from the preceding eye-level two-shot. Together they slowly lift the cover away from the telescope. As they do, the room begins to brighten, and warmer light gradually spreads across the floor, the instrument and their faces. The camera cranes down and eases in toward the uncovered telescope. Ending composition: a medium-wide frame of the telescope, now uncovered, with the two astronomers standing beside it in the brightening room.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet awe as cool blue gives way to rising warm dawn light.\u0022,\n    \u0022music\u0022: \u0022Strings swell softly and gently, then hold as the light grows.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "96a4d3aa-ff63-4b6d-99ad-87c85197f9c0",
+        "title": "Waiting Beside the Covered Telescope",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "39269648-9722-53ee-95fc-43c78e4bf3ff",
+          "fa292184-e7b7-51d5-b3cf-7a13fec3503e"
+        ],
+        "sourceExcerpt": "## INT. OBSERVATORY - DAWN\n\nTwo astronomers wait beside a covered telescope. The younger keeps reaching for the cover; the older steadies her hand.",
+        "planning": {
+          "id": "95c711f8-0c1c-4a6a-8335-b200b072b068",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T05:58:35.2336694+00:00"
+        },
+        "duration": 8,
+        "description": "Opening composition: a wide, low-angle frame of the observatory interior in pale pre-dawn light. The covered telescope dominates the center, and the two astronomers stand small beside it, the older on frame left and the younger on frame right. The camera slowly dollies forward as the younger astronomer reaches toward the cover. The older astronomer gently places a hand over hers and lowers it. The younger reaches again, and again the older steadies her hand. Ending composition: a medium-wide two-shot at waist height, both figures in profile with the cover between them and their joined hands at center frame.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "873451a9-169a-4101-b18f-6fc205ca3c85",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "4c8da43d-024d-4919-b745-89b886ff980a",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Hushed, expectant pre-dawn stillness; cool blue-grey light and deep shadows around the instrument.",
+        "music": "A sparse, sustained low string tone, barely audible.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "27d3a606-c818-430e-a734-0d4afd4f0c87",
+        "title": "Let It Be Something You Do Not Understand",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "a3349e1b-723a-57ab-a3f6-6988668ff183",
+          "200900f8-011c-5ffd-bf4c-5433329cfc3d"
+        ],
+        "sourceExcerpt": "### OLDER\n\nWhen you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.",
+        "planning": {
+          "id": "95c711f8-0c1c-4a6a-8335-b200b072b068",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T05:58:35.2336694+00:00"
+        },
+        "duration": 10,
+        "description": "Opening composition: a clearly distinct close-up over the younger astronomer\u0027s shoulder, centered on the older astronomer\u0027s face, which is softly lit by the cool dawn light. Her hand is still resting on the younger\u0027s hand at the lower edge of the frame. She speaks calmly and deliberately. On \u0027Wait,\u0027 the camera pushes in very slowly. She holds the younger\u0027s gaze through the final line. Ending composition: a tight close-up of the older astronomer, eyes steady, looking toward frame right at the younger.",
+        "dialogue": [
+          {
+            "id": "391c3d25-358c-4e26-8490-d55e4a881e1e",
+            "speaker": "OLDER",
+            "language": "English",
+            "text": "When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment."
+          }
+        ],
+        "characters": [
+          {
+            "id": "ab04b929-5099-48b2-a8df-deb249b29e23",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "e8f93ecd-4d2c-4f5a-84d0-ac84f1f497f9",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate, patient and quietly tender.",
+        "music": "The low tone continues and is joined by a faint, slow piano note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "f6376a30-6edc-47b0-9c14-a73b6f2ca4c5",
+        "title": "And If It Disappears?",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "a5b8d717-76ce-53d6-892f-6c52f7060a26",
+          "02139e6d-6786-54e8-850b-13dd46cfef4d"
+        ],
+        "sourceExcerpt": "### YOUNGER\n\nAnd if it disappears?",
+        "planning": {
+          "id": "95c711f8-0c1c-4a6a-8335-b200b072b068",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T05:58:35.2336694+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a reverse close-up of the younger astronomer, framed slightly off-center facing frame left toward the older, with the edge of the telescope cover soft in the background. She glances briefly toward the cover, then back to the older astronomer as she asks her question. The camera is static. Ending composition: the younger\u0027s face in close-up, eyes searching, waiting for an answer.",
+        "dialogue": [
+          {
+            "id": "95ccfa99-0c6d-45f1-a375-a41daae9f4c3",
+            "speaker": "YOUNGER",
+            "language": "English",
+            "text": "And if it disappears?"
+          }
+        ],
+        "characters": [
+          {
+            "id": "c24d4ced-d911-42b3-9469-8147b95a1ce3",
+            "name": "YOUNGER",
+            "appearance": null
+          },
+          {
+            "id": "71369268-1978-4f9b-aa25-d19b73b47c1b",
+            "name": "OLDER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A small, vulnerable uncertainty in the quiet room.",
+        "music": "The music holds on a single suspended note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "b27e2284-2b7f-433e-abc0-6a081d5d573c",
+        "title": "Seen It Together",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "e594744d-d953-5048-8f26-6e78d8c27d87",
+          "a606b105-4c0a-572a-8121-346fc223781d"
+        ],
+        "sourceExcerpt": "### OLDER\n\nThen we will have seen it together.",
+        "planning": {
+          "id": "95c711f8-0c1c-4a6a-8335-b200b072b068",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T05:58:35.2336694+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a medium two-shot from the side, both astronomers in profile facing each other at chest height, with the older on frame left and the younger on frame right, matching the established geography. The older astronomer answers gently. As she finishes, both turn toward the covered telescope, and each places a hand on the cover. The camera is static. Ending composition: both astronomers looking at the cover, hands resting on it together.",
+        "dialogue": [
+          {
+            "id": "21d4f986-95de-404e-8659-5704e0ace728",
+            "speaker": "OLDER",
+            "language": "English",
+            "text": "Then we will have seen it together."
+          }
+        ],
+        "characters": [
+          {
+            "id": "503812a4-51ca-40de-aba7-36decd87e1d6",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "3a58011c-ccd6-4f29-a348-5b14da669c28",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Reassurance and shared resolve.",
+        "music": "The piano resolves into a warmer chord.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "db7ed00e-9b27-4e73-aa48-b08458480f3e",
+        "title": "Lifting the Cover at Dawn",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "b8c2cdba-3881-51b4-ba05-355f6e18afaf"
+        ],
+        "sourceExcerpt": "They lift the cover together as the room begins to brighten.",
+        "planning": {
+          "id": "95c711f8-0c1c-4a6a-8335-b200b072b068",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T05:58:35.2336694+00:00"
+        },
+        "duration": 7,
+        "description": "Opening composition: a high wide angle looking down across the telescope, with both astronomers on either side of it gripping the cover, distinctly separate from the preceding eye-level two-shot. Together they slowly lift the cover away from the telescope. As they do, the room begins to brighten, and warmer light gradually spreads across the floor, the instrument and their faces. The camera cranes down and eases in toward the uncovered telescope. Ending composition: a medium-wide frame of the telescope, now uncovered, with the two astronomers standing beside it in the brightening room.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "d163d3e0-1297-44d2-ae25-b01c369ba1b4",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "4547f82a-e04f-4239-96c6-c249069639f9",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet awe as cool blue gives way to rising warm dawn light.",
+        "music": "Strings swell softly and gently, then hold as the light grows.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Waiting Beside the Covered Telescope\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022fa292184-e7b7-51d5-b3cf-7a13fec3503e\u0022\n    ],\n    \u0022duration\u0022: 8,\n    \u0022description\u0022: \u0022Opening composition: a wide, low-angle frame of the observatory interior in pale pre-dawn light. The covered telescope dominates the center, and the two astronomers stand small beside it, the older on frame left and the younger on frame right. The camera slowly dollies forward as the younger astronomer reaches toward the cover. The older astronomer gently places a hand over hers and lowers it. The younger reaches again, and again the older steadies her hand. Ending composition: a medium-wide two-shot at waist height, both figures in profile with the cover between them and their joined hands at center frame.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed, expectant pre-dawn stillness; cool blue-grey light and deep shadows around the instrument.\u0022,\n    \u0022music\u0022: \u0022A sparse, sustained low string tone, barely audible.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Let It Be Something You Do Not Understand\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a3349e1b-723a-57ab-a3f6-6988668ff183\u0022,\n      \u0022200900f8-011c-5ffd-bf4c-5433329cfc3d\u0022\n    ],\n    \u0022duration\u0022: 10,\n    \u0022description\u0022: \u0022Opening composition: a clearly distinct close-up over the younger astronomer\u0027s shoulder, centered on the older astronomer\u0027s face, which is softly lit by the cool dawn light. Her hand is still resting on the younger\u0027s hand at the lower edge of the frame. She speaks calmly and deliberately. On \u0027Wait,\u0027 the camera pushes in very slowly. She holds the younger\u0027s gaze through the final line. Ending composition: a tight close-up of the older astronomer, eyes steady, looking toward frame right at the younger.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022OLDER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate, patient and quietly tender.\u0022,\n    \u0022music\u0022: \u0022The low tone continues and is joined by a faint, slow piano note.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022And If It Disappears?\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a5b8d717-76ce-53d6-892f-6c52f7060a26\u0022,\n      \u002202139e6d-6786-54e8-850b-13dd46cfef4d\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a reverse close-up of the younger astronomer, framed slightly off-center facing frame left toward the older, with the edge of the telescope cover soft in the background. She glances briefly toward the cover, then back to the older astronomer as she asks her question. The camera is static. Ending composition: the younger\u0027s face in close-up, eyes searching, waiting for an answer.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022YOUNGER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022And if it disappears?\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022YOUNGER\u0022 },\n      { \u0022name\u0022: \u0022OLDER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A small, vulnerable uncertainty in the quiet room.\u0022,\n    \u0022music\u0022: \u0022The music holds on a single suspended note.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Seen It Together\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e594744d-d953-5048-8f26-6e78d8c27d87\u0022,\n      \u0022a606b105-4c0a-572a-8121-346fc223781d\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a medium two-shot from the side, both astronomers in profile facing each other at chest height, with the older on frame left and the younger on frame right, matching the established geography. The older astronomer answers gently. As she finishes, both turn toward the covered telescope, and each places a hand on the cover. The camera is static. Ending composition: both astronomers looking at the cover, hands resting on it together.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022OLDER\u0022,\n        \u0022language\u0022: \u0022English\u0022,\n        \u0022text\u0022: \u0022Then we will have seen it together.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Reassurance and shared resolve.\u0022,\n    \u0022music\u0022: \u0022The piano resolves into a warmer chord.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Lifting the Cover at Dawn\u0022,\n    \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b8c2cdba-3881-51b4-ba05-355f6e18afaf\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Opening composition: a high wide angle looking down across the telescope, with both astronomers on either side of it gripping the cover, distinctly separate from the preceding eye-level two-shot. Together they slowly lift the cover away from the telescope. As they do, the room begins to brighten, and warmer light gradually spreads across the floor, the instrument and their faces. The camera cranes down and eases in toward the uncovered telescope. Ending composition: a medium-wide frame of the telescope, now uncovered, with the two astronomers standing beside it in the brightening room.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022OLDER\u0022 },\n      { \u0022name\u0022: \u0022YOUNGER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet awe as cool blue gives way to rising warm dawn light.\u0022,\n    \u0022music\u0022: \u0022Strings swell softly and gently, then hold as the light grows.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

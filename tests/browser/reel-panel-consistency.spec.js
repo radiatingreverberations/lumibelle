@@ -30,7 +30,7 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await expect(tools.getByRole('group', { name: 'Generate reel unavailable: add a prompt and use guidance in Prompt.' })).toBeVisible();
   expect(await tools.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 
-  await tools.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await tools.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const references = page.locator('.reel-pictures-dialog');
   await references.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await references.getByRole('button', { name: 'Apply changes', exact: true }).click();

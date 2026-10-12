@@ -48,6 +48,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
+            DirectionContext = ShotDirections.Context(source, effective),
             OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
@@ -115,6 +116,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         string NearbyShotSummary(Shot neighbor, string relation)
         {
             var summary = relation + " shot — " + neighbor.Title + ": " + neighbor.Description;
+            if (ShotDirections.Context(source, neighbor) is { } direction) summary += "\nReviewed direction and limitations: " + JsonSerializer.Serialize(direction, AtomicJsonFile.Options);
             if (!string.Equals(relation, "Previous", StringComparison.Ordinal)) return summary;
             var priorPrompt = document.Compositions
                 .Where(x => x.ShotId == neighbor.Id && !x.Archived && !string.IsNullOrWhiteSpace(x.Prompt))
@@ -164,6 +166,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (request.Assets.ProjectId != request.Script.ProjectId) throw new AiGenerationException("The asset library and saved script belong to different projects.");
         if (scripts is not null) await scripts.CaptureSourceAsync(request.Script.ProjectId, request.Script.SourceRevision, ct);
         ValidateScenes(request.Script, request.SceneIds); H3Policy.Frames(request.MaximumSeconds);
+        if (!Enum.IsDefined(request.Style)) throw new AiGenerationException("Choose an available directing style.");
+        ShotDirections.ValidateStrategies(request.Strategies);
         if (request.SingleShot is { } single && (request.SceneIds.Count != 1 || single.ShotId == Guid.Empty || single.Position < 0 || single.Position > single.SceneShots.Count))
             throw new AiGenerationException("Draft a single shot from exactly one saved scene.");
         return await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),

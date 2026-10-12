@@ -96,25 +96,36 @@ test('copying references from the previous shot adds its production take\'s last
   await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   // The last frame can be added on its own, after the images, without copying the other references.
   await picker.getByRole('button', { name: `Add the last frame of ${source.title}`, exact: true }).click();
   await expect(picker.getByRole('group', { name: 'Continuity picture' })).toContainText(`${source.title} · last frame`);
   await picker.getByRole('button', { name: 'Remove the continuity picture', exact: true }).click();
   await expect(picker.getByRole('group', { name: 'Continuity picture' })).toHaveCount(0);
-  // The previous shot comes first, numbered as in the shot list; it is not repeated among the earlier shots.
-  const copyFrom = picker.getByLabel('Copy references from');
-  await expect(copyFrom.locator('option[value=previous]')).toHaveText(`Previous shot · 01 · ${source.title}`);
-  await expect(copyFrom.locator('optgroup')).toHaveCount(0);
-  await copyFrom.selectOption('previous');
-  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toHaveCount(0);
-  await picker.getByRole('button', { name: 'Copy references', exact: true }).click();
-  const continuity = picker.getByRole('group', { name: 'Continuity picture' });
-  await expect(continuity).toContainText(`${source.title} · last frame`);
-  await expect(continuity.locator('img')).toHaveAttribute('src', `/media/projects/${project.id}/takes/${take.id}/frames/38`);
-  await expect(picker).toContainText('added as a continuity picture');
-  await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
+  await expect(picker.getByLabel('Copy references from')).toHaveCount(0);
+  await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(picker).toBeHidden();
+  await page.getByRole('button', { name: 'Copy from shot…', exact: true }).click();
+  const copying = page.getByRole('dialog', { name: 'Copy references from shot', exact: true });
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(copying.getByLabel('Copy from shot', { exact: true })).toHaveValue(source.id);
+  await expect(copying.getByLabel('Include continuity picture')).toBeChecked();
+  await expect(copying.getByLabel('Continuity frame', { exact: true })).toHaveValue('last');
+  await expect(copying.locator(`img[src='/media/projects/${project.id}/takes/${take.id}/frames/38']`)).toBeVisible();
+  await copying.getByLabel('Continuity frame', { exact: true }).selectOption('first');
+  await expect(copying.locator(`img[src='/media/projects/${project.id}/takes/${take.id}/frames/0']`)).toBeVisible();
+  await copying.getByLabel('Include continuity picture').uncheck();
+  await expect(copying.locator(`img[src*='/takes/${take.id}/frames/']`)).toHaveCount(0);
+  await copying.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Copy from shot…', exact: true }).click();
+  for (const narrow of [false, true]) {
+    await page.setViewportSize({ width: narrow ? 390 : 1152, height: narrow ? 844 : 1000 });
+    expect(await copying.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: `artifacts/copy-references-${narrow ? 'narrow' : 'desktop'}.png` });
+  }
+  await copying.getByRole('button', { name: 'Copy references', exact: true }).click();
+  await expect(copying).toBeHidden();
+  await page.setViewportSize({ width: 1152, height: 1000 });
   await expect(page.locator('.shot-reference-tile').filter({ hasText: `${source.title} · last frame` })).toBeVisible();
   const copy = (await shots(request, project)).shots[1];
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/production`)).json()).shotContent?.find(c => c.shotId === copy.id)?.continuityFrame ?? null)

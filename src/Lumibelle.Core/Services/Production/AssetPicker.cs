@@ -68,9 +68,10 @@ public static class AssetPicker
             voice assignments, including explicit None. Return additions only; report a conflict rather than
             replacing an existing voice or enabling sound on an already selected reel. In replace mode return
             the complete recommended reference set. Replacement is only a proposal, never an automatic save.
-            Respect the combined final set: at most 9 Picture inputs, 3 reel bindings, 3 enabled audio inputs,
+            Respect the combined final set: at most 9 Picture inputs, 3 full-video/RefMod inputs, 3 enabled audio inputs,
             15 seconds of full-reel video and 15 seconds of enabled audio (including reel soundtracks), and 12
-            source files in total. Images and keyframes count as pictures. Non-full-reel audio is an additional
+            source files in total. Images and keyframes count as pictures; picture-only reel sources consume
+            no video slots. Non-full-reel audio is an additional
             source file; a FullReel's soundtrack is not. Use each voice's saved excerptDuration. A newly selected
             non-full reel uses its advertised excerptDuration; a FullReel uses its whole duration for audio.
             Return exactly one JSON object, no prose or fences:

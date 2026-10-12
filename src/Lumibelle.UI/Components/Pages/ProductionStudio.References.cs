@@ -27,12 +27,27 @@ public partial class ProductionStudio
     private void OpenReferenceDetails(ShotImageBinding b) => OpenImageEditor(b.Id);
     private void OpenImageEditor(Guid? expanded)
     {
+        CaptureReferenceEditor(expanded);
+        _referenceOpen = _imageEditorShot is not null;
+    }
+    private void CaptureReferenceEditor(Guid? expanded)
+    {
         if (Selected is not { } shot) return;
         _imageEditorShot = shot.Copy(); _imageEditorAssets = _assets.Copy(); _imageEditorExpanded = expanded;
-        _referenceComposition = Current!.Id; _referenceUndoRecorded = false; _referenceOpen = true;
+        _referenceComposition = Current!.Id; _referenceUndoRecorded = false;
     }
+    private bool _copyReferenceOpen;
+    private void OpenReferenceCopy() { CaptureReferenceEditor(null); _copyReferenceOpen = _imageEditorShot is not null; }
+    private async Task ApplyCopiedReferences(ReferenceSelection selection)
+    {
+        await ApplyReferences(selection);
+        _copyReferenceOpen = false;
+    }
+    private ShotContinuityFrame? CopyContinuityFrame(Shot source, bool first) =>
+        _doc.Shots.FirstOrDefault(s => s.Id == source.Id)?.SelectedTakeId is { } id && _doc.Takes.FirstOrDefault(t => t.Id == id) is { } take
+            ? new(Guid.NewGuid(), take.Id, first ? 0 : take.FrameCount - 1, $"{source.Title} · {(first ? "first" : "last")} frame") : null;
     private string GuidanceSummary(ShotImageBinding b) => Guidance(b).Override is not null ? "Customized for this composition" : "Using shared reference guidance";
-    private static string ReferenceBaseline(Shot shot) => Json(new { shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, shot.Dialogue, shot.Characters, shot.Duration });
+    private static string ReferenceBaseline(Shot shot) => Json(new { shot.EnvironmentAssetId, shot.EnvironmentStaging, shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, shot.ContinuityFrame, shot.Dialogue, shot.Characters, shot.Duration });
     private void CheckReferenceBaseline()
     {
         if (Current?.Id != _referenceComposition || _imageEditorShot is not { } original || Selected is not { } shot || ReferenceBaseline(shot) != ReferenceBaseline(original))
@@ -122,10 +137,10 @@ public partial class ProductionStudio
                     Notify(others == 0 ? "Reel replaced." : $"Reel replaced in this shot and {(others == 1 ? "1 other shot" : $"{others} other shots")}.");
                     return;
                 }
-                if (Json(Selected!.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices) || Json(Selected.ContinuityFrame) != Json(draft.ContinuityFrame)) {
+                if (Selected!.EnvironmentAssetId != draft.EnvironmentAssetId || Json(Selected.EnvironmentStaging) != Json(draft.EnvironmentStaging) || Json(Selected.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices) || Json(Selected.ContinuityFrame) != Json(draft.ContinuityFrame)) {
                     if (!_referenceUndoRecorded) { Remember(); _referenceUndoRecorded = true; }
                     Current!.Shot.Images = ShotCopy.Of(draft.Images); Current.Shot.Videos = ShotCopy.Of(draft.Videos); Current.Shot.Voices = ShotCopy.Of(draft.Voices); Current.Shot.CharacterVoices = draft.CharacterVoices is null ? null : ShotCopy.Of(draft.CharacterVoices);
-                    Current.Shot.ContinuityFrame = draft.ContinuityFrame; Changed();
+                    Current.Shot.ContinuityFrame = draft.ContinuityFrame; Current.Shot.EnvironmentAssetId = draft.EnvironmentAssetId; Current.Shot.EnvironmentStaging = draft.EnvironmentStaging; Changed();
                     _imageEditorShot = Selected.Copy(); // Retrying a failed save does not add another Undo entry.
                 }
                 if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save references.");

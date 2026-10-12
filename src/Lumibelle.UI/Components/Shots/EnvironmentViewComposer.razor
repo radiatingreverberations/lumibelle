@@ -1,0 +1,308 @@
+@inherits ProjectAwareComponent
+@using System.Text.Json
+@implements IAsyncDisposable
+@inject AiTextJobCapture Requests
+@inject AiJobCoordinator Jobs
+@inject IAiJobStore JobStore
+@inject IAiReviewGate Reviews
+
+<InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })"
+    Class="environment-view-dialog" Title="Choose environment views" Context="@_request?.AssetName" CloseDisabled="@(_working || _applying)">
+<DialogContent>
+    @if (_open) {
+        <details class="environment-options" open="@(_request is null)"><summary>Environment and context</summary>
+        <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_assetId" AssetIdChanged="SelectEnvironment" Disabled="@(_working || _preparing || _applying)" />
+            <div class="environment-selection-options">
+                <TextModelPicker @ref="_picker" ProjectId="ProjectId" Studio="TextAssistantStudio.Production" Disabled="@(_working || _preparing || _applying)" SelectionChanged="SelectionModelChanged" />
+                <label><input type="checkbox" @bind="_scene" disabled="@(_working || _preparing || _request is not null)" />Include scene text</label>
+                <label><input type="checkbox" @bind="_nearby" disabled="@(_working || _preparing || _request is not null)" />Include nearby shots</label>
+            </div>
+            @if (_model is { Ready: true, SupportsImages: false }) { <p role="status">AI view selection needs a model that supports images. You can still browse and select views manually.</p> }
+        </details>
+        @if (_request is null && _assetId is not null) { <p>Use environment saves the library without changing attached references. Browse views or choose them with AI when you’re ready.</p> }
+        @if (_assetId is null) { <p>No environment library selected. Manually attached references stay in place.</p> }
+    }
+    @if (_preparing) { <p role="status">Preparing environment pictures…</p> }
+    @if (_job is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }
+    @if (_status is not null) { <p role="status">@_status</p> }
+    @if (_history.Length > 0 && !_working) { <details class="environment-history"><summary>Previous selections · @_history.Length</summary><label>Saved selection<select aria-label="Saved environment selection" value="@_job?.Id" @onchange="HistoryChanged" disabled="@(_preparing || _applying)">
+        <option value="">Choose a saved selection…</option>
+        @foreach (var saved in _history) { <option value="@saved.Id">@saved.CreatedUtc.ToLocalTime().ToString("g") · @saved.State</option> }
+    </select></label></details> }
+    @if (_error is not null) { <p role="alert">@_error</p> }
+    @if (_request is { } request) {
+        <section class="environment-staging-review" aria-label="Reference-supported staging">
+            <h3>Reference-supported staging</h3>
+            <p class="field-hint">Confirm positions, facing and camera. Inferences are not confirmed geometry. Review staging again if you change views.</p>
+            <label><input type="checkbox" @bind="_useStaging" disabled="@(_working || _applying)" />Use this staging in Compose</label>
+            @if (_useStaging) {
+                <div class="environment-staging-fields">
+                    <label>Positions, facing and movement<textarea rows="3" maxlength="4000" @bind="_blocking" @bind:event="oninput" disabled="@(_working || _applying)"></textarea></label>
+                    <label>Camera view<textarea rows="3" maxlength="4000" @bind="_camera" @bind:event="oninput" disabled="@(_working || _applying)"></textarea></label>
+                    <label>Assumptions<textarea rows="2" maxlength="4000" @bind="_assumptions" @bind:event="oninput" disabled="@(_working || _applying)"></textarea></label>
+                    <label>Coverage concerns<textarea rows="2" maxlength="4000" @bind="_concerns" @bind:event="oninput" disabled="@(_working || _applying)"></textarea></label>
+                </div>
+            }
+        </section>
+        @if (_useStaging && _supportClaims.Count > 0) {
+            <details><summary>Reference-supported staging · model evidence</summary>
+                <p class="field-hint">These are reviewable model assessments, not verified geometry. Inferred, missing and conflicting relationships remain qualified.</p>
+                @foreach (var claim in _supportClaims) { <p><strong>@claim.Status:</strong> @claim.Claim <span class="field-hint">@string.Join(" · ", claim.CandidateIds.Select(id => request.Pool.FirstOrDefault(c => c.Id == id)?.Name ?? id))</span></p> }
+            </details>
+        }
+        <div class="environment-review-heading"><p>Selected views</p>
+            <label>Send reel views as<select aria-label="Environment delivery" value="@(_refmod ? "refmod" : "pictures")" @onchange="DeliveryChanged" disabled="@_working"><option value="pictures">Selected pictures</option><option value="refmod">RefMod · Experimental</option></select></label></div>
+        <p class="field-hint">@(_refmod ? "RefMod uses one reel slot per source reel and needs at least two selected frames from each." : "Each selected view uses one picture slot. Its source reel uses no reel slot; the reel's camera movement is not sent.")</p>
+        <p class="environment-budget" role="status">@Budget</p>
+        @if (Existing.Any()) {
+            <details class="environment-retained" open><summary>Existing environment references</summary>
+                <p class="field-hint">Checked references stay as they are. Uncheck one to explicitly remove or replace it. Character, prop and continuity references are retained.</p>
+                @foreach (var item in Existing) { <label><input type="checkbox" checked="@(!_removed.Contains(item.Id))" @onchange="e => Keep(item.Id, e)" disabled="@_working" />Keep @item.Name</label> }
+            </details>
+        }
+        <div class="environment-view-grid">
+            @foreach (var c in request.Pool.Where(c => _selected.Contains(c.Id))) { @ViewCard(c) }
+        </div>
+        @if (_result is not null) { <details class="environment-notes"><summary>Selection notes</summary><p>@_result.Summary</p>
+            @foreach (var warning in _result.Warnings) { <p>@warning</p> }
+        </details> }
+        @foreach (var warning in request.Warnings) { <p class="field-hint">@warning</p> }
+        @foreach (var missing in Library.Reels.Where(r => r.AssetId == request.AssetId && r.Keyframes?.Frames.Count is not > 0)) {
+            <p><a href="@ProjectLink(ProjectId, $"/assets?assetId={request.AssetId}&view=reels&reelId={missing.Id}")">Choose keyframes for @missing.Name</a></p>
+        }
+        <p><a href="@ProjectLink(ProjectId, $"/assets?assetId={request.AssetId}")">Manage environment sources and keyframes</a></p>
+        <details class="environment-source-pool" open="@_browsing"><summary>Choose other views · @request.Pool.Count available</summary>
+            <div class="environment-view-grid">@foreach (var c in request.Pool.Where(c => !_selected.Contains(c.Id))) { @ViewCard(c) }</div>
+        </details>
+        @if (request.Pool.Count == 0) { <p>No usable images or saved views. Add images or save reel keyframes in Assets.</p> }
+    }
+    @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre class="environment-response">@_raw</pre></details> }
+</DialogContent>
+<DialogActions>
+    @if (_request is not null && StageIssue is { } issue) { <p class="environment-apply-issue" role="status">@issue</p> }
+    <div class="environment-review-actions">
+    @if (_working) { <MudButton OnClick="CancelRequest">Cancel request</MudButton> }
+    else {
+        <MudButton OnClick="Close" Disabled="@_applying">Cancel</MudButton>
+        @if (_request is null && _assetId is not null) {
+            <MudButton OnClick="ApplyLibrary" Disabled="@(_preparing || _applying || !Library.Assets.Any(a => a.Id == _assetId && a.Category == AssetCategory.Environment))" Variant="Variant.Outlined">Use environment</MudButton>
+            <MudButton OnClick="PrepareManual" Disabled="@(_preparing || _applying)">Browse views</MudButton>
+            <MudButton Class="ai-assist-action environment-apply" OnClick="PrepareSelection" Disabled="@(_preparing || _applying || _model?.Ready != true || !_model.SupportsImages)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />Choose views with AI</MudButton>
+        }
+        @if (_assetId is null) { <MudButton Class="environment-apply" OnClick="ApplyLibrary" Disabled="@(_preparing || _applying)" Color="Color.Primary" Variant="Variant.Filled">Use no environment</MudButton> }
+        @if (_request is not null && _capture is null) { <MudButton OnClick="PrepareSelection" Disabled="@(_preparing || _applying || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views again</MudButton> }
+        @if (_capture is not null) { <MudButton Class="ai-assist-action environment-choose" OnClick="Run" Disabled="@(EnvironmentViews.Available(_request!.Shot, _removed) == 0 || _request.Pool.Count == 0 || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views</MudButton> }
+        @if (_request is not null) { <MudButton Class="environment-apply" OnClick="Apply" Disabled="@(StageIssue is not null || _preparing || _applying)" Color="Color.Primary" Variant="Variant.Filled">Apply views</MudButton> }
+    }
+    </div>
+</DialogActions>
+</InlineDialog>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid CompositionId { get; set; }
+    [Parameter] public long CompositionVersion { get; set; }
+    [Parameter] public Shot Shot { get; set; } = null!;
+    [Parameter] public string DirectingNotes { get; set; } = "";
+    [Parameter] public AssetLibrary Library { get; set; } = null!;
+    [Parameter] public EventCallback<EnvironmentViewApplication> Applied { get; set; }
+    [Parameter] public EventCallback<Guid?> EnvironmentChanged { get; set; }
+    private TextModelPicker? _picker;
+    private Guid? _assetId;
+    private long _version;
+    private bool _scene, _nearby, _browsing;
+    private EnvironmentViewCapture? _capture;
+    private EnvironmentViewRequest? _request;
+    private EnvironmentViewResult? _result;
+    private TextModelSelectionState? _model;
+    private AiJobHeader? _job;
+    private AiJobHeader[] _history = [];
+    private HashSet<string> _selected = [];
+    private HashSet<Guid> _removed = [];
+    private bool _open, _preparing, _working, _applying, _disposed, _refmod;
+    private string? _error, _status;
+    private string _raw = "";
+    private bool _useStaging;
+    private IReadOnlyList<EnvironmentSupportClaim> _supportClaims = [];
+    private string _blocking = "", _camera = "", _assumptions = "", _concerns = "";
+    private CancellationTokenSource? _run;
+    private readonly CancellationTokenSource _life = new();
+    private IEnumerable<(Guid Id, string Name)> Existing => _request is null ? [] :
+        _request.Shot.Images.Where(i => i.EnvironmentSelectionId is not null || Library.Assets.Any(a => a.Id == i.AssetId && a.Category == AssetCategory.Environment)).Select(i => (i.Id, i.Name))
+        .Concat(_request.Shot.Videos.Where(v => v.EnvironmentSelectionId is not null || v.OwnerCategory == AssetCategory.Environment || Library.Reels.Any(r => r.Media.Id == v.Media.Id && Library.Assets.Any(a => a.Id == r.AssetId && a.Category == AssetCategory.Environment))).Select(v => (v.Id, v.Name)));
+    private EnvironmentViewApplication Application => new(_request!, _selected.ToArray(), _removed.ToArray(), _refmod) {
+        Staging = _useStaging ? new(_blocking.Trim(), _camera.Trim(), _assumptions.Trim(), _concerns.Trim()) { ReferenceSupport = _supportClaims.Count == 0 ? null : _supportClaims } : null,
+        ViewReasons = _result?.Views.Where(v => _selected.Contains(v.CandidateId)).ToArray() ?? []
+    };
+    private void SetStaging(EnvironmentStagingPlan? plan)
+    {
+        _supportClaims = plan?.ReferenceSupport ?? [];
+        _useStaging = plan is not null; _blocking = plan?.Blocking ?? ""; _camera = plan?.Camera ?? "";
+        _assumptions = plan?.Assumptions ?? ""; _concerns = plan?.Concerns ?? "";
+    }
+    private string? StageIssue {
+        get {
+            if (_request is null) return "Prepare an environment selection first.";
+            if (_selected.Count == 0) return "Select at least one view, or choose different sources in Assets.";
+            try { EnvironmentViews.Stage(Application, Shot, DirectingNotes, Library); return null; }
+            catch (WorkspaceStoreException e) { return e.Message; }
+        }
+    }
+    private string Budget {
+        get {
+            if (_request is null) return "";
+            var retained = EnvironmentViews.Retained(_request.Shot, _removed);
+            var selected = _request.Pool.Where(c => _selected.Contains(c.Id)).ToArray();
+            var pictures = ResolvedReferences.For(retained).Pictures.Count + selected.Count(c => c.Image is not null && !retained.Images.Any(i => i.MediaId == c.Image.MediaId && i.AssetId == c.Image.AssetId)) + (_refmod ? 0 : selected.Count(c => c.Keyframe is not null));
+            var reels = ReferenceVideos.ReelSlotCount(retained) + (_refmod ? selected.Where(c => c.Reel is not null).Select(c => c.Reel!.Id).Distinct().Count() : 0);
+            return $"{pictures}/9 pictures · {reels}/3 reels · includes retained character, prop and continuity references";
+        }
+    }
+    private RenderFragment ViewCard(EnvironmentViewCandidate c) => @<article class="environment-view-card">
+        <label><input type="checkbox" aria-label="Use @c.Name" checked="@_selected.Contains(c.Id)" @onchange="e => Choose(c.Id, e)" disabled="@_working" /><strong>@c.Name</strong></label>
+        <CropThumbnail MeasureImage="true" Responsive="true" ThumbnailWidth="16" ThumbnailHeight="9" Url="@Url(c)" Label="@c.Name" Width="@(c.Reel?.Media.Width ?? 1)" Height="@(c.Reel?.Media.Height ?? 1)" Crop="@(c.Keyframe?.Crop ?? c.Image?.Crop)" />
+        <small>@(c.Reel is not null ? $"{c.Reel.Name} · {c.Keyframe!.Frame.Seconds:0.###} s" : c.Approved ? "Approved image" : "Unapproved image")</small>
+        <p>@(_result?.Views.FirstOrDefault(v => v.CandidateId == c.Id)?.Reason ?? c.Notes)</p>
+    </article>;
+    private string Url(EnvironmentViewCandidate c) => c.Image is { } image ? $"/media/projects/{ProjectId}/assets/{image.AssetId}/images/{image.MediaId}" : ReferenceVideos.FrameUrl(ProjectId, c.Keyframe!.Frame);
+    private void Choose(string id, ChangeEventArgs e) { if (e.Value is true) _selected.Add(id); else _selected.Remove(id); }
+    private void DeliveryChanged(ChangeEventArgs e) => _refmod = e.Value?.ToString() == "refmod";
+    private void Keep(Guid id, ChangeEventArgs e) { if (e.Value is true) _removed.Remove(id); else _removed.Add(id); }
+    private void SelectionModelChanged(TextModelSelectionState model) => _model = model;
+    public Task OpenAsync(long version, bool scene, bool nearby)
+    {
+        if (_working || _preparing) { _open = true; return Task.CompletedTask; }
+        _version = version; _scene = scene; _nearby = nearby; _open = true; _assetId = Shot.EnvironmentAssetId;
+        ResetSelection();
+        return InvokeAsync(StateHasChanged);
+    }
+    private void ResetSelection()
+    {
+        _run?.Cancel(); _capture = null; _request = null; _result = null; _job = null; _raw = "";
+        _selected.Clear(); _removed.Clear(); _error = null; _status = null; _refmod = false; _browsing = false;
+        SetStaging(null);
+    }
+    private void SelectEnvironment(Guid? id) { _assetId = id; ResetSelection(); }
+    private Task PrepareSelection() => Prepare(run: true);
+    private Task PrepareManual() => Prepare(run: false);
+    private async Task Prepare(bool run)
+    {
+        if (run && (_picker is null || !await _picker.PrepareSubmitAsync() || _model is null)) return;
+        await Capture(_version, _model, _scene, _nearby, run);
+    }
+    private async Task ApplyLibrary()
+    {
+        if (_working || _preparing || _applying) return;
+        _applying = true; _error = null;
+        try { await EnvironmentChanged.InvokeAsync(_assetId); _open = false; }
+        catch (Exception e) { _error = e.Message; }
+        finally { _applying = false; }
+    }
+    protected override void OnInitialized() { Jobs.Changed += Changed; }
+    protected override void OnParametersSet() => RefreshHistory();
+    private void RefreshHistory() => _history = Jobs.View.Jobs.Where(j => j.Kind == AiJobKind.EnvironmentViewSelection && j.Target.ProjectId == ProjectId && j.Target.CompositionId == CompositionId).OrderByDescending(j => j.CreatedUtc).ToArray();
+    private void Changed() { if (!_disposed) _ = InvokeAsync(() => { RefreshHistory(); if (_job is not null) _job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == _job.Id) ?? _job; StateHasChanged(); }); }
+    private async Task Capture(long version, TextModelSelectionState? model, bool scene, bool nearby, bool run)
+    {
+        if (_working || _preparing) { _open = true; return; }
+        _open = true; _preparing = true; _error = null; _status = null; _selected.Clear(); _result = null; _job = null; _refmod = false;
+        _model = model; _capture = null; _request = null; _raw = "";
+        SetStaging(null);
+        _browsing = !run;
+        _run?.Dispose(); _run = CancellationTokenSource.CreateLinkedTokenSource(_life.Token);
+        await InvokeAsync(StateHasChanged);
+        try {
+            if (run && model is not { Ready: true, SupportsImages: true }) throw new WorkspaceStoreException("Choose a model that can inspect images.");
+            _capture = await Requests.CaptureEnvironmentViewsAsync(ProjectId, CompositionId, version, scene, nearby, _run.Token, _assetId);
+            _request = _capture.Request;
+            _removed = _request.Shot.Images.Where(i => i.EnvironmentSelectionId is not null).Select(i => i.Id)
+                .Concat(_request.Shot.Videos.Where(v => v.EnvironmentSelectionId is not null).Select(v => v.Id)).ToHashSet();
+        } catch (OperationCanceledException) { _status = "Selection cancelled. References are unchanged."; }
+        catch (Exception e) { _error = e.Message; }
+        finally { _preparing = false; if (!_disposed) await InvokeAsync(StateHasChanged); }
+        if (run && _open && !_run.IsCancellationRequested && _capture is not null && EnvironmentViews.Available(_request!.Shot, _removed) > 0 && _request.Pool.Count > 0) await Run();
+    }
+    private async Task Run()
+    {
+        if (_working || _capture is null || _model is null) return;
+        if (_picker is null || !await _picker.PrepareSubmitAsync()) return;
+        _working = true; _error = null; _selected.Clear(); _result = null; _browsing = false;
+        _run?.Dispose(); _run = CancellationTokenSource.CreateLinkedTokenSource(_life.Token); var ct = _run.Token;
+        try {
+            var active = _capture.Request.Pool.Select(c => c.Id).ToList(); var round = 0;
+            while (active.Count > 0) {
+                round++; var winners = new List<string>(); var offset = 0;
+                while (offset < active.Count) {
+                    ct.ThrowIfCancellationRequested();
+                    var count = Math.Min(EnvironmentViews.BatchSize, active.Count - offset); AiJobSubmission submission;
+                    while (true) {
+                        var candidates = active.Skip(offset).Take(count).ToArray();
+                        submission = await Requests.SelectEnvironmentViewsAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), _capture, candidates,
+                            _removed.ToArray(), offset == 0 && count == active.Count, _model.Model, _model.FollowsDefault, ct);
+                        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+                        if (ComfyTextCapacity.Assess(snapshot)?.Any(s => s.TooLarge) != true) break;
+                        if (count == 1) throw new WorkspaceStoreException("Even one view exceeds this model's capacity. Retry with another model or choose views manually.");
+                        count = Math.Max(1, count / 2);
+                    }
+                    _status = $"Inspecting environment views · round {round} · {offset + 1}–{offset + count} of {active.Count}";
+                    _job = await Jobs.EnqueueAsync(submission, ct); await InvokeAsync(StateHasChanged);
+                    AiTextJobResult? artifact;
+                    while (true) {
+                        ct.ThrowIfCancellationRequested();
+                        _job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id) ?? _job;
+                        artifact = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, ct);
+                        if (_job.State is AiJobState.Completed or AiJobState.NeedsAttention or AiJobState.Cancelled) break;
+                        await Task.Delay(250, ct);
+                    }
+                    _raw = artifact?.Raw ?? "";
+                    if (_job.State != AiJobState.Completed || artifact is not { Complete: true, Error: null })
+                        throw new WorkspaceStoreException(artifact?.Error ?? _job.Error ?? "Selection stopped. Inspect the saved request or choose views manually.");
+                    var result = artifact.Read<EnvironmentViewResult>()!;
+                    var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<EnvironmentViewRequest>();
+                    if (request.Final) {
+                        _request = request; _result = result; _selected = result.Views.Select(v => v.CandidateId).ToHashSet();
+                        SetStaging(result.Staging);
+                        _status = "Review the proposed views before applying them."; return;
+                    }
+                    winners.AddRange(result.Views.Select(v => v.CandidateId)); offset += count;
+                }
+                if (winners.Count == 0) { _result = new("No suitable views were found.", [], []); _status = "Choose views manually or try another model."; return; }
+                if (winners.Count >= active.Count) throw new WorkspaceStoreException("This model cannot compare enough views together. Retry with another model or choose manually.");
+                active = winners.Distinct().ToList();
+            }
+        } catch (OperationCanceledException) { _status = "Selection cancelled. References are unchanged."; }
+        catch (Exception e) { _error = e.Message; }
+        finally { _working = false; RefreshHistory(); if (!_disposed) await InvokeAsync(StateHasChanged); }
+    }
+    private async Task CancelRequest() { _run?.Cancel(); if (_job?.LocksTarget == true) await Jobs.CancelAsync(_job.Id); }
+    private Task Close() { _run?.Cancel(); _open = false; return Task.CompletedTask; }
+    public Task OpenSavedAsync(Guid id) { RefreshHistory(); return LoadHistory(id); }
+    private Task HistoryChanged(ChangeEventArgs e) => Guid.TryParse(e.Value?.ToString(), out var id) ? LoadHistory(id) : Task.CompletedTask;
+    private async Task LoadHistory(Guid id)
+    {
+        _version = CompositionVersion; _open = true; _error = null; _status = null; _capture = null; _request = null; _result = null; _selected.Clear(); _removed.Clear(); _raw = ""; _refmod = false; _browsing = false;
+        SetStaging(null);
+        try {
+            _job = _history.Single(j => j.Id == id);
+            _request = AiTextJobHandler.Read(_job, await JobStore.ReadSnapshotAsync(id, _life.Token)).Payload<EnvironmentViewRequest>();
+            _assetId = _request.AssetId;
+            _scene = _request.IncludeSceneText; _nearby = _request.IncludeNearbyShots;
+            _removed = _request.RemovedBindings.ToHashSet();
+            var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(id, AiJobArtifact.Result, _life.Token);
+            _raw = result?.Raw ?? "";
+            _result = result is { Complete: true, Error: null } ? result.Read<EnvironmentViewResult>() : null;
+            _selected = _result?.Views.Select(v => v.CandidateId).ToHashSet() ?? [];
+            SetStaging(_result?.Staging);
+            _error = result?.Error ?? _job.Error;
+        } catch (Exception e) { _error = e.Message; }
+    }
+    private async Task Apply()
+    {
+        if (_applying || StageIssue is not null) return;
+        _applying = true; _error = null;
+        try { await Applied.InvokeAsync(Application); _open = false; }
+        catch (Exception e) { _error = e.Message; }
+        finally { _applying = false; }
+    }
+    public ValueTask DisposeAsync() { _disposed = true; Jobs.Changed -= Changed; _life.Cancel(); _run?.Cancel(); _run?.Dispose(); _life.Dispose(); return ValueTask.CompletedTask; }
+}

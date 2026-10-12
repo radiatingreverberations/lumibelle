@@ -3,7 +3,7 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Models;
 
-public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation }
+public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection }
 public enum AiJobState { Waiting, Running, NeedsAttention, Completed, Cancelled }
 public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain }
 
@@ -16,8 +16,10 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
     public string LockKey(AiJobKind kind) => kind switch
     {
         AiJobKind.ShotTranslation => $"{ProjectId}/shots/{ShotId}/dubs/{TakeId}",
+        AiJobKind.EnvironmentViewSelection => $"{ProjectId}/production/{CompositionId}/environment-views",
         AiJobKind.AssetPicking => $"{ProjectId}/shots/{ShotId}/asset-picker",
         AiJobKind.ReelComposition => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/composer",
+        AiJobKind.ReelViewSuggestion => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/views",
         AiJobKind.ReelVideo => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/video",
         AiJobKind.RefModBuild => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/refmod",
         AiJobKind.ScriptAssistant => $"{ProjectId}/script",
@@ -37,15 +39,15 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         if (new[] { ProjectId, AssetId, ShotId, LookId, ImageId, TakeId, CompositionId, ReelId }.Any(id => id == Guid.Empty) || TakeId is not null && kind is not (AiJobKind.Video or AiJobKind.ShotTranslation)) throw new WorkspaceStoreException("An AI job target has an invalid identity.");
         if (kind == AiJobKind.ShotTranslation && TakeId is null) throw new WorkspaceStoreException("Choose an exact master take for translation.");
         var test = kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest or AiJobKind.ContentProbe;
-        var reel = kind is AiJobKind.ReelComposition or AiJobKind.ReelVideo or AiJobKind.RefModBuild;
+        var reel = kind is AiJobKind.ReelComposition or AiJobKind.ReelVideo or AiJobKind.RefModBuild or AiJobKind.ReelViewSuggestion;
         if ((ReelId is not null) != reel) throw new WorkspaceStoreException("Choose an exact reel target.");
         var asset = reel || kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit or AiJobKind.PromptEnhancement or AiJobKind.Guidance;
         if (test ? ProjectId is not null || string.IsNullOrWhiteSpace(ModelKey) || ModelKey.Length > 2048 : ProjectId is null || ModelKey is not null)
             throw new WorkspaceStoreException("The AI request needs an exact project or model-test target.");
         // Shot planning targets the project, or one shot when drafting that shot in place.
-        if ((AssetId is not null) != asset || (ShotId is not null) != (kind is AiJobKind.Video or AiJobKind.PromptComposition or AiJobKind.AssetPicking or AiJobKind.ShotTranslation) &&
+        if ((AssetId is not null) != asset || (ShotId is not null) != (kind is AiJobKind.Video or AiJobKind.PromptComposition or AiJobKind.AssetPicking or AiJobKind.ShotTranslation or AiJobKind.EnvironmentViewSelection) &&
             kind != AiJobKind.ShotPlanning) throw new WorkspaceStoreException("The AI request has an invalid asset or shot target.");
-        if (kind == AiJobKind.PromptComposition && CompositionId is null || CompositionId is not null && kind is not (AiJobKind.Video or AiJobKind.PromptComposition)) throw new WorkspaceStoreException("Choose an exact composition target.");
+        if (kind is (AiJobKind.PromptComposition or AiJobKind.EnvironmentViewSelection) && CompositionId is null || CompositionId is not null && kind is not (AiJobKind.Video or AiJobKind.PromptComposition or AiJobKind.EnvironmentViewSelection)) throw new WorkspaceStoreException("Choose an exact composition target.");
         if (kind == AiJobKind.Guidance)
         {
             if (GuidanceScope is null || !Enum.IsDefined(GuidanceScope.Value) ||
@@ -109,8 +111,10 @@ public sealed record AiJobHeader
         : Target.ProjectId is not { } project ? $"/settings/ai?jobId={Id}" : Kind switch
     {
         AiJobKind.ShotTranslation => $"/projects/{project}/dubs?jobId={Id}&shotId={Target.ShotId}&takeId={Target.TakeId}",
+        AiJobKind.EnvironmentViewSelection => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}&setupId={Target.CompositionId}&view=Prompt",
         AiJobKind.AssetPicking => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}&view=References",
         AiJobKind.RefModBuild => $"/projects/{project}/refmods/{Id}",
+        AiJobKind.ReelViewSuggestion => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.ScriptAssistant => $"/projects/{project}/script?jobId={Id}",
         AiJobKind.ReelComposition or AiJobKind.ReelVideo => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.Video or AiJobKind.PromptComposition => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}" + (Target.CompositionId is { } composition ? $"&setupId={composition}" : "") + (Kind == AiJobKind.Video ? "&view=Takes" : "&view=Prompt"),
