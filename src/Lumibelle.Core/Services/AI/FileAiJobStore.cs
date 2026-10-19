@@ -107,7 +107,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
         if (request.Id == Guid.Empty || request.OriginTabId == Guid.Empty || !Enum.IsDefined(request.Kind) || !Enum.IsDefined(request.Backend) || request.Target is null ||
             string.IsNullOrWhiteSpace(request.TargetName) || request.TargetName.Length > 2000 || request.ProjectName is null || request.ProjectName.Length > 2000 || payload.ValueKind != JsonValueKind.Object ||
             request.Kind is (AiJobKind.Video or AiJobKind.ReelVideo or AiJobKind.RefModBuild) && request.Backend != AiBackend.ComfyUI ||
-            request.Kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest && request.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter) ||
+            request.Kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest && request.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter or AiBackend.Vllm) ||
             request.Kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit && request.Backend is not (AiBackend.ComfyUI or AiBackend.Codex))
             throw new WorkspaceStoreException("The AI request is incomplete or has the wrong provider.");
         request.Target.Validate(request.Kind);

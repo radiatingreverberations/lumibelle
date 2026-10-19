@@ -53,6 +53,29 @@ else
                                 </form>
                             </section>
                         }
+                        @if (_visitedProviders.Contains("vllm"))
+                        {
+                            <section id="ai-connection-vllm" role="tabpanel" aria-labelledby="ai-provider-vllm" hidden='@(ConnectionProvider != "vllm")'>
+                                <form id="connection-vllm-form" class="settings-card" @onsubmit="SaveVllmAsync" @onsubmit:preventDefault>
+                                    <div class="settings-card-title"><span class="provider-badge">SERVER</span><h2>vLLM</h2></div>
+                                    <p>Connect to a vLLM server for text assistance, on this computer or elsewhere.</p>
+                                    <label for="vllm-url">Server URL</label><input id="vllm-url" type="url" @bind="_vllmUrl" @bind:after='() => _vllmCheck = null' required disabled="@Busy" placeholder="http://llm-server:8000/v1" />
+                                    <p class="field-hint">Use the API base URL, for example http://llm-server:8000/v1. A server address without a path uses /v1.</p>
+                                    <p class="key-status">@(_settings.HasVllmKey ? "API key is configured" : "No API key configured")</p>
+                                    <label for="vllm-key">Optional API key</label><input id="vllm-key" type="password" autocomplete="new-password" @bind="_vllmKey" @bind:after='() => _vllmCheck = null' disabled="@Busy" placeholder="@(_settings.HasVllmKey ? "Leave blank to keep the saved key" : "Only if your server requires a key")" />
+                                    @if (_settings.HasVllmKey) { <label class="check-row"><input type="checkbox" @bind="_removeVllmKey" disabled="@Busy" />Remove saved API key</label> }
+                                    <p class="field-hint">Keys stay protected on this computer. Changing the server address clears its saved key; enter a key for the new server if needed.</p>
+                                    <MudButton OnClick="CheckVllmAsync" Disabled="Busy" Variant="Variant.Outlined">@(_checking ? "Checking…" : "Check connection")</MudButton>
+                                    @if (_vllmCheck is not null) { <p class="field-hint" role="status">@_vllmCheck</p> }
+                                    <p class="field-hint">Checking lists served models without generating text. Save, then refresh vLLM under Text models and star a model.</p>
+                                    <div class="connection-request-settings">
+                                        <label for="vllm-concurrency">Concurrent requests</label><input id="vllm-concurrency" type="number" min="1" max="8" step="1" @bind="_vllmConcurrency" disabled="@Busy" />
+                                        <p class="field-hint">Start with one request at a time. Set temperature and reply limits on each model under Text models.</p>
+                                    </div>
+                                    <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="CancelVllm" Disabled="Busy">Cancel</MudButton></div>
+                                </form>
+                            </section>
+                        }
                         @if (_visitedProviders.Contains("openrouter"))
                         {
                             <section id="ai-connection-openrouter" role="tabpanel" aria-labelledby="ai-provider-openrouter" hidden='@(ConnectionProvider != "openrouter")'>
@@ -221,15 +244,6 @@ else
                                 @if (expanded)
                                 {
                                     <div role="row"><div role="cell" aria-colspan="@ModelColumns.Length" class="text-model-details" id="@domId">
-                                        <dl><dt>Original name</dt><dd>@(CatalogName(model) ?? model.Name)</dd><dt>Model ID</dt><dd><code>@model.Model</code></dd>
-                                            @if (model.Backend == AiBackend.ComfyUI) { <dt>Server</dt><dd>@model.ComfyUrl</dd> }
-                                            @if (TextModelPolicy.UsesNamedEffort(model.Backend) && catalog is not null)
-                                            {
-                                                @if (catalog.ReasoningEfforts is { Count: > 0 } efforts) { <dt>Reasoning effort</dt><dd>@string.Join(", ", efforts)</dd> }
-                                                @if (catalog.DefaultEffort is { } defaultEffort) { <dt>Model default effort</dt><dd>@defaultEffort</dd> }
-                                                @if (catalog.SupportsImages) { <dt>Input</dt><dd>Text and images</dd> }
-                                            }
-                                        </dl>
                                         @if (testStatus is not null) { <p class="field-hint">@testStatus.Detail</p> }
                                         @if (model.Backend == AiBackend.ComfyUI)
                                         {
@@ -240,39 +254,81 @@ else
                                                     <MudButton OnClick="() => OpenModelAsync(model, advanced: true)" Disabled="@Busy" Size="Size.Small">Advanced test</MudButton>
                                                     <MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Size="Size.Small">Details</MudButton>
                                                 </div>
-                                                @if (needsTest) { <p class="field-hint">Required before starring or selecting this model. The test uses a ~8k-token context with this model's reply-token setting and detects system-prompt and image support.</p> }
+                                                @if (needsTest) { <p class="field-hint">Test once to enable this model and detect its capabilities.</p> }
                                                 else if (Benchmark(model) is { } measured && ComfyModelDialog.BenchmarkIsStale(measured, ComfyTextSettings.Resolve(model, _settings).MaxOutputTokens))
                                                 { <p class="field-hint">Speed and VRAM were measured with @ComfyModelDialog.BenchmarkKind(measured, 0). Test again to measure the current reply-token setting.</p> }
                                             </div>
                                         }
                                         else if (model.Backend == AiBackend.OpenRouter) { <div class="text-model-test"><MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Details &amp; test</MudButton></div> }
-                                        <form class="model-alias-form" @onsubmit="() => SaveAliasAsync(model)" @onsubmit:preventDefault>
-                                            <label for="@(domId + "-alias")">Alias</label><input id="@(domId + "-alias")" maxlength="120" @bind="_aliasDrafts[key]" @bind:event="oninput" disabled="@Busy" placeholder="Use the original name" />
-                                            <p class="field-hint">Shown in settings and studio pickers. Clear to restore the original name.</p>
-                                            <div><MudButton ButtonType="ButtonType.Submit" Disabled="@(Busy || _aliasDrafts[key] == _settings.TextModelAliases.GetValueOrDefault(key, ""))" Size="Size.Small">Save alias</MudButton><MudButton OnClick="() => CancelAlias(model)" Disabled="@Busy" Size="Size.Small">Cancel alias</MudButton></div>
-                                        </form>
+                                        else if (model.Backend == AiBackend.Vllm)
+                                        {
+                                            <div class="text-model-test"><div class="text-model-test-actions">
+                                                <MudButton OnClick="() => OpenModelAsync(model, startTest: true)" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Test model</MudButton>
+                                                <MudButton OnClick="() => OpenModelAsync(model, advanced: true)" Disabled="@Busy" Size="Size.Small">Advanced test</MudButton>
+                                                <MudButton OnClick="() => OpenModelAsync(model)" Disabled="@Busy" Size="Size.Small">Details</MudButton>
+                                            </div></div>
+                                        }
+                                        <div class="model-settings-layout">
                                         @if (model.Backend == AiBackend.ComfyUI)
                                         {
                                             var draft = TextDraft(model);
                                             <form class="model-generation-settings" aria-label="Model generation settings" @onsubmit="() => SaveTextDraftAsync(model)" @onsubmit:preventDefault>
-                                                <h4>Generation settings</h4>
+                                                <div class="model-settings-heading"><h4>Generation settings</h4><span class="model-settings-source">@(_settings.ComfyTextModels.ContainsKey(key) ? "Custom settings" : "ComfyUI defaults")</span></div>
                                                 <div class="text-generation-fields">
-                                                    <label for="@(domId + "-tokens")">Maximum reply tokens<input id="@(domId + "-tokens")" type="number" min="1" max="32768" @bind="draft.Tokens" disabled="@Busy" /></label>
-                                                    <label for="@(domId + "-temperature")">Model temperature<input id="@(domId + "-temperature")" type="number" min="0.01" max="2" step="0.01" @bind="draft.Temperature" disabled="@Busy" /></label>
-                                                    <label for="@(domId + "-image-side")">Image size for multiple references<select id="@(domId + "-image-side")" @bind="draft.ImageSide" disabled="@Busy">
+                                                    <label for="@(domId + "-tokens")"><span>Maximum reply tokens</span><input id="@(domId + "-tokens")" type="number" min="1" max="32768" @bind="draft.Tokens" disabled="@Busy" /></label>
+                                                    <label for="@(domId + "-temperature")"><span>Temperature</span><input id="@(domId + "-temperature")" type="number" min="0.01" max="2" step="0.01" @bind="draft.Temperature" disabled="@Busy" /></label>
+                                                    <label for="@(domId + "-image-side")" class="model-image-size"><span>Reference image size</span><select id="@(domId + "-image-side")" @bind="draft.ImageSide" disabled="@Busy">
                                                         @foreach (var side in ComfyTextSettings.BatchImageSides.Prepend(AutomaticImageSide)) { <option value="@side">@ImageSideLabel(model, side)</option> }
                                                     </select></label>
                                                 </div>
-                                                <label class="check-row"><input type="checkbox" @bind="draft.RaiseReplyLimit" disabled="@Busy" />Raise the reply limit when the prompt leaves room in GPU memory (up to @ComfyTextCapacity.RaisedReplyCap.ToString("N0") tokens)</label>
-                                                @if (CapacityText(model, draft) is { } capacity) { <p class="field-hint comfy-capacity" data-testid="comfy-capacity">@capacity</p> }
-                                                else { <p class="field-hint comfy-capacity">Test the model to estimate how large a request stays fast on this machine.</p> }
-                                                <p class="field-hint">@(_settings.ComfyTextModels.ContainsKey(key) ? "Saved for this model and ComfyUI server." : "Currently using ComfyUI defaults.") Asset extraction uses temperature 0.2; text thinking is disabled.</p>
-                                                <p class="field-hint comfy-capabilities" data-testid="comfy-capabilities">@ComfyCapabilityText(model)</p>
-                                                <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@Busy" Variant="Variant.Outlined" Size="Size.Small">Save model settings</MudButton><MudButton OnClick="() => CancelTextDraft(model)" Disabled="@Busy" Size="Size.Small">Cancel model settings</MudButton><MudButton OnClick="() => SaveTextDraftAsync(model, true)" Disabled="@(Busy || !_settings.ComfyTextModels.ContainsKey(key))" Size="Size.Small">Use ComfyUI defaults</MudButton></div>
+                                                <label class="check-row"><input type="checkbox" @bind="draft.RaiseReplyLimit" disabled="@Busy" />Allow longer replies when memory permits</label>
+                                                <p class="model-setting-note">Up to @ComfyTextCapacity.RaisedReplyCap.ToString("N0") tokens with a short enough prompt.</p>
+                                                <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@Busy" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">Save settings</MudButton><MudButton OnClick="() => CancelTextDraft(model)" Disabled="@Busy" Size="Size.Small">Cancel</MudButton><MudButton OnClick="() => SaveTextDraftAsync(model, true)" Disabled="@(Busy || !_settings.ComfyTextModels.ContainsKey(key))" Size="Size.Small">Use ComfyUI defaults</MudButton></div>
                                             </form>
                                         }
+                                        else if (model.Backend == AiBackend.Vllm)
+                                        {
+                                            var draft = VllmDraft(model);
+                                            <form class="model-generation-settings" aria-label="Model generation settings" @onsubmit="() => SaveVllmDraftAsync(model)" @onsubmit:preventDefault>
+                                                <div class="model-settings-heading"><h4>Generation settings</h4><span class="model-settings-source">@(_settings.VllmTextModels.ContainsKey(key) ? "Custom settings" : "Server defaults")</span></div>
+                                                <div class="text-generation-fields">
+                                                    <label for="@(domId + "-tokens")"><span>Maximum reply tokens</span><input id="@(domId + "-tokens")" type="number" min="1" max="1000000" @bind="draft.Tokens" disabled="@Busy" placeholder="Server default" /></label>
+                                                    <label for="@(domId + "-temperature")"><span>Temperature</span><input id="@(domId + "-temperature")" type="number" min="0" max="2" step="0.01" @bind="draft.Temperature" disabled="@Busy" placeholder="Server default" /></label>
+                                                </div>
+                                                <p class="model-setting-note">Leave blank to use the server default. Profiles can override these values.</p>
+                                                <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@Busy" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">Save settings</MudButton><MudButton OnClick="() => CancelVllmDraft(model)" Disabled="@Busy" Size="Size.Small">Cancel</MudButton><MudButton OnClick="() => SaveVllmDraftAsync(model, true)" Disabled="@(Busy || !_settings.VllmTextModels.ContainsKey(key))" Size="Size.Small">Use server defaults</MudButton></div>
+                                            </form>
+                                        }
+                                        <form class="model-alias-form" @onsubmit="() => SaveAliasAsync(model)" @onsubmit:preventDefault>
+                                            <h4>Display name</h4>
+                                            <label for="@(domId + "-alias")">Alias</label><input id="@(domId + "-alias")" maxlength="120" @bind="_aliasDrafts[key]" @bind:event="oninput" disabled="@Busy" placeholder="Use the original name" />
+                                            <p class="model-setting-note">Used in model pickers. Leave blank for the original name.</p>
+                                            <div class="text-generation-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="@(Busy || _aliasDrafts[key] == _settings.TextModelAliases.GetValueOrDefault(key, ""))" Variant="Variant.Outlined" Size="Size.Small">Save alias</MudButton><MudButton OnClick="() => CancelAlias(model)" Disabled="@Busy" Size="Size.Small">Cancel alias</MudButton></div>
+                                        </form>
+                                        </div>
+                                        <details class="model-technical-details">
+                                            <summary>Model information@(model.Backend == AiBackend.ComfyUI ? " & capacity" : "")</summary>
+                                            <dl><dt>Original name</dt><dd>@(CatalogName(model) ?? model.Name)</dd><dt>Model ID</dt><dd><code>@model.Model</code></dd>
+                                                @if (TextModelPolicy.Server(model) is { } server) { <dt>Server</dt><dd>@server</dd> }
+                                                @if (model.Backend == AiBackend.Vllm && info?.ContextLength is { } contextLength) { <dt>Context window</dt><dd>@contextLength.ToString("N0") tokens</dd> }
+                                                @if (TextModelPolicy.UsesNamedEffort(model.Backend) && catalog is not null)
+                                                {
+                                                    @if (catalog.ReasoningEfforts is { Count: > 0 } efforts) { <dt>Reasoning effort</dt><dd>@string.Join(", ", efforts)</dd> }
+                                                    @if (catalog.DefaultEffort is { } defaultEffort) { <dt>Model default effort</dt><dd>@defaultEffort</dd> }
+                                                    @if (catalog.SupportsImages) { <dt>Input</dt><dd>Text and images</dd> }
+                                                }
+                                            </dl>
+                                            @if (model.Backend == AiBackend.ComfyUI)
+                                            {
+                                                @if (CapacityText(model, TextDraft(model)) is { } capacity) { <p class="field-hint comfy-capacity" data-testid="comfy-capacity">@capacity</p> }
+                                                else { <p class="field-hint">Test the model to measure prompt capacity.</p> }
+                                                <p class="field-hint comfy-capabilities" data-testid="comfy-capabilities">@ComfyCapabilityText(model)</p>
+                                                <p class="field-hint">Asset extraction uses temperature 0.2 unless a profile overrides it. Text thinking is disabled.</p>
+                                            }
+                                            else if (model.Backend == AiBackend.Vllm) { <p class="field-hint">Settings apply to this model on this server. Reasoning is configured on the server.</p> }
+                                        </details>
                                         @if (model.Backend == AiBackend.OpenRouter && _settings.OpenRouterTextModelBenchmarks.Where(b => b.Model == model.Model).OrderBy(b => b.CustomPrompt).ThenByDescending(b => b.MeasuredUtc).FirstOrDefault() is { } hostedBenchmark)
-                                        { <OpenRouterBenchmarkDetails Benchmark="hostedBenchmark" /> }
+                                        { <TextModelBenchmarkDetails Benchmark="hostedBenchmark" /> }
                                         @if (info?.Description is { Length: > 0 } description) { <p class="text-model-description">@description</p> }
                                         @if (info?.MaxOutputTokens is { } output) { <p>Maximum output: @OpenRouterModelMetadata.Context(output) tokens</p> }
                                         @if (info?.Pricing is { } pricing)

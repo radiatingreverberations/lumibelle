@@ -30,9 +30,9 @@ Each successful test records an observed token rate and, when ComfyUI reports it
 
 The test also estimates how large a prompt fits in GPU memory on your machine. Reading the prompt needs working memory for every prompt token at once, so prompt length matters far more than the reply limit. The model's settings show the estimate at its current reply limit and image size. A larger prompt runs out of GPU memory, or, with ComfyUI's dynamic VRAM loading, streams the model from system RAM and becomes many times slower. Such requests show a warning in their progress and in AI activity, and a failure explains that ComfyUI ran out of GPU memory. With dynamic VRAM loading, a request that does not fit is not rejected but becomes very slow; when a request writes at under a third of the speed the model reached in its test, or is still reading its prompt after two minutes, its progress says so. Lumibelle never cancels it for you. The model test treats a larger test prompt that slows down the same way as one that runs out of memory. Test again after changing the reply limit, freeing GPU memory, or updating ComfyUI.
 
-A larger reply limit costs no time, since the model stops when it is done, only GPU memory. After a capacity test, **Raise the reply limit when the prompt leaves room in GPU memory** (on by default) lets a request with a short prompt, such as shot drafting, use a larger limit, up to 8,192 tokens. It never lowers **Maximum reply tokens**, and an LLM profile with its own limit is left unchanged. **Request details** shows the limit a request used.
+A larger reply limit costs no time, since the model stops when it is done, only GPU memory. After a capacity test, **Allow longer replies when memory permits** (on by default) lets a request with a short prompt, such as shot drafting, use a larger limit, up to 8,192 tokens. It never lowers **Maximum reply tokens**, and an LLM profile with its own limit is left unchanged. **Request details** shows the limit a request used.
 
-Reference images count as prompt tokens: with several references, each costs up to about 1,000 tokens at 1,024 pixels. **Image size for multiple references** is **Automatic** by default: after a model test has measured how much fits in GPU memory, each request uses the largest size (1,024, 768 or 512 pixels) at which its prompt fits, so more references cost some detail instead of running out of memory. Without that measurement it uses 1,024 pixels. Choose a fixed size to always use it. **Request details** shows the size a request used. In Shots, **Compose prompt** checks the composition's size before queueing it, and **Include scene text** and **Include the shots before and after** can each be turned off to shorten it. Prompt assistance shows roughly how many tokens each adds.
+Reference images count as prompt tokens: with several references, each costs up to about 1,000 tokens at 1,024 pixels. **Reference image size** is **Automatic** by default: after a model test has measured how much fits in GPU memory, each request uses the largest size (1,024, 768 or 512 pixels) at which its prompt fits, so more references cost some detail instead of running out of memory. Without that measurement it uses 1,024 pixels. Choose a fixed size to always use it. **Request details** shows the size a request used. In Shots, **Compose prompt** checks the composition's size before queueing it, and **Include scene text** and **Include the shots before and after** can each be turned off to shorten it. Prompt assistance shows roughly how many tokens each adds.
 
 Reference generation follows the [official Krea 2 Turbo workflow](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_krea2_turbo_t2i.json) with the exact prompt you entered. Lumibelle copies each completed image into the project.
 
@@ -63,6 +63,20 @@ Add comma-separated **Tags** to LoRA registrations, then search or filter the li
 - **Hide these tags** always wins, even when an allowed tag also matches. For example, hide `nsfw` in an SFW project.
 
 An already selected, enabled LoRA that the project now excludes blocks generation until it is disabled, removed or allowed again. Each batch checks the saved project rules when it starts; changes never rewrite earlier images or their recorded LoRAs. To use LoRAs on an asset, see [Assets studio](assets.md#loras).
+
+## vLLM
+
+Connect a vLLM server on this computer or your network:
+
+1. Open **Connections → vLLM** and enter its API base URL, such as `http://llm-server:8000/v1`. A bare server address automatically uses `/v1`; include the full API path when using a reverse proxy.
+2. Enter an API key only if the server requires one. Choose **Check connection**, then **Save connection**.
+3. Open **Text models → vLLM**, refresh, and star a served model. Select it in **Assist**, or set it as the global default under **Defaults & profiles**.
+
+Checks call the server's model catalog without generating text. The server must serve a chat-capable model with a chat template. Text requests stream through the existing AI activity queue, with one concurrent request by default.
+
+Expand a model under **Text models → vLLM** to set its temperature and maximum reply tokens. Blank fields use the server defaults; **Use server defaults** clears both overrides. Settings belong to the exact model and server. LLM profiles override individual values, and queued requests keep the values captured when submitted. **Test model** runs a short benchmark with the saved temperature and reply limit (2,048 tokens when no limit is set). **Advanced test** accepts a custom message and reply limit. **Details** reopens the saved response and measurements without generating again. Tests retain their server and settings; output speed includes reasoning and time waiting for the response. GPU memory and prompt-capacity measurements are available for ComfyUI only.
+
+Saved choices and queued requests retain their server address. Changing servers clears the old saved key; credentials are stored protected and never included in queued requests. This connection currently supports text input; the model catalog does not establish vision support. Configure model-specific reasoning on the vLLM server.
 
 ## OpenRouter
 

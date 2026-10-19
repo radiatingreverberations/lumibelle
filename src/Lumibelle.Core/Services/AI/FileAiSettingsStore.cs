@@ -14,10 +14,17 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
     public async Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         var stored = await ReadAsync(cancellationToken);
-        return stored.Settings with { HasOpenRouterKey = !string.IsNullOrEmpty(stored.ProtectedKey) };
+        return stored.Settings with { HasOpenRouterKey = !string.IsNullOrEmpty(stored.ProtectedKey), HasVllmKey = !string.IsNullOrEmpty(stored.ProtectedVllmKey) };
     }
 
-    public async Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
+    public Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(settings, replacementKey, removeKey, null, false, cancellationToken);
+
+    public Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(settings, null, false, replacementKey, removeKey, cancellationToken);
+
+    private async Task<AiSettings> SaveCoreAsync(AiSettings settings, string? replacementKey, bool removeKey,
+        string? replacementVllmKey, bool removeVllmKey, CancellationToken cancellationToken)
     {
         Validate(settings);
         settings = settings with { LoraLibrary = LoraPolicy.CopyLibrary(settings.LoraLibrary), H3 = ShotCopy.Of(settings.H3), TextModelProfiles = settings.TextModelProfiles.ToList() };
@@ -31,7 +38,15 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             try { secret = _protector.Protect(replacementKey.Trim()); }
             catch (CryptographicException) { throw new WorkspaceStoreException("Couldn’t protect the API key using this account’s key ring. Settings have not been saved."); }
         }
+        var vllmSecret = current.ProtectedVllmKey;
+        if (removeVllmKey || VllmConnection.NormalizeUrl(current.Settings.VllmUrl) != VllmConnection.NormalizeUrl(settings.VllmUrl)) vllmSecret = null;
+        if (!removeVllmKey && !string.IsNullOrWhiteSpace(replacementVllmKey))
+        {
+            try { vllmSecret = _protector.Protect(replacementVllmKey.Trim()); }
+            catch (CryptographicException) { throw new WorkspaceStoreException("Couldn’t protect the vLLM API key. Settings have not been saved."); }
+        }
         var saved = settings with { Revision = settings.Revision + 1, HasOpenRouterKey = secret is not null,
+            VllmUrl = VllmConnection.NormalizeUrl(settings.VllmUrl), HasVllmKey = vllmSecret is not null,
             QwenImage21 = settings.QwenImage21 is { } qwen ? QwenImage21Policy.Normalize(qwen) : null,
             LoraLibrary = settings.LoraLibrary.Select(d => d with { Reference = d.Reference with
             { ComfyUrl = AiProviderRegistry.NormalizeComfyUrl(d.Reference.ComfyUrl), Name = d.Reference.Name.Trim() }, TriggerText = d.TriggerText.Trim(), Tags = LoraPolicy.NormalizeTags(d.Tags) }).ToArray(),
@@ -47,6 +62,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
                 .ToDictionary(pair => pair.Key, pair => pair.Value.Trim(), StringComparer.Ordinal),
             OpenRouterTextModelBenchmarks = settings.OpenRouterTextModelBenchmarks.DistinctBy(b => b.TestId)
                 .GroupBy(b => b.Model, StringComparer.Ordinal).SelectMany(g => g.OrderByDescending(b => b.MeasuredUtc).Take(5)).ToList(),
+            VllmTextModelBenchmarks = settings.VllmTextModelBenchmarks.DistinctBy(b => b.Measurement.TestId)
+                .GroupBy(b => (b.Server, b.Measurement.Model)).SelectMany(g => g.OrderByDescending(b => b.Measurement.MeasuredUtc).Take(5)).ToList(),
             ComfyTextModelVerifications = settings.ComfyTextModelVerifications
                 .Select(item => item with
                 {
@@ -63,7 +80,7 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
                         group.Where(item => item.Capabilities is not null).MaxBy(item => item.VerifiedUtc)?.Capabilities };
                 })
                 .OrderByDescending(item => item.VerifiedUtc).ToList() };
-        await AtomicJsonFile.WriteAsync(_path, new StoredSettings(1, saved with { HasOpenRouterKey = false }, secret), cancellationToken);
+        await AtomicJsonFile.WriteAsync(_path, new StoredSettings(1, saved with { HasOpenRouterKey = false, HasVllmKey = false }, secret, vllmSecret), cancellationToken);
         return saved;
     }
 
@@ -74,6 +91,15 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         try { return _protector.Unprotect(stored.ProtectedKey); }
         catch (CryptographicException)
         { throw new AiGenerationException("This account cannot open the saved OpenRouter key. Replace it in AI settings."); }
+    }
+
+    public async Task<string?> ReadVllmKeyAsync(string serverUrl, CancellationToken cancellationToken = default)
+    {
+        var stored = await ReadAsync(cancellationToken);
+        // A captured request for another server must never receive the current server's key.
+        if (stored.ProtectedVllmKey is null || VllmConnection.NormalizeUrl(serverUrl) != VllmConnection.NormalizeUrl(stored.Settings.VllmUrl)) return null;
+        try { return _protector.Unprotect(stored.ProtectedVllmKey); }
+        catch (CryptographicException) { throw new AiGenerationException("This account cannot open the saved vLLM key. Replace it in AI settings."); }
     }
 
     private async Task<StoredSettings> ReadAsync(CancellationToken ct)
@@ -96,16 +122,28 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         };
     }
 
+    private static bool InvalidBenchmark(TextModelBenchmark? b, int maxTokens) => b is null || b.TestId == Guid.Empty ||
+        string.IsNullOrWhiteSpace(b.Model) || b.Model.Length > 2000 || b.MeasuredUtc == default || b.TokenLimit < 1 || b.TokenLimit > maxTokens ||
+        !double.IsFinite(b.ElapsedSeconds) || b.ElapsedSeconds < 0 || b.FirstTextSeconds is { } first && (!double.IsFinite(first) || first < 0 || first > b.ElapsedSeconds) ||
+        b.InputTokens is < 0 || b.OutputTokens is < 0 || b.ReasoningTokens is < 0 || b.CachedTokens is < 0 || b.Cost is < 0;
+
     public static void Validate(AiSettings settings)
     {
+        VllmConnection.ValidateUrl(settings.VllmUrl);
+        if (settings.VllmConcurrency is < 1 or > 8) throw new WorkspaceStoreException("Choose vLLM concurrency between 1 and 8.");
         QwenImage21Policy.ValidateSettings(settings.QwenImage21);
         ComfyTextSettings.Validate(settings);
+        VllmTextSettings.Validate(settings);
         TextModelProfiles.ValidateSettings(settings);
-        if (settings.OpenRouterTextModelBenchmarks is null || settings.OpenRouterTextModelBenchmarks.Any(b => b is null || b.TestId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(b.Model) || b.Model.Length > 2000 || b.MeasuredUtc == default || b.TokenLimit is < 1 or > AiModelTestJobHandler.OpenRouterAdvancedMaxTokens ||
-            !double.IsFinite(b.ElapsedSeconds) || b.ElapsedSeconds < 0 || b.FirstTextSeconds is { } first && (!double.IsFinite(first) || first < 0 || first > b.ElapsedSeconds) ||
-            b.InputTokens is < 0 || b.OutputTokens is < 0 || b.ReasoningTokens is < 0 || b.CachedTokens is < 0 || b.Cost is < 0))
+        if (settings.OpenRouterTextModelBenchmarks is null || settings.OpenRouterTextModelBenchmarks.Any(b => InvalidBenchmark(b, AiModelTestJobHandler.OpenRouterAdvancedMaxTokens)))
             throw new WorkspaceStoreException("A saved OpenRouter model test is invalid. Run the test again.");
+        if (settings.VllmTextModelBenchmarks is null || settings.VllmTextModelBenchmarks.Any(b => b is null ||
+            InvalidBenchmark(b.Measurement, AiModelTestJobHandler.VllmAdvancedMaxTokens) ||
+            b.Temperature is { } temperature && (!float.IsFinite(temperature) || temperature is < 0 or > 2)))
+            throw new WorkspaceStoreException("A saved vLLM model test is invalid. Run the test again.");
+        foreach (var benchmark in settings.VllmTextModelBenchmarks)
+            if (string.IsNullOrWhiteSpace(benchmark.Server) || benchmark.Server != VllmConnection.NormalizeUrl(benchmark.Server))
+                throw new WorkspaceStoreException("The saved vLLM test server is not normalized.");
         lumibelle.Services.Shots.H3Policy.ValidateSettings(settings.H3);
         if (settings.Codex is null || settings.Codex.Concurrency is < 1 or > 4 || settings.Codex.ExecutablePath is null ||
             settings.Codex.TextModel is null || settings.Codex.ImageModel is null)
@@ -162,5 +200,5 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             benchmark.BaselineTorchAllocatedBytes is { } baselineTorch && benchmark.PeakTorchAllocatedBytes is { } peakTorch && peakTorch < baselineTorch;
     }
 
-    public sealed record StoredSettings(int SchemaVersion, AiSettings Settings, string? ProtectedKey);
+    public sealed record StoredSettings(int SchemaVersion, AiSettings Settings, string? ProtectedKey, string? ProtectedVllmKey = null);
 }

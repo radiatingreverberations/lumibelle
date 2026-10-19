@@ -58,16 +58,18 @@ public sealed partial class AiJobCoordinatorTests : IAsyncDisposable
         await queue.MarkReadAsync(router.Id, _ct); Assert.False((await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == router.Id).Unread);
         Assert.Equal(AiJobState.Waiting, (await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == b.Id).State);
     }
-    [Fact]
-    public async Task LoweringOpenRouterConcurrencyLetsExistingRequestsFinish()
+    [Theory]
+    [InlineData(AiBackend.OpenRouter)]
+    [InlineData(AiBackend.Vllm)]
+    public async Task LoweringProviderConcurrencyLetsExistingRequestsFinish(AiBackend provider)
     {
-        _settings.Value = _settings.Value with { OpenRouterConcurrency = 3 };
-        for (var i = 0; i < 4; i++) await Store.EnqueueAsync(Request(AiBackend.OpenRouter), _ct);
+        _settings.Value = _settings.Value with { OpenRouterConcurrency = 3, VllmConcurrency = 3 };
+        for (var i = 0; i < 4; i++) await Store.EnqueueAsync(Request(provider), _ct);
         var handler = new FakeHandler(); var queue = await Start(handler);
         var running = new[] { await handler.Next(_ct), await handler.Next(_ct), await handler.Next(_ct) };
-        _settings.Value = _settings.Value with { OpenRouterConcurrency = 1 };
+        _settings.Value = _settings.Value with { OpenRouterConcurrency = 1, VllmConcurrency = 1 };
         await running[0].Complete(); await State(running[0].Context.Job.Id, j => j.State == AiJobState.Completed);
-        await queue.SetPausedAsync(AiBackend.OpenRouter, true, _ct); await queue.SetPausedAsync(AiBackend.OpenRouter, false, _ct);
+        await queue.SetPausedAsync(provider, true, _ct); await queue.SetPausedAsync(provider, false, _ct);
         Assert.Equal(3, handler.Calls.Count); Assert.All(running.Skip(1), r => Assert.False(r.Context.Cancellation.IsCancellationRequested));
         await running[1].Complete(); await State(running[1].Context.Job.Id, j => j.State == AiJobState.Completed);
         Assert.Equal(3, handler.Calls.Count);

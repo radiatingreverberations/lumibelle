@@ -2,7 +2,7 @@ namespace lumibelle.Models;
 
 public enum WritingOperation { Discuss, Outline, Draft, Revise, Continue, Rewrite }
 public enum AssistantRunStatus { Running, Completed, Failed, Cancelled, Interrupted }
-public enum AiBackend { ComfyUI, OpenRouter, Codex, ClaudeCode }
+public enum AiBackend { ComfyUI, OpenRouter, Codex, ClaudeCode, Vllm }
 public enum AiModelVerificationState { NotApplicable, Untested, Verified }
 public enum GenerationPhase { Submitting, Queued, Preparing, Generating, Finalizing, Downloading, Saving, Completed }
 public sealed record ConversationMessage(string Role, string Text);
@@ -87,6 +87,9 @@ public sealed record AiSettings
     public string ComfyModel { get; init; } = "gemma4_e4b_it_fp8_scaled.safetensors";
     public string OpenRouterModel { get; init; } = "";
     public bool HasOpenRouterKey { get; init; }
+    public string VllmUrl { get; init; } = "http://127.0.0.1:8000/v1";
+    public bool HasVllmKey { get; init; }
+    public int VllmConcurrency { get; init; } = 1;
     public float Temperature { get; init; } = 0.7f;
     public int MaxOutputTokens { get; init; } = 2048;
     public int TimeoutSeconds { get; init; } = 300;
@@ -107,7 +110,9 @@ public sealed record AiSettings
     public TextModelReference? TextDefault { get; init; }
     public Dictionary<string, string> TextModelAliases { get; init; } = new(StringComparer.Ordinal);
     public Dictionary<string, ComfyTextModelSettings> ComfyTextModels { get; init; } = new(StringComparer.Ordinal);
-    public List<OpenRouterTextModelBenchmark> OpenRouterTextModelBenchmarks { get; init; } = [];
+    public Dictionary<string, VllmTextModelSettings> VllmTextModels { get; init; } = new(StringComparer.Ordinal);
+    public List<TextModelBenchmark> OpenRouterTextModelBenchmarks { get; init; } = [];
+    public List<VllmTextModelBenchmark> VllmTextModelBenchmarks { get; init; } = [];
     public IReadOnlyList<LoraDefinition> LoraLibrary { get; init; } = [];
 }
 
@@ -155,6 +160,7 @@ public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVer
 /// </summary>
 public sealed record ComfyTextModelCapabilities(bool SystemPrompt, ComfyVisionInput Vision);
 public sealed record ComfyTextModelTestRequest(string Prompt, int MaxOutputTokens = 256);
+public sealed record VllmTextModelSettings(float? Temperature = null, int? MaxOutputTokens = null);
 public sealed record AiModel(string Id, string Name, AiModelVerificationState Verification = AiModelVerificationState.NotApplicable, bool SupportsImages = false, IReadOnlyList<string>? ReasoningEfforts = null, string? DefaultEffort = null, AiModelCatalogInfo? Catalog = null);
 public sealed record AiModelCatalogInfo(string? Description = null, long? ContextLength = null, long? MaxOutputTokens = null,
     bool SupportsReasoning = false, AiModelPricing? Pricing = null, DateTimeOffset? AddedUtc = null, int? PopularityOrder = null)

@@ -104,6 +104,8 @@ public sealed class AiSettingsNavigationTests : BunitContext
         var origin = $"/projects/{Guid.NewGuid():D}/assets?asset=one#references";
         var page = Open("?returnUrl=" + Uri.EscapeDataString(origin));
         page.Find("#ai-provider-comfyui").KeyDown("ArrowDown");
+        Assert.Equal("true", page.Find("#ai-provider-vllm").GetAttribute("aria-selected"));
+        page.Find("#ai-provider-vllm").KeyDown("ArrowDown");
         Assert.Equal("true", page.Find("#ai-provider-openrouter").GetAttribute("aria-selected"));
         page.Find("#ai-provider-openrouter").KeyDown("End");
         Assert.Equal("true", page.Find("#ai-provider-claudecode").GetAttribute("aria-selected"));

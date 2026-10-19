@@ -18,7 +18,9 @@ public sealed class ScriptAssistant(IAiProviderRegistry providers, IAiSettingsSt
         using var timeout = new TextInactivityWatchdog(settings.TimeoutSeconds, cancellationToken);
         using var client = await providers.CreateAsync(request.Run.Backend, request.Run.Model, settings, timeout.Token);
         var messages = BuildMessages(request);
-        var options = TextGenerationOptions.Create(request.Run.Backend, settings, selection: request.Selection);
+        var selection = request.Selection ?? (request.Run.Backend == AiBackend.Vllm
+            ? TextModelPolicy.Reference(request.Run.Backend, request.Run.Model, request.Run.Model, settings) : null);
+        var options = TextGenerationOptions.Create(request.Run.Backend, settings, selection: selection);
         var text = new StringBuilder();
         var truncated = false;
         if (client is IProgressReportingChatClient progressing)
@@ -39,7 +41,7 @@ public sealed class ScriptAssistant(IAiProviderRegistry providers, IAiSettingsSt
         }
         else
         {
-            yield return new(Progress: new(GenerationPhase.Generating, "Writing with OpenRouter…"));
+            yield return new(Progress: new(GenerationPhase.Generating, $"Writing with {TextModelPolicy.ProviderName(request.Run.Backend)}…"));
             await using var updates = client.GetStreamingResponseAsync(messages, options, timeout.Token).GetAsyncEnumerator(timeout.Token);
             while (await MoveNextAsync(updates, cancellationToken, timeout))
             {

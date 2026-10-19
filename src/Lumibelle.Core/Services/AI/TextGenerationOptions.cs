@@ -22,6 +22,7 @@ internal static class TextGenerationOptions
             TextModelPolicy.Validate(selection);
             if (selection.Backend != backend) throw new AiGenerationException("The profile and request providers do not match.");
             selection = TextModelPolicy.WithDefaultEffort(selection, settings);
+            selection = VllmTextSettings.Apply(selection, settings);
         }
         var result = new ChatOptions
         {

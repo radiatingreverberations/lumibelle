@@ -5,7 +5,7 @@ namespace lumibelle.Services.AI;
 public sealed record OpenRouterTestStatus(string Label, string Detail, bool WarnBeforeStarring)
 {
     public static OpenRouterTestStatus For(TextModelReference model,
-        IEnumerable<OpenRouterTextModelBenchmark> benchmarks, IEnumerable<AiJobHeader> jobs)
+        IEnumerable<TextModelBenchmark> benchmarks, IEnumerable<AiJobHeader> jobs)
     {
         // Custom prompts can deliberately provoke refusals. Use the neutral benchmark
         // to indicate whether a routine request completed for this exact model.
@@ -36,7 +36,7 @@ public sealed record OpenRouterTestStatus(string Label, string Detail, bool Warn
             "The last standard benchmark did not complete with a text reply. Run another test to check this model.", true);
     }
 
-    public static string NoAnswerDetail(OpenRouterTextModelBenchmark benchmark) => benchmark.ReasoningOnly
+    public static string NoAnswerDetail(TextModelBenchmark benchmark) => benchmark.ReasoningOnly
         ? benchmark.FinishReason == "length"
             ? "The token limit was reached during reasoning before any answer text was returned. Try a larger total token limit in Advanced model test. Reasoning uses the same output budget."
             : "The model returned reasoning but no answer text. This does not confirm that it can complete a writing request."

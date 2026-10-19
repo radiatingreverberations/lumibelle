@@ -88,7 +88,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         // Once a paid stream is complete, retain it as an immutable output before
         // parsing. Result-publication retry and restart then need no provider call.
         var raw = new AiTextJobResult(output.ToString(), true, finish) { OpenRouterUsage = usage };
-        if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode)
+        if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm)
             await PersistAsync(context, () => context.SaveOperationAsync(Operation, AiOperationArtifact.Output, raw, ct), ct);
         return await FinishAsync(context, request, raw with { VisualBrief = await BriefAsync(context, request, ct) }, ct);
     }
@@ -105,7 +105,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
                 await ApplyReel(context, request, complete, ct);
             return Outcome(complete);
         }
-        if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode)
+        if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm)
         {
             var saved = await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, ct);
             return saved is { Complete: true } ? await FinishAsync(context, request, saved, ct)

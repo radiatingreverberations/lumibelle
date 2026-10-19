@@ -187,6 +187,7 @@ public partial class AiSettingsPage
                     {
                         _seenModelTests.Add(job.Id);
                         if (result.OpenRouter is { } hosted) await ReloadOpenRouterTestAsync(hosted);
+                        else if (result.Vllm is { } local) await ReloadVllmTestAsync(local);
                         else if (result.Verification is { } verification) await ReloadVerificationAsync(verification);
                     }
                 }
@@ -199,7 +200,7 @@ public partial class AiSettingsPage
     private async Task LoadAsync()
     {
         _loading = true; _error = null;
-        try { _settings = await Settings.LoadAsync(_token); CancelComfy(); CancelOpenRouter(); CancelImages(); CancelComfyText(); CancelTextTimeout(); CancelTextEfforts(); }
+        try { _settings = await Settings.LoadAsync(_token); CancelComfy(); CancelVllm(); CancelOpenRouter(); CancelImages(); CancelComfyText(); CancelTextTimeout(); CancelTextEfforts(); }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
         finally { _loading = false; }
@@ -252,9 +253,13 @@ public partial class AiSettingsPage
         _dialogOpen = true;
         try
         {
-            var check = model.Backend == AiBackend.OpenRouter ? _checks.GetValueOrDefault(AiBackend.OpenRouter)
-                : TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? _checks.GetValueOrDefault(AiBackend.ComfyUI) : null;
-            advanced &= model.Backend == AiBackend.ComfyUI;
+            var check = model.Backend switch
+            {
+                AiBackend.OpenRouter => _checks.GetValueOrDefault(AiBackend.OpenRouter),
+                AiBackend.Vllm => TextModelPolicy.SameVllmServer(model.VllmUrl, _settings!.VllmUrl) ? _checks.GetValueOrDefault(AiBackend.Vllm) : null,
+                _ => TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? _checks.GetValueOrDefault(AiBackend.ComfyUI) : null
+            };
+            advanced &= model.Backend is AiBackend.ComfyUI or AiBackend.Vllm;
             var dialog = await Dialogs.ShowAsync<ComfyModelDialog>(advanced ? "Advanced model test" : "Model details & test", new DialogParameters
             {
                 [nameof(ComfyModelDialog.Model)] = model,
@@ -264,7 +269,8 @@ public partial class AiSettingsPage
                 [nameof(ComfyModelDialog.StartTest)] = startTest,
                 [nameof(ComfyModelDialog.Advanced)] = advanced,
                 [nameof(ComfyModelDialog.VerificationSaved)] = EventCallback.Factory.Create<ComfyTextModelVerification>(this, ReloadVerificationAsync),
-                [nameof(ComfyModelDialog.OpenRouterTestSaved)] = EventCallback.Factory.Create<OpenRouterTextModelBenchmark>(this, ReloadOpenRouterTestAsync)
+                [nameof(ComfyModelDialog.OpenRouterTestSaved)] = EventCallback.Factory.Create<TextModelBenchmark>(this, ReloadOpenRouterTestAsync),
+                [nameof(ComfyModelDialog.VllmTestSaved)] = EventCallback.Factory.Create<VllmTextModelBenchmark>(this, ReloadVllmTestAsync)
             }, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true });
             await dialog.Result;
         }
@@ -292,7 +298,7 @@ public partial class AiSettingsPage
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
         finally { if (!_token.IsCancellationRequested) await InvokeAsync(StateHasChanged); }
     }
-    private async Task ReloadOpenRouterTestAsync(OpenRouterTextModelBenchmark benchmark)
+    private async Task ReloadOpenRouterTestAsync(TextModelBenchmark benchmark)
     {
         if (_token.IsCancellationRequested) return;
         try
@@ -329,7 +335,7 @@ public partial class AiSettingsPage
             var job = (await store.ReadAsync(_token)).Jobs.SingleOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("Model test not found.");
             var request = AiModelTestJobHandler.Read(job, await store.ReadSnapshotAsync(id, _token));
             _pendingModelTest = (request.Model, id, request.Advanced);
-            SelectProvider(request.Model.Backend == AiBackend.OpenRouter ? "openrouter" : "comfyui");
+            SelectProvider(request.Model.Backend switch { AiBackend.OpenRouter => "openrouter", AiBackend.Vllm => "vllm", _ => "comfyui" });
             await InvokeAsync(StateHasChanged);
         }
         catch (WorkspaceStoreException e) { _error = e.Message; await InvokeAsync(StateHasChanged); }

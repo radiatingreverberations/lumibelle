@@ -18,16 +18,17 @@ public partial class AiSettingsPage
     }
     private readonly Dictionary<AiBackend, TextCatalogState> _textCatalogs = Enum.GetValues<AiBackend>().ToDictionary(b => b, _ => new TextCatalogState());
     private readonly Dictionary<string, string> _aliasDrafts = new(StringComparer.Ordinal);
-    private AiBackend TextBackend => _connectionProvider switch { "openrouter" => AiBackend.OpenRouter, "codex" => AiBackend.Codex, "claudecode" => AiBackend.ClaudeCode, _ => AiBackend.ComfyUI };
+    private AiBackend TextBackend => _connectionProvider switch { "vllm" => AiBackend.Vllm, "openrouter" => AiBackend.OpenRouter, "codex" => AiBackend.Codex, "claudecode" => AiBackend.ClaudeCode, _ => AiBackend.ComfyUI };
     private TextCatalogState TextState => _textCatalogs[TextBackend];
     private IEnumerable<TextModelReference> AllModels => _textCatalogs.SelectMany(pair => (pair.Value.Catalog?.Models ?? [])
-            .Select(model => new TextModelReference(pair.Key, model.Id, model.Name, pair.Key == AiBackend.ComfyUI ? _settings!.ComfyUrl : null)))
+            .Select(model => TextModelPolicy.Reference(pair.Key, model.Id, model.Name, _settings!)))
         .Concat(_settings!.StarredTextModels).Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .Where(model => !string.IsNullOrWhiteSpace(model.Model)).DistinctBy(TextModelPolicy.Key);
     private TextModelReference[] DefaultChoices => _settings!.TextModelProfiles.Concat(_settings.StarredTextModels).Append(TextModelPolicy.Default(_settings))
         .Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .DistinctBy(TextModelProfiles.ChoiceKey).OrderBy(ModelName, StringComparer.OrdinalIgnoreCase).ToArray();
     private AiModel? CatalogModel(TextModelReference model) => model.Backend == AiBackend.ComfyUI && !TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? null
+        : model.Backend == AiBackend.Vllm && !TextModelPolicy.SameVllmServer(model.VllmUrl, _settings!.VllmUrl) ? null
         : _textCatalogs[model.Backend].Catalog?.Models.FirstOrDefault(m => m.Id == model.Model);
     private string? CatalogName(TextModelReference model) => CatalogModel(model)?.Name;
     private string ModelName(TextModelReference model) => TextModelPolicy.DisplayName(model, _settings!, CatalogName(model));
@@ -65,7 +66,15 @@ public partial class AiSettingsPage
         new("speed", "Speed", "Tokens per second from the saved benchmark", true),
         new("vram", "VRAM", "Additional VRAM in GiB observed during the saved benchmark"),
         new("tested", "Tested", "Date of the saved model verification", true)];
-    private ModelColumn[] ModelColumns => TextBackend switch { AiBackend.OpenRouter => OpenRouterColumns, AiBackend.ComfyUI => ComfyColumns, _ => [NameColumn] };
+    private static readonly ModelColumn[] VllmColumns = [NameColumn,
+        new("speed", "Speed", "Reported output tokens per second over the full test, including reasoning", true),
+        new("tested", "Tested", "Date of the latest model test on this server", true)];
+    private ModelColumn[] ModelColumns => TextBackend switch { AiBackend.OpenRouter => OpenRouterColumns, AiBackend.ComfyUI => ComfyColumns, AiBackend.Vllm => VllmColumns, _ => [NameColumn] };
+    private VllmTextModelBenchmark? VllmBenchmark(TextModelReference model) => _settings!.VllmTextModelBenchmarks
+        .Where(b => b.Measurement.Model == model.Model && TextModelPolicy.SameVllmServer(b.Server, model.VllmUrl))
+        .OrderByDescending(b => b.Measurement.MeasuredUtc).FirstOrDefault();
+    private double? ModelSpeed(TextModelReference model) => model.Backend == AiBackend.Vllm ? VllmBenchmark(model)?.TokensPerSecond : Benchmark(model)?.TokensPerSecond;
+    private DateTimeOffset? ModelTested(TextModelReference model) => model.Backend == AiBackend.Vllm ? VllmBenchmark(model)?.Measurement.MeasuredUtc : TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc;
     private ComfyTextModelBenchmark? Benchmark(TextModelReference model) => TextModelPolicy.Verification(model, _settings!)?.Benchmarks?.OrderBy(item => item.CustomPrompt).ThenByDescending(item => item.MeasuredUtc).FirstOrDefault();
     private static decimal? AdditionalVram(ComfyTextModelBenchmark? benchmark) => benchmark is { PeakVramUsedBytes: { } peak, BaselineVramUsedBytes: { } baseline }
         ? Math.Max(0, peak - baseline) / 1073741824m : null;
@@ -75,9 +84,9 @@ public partial class AiSettingsPage
         "context" => CatalogModel(model)?.Catalog?.ContextLength,
         "added" => CatalogModel(model)?.Catalog?.AddedUtc?.ToUnixTimeSeconds(),
         "popularity" => CatalogModel(model)?.Catalog?.PopularityOrder,
-        "speed" => Benchmark(model)?.TokensPerSecond is { } speed && double.IsFinite(speed) && speed is > 0 and < (double)decimal.MaxValue ? (decimal)speed : null,
+        "speed" => ModelSpeed(model) is { } speed && double.IsFinite(speed) && speed is > 0 and < (double)decimal.MaxValue ? (decimal)speed : null,
         "vram" => AdditionalVram(Benchmark(model)),
-        "tested" => TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc.ToUnixTimeSeconds(), _ => null
+        "tested" => ModelTested(model)?.ToUnixTimeSeconds(), _ => null
     };
     private string ColumnValue(TextModelReference model, string key) => key switch
     {
@@ -85,9 +94,9 @@ public partial class AiSettingsPage
         "context" => CatalogModel(model)?.Catalog?.ContextLength is { } context ? OpenRouterModelMetadata.Context(context) : "—",
         "added" => CatalogModel(model)?.Catalog?.AddedUtc?.ToString("yyyy-MM-dd") ?? "—",
         "popularity" => CatalogModel(model)?.Catalog?.PopularityOrder is { } rank ? $"#{rank}" : "—",
-        "speed" => Benchmark(model)?.TokensPerSecond is { } speed ? FormattableString.Invariant($"{speed:0.0} tokens/s") : "—",
+        "speed" => ModelSpeed(model) is { } speed ? FormattableString.Invariant($"{speed:0.0} tokens/s") : "—",
         "vram" => AdditionalVram(Benchmark(model)) is { } vram ? FormattableString.Invariant($"~{vram:0.0} GiB") : "—",
-        "tested" => TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc.ToString("yyyy-MM-dd") ?? "—", _ => "—"
+        "tested" => ModelTested(model)?.ToString("yyyy-MM-dd") ?? "—", _ => "—"
     };
     private string SortAria(string key) => TextState.Sort == key ? TextState.Descending ? "descending" : "ascending" : "none";
     private string SortArrow(string key) => TextState.Sort == key ? TextState.Descending ? "↓" : "↑" : "↕";
@@ -128,6 +137,7 @@ public partial class AiSettingsPage
     private string ConnectionIdentity(AiBackend backend) => backend switch
     {
         AiBackend.ComfyUI => _settings!.ComfyUrl,
+        AiBackend.Vllm => $"{_settings!.VllmUrl}\n{_settings.HasVllmKey}",
         AiBackend.Codex => $"{_settings!.Codex.Enabled}\n{_settings.Codex.ExecutablePath}",
         AiBackend.ClaudeCode => $"{_settings!.ClaudeCode.Enabled}\n{_settings.ClaudeCode.ExecutablePath}",
         _ => _settings!.HasOpenRouterKey.ToString()
@@ -186,6 +196,7 @@ public partial class AiSettingsPage
                 AiBackend.ComfyUI => settings with { DefaultBackend = model.Backend, ComfyModel = model.Model, TextDefault = model.ProfileId is not null ? model : null },
                 AiBackend.Codex => settings with { DefaultBackend = model.Backend, Codex = settings.Codex with { TextModel = model.Model }, TextDefault = model.ProfileId is not null ? model : null },
                 AiBackend.ClaudeCode => settings with { DefaultBackend = model.Backend, ClaudeCode = settings.ClaudeCode with { TextModel = model.Model }, TextDefault = model.ProfileId is not null ? model : null },
+                AiBackend.Vllm => settings with { DefaultBackend = model.Backend, TextDefault = model },
                 _ => settings with { DefaultBackend = model.Backend, OpenRouterModel = model.Model, TextDefault = model.ProfileId is not null ? model : null }
             }, "Global default updated.");
         }

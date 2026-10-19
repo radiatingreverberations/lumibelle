@@ -10,7 +10,7 @@ public sealed partial class AiSettingsStoreTests
     {
         var ct = TestContext.Current.CancellationToken;
         var now = DateTimeOffset.UtcNow;
-        var sample = new OpenRouterTextModelBenchmark(Guid.NewGuid(), "provider/model", now, 256, false, 2, .2, 12, 42, null, null,
+        var sample = new TextModelBenchmark(Guid.NewGuid(), "provider/model", now, 256, false, 2, .2, 12, 42, null, null,
             .000000001m, "provider/model", "Test provider", "test-generation", "stop", true);
         var aliases = new Dictionary<string, string> { [lumibelle.Services.AI.TextModelPolicy.Key(new(AiBackend.OpenRouter, sample.Model, "Model"))] = "Model alias" };
         var settings = new AiSettings { OpenRouterTextModelBenchmarks = Enumerable.Range(0, 7)

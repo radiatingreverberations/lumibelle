@@ -36,6 +36,8 @@ public sealed partial class AiModelComponentTests
         page.Find("#ai-text-provider-openrouter").KeyDown("Home");
         Assert.Equal("true", page.Find("#ai-text-provider-comfyui").GetAttribute("aria-selected"));
         page.Find("#ai-text-provider-comfyui").KeyDown("ArrowDown");
+        Assert.Equal("true", page.Find("#ai-text-provider-vllm").GetAttribute("aria-selected"));
+        page.Find("#ai-text-provider-vllm").KeyDown("ArrowDown");
         Assert.Equal("true", page.Find("#ai-text-provider-openrouter").GetAttribute("aria-selected"));
         page.Find("#ai-text-provider-openrouter").KeyDown("End");
         Assert.Equal("true", page.Find("#ai-text-provider-defaults").GetAttribute("aria-selected"));

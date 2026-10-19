@@ -1,2 +1,4 @@
 .model-benchmark { overflow-wrap: anywhere; }
+.benchmark-details { margin-top: 8px; }
+.benchmark-details summary { cursor: pointer; color: var(--plum); }
 .benchmark-no-answer { padding: 10px 12px; background: var(--lumi-warning-surface); border-left: 3px solid var(--lumi-warning-border); }

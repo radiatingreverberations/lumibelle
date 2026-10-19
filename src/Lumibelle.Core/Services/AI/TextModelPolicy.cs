@@ -15,28 +15,37 @@ public static class TextModelPolicy
     {
         var name = DisplayName(model, settings, catalogName(model));
         if (model.ProfileId is not null)
-            return $"{ProviderName(model.Backend)} · {name} · {model.Model}{(model.Backend == AiBackend.ComfyUI ? $" · {model.ComfyUrl}" : "")} · {TextModelProfiles.Describe(model)}";
+            return $"{ProviderName(model.Backend)} · {name} · {model.Model}{(Server(model) is { } server ? $" · {server}" : "")} · {TextModelProfiles.Describe(model)}";
         var duplicates = choices.Where(other => other.Backend == model.Backend &&
             DisplayName(other, settings, catalogName(other)).Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
         var suffix = duplicates.Any(other => !Same(other, model)) ? $" · {model.Model}" : "";
-        if (duplicates.Any(other => !Same(other, model) && other.Model == model.Model)) suffix += $" · {model.ComfyUrl}";
+        if (duplicates.Any(other => !Same(other, model) && other.Model == model.Model)) suffix += $" · {Server(model)}";
         return $"{ProviderName(model.Backend)} · {name}{suffix}";
     }
-    public static string ProviderName(AiBackend backend) => backend == AiBackend.ClaudeCode ? "Claude Code" : backend.ToString();
+    public static string ProviderName(AiBackend backend) => backend switch { AiBackend.ClaudeCode => "Claude Code", AiBackend.Vllm => "vLLM", _ => backend.ToString() };
+    public static string? Server(TextModelReference model) => model.Backend switch { AiBackend.ComfyUI => model.ComfyUrl, AiBackend.Vllm => model.VllmUrl, _ => null };
+    public static TextModelReference Reference(AiBackend backend, string id, string name, AiSettings settings) =>
+        new(backend, id, name, backend == AiBackend.ComfyUI ? settings.ComfyUrl : null)
+        { VllmUrl = backend == AiBackend.Vllm ? settings.VllmUrl : null };
     public static void CheckRequestServer(TextModelReference? selection, AiSettings settings)
     {
         if (selection?.Backend == AiBackend.ComfyUI && !SameServer(selection.ComfyUrl, settings.ComfyUrl))
             throw new AiGenerationException("The ComfyUI server changed. Refresh the model picker before trying again.");
+        if (selection?.Backend == AiBackend.Vllm && !SameVllmServer(selection.VllmUrl, settings.VllmUrl))
+            throw new AiGenerationException("The vLLM server changed. Refresh the model picker before trying again.");
     }
     public static TextModelReference Default(AiSettings settings) => settings.TextDefault ?? (settings.DefaultBackend switch
     {
         AiBackend.ComfyUI => new(AiBackend.ComfyUI, settings.ComfyModel, settings.ComfyModel, settings.ComfyUrl),
         AiBackend.Codex => new(AiBackend.Codex, settings.Codex.TextModel, settings.Codex.TextModel, ReasoningEffort: settings.Codex.TextEffort),
         AiBackend.ClaudeCode => new(AiBackend.ClaudeCode, settings.ClaudeCode.TextModel, settings.ClaudeCode.TextModel, ReasoningEffort: settings.ClaudeCode.TextEffort),
+        AiBackend.Vllm => Reference(AiBackend.Vllm, "", "", settings),
         _ => new(AiBackend.OpenRouter, settings.OpenRouterModel, settings.OpenRouterModel)
     });
 
-    public static string Key(TextModelReference model) => $"{model.Backend}\n{model.Model}\n{(model.Backend == AiBackend.ComfyUI ? AiProviderRegistry.NormalizeComfyUrl(model.ComfyUrl!).ToUpperInvariant() : "")}";
+    public static string Key(TextModelReference model) => $"{model.Backend}\n{model.Model}\n{(model.Backend == AiBackend.ComfyUI ? AiProviderRegistry.NormalizeComfyUrl(model.ComfyUrl!).ToUpperInvariant() : model.Backend == AiBackend.Vllm ? VllmConnection.NormalizeUrl(model.VllmUrl!) : "")}";
+    public static bool SameVllmServer(string? left, string? right) => left is not null && right is not null &&
+        VllmConnection.NormalizeUrl(left) == VllmConnection.NormalizeUrl(right);
     public static TextModelReference WithDefaultEffort(TextModelReference model, AiSettings settings) =>
         UsesNamedEffort(model.Backend) && model.ProfileId is null && model.ReasoningEffort is null
             ? model with { ReasoningEffort = DefaultEffort(model.Backend, settings) }
@@ -54,7 +63,8 @@ public static class TextModelPolicy
     public static TextModelReference Normalize(TextModelReference model) => model with
     {
         Model = model.Model.Trim(), Name = model.Name.Trim(),
-        ComfyUrl = model.Backend == AiBackend.ComfyUI ? AiProviderRegistry.NormalizeComfyUrl(model.ComfyUrl!) : null
+        ComfyUrl = model.Backend == AiBackend.ComfyUI ? AiProviderRegistry.NormalizeComfyUrl(model.ComfyUrl!) : null,
+        VllmUrl = model.Backend == AiBackend.Vllm ? VllmConnection.NormalizeUrl(model.VllmUrl!) : null
     };
     public static void Validate(TextModelReference? model)
     {
@@ -63,6 +73,7 @@ public static class TextModelPolicy
                 uri.Scheme is not ("http" or "https") || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)))
             throw new WorkspaceStoreException("A saved text-model choice is invalid. Check its provider, model, and server address.");
         TextModelProfiles.ValidateReference(model);
+        if (model.Backend == AiBackend.Vllm) VllmConnection.ValidateUrl(model.VllmUrl);
     }
     public static ComfyTextModelVerification? Verification(TextModelReference model, AiSettings settings, string? version = null) =>
         model.Backend != AiBackend.ComfyUI ? null : settings.ComfyTextModelVerifications
@@ -76,6 +87,7 @@ public static class TextModelPolicy
         catch (WorkspaceStoreException e) { return e.Message; }
         if (model.Backend == AiBackend.ComfyUI && !SameServer(model.ComfyUrl, settings.ComfyUrl)) return "This model belongs to a different ComfyUI server.";
         if (model.Backend == AiBackend.OpenRouter && !settings.HasOpenRouterKey) return "Add an OpenRouter key in Connections.";
+        if (model.Backend == AiBackend.Vllm && !SameVllmServer(model.VllmUrl, settings.VllmUrl)) return "This model belongs to a different vLLM server.";
         if (model.Backend == AiBackend.Codex && !settings.Codex.Enabled) return "Enable Codex in Connections.";
         if (model.Backend == AiBackend.ClaudeCode && !settings.ClaudeCode.Enabled) return "Enable Claude Code in Connections.";
         if (check is null) return "Refresh this provider to check availability.";

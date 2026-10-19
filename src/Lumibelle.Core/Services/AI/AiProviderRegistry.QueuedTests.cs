@@ -12,7 +12,7 @@ public sealed partial class AiProviderRegistry
     public async Task<AiModelTestJobResult> RunQueuedTestAsync(AiJobContext context, AiModelTestJobRequest request,
         ComfyJobExecution execution, CancellationToken ct)
     {
-        if (request.Model.Backend == AiBackend.OpenRouter) return await RunOpenRouterTestAsync(context, request, ct);
+        if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Vllm) return await RunStreamingTestAsync(context, request, ct);
         var caller = ct;
         using var inactivity = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, context.Clock);
         ct = inactivity.Token;

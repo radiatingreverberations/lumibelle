@@ -1,0 +1,37 @@
+@using System.Globalization
+<div class="model-benchmark" aria-label="@($"Latest {Provider} model test")">
+    <p><strong>@Headline</strong></p>
+    @if (!Benchmark.HasReply && !Benchmark.Refused && Benchmark.FinishReason != "content_filter")
+    { <p class="benchmark-no-answer">@OpenRouterTestStatus.NoAnswerDetail(Benchmark)</p> }
+    <p>@Seconds(Benchmark.ElapsedSeconds) total · @Seconds(Benchmark.FirstTextSeconds) to first text</p>
+    @if (Provider == "vLLM")
+    { <details class="benchmark-details"><summary>Token usage &amp; test details</summary>@Measurements</details> }
+    else { @Measurements }
+</div>
+@code {
+    private RenderFragment Measurements => @<text>
+    <p>@Count(Benchmark.InputTokens) input tokens · @Count(Benchmark.OutputTokens) total output tokens
+        @if (Provider == "OpenRouter") { <span> · @Cost(Benchmark.Cost) reported cost</span> }
+    </p>
+    <p>@Count(Benchmark.ReplyTokens) reply tokens · @Count(Benchmark.ReasoningTokens) reasoning tokens</p>
+    @if (Benchmark.InconsistentTokenCounts) { <p class="field-hint">The provider reported more reasoning tokens than total output tokens, so reply throughput cannot be calculated reliably.</p> }
+    @if (Benchmark.CachedTokens is { } cached) { <p>@cached.ToString("N0") cached input tokens reported</p> }
+    <p>Model returned: @(Benchmark.ResponseModel ?? "not reported")@if (Provider == "OpenRouter") { <span> · Provider: @(Benchmark.Provider ?? "not reported")</span> }</p>
+    <p>Finish reason: @(Benchmark.FinishReason ?? "not reported")@(!Benchmark.Complete ? " · incomplete response" : "")</p>
+    <p class="field-hint">Measured @Benchmark.MeasuredUtc.ToLocalTime().ToString("g") with a @Benchmark.TokenLimit-token @(Benchmark.CustomPrompt ? "custom test" : "standard benchmark"). The token cap includes reasoning. @(OutputThroughput ? "Speed uses all reported output tokens, including reasoning, divided by the full request time." : "Reply throughput uses reported total output minus reasoning tokens, divided by the full request time. It includes time waiting and reasoning.") One run reflects the provider and load at that time.</p>
+    @if (Benchmark.GenerationId is { } id) { <p class="field-hint">Generation ID: @id</p> }
+    </text>;
+    [Parameter, EditorRequired] public TextModelBenchmark Benchmark { get; set; } = null!;
+    [Parameter] public string Provider { get; set; } = "OpenRouter";
+    [Parameter] public bool OutputThroughput { get; set; }
+    private double? Rate => OutputThroughput ? Benchmark is { Complete: true, OutputTokens: > 0, ElapsedSeconds: > 0 } ? Benchmark.OutputTokens / Benchmark.ElapsedSeconds : null : Benchmark.TokensPerSecond;
+    private string Headline => Benchmark.Refused || Benchmark.FinishReason == "content_filter" ? "Request refused or blocked"
+        : Benchmark.ReasoningOnly ? "Reasoning only · no answer"
+        : !Benchmark.HasReply ? "No answer returned"
+        : !Benchmark.Complete ? "Partial reply · test incomplete"
+        : Rate is { } rate ? $"{rate.ToString("0.0", CultureInfo.InvariantCulture)} {(OutputThroughput ? "output" : "reply")} tokens/s · end to end"
+        : "Reply received · throughput unavailable";
+    private static string Seconds(double? value) => value is { } seconds ? $"{seconds.ToString("0.00", CultureInfo.InvariantCulture)} s" : "unavailable";
+    private static string Count(int? value) => value?.ToString("N0") ?? "unreported";
+    private static string Cost(decimal? value) => value is { } cost ? "$" + cost.ToString("0.############################", CultureInfo.InvariantCulture) : "unreported";
+}

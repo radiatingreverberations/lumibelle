@@ -83,7 +83,7 @@ public sealed class ReelRefModPreparation(IAssetStore assets, IReferenceVideoSto
             var cropped = await ComfyReferenceImageEditor.PrepareSourcePngAsync(content.Content, frame.Crop, ct);
             using var image = Image.Load(cropped);
             image.Mutate(x => x.Resize(new ResizeOptions { Size = new(width, height), Mode = ResizeMode.Pad,
-                PadColor = Color.FromRgb(240, 240, 240), Sampler = KnownResamplers.Lanczos3 }));
+                PadColor = Color.FromPixel(new SixLabors.ImageSharp.PixelFormats.Rgb24(240, 240, 240)), Sampler = KnownResamplers.Lanczos3 }));
             using var output = new MemoryStream(); await image.SaveAsync(output, new PngEncoder(), ct);
             result.Add(output.ToArray());
         }

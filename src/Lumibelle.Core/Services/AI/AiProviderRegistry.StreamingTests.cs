@@ -11,52 +11,73 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiProviderRegistry
 {
-    private sealed record OpenRouterTestReceipt(bool Started);
+    private sealed record StreamingTestReceipt(bool Started);
     private sealed class OpenRouterTestBlockedException(string? report) : Exception
     { public string? Report { get; } = report; }
 
-    private async Task<AiModelTestJobResult> RunOpenRouterTestAsync(AiJobContext context, AiModelTestJobRequest request, CancellationToken ct)
+    private async Task<AiModelTestJobResult> RunStreamingTestAsync(AiJobContext context, AiModelTestJobRequest request, CancellationToken ct)
     {
+        var vllm = request.Model.Backend == AiBackend.Vllm;
+        var backend = vllm ? "vLLM" : "OpenRouter";
         using var inactivity = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, context.Clock);
         ct = inactivity.Token;
         const string operation = "model-test";
-        if (context.Recovering || await context.ReadOperationAsync<OpenRouterTestReceipt>(operation, AiOperationArtifact.Request, ct) is not null)
-            throw new AiJobRecoveryException("The OpenRouter test was interrupted. Inspect its saved response; use Generate again explicitly to send another request.", AiJobRecovery.GenerateAgain);
-        await context.ReportAsync(new(new(GenerationPhase.Preparing, "Checking the captured OpenRouter model…")), true);
-        var check = await CheckAsync(AiBackend.OpenRouter, request.Settings, cancellationToken: ct);
+        if (context.Recovering || await context.ReadOperationAsync<StreamingTestReceipt>(operation, AiOperationArtifact.Request, ct) is not null)
+            throw new AiJobRecoveryException($"The {backend} test was interrupted. Inspect its saved response; use Generate again explicitly to send another request.", AiJobRecovery.GenerateAgain);
+        await context.ReportAsync(new(new(GenerationPhase.Preparing, $"Checking the captured {backend} model…")), true);
+        var check = await CheckAsync(request.Model.Backend, request.Settings, cancellationToken: ct);
         if (!check.Success || !check.Models.Any(m => m.Id == request.Model.Model))
-            throw new AiGenerationException(check.Success ? "This model is no longer available on OpenRouter." : check.Message);
-        var key = await settingsStore.ReadOpenRouterKeyAsync(ct);
-        using var http = clients.CreateClient("OpenRouter"); http.Timeout = Timeout.InfiniteTimeSpan;
-        using var message = new HttpRequestMessage(HttpMethod.Post, "https://openrouter.ai/api/v1/chat/completions")
+            throw new AiGenerationException(check.Success ? $"This model is no longer available on {backend}." : check.Message);
+        var key = vllm ? await settingsStore.ReadVllmKeyAsync(request.Model.VllmUrl!, ct) : await settingsStore.ReadOpenRouterKeyAsync(ct);
+        using var http = clients.CreateClient(request.Model.Backend.ToString()); http.Timeout = Timeout.InfiniteTimeSpan;
+        var body = new Dictionary<string, object>
         {
-            Content = JsonContent.Create(new { model = request.Model.Model, messages = new[] { new { role = "user", content = request.Test.Prompt } },
-                max_tokens = request.Test.MaxOutputTokens, stream = true, provider = new { allow_fallbacks = false } })
+            ["model"] = request.Model.Model, ["messages"] = new[] { new { role = "user", content = request.Test.Prompt } },
+            ["max_tokens"] = request.Test.MaxOutputTokens, ["stream"] = true
         };
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
-        message.Headers.Add("X-OpenRouter-Metadata", "enabled");
-        await context.SaveOperationAsync(operation, AiOperationArtifact.Request, new OpenRouterTestReceipt(true), ct);
+        if (vllm)
+        {
+            body["stream_options"] = new { include_usage = true };
+            if (request.Model.Temperature is { } temperature) body["temperature"] = temperature;
+        }
+        else body["provider"] = new { allow_fallbacks = false };
+        using var message = new HttpRequestMessage(HttpMethod.Post, vllm
+            ? VllmConnection.NormalizeUrl(request.Model.VllmUrl!) + "/chat/completions" : "https://openrouter.ai/api/v1/chat/completions")
+            { Content = JsonContent.Create(body) };
+        if (!string.IsNullOrWhiteSpace(key)) message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        if (!vllm) message.Headers.Add("X-OpenRouter-Metadata", "enabled");
+        await context.SaveOperationAsync(operation, AiOperationArtifact.Request, new StreamingTestReceipt(true), ct);
         var timer = Stopwatch.StartNew(); var text = new StringBuilder(); var refusal = new StringBuilder();
         double? firstText = null; int? inputTokens = null, outputTokens = null, reasoningTokens = null, cachedTokens = null;
         decimal? cost = null; string? responseModel = null, provider = null, generationId = null, finish = null, error = null, guardrails = null;
         var done = false; var sawReasoning = false; var lastCheckpoint = TimeSpan.Zero;
-        AiModelTestJobResult Result(bool complete) => new(null, text.ToString(), OpenRouter: new(context.Job.Id, request.Model.Model, DateTimeOffset.UtcNow,
-            request.Test.MaxOutputTokens, request.Advanced, timer.Elapsed.TotalSeconds, firstText, inputTokens, outputTokens, reasoningTokens, cachedTokens,
-            cost, responseModel, provider, generationId, finish, complete, HasResponseText: !string.IsNullOrWhiteSpace(text.ToString()),
-            Refused: refusal.Length > 0 || finish == "content_filter", ReasoningObserved: sawReasoning),
-            Refusal: refusal.Length > 0 ? refusal.ToString() : null, Error: error, GuardrailReport: guardrails);
+        AiModelTestJobResult Result(bool complete)
+        {
+            var measured = new TextModelBenchmark(context.Job.Id, request.Model.Model, DateTimeOffset.UtcNow,
+                request.Test.MaxOutputTokens, request.Advanced, timer.Elapsed.TotalSeconds, firstText, inputTokens, outputTokens, reasoningTokens, cachedTokens,
+                cost, responseModel, provider, generationId, finish, complete, HasResponseText: !string.IsNullOrWhiteSpace(text.ToString()),
+                Refused: refusal.Length > 0 || finish == "content_filter", ReasoningObserved: sawReasoning);
+            return new(null, text.ToString(), OpenRouter: vllm ? null : measured,
+                Vllm: vllm ? new(request.Model.VllmUrl!, request.Model.Temperature, measured) : null,
+                Refusal: refusal.Length > 0 ? refusal.ToString() : null, Error: error, GuardrailReport: guardrails);
+        }
         try
         {
-            await context.ReportAsync(new(new(GenerationPhase.Generating, "Waiting for OpenRouter to respond…")), true);
+            await context.ReportAsync(new(new(GenerationPhase.Generating, $"Waiting for {backend} to respond…")), true);
             using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            if (!vllm && response.StatusCode == System.Net.HttpStatusCode.Forbidden)
             {
                 string? report = null;
                 try { using var blocked = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct); report = TestGuardrails(blocked.RootElement); }
                 catch (JsonException) { }
                 throw new OpenRouterTestBlockedException(report);
             }
-            if (!response.IsSuccessStatusCode) throw new AiGenerationException(AiErrors.HttpStatus((int)response.StatusCode));
+            if (!response.IsSuccessStatusCode)
+            {
+                if (!vllm) throw new AiGenerationException(AiErrors.HttpStatus((int)response.StatusCode));
+                error = AiErrors.HttpStatus((int)response.StatusCode);
+                throw new HttpRequestException(error);
+            }
             using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(ct));
             var data = new StringBuilder();
             while (await reader.ReadLineAsync(ct) is { } line)
@@ -67,8 +88,8 @@ public sealed partial class AiProviderRegistry
                 if (payload == "[DONE]") { done = true; break; }
                 using var json = JsonDocument.Parse(payload); var root = json.RootElement;
                 if (root.ValueKind != JsonValueKind.Object) throw new JsonException();
-                guardrails = TestGuardrails(root) ?? guardrails;
-                if (root.TryGetProperty("error", out _)) { error = "OpenRouter reported an error during the test. Any partial response is retained."; break; }
+                if (!vllm) guardrails = TestGuardrails(root) ?? guardrails;
+                if (root.TryGetProperty("error", out _)) { error = $"{backend} reported an error during the test. Any partial response is retained."; break; }
                 responseModel = TestString(root, "model") ?? responseModel; provider = TestString(root, "provider") ?? provider;
                 generationId = TestString(root, "id") ?? generationId;
                 if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array)
@@ -91,27 +112,27 @@ public sealed partial class AiProviderRegistry
                 if (outputTokens is { } count) inactivity.Observe(new GenerationProgress(GenerationPhase.Generating, "Generating", count, Unit: "tokens"));
                 cachedTokens = TestCount(TestObject(usage, "prompt_tokens_details"), "cached_tokens") ?? cachedTokens;
                 var previousCost = cost;
-                cost = OpenRouterUsageParser.Money(OpenRouterUsageParser.Property(usage, "cost")) ?? cost;
+                if (!vllm) cost = OpenRouterUsageParser.Money(OpenRouterUsageParser.Property(usage, "cost")) ?? cost;
                 if (cost != previousCost || timer.Elapsed - lastCheckpoint >= TimeSpan.FromSeconds(1))
                 {
                     lastCheckpoint = timer.Elapsed;
                     try { await context.SaveResultAsync(Result(false), checkpoint: cost != previousCost); }
-                    catch (WorkspaceStoreException) { /* Continue the paid stream if a partial checkpoint fails. */ }
-                    await context.ReportAsync(new(new(GenerationPhase.Generating, firstText is null ? sawReasoning ? "Model is reasoning · waiting for an answer…" : "Waiting for response text…" : "Receiving OpenRouter test response…",
+                    catch (WorkspaceStoreException) { /* Continue the stream if a partial checkpoint fails. */ }
+                    await context.ReportAsync(new(new(GenerationPhase.Generating, firstText is null ? sawReasoning ? "Model is reasoning · waiting for an answer…" : "Waiting for response text…" : $"Receiving {backend} test response…",
                         Elapsed: timer.Elapsed, Current: text.Length + refusal.Length, Unit: "characters")));
                 }
             }
         }
         catch (OpenRouterTestBlockedException blocked)
         { guardrails = blocked.Report; finish = "http_403"; error = "OpenRouter blocked this request (HTTP 403). Account guardrails or model access rules may apply; this is not necessarily a refusal from the model."; }
-        catch (OperationCanceledException) when (!context.Cancellation.IsCancellationRequested) { error = inactivity.Expired ? inactivity.Message : "The OpenRouter test timed out. Any partial response is retained; retry explicitly."; }
-        catch (Exception e) when (e is HttpRequestException or JsonException or IOException) { error = "The OpenRouter response was interrupted or unreadable. Any partial response is retained; retry explicitly."; }
+        catch (OperationCanceledException) when (!context.Cancellation.IsCancellationRequested) { error = inactivity.Expired ? inactivity.Message : $"The {backend} test timed out. Any partial response is retained; retry explicitly."; }
+        catch (Exception e) when (e is HttpRequestException or JsonException or IOException) { error ??= $"The {backend} response was interrupted or unreadable. Any partial response is retained; retry explicitly."; }
         inactivity.Stop();
         timer.Stop();
         var complete = done && finish is "stop" or "length" or "content_filter";
-        if (!complete) error ??= "The OpenRouter stream did not finish normally. Any partial response is retained; retry explicitly.";
+        if (!complete) error ??= $"The {backend} stream did not finish normally. Any partial response is retained; retry explicitly.";
         var result = Result(complete);
-        // Retain completed paid output before publishing settings. Recovery only republishes it.
+        // Retain completed output before publishing settings. Recovery only republishes it.
         while (true)
         {
             context.Cancellation.ThrowIfCancellationRequested();

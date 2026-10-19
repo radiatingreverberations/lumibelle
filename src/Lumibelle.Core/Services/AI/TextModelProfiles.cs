@@ -45,7 +45,7 @@ public static class TextModelProfiles
         model.Backend == AiBackend.OpenRouter && model.ReasoningEffort is not null;
 
     public static TextModelReference ModelOnly(TextModelReference model) =>
-        new(model.Backend, model.Model, model.ProfileId is null ? model.Name : model.Model, model.ComfyUrl);
+        new(model.Backend, model.Model, model.ProfileId is null ? model.Name : model.Model, model.ComfyUrl) { VllmUrl = model.VllmUrl };
 
     public static string Describe(TextModelReference model)
     {
@@ -88,6 +88,8 @@ public static class TextModelProfiles
             throw new WorkspaceStoreException("Thinking token budgets are available only for OpenRouter text profiles.");
         if (model.Backend == AiBackend.ComfyUI && !string.IsNullOrEmpty(model.ReasoningEffort))
             throw new WorkspaceStoreException("The ComfyUI text workflow does not support reasoning effort.");
+        if (model.Backend == AiBackend.Vllm && model.ReasoningEffort is not null)
+            throw new WorkspaceStoreException("vLLM profiles currently support temperature and output limits. Configure reasoning on the server.");
         if (model.Backend == AiBackend.OpenRouter && model.ReasoningEffort is { } effort && !OpenRouterEfforts.Contains(effort))
             throw new WorkspaceStoreException("Choose a supported OpenRouter reasoning effort or leave it at the provider default.");
     }

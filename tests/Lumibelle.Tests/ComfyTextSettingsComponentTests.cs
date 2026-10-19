@@ -25,7 +25,7 @@ public sealed partial class AiSettingsComponentTests
         Assert.Equal(new(8192, .9f), _settings.Value.ComfyTextModels[TextModelPolicy.Key(model)]);
         Assert.Empty(_settings.Value.TextModelAliases); Assert.Equal("Unsaved alias", page.Find(".model-alias-form input").GetAttribute("value"));
         page.Find(".model-generation-settings input[id$='-tokens']").Change("12000");
-        page.Find(".model-generation-settings").QuerySelectorAll("button").Single(b => b.TextContent.Contains("Cancel model")).Click();
+        page.Find(".model-generation-settings").QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Cancel").Click();
         Assert.Equal("8192", page.Find(".model-generation-settings input[id$='-tokens']").GetAttribute("value"));
         page.Find(".model-generation-settings").QuerySelectorAll("button").Single(b => b.TextContent.Contains("Use ComfyUI defaults")).Click();
         Assert.Empty(_settings.Value.ComfyTextModels);

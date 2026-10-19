@@ -22,7 +22,7 @@ public partial class AiSettingsPage
     // The draft's stand-in for no saved size: each request then gets the largest size that fits.
     private const int AutomaticImageSide = 0;
     private static string ImageSideLabel(TextModelReference model, int side) => side == AutomaticImageSide
-        ? "Automatic · largest that fits in GPU memory"
+        ? "Automatic"
         : $"{side:N0} px · ≤{ComfyTextCapacity.ImageTokens(model.Model, side, side):N0} tokens";
     /// <summary>Turns the measured capacity into what fits at the drafted reply limit and image size, or null before a capacity test.</summary>
     private string? CapacityText(TextModelReference model, ComfyTextDraft draft) =>
