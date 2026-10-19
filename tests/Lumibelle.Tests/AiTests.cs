@@ -501,6 +501,12 @@ internal sealed class FakeAiSettingsStore : IAiSettingsStore
     public string? Key { get; set; } = "test-only-key";
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => LoadError is { } error ? Task.FromException<AiSettings>(error) : Task.FromResult(Value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult(Key);
+    public async Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
+    {
+        FileAiSettingsStore.Validate(settings);
+        return await SaveAsync(settings with { VllmUrl = VllmConnection.NormalizeUrl(settings.VllmUrl),
+            HasVllmKey = !removeKey && (!string.IsNullOrWhiteSpace(replacementKey) || settings.HasVllmKey && TextModelPolicy.SameVllmServer(settings.VllmUrl, Value.VllmUrl)) }, cancellationToken: cancellationToken);
+    }
     public async Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
     { SaveCalls++; if (BeforeSave is not null) await BeforeSave(); if (SaveError is not null) throw SaveError; if (removeKey) Key = null; else if (!string.IsNullOrWhiteSpace(replacementKey)) Key = replacementKey; Value = settings with { HasOpenRouterKey = Key is not null }; Saved?.Invoke(); return Value; }
     private event Action? Saved;

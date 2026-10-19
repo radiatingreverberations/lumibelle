@@ -199,7 +199,7 @@ public partial class AiSettingsPage
     private async Task LoadAsync()
     {
         _loading = true; _error = null;
-        try { _settings = await Settings.LoadAsync(_token); CancelComfy(); CancelOpenRouter(); CancelImages(); CancelComfyText(); CancelTextTimeout(); CancelTextEfforts(); }
+        try { _settings = await Settings.LoadAsync(_token); CancelComfy(); CancelVllm(); CancelOpenRouter(); CancelImages(); CancelComfyText(); CancelTextTimeout(); CancelTextEfforts(); }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
         finally { _loading = false; }

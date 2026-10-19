@@ -53,6 +53,29 @@ else
                                 </form>
                             </section>
                         }
+                        @if (_visitedProviders.Contains("vllm"))
+                        {
+                            <section id="ai-connection-vllm" role="tabpanel" aria-labelledby="ai-provider-vllm" hidden='@(ConnectionProvider != "vllm")'>
+                                <form id="connection-vllm-form" class="settings-card" @onsubmit="SaveVllmAsync" @onsubmit:preventDefault>
+                                    <div class="settings-card-title"><span class="provider-badge">SERVER</span><h2>vLLM</h2></div>
+                                    <p>Connect to a vLLM server for text assistance, on this computer or elsewhere.</p>
+                                    <label for="vllm-url">Server URL</label><input id="vllm-url" type="url" @bind="_vllmUrl" @bind:after='() => _vllmCheck = null' required disabled="@Busy" placeholder="http://llm-server:8000/v1" />
+                                    <p class="field-hint">Use the API base URL, for example http://llm-server:8000/v1. A server address without a path uses /v1.</p>
+                                    <p class="key-status">@(_settings.HasVllmKey ? "API key is configured" : "No API key configured")</p>
+                                    <label for="vllm-key">Optional API key</label><input id="vllm-key" type="password" autocomplete="new-password" @bind="_vllmKey" @bind:after='() => _vllmCheck = null' disabled="@Busy" placeholder="@(_settings.HasVllmKey ? "Leave blank to keep the saved key" : "Only if your server requires a key")" />
+                                    @if (_settings.HasVllmKey) { <label class="check-row"><input type="checkbox" @bind="_removeVllmKey" disabled="@Busy" />Remove saved API key</label> }
+                                    <p class="field-hint">Keys stay protected on this computer. Changing the server address clears its saved key; enter a key for the new server if needed.</p>
+                                    <MudButton OnClick="CheckVllmAsync" Disabled="Busy" Variant="Variant.Outlined">@(_checking ? "Checking…" : "Check connection")</MudButton>
+                                    @if (_vllmCheck is not null) { <p class="field-hint" role="status">@_vllmCheck</p> }
+                                    <p class="field-hint">Checking lists served models without generating text. Save, then refresh vLLM under Text models and star a model.</p>
+                                    <div class="connection-request-settings">
+                                        <label for="vllm-concurrency">Concurrent requests</label><input id="vllm-concurrency" type="number" min="1" max="8" step="1" @bind="_vllmConcurrency" disabled="@Busy" />
+                                        <p class="field-hint">Start with one request at a time. Increase this if your server has capacity. Temperature and output limits use server defaults unless an LLM profile overrides them.</p>
+                                    </div>
+                                    <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="CancelVllm" Disabled="Busy">Cancel</MudButton></div>
+                                </form>
+                            </section>
+                        }
                         @if (_visitedProviders.Contains("openrouter"))
                         {
                             <section id="ai-connection-openrouter" role="tabpanel" aria-labelledby="ai-provider-openrouter" hidden='@(ConnectionProvider != "openrouter")'>
@@ -222,7 +245,8 @@ else
                                 {
                                     <div role="row"><div role="cell" aria-colspan="@ModelColumns.Length" class="text-model-details" id="@domId">
                                         <dl><dt>Original name</dt><dd>@(CatalogName(model) ?? model.Name)</dd><dt>Model ID</dt><dd><code>@model.Model</code></dd>
-                                            @if (model.Backend == AiBackend.ComfyUI) { <dt>Server</dt><dd>@model.ComfyUrl</dd> }
+                                            @if (TextModelPolicy.Server(model) is { } server) { <dt>Server</dt><dd>@server</dd> }
+                                            @if (model.Backend == AiBackend.Vllm && info?.ContextLength is { } contextLength) { <dt>Context window</dt><dd>@contextLength.ToString("N0") tokens</dd> }
                                             @if (TextModelPolicy.UsesNamedEffort(model.Backend) && catalog is not null)
                                             {
                                                 @if (catalog.ReasoningEfforts is { Count: > 0 } efforts) { <dt>Reasoning effort</dt><dd>@string.Join(", ", efforts)</dd> }

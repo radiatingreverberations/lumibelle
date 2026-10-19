@@ -203,6 +203,13 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             await DispatchAsync(AiBackend.ComfyUI, 1, ct);
             try
             {
+                await DispatchAsync(AiBackend.Vllm, (await settings.LoadAsync(ct)).VllmConcurrency, ct);
+                ClearError("vllm");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception e) { Failed("vLLM scheduling needs readable settings and writable job storage. It will retry without repeating active requests.", e, "vllm"); }
+            try
+            {
                 // Concurrency is scheduling policy, not generation context. Reading the
                 // saved value each tick also makes reductions take effect after active jobs.
                 var concurrency = (await settings.LoadAsync(ct)).OpenRouterConcurrency;

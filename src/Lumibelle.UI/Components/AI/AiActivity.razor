@@ -29,13 +29,13 @@
                 </p></div><button @onclick="Close" aria-label="Close AI activity">×</button>
             </header>
             <div class="ai-provider-controls">
-                @foreach (var provider in new[] { AiBackend.ComfyUI, AiBackend.OpenRouter, AiBackend.Codex, AiBackend.ClaudeCode })
+                @foreach (var provider in new[] { AiBackend.ComfyUI, AiBackend.Vllm, AiBackend.OpenRouter, AiBackend.Codex, AiBackend.ClaudeCode })
                 {
                     var paused = Jobs.View.Paused.Contains(provider);
                     var expanded = _expandedProviders.Contains(provider);
                     <section class="ai-provider-control" aria-label="@(TextModelPolicy.ProviderName(provider) + " queue")">
                         <div class="ai-provider-row">
-                            <button class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><span aria-hidden="true">@(expanded ? "▾" : "▸")</span> <strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.ClaudeCode ? "Limits" : "Allowance")</span></button>
+                            <button class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><span aria-hidden="true">@(expanded ? "▾" : "▸")</span> <strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.Vllm ? "Server" : provider == AiBackend.ClaudeCode ? "Limits" : "Allowance")</span></button>
                             @if (provider == AiBackend.ComfyUI) { <ComfyPauseControl Jobs="Jobs" /> }
                             else { <button disabled="@_changingProvider" aria-label="@((paused ? "Resume queue " : "Pause queue ") + TextModelPolicy.ProviderName(provider))" @onclick="() => Pause(provider, !paused)">@(paused ? "Resume" : "Pause queue")</button> }
                         </div>
@@ -49,6 +49,8 @@
                                 }
                                 else if (provider == AiBackend.ClaudeCode)
                                 { <p class="field-hint">Claude Code does not report remaining usage to other apps. If a usage or rate limit ends a request, this queue pauses; resume it when the limit resets.</p> }
+                                else if (provider == AiBackend.Vllm)
+                                { <p class="field-hint">Requests run on your vLLM server. Set concurrent requests in Connections → vLLM.</p> }
                                 else { <ProviderCapacity Backend="provider" /> }
                             </div>
                         }

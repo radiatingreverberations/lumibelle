@@ -13,7 +13,7 @@
 
 @code {
     public static readonly (string Key, string Label, string Kind)[] Providers =
-        [("comfyui", "ComfyUI", "Server"), ("openrouter", "OpenRouter", "Cloud API"), ("codex", "Codex", "Local CLI"), ("claudecode", "Claude Code", "Local CLI")];
+        [("comfyui", "ComfyUI", "Server"), ("vllm", "vLLM", "Server"), ("openrouter", "OpenRouter", "Cloud API"), ("codex", "Codex", "Local CLI"), ("claudecode", "Claude Code", "Local CLI")];
     // The entry for settings that apply across a tab's providers, shown last.
     public const string DefaultsKey = "defaults";
     [Parameter, EditorRequired] public string Label { get; set; } = "";

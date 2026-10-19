@@ -120,7 +120,7 @@
         .OrderBy(BaseLabel, StringComparer.OrdinalIgnoreCase).ToArray();
     private static TextModelReference BaseModel(TextModelReference model) =>
         TextModelProfiles.ModelOnly(model);
-    private string BaseLabel(TextModelReference model) => $"{TextModelPolicy.ProviderName(model.Backend)} · {TextModelPolicy.DisplayName(model, SettingsSnapshot, CatalogModel?.Invoke(model)?.Name)} · {model.Model}{(model.Backend == AiBackend.ComfyUI ? $" · {model.ComfyUrl}" : "")}";
+    private string BaseLabel(TextModelReference model) => $"{TextModelPolicy.ProviderName(model.Backend)} · {TextModelPolicy.DisplayName(model, SettingsSnapshot, CatalogModel?.Invoke(model)?.Name)} · {model.Model}{(TextModelPolicy.Server(model) is { } server ? $" · {server}" : "")}";
     private IReadOnlyList<string> Efforts => _model is null ? Array.Empty<string>() : _model.Backend switch
     {
         AiBackend.Codex => CatalogModel?.Invoke(_model)?.ReasoningEfforts ?? Array.Empty<string>(),

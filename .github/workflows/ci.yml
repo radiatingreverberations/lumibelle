@@ -69,7 +69,7 @@ jobs:
         include:
           - group: shared studio
             id: shared-studio
-            specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js
+            specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js ai-settings-navigation.spec.js vllm-provider.spec.js
           - group: reference reels
             id: reference-reels
             specs: reference-reels.spec.js

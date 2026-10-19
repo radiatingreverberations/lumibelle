@@ -377,6 +377,12 @@ sealed class MockSettings : IAiSettingsStore
         StarredTextModels = [new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model")] };
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>("mock-only");
+    public Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
+    {
+        FileAiSettingsStore.Validate(settings);
+        return SaveAsync(settings with { VllmUrl = VllmConnection.NormalizeUrl(settings.VllmUrl),
+            HasVllmKey = !removeKey && (!string.IsNullOrWhiteSpace(replacementKey) || settings.HasVllmKey && TextModelPolicy.SameVllmServer(settings.VllmUrl, _value.VllmUrl)) }, cancellationToken: cancellationToken);
+    }
     public Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
     { if (settings.Revision != _value.Revision) throw new WorkspaceConflictException(); return Task.FromResult(_value = settings with { Revision = settings.Revision + 1 }); }
 }

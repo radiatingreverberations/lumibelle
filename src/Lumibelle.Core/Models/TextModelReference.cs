@@ -5,6 +5,8 @@ namespace lumibelle.Models;
 public sealed record TextModelReference(AiBackend Backend, string Model, string Name, string? ComfyUrl = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReasoningEffort = null)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? VllmUrl { get; init; }
     // A selection is a value snapshot, not a live link to the profile library.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? ProfileId { get; init; }

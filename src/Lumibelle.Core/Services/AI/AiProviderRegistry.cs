@@ -31,21 +31,22 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             return new ComfyChatClient(http, model, comfyMonitor, ComfyTextVision.Mode(reference, settings),
                 ComfyTextCapabilities.SystemPromptVersions(reference, settings), ComfyTextSettings.BatchImageSide(reference, settings));
         }
-        if (backend != AiBackend.OpenRouter) throw new AiGenerationException("This AI backend is not available.");
-        var key = await settingsStore.ReadOpenRouterKeyAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(key)) throw new AiGenerationException("Add an OpenRouter API key in AI settings first.");
-        var transportClient = clients.CreateClient("OpenRouter");
+        if (backend is not (AiBackend.OpenRouter or AiBackend.Vllm)) throw new AiGenerationException("This AI backend is not available.");
+        var key = backend == AiBackend.Vllm ? await settingsStore.ReadVllmKeyAsync(settings.VllmUrl, cancellationToken)
+            : await settingsStore.ReadOpenRouterKeyAsync(cancellationToken);
+        if (backend == AiBackend.OpenRouter && string.IsNullOrWhiteSpace(key)) throw new AiGenerationException("Add an OpenRouter API key in AI settings first.");
+        var transportClient = clients.CreateClient(backend.ToString());
         transportClient.Timeout = Timeout.InfiniteTimeSpan;
-        var client = new OpenAI.Chat.ChatClient(model, new ApiKeyCredential(key), new OpenAIClientOptions
+        var client = new OpenAI.Chat.ChatClient(model, new ApiKeyCredential(string.IsNullOrWhiteSpace(key) ? "EMPTY" : key), new OpenAIClientOptions
         {
-            Endpoint = new Uri("https://openrouter.ai/api/v1"),
+            Endpoint = new Uri(backend == AiBackend.Vllm ? VllmConnection.NormalizeUrl(settings.VllmUrl) : "https://openrouter.ai/api/v1"),
             Transport = new HttpClientPipelineTransport(transportClient),
             RetryPolicy = new ClientRetryPolicy(0),
             // The SDK applies this to individual network reads, not the lifetime of
             // the stream. The watchdog separately rejects heartbeat-only streams.
             NetworkTimeout = TimeSpan.FromSeconds(settings.TimeoutSeconds)
         });
-        return new OwnedChatClient(client.AsIChatClient(), transportClient);
+        return new OwnedChatClient(client.AsIChatClient(), transportClient, backend == AiBackend.OpenRouter);
     }
 
     public async Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
@@ -68,6 +69,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         try
         {
             using var http = clients.CreateClient(backend.ToString());
+            if (backend == AiBackend.Vllm) return await CheckVllmAsync(http, settings, replacementKey, timeout.Token);
             if (backend == AiBackend.ComfyUI)
             {
                 http.BaseAddress = new Uri(NormalizeComfyUrl(settings.ComfyUrl) + "/");
@@ -88,6 +90,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
                         : $"Connected to ComfyUI {comfyCatalog.Version}, but CLIPLoader did not advertise any text encoders.",
                     models, comfyCatalog.Version);
             }
+            if (backend != AiBackend.OpenRouter) return new(false, "This AI backend is not available.", []);
             var key = string.IsNullOrWhiteSpace(replacementKey) ? await settingsStore.ReadOpenRouterKeyAsync(timeout.Token) : replacementKey.Trim();
             if (string.IsNullOrEmpty(key)) return new(false, "Enter an OpenRouter API key to check this connection.", []);
             http.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
@@ -462,14 +465,14 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         }
     }
 
-    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport) : DelegatingChatClient(inner), IProgressReportingChatClient
+    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport, bool openRouter) : DelegatingChatClient(inner), IProgressReportingChatClient
     {
         public async IAsyncEnumerable<ProgressingChatUpdate> GetStreamingResponseWithProgressAsync(
             IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await foreach (var update in InnerClient.GetStreamingResponseAsync(messages, options, cancellationToken))
-                yield return new(update, Activity: TextStreamActivity.Reasoning(update), OpenRouterUsage: OpenRouterUsageParser.Read(update));
+                yield return new(update, Activity: TextStreamActivity.Reasoning(update), OpenRouterUsage: openRouter ? OpenRouterUsageParser.Read(update) : null);
         }
         protected override void Dispose(bool disposing)
         {

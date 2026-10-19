@@ -139,7 +139,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             throw new WorkspaceStoreException("A new script request needs its own matching job identity.");
         request = request with { Run = request.Run with { JobId = id } };
         var configured = Copy(await settings.LoadAsync(ct));
-        var model = request.Selection ?? new(request.Run.Backend, request.Run.Model, request.Run.Model, request.Run.Backend == AiBackend.ComfyUI ? configured.ComfyUrl : null);
+        var model = request.Selection ?? TextModelPolicy.Reference(request.Run.Backend, request.Run.Model, request.Run.Model, configured);
         if (request.Run.Backend != model.Backend || request.Run.Model != model.Model) throw new AiGenerationException("The script request and model selection do not match.");
         ScriptStructure.ValidateBlocks(request.Script.Blocks);
         return await BuildAsync(id, tab, AiJobKind.ScriptAssistant, new(request.Script.ProjectId), $"{request.Run.Operation} · {request.Run.Target.Name}",
@@ -152,7 +152,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (request.Library.ProjectId != request.Script.ProjectId) throw new AiGenerationException("The asset library and saved script belong to different projects.");
         if (scripts is not null) await scripts.CaptureSourceAsync(request.Script.ProjectId, request.Script.SourceRevision, ct);
         ValidateScenes(request.Script, request.SceneIds);
-        var model = request.Selection ?? new(request.Backend, request.Model, request.Model, request.Backend == AiBackend.ComfyUI ? configured.ComfyUrl : null);
+        var model = request.Selection ?? TextModelPolicy.Reference(request.Backend, request.Model, request.Model, configured);
         if (request.Backend != model.Backend || request.Model != model.Model) throw new AiGenerationException("The extraction request and model selection do not match.");
         return await BuildAsync(id, tab, AiJobKind.AssetExtraction, new(request.Script.ProjectId), "Extract assets", request, model,
             followsDefault, configured, "asset-extraction-v1", AssetExtractor.BuildMessages(request), 0.2f, null, ct);

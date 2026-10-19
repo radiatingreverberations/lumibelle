@@ -64,6 +64,18 @@ Add comma-separated **Tags** to LoRA registrations, then search or filter the li
 
 An already selected, enabled LoRA that the project now excludes blocks generation until it is disabled, removed or allowed again. Each batch checks the saved project rules when it starts; changes never rewrite earlier images or their recorded LoRAs. To use LoRAs on an asset, see [Assets studio](assets.md#loras).
 
+## vLLM
+
+Connect a vLLM server on this computer or your network:
+
+1. Open **Connections → vLLM** and enter its API base URL, such as `http://llm-server:8000/v1`. A bare server address automatically uses `/v1`; include the full API path when using a reverse proxy.
+2. Enter an API key only if the server requires one. Choose **Check connection**, then **Save connection**.
+3. Open **Text models → vLLM**, refresh, and star a served model. Select it in **Assist**, or set it as the global default under **Defaults & profiles**.
+
+Checks call the server's model catalog without generating text. The server must serve a chat-capable model with a chat template. Text requests stream through the existing AI activity queue, with one concurrent request by default. Temperature and output limits use server defaults unless overridden in an LLM profile. Use **Test models and profiles** to try writing prompts.
+
+Saved choices and queued requests retain their server address. Changing servers clears the old saved key; credentials are stored protected and never included in queued requests. This connection currently supports text input; the model catalog does not establish vision support. Configure model-specific reasoning on the vLLM server.
+
 ## OpenRouter
 
 1. Enter your own OpenRouter API key in **Connections**, check it, and choose **Save key**.

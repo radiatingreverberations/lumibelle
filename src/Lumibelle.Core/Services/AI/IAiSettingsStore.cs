@@ -8,6 +8,9 @@ public interface IAiSettingsStore
     Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default);
     Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default);
     Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default);
+    Task<string?> ReadVllmKeyAsync(string serverUrl, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+    Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This settings store does not support vLLM credentials.");
 }
 
 public interface IAiProviderRegistry

@@ -39,7 +39,7 @@ public sealed class ScriptAssistant(IAiProviderRegistry providers, IAiSettingsSt
         }
         else
         {
-            yield return new(Progress: new(GenerationPhase.Generating, "Writing with OpenRouter…"));
+            yield return new(Progress: new(GenerationPhase.Generating, $"Writing with {TextModelPolicy.ProviderName(request.Run.Backend)}…"));
             await using var updates = client.GetStreamingResponseAsync(messages, options, timeout.Token).GetAsyncEnumerator(timeout.Token);
             while (await MoveNextAsync(updates, cancellationToken, timeout))
             {
