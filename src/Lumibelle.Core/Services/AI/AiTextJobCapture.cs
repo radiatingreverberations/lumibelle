@@ -234,6 +234,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         (IReadOnlyList<AiTextMessage>? Messages, string? Brief, string Key, int Tokens)? brief = null)
     {
         model = TextModelPolicy.WithDefaultEffort(model, configured);
+        model = VllmTextSettings.Apply(model, configured);
         TextModelPolicy.Validate(model); TextModelPolicy.CheckRequestServer(model, configured); FileAiSettingsStore.Validate(configured);
         configured = ComfyTextSettings.Capture(model, configured);
         if (kind != AiJobKind.AssetExtraction) temperature = configured.Temperature;

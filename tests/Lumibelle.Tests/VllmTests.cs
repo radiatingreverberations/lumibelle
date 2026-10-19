@@ -193,13 +193,18 @@ public sealed partial class AiTextJobTests
     {
         _settings.Value = _settings.Value with { VllmUrl = "http://llm-server:8000/v1" };
         _model = TextModelPolicy.Reference(AiBackend.Vllm, "test/model", "Local model", _settings.Value);
+        _settings.Value.VllmTextModels[TextModelPolicy.Key(_model)] = new(.3f, 512);
         var request = await Request(kind);
         var captured = request.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        _settings.Value.VllmTextModels[TextModelPolicy.Key(_model)] = new(.9f, 2048);
         _settings.Value = _settings.Value with { VllmUrl = "http://other:8000/v1" };
+        Assert.Equal(3, captured.Version);
+        Assert.Equal(.3f, captured.Model.Temperature); Assert.Equal(512, captured.Model.MaxOutputTokens);
         Assert.Equal("http://llm-server:8000/v1", captured.Settings.VllmUrl);
         Assert.Equal(captured.Model.VllmUrl, captured.Settings.VllmUrl);
         _providers.Chat.Output = Response(kind); var context = await Claim(request);
         Assert.Equal(AiJobState.Completed, (await Handler().ExecuteAsync(context, request.Snapshot, _ct)).State);
+        Assert.Equal(.3f, _providers.Chat.Options!.Temperature); Assert.Equal(512, _providers.Chat.Options.MaxOutputTokens);
         Assert.Null((await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct))!.Error);
         var saved = await context.ReadOperationAsync<AiTextJobResult>("text", AiOperationArtifact.Output, _ct);
         Assert.True(saved!.Complete);

@@ -6,7 +6,7 @@ namespace Lumibelle.Tests;
 public sealed class OpenRouterTestStatusTests
 {
     private static readonly TextModelReference Model = new(AiBackend.OpenRouter, "provider/model:free", "Model");
-    private static OpenRouterTextModelBenchmark Benchmark() => new(Guid.NewGuid(), Model.Model, DateTimeOffset.UtcNow,
+    private static TextModelBenchmark Benchmark() => new(Guid.NewGuid(), Model.Model, DateTimeOffset.UtcNow,
         256, false, 2, .25, 10, 50, null, null, 0, Model.Model, "Provider", null, "stop", true);
     private static AiJobHeader Job(DateTimeOffset created, AiJobKind kind = AiJobKind.TextBenchmark) => new()
     {

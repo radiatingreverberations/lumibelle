@@ -13,13 +13,13 @@ test('per-model settings preserve defaults, drafts and return routes', async ({ 
   await row.getByRole('button', { name: 'Mock script writer', exact: true }).click();
   const form = row.getByRole('form', { name: 'Model generation settings' });
   await form.getByLabel('Maximum reply tokens', { exact: true }).fill('8192');
-  await form.getByLabel('Model temperature', { exact: true }).fill('0.7');
+  await form.getByLabel('Temperature', { exact: true }).fill('0.7');
   await row.getByLabel('Alias', { exact: true }).fill('Unsaved model alias');
   await page.getByRole('tablist', { name: 'Text model providers' }).getByRole('tab', { name: 'Defaults & profiles', exact: true }).click();
   await page.getByLabel('Text inactivity timeout in seconds', { exact: true }).fill('555');
   await page.getByRole('tablist', { name: 'Text model providers' }).getByRole('tab', { name: 'ComfyUI', exact: true }).click();
   await expect(form.getByLabel('Maximum reply tokens', { exact: true })).toHaveValue('8192');
-  await form.getByRole('button', { name: 'Save model settings', exact: true }).click();
+  await form.getByRole('button', { name: 'Save settings', exact: true }).click();
   await expect(page.getByText('Model generation settings saved.', { exact: true })).toBeVisible();
   const saved = await snapshot();
   expect(saved.defaultBackend).toBe(before.defaultBackend); expect(saved.comfyModel).toBe(before.comfyModel);
@@ -27,12 +27,18 @@ test('per-model settings preserve defaults, drafts and return routes', async ({ 
   await expect(row.getByLabel('Alias', { exact: true })).toHaveValue('Unsaved model alias');
   await expect(row.getByRole('button', { name: 'Estimate capacity', exact: true })).toHaveCount(0);
   await form.getByLabel('Maximum reply tokens', { exact: true }).fill('12000');
-  await form.getByRole('button', { name: 'Cancel model settings', exact: true }).click();
+  await form.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(form.getByLabel('Maximum reply tokens', { exact: true })).toHaveValue('8192');
   // The checkbox sits before its label rather than stretching across the form and squeezing the text into a column.
-  const raise = form.getByRole('checkbox', { name: /Raise the reply limit/ });
+  const raise = form.getByRole('checkbox', { name: 'Allow longer replies when memory permits' });
   const [box, label] = [await raise.boundingBox(), await form.locator('.check-row').boundingBox()];
   expect(box.width).toBeLessThan(30); expect(label.height).toBeLessThan(60); expect(box.x - label.x).toBeLessThan(5);
+  const fields = await form.locator('.text-generation-fields input, .text-generation-fields select').evaluateAll(inputs => inputs.map(input => {
+    const box = input.getBoundingClientRect(); return { top: box.top, height: box.height, width: box.width };
+  }));
+  expect(Math.abs(fields[0].top - fields[1].top)).toBeLessThan(1);
+  expect(new Set(fields.map(field => field.height)).size).toBe(1);
+  expect(fields.every(field => field.width > 100)).toBe(true);
   await row.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'artifacts/comfy-text-settings-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

@@ -3,10 +3,16 @@ namespace lumibelle.Models;
 public sealed record AiModelTestJobRequest(int Version, TextModelReference Model, AiSettings Settings,
     ComfyTextModelTestRequest Test, bool Advanced, long Seed);
 public sealed record AiModelTestJobResult(ComfyTextModelVerification? Verification, string? Response,
-    bool Recovered = false, bool Saved = false, OpenRouterTextModelBenchmark? OpenRouter = null, string? Refusal = null, string? Error = null, string? GuardrailReport = null,
-    ComfyTextModelBenchmark? PartialBenchmark = null);
+    bool Recovered = false, bool Saved = false, TextModelBenchmark? OpenRouter = null, string? Refusal = null, string? Error = null, string? GuardrailReport = null,
+    ComfyTextModelBenchmark? PartialBenchmark = null, VllmTextModelBenchmark? Vllm = null);
 
-public sealed record OpenRouterTextModelBenchmark(Guid TestId, string Model, DateTimeOffset MeasuredUtc,
+public sealed record VllmTextModelBenchmark(string Server, float? Temperature, TextModelBenchmark Measurement)
+{
+    public double? TokensPerSecond => Measurement is { Complete: true, HasReply: true, Refused: false, OutputTokens: > 0, ElapsedSeconds: > 0 }
+        ? Measurement.OutputTokens / Measurement.ElapsedSeconds : null;
+}
+
+public sealed record TextModelBenchmark(Guid TestId, string Model, DateTimeOffset MeasuredUtc,
     int TokenLimit, bool CustomPrompt, double ElapsedSeconds, double? FirstTextSeconds,
     int? InputTokens, int? OutputTokens, int? ReasoningTokens, int? CachedTokens, decimal? Cost,
     string? ResponseModel, string? Provider, string? GenerationId, string? FinishReason, bool Complete,

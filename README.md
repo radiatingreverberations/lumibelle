@@ -8,7 +8,7 @@ A personal video studio for growing an idea into a film. Write a screenplay, tur
 
 ## Run from source
 
-Install the .NET 10 SDK selected by `global.json`, then run from the repository root:
+Install the .NET 10 SDK selected by `global.json` and place your Six Labors license in `sixlabors.lic` at the repository root (ignored by Git; see [build licensing](docs/development.md#build-license)). Then run:
 
 ```powershell
 dotnet restore lumibelle.slnx

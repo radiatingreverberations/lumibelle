@@ -66,7 +66,15 @@ public partial class AiSettingsPage
         new("speed", "Speed", "Tokens per second from the saved benchmark", true),
         new("vram", "VRAM", "Additional VRAM in GiB observed during the saved benchmark"),
         new("tested", "Tested", "Date of the saved model verification", true)];
-    private ModelColumn[] ModelColumns => TextBackend switch { AiBackend.OpenRouter => OpenRouterColumns, AiBackend.ComfyUI => ComfyColumns, _ => [NameColumn] };
+    private static readonly ModelColumn[] VllmColumns = [NameColumn,
+        new("speed", "Speed", "Reported output tokens per second over the full test, including reasoning", true),
+        new("tested", "Tested", "Date of the latest model test on this server", true)];
+    private ModelColumn[] ModelColumns => TextBackend switch { AiBackend.OpenRouter => OpenRouterColumns, AiBackend.ComfyUI => ComfyColumns, AiBackend.Vllm => VllmColumns, _ => [NameColumn] };
+    private VllmTextModelBenchmark? VllmBenchmark(TextModelReference model) => _settings!.VllmTextModelBenchmarks
+        .Where(b => b.Measurement.Model == model.Model && TextModelPolicy.SameVllmServer(b.Server, model.VllmUrl))
+        .OrderByDescending(b => b.Measurement.MeasuredUtc).FirstOrDefault();
+    private double? ModelSpeed(TextModelReference model) => model.Backend == AiBackend.Vllm ? VllmBenchmark(model)?.TokensPerSecond : Benchmark(model)?.TokensPerSecond;
+    private DateTimeOffset? ModelTested(TextModelReference model) => model.Backend == AiBackend.Vllm ? VllmBenchmark(model)?.Measurement.MeasuredUtc : TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc;
     private ComfyTextModelBenchmark? Benchmark(TextModelReference model) => TextModelPolicy.Verification(model, _settings!)?.Benchmarks?.OrderBy(item => item.CustomPrompt).ThenByDescending(item => item.MeasuredUtc).FirstOrDefault();
     private static decimal? AdditionalVram(ComfyTextModelBenchmark? benchmark) => benchmark is { PeakVramUsedBytes: { } peak, BaselineVramUsedBytes: { } baseline }
         ? Math.Max(0, peak - baseline) / 1073741824m : null;
@@ -76,9 +84,9 @@ public partial class AiSettingsPage
         "context" => CatalogModel(model)?.Catalog?.ContextLength,
         "added" => CatalogModel(model)?.Catalog?.AddedUtc?.ToUnixTimeSeconds(),
         "popularity" => CatalogModel(model)?.Catalog?.PopularityOrder,
-        "speed" => Benchmark(model)?.TokensPerSecond is { } speed && double.IsFinite(speed) && speed is > 0 and < (double)decimal.MaxValue ? (decimal)speed : null,
+        "speed" => ModelSpeed(model) is { } speed && double.IsFinite(speed) && speed is > 0 and < (double)decimal.MaxValue ? (decimal)speed : null,
         "vram" => AdditionalVram(Benchmark(model)),
-        "tested" => TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc.ToUnixTimeSeconds(), _ => null
+        "tested" => ModelTested(model)?.ToUnixTimeSeconds(), _ => null
     };
     private string ColumnValue(TextModelReference model, string key) => key switch
     {
@@ -86,9 +94,9 @@ public partial class AiSettingsPage
         "context" => CatalogModel(model)?.Catalog?.ContextLength is { } context ? OpenRouterModelMetadata.Context(context) : "—",
         "added" => CatalogModel(model)?.Catalog?.AddedUtc?.ToString("yyyy-MM-dd") ?? "—",
         "popularity" => CatalogModel(model)?.Catalog?.PopularityOrder is { } rank ? $"#{rank}" : "—",
-        "speed" => Benchmark(model)?.TokensPerSecond is { } speed ? FormattableString.Invariant($"{speed:0.0} tokens/s") : "—",
+        "speed" => ModelSpeed(model) is { } speed ? FormattableString.Invariant($"{speed:0.0} tokens/s") : "—",
         "vram" => AdditionalVram(Benchmark(model)) is { } vram ? FormattableString.Invariant($"~{vram:0.0} GiB") : "—",
-        "tested" => TextModelPolicy.Verification(model, _settings!)?.VerifiedUtc.ToString("yyyy-MM-dd") ?? "—", _ => "—"
+        "tested" => ModelTested(model)?.ToString("yyyy-MM-dd") ?? "—", _ => "—"
     };
     private string SortAria(string key) => TextState.Sort == key ? TextState.Descending ? "descending" : "ascending" : "none";
     private string SortArrow(string key) => TextState.Sort == key ? TextState.Descending ? "↓" : "↑" : "↕";

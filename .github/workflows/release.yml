@@ -41,6 +41,8 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       version: ${{ inputs.version }}
+    secrets:
+      SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
 
   release:
     needs: build

@@ -62,6 +62,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
                 .ToDictionary(pair => pair.Key, pair => pair.Value.Trim(), StringComparer.Ordinal),
             OpenRouterTextModelBenchmarks = settings.OpenRouterTextModelBenchmarks.DistinctBy(b => b.TestId)
                 .GroupBy(b => b.Model, StringComparer.Ordinal).SelectMany(g => g.OrderByDescending(b => b.MeasuredUtc).Take(5)).ToList(),
+            VllmTextModelBenchmarks = settings.VllmTextModelBenchmarks.DistinctBy(b => b.Measurement.TestId)
+                .GroupBy(b => (b.Server, b.Measurement.Model)).SelectMany(g => g.OrderByDescending(b => b.Measurement.MeasuredUtc).Take(5)).ToList(),
             ComfyTextModelVerifications = settings.ComfyTextModelVerifications
                 .Select(item => item with
                 {
@@ -120,18 +122,28 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         };
     }
 
+    private static bool InvalidBenchmark(TextModelBenchmark? b, int maxTokens) => b is null || b.TestId == Guid.Empty ||
+        string.IsNullOrWhiteSpace(b.Model) || b.Model.Length > 2000 || b.MeasuredUtc == default || b.TokenLimit < 1 || b.TokenLimit > maxTokens ||
+        !double.IsFinite(b.ElapsedSeconds) || b.ElapsedSeconds < 0 || b.FirstTextSeconds is { } first && (!double.IsFinite(first) || first < 0 || first > b.ElapsedSeconds) ||
+        b.InputTokens is < 0 || b.OutputTokens is < 0 || b.ReasoningTokens is < 0 || b.CachedTokens is < 0 || b.Cost is < 0;
+
     public static void Validate(AiSettings settings)
     {
         VllmConnection.ValidateUrl(settings.VllmUrl);
         if (settings.VllmConcurrency is < 1 or > 8) throw new WorkspaceStoreException("Choose vLLM concurrency between 1 and 8.");
         QwenImage21Policy.ValidateSettings(settings.QwenImage21);
         ComfyTextSettings.Validate(settings);
+        VllmTextSettings.Validate(settings);
         TextModelProfiles.ValidateSettings(settings);
-        if (settings.OpenRouterTextModelBenchmarks is null || settings.OpenRouterTextModelBenchmarks.Any(b => b is null || b.TestId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(b.Model) || b.Model.Length > 2000 || b.MeasuredUtc == default || b.TokenLimit is < 1 or > AiModelTestJobHandler.OpenRouterAdvancedMaxTokens ||
-            !double.IsFinite(b.ElapsedSeconds) || b.ElapsedSeconds < 0 || b.FirstTextSeconds is { } first && (!double.IsFinite(first) || first < 0 || first > b.ElapsedSeconds) ||
-            b.InputTokens is < 0 || b.OutputTokens is < 0 || b.ReasoningTokens is < 0 || b.CachedTokens is < 0 || b.Cost is < 0))
+        if (settings.OpenRouterTextModelBenchmarks is null || settings.OpenRouterTextModelBenchmarks.Any(b => InvalidBenchmark(b, AiModelTestJobHandler.OpenRouterAdvancedMaxTokens)))
             throw new WorkspaceStoreException("A saved OpenRouter model test is invalid. Run the test again.");
+        if (settings.VllmTextModelBenchmarks is null || settings.VllmTextModelBenchmarks.Any(b => b is null ||
+            InvalidBenchmark(b.Measurement, AiModelTestJobHandler.VllmAdvancedMaxTokens) ||
+            b.Temperature is { } temperature && (!float.IsFinite(temperature) || temperature is < 0 or > 2)))
+            throw new WorkspaceStoreException("A saved vLLM model test is invalid. Run the test again.");
+        foreach (var benchmark in settings.VllmTextModelBenchmarks)
+            if (string.IsNullOrWhiteSpace(benchmark.Server) || benchmark.Server != VllmConnection.NormalizeUrl(benchmark.Server))
+                throw new WorkspaceStoreException("The saved vLLM test server is not normalized.");
         lumibelle.Services.Shots.H3Policy.ValidateSettings(settings.H3);
         if (settings.Codex is null || settings.Codex.Concurrency is < 1 or > 4 || settings.Codex.ExecutablePath is null ||
             settings.Codex.TextModel is null || settings.Codex.ImageModel is null)

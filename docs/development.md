@@ -4,6 +4,12 @@ The user manual lives in [docs/manual](manual/README.md) and is published at [lu
 
 For architecture, launch/publish commands and platform status, see [shared hosts and distribution](shared-hosts.md). For UI work, use the [UX guidelines](ux-guidelines.md). They describe the intended design.
 
+## Build license
+
+ImageSharp requires a Six Labors license at build time. Place the supplied `sixlabors.lic` in the repository root, where it is ignored by Git, or set `SIXLABORS_LICENSE_KEY` to the complete file contents. An explicit `SixLaborsLicenseFile` MSBuild property can point to another location. See the [official licensing setup](https://docs.sixlabors.com/articles/imagesharp/index.html#how-to-use-the-license-file) for obtaining and using a license.
+
+CI and release builds read the repository Actions secret `SIXLABORS_LICENSE_KEY`. Set it to the complete license file contents, not only the `Key` field. Keep private licenses out of source control and build logs. Downloaded application builds do not require a license file from the user.
+
 ## Test
 
 ```powershell

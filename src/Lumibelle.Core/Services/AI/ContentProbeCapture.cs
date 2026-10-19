@@ -37,6 +37,7 @@ public sealed class ContentProbeCapture(IAiSettingsStore settings, IContentProbe
         foreach (var original in selected)
         {
             var model = TextModelPolicy.WithDefaultEffort(TextModelPolicy.Normalize(original), configured);
+            model = VllmTextSettings.Apply(model, configured);
             TextModelPolicy.CheckRequestServer(model, configured);
             if (TextModelPolicy.Issue(model, configured, checks[model.Backend]) is { } issue) throw new AiGenerationException(model.Name + ": " + issue);
             var capturedSettings = ComfyTextSettings.Capture(model, configured);

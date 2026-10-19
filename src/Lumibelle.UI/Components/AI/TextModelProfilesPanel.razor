@@ -89,6 +89,10 @@
                                 }
                                 <p class="field-hint">Blank controls are omitted, preserving provider defaults. Effort and token budget cannot be combined. Support and budget interpretation depend on the model/provider; any explicit output limit must leave room for the answer after thinking tokens.</p>
                             }
+                            else if (_model.Backend == AiBackend.Vllm)
+                            {
+                                <p class="field-hint">Blank controls use this model's saved settings, then the server defaults. Reasoning is configured on the server.</p>
+                            }
                             else
                             {
                                 <p class="field-hint">Blank controls use this ComfyUI model's saved settings, then the ComfyUI defaults. An explicit temperature also overrides asset extraction's 0.2. This workflow keeps thinking disabled.</p>

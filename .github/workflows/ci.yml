@@ -12,6 +12,10 @@ on:
         description: Package version, for example 1.2.3
         required: false
         type: string
+    secrets:
+      SIXLABORS_LICENSE_KEY:
+        description: Complete Six Labors build license
+        required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,6 +56,8 @@ jobs:
         run: npm run test:unit
 
       - name: .NET tests
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         run: dotnet test lumibelle.slnx -c Release --filter "Category!=Component"
 
       # bUnit component tests race their own background renders when the runner is busy,
@@ -69,7 +75,7 @@ jobs:
         include:
           - group: shared studio
             id: shared-studio
-            specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js ai-settings-navigation.spec.js vllm-provider.spec.js
+            specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js ai-settings-navigation.spec.js vllm-provider.spec.js comfy-text-settings.spec.js
           - group: reference reels
             id: reference-reels
             specs: reference-reels.spec.js
@@ -99,11 +105,14 @@ jobs:
 
       # Playwright's global setup only rebuilds the host without restoring, under a two-minute limit.
       - name: Build browser host
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         run: dotnet build tests/Lumibelle.BrowserHost -c Release
 
       - name: Browser flows
         env:
           LUMIBELLE_BROWSER_CONFIGURATION: Release
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         run: npx playwright test ${{ matrix.specs }}
 
       - uses: actions/upload-artifact@v7
@@ -125,6 +134,8 @@ jobs:
       - run: dotnet workload install maui-windows --skip-manifest-update
 
       - name: Publish self-contained folder
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         shell: pwsh
         run: ./build/publish-windows.ps1 -Unpackaged
 
@@ -149,6 +160,8 @@ jobs:
       - run: dotnet workload install maui-maccatalyst --skip-manifest-update
 
       - name: Publish unsigned package
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         run: bash build/publish-macos.sh
 
       - uses: actions/upload-artifact@v7

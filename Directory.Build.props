@@ -2,5 +2,7 @@
   <PropertyGroup>
     <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
     <Version>0.1.0</Version><Deterministic>true</Deterministic>
+    <SixLaborsLicenseKey Condition="'$(SixLaborsLicenseKey)' == ''">$(SIXLABORS_LICENSE_KEY)</SixLaborsLicenseKey>
+    <SixLaborsLicenseFile Condition="'$(SixLaborsLicenseFile)' == '' and Exists('$(MSBuildThisFileDirectory)sixlabors.lic')">$(MSBuildThisFileDirectory)sixlabors.lic</SixLaborsLicenseFile>
   </PropertyGroup>
 </Project>
