@@ -17,7 +17,12 @@ for (const narrow of [false, true]) test(`Repair copied reference budgets in the
   const before = await saved();
   await page.setViewportSize({ width: 1152, height: 1000 });
   await page.goto(`/projects/${id}/shots`);
-  await page.locator('[data-shot-id]').nth(1).click();
+  await toolsTab(page, 'References');
+  const target = page.locator('[data-shot-id]').nth(1);
+  await target.click();
+  // The click returns before Blazor finishes switching shots. Wait for the target
+  // render so Copy cannot arrive against the previous shot during that transition.
+  await expect(target).toHaveAttribute('aria-pressed', 'true');
   if (narrow) await page.setViewportSize({ width: 390, height: 844 });
   await toolsTab(page, 'References');
   const copying = page.getByRole('dialog', { name: 'Copy references from shot', exact: true });
