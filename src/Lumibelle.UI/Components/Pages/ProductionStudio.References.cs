@@ -36,23 +36,26 @@ public partial class ProductionStudio
     }
     private Guid? _imageEditorExpanded, _referenceComposition;
     private bool _imageEditorSaving, _referenceUndoRecorded;
+    private bool ReferenceEditorBusy => _setupBusy || _selectingShot || _imageEditorSaving;
     private void ImageEditorVisibility(bool visible) { if (_imageEditorSaving) return; _referenceOpen = visible; if (!visible) ConsumeAssetPickRequest(); }
     private void OpenReferencePicker() => OpenImageEditor(null);
     private void OpenReferenceDetails(ShotImageBinding b) => OpenImageEditor(b.Id);
     private void OpenImageEditor(Guid? expanded)
     {
-        CaptureReferenceEditor(expanded);
-        _referenceOpen = _imageEditorShot is not null;
+        if (CaptureReferenceEditor(expanded)) _referenceOpen = true;
     }
-    private void CaptureReferenceEditor(Guid? expanded)
+    private bool CaptureReferenceEditor(Guid? expanded)
     {
-        if (Selected is not { } shot) return;
+        // A pending preset/shot change can replace Current after an awaited save.
+        // Ignore stale clicks as well as disabling the controls during that transition.
+        if (ReferenceEditorBusy || Selected is not { } shot || Current is not { } composition) return false;
         _imageEditorShot = shot.Copy(); _imageEditorAssets = _assets.Copy(); _imageEditorExpanded = expanded;
         _referenceEditorDraft = null;
-        _referenceComposition = Current!.Id; _referenceUndoRecorded = false;
+        _referenceComposition = composition.Id; _referenceUndoRecorded = false;
+        return true;
     }
     private bool _copyReferenceOpen;
-    private void OpenReferenceCopy() { CaptureReferenceEditor(null); _copyReferenceOpen = _imageEditorShot is not null; }
+    private void OpenReferenceCopy() { if (CaptureReferenceEditor(null)) _copyReferenceOpen = true; }
     private void EditCopiedReferences(ReferenceSelection selection)
     {
         CheckReferenceBaseline();

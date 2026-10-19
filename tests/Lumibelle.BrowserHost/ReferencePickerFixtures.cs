@@ -12,10 +12,20 @@ using Lumibelle.Testing;
 internal sealed class ReferenceTestProductionStore(FileProductionStore inner) : IProductionStore
 {
     public ConcurrentDictionary<Guid, bool> Failures { get; } = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _saveGates = new();
+    public void PauseSaves(Guid project, bool paused)
+    {
+        if (paused) _saveGates.TryAdd(project, new(TaskCreationOptions.RunContinuationsAsynchronously));
+        else if (_saveGates.TryRemove(project, out var gate)) gate.TrySetResult();
+    }
     public Task<ProductionDocument> LoadAsync(Guid p, CancellationToken ct = default) => inner.LoadAsync(p, ct);
     public Task<ProductionDocument> InitializeAsync(Guid p, CancellationToken ct = default) => inner.InitializeAsync(p, ct);
-    public Task<ProductionDocument> SaveAsync(Guid p, ProductionComposition c, long v, CancellationToken ct = default) => Failures.GetValueOrDefault(p)
-        ? Task.FromException<ProductionDocument>(new WorkspaceStoreException("Fixture storage unavailable")) : inner.SaveAsync(p, c, v, ct);
+    public async Task<ProductionDocument> SaveAsync(Guid p, ProductionComposition c, long v, CancellationToken ct = default)
+    {
+        if (Failures.GetValueOrDefault(p)) throw new WorkspaceStoreException("Fixture storage unavailable");
+        if (_saveGates.TryGetValue(p, out var gate)) await gate.Task.WaitAsync(ct);
+        return await inner.SaveAsync(p, c, v, ct);
+    }
     public Task<ProductionDocument> ApplyResultAsync(Guid p, Guid j, bool a, CancellationToken ct = default, bool accept = false) => inner.ApplyResultAsync(p, j, a, ct, accept);
     public Task<ProductionDocument> RecoverResponseAsync(Guid p, Guid j, long v, CancellationToken ct = default) => inner.RecoverResponseAsync(p, j, v, ct);
     public Task<ProductionDocument> AcceptAsync(Guid p, Guid c, long v, Guid? j = null, TextModelReference? m = null, CancellationToken ct = default) => inner.AcceptAsync(p, c, v, j, m, ct);
@@ -173,6 +183,9 @@ internal static class ReferencePickerFixtures
             return target;
         });
         app.MapPost("/fixtures/reel-fresh-delay", (int milliseconds, ReferenceTestReelStore store) => { store.FreshDelay = milliseconds; return Results.Ok(); });
+        app.MapPost("/fixtures/{id:guid}/production-save-paused", (Guid id, bool paused, ReferenceTestProductionStore store) => {
+            store.PauseSaves(id, paused); return Results.Ok();
+        });
         app.MapPost("/fixtures/{id:guid}/reference-save-failure", (Guid id, bool fail, ReferenceTestProductionStore store) => { store.Failures[id] = fail; return Results.Ok(); });
         app.MapPost("/fixtures/{id:guid}/reference-reels", async (Guid id, Guid takeId, IReferenceVideoStore videos, IAiSettingsStore settings, IAssetStore assets, IAssetReelStore reels, bool environment = false) => {
             var library = await assets.LoadAsync(id); var owner = library.Assets.First(a => a.Category == AssetCategory.Character);

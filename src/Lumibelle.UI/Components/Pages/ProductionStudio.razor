@@ -202,11 +202,11 @@ else
                     <section class="shot-references" data-next-reference-action="@NextReferenceAction">
                         <div class="shot-references-heading">
                             <h2 class="shot-references-title">References</h2>
-                            <button class="@(NextReferenceAction == "copy" ? "reference-next-step" : null)" aria-label="Copy from shot…" title="Copy references and an optional continuity frame from another shot" @onclick="OpenReferenceCopy" disabled="@(!ReferenceCopySources.Any() || _imageEditorSaving)"><span>Copy…</span></button>
+                            <button class="@(NextReferenceAction == "copy" ? "reference-next-step" : null)" aria-label="Copy from shot…" title="Copy references and an optional continuity frame from another shot" @onclick="OpenReferenceCopy" disabled="@(!ReferenceCopySources.Any() || ReferenceEditorBusy)"><span>Copy…</span></button>
                         </div>
                         <div class="shot-reference-actions" role="group" aria-label="Reference actions">
                             <div class="shot-reference-action">
-                                <button class="@(NextReferenceAction == "edit" ? "reference-next-step" : null)" aria-label="Edit references" @onclick="OpenReferencePicker"><span class="reference-action-label">Edit references</span></button>
+                                <button class="@(NextReferenceAction == "edit" ? "reference-next-step" : null)" aria-label="Edit references" @onclick="OpenReferencePicker" disabled="@ReferenceEditorBusy"><span class="reference-action-label">Edit references</span></button>
                             </div>
                         </div>
                         @if (shot.EnvironmentStaging is not null) {
@@ -285,7 +285,7 @@ else
                             </div></article>
                         }
                         <div class="shots-actions"><strong>Voices · @ReferenceVideos.AudioMappings(shot).Count()/3 audio inputs</strong></div>
-                        <button @onclick="OpenReferencePicker">Manage character voices</button>
+                        <button @onclick="OpenReferencePicker" disabled="@ReferenceEditorBusy">Manage character voices</button>
                         @foreach (var choice in shot.CharacterVoices ?? []) { <p class="field-hint">@choice.CharacterName · Voice: @CharacterVoices.Label(choice)</p> }
                         @foreach (var voice in shot.Voices)
                         {

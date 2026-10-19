@@ -86,7 +86,18 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   const currentPreset = await preset.inputValue();
   const otherPreset = (await preset.locator('option').evaluateAll(options => options.map(o => o.value))).find(value => value !== currentPreset);
   expect(otherPreset).toBeTruthy();
-  await preset.selectOption(otherPreset);
+  // Hold the new setup's save so opening references cannot race its captured baseline.
+  expect((await request.post(`/fixtures/${id}/production-save-paused?paused=true`)).ok()).toBe(true);
+  try {
+    await preset.selectOption(otherPreset);
+    await expect(preset).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Copy from shot…', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Edit references', exact: true })).toBeDisabled();
+  } finally {
+    expect((await request.post(`/fixtures/${id}/production-save-paused?paused=false`)).ok()).toBe(true);
+  }
+  await expect(preset).toBeEnabled();
+  await expect(preset).toHaveValue(otherPreset);
   // An explicit None is visible before confirmation, remains visible after saving, and is undoable.
   await page.getByRole('button', { name: 'Copy from shot…', exact: true }).click();
   await copying.getByLabel('Environment library', { exact: true }).selectOption('');
