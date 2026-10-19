@@ -1,0 +1,227 @@
+{
+  "name": "Pursuit geography",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 21.8587219,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Chase Along the South Bank\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a wide, slightly elevated shot along the canal walk in evening light. The south bank runs diagonally through frame, the canal is on one side, and the footbridge is visible in the distance. The courier runs toward camera and toward the bridge. The pursuer follows twenty paces behind her, clearly visible in the same frame. The camera tracks backward ahead of the courier, holding both figures and keeping the gap between them readable. Ending composition: a medium-wide shot with the courier filling the foreground. The pursuer is still twenty paces back, and the footbridge now looms close behind the camera\u0027s line of travel.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 },\n      { \u0022name\u0022: \u0022Pursuer\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Evening canal light, long shadows on the stones, still water, urgent momentum.\u0022,\n    \u0022music\u0022: \u0022Driving, tense percussive pulse.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Locked Gate\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a close shot on the locked gate closing off the footbridge, with the lock and bars sharp in the foreground. The courier arrives and stops short at the gate in a medium close-up through the bars. The camera pushes in slightly on her face as she realizes the way is blocked. Her eyes then turn down toward the water beside the bridge, and the camera follows her eyeline with a short tilt down. Ending composition: her profile is in the foreground, looking down toward the canal below.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Sudden stop, breathless tension, cold metal of the gate against evening light.\u0022,\n    \u0022music\u0022: \u0022The percussive pulse holds on a suspended beat.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Jump onto the Service Boat\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a high angle looking straight down over the canal. A low service boat drifts slowly toward the underside of the footbridge, and its flat roof fills the lower frame. The courier jumps down from the bank into frame and lands on the boat\u0027s roof. The camera stays high and drifts with the boat as it carries her toward the bridge. The boat and the courier slide into the shadow beneath the bridge and disappear from view. Ending composition: the dark underside of the footbridge, with only rippling water where the boat vanished.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Weightless leap, quiet drift of the boat, darkness swallowing her under the bridge.\u0022,\n    \u0022music\u0022: \u0022A sharp percussive hit on the landing, then a low hush.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022She Emerges on the North Bank\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a low-angle medium shot from the bridge side of the locked gate, looking back through the bars toward the south bank. The pursuer runs in and reaches the locked gate, stopped by it. The camera arcs around behind the pursuer to an over-the-shoulder angle that looks across the canal. Across the water, the courier emerges on the north bank. Ending composition: the pursuer\u0027s shoulder and the gate bars frame the foreground, with the courier on the far north bank in the background.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Pursuer\u0022 },\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Frustrated halt at the gate, distance across the water, fading evening light.\u0022,\n    \u0022music\u0022: \u0022The pulse resolves into a single sustained low note.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "4d5276f2-62a2-4a5c-a20b-b0705f2431ca",
+        "title": "Chase Along the South Bank",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "## EXT. CANAL WALK - EVENING\n\nA courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "c7c997cb-ff32-46dc-bfa0-704326f1c8a6",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T05:57:31.9591892+00:00"
+        },
+        "duration": 6,
+        "description": "Opening composition: a wide, slightly elevated shot along the canal walk in evening light. The south bank runs diagonally through frame, the canal is on one side, and the footbridge is visible in the distance. The courier runs toward camera and toward the bridge. The pursuer follows twenty paces behind her, clearly visible in the same frame. The camera tracks backward ahead of the courier, holding both figures and keeping the gap between them readable. Ending composition: a medium-wide shot with the courier filling the foreground. The pursuer is still twenty paces back, and the footbridge now looms close behind the camera\u0027s line of travel.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "f905efdb-8aae-4bf9-9fab-1449f3abb050",
+            "name": "Courier",
+            "appearance": null
+          },
+          {
+            "id": "104f6994-949e-4860-b468-ee69430b05d8",
+            "name": "Pursuer",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Evening canal light, long shadows on the stones, still water, urgent momentum.",
+        "music": "Driving, tense percussive pulse.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "3e3829cd-62f6-4d7f-a89e-91108aba9820",
+        "title": "The Locked Gate",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "c7c997cb-ff32-46dc-bfa0-704326f1c8a6",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T05:57:31.9591892+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a close shot on the locked gate closing off the footbridge, with the lock and bars sharp in the foreground. The courier arrives and stops short at the gate in a medium close-up through the bars. The camera pushes in slightly on her face as she realizes the way is blocked. Her eyes then turn down toward the water beside the bridge, and the camera follows her eyeline with a short tilt down. Ending composition: her profile is in the foreground, looking down toward the canal below.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "7b2044b4-a1d8-401e-8bc0-3bad5b3afbf6",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Sudden stop, breathless tension, cold metal of the gate against evening light.",
+        "music": "The percussive pulse holds on a suspended beat.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "54b0486a-fc21-4d25-ba54-ee9b9567c1f8",
+        "title": "Jump onto the Service Boat",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "c7c997cb-ff32-46dc-bfa0-704326f1c8a6",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T05:57:31.9591892+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a high angle looking straight down over the canal. A low service boat drifts slowly toward the underside of the footbridge, and its flat roof fills the lower frame. The courier jumps down from the bank into frame and lands on the boat\u0027s roof. The camera stays high and drifts with the boat as it carries her toward the bridge. The boat and the courier slide into the shadow beneath the bridge and disappear from view. Ending composition: the dark underside of the footbridge, with only rippling water where the boat vanished.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "411470da-8849-4030-963b-c0919d2bd349",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Weightless leap, quiet drift of the boat, darkness swallowing her under the bridge.",
+        "music": "A sharp percussive hit on the landing, then a low hush.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "8404d25d-2bcc-447f-adfd-134f5456f516",
+        "title": "She Emerges on the North Bank",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "c7c997cb-ff32-46dc-bfa0-704326f1c8a6",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T05:57:31.9591892+00:00"
+        },
+        "duration": 6,
+        "description": "Opening composition: a low-angle medium shot from the bridge side of the locked gate, looking back through the bars toward the south bank. The pursuer runs in and reaches the locked gate, stopped by it. The camera arcs around behind the pursuer to an over-the-shoulder angle that looks across the canal. Across the water, the courier emerges on the north bank. Ending composition: the pursuer\u0027s shoulder and the gate bars frame the foreground, with the courier on the far north bank in the background.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "0a20d965-a7a9-4aa6-bba2-0abd058e6a4c",
+            "name": "Pursuer",
+            "appearance": null
+          },
+          {
+            "id": "81ee57eb-d0b9-4f83-9c63-9cee684afe27",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Frustrated halt at the gate, distance across the water, fading evening light.",
+        "music": "The pulse resolves into a single sustained low note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022Chase Along the South Bank\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a wide, slightly elevated shot along the canal walk in evening light. The south bank runs diagonally through frame, the canal is on one side, and the footbridge is visible in the distance. The courier runs toward camera and toward the bridge. The pursuer follows twenty paces behind her, clearly visible in the same frame. The camera tracks backward ahead of the courier, holding both figures and keeping the gap between them readable. Ending composition: a medium-wide shot with the courier filling the foreground. The pursuer is still twenty paces back, and the footbridge now looms close behind the camera\u0027s line of travel.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 },\n      { \u0022name\u0022: \u0022Pursuer\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Evening canal light, long shadows on the stones, still water, urgent momentum.\u0022,\n    \u0022music\u0022: \u0022Driving, tense percussive pulse.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Locked Gate\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a close shot on the locked gate closing off the footbridge, with the lock and bars sharp in the foreground. The courier arrives and stops short at the gate in a medium close-up through the bars. The camera pushes in slightly on her face as she realizes the way is blocked. Her eyes then turn down toward the water beside the bridge, and the camera follows her eyeline with a short tilt down. Ending composition: her profile is in the foreground, looking down toward the canal below.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Sudden stop, breathless tension, cold metal of the gate against evening light.\u0022,\n    \u0022music\u0022: \u0022The percussive pulse holds on a suspended beat.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Jump onto the Service Boat\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a high angle looking straight down over the canal. A low service boat drifts slowly toward the underside of the footbridge, and its flat roof fills the lower frame. The courier jumps down from the bank into frame and lands on the boat\u0027s roof. The camera stays high and drifts with the boat as it carries her toward the bridge. The boat and the courier slide into the shadow beneath the bridge and disappear from view. Ending composition: the dark underside of the footbridge, with only rippling water where the boat vanished.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Weightless leap, quiet drift of the boat, darkness swallowing her under the bridge.\u0022,\n    \u0022music\u0022: \u0022A sharp percussive hit on the landing, then a low hush.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022She Emerges on the North Bank\u0022,\n    \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a low-angle medium shot from the bridge side of the locked gate, looking back through the bars toward the south bank. The pursuer runs in and reaches the locked gate, stopped by it. The camera arcs around behind the pursuer to an over-the-shoulder angle that looks across the canal. Across the water, the courier emerges on the north bank. Ending composition: the pursuer\u0027s shoulder and the gate bars frame the foreground, with the courier on the far north bank in the background.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Pursuer\u0022 },\n      { \u0022name\u0022: \u0022Courier\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Frustrated halt at the gate, distance across the water, fading evening light.\u0022,\n    \u0022music\u0022: \u0022The pulse resolves into a single sustained low note.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

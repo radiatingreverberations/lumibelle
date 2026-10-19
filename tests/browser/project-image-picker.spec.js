@@ -18,7 +18,7 @@ for (const studio of ['Assets', 'Shots']) {
       await page.locator('.asset-media-card[data-media-kind=Image] .media-select').first().click();
       await toolsTab(page, 'Inputs');
     } else await toolsTab(page, 'References');
-    const trigger = page.getByRole('button', { name: 'Manage references', exact: true });
+    const trigger = page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true });
     await trigger.click();
     const picker = page.getByRole('region', { name: studio === 'Assets' ? 'Project image picker' : 'Project reference picker', exact: true });
     const apply = page.getByRole('button', { name: 'Apply changes', exact: true });

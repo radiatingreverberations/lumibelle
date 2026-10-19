@@ -1,0 +1,29 @@
+@using lumibelle.Models
+@using lumibelle.Services.Assets
+
+@if (ReferenceReels.EnvironmentPresets.FirstOrDefault(p => p.Framing == Framing) is { } preset)
+{
+    <figure class="environment-coverage" data-coverage="@Framing" data-direction="@Direction">
+        <img src="@Diagram" width="320" height="200" alt="@Description" />
+        <figcaption>
+            <strong>@preset.Label@(preset.UsesDirection ? $" · {DirectionLabel}" : " · example route")</strong>
+            <p class="field-hint reel-camera-summary">@preset.Summary</p>
+            <p class="coverage-legend">Top view · line: camera travel · shaded cones: viewing direction · numbers: held views@(preset.UsesDirection ? " · dashed area: coverage" : "")</p>
+        </figcaption>
+    </figure>
+}
+@code {
+    [Parameter] public ReelFraming Framing { get; set; }
+    [Parameter] public ReelCameraDirection Direction { get; set; } = ReelCameraDirection.Right;
+    private string DirectionLabel => Direction == ReelCameraDirection.Left ? "Counterclockwise" : "Clockwise";
+    private string Diagram => "_content/Lumibelle.UI/guides/environment-reels/" + (Framing switch {
+        ReelFraming.EnvironmentFullSet => "full-set-" + DirectionLabel.ToLowerInvariant(),
+        ReelFraming.EnvironmentFeatureStudy => "feature-study-" + DirectionLabel.ToLowerInvariant(),
+        ReelFraming.EnvironmentWalkthrough => "walkthrough", _ => "custom"
+    }) + ".svg";
+    private string Description => Framing switch {
+        ReelFraming.EnvironmentFullSet => $"Camera travels {DirectionLabel.ToLowerInvariant()} around the outer edge of the set, looking inward across the acting area. Four held viewpoints; view 4 returns to the starting position.",
+        ReelFraming.EnvironmentFeatureStudy => $"Camera travels {DirectionLabel.ToLowerInvariant()} around one stationary feature, looking inward at it and its immediate surroundings. Four held angles; view 4 returns to the starting position.",
+        _ => "Example camera route through connected spaces, with viewing direction along the route and a hold at the destination. Instructions determine the actual route."
+    };
+}

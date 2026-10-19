@@ -67,7 +67,9 @@ public partial class ReferenceReelsPanel
         ReferenceReels.Framings(_draft!).Contains(g.Recipe.Framing)).OrderByDescending(r => r.CreatedUtc).ThenBy(r => r.Id);
     private AssetReferenceReel? DirectionSource => ReusableDirections.FirstOrDefault(r => r.Id.ToString() == _directionSourceId);
     private string DirectionSourceLabel(AssetReferenceReel reel) => $"{Library.Assets.FirstOrDefault(a => a.Id == reel.AssetId)?.Name ?? "Saved asset"} · {reel.Name} · {reel.CreatedUtc.ToLocalTime():g}";
-    private static string DirectionText(ReferenceReelDraft recipe) => string.IsNullOrWhiteSpace(recipe.Instructions) && (ReferenceReels.IsEnvironment(recipe) || ReferenceReels.IsCharacterCapture(recipe))
+    private static string DirectionText(ReferenceReelDraft recipe) => ReferenceReels.NeedsEnvironmentReplacement(recipe) && string.IsNullOrWhiteSpace(recipe.Instructions)
+        ? "See the captured prompt for this reel’s recorded camera plan."
+        : string.IsNullOrWhiteSpace(recipe.Instructions) && (ReferenceReels.IsEnvironment(recipe) || ReferenceReels.IsCharacterCapture(recipe))
         ? ReferenceReels.Views(recipe) : recipe.Instructions;
     private Task ReuseDirections() => Run(async () => {
         if (_draft is null || DirectionSource?.Generation?.Recipe is not { } source) return;
@@ -93,7 +95,8 @@ public partial class ReferenceReelsPanel
     private AiJobHeader? _videoJob;
     private AssetReferenceReel? _details, _keyframeReel;
     private AssetReferenceReel? _regenerateReel;
-    public void Regenerate(AssetReferenceReel reel) { if (_busy || reel.Generation is null) return; _regenerateReel = reel; StateHasChanged(); }
+    public static bool CanRegenerate(AssetReferenceReel reel) => reel.Generation is { } generation && !ReferenceReels.NeedsEnvironmentReplacement(generation.Recipe);
+    public void Regenerate(AssetReferenceReel reel) { if (_busy || !CanRegenerate(reel)) return; _regenerateReel = reel; StateHasChanged(); }
     public Task ManageKeyframes(AssetReferenceReel reel) { _keyframeReel = reel; StateHasChanged(); return Task.CompletedTask; }
     private AssetReferenceReel? _replaceReel;
     public bool CanReplace(AssetReferenceReel reel) => Library.Reels.Any(r => r.AssetId == reel.AssetId && r.Media.Id != reel.Media.Id);
@@ -245,6 +248,9 @@ public partial class ReferenceReelsPanel
             Library.ReelDrafts.FirstOrDefault(d => d.Id == _draft.Id) is { } newer && newer.Revision > _saved.Revision)
         { _draft = newer.Copy(); _saved = newer.Copy(); }
         if (RequestedJobId is null) _handledJob = null;
+        if (RequestedJobId is { } viewId && _handledJob != viewId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == viewId && j.Kind == AiJobKind.ReelViewSuggestion && j.Target.ProjectId == ProjectId && j.Target.AssetId == AssetId) is { } viewJob &&
+            Library.Reels.FirstOrDefault(r => r.Id == viewJob.Target.ReelId) is { } viewReel)
+        { _handledJob = viewId; _keyframeReel = viewReel; }
         if (RequestedJobId is { } id && _handledJob != id && RelevantJobs.FirstOrDefault(j => j.Id == id) is { } requested)
         { _handledJob = id; await ViewJob(requested); _openedRequestedJob = id; }
     }
@@ -550,6 +556,25 @@ public partial class ReferenceReelsPanel
     public bool CanVary(AssetReferenceReel reel) => reel.Generation is not null && !_disposed && !_saving && !_preparing && !_resettingDraft &&
         _enqueue is null && ActiveComposition is null && ActiveVideo is null;
     private const string VaryBusy = "Available when the current reel request finishes.";
+    public bool CanCreateFromImage => !_disposed && !_busy && !_presetBusy && !_saving && !_preparing && !_resettingDraft &&
+        _enqueue is null && ActiveComposition is null && ActiveVideo is null;
+    public async Task<string?> CreateFromImageAsync(Guid imageId)
+    {
+        if (!CanCreateFromImage) return "Finish the current reel operation, then try again.";
+        var created = false;
+        await Run(async () => {
+            await Flush(); await SaveDetailFields();
+            var draft = ReferenceReels.DraftFromImage(Owner, imageId, Library);
+            if ((_globalSetups.Setups.FirstOrDefault(s => s.Id == _globalSetups.SelectedId && !s.Archived)
+                ?? _globalSetups.Setups.FirstOrDefault(s => !s.Archived)) is { } selected) ReelGenerationSetups.Apply(draft, selected);
+            ReferenceReelDraft? saved = null;
+            await Mutate(async _ => { saved = await Reels.SaveDraftAsync(ProjectId, draft, 0, _lifetime.Token); return await AssetStore.LoadAsync(ProjectId, _lifetime.Token); });
+            _details = null; _draft = saved!; _saved = saved!.Copy(); _saveFailed = false;
+            _directionSourceId = ""; _directionsNotice = null; _completedVideoId = null;
+            created = true;
+        });
+        return created ? null : _error ?? "Couldn’t create the reel draft. Try again.";
+    }
     public Task Variation(AssetReferenceReel reel) => Run(async () =>
     {
         if (!CanVary(reel) || reel.Generation is not { } generation) return;

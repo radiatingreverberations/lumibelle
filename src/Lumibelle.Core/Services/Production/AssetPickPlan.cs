@@ -151,7 +151,7 @@ public static class AssetPickPlan
         var full = refs.Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.FullReel).ToArray();
         var audioSeconds = refs.Audio.Sum(a => a.Voice?.Duration ??
             (a.Reel!.EffectiveVisuals == ReelVisuals.FullReel ? a.Reel.Media.Duration : ResolvedReferences.Excerpt(a.Reel).Duration));
-        if (refs.Pictures.Count > 9 || shot.Videos.Count > 3 || refs.Audio.Count > 3 ||
+        if (refs.Pictures.Count > 9 || ReferenceVideos.ReelSlotCount(shot) > 3 || refs.Audio.Count > 3 ||
             full.Sum(v => v.Reel.Media.Duration) > ReferenceVideos.MaximumSeconds + .001 ||
             audioSeconds > ReferenceVideos.MaximumSeconds + .001 ||
             refs.Pictures.Count + refs.Videos.Count + refs.Audio.Count(a => a.Reel?.EffectiveVisuals != ReelVisuals.FullReel) > 12)

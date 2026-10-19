@@ -1,0 +1,80 @@
+@inherits ProjectAwareComponent
+<StudioWorkspace @ref="_workspace" Studio="Scenes" ProjectId="ProjectId" LeftLabel="Scenes" RightLabel="Scene environment" SelectionKey="@SceneId?.ToString()" Busy="Busy">
+    <Left><StudioPane Label="Scenes" Class="scenes-outline"><Header><h2>Scenes <small>@Scenes.Count</small></h2></Header><ChildContent>
+        @foreach (var entry in Scenes.Select((scene, index) => (Scene: scene, Number: index + 1))) {
+            var count = Document.Shots.Count(s => s.SceneId == entry.Scene.Id);
+            <button data-scene-id="@entry.Scene.Id" @key="entry.Scene.Id" class="scene-outline-item @(entry.Scene.Id == SceneId ? "selected" : null)" aria-pressed="@(entry.Scene.Id == SceneId)" @onclick="() => Select(entry.Scene.Id)">
+                <strong>@entry.Number. @entry.Scene.Title</strong><small>@count @(count == 1 ? "shot" : "shots")</small>
+            </button>
+        }
+        @if (Scenes.Count == 0 && !Busy) { <p>Add scene headings in <a href="@ProjectLink(ProjectId, "/script")">Script</a> to begin planning.</p> }
+        @if (MissingSetups.Any()) { <details><summary>Unavailable script scenes</summary>@foreach (var setup in MissingSetups) { <p>@setup.SceneTitle · saved setup retained</p> }</details> }
+    </ChildContent></StudioPane></Left>
+    <Center><StudioPane Label="Scene planning" Class="scene-planning"><Header>
+        @if (Current is { } scene) { <div class="scene-hub-heading"><h1>@scene.Title</h1>@Planning</div><div class="scene-hub-actions"><a href="@ProjectLink(ProjectId, "/script")">Edit in Script</a></div> }
+    </Header><ChildContent>
+        @if (Current is { } selected) {
+            <details class="scene-hub-section" open><summary>Script excerpt</summary><pre class="shot-source">@Excerpt</pre></details>
+            <section class="scene-hub-section"><h2>Accepted direction</h2>
+                @foreach (var strategy in Document.DirectionStrategies.Where(s => s.SceneId == selected.Id).Reverse()) {
+                    var shots = Document.Shots.Where(s => s.DirectionStrategyId == strategy.Id).ToArray();
+                    <details class="scene-strategy-history"><summary><span>@(string.IsNullOrWhiteSpace(strategy.Approach) ? "Scene strategy" : strategy.Approach)</span><small>@shots.Length @(shots.Length == 1 ? "shot" : "shots")</small></summary>
+                        <p class="field-hint">Source @strategy.SourceId</p>
+                        <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" Expanded="true" />
+                        @foreach (var shot in shots.Where(s => s.DraftingEnvironment is not null).DistinctBy(s => s.DraftingEnvironment!.Snapshot.Id)) {
+                            <DraftingEnvironmentReview Value="shot.DraftingEnvironment" ReadOnly="true" Issue="@EnvironmentIssue(shot)" />
+                        }
+                        <p>@string.Join(" · ", shots.Select(s => s.Title))</p>
+                    </details>
+                }
+                @if (!Document.DirectionStrategies.Any(s => s.SceneId == selected.Id)) { <p class="field-hint">Reviewed scene strategies appear here after a breakdown is applied.</p> }
+            </section>
+            <section class="scene-hub-section"><h2>Shots</h2>
+                @foreach (var shot in Document.Shots.Where(s => s.SceneId == selected.Id)) {
+                    <a class="scene-shot-link" href="@ProjectLink(ProjectId, $"/shots?shotId={shot.Id}")">@(Document.Shots.IndexOf(shot) + 1). @shot.Title <small>@shot.Duration?.ToString("0.###") s</small></a>
+                }
+                @if (!Document.Shots.Any(s => s.SceneId == selected.Id)) { <p>No shots yet. Draft coverage for this scene, then review it before adding shots.</p> }
+            </section>
+        }
+        else if (!Busy && SceneId is { } unavailable) {
+            <p role="status">This scene is no longer in the saved script. Its setup and accepted direction are retained; choose a current scene to plan new coverage.</p>
+            @foreach (var shot in Document.Shots.Where(s => s.SceneId == unavailable)) {
+                <a class="scene-shot-link" href="@ProjectLink(ProjectId, $"/shots?shotId={shot.Id}")">@shot.Title</a>
+            }
+        }
+    </ChildContent></StudioPane></Center>
+    <Right><StudioPane Label="Scene environment" Class="scene-environment"><Header><h2>Environment</h2></Header><ChildContent>
+        @if (Current is { } environmentScene) {
+            var setup = Document.SceneSetups.FirstOrDefault(s => s.SceneId == environmentScene.Id)?.Environment;
+            <div class="scene-environment-summary">
+                <strong>@(setup is null ? "No environment" : Library.Assets.FirstOrDefault(a => a.Id == setup.AssetId)?.Name ?? "Unavailable environment")</strong>
+                <small>@(setup is null ? "Script only" : $"{setup.Views.Count} inspection views")</small>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="() => EditEnvironment.InvokeAsync(environmentScene.Id)">Choose environment views</MudButton>
+            @if (setup is not null) {
+                @if (!string.IsNullOrWhiteSpace(setup.Constraints)) { <details class="scene-staging-constraints"><summary>Staging constraints</summary><p>@setup.Constraints</p></details> }
+                <div class="scene-inspection-thumbnails">@foreach (var view in setup.Views) {
+                    <EnvironmentViewCard @key="view.Id" ProjectId="ProjectId" Candidate="view" ReadOnly="true" Compact="true" />
+                }</div>
+            }
+            <p class="field-hint">Inspection views explain the set. Each shot attaches its generation references separately.</p>
+        }
+    </ChildContent></StudioPane></Right>
+</StudioWorkspace>
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public IReadOnlyList<ScriptSection> Scenes { get; set; } = [];
+    [Parameter] public ShotDocument Document { get; set; } = new();
+    [Parameter] public AssetLibrary Library { get; set; } = new() { ProjectId = Guid.Empty };
+    [Parameter] public Guid? SceneId { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string Excerpt { get; set; } = "";
+    [Parameter] public RenderFragment? Planning { get; set; }
+    [Parameter] public EventCallback<Guid> SelectedChanged { get; set; }
+    [Parameter] public EventCallback<Guid> EditEnvironment { get; set; }
+    [Parameter] public Func<Shot, string?> EnvironmentIssue { get; set; } = _ => null;
+    private StudioWorkspace? _workspace;
+    private ScriptSection? Current => Scenes.FirstOrDefault(s => s.Id == SceneId);
+    private IEnumerable<SceneReferenceSetup> MissingSetups => Document.SceneSetups.Where(s => !Scenes.Any(scene => scene.Id == s.SceneId));
+    private async Task Select(Guid id) { await SelectedChanged.InvokeAsync(id); if (_workspace is not null) await _workspace.RevealCenterAsync(); }
+}

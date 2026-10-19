@@ -56,7 +56,7 @@ const referenceDetails = page => expand(reelTools(page).locator('.shot-reference
 // Leaves the Prompt dialog open with its voice and direction sections expanded.
 async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guidance = null, compose = framing !== "Custom", crop = false) {
   await showTools(page);
-  await reelTools(page).getByRole('button', { name: 'Manage references', exact: true }).click();
+  await reelTools(page).getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   if ((crop || guidance) && page.viewportSize().width < 650) await pictures.getByRole('tab', { name: 'Selected references (1)', exact: true }).click();
@@ -358,7 +358,7 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`);
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const manager = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   await manager.locator(`[data-reel-id="${original.id}"] .add-reel`).click();
   if (narrow) await manager.getByRole('tab', { name: /Selected references/ }).click();

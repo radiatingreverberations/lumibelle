@@ -1,0 +1,379 @@
+{
+  "name": "Pursuit geography",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 41.1215918,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022dramaticProgression\u0022: \u0022A chase meets a dead end. The locked gate seems to trap the courier. She improvises an escape by jumping onto a passing boat, and the pursuer is left beaten at the gate.\u0022,\n      \u0022visualProgression\u0022: \u0022We start with a wide, lateral tracking shot that shows the gap between the two runners. We then tighten on the courier as the gate stops her, open to a high view of the canal for the leap, and finish on the pursuer framed behind the gate bars, looking across to her escape.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the locked gate with the courier, before the pursuer reaches it. The boat is revealed through her eyes, so her choice reads as a sudden idea. The final shot lets the audience share the pursuer\u0027s view of the north bank, where she reappears.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The south bank is the chase path. The footbridge spans the canal ahead, with the locked gate at its south end. The service boat passes under the bridge, and the north bank lies opposite. Keep the run consistently screen left to right to hold geography.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Chase Along the South Bank\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Evening on the canal walk. The shot opens wide and low from across the path. The courier runs screen left to right along the south bank, and the pursuer follows about twenty paces behind in the same frame. The camera tracks laterally with them as the footbridge grows in the background ahead. It ends with the courier nearing the bridge approach and the closed gate just becoming visible. The pursuer is still trailing behind.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 },\n        { \u0022name\u0022: \u0022Pursuer\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Evening light on the water. Footfalls on the stone path and the urgency of pursuit.\u0022,\n      \u0022music\u0022: \u0022Driving, percussive chase pulse.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the chase, the gap between the two runners and the bridge they are heading for.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography and the distance before the obstacle appears.\u0022,\n          \u0022attention\u0022: \u0022The courier leads the frame, and the bridge draws the eye ahead.\u0022,\n          \u0022relationships\u0022: \u0022Hunter and hunted. The twenty-pace margin is her only advantage.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both runners are on the south bank path, with the courier ahead and the pursuer about twenty paces back.\u0022,\n          \u0022facing\u0022: \u0022Both run toward the footbridge.\u0022,\n          \u0022eyelines\u0022: \u0022The courier looks ahead to the bridge.\u0022,\n          \u0022movement\u0022: \u0022Fast running left to right.\u0022,\n          \u0022camera\u0022: \u0022Wide lateral tracking shot at a low height, keeping both runners and the bridge in frame.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene mid-chase.\u0022,\n          \u0022cutOut\u0022: \u0022Cut when the gate becomes legible, to the courier\u0027s arrival at it.\u0022,\n          \u0022timing\u0022: \u0022Steady and propulsive. Hold long enough to read the gap.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Establishes left-to-right screen direction for the chase.\u0022,\n          \u0022assumptions\u0022: \u0022The camera position across the path and the bridge\u0027s placement in the background are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Locked Gate\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022The shot opens as a tight medium on the courier from the bridge side, looking through the bars of the locked gate as she runs straight toward camera and is stopped by it. She registers that it is locked. Her eyes drop toward the canal below. It ends on her face turned down to the water, the gate bars crossing the foreground.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022The abrupt stop and her heavy breathing. The gate\u0027s metal frames her.\u0022,\n      \u0022music\u0022: \u0022The pulse stalls on a held, tense note.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the obstacle and turn the beat toward her decision.\u0022,\n          \u0022reason\u0022: \u0022The dead end must land before the escape can surprise.\u0022,\n          \u0022attention\u0022: \u0022The locked gate, then her downward glance.\u0022,\n          \u0022relationships\u0022: \u0022She is cornered, with the pursuer closing off-screen behind her.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The courier is at the south side of the gate, and the camera is beyond it on the bridge.\u0022,\n          \u0022facing\u0022: \u0022She faces the gate and the camera, then looks down toward the water.\u0022,\n          \u0022eyelines\u0022: \u0022Her look goes down and to the side, toward the canal under the bridge.\u0022,\n          \u0022movement\u0022: \u0022She arrives fast and stops hard.\u0022,\n          \u0022camera\u0022: \u0022Static or slight push-in through the bars.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A cut on her arrival, reversing from the wide tracking view into a tight frame through the gate.\u0022,\n          \u0022cutOut\u0022: \u0022Her downward eyeline motivates the cut to the water and the boat.\u0022,\n          \u0022timing\u0022: \u0022Short and abrupt, to mirror the halt.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022She arrives from the direction established in the previous shot.\u0022,\n          \u0022assumptions\u0022: \u0022The camera\u0027s position beyond the gate is a staging choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Onto the Boat\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022The shot opens high, looking down over the bank edge onto the canal. A low service boat drifts toward the shadow beneath the footbridge. The courier drops into frame from the bank and lands on its roof. The boat carries her on, and the camera tilts to follow as she passes under the bridge. It ends on the bridge\u0027s shadowed underside, with the boat and courier swallowed into darkness.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022The quiet drift of water and the thud of her landing. Then shadow under the bridge.\u0022,\n      \u0022music\u0022: \u0022A burst on the jump, receding into a low, suspended tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show her improvised escape and her disappearance.\u0022,\n          \u0022reason\u0022: \u0022The boat reveal and the leap are the scene\u0027s turning point.\u0022,\n          \u0022attention\u0022: \u0022First the boat, then her landing, then the darkness under the bridge.\u0022,\n          \u0022relationships\u0022: \u0022Her ingenuity beats the obstacle.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The boat is in the canal below the bank, approaching the bridge. The courier jumps down from the bank edge.\u0022,\n          \u0022facing\u0022: \u0022The boat moves toward and beneath the bridge.\u0022,\n          \u0022eyelines\u0022: \u0022This view matches her downward look from the previous shot.\u0022,\n          \u0022movement\u0022: \u0022The boat drifts, and she jumps down onto the roof.\u0022,\n          \u0022camera\u0022: \u0022High angle from the bank, with a tilt or pan following the boat under the bridge.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Motivated by her downward eyeline at the gate.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her vanishing beneath the bridge to the pursuer\u0027s arrival.\u0022,\n          \u0022timing\u0022: \u0022A brief hold on the boat before the jump, then let the drift carry the exit.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Keep the boat\u0027s direction under the bridge consistent for her later emergence on the north bank.\u0022,\n          \u0022assumptions\u0022: \u0022Camera height and the side of the bridge the boat approaches from are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Too Late at the Gate\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022The shot opens from behind the pursuer as he runs up to the locked gate, the bars filling the foreground and the canal visible beyond. He stops at the gate. His gaze carries across the water, and focus shifts past him to the north bank, where the courier emerges. It ends framed over his shoulder through the bars, with the courier on the far bank and him held on the wrong side of the gate.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Pursuer\u0022 },\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Hard breathing at the gate, with evening light across the canal.\u0022,\n      \u0022music\u0022: \u0022The chase pulse resolves into a deflated, open ending.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Pay off the escape from the pursuer\u0027s point of view.\u0022,\n          \u0022reason\u0022: \u0022Seeing her emerge through his frustration completes the reversal.\u0022,\n          \u0022attention\u0022: \u0022The pursuer at the gate, then the courier on the north bank.\u0022,\n          \u0022relationships\u0022: \u0022Their positions are now inverted, with him trapped and her free.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The pursuer is at the south side of the gate, and the courier appears on the north bank.\u0022,\n          \u0022facing\u0022: \u0022He faces the gate and looks across the canal.\u0022,\n          \u0022eyelines\u0022: \u0022His look goes across the water to the north bank.\u0022,\n          \u0022movement\u0022: \u0022He runs in and stops. She emerges on the far side.\u0022,\n          \u0022camera\u0022: \u0022Over-the-shoulder from behind the pursuer, with a rack focus to the north bank.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from her disappearance to the pursuer\u0027s arrival at the same obstacle, now seen from the opposite side of the gate to shot 2.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on her escape.\u0022,\n          \u0022timing\u0022: \u0022Let the focus shift and the final frame breathe.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Same locked gate as shot 2, reversed angle. Her emergence follows the boat\u0027s direction under the bridge.\u0022,\n          \u0022assumptions\u0022: \u0022The pursuer\u0027s gender is assumed for description only. Her exact manner of emerging on the north bank is left as the screenplay states.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "3708b8c3-e45a-4c84-8a66-09f871a42af2",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the chase, the gap between the two runners and the bridge they are heading for.",
+            "reason": "The audience needs the geography and the distance before the obstacle appears.",
+            "attention": "The courier leads the frame, and the bridge draws the eye ahead.",
+            "relationships": "Hunter and hunted. The twenty-pace margin is her only advantage."
+          },
+          "staging": {
+            "positions": "Both runners are on the south bank path, with the courier ahead and the pursuer about twenty paces back.",
+            "facing": "Both run toward the footbridge.",
+            "eyelines": "The courier looks ahead to the bridge.",
+            "movement": "Fast running left to right.",
+            "camera": "Wide lateral tracking shot at a low height, keeping both runners and the bridge in frame."
+          },
+          "editorial": {
+            "cutIn": "Opens the scene mid-chase.",
+            "cutOut": "Cut when the gate becomes legible, to the courier\u0027s arrival at it.",
+            "timing": "Steady and propulsive. Hold long enough to read the gap."
+          },
+          "advanced": {
+            "continuity": "Establishes left-to-right screen direction for the chase.",
+            "assumptions": "The camera position across the path and the bridge\u0027s placement in the background are staging choices.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "ea7c1e65e7af865327f6a9c618af6958740a29a935d17b07a026541dd897ca26",
+            "strategy": "39e2e15941067c296008c7f3abfee60e1d4b2dc526bf3e22f59bc30d8cb06bc4",
+            "cast": "9c391ddb1583dadb88f7f547b23fbd83ad9414f86db3d7fed0eab418865af22b",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "34ce3c052158ab1f56f7cd623b821c1ba6d5f5c2e0a97c94958a05a3e6df87ad",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "fa91ae31-a47e-4e82-84b7-a2381e681c0c",
+        "title": "The Chase Along the South Bank",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "4bc5ab37-7822-4cbc-a04d-de52d26ae694",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T06:08:07.0733241+00:00"
+        },
+        "duration": 5,
+        "description": "Evening on the canal walk. The shot opens wide and low from across the path. The courier runs screen left to right along the south bank, and the pursuer follows about twenty paces behind in the same frame. The camera tracks laterally with them as the footbridge grows in the background ahead. It ends with the courier nearing the bridge approach and the closed gate just becoming visible. The pursuer is still trailing behind.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "35187ab0-e554-475a-995a-8274ca90e1f1",
+            "name": "Courier",
+            "appearance": null
+          },
+          {
+            "id": "c4ae8440-fa55-4248-afc4-5073b0e51958",
+            "name": "Pursuer",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Evening light on the water. Footfalls on the stone path and the urgency of pursuit.",
+        "music": "Driving, percussive chase pulse.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "3708b8c3-e45a-4c84-8a66-09f871a42af2",
+        "direction": {
+          "intent": {
+            "purpose": "Deliver the obstacle and turn the beat toward her decision.",
+            "reason": "The dead end must land before the escape can surprise.",
+            "attention": "The locked gate, then her downward glance.",
+            "relationships": "She is cornered, with the pursuer closing off-screen behind her."
+          },
+          "staging": {
+            "positions": "The courier is at the south side of the gate, and the camera is beyond it on the bridge.",
+            "facing": "She faces the gate and the camera, then looks down toward the water.",
+            "eyelines": "Her look goes down and to the side, toward the canal under the bridge.",
+            "movement": "She arrives fast and stops hard.",
+            "camera": "Static or slight push-in through the bars."
+          },
+          "editorial": {
+            "cutIn": "A cut on her arrival, reversing from the wide tracking view into a tight frame through the gate.",
+            "cutOut": "Her downward eyeline motivates the cut to the water and the boat.",
+            "timing": "Short and abrupt, to mirror the halt."
+          },
+          "advanced": {
+            "continuity": "She arrives from the direction established in the previous shot.",
+            "assumptions": "The camera\u0027s position beyond the gate is a staging choice.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "7193cd61ffa45f4266adfa9ca12cc3a6a1d57ed5e17818420c55a4232d3bcfbb",
+            "strategy": "39e2e15941067c296008c7f3abfee60e1d4b2dc526bf3e22f59bc30d8cb06bc4",
+            "cast": "e5003e6d6091202c5ab19594fb3a778522f0a9bd1be3080697011d0bbf28251d",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "72a40e066a4988535373ff37ab63744c403235f3159c713d6e8d27424ee53a39",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "af551721-e5b1-4fb0-a426-eb7934d8f027",
+        "title": "Locked Gate",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "4bc5ab37-7822-4cbc-a04d-de52d26ae694",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T06:08:07.0733241+00:00"
+        },
+        "duration": 3,
+        "description": "The shot opens as a tight medium on the courier from the bridge side, looking through the bars of the locked gate as she runs straight toward camera and is stopped by it. She registers that it is locked. Her eyes drop toward the canal below. It ends on her face turned down to the water, the gate bars crossing the foreground.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "a16de872-e97c-4162-81e2-6afb7a9e08ae",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "The abrupt stop and her heavy breathing. The gate\u0027s metal frames her.",
+        "music": "The pulse stalls on a held, tense note.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "3708b8c3-e45a-4c84-8a66-09f871a42af2",
+        "direction": {
+          "intent": {
+            "purpose": "Show her improvised escape and her disappearance.",
+            "reason": "The boat reveal and the leap are the scene\u0027s turning point.",
+            "attention": "First the boat, then her landing, then the darkness under the bridge.",
+            "relationships": "Her ingenuity beats the obstacle."
+          },
+          "staging": {
+            "positions": "The boat is in the canal below the bank, approaching the bridge. The courier jumps down from the bank edge.",
+            "facing": "The boat moves toward and beneath the bridge.",
+            "eyelines": "This view matches her downward look from the previous shot.",
+            "movement": "The boat drifts, and she jumps down onto the roof.",
+            "camera": "High angle from the bank, with a tilt or pan following the boat under the bridge."
+          },
+          "editorial": {
+            "cutIn": "Motivated by her downward eyeline at the gate.",
+            "cutOut": "Cut on her vanishing beneath the bridge to the pursuer\u0027s arrival.",
+            "timing": "A brief hold on the boat before the jump, then let the drift carry the exit."
+          },
+          "advanced": {
+            "continuity": "Keep the boat\u0027s direction under the bridge consistent for her later emergence on the north bank.",
+            "assumptions": "Camera height and the side of the bridge the boat approaches from are staging choices.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "d21a6629a059ae8d2153d3c363a53ae7e8681388463fc35c2f0ce45dfb31e8be",
+            "strategy": "39e2e15941067c296008c7f3abfee60e1d4b2dc526bf3e22f59bc30d8cb06bc4",
+            "cast": "e5003e6d6091202c5ab19594fb3a778522f0a9bd1be3080697011d0bbf28251d",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "ba4acca92a593489db0f1c025766c592b34e164faa30b1c9b9dec6b10b0f34e4",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "7838ff74-7777-46af-8559-56b03b22348b",
+        "title": "Onto the Boat",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "4bc5ab37-7822-4cbc-a04d-de52d26ae694",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T06:08:07.0733241+00:00"
+        },
+        "duration": 5,
+        "description": "The shot opens high, looking down over the bank edge onto the canal. A low service boat drifts toward the shadow beneath the footbridge. The courier drops into frame from the bank and lands on its roof. The boat carries her on, and the camera tilts to follow as she passes under the bridge. It ends on the bridge\u0027s shadowed underside, with the boat and courier swallowed into darkness.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "88a80876-4fe2-436a-822f-deed30fa36a8",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "The quiet drift of water and the thud of her landing. Then shadow under the bridge.",
+        "music": "A burst on the jump, receding into a low, suspended tone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "3708b8c3-e45a-4c84-8a66-09f871a42af2",
+        "direction": {
+          "intent": {
+            "purpose": "Pay off the escape from the pursuer\u0027s point of view.",
+            "reason": "Seeing her emerge through his frustration completes the reversal.",
+            "attention": "The pursuer at the gate, then the courier on the north bank.",
+            "relationships": "Their positions are now inverted, with him trapped and her free."
+          },
+          "staging": {
+            "positions": "The pursuer is at the south side of the gate, and the courier appears on the north bank.",
+            "facing": "He faces the gate and looks across the canal.",
+            "eyelines": "His look goes across the water to the north bank.",
+            "movement": "He runs in and stops. She emerges on the far side.",
+            "camera": "Over-the-shoulder from behind the pursuer, with a rack focus to the north bank."
+          },
+          "editorial": {
+            "cutIn": "Cut from her disappearance to the pursuer\u0027s arrival at the same obstacle, now seen from the opposite side of the gate to shot 2.",
+            "cutOut": "Ends the scene on her escape.",
+            "timing": "Let the focus shift and the final frame breathe."
+          },
+          "advanced": {
+            "continuity": "Same locked gate as shot 2, reversed angle. Her emergence follows the boat\u0027s direction under the bridge.",
+            "assumptions": "The pursuer\u0027s gender is assumed for description only. Her exact manner of emerging on the north bank is left as the screenplay states.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "6448ceb6c0d6c96934ec06ad1cc83e08ac2ec69b5133ef6be8bc3e1971f36583",
+            "strategy": "39e2e15941067c296008c7f3abfee60e1d4b2dc526bf3e22f59bc30d8cb06bc4",
+            "cast": "a3f709a9606a58ef1073facbabb52744e88d68c239d889d32a34d307babadac1",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "33e6bfafa107b55ac9765412d1f3411686611391f27d4147532f9c4ddd30d60d",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "38a2af2a-3348-4b55-86f2-d4503e665eb1",
+        "title": "Too Late at the Gate",
+        "approvedScriptId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sceneTitle": "EXT. CANAL WALK - EVENING",
+        "sourceBlockIds": [
+          "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc"
+        ],
+        "sourceExcerpt": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank.",
+        "planning": {
+          "id": "4bc5ab37-7822-4cbc-a04d-de52d26ae694",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "2b81bb6b-f4ae-562d-8b74-664d1322b681"
+          ],
+          "createdUtc": "2026-10-12T06:08:07.0733241+00:00"
+        },
+        "duration": 5,
+        "description": "The shot opens from behind the pursuer as he runs up to the locked gate, the bars filling the foreground and the canal visible beyond. He stops at the gate. His gaze carries across the water, and focus shifts past him to the north bank, where the courier emerges. It ends framed over his shoulder through the bars, with the courier on the far bank and him held on the wrong side of the gate.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "1548df92-4893-4d16-b4bd-7aa21415a1e8",
+            "name": "Pursuer",
+            "appearance": null
+          },
+          {
+            "id": "f270a402-db68-42a7-989e-2ad440c27e44",
+            "name": "Courier",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Hard breathing at the gate, with evening light across the canal.",
+        "music": "The chase pulse resolves into a deflated, open ending.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022dramaticProgression\u0022: \u0022A chase meets a dead end. The locked gate seems to trap the courier. She improvises an escape by jumping onto a passing boat, and the pursuer is left beaten at the gate.\u0022,\n      \u0022visualProgression\u0022: \u0022We start with a wide, lateral tracking shot that shows the gap between the two runners. We then tighten on the courier as the gate stops her, open to a high view of the canal for the leap, and finish on the pursuer framed behind the gate bars, looking across to her escape.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the locked gate with the courier, before the pursuer reaches it. The boat is revealed through her eyes, so her choice reads as a sudden idea. The final shot lets the audience share the pursuer\u0027s view of the north bank, where she reappears.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The south bank is the chase path. The footbridge spans the canal ahead, with the locked gate at its south end. The service boat passes under the bridge, and the north bank lies opposite. Keep the run consistently screen left to right to hold geography.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022The Chase Along the South Bank\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Evening on the canal walk. The shot opens wide and low from across the path. The courier runs screen left to right along the south bank, and the pursuer follows about twenty paces behind in the same frame. The camera tracks laterally with them as the footbridge grows in the background ahead. It ends with the courier nearing the bridge approach and the closed gate just becoming visible. The pursuer is still trailing behind.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 },\n        { \u0022name\u0022: \u0022Pursuer\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Evening light on the water. Footfalls on the stone path and the urgency of pursuit.\u0022,\n      \u0022music\u0022: \u0022Driving, percussive chase pulse.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the chase, the gap between the two runners and the bridge they are heading for.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography and the distance before the obstacle appears.\u0022,\n          \u0022attention\u0022: \u0022The courier leads the frame, and the bridge draws the eye ahead.\u0022,\n          \u0022relationships\u0022: \u0022Hunter and hunted. The twenty-pace margin is her only advantage.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both runners are on the south bank path, with the courier ahead and the pursuer about twenty paces back.\u0022,\n          \u0022facing\u0022: \u0022Both run toward the footbridge.\u0022,\n          \u0022eyelines\u0022: \u0022The courier looks ahead to the bridge.\u0022,\n          \u0022movement\u0022: \u0022Fast running left to right.\u0022,\n          \u0022camera\u0022: \u0022Wide lateral tracking shot at a low height, keeping both runners and the bridge in frame.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene mid-chase.\u0022,\n          \u0022cutOut\u0022: \u0022Cut when the gate becomes legible, to the courier\u0027s arrival at it.\u0022,\n          \u0022timing\u0022: \u0022Steady and propulsive. Hold long enough to read the gap.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Establishes left-to-right screen direction for the chase.\u0022,\n          \u0022assumptions\u0022: \u0022The camera position across the path and the bridge\u0027s placement in the background are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Locked Gate\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022The shot opens as a tight medium on the courier from the bridge side, looking through the bars of the locked gate as she runs straight toward camera and is stopped by it. She registers that it is locked. Her eyes drop toward the canal below. It ends on her face turned down to the water, the gate bars crossing the foreground.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022The abrupt stop and her heavy breathing. The gate\u0027s metal frames her.\u0022,\n      \u0022music\u0022: \u0022The pulse stalls on a held, tense note.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the obstacle and turn the beat toward her decision.\u0022,\n          \u0022reason\u0022: \u0022The dead end must land before the escape can surprise.\u0022,\n          \u0022attention\u0022: \u0022The locked gate, then her downward glance.\u0022,\n          \u0022relationships\u0022: \u0022She is cornered, with the pursuer closing off-screen behind her.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The courier is at the south side of the gate, and the camera is beyond it on the bridge.\u0022,\n          \u0022facing\u0022: \u0022She faces the gate and the camera, then looks down toward the water.\u0022,\n          \u0022eyelines\u0022: \u0022Her look goes down and to the side, toward the canal under the bridge.\u0022,\n          \u0022movement\u0022: \u0022She arrives fast and stops hard.\u0022,\n          \u0022camera\u0022: \u0022Static or slight push-in through the bars.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A cut on her arrival, reversing from the wide tracking view into a tight frame through the gate.\u0022,\n          \u0022cutOut\u0022: \u0022Her downward eyeline motivates the cut to the water and the boat.\u0022,\n          \u0022timing\u0022: \u0022Short and abrupt, to mirror the halt.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022She arrives from the direction established in the previous shot.\u0022,\n          \u0022assumptions\u0022: \u0022The camera\u0027s position beyond the gate is a staging choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Onto the Boat\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022The shot opens high, looking down over the bank edge onto the canal. A low service boat drifts toward the shadow beneath the footbridge. The courier drops into frame from the bank and lands on its roof. The boat carries her on, and the camera tilts to follow as she passes under the bridge. It ends on the bridge\u0027s shadowed underside, with the boat and courier swallowed into darkness.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022The quiet drift of water and the thud of her landing. Then shadow under the bridge.\u0022,\n      \u0022music\u0022: \u0022A burst on the jump, receding into a low, suspended tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show her improvised escape and her disappearance.\u0022,\n          \u0022reason\u0022: \u0022The boat reveal and the leap are the scene\u0027s turning point.\u0022,\n          \u0022attention\u0022: \u0022First the boat, then her landing, then the darkness under the bridge.\u0022,\n          \u0022relationships\u0022: \u0022Her ingenuity beats the obstacle.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The boat is in the canal below the bank, approaching the bridge. The courier jumps down from the bank edge.\u0022,\n          \u0022facing\u0022: \u0022The boat moves toward and beneath the bridge.\u0022,\n          \u0022eyelines\u0022: \u0022This view matches her downward look from the previous shot.\u0022,\n          \u0022movement\u0022: \u0022The boat drifts, and she jumps down onto the roof.\u0022,\n          \u0022camera\u0022: \u0022High angle from the bank, with a tilt or pan following the boat under the bridge.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Motivated by her downward eyeline at the gate.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her vanishing beneath the bridge to the pursuer\u0027s arrival.\u0022,\n          \u0022timing\u0022: \u0022A brief hold on the boat before the jump, then let the drift carry the exit.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Keep the boat\u0027s direction under the bridge consistent for her later emergence on the north bank.\u0022,\n          \u0022assumptions\u0022: \u0022Camera height and the side of the bridge the boat approaches from are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Too Late at the Gate\u0022,\n      \u0022sceneId\u0022: \u00222b81bb6b-f4ae-562d-8b74-664d1322b681\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002216676de7-0dd4-5dbc-9b2f-1cc2416ca5fc\u0022\n      ],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022The shot opens from behind the pursuer as he runs up to the locked gate, the bars filling the foreground and the canal visible beyond. He stops at the gate. His gaze carries across the water, and focus shifts past him to the north bank, where the courier emerges. It ends framed over his shoulder through the bars, with the courier on the far bank and him held on the wrong side of the gate.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Pursuer\u0022 },\n        { \u0022name\u0022: \u0022Courier\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Hard breathing at the gate, with evening light across the canal.\u0022,\n      \u0022music\u0022: \u0022The chase pulse resolves into a deflated, open ending.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Pay off the escape from the pursuer\u0027s point of view.\u0022,\n          \u0022reason\u0022: \u0022Seeing her emerge through his frustration completes the reversal.\u0022,\n          \u0022attention\u0022: \u0022The pursuer at the gate, then the courier on the north bank.\u0022,\n          \u0022relationships\u0022: \u0022Their positions are now inverted, with him trapped and her free.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The pursuer is at the south side of the gate, and the courier appears on the north bank.\u0022,\n          \u0022facing\u0022: \u0022He faces the gate and looks across the canal.\u0022,\n          \u0022eyelines\u0022: \u0022His look goes across the water to the north bank.\u0022,\n          \u0022movement\u0022: \u0022He runs in and stops. She emerges on the far side.\u0022,\n          \u0022camera\u0022: \u0022Over-the-shoulder from behind the pursuer, with a rack focus to the north bank.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from her disappearance to the pursuer\u0027s arrival at the same obstacle, now seen from the opposite side of the gate to shot 2.\u0022,\n          \u0022cutOut\u0022: \u0022Ends the scene on her escape.\u0022,\n          \u0022timing\u0022: \u0022Let the focus shift and the final frame breathe.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Same locked gate as shot 2, reversed angle. Her emergence follows the boat\u0027s direction under the bridge.\u0022,\n          \u0022assumptions\u0022: \u0022The pursuer\u0027s gender is assumed for description only. Her exact manner of emerging on the north bank is left as the screenplay states.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "3708b8c3-e45a-4c84-8a66-09f871a42af2",
+        "sceneId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sourceId": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "sourceFingerprint": "84d794183be40662592f5db23ccb420b510b9bea41e23d25afbec960021f0785",
+        "dramaticProgression": "A chase meets a dead end. The locked gate seems to trap the courier. She improvises an escape by jumping onto a passing boat, and the pursuer is left beaten at the gate.",
+        "visualProgression": "We start with a wide, lateral tracking shot that shows the gap between the two runners. We then tighten on the courier as the gate stops her, open to a high view of the canal for the leap, and finish on the pursuer framed behind the gate bars, looking across to her escape.",
+        "audienceInformation": "The audience sees the locked gate with the courier, before the pursuer reaches it. The boat is revealed through her eyes, so her choice reads as a sudden idea. The final shot lets the audience share the pursuer\u0027s view of the north bank, where she reappears.",
+        "spatialAnchors": "The south bank is the chase path. The footbridge spans the canal ahead, with the locked gate at its south end. The service boat passes under the bridge, and the north bank lies opposite. Keep the run consistently screen left to right to hold geography."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

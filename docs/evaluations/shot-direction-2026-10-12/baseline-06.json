@@ -1,0 +1,349 @@
+{
+  "name": "Concealed recognition",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 25.0603937,
+  "raw": "[\n  {\n    \u0022title\u0022: \u0022Opposite the Stranger\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a wide, static-feeling profile two-shot across the narrow aisle of a night train carriage. Ada sits on frame left facing right, and the stranger sits on frame right facing left. His hands are covered by gloves and rest in his lap. Dark windows reflect the carriage lights, and the carriage sways gently. The camera slowly pushes in along the aisle while the stranger shifts and begins to reach toward his inner coat for his ticket. Ending composition: a medium two-shot, still in profile, with the stranger\u0027s gloved hand in motion at the centre of the frame. Ada watches him with an unreadable expression.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed, enclosed night carriage, rhythmic track noise, low warm interior light against black windows, quiet unease\u0022,\n    \u0022music\u0022: \u0022Sparse low drone, barely present beneath the rhythm of the train\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Crescent Scar\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a tight insert from slightly above Ada\u0027s eyeline, showing the stranger\u0027s gloved hand and wrist as he draws out his ticket. As he reaches, the cuff of the glove pulls back and exposes a crescent-shaped scar. The camera makes a slow, subtle drift toward the scar. Ending composition: a close detail of the crescent scar beside the edge of the ticket, with the glove still partly covering his hand.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate and charged; the small reveal feels heavy and significant\u0022,\n    \u0022music\u0022: \u0022A single soft, sustained tone enters as the scar appears\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Ada Keeps Calm\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a frontal close-up of Ada, framed over the edge of the stranger\u0027s shoulder on frame right. Her eyeline is directed slightly down and to the right, toward his hand. Her eyes register recognition, but her face stays composed and her breathing remains even. She lifts her gaze to meet his. The camera is locked off, with only faint train sway. Ending composition: Ada in close-up, holding steady eye contact just right of the lens.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Controlled tension, with stillness masking alarm\u0022,\n    \u0022music\u0022: \u0022The drone holds, restrained\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Have We Met?\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e8b1bfe9-af5b-541d-b817-25beacdf5676\u0022,\n      \u00224d6b5f69-ad9d-5313-b7cf-22021891d410\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a reverse medium close-up of the stranger over Ada\u0027s shoulder on frame left. His eyeline is directed left toward her, and he holds his ticket in his gloved hand. He studies her face and asks his question with mild, probing curiosity. Ending composition: the stranger in medium close-up, waiting for her answer, with his head tilted slightly.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022Stranger\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Have we met?\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Stranger\u0022 },\n      { \u0022name\u0022: \u0022Ada\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Polite surface over a probing undertone\u0022,\n    \u0022music\u0022: \u0022Near silence; the track rhythm carries the moment\u0022\n  },\n  {\n    \u0022title\u0022: \u0022I Would Remember\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00224f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac\u0022,\n      \u00223e4c45f4-57a1-5cc1-b3b9-10a957cd3518\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a tighter single on Ada than in the earlier close-up, with no shoulder in frame. She faces right toward the stranger. She answers evenly with a faint, unreadable composure, and her gaze does not waver. The camera is still. Ending composition: Ada in a tight close-up, holding his gaze after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022Ada\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022I would remember.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Cool, guarded, double-edged\u0022,\n    \u0022music\u0022: \u0022The drone lowers further, almost gone\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Ticket into the Coat\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002293236959-ff76-5784-8666-75ff84785ba0\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a medium shot at seat height from the aisle, framing Ada\u0027s torso and hands on frame left. Part of the stranger\u0027s knee and his gloved hand holding his ticket are visible on frame right. Ada holds her own ticket and, instead of handing it to him, quietly slips it into her coat. The camera eases back slightly to take in both of them. Ending composition: a medium-wide two-shot in profile, matching the opening geography of the scene. Ada\u0027s hand rests at her coat, and the two sit opposite each other in silence as the train sways.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A quiet act of defiance; the tension is unresolved\u0022,\n    \u0022music\u0022: \u0022A low, unresolved note lingers under the train rhythm\u0022\n  }\n]",
+  "parsed": {
+    "shots": [
+      {
+        "id": "791bb74c-7d3b-488f-b89f-dd9f06a8805d",
+        "title": "Opposite the Stranger",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "## INT. TRAIN CARRIAGE - NIGHT\n\nAda sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 6,
+        "description": "Opening composition: a wide, static-feeling profile two-shot across the narrow aisle of a night train carriage. Ada sits on frame left facing right, and the stranger sits on frame right facing left. His hands are covered by gloves and rest in his lap. Dark windows reflect the carriage lights, and the carriage sways gently. The camera slowly pushes in along the aisle while the stranger shifts and begins to reach toward his inner coat for his ticket. Ending composition: a medium two-shot, still in profile, with the stranger\u0027s gloved hand in motion at the centre of the frame. Ada watches him with an unreadable expression.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "87775711-8775-49f9-8f21-d0908177b219",
+            "name": "Ada",
+            "appearance": null
+          },
+          {
+            "id": "698702ec-bec5-4a4e-a6d0-3941ee6e714b",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Hushed, enclosed night carriage, rhythmic track noise, low warm interior light against black windows, quiet unease",
+        "music": "Sparse low drone, barely present beneath the rhythm of the train",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "8b651a5d-cacc-4c86-89b7-77a83942729e",
+        "title": "The Crescent Scar",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a tight insert from slightly above Ada\u0027s eyeline, showing the stranger\u0027s gloved hand and wrist as he draws out his ticket. As he reaches, the cuff of the glove pulls back and exposes a crescent-shaped scar. The camera makes a slow, subtle drift toward the scar. Ending composition: a close detail of the crescent scar beside the edge of the ticket, with the glove still partly covering his hand.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "3e00dab8-09a1-4ae6-82f5-5e7d5cb5fbc7",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate and charged; the small reveal feels heavy and significant",
+        "music": "A single soft, sustained tone enters as the scar appears",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "6efc977c-8242-4771-96fa-b00796d1a3d5",
+        "title": "Ada Keeps Calm",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a frontal close-up of Ada, framed over the edge of the stranger\u0027s shoulder on frame right. Her eyeline is directed slightly down and to the right, toward his hand. Her eyes register recognition, but her face stays composed and her breathing remains even. She lifts her gaze to meet his. The camera is locked off, with only faint train sway. Ending composition: Ada in close-up, holding steady eye contact just right of the lens.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "9d2979e6-587a-4f2c-ab6e-95f8337c2c30",
+            "name": "Ada",
+            "appearance": null
+          },
+          {
+            "id": "46a2ac33-bcdb-46a1-bcdf-cc423908ed1b",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Controlled tension, with stillness masking alarm",
+        "music": "The drone holds, restrained",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "2cec0bd3-2175-4ec9-adf2-f60b9eb644c0",
+        "title": "Have We Met?",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "e8b1bfe9-af5b-541d-b817-25beacdf5676",
+          "4d6b5f69-ad9d-5313-b7cf-22021891d410"
+        ],
+        "sourceExcerpt": "### STRANGER\n\nHave we met?",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a reverse medium close-up of the stranger over Ada\u0027s shoulder on frame left. His eyeline is directed left toward her, and he holds his ticket in his gloved hand. He studies her face and asks his question with mild, probing curiosity. Ending composition: the stranger in medium close-up, waiting for her answer, with his head tilted slightly.",
+        "dialogue": [
+          {
+            "id": "bc0bd8a5-9ee0-4dc1-9fa2-d92a1ffe7c8d",
+            "speaker": "Stranger",
+            "language": "en",
+            "text": "Have we met?"
+          }
+        ],
+        "characters": [
+          {
+            "id": "8786ae8d-316d-41d9-b572-4a847c47934f",
+            "name": "Stranger",
+            "appearance": null
+          },
+          {
+            "id": "55f335e4-81f7-48b2-bab3-aa96a8dace97",
+            "name": "Ada",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Polite surface over a probing undertone",
+        "music": "Near silence; the track rhythm carries the moment",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "9f6e550c-938d-4def-9558-24b458d83526",
+        "title": "I Would Remember",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "4f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac",
+          "3e4c45f4-57a1-5cc1-b3b9-10a957cd3518"
+        ],
+        "sourceExcerpt": "### ADA\n\nI would remember.",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a tighter single on Ada than in the earlier close-up, with no shoulder in frame. She faces right toward the stranger. She answers evenly with a faint, unreadable composure, and her gaze does not waver. The camera is still. Ending composition: Ada in a tight close-up, holding his gaze after the line.",
+        "dialogue": [
+          {
+            "id": "f99c1dae-2089-4f56-90a1-1e3a71a20e2d",
+            "speaker": "Ada",
+            "language": "en",
+            "text": "I would remember."
+          }
+        ],
+        "characters": [
+          {
+            "id": "5abb016b-491b-402d-ae8d-e263d2680c03",
+            "name": "Ada",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Cool, guarded, double-edged",
+        "music": "The drone lowers further, almost gone",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "61a10140-1790-47b3-9da5-70859c5f9d82",
+        "title": "Ticket into the Coat",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "93236959-ff76-5784-8666-75ff84785ba0"
+        ],
+        "sourceExcerpt": "She slips her own ticket into her coat instead of handing it to him.",
+        "planning": {
+          "id": "86d87ee1-907e-47f9-95de-d21ffa9032b4",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T05:57:55.6731487+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a medium shot at seat height from the aisle, framing Ada\u0027s torso and hands on frame left. Part of the stranger\u0027s knee and his gloved hand holding his ticket are visible on frame right. Ada holds her own ticket and, instead of handing it to him, quietly slips it into her coat. The camera eases back slightly to take in both of them. Ending composition: a medium-wide two-shot in profile, matching the opening geography of the scene. Ada\u0027s hand rests at her coat, and the two sit opposite each other in silence as the train sways.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "259c783e-1441-4352-a39b-babcae80b90e",
+            "name": "Ada",
+            "appearance": null
+          },
+          {
+            "id": "855f3039-74f5-494d-a053-71368084d862",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A quiet act of defiance; the tension is unresolved",
+        "music": "A low, unresolved note lingers under the train rhythm",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "[\n  {\n    \u0022title\u0022: \u0022Opposite the Stranger\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 6,\n    \u0022description\u0022: \u0022Opening composition: a wide, static-feeling profile two-shot across the narrow aisle of a night train carriage. Ada sits on frame left facing right, and the stranger sits on frame right facing left. His hands are covered by gloves and rest in his lap. Dark windows reflect the carriage lights, and the carriage sways gently. The camera slowly pushes in along the aisle while the stranger shifts and begins to reach toward his inner coat for his ticket. Ending composition: a medium two-shot, still in profile, with the stranger\u0027s gloved hand in motion at the centre of the frame. Ada watches him with an unreadable expression.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Hushed, enclosed night carriage, rhythmic track noise, low warm interior light against black windows, quiet unease\u0022,\n    \u0022music\u0022: \u0022Sparse low drone, barely present beneath the rhythm of the train\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Crescent Scar\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a tight insert from slightly above Ada\u0027s eyeline, showing the stranger\u0027s gloved hand and wrist as he draws out his ticket. As he reaches, the cuff of the glove pulls back and exposes a crescent-shaped scar. The camera makes a slow, subtle drift toward the scar. Ending composition: a close detail of the crescent scar beside the edge of the ticket, with the glove still partly covering his hand.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate and charged; the small reveal feels heavy and significant\u0022,\n    \u0022music\u0022: \u0022A single soft, sustained tone enters as the scar appears\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Ada Keeps Calm\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a frontal close-up of Ada, framed over the edge of the stranger\u0027s shoulder on frame right. Her eyeline is directed slightly down and to the right, toward his hand. Her eyes register recognition, but her face stays composed and her breathing remains even. She lifts her gaze to meet his. The camera is locked off, with only faint train sway. Ending composition: Ada in close-up, holding steady eye contact just right of the lens.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Controlled tension, with stillness masking alarm\u0022,\n    \u0022music\u0022: \u0022The drone holds, restrained\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Have We Met?\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022e8b1bfe9-af5b-541d-b817-25beacdf5676\u0022,\n      \u00224d6b5f69-ad9d-5313-b7cf-22021891d410\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a reverse medium close-up of the stranger over Ada\u0027s shoulder on frame left. His eyeline is directed left toward her, and he holds his ticket in his gloved hand. He studies her face and asks his question with mild, probing curiosity. Ending composition: the stranger in medium close-up, waiting for her answer, with his head tilted slightly.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022Stranger\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Have we met?\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Stranger\u0022 },\n      { \u0022name\u0022: \u0022Ada\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Polite surface over a probing undertone\u0022,\n    \u0022music\u0022: \u0022Near silence; the track rhythm carries the moment\u0022\n  },\n  {\n    \u0022title\u0022: \u0022I Would Remember\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00224f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac\u0022,\n      \u00223e4c45f4-57a1-5cc1-b3b9-10a957cd3518\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a tighter single on Ada than in the earlier close-up, with no shoulder in frame. She faces right toward the stranger. She answers evenly with a faint, unreadable composure, and her gaze does not waver. The camera is still. Ending composition: Ada in a tight close-up, holding his gaze after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022Ada\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022I would remember.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Cool, guarded, double-edged\u0022,\n    \u0022music\u0022: \u0022The drone lowers further, almost gone\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Ticket into the Coat\u0022,\n    \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u002293236959-ff76-5784-8666-75ff84785ba0\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a medium shot at seat height from the aisle, framing Ada\u0027s torso and hands on frame left. Part of the stranger\u0027s knee and his gloved hand holding his ticket are visible on frame right. Ada holds her own ticket and, instead of handing it to him, quietly slips it into her coat. The camera eases back slightly to take in both of them. Ending composition: a medium-wide two-shot in profile, matching the opening geography of the scene. Ada\u0027s hand rests at her coat, and the two sit opposite each other in silence as the train sways.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Ada\u0022 },\n      { \u0022name\u0022: \u0022Stranger\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A quiet act of defiance; the tension is unresolved\u0022,\n    \u0022music\u0022: \u0022A low, unresolved note lingers under the train rhythm\u0022\n  }\n]",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

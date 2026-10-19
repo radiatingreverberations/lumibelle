@@ -119,12 +119,16 @@ public sealed partial class ShotTests
         Assert.Equal("103", graph.GetProperty("5").GetProperty("inputs").GetProperty("ref_audios.ref_audio_0")[0].GetString());
         // No ordinary-image guidance is needed when isolating the keyframe composition context.
         shot.Images.Clear(); resolved = ResolvedReferences.For(shot);
+        shot.Videos[0].Keyframes!.Frames[0].Name = "Toward judge platform";
+        shot.Videos[0].Keyframes!.Frames[0].Notes = "Raised platform beyond the podium";
         var request = new PromptCompositionRequest(Guid.NewGuid(), Guid.NewGuid(), 1, "context", "source", shot, "Scene", [], [], [], resolved.Pictures.Select(p => new CompositionInput(p.BindingId, "hash")).ToArray(), "", "", "", new(AiBackend.OpenRouter, "vision", "Vision"));
         var messages = PromptComposer.BuildMessages(request, [new byte[] { 1 }, new byte[] { 2 }]);
         Assert.Equal(2, messages[1].Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
         using var context = JsonDocument.Parse(messages[1].Text!);
         Assert.Empty(context.RootElement.GetProperty("videos").EnumerateArray());
         Assert.Equal("Environment", context.RootElement.GetProperty("reelKeyframes")[0].GetProperty("ownerType").GetString());
+        Assert.Equal("Toward judge platform", context.RootElement.GetProperty("reelKeyframes")[0].GetProperty("name").GetString());
+        Assert.Equal("Raised platform beyond the podium", context.RootElement.GetProperty("reelKeyframes")[0].GetProperty("notes").GetString());
         Assert.Equal(2, context.RootElement.GetProperty("reelAudio")[0].GetProperty("excerpt").GetProperty("duration").GetDouble());
     }
     [Fact] public void MixedRepresentationsKeepCompactVideoIndicesAndNativeAudioOrder()

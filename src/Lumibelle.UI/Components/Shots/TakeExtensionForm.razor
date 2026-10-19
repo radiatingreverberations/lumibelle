@@ -99,7 +99,7 @@
     private TakeExtensionOptions Options => DraftOptions with { Prompt = Prompt };
     private Shot ReferenceShot => _references?.Inputs ?? ContextTake.Snapshot.Shot;
     private static string CountLabel(int count, string label) => $"{count} {label}{(count == 1 ? "" : "s")}";
-    private string ReferenceSummary => $"{CountLabel(ResolvedReferences.For(ReferenceShot).Pictures.Count, "picture")} · {CountLabel(ReferenceShot.Videos.Count, "reel")} · {CountLabel(ResolvedReferences.For(ReferenceShot).Audio.Count, "audio input")}";
+    private string ReferenceSummary => $"{CountLabel(ResolvedReferences.For(ReferenceShot).Pictures.Count, "picture")} · {CountLabel(ReferenceVideos.ReelSlotCount(ReferenceShot), "reel")} · {CountLabel(ResolvedReferences.For(ReferenceShot).Audio.Count, "audio input")}";
     private async Task OpenReferences() {
         try {
             _referenceLibrary = await AssetStore.LoadAsync(ProjectId, _life.Token);

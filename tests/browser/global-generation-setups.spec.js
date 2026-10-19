@@ -22,7 +22,7 @@ test('global generation presets follow shots and projects while prompts and refe
   const editor = page.getByRole('textbox', { name: 'H3 prompt', exact: true });
   await editor.fill('First shot only.');
   await closeShotSetup(page);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.manual-reference-dialog');
   await picker.locator('[data-reference]').first().click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -96,7 +96,7 @@ test('global generation presets follow shots and projects while prompts and refe
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
 });
 
-test('the generation header switches setups from its menu and keeps their details in help', async ({ page, request }) => {
+test('the generation footer switches setups from its menu and keeps their details in help', async ({ page, request }) => {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.setViewportSize({ width: 1173, height: 900 });

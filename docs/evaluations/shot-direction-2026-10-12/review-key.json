@@ -1,0 +1,62 @@
+[
+  {
+    "scene": 1,
+    "name": "Noxian podium",
+    "A": "baseline",
+    "B": "updated"
+  },
+  {
+    "scene": 2,
+    "name": "Ensemble accusation",
+    "A": "updated",
+    "B": "baseline"
+  },
+  {
+    "scene": 3,
+    "name": "Delayed comic reaction",
+    "A": "updated",
+    "B": "baseline"
+  },
+  {
+    "scene": 4,
+    "name": "Physical comedy",
+    "A": "updated",
+    "B": "baseline"
+  },
+  {
+    "scene": 5,
+    "name": "Pursuit geography",
+    "A": "baseline",
+    "B": "updated"
+  },
+  {
+    "scene": 6,
+    "name": "Concealed recognition",
+    "A": "updated",
+    "B": "baseline"
+  },
+  {
+    "scene": 7,
+    "name": "Reconciliation",
+    "A": "baseline",
+    "B": "updated"
+  },
+  {
+    "scene": 8,
+    "name": "Prop handoff",
+    "A": "baseline",
+    "B": "updated"
+  },
+  {
+    "scene": 9,
+    "name": "Interruption",
+    "A": "baseline",
+    "B": "updated"
+  },
+  {
+    "scene": 10,
+    "name": "Sustained dialogue",
+    "A": "baseline",
+    "B": "updated"
+  }
+]

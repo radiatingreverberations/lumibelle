@@ -68,6 +68,20 @@ Character reference reels live in Assets, optionally under a look. Use the right
 
 Expand **LoRAs** under a reel's references to choose H3 LoRAs for that reel alone. They apply on top of the LoRAs in the reel's preset; for a LoRA in both, the reel's strength is used.
 
+## Environment reference reels
+
+An **Environment** asset is a library of possible backgrounds: stills and saved keyframes across all its reels. Prepare a reusable inspection set in **Scenes → Choose environment views**, manually or with AI, and save authored staging constraints with **Save scene setup**. Scene drafting uses these pictures to understand the set; they are not attached to generated shots automatically.
+
+In **Shots**, use **Edit references** to add individual environment pictures, or **Copy…** to reuse another shot's references. The editor shows scene inspection views first and offers the rest of the environment library. Compose uses the attached pictures and applicable reviewed direction; there is no separate per-shot environment AI selection step. Apply references before composing, and finish character, prop and continuity references in the same editor.
+
+Selected reel pictures consume one picture slot per keyframe and no reel slots. Their source reels, timestamps, names, notes and crops stay attached as provenance, so they can be reviewed or removed using **Edit references**. Removing a source there removes its attached pictures from this setup, not from Assets. The limits remain nine pictures and three full-video/RefMod inputs. **RefMod** is an explicit experimental alternative requiring at least two selected views from each reel. Reels without saved keyframes are marked **Needs keyframes**, with a link to their keyframe manager. Compose does not watch entire videos or extract missing angles. The text-only asset picker remains a separate tool.
+
+Use **Copy** in the shot's **References** action row to reuse another shot's references and environment library. The dialog defaults to the previous shot and previews the replacement before saving. Review or change **Environment library** here; **None selected** means the copied pictures remain usable, but no library is linked for choosing other views. Copy reuses the current views: afterwards, use **Edit references** to choose viewpoints for the new shot. The library follows the shot's references across generation presets. When a selected production take is available, optionally include its last frame as a continuity picture; for a later source shot the default is its first frame. You can change first/last or omit the frame. Copying replaces this shot's references, preserves its action, dialogue and prompt text, and marks the prompt for review. Cancel leaves everything unchanged; Undo restores the previous references.
+
+Start with a location image and generate its missing reference angles in one coherent reel. In image review, choose **Create reel from this image** to open a fresh recipe with that image selected; existing recipes are retained. Choose **Full set**, **Feature study**, **Walkthrough**, or **Custom** under **Coverage and route** in the reel’s Prompt dialog. Full set is the default: a wide perimeter circuit looking inward across the acting area, with held shooting positions on all four sides.
+
+See the [illustrated environment reel guide](environment-reels.md) for camera diagrams, reference setup, and selecting useful keyframes. The same guide is available from **Environment reel guide** in the editor.
+
 ## Trash
 
 Deleting images from the library moves them to **Trash**, with snackbar Undo and no confirmation. Trash covers all projects, supports project filtering and pagination, and keeps images for **30 days**. Restore selected images without confirmation; **Delete permanently** and **Empty Trash** require confirmation. Empty Trash applies across all projects and removes exactly the images shown in its confirmation, not later discards.

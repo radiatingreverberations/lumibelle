@@ -64,16 +64,18 @@ public static class PromptComposer
                 nextShotProvided = r.NearbyShots.Any(s => s.StartsWith("Next shot", StringComparison.OrdinalIgnoreCase)),
                 mustOpenDifferentlyFromPrevious = r.OpeningFrame is null && r.MotionStills is null },
             r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.Appearances,
+            DirectionContext = Shots.ShotDirections.PromptContext(r.DirectionContext),
+            environmentStaging = EnvironmentViews.CompositionStaging(r.Shot, r.DirectingNotes, r.RevisionNotes, r.DirectionContext),
             referenceImagesAttached = images.Count > 0 || modFrames.Count > 0,
             references = r.Shot.Images.Select((b, i) => new { picture = i + 1, b.Name, b.AiUseHint, b.Crop, purpose = b.Purpose?.ToString(), use = b.Use?.ToString(),
                 guidance = r.Guidance.Single(g => g.BindingId == b.Id).Effective }),
             reelKeyframes = ResolvedReferences.For(r.Shot).Pictures.Where(p => p.Keyframe is not null).Select(p => new { picture = p.Number, reel = p.Reel!.Name,
-                ownerType = p.Reel.OwnerCategory?.ToString(), authorProvidedUseGuidance = p.Reel.Description, p.Keyframe!.Frame.Seconds, p.Keyframe.Crop, p.Keyframe.Notes }),
+                ownerType = p.Reel.OwnerCategory?.ToString(), authorProvidedUseGuidance = p.Reel.Description, p.Keyframe!.Frame.Seconds, p.Keyframe.Crop, p.Keyframe.Name, p.Keyframe.Notes }),
             sparseVisualReferences = selectedMods.Select(v => new { video = v.Number, v.Reel.Name,
                 authorProvidedDescription = v.Reel.Description, v.Reel.RefMod!.Recipe.LatentFrames, v.Reel.RefMod.Recipe.Tokens,
                 interpretation = ReelRefMods.UseGuidance }),
             sparseInspectionAttachments = modFrames.Select((f, i) => new { attachment = images.Count + i + 1,
-                video = f.VideoNumber, frame = f.FrameNumber, f.ReelName, f.Notes, f.Sha256 }),
+                video = f.VideoNumber, frame = f.FrameNumber, f.ReelName, f.ViewName, f.Notes, f.Sha256 }),
             videos = ResolvedReferences.For(r.Shot).Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.FullReel).Select(v => new { video = v.Number, v.Reel.Name, authorProvidedDescription = v.Reel.Description,
                 duration = v.Reel.Media.Duration, effectiveDuration = ReferenceVideos.EffectiveSeconds(v.Reel.Media, r.Shot),
                 v.Reel.UseSoundtrack, audio = ReferenceVideos.SoundtrackNumber(r.Shot, v.BindingIndex), speaker = v.Reel.UseSoundtrack ? v.Reel.Speaker : null }),
@@ -108,6 +110,13 @@ public static class PromptComposer
             "Audio remains an independent numbered input. Do not infer voice or target dialogue from these silent previews. State only observed visual detail, not a claim to have watched a video. " +
             "The padded canvas previews are the original build inputs, not a fresh inspection of the remote latent. Do not describe the padding as part of the retained appearance.";
         if (!string.IsNullOrWhiteSpace(r.CurrentPrompt)) instructions += ValidLabels(r.Shot);
+        if (r.DirectionContext is not null) instructions += "\nPreserve the reviewed dramatic intent and essential relationships in directionContext. Proposed staging is adaptable, not measured geometry. Use only applicable groups; limitations identify stale prescriptions that must not be reused. Do not silently change the story to fit a picture. Surface conflicts with intent in review notes, and qualify inferred or missing geometry. A long-take idea is informational, never an instruction to extend this clip.";
+        if (r.DirectionContext?.Environment is not null) instructions += "\nThe accepted drafting environment snapshot records the views and authored constraints behind this direction, separately from current generation references. Preserve authored constraints and qualified supported relationships. Its assessment is reviewable reference support, not verified geometry; inferred, missing and conflicting relationships remain qualified. Do not invent a convenient platform or change scale to hide an obstruction. Inspection camera movements are not shot instructions.";
+        if (r.Shot.EnvironmentStaging is not null) instructions += "\nThe environmentStaging is a reviewed shot-specific interpretation, not a claim of measured geometry. " +
+            "When its status is Reference-supported staging, preserve its blocking, facing directions, route and camera relationship in the opening, action and ending descriptions. " +
+            "Use its per-view reasons with the final numbered pictures/videos. Assumptions remain inferences and concerns remain limitations; do not turn them into established visual facts. " +
+            "Explicit current authored action, directing/revision notes and fixed opening/motion frames take precedence. Do not rotate people toward the camera just to show faces. " +
+            "If its status is Needs review, do not reuse the old staging; work from current instructions and references and report unresolved spatial relationships.";
         if (visualBrief) instructions += "\nREFERENCE INPUT MODE: VISUAL BRIEF. The reference images and RefMod previews were inspected by a first step, " +
             "which wrote the visual brief at the end of the user message; no images are attached to this request, and that is expected, not missing input. " +
             "Any earlier profile wording asking you to inspect attached references is superseded by this input-mode statement. " +
@@ -201,9 +210,9 @@ public static class PromptComposer
             references = r.Shot.Images.Select((b, i) => new { picture = i + 1, b.Name, b.AiUseHint, b.Crop, purpose = b.Purpose?.ToString(), use = b.Use?.ToString(),
                 guidance = r.Guidance.Single(g => g.BindingId == b.Id).Effective }),
             reelKeyframes = resolved.Pictures.Where(p => p.Keyframe is not null).Select(p => new { picture = p.Number, reel = p.Reel!.Name,
-                ownerType = p.Reel.OwnerCategory?.ToString(), authorProvidedUseGuidance = p.Reel.Description, p.Keyframe!.Crop, p.Keyframe.Notes }),
+                ownerType = p.Reel.OwnerCategory?.ToString(), authorProvidedUseGuidance = p.Reel.Description, p.Keyframe!.Frame.Seconds, p.Keyframe.Crop, p.Keyframe.Name, p.Keyframe.Notes }),
             refMods = selectedMods.Select(v => new { video = v.Number, v.Reel.Name, authorProvidedDescription = v.Reel.Description }),
-            refModPreviewAttachments = modFrames.Select((f, i) => new { attachment = images.Count + i + 1, video = f.VideoNumber, frame = f.FrameNumber })
+            refModPreviewAttachments = modFrames.Select((f, i) => new { attachment = images.Count + i + 1, video = f.VideoNumber, frame = f.FrameNumber, f.ViewName, f.Notes })
         }));
         foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
         foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));

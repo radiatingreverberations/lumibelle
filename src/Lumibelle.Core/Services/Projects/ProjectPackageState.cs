@@ -91,7 +91,7 @@ internal sealed class ProjectPackageState
     {
         FileAssetStore.Validate(Assets, Project.Id); FileShotStore.Validate(Shots, Project.Id); FileCutStore.Validate(Cut, Project.Id);
         var p = Production;
-        if (p.ProjectId != Project.Id || p.SchemaVersion is not (2 or 3) || p.Revision < 0 || p.Compositions is null || p.ShotContent is null || p.EarlierSetupContent is null ||
+        if (p.ProjectId != Project.Id || p.SchemaVersion is not (2 or 3 or 4) || p.Revision < 0 || p.Compositions is null || p.ShotContent is null || p.EarlierSetupContent is null ||
             p.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 || c.TakeCount is < 1 or > 4 || c.Seed < 0 || c.Inputs is null) ||
             p.Compositions.Select(c => c.Id).Distinct().Count() != p.Compositions.Count)
             throw new WorkspaceStoreException("Unsupported production metadata. Open this project in Shots before exporting.");

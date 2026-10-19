@@ -4,7 +4,7 @@ namespace lumibelle.Models;
 
 public sealed record ProductionDocument
 {
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
     public Guid ProjectId { get; set; }
     public long Revision { get; set; }
     public List<ProductionComposition> Compositions { get; set; } = [];
@@ -46,6 +46,14 @@ public sealed record ProductionComposition
 public sealed record ShotProductionContent
 {
     public Guid ShotId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? EnvironmentAssetId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EnvironmentShotStaging? EnvironmentStaging { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? EnvironmentInspectionDisabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? EnvironmentInspection { get; set; }
     public string Prompt { get; set; } = "";
     public string DirectingNotes { get; set; } = "";
     public string RevisionNotes { get; set; } = "";
@@ -68,7 +76,7 @@ public sealed record ShotProductionContent
     public ShotContinuityFrame? ContinuityFrame { get; set; }
 
     public static ShotProductionContent From(ProductionComposition c) => ShotCopy.Of(new ShotProductionContent {
-        ShotId = c.ShotId, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
+        ShotId = c.ShotId, EnvironmentInspectionDisabled = c.Shot.EnvironmentInspectionDisabled, EnvironmentInspection = c.Shot.EnvironmentInspection, EnvironmentAssetId = c.Shot.EnvironmentAssetId, EnvironmentStaging = c.Shot.EnvironmentStaging, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
         ReferenceUsage = c.ReferenceUsage, AppliedJobId = c.AppliedJobId, ReviewJobId = c.ReviewJobId,
         AcceptedRevisionId = c.AcceptedRevisionId, History = c.History, CharacterVoices = c.Shot.CharacterVoices,
         Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras,
@@ -77,6 +85,9 @@ public sealed record ShotProductionContent
     public void Apply(ProductionComposition c)
     {
         var copy = ShotCopy.Of(this);
+        c.Shot.EnvironmentAssetId = copy.EnvironmentAssetId;
+        c.Shot.EnvironmentInspectionDisabled = copy.EnvironmentInspectionDisabled; c.Shot.EnvironmentInspection = copy.EnvironmentInspection;
+        c.Shot.EnvironmentStaging = copy.EnvironmentStaging;
         c.Prompt = copy.Prompt; c.DirectingNotes = copy.DirectingNotes; c.RevisionNotes = copy.RevisionNotes;
         c.ReferenceUsage = copy.ReferenceUsage; c.AppliedJobId = copy.AppliedJobId; c.ReviewJobId = copy.ReviewJobId;
         c.AcceptedRevisionId = copy.AcceptedRevisionId; c.History = copy.History;
@@ -96,6 +107,8 @@ public sealed record CompositionPromptRevision(Guid Id, DateTimeOffset CreatedUt
     // Optional: legacy revisions and immutable request fingerprints serialize as before.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ReferenceFingerprint { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DirectionFingerprint { get; init; }
 }
 public sealed record CompositionInput(Guid BindingId, string Sha256);
 public sealed record ProductionVideoContext(Guid CompositionId, long Version, string Name,
@@ -111,6 +124,8 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     string DirectingNotes, string CurrentPrompt, string RevisionNotes, TextModelReference Model,
     bool FollowsDefault = false)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ShotDirectionContext? DirectionContext { get; init; }
     public string Intent { get; init; } = string.IsNullOrEmpty(CurrentPrompt) ? "Initial" : "Revision";
     // Both only in requests captured before text-only composition was removed, so those still load; new requests
     // always send the references and leave them null.
@@ -167,6 +182,14 @@ public sealed record PromptCompositionResult(string Prompt, string ReferenceUsag
 public sealed record SetupInputs
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? EnvironmentInspectionDisabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? EnvironmentInspection { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? EnvironmentAssetId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EnvironmentShotStaging? EnvironmentStaging { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<CharacterVoiceSelection>? CharacterVoices { get; set; }
     public List<ShotImageBinding> Images { get; set; } = [];
     public List<ShotVoiceBinding> Voices { get; set; } = [];
@@ -182,6 +205,6 @@ public sealed record SetupInputs
     public bool Turbo { get; set; } = false;
     public int TurboSteps { get; set; } = 4;
     public IReadOnlyList<LoraSelection>? Loras { get; set; } = null;
-    public static SetupInputs From(Shot s) => new() { CharacterVoices = s.CharacterVoices, Images = s.Images, Voices = s.Voices, Videos = s.Videos, Aspect = s.Aspect, NativeResolution = s.NativeResolution, Resolution = s.Resolution, UpscalePreview = s.UpscalePreview, GenerationPreset = s.GenerationPreset, SaveLosslessFrames = s.SaveLosslessFrames, SaveLatents = s.SaveLatents, Turbo = s.Turbo, TurboSteps = s.TurboSteps, Loras = s.Loras };
-    public void Apply(Shot s) { s.CharacterVoices = CharacterVoices; s.Images = Images; s.Voices = Voices; s.Videos = Videos; s.Aspect = Aspect; s.NativeResolution = NativeResolution; s.Resolution = Resolution; s.UpscalePreview = UpscalePreview; s.GenerationPreset = GenerationPreset; s.SaveLosslessFrames = SaveLosslessFrames; s.SaveLatents = SaveLatents; s.Turbo = Turbo; s.TurboSteps = TurboSteps; s.Loras = Loras; }
+    public static SetupInputs From(Shot s) => new() { EnvironmentInspectionDisabled = s.EnvironmentInspectionDisabled, EnvironmentInspection = s.EnvironmentInspection, EnvironmentAssetId = s.EnvironmentAssetId, EnvironmentStaging = s.EnvironmentStaging, CharacterVoices = s.CharacterVoices, Images = s.Images, Voices = s.Voices, Videos = s.Videos, Aspect = s.Aspect, NativeResolution = s.NativeResolution, Resolution = s.Resolution, UpscalePreview = s.UpscalePreview, GenerationPreset = s.GenerationPreset, SaveLosslessFrames = s.SaveLosslessFrames, SaveLatents = s.SaveLatents, Turbo = s.Turbo, TurboSteps = s.TurboSteps, Loras = s.Loras };
+    public void Apply(Shot s) { s.EnvironmentInspectionDisabled = EnvironmentInspectionDisabled; s.EnvironmentInspection = EnvironmentInspection; s.EnvironmentAssetId = EnvironmentAssetId; s.EnvironmentStaging = EnvironmentStaging; s.CharacterVoices = CharacterVoices; s.Images = Images; s.Voices = Voices; s.Videos = Videos; s.Aspect = Aspect; s.NativeResolution = NativeResolution; s.Resolution = Resolution; s.UpscalePreview = UpscalePreview; s.GenerationPreset = GenerationPreset; s.SaveLosslessFrames = SaveLosslessFrames; s.SaveLatents = SaveLatents; s.Turbo = Turbo; s.TurboSteps = TurboSteps; s.Loras = Loras; }
 }

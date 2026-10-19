@@ -1,0 +1,314 @@
+{
+  "name": "Delayed comic reaction",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 36.9190833,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022dramaticProgression\u0022: \u0022Routine bureaucracy (\u0027Any dependants?\u0027 / \u0027One.\u0027) turns absurd when the receptionist realises the dependant is the fish. The scene ends on Ivo\u0027s sincere, reassuring nod to the fish, which plays as a deadpan punchline.\u0022,\n      \u0022visualProgression\u0022: \u0022It opens on a steady, neutral two-shot across the counter that matches the procedural rhythm. It tightens to an insert-to-close-up on the receptionist as the stamp freezes mid-air. It resolves on Ivo and the fishbowl, framed so his tenderness toward the fish is the final image.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the fishbowl from the first frame, so we are ahead of the receptionist. \u0027One.\u0027 lands as an implied joke, and the payoff is watching her catch up. We never learn more about the fish than Ivo\u0027s devotion to it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022A reception counter divides the two characters: the receptionist sits behind it with the form and stamp, and Ivo stands on the public side holding the fishbowl under his arm. Exact sides and camera axis are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Routine Question\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n        \u0022ffcaa653-e728-5bab-879a-0c120d8cfddc\u0022,\n        \u002230037a30-e205-510a-8ae9-53a985673819\u0022,\n        \u00224449eefb-636b-5bd4-a548-2b7b6295b6b4\u0022,\n        \u002297c88067-50a3-59c2-adb3-f62ed35c36e5\u0022,\n        \u0022c2cb957e-aa69-53a7-bfd1-1097784cf8e3\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a locked-off, symmetrical medium-wide profile two-shot across the reception counter. The receptionist sits on one side and carefully stamps a form. Ivo stands opposite and waits patiently with a fishbowl tucked under his arm, clearly visible in frame. She asks without looking up. Ivo answers simply. Ending: the same balanced two-shot, with the receptionist lowering her eyes back to the form and lifting the stamp again. Ivo is still, and the fishbowl sits at his side.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022RECEPTIONIST\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Any dependants?\u0022\n        },\n        {\n          \u0022speaker\u0022: \u0022IVO\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022One.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Receptionist\u0022 },\n        { \u0022name\u0022: \u0022Ivo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet, orderly daytime reception with flat institutional light and the dull thunk of a rubber stamp.\u0022,\n      \u0022music\u0022: \u0022None; let the procedural silence and the stamp sound carry the rhythm.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the space, the bureaucratic routine and the fishbowl in one economical setup.\u0022,\n          \u0022reason\u0022: \u0022Keeping the question and answer in a single two-shot lets the deadpan exchange play without mechanical speaker cuts.\u0022,\n          \u0022attention\u0022: \u0022The careful stamping, then the fishbowl under Ivo\u0027s arm while he says \u0027One.\u0027\u0022,\n          \u0022relationships\u0022: \u0022An official and an applicant, separated by the counter and by procedure.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The receptionist is seated behind the counter. Ivo stands on the public side.\u0022,\n          \u0022facing\u0022: \u0022They face each other across the counter.\u0022,\n          \u0022eyelines\u0022: \u0022The receptionist looks mostly at the form. Ivo looks at her.\u0022,\n          \u0022movement\u0022: \u0022Only the stamping and minimal settling.\u0022,\n          \u0022camera\u0022: \u0022Static, side-on, at counter height, framing both characters and the bowl.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her second stamp toward the tighter insert of the form.\u0022,\n          \u0022timing\u0022: \u0022An unhurried rhythm, with a small beat before \u0027One.\u0027\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The fishbowl stays under Ivo\u0027s same arm, and the receptionist holds the stamp in the same hand.\u0022,\n          \u0022assumptions\u0022: \u0022The profile two-shot and counter layout are assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Stamp Stops\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002275abeb10-6a8c-56a9-97d0-3ed39b290e20\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening: a high, tight insert of the form on the counter as the receptionist brings the stamp down again. The camera tilts up with her rising hand to a close-up of her face as she glances toward Ivo\u0027s side and notices the fish. Ending: she freezes with the stamp raised beside her face, staring off-frame toward the fishbowl.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Receptionist\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022A sudden stillness after the stamp\u0027s thunk.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the receptionist catching up to what the audience already knows.\u0022,\n          \u0022reason\u0022: \u0022The tilt from routine action to a frozen face marks the turn of the scene.\u0022,\n          \u0022attention\u0022: \u0022The raised, motionless stamp and her stare.\u0022,\n          \u0022relationships\u0022: \u0022The procedure is interrupted by something it has no box for.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022She is seated behind the counter.\u0022,\n          \u0022facing\u0022: \u0022She faces the form, then turns toward Ivo.\u0022,\n          \u0022eyelines\u0022: \u0022Her eyeline goes off-frame toward the fishbowl at Ivo\u0027s arm height.\u0022,\n          \u0022movement\u0022: \u0022The stamp comes down, rises, then stops.\u0022,\n          \u0022camera\u0022: \u0022An insert on the form that tilts up to a close-up, ending static.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on the second stamp action, from the wide two-shot to the tight insert.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her frozen stare to its object: Ivo and the fish.\u0022,\n          \u0022timing\u0022: \u0022A quick stamp, then hold the freeze slightly too long.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her stamp hand matches the previous shot, and her eyeline direction matches Ivo\u0027s side of the counter.\u0022,\n          \u0022assumptions\u0022: \u0022The tilt-up move is a proposed treatment.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Reassuring Nod\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002275abeb10-6a8c-56a9-97d0-3ed39b290e20\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a medium shot of Ivo from roughly the receptionist\u0027s side of the counter, with the fishbowl prominent at his side and the fish visible inside. The edge of her raised stamp hand may sit motionless in the foreground. Ivo lowers his gaze to the fish and gives it a small, reassuring nod. Ending: Ivo looking calmly at the fish, settled and sincere, held as the final image.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Ivo\u0022 },\n        { \u0022name\u0022: \u0022Receptionist\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Still and quietly absurd.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the punchline: Ivo treats the fish as his genuine dependant.\u0022,\n          \u0022reason\u0022: \u0022It answers her stare and lands the scene on his sincerity rather than her confusion.\u0022,\n          \u0022attention\u0022: \u0022Ivo\u0027s nod and the fish.\u0022,\n          \u0022relationships\u0022: \u0022Ivo is the fish\u0027s caretaker. The receptionist is a frozen witness.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ivo stands at the counter with the bowl under his arm.\u0022,\n          \u0022facing\u0022: \u0022Ivo faces the counter and turns his head down to the bowl.\u0022,\n          \u0022eyelines\u0022: \u0022Ivo looks down at the fish.\u0022,\n          \u0022movement\u0022: \u0022A single small nod.\u0022,\n          \u0022camera\u0022: \u0022A static medium shot, roughly along the receptionist\u0027s eyeline.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from her stare, as an eyeline match, to what she is looking at.\u0022,\n          \u0022cutOut\u0022: \u0022Hold briefly after the nod for the scene ending.\u0022,\n          \u0022timing\u0022: \u0022The nod lands about one second in, followed by a short hold.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The bowl stays under the same arm as in the opening shot, and the receptionist\u0027s stamp remains raised.\u0022,\n          \u0022assumptions\u0022: \u0022Including a foreground stamp is optional and assumed.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "3ae3f37a-5198-4e43-ae84-12f364d2fdbf",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the space, the bureaucratic routine and the fishbowl in one economical setup.",
+            "reason": "Keeping the question and answer in a single two-shot lets the deadpan exchange play without mechanical speaker cuts.",
+            "attention": "The careful stamping, then the fishbowl under Ivo\u0027s arm while he says \u0027One.\u0027",
+            "relationships": "An official and an applicant, separated by the counter and by procedure."
+          },
+          "staging": {
+            "positions": "The receptionist is seated behind the counter. Ivo stands on the public side.",
+            "facing": "They face each other across the counter.",
+            "eyelines": "The receptionist looks mostly at the form. Ivo looks at her.",
+            "movement": "Only the stamping and minimal settling.",
+            "camera": "Static, side-on, at counter height, framing both characters and the bowl."
+          },
+          "editorial": {
+            "cutIn": "Opens the scene.",
+            "cutOut": "Cut on her second stamp toward the tighter insert of the form.",
+            "timing": "An unhurried rhythm, with a small beat before \u0027One.\u0027"
+          },
+          "advanced": {
+            "continuity": "The fishbowl stays under Ivo\u0027s same arm, and the receptionist holds the stamp in the same hand.",
+            "assumptions": "The profile two-shot and counter layout are assumed.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "1f245d054c373863a3ee8c5b5392cbde64062e0b54f1edf6a80161bbd35686ee",
+            "strategy": "aa29ab2aa4baab05c9e64a2f225578ea4201e4bdc51b069e410be4decc9b33b4",
+            "cast": "16e669f0c19a25276af44b5bdee4185180a5ec86b8a9600031c6542a970c3d4a",
+            "dialogue": "e0f1f4e4c7b73868adc4eb5a8da5dff1018e7e03c27929f7112407eef13f3030",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "2180b19752cce0df92afd7c2c8d6396ad2235e872e20b027ba1d4bde88ebe804",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "c14126e2-6ebe-4d8a-a274-ba7c4070ba26",
+        "title": "Routine Question",
+        "approvedScriptId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneTitle": "INT. RECEPTION - DAY",
+        "sourceBlockIds": [
+          "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+          "ffcaa653-e728-5bab-879a-0c120d8cfddc",
+          "30037a30-e205-510a-8ae9-53a985673819",
+          "4449eefb-636b-5bd4-a548-2b7b6295b6b4",
+          "97c88067-50a3-59c2-adb3-f62ed35c36e5",
+          "c2cb957e-aa69-53a7-bfd1-1097784cf8e3"
+        ],
+        "sourceExcerpt": "## INT. RECEPTION - DAY\n\nA receptionist carefully stamps a form. Ivo waits with a fishbowl under his arm.\n\n### RECEPTIONIST\n\nAny dependants?\n\n### IVO\n\nOne.",
+        "planning": {
+          "id": "315e39e8-3ee4-469a-82a9-4ee261955e97",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7ee7ac20-339e-5bd5-827d-9ac1cc482031"
+          ],
+          "createdUtc": "2026-10-12T06:07:25.9499827+00:00"
+        },
+        "duration": 7,
+        "description": "Opening: a locked-off, symmetrical medium-wide profile two-shot across the reception counter. The receptionist sits on one side and carefully stamps a form. Ivo stands opposite and waits patiently with a fishbowl tucked under his arm, clearly visible in frame. She asks without looking up. Ivo answers simply. Ending: the same balanced two-shot, with the receptionist lowering her eyes back to the form and lifting the stamp again. Ivo is still, and the fishbowl sits at his side.",
+        "dialogue": [
+          {
+            "id": "d6929e0b-48b7-41ac-b9b2-840602d3e687",
+            "speaker": "RECEPTIONIST",
+            "language": "en",
+            "text": "Any dependants?"
+          },
+          {
+            "id": "69819449-c8cd-4f90-98b8-a56d4377a52a",
+            "speaker": "IVO",
+            "language": "en",
+            "text": "One."
+          }
+        ],
+        "characters": [
+          {
+            "id": "620cb4b1-568f-4e87-9933-2c64cd95b492",
+            "name": "Receptionist",
+            "appearance": null
+          },
+          {
+            "id": "c1b156f3-b1bc-40ba-837e-8c3332eb7f69",
+            "name": "Ivo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet, orderly daytime reception with flat institutional light and the dull thunk of a rubber stamp.",
+        "music": "None; let the procedural silence and the stamp sound carry the rhythm.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "3ae3f37a-5198-4e43-ae84-12f364d2fdbf",
+        "direction": {
+          "intent": {
+            "purpose": "Show the receptionist catching up to what the audience already knows.",
+            "reason": "The tilt from routine action to a frozen face marks the turn of the scene.",
+            "attention": "The raised, motionless stamp and her stare.",
+            "relationships": "The procedure is interrupted by something it has no box for."
+          },
+          "staging": {
+            "positions": "She is seated behind the counter.",
+            "facing": "She faces the form, then turns toward Ivo.",
+            "eyelines": "Her eyeline goes off-frame toward the fishbowl at Ivo\u0027s arm height.",
+            "movement": "The stamp comes down, rises, then stops.",
+            "camera": "An insert on the form that tilts up to a close-up, ending static."
+          },
+          "editorial": {
+            "cutIn": "Cut on the second stamp action, from the wide two-shot to the tight insert.",
+            "cutOut": "Cut on her frozen stare to its object: Ivo and the fish.",
+            "timing": "A quick stamp, then hold the freeze slightly too long."
+          },
+          "advanced": {
+            "continuity": "Her stamp hand matches the previous shot, and her eyeline direction matches Ivo\u0027s side of the counter.",
+            "assumptions": "The tilt-up move is a proposed treatment.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "5efccf1a5753499e9c0f659355754ae03ae8bde96a44dbcf4e44596698e1c545",
+            "strategy": "aa29ab2aa4baab05c9e64a2f225578ea4201e4bdc51b069e410be4decc9b33b4",
+            "cast": "807019a5288051432ab83db3f0e1b3a78dffc1a73fa1f89f187da8a6fe26f051",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+            "neighbours": "948095127d02e2523f23687e916eb107dce86b874b28ee83c97e8e0dac3d300d",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "3fe82101-48d1-4051-a4f2-27725dc9468a",
+        "title": "The Stamp Stops",
+        "approvedScriptId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneTitle": "INT. RECEPTION - DAY",
+        "sourceBlockIds": [
+          "75abeb10-6a8c-56a9-97d0-3ed39b290e20"
+        ],
+        "sourceExcerpt": "She stamps again, then notices the fish. She stops with the stamp raised. Ivo gives the fish a reassuring nod.",
+        "planning": {
+          "id": "315e39e8-3ee4-469a-82a9-4ee261955e97",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7ee7ac20-339e-5bd5-827d-9ac1cc482031"
+          ],
+          "createdUtc": "2026-10-12T06:07:25.9499827+00:00"
+        },
+        "duration": 4,
+        "description": "Opening: a high, tight insert of the form on the counter as the receptionist brings the stamp down again. The camera tilts up with her rising hand to a close-up of her face as she glances toward Ivo\u0027s side and notices the fish. Ending: she freezes with the stamp raised beside her face, staring off-frame toward the fishbowl.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "bba87fb7-d44a-4588-a7f0-2c3a7d423635",
+            "name": "Receptionist",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A sudden stillness after the stamp\u0027s thunk.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "3ae3f37a-5198-4e43-ae84-12f364d2fdbf",
+        "direction": {
+          "intent": {
+            "purpose": "Deliver the punchline: Ivo treats the fish as his genuine dependant.",
+            "reason": "It answers her stare and lands the scene on his sincerity rather than her confusion.",
+            "attention": "Ivo\u0027s nod and the fish.",
+            "relationships": "Ivo is the fish\u0027s caretaker. The receptionist is a frozen witness."
+          },
+          "staging": {
+            "positions": "Ivo stands at the counter with the bowl under his arm.",
+            "facing": "Ivo faces the counter and turns his head down to the bowl.",
+            "eyelines": "Ivo looks down at the fish.",
+            "movement": "A single small nod.",
+            "camera": "A static medium shot, roughly along the receptionist\u0027s eyeline."
+          },
+          "editorial": {
+            "cutIn": "Cut from her stare, as an eyeline match, to what she is looking at.",
+            "cutOut": "Hold briefly after the nod for the scene ending.",
+            "timing": "The nod lands about one second in, followed by a short hold."
+          },
+          "advanced": {
+            "continuity": "The bowl stays under the same arm as in the opening shot, and the receptionist\u0027s stamp remains raised.",
+            "assumptions": "Including a foreground stamp is optional and assumed.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "c8a43e4ea07e133f0c7286eb4daa7169a9d565414e899c32b776495ec40b657f",
+            "strategy": "aa29ab2aa4baab05c9e64a2f225578ea4201e4bdc51b069e410be4decc9b33b4",
+            "cast": "fe8258b6956581aed3d6702499b3d3284796764a642e406e74474b08c20a6567",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "2180b19752cce0df92afd7c2c8d6396ad2235e872e20b027ba1d4bde88ebe804",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "02933945-913e-4340-a28a-53efab693fd8",
+        "title": "Reassuring Nod",
+        "approvedScriptId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sceneTitle": "INT. RECEPTION - DAY",
+        "sourceBlockIds": [
+          "75abeb10-6a8c-56a9-97d0-3ed39b290e20"
+        ],
+        "sourceExcerpt": "She stamps again, then notices the fish. She stops with the stamp raised. Ivo gives the fish a reassuring nod.",
+        "planning": {
+          "id": "315e39e8-3ee4-469a-82a9-4ee261955e97",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7ee7ac20-339e-5bd5-827d-9ac1cc482031"
+          ],
+          "createdUtc": "2026-10-12T06:07:25.9499827+00:00"
+        },
+        "duration": 3,
+        "description": "Opening: a medium shot of Ivo from roughly the receptionist\u0027s side of the counter, with the fishbowl prominent at his side and the fish visible inside. The edge of her raised stamp hand may sit motionless in the foreground. Ivo lowers his gaze to the fish and gives it a small, reassuring nod. Ending: Ivo looking calmly at the fish, settled and sincere, held as the final image.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "abd31376-5bf6-4333-b029-70de66956b21",
+            "name": "Ivo",
+            "appearance": null
+          },
+          {
+            "id": "bdcd7eb4-73da-451d-818d-363b2c907dfb",
+            "name": "Receptionist",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Still and quietly absurd.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022dramaticProgression\u0022: \u0022Routine bureaucracy (\u0027Any dependants?\u0027 / \u0027One.\u0027) turns absurd when the receptionist realises the dependant is the fish. The scene ends on Ivo\u0027s sincere, reassuring nod to the fish, which plays as a deadpan punchline.\u0022,\n      \u0022visualProgression\u0022: \u0022It opens on a steady, neutral two-shot across the counter that matches the procedural rhythm. It tightens to an insert-to-close-up on the receptionist as the stamp freezes mid-air. It resolves on Ivo and the fishbowl, framed so his tenderness toward the fish is the final image.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the fishbowl from the first frame, so we are ahead of the receptionist. \u0027One.\u0027 lands as an implied joke, and the payoff is watching her catch up. We never learn more about the fish than Ivo\u0027s devotion to it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022A reception counter divides the two characters: the receptionist sits behind it with the form and stamp, and Ivo stands on the public side holding the fishbowl under his arm. Exact sides and camera axis are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Routine Question\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n        \u0022ffcaa653-e728-5bab-879a-0c120d8cfddc\u0022,\n        \u002230037a30-e205-510a-8ae9-53a985673819\u0022,\n        \u00224449eefb-636b-5bd4-a548-2b7b6295b6b4\u0022,\n        \u002297c88067-50a3-59c2-adb3-f62ed35c36e5\u0022,\n        \u0022c2cb957e-aa69-53a7-bfd1-1097784cf8e3\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening: a locked-off, symmetrical medium-wide profile two-shot across the reception counter. The receptionist sits on one side and carefully stamps a form. Ivo stands opposite and waits patiently with a fishbowl tucked under his arm, clearly visible in frame. She asks without looking up. Ivo answers simply. Ending: the same balanced two-shot, with the receptionist lowering her eyes back to the form and lifting the stamp again. Ivo is still, and the fishbowl sits at his side.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022RECEPTIONIST\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Any dependants?\u0022\n        },\n        {\n          \u0022speaker\u0022: \u0022IVO\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022One.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Receptionist\u0022 },\n        { \u0022name\u0022: \u0022Ivo\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet, orderly daytime reception with flat institutional light and the dull thunk of a rubber stamp.\u0022,\n      \u0022music\u0022: \u0022None; let the procedural silence and the stamp sound carry the rhythm.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the space, the bureaucratic routine and the fishbowl in one economical setup.\u0022,\n          \u0022reason\u0022: \u0022Keeping the question and answer in a single two-shot lets the deadpan exchange play without mechanical speaker cuts.\u0022,\n          \u0022attention\u0022: \u0022The careful stamping, then the fishbowl under Ivo\u0027s arm while he says \u0027One.\u0027\u0022,\n          \u0022relationships\u0022: \u0022An official and an applicant, separated by the counter and by procedure.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The receptionist is seated behind the counter. Ivo stands on the public side.\u0022,\n          \u0022facing\u0022: \u0022They face each other across the counter.\u0022,\n          \u0022eyelines\u0022: \u0022The receptionist looks mostly at the form. Ivo looks at her.\u0022,\n          \u0022movement\u0022: \u0022Only the stamping and minimal settling.\u0022,\n          \u0022camera\u0022: \u0022Static, side-on, at counter height, framing both characters and the bowl.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her second stamp toward the tighter insert of the form.\u0022,\n          \u0022timing\u0022: \u0022An unhurried rhythm, with a small beat before \u0027One.\u0027\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The fishbowl stays under Ivo\u0027s same arm, and the receptionist holds the stamp in the same hand.\u0022,\n          \u0022assumptions\u0022: \u0022The profile two-shot and counter layout are assumed.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Stamp Stops\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002275abeb10-6a8c-56a9-97d0-3ed39b290e20\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening: a high, tight insert of the form on the counter as the receptionist brings the stamp down again. The camera tilts up with her rising hand to a close-up of her face as she glances toward Ivo\u0027s side and notices the fish. Ending: she freezes with the stamp raised beside her face, staring off-frame toward the fishbowl.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Receptionist\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022A sudden stillness after the stamp\u0027s thunk.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show the receptionist catching up to what the audience already knows.\u0022,\n          \u0022reason\u0022: \u0022The tilt from routine action to a frozen face marks the turn of the scene.\u0022,\n          \u0022attention\u0022: \u0022The raised, motionless stamp and her stare.\u0022,\n          \u0022relationships\u0022: \u0022The procedure is interrupted by something it has no box for.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022She is seated behind the counter.\u0022,\n          \u0022facing\u0022: \u0022She faces the form, then turns toward Ivo.\u0022,\n          \u0022eyelines\u0022: \u0022Her eyeline goes off-frame toward the fishbowl at Ivo\u0027s arm height.\u0022,\n          \u0022movement\u0022: \u0022The stamp comes down, rises, then stops.\u0022,\n          \u0022camera\u0022: \u0022An insert on the form that tilts up to a close-up, ending static.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on the second stamp action, from the wide two-shot to the tight insert.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on her frozen stare to its object: Ivo and the fish.\u0022,\n          \u0022timing\u0022: \u0022A quick stamp, then hold the freeze slightly too long.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her stamp hand matches the previous shot, and her eyeline direction matches Ivo\u0027s side of the counter.\u0022,\n          \u0022assumptions\u0022: \u0022The tilt-up move is a proposed treatment.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Reassuring Nod\u0022,\n      \u0022sceneId\u0022: \u00227ee7ac20-339e-5bd5-827d-9ac1cc482031\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002275abeb10-6a8c-56a9-97d0-3ed39b290e20\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a medium shot of Ivo from roughly the receptionist\u0027s side of the counter, with the fishbowl prominent at his side and the fish visible inside. The edge of her raised stamp hand may sit motionless in the foreground. Ivo lowers his gaze to the fish and gives it a small, reassuring nod. Ending: Ivo looking calmly at the fish, settled and sincere, held as the final image.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022Ivo\u0022 },\n        { \u0022name\u0022: \u0022Receptionist\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Still and quietly absurd.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the punchline: Ivo treats the fish as his genuine dependant.\u0022,\n          \u0022reason\u0022: \u0022It answers her stare and lands the scene on his sincerity rather than her confusion.\u0022,\n          \u0022attention\u0022: \u0022Ivo\u0027s nod and the fish.\u0022,\n          \u0022relationships\u0022: \u0022Ivo is the fish\u0027s caretaker. The receptionist is a frozen witness.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ivo stands at the counter with the bowl under his arm.\u0022,\n          \u0022facing\u0022: \u0022Ivo faces the counter and turns his head down to the bowl.\u0022,\n          \u0022eyelines\u0022: \u0022Ivo looks down at the fish.\u0022,\n          \u0022movement\u0022: \u0022A single small nod.\u0022,\n          \u0022camera\u0022: \u0022A static medium shot, roughly along the receptionist\u0027s eyeline.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut from her stare, as an eyeline match, to what she is looking at.\u0022,\n          \u0022cutOut\u0022: \u0022Hold briefly after the nod for the scene ending.\u0022,\n          \u0022timing\u0022: \u0022The nod lands about one second in, followed by a short hold.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The bowl stays under the same arm as in the opening shot, and the receptionist\u0027s stamp remains raised.\u0022,\n          \u0022assumptions\u0022: \u0022Including a foreground stamp is optional and assumed.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "3ae3f37a-5198-4e43-ae84-12f364d2fdbf",
+        "sceneId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sourceId": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "sourceFingerprint": "67eddf50ceee50355f5f0c170d9830e88681931cd328c8c4cbb1fe0ae09230c5",
+        "dramaticProgression": "Routine bureaucracy (\u0027Any dependants?\u0027 / \u0027One.\u0027) turns absurd when the receptionist realises the dependant is the fish. The scene ends on Ivo\u0027s sincere, reassuring nod to the fish, which plays as a deadpan punchline.",
+        "visualProgression": "It opens on a steady, neutral two-shot across the counter that matches the procedural rhythm. It tightens to an insert-to-close-up on the receptionist as the stamp freezes mid-air. It resolves on Ivo and the fishbowl, framed so his tenderness toward the fish is the final image.",
+        "audienceInformation": "The audience sees the fishbowl from the first frame, so we are ahead of the receptionist. \u0027One.\u0027 lands as an implied joke, and the payoff is watching her catch up. We never learn more about the fish than Ivo\u0027s devotion to it.",
+        "spatialAnchors": "A reception counter divides the two characters: the receptionist sits behind it with the form and stamp, and Ivo stands on the public side holding the fishbowl under his arm. Exact sides and camera axis are staging assumptions."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

@@ -16,6 +16,9 @@ public static class ReferenceCopies
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(library);
         var result = destination.Copy();
+        result.EnvironmentAssetId = source.EnvironmentAssetId;
+        result.EnvironmentInspectionDisabled = source.EnvironmentInspectionDisabled;
+        result.EnvironmentStaging = null; // Blocking belongs to the destination's action, not the copied references.
         var warnings = new List<string>();
         var notes = new List<string>();
         var charactersByName = destination.Characters

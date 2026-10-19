@@ -1,0 +1,63 @@
+{
+  "providerAttempts": 4,
+  "pairs": {
+    "full": {
+      "requestEqualExceptInspectionImageHashes": true,
+      "providerTextEqualExceptImageManifest": true
+    },
+    "incomplete": {
+      "requestEqualExceptInspectionImageHashes": true,
+      "providerTextEqualExceptImageManifest": true
+    }
+  },
+  "results": {
+    "full-text": {
+      "attachedImages": 0,
+      "attachmentHashesMatch": true,
+      "evidenceLimitedToAttachedCandidates": true,
+      "clipsWithinMaximum": true,
+      "dialogueValidationNotes": [],
+      "shots": 7,
+      "plannedSeconds": 47,
+      "elapsedSeconds": 110.1013162,
+      "providerError": null,
+      "usage": null
+    },
+    "full-pictures": {
+      "attachedImages": 3,
+      "attachmentHashesMatch": true,
+      "evidenceLimitedToAttachedCandidates": true,
+      "clipsWithinMaximum": true,
+      "dialogueValidationNotes": [],
+      "shots": 7,
+      "plannedSeconds": 48,
+      "elapsedSeconds": 109.0417997,
+      "providerError": null,
+      "usage": null
+    },
+    "incomplete-text": {
+      "attachedImages": 0,
+      "attachmentHashesMatch": true,
+      "evidenceLimitedToAttachedCandidates": true,
+      "clipsWithinMaximum": true,
+      "dialogueValidationNotes": [],
+      "shots": 7,
+      "plannedSeconds": 46,
+      "elapsedSeconds": 101.7386581,
+      "providerError": null,
+      "usage": null
+    },
+    "incomplete-pictures": {
+      "attachedImages": 1,
+      "attachmentHashesMatch": true,
+      "evidenceLimitedToAttachedCandidates": true,
+      "clipsWithinMaximum": true,
+      "dialogueValidationNotes": [],
+      "shots": 6,
+      "plannedSeconds": 42,
+      "elapsedSeconds": 92.716699,
+      "providerError": null,
+      "usage": null
+    }
+  }
+}

@@ -8,6 +8,8 @@ namespace lumibelle.Components.Pages;
 
 public partial class ProductionStudio
 {
+    private lumibelle.Components.Shots.EnvironmentViewComposer? _environmentComposer;
+    private Guid? _handledEnvironmentJob;
     private PromptDraftRecovery? _compositionRecovery;
     private Guid? _recoveryJob;
     private string? _recoveryRaw;
@@ -143,10 +145,11 @@ public partial class ProductionStudio
         catch (Exception e) { _compositionError = e.Message; }
         finally { _compositionBusy = false; }
     }
-    private bool CanCompose => Current is { Archived: false } && !_compositionBusy && _compositionEnqueue is null &&
-        _compositionModel?.Ready == true &&
-        ((Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages) &&
+    private bool CompositionAvailable => Current is { Archived: false } && !_compositionBusy && _compositionEnqueue is null &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == Current.ShotId && j.LocksTarget);
+    private bool CanCompose => CompositionAvailable &&
+        _compositionModel?.Ready == true &&
+        ((Selected is null || ResolvedReferences.For(Selected).Pictures.Count == 0 && !ReelRefMods.Uses(Selected)) || _compositionModel.SupportsImages);
     private bool CanClearPrompt => Current is { Archived: false } c && !_compositionBusy && _compositionEnqueue is null &&
         (c.Prompt.Length > 0 || c.RevisionNotes.Length > 0 || c.ReferenceUsage.Length > 0 || c.ReviewJobId is not null) &&
         !AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == c.ShotId && j.LocksTarget);
@@ -167,13 +170,14 @@ public partial class ProductionStudio
     private async Task ComposePrompt()
     {
         if (!CanCompose || Current is null || _compositionAssist is null || !await _compositionAssist.PrepareSubmitAsync()) return;
+        var model = _compositionModel!;
         _compositionBusy = true; _compositionError = null;
         try
         {
             if (_promptEditor is not null) await _promptEditor.FlushAsync();
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
-            var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, _compositionModel!.Model, _compositionModel.FollowsDefault, _lifetime.Token,
+            var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, model.Model, model.FollowsDefault, _lifetime.Token,
                 _includeSceneText, _includeNearbyShots);
             if (!_composeOversized && OversizedComposition(submission)) return;
             _compositionStages = null;

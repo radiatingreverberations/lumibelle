@@ -15,6 +15,8 @@ for (const narrow of [false, true]) test(`generation footer keeps output local u
   };
   await showTools();
   const tools = page.locator('.shot-controls');
+  await expect(tools.locator(':scope > .workspace-pane-header')).toHaveCount(0);
+  await expect(tools.locator('.workspace-pane-footer').getByRole('combobox', { name: 'Generation setup', exact: true })).toBeInViewport();
   const footer = tools.locator('.generation-output');
   const resolution = footer.getByLabel('Resolution', { exact: true });
   const takes = footer.getByLabel('Takes', { exact: true });
@@ -23,6 +25,9 @@ for (const narrow of [false, true]) test(`generation footer keeps output local u
   await expect(tools.getByRole('button', { name: 'Generation settings', exact: true })).toHaveCount(0);
   await expect(tools.getByRole('button', { name: 'Edit generation preset', exact: true })).toBeInViewport();
   await expect(resolution).toBeInViewport();
+  const presetSize = await tools.getByRole('combobox', { name: 'Generation setup', exact: true }).boundingBox();
+  const resolutionSize = await resolution.boundingBox();
+  expect(Math.abs(presetSize.height - resolutionSize.height)).toBeLessThan(2);
   await expect(takes).toBeInViewport();
   await expect(tools.getByRole('button', { name: 'Generate takes', exact: true })).toBeInViewport();
   const original = await library();

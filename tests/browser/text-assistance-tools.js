@@ -3,7 +3,14 @@ export const planningComposer = page => page.locator('.ai-assist-dialog').filter
 export const extractionComposer = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Extract assets from script', exact: true }) });
 
 export async function openPlanning(page) {
-  const actions = page.locator('.shots-library-tools');
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  if (await page.locator('.scene-planning-link').count()) {
+    await page.goto(await page.locator('.scene-planning-link').getAttribute('href'));
+    await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  }
+  const actions = page.locator('.scene-drafting-tools');
+  if (!await actions.isVisible() && await page.getByRole('button', { name: 'Show Shots', exact: true }).isVisible())
+    await page.getByRole('button', { name: 'Show Shots', exact: true }).click();
   const start = actions.getByRole('button', { name: 'Draft shots', exact: true });
   // After a reload the control can show an earlier request until it learns that request is out of date,
   // then switch to Draft shots. Retry with whichever control is current instead of waiting on a stale one.
@@ -18,11 +25,18 @@ export async function openPlanning(page) {
   }).toPass({ timeout: 20000 });
 }
 
+// Return to the production editor after accepting a scene breakdown.
+export async function openShotsAfterPlanning(page) {
+  await expect(page.locator('.shot-planning-dialog')).toBeHidden();
+  await page.goto(await page.locator('.project-tabs').getByRole('link', { name: 'Shots', exact: true }).getAttribute('href'));
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+}
+
 export async function submitPlanning(page) {
   const composer = planningComposer(page);
   await composer.getByRole('button', { name: 'Draft shots', exact: true }).click();
   await expect(composer).toBeHidden();
-  await openSubmittedReview(page.locator('.shots-library-tools .request-action-button'), page.locator('.shot-planning-dialog'));
+  await openSubmittedReview(page.locator('.scene-drafting-tools .request-action-button'), page.locator('.shot-planning-dialog'));
 }
 
 export async function submitExtraction(page) {

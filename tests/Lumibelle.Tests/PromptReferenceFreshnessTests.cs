@@ -33,6 +33,23 @@ public sealed class PromptReferenceFreshnessTests
         return new() { ShotId = shot.Id, Shot = shot, Prompt = revision.Prompt, History = [revision], AcceptedRevisionId = revision.Id };
     }
 
+    [Fact] public void AcceptedDirectionFingerprintTracksStrategyChangesWithoutChangingReferences()
+    {
+        var shot = Example();
+        var strategy = new DirectionStrategy { SceneId = Guid.NewGuid(), DramaticProgression = "Trust becomes doubt" };
+        shot.DirectionStrategyId = strategy.Id; shot.Direction = new() { Intent = new() { Purpose = "Show suspicion" } };
+        ShotDirections.Review(shot, strategy);
+        var document = new ShotDocument { Shots = [shot], DirectionStrategies = [strategy] };
+        var composition = Reviewed(shot);
+        composition.History[0] = composition.History[0] with { DirectionFingerprint = ShotDirections.Fingerprint(document, shot) };
+        Assert.Equal(PromptReferenceState.Current, PromptReferenceFreshness.Compare(composition, Fingerprint(shot), ShotDirections.Fingerprint(document, shot)).State);
+        Assert.Equal(PromptReferenceState.NeedsReview, PromptReferenceFreshness.Compare(composition, Fingerprint(shot), null).State);
+        // Reference-only callers retain their historical comparison contract.
+        Assert.Equal(PromptReferenceState.Current, PromptReferenceFreshness.Compare(composition, Fingerprint(shot)).State);
+        strategy.VisualProgression = "Isolate only after the letter is read";
+        Assert.Equal(PromptReferenceState.NeedsReview, PromptReferenceFreshness.Compare(composition, Fingerprint(shot), ShotDirections.Fingerprint(document, shot)).State);
+    }
+
     [Theory]
     [InlineData("replace-image")][InlineData("image-order")][InlineData("crop")]
     [InlineData("image-guidance")][InlineData("image-role")][InlineData("image-name")]

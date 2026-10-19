@@ -9,6 +9,10 @@ public interface IShotStore
     Task<ShotDocument> SaveAsync(Guid projectId, IReadOnlyList<Shot> shots, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default);
     Task<ShotDocument> SaveWorkspaceAsync(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup> setups, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
         => setups.Count == 0 ? SaveAsync(projectId, shots, expectedRevision, reason, ct) : throw new WorkspaceStoreException("Scene reference setup storage is unavailable.");
+    Task<ShotDocument> SaveDirectedWorkspaceAsync(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup> setups, IReadOnlyList<DirectionStrategy> strategies, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
+        => strategies.Count == 0 ? SaveWorkspaceAsync(projectId, shots, setups, expectedRevision, reason, ct) : throw new WorkspaceStoreException("Direction strategy storage is unavailable.");
+    Task<ShotDocument> ApplyDirectedPlanningAsync(Guid projectId, Guid jobId, IReadOnlyList<Shot> shots, IReadOnlyList<DirectionStrategy> strategies, long expectedRevision, CancellationToken ct = default)
+        => strategies.Count == 0 ? ApplyPlanningAsync(projectId, jobId, shots, expectedRevision, ct) : throw new WorkspaceStoreException("Direction strategy storage is unavailable.");
     Task<ShotDocument> SaveImageReferencesAsync(Guid projectId, IReadOnlyList<Shot> shots, long expectedRevision, long assetRevision, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Reference review storage is unavailable.");
     Task<ShotDocument> ApplyPlanningAsync(Guid projectId, Guid jobId, IReadOnlyList<Shot> shots, long expectedRevision, CancellationToken ct = default);
@@ -80,6 +84,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             d.TakePublications.Any(r => r is null || r.TakeId == Guid.Empty || r.RunId == Guid.Empty || r.ShotId == Guid.Empty || r.JobId == Guid.Empty || r.Candidate < 1 || r.Fingerprint?.Length != 64) ||
             d.TakePublications.Select(r => r.TakeId).Distinct().Count() != d.TakePublications.Count)
             throw new WorkspaceStoreException("The shots document is invalid or unsupported. It has not been replaced.");
+        ShotDirections.ValidateStrategies(d.DirectionStrategies);
         foreach (var shot in d.Shots) { H3Policy.Validate(shot); if (shot.SelectedTakeId is { } selected && !d.Takes.Any(t => t.Id == selected && t.ShotId == shot.Id)) throw new WorkspaceStoreException("The selected take no longer exists."); }
         foreach (var t in d.Takes.Concat(d.Trash.Where(t => t.Take is not null).Select(t => t.Take!)))
         {
@@ -124,12 +129,16 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         => SaveCore(projectId, shots, null, expectedRevision, reason, ct);
     public Task<ShotDocument> SaveWorkspaceAsync(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup> setups, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
         => SaveCore(projectId, shots, setups, expectedRevision, reason, ct);
+    public Task<ShotDocument> SaveDirectedWorkspaceAsync(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup> setups, IReadOnlyList<DirectionStrategy> strategies, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
+        => SaveCore(projectId, shots, setups, expectedRevision, reason, ct, strategies: strategies);
     public Task<ShotDocument> SaveImageReferencesAsync(Guid projectId, IReadOnlyList<Shot> shots, long expectedRevision, long assetRevision, CancellationToken ct = default)
         => SaveCore(projectId, shots, null, expectedRevision, "Edit image references", ct, assetRevision);
-    private async Task<ShotDocument> SaveCore(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup>? setups, long expectedRevision, string reason, CancellationToken ct, long? assetRevision = null)
+    private async Task<ShotDocument> SaveCore(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup>? setups, long expectedRevision, string reason, CancellationToken ct, long? assetRevision = null, IReadOnlyList<DirectionStrategy>? strategies = null)
     {
         var captured = ShotCopy.Of(shots.ToList()); foreach (var s in captured) H3Policy.Validate(s);
         var capturedSetups = setups is null ? null : ShotCopy.Of(setups.ToList());
+        var capturedStrategies = strategies is null ? null : ShotCopy.Of(strategies.ToList());
+        if (capturedStrategies is not null) ShotDirections.ValidateStrategies(capturedStrategies);
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var d = await Read(dir, projectId, ct); Revision(d, expectedRevision);
         if (assetRevision is { } expectedAssets)
@@ -153,13 +162,13 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         var removed = d.Shots.Where(s => captured.All(x => x.Id != s.Id)).Select(s => s.Id).ToHashSet();
         if (removed.Count > 0 && jobs is not null && (await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == projectId && j.Target.ShotId is { } target && removed.Contains(target) && (j.State is AiJobState.Waiting or AiJobState.Running || j.RemoteUnconfirmed)))
             throw new WorkspaceStoreException("A removed shot has an active production request. Wait or cancel it before deleting.");
-        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), reason, ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups) }); d.Recovery = d.Recovery.Take(30).ToList();
+        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), reason, ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups), DirectionStrategies = ShotCopy.Of(d.DirectionStrategies) }); d.Recovery = d.Recovery.Take(30).ToList();
         foreach (var deleted in d.Shots.Where(s => captured.All(x => x.Id != s.Id)))
         {
             if (deleted.SelectedTakeId is not null) throw new WorkspaceStoreException("Deselect the production take before deleting this shot.");
             foreach (var take in d.Takes.Where(t => t.ShotId == deleted.Id).ToArray()) { TrashTake(d, take, deleted); d.Takes.Remove(take); }
         }
-        d.Shots = captured; if (capturedSetups is not null) d.SceneSetups = capturedSetups; return await Publish(dir, d, ct);
+        d.Shots = captured; if (capturedStrategies is not null) d.DirectionStrategies = capturedStrategies; if (capturedSetups is not null) d.SceneSetups = capturedSetups; return await Publish(dir, d, ct);
     }
     public async Task<ShotDocument> DeleteShotsAsync(Guid projectId, IReadOnlyCollection<Guid> shotIds, long expectedRevision, bool clearProductionSelections = false, CancellationToken ct = default)
     {
@@ -172,7 +181,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         if (selected.Length != ids.Count) throw new WorkspaceStoreException("The selected shots changed. Review the list before deleting.");
         if (!clearProductionSelections && selected.Any(s => s.SelectedTakeId is not null))
             throw new WorkspaceStoreException("Confirm clearing the selected production takes before deleting these shots.");
-        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), $"Before deleting {ids.Count} shot(s)", ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups) });
+        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), $"Before deleting {ids.Count} shot(s)", ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups), DirectionStrategies = ShotCopy.Of(d.DirectionStrategies) });
         d.Recovery = d.Recovery.Take(30).ToList();
         // Capture every original position before removing anything. The manifest is the
         // only publication; videos, frame archives and refinement packages stay in place.
@@ -182,13 +191,19 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         d.Shots.RemoveAll(s => ids.Contains(s.Id));
         return await Publish(dir, d, ct);
     }
-    public async Task<ShotDocument> ApplyPlanningAsync(Guid projectId, Guid jobId, IReadOnlyList<Shot> shots, long expectedRevision, CancellationToken ct = default)
+    public Task<ShotDocument> ApplyPlanningAsync(Guid projectId, Guid jobId, IReadOnlyList<Shot> shots, long expectedRevision, CancellationToken ct = default)
+        => ApplyDirectedPlanningAsync(projectId, jobId, shots, [], expectedRevision, ct);
+    public async Task<ShotDocument> ApplyDirectedPlanningAsync(Guid projectId, Guid jobId, IReadOnlyList<Shot> shots, IReadOnlyList<DirectionStrategy> strategies, long expectedRevision, CancellationToken ct = default)
     {
         var captured = ShotCopy.Of(shots.ToList());
+        var capturedStrategies = ShotCopy.Of(strategies.ToList()); ShotDirections.ValidateStrategies(capturedStrategies);
         if (jobId == Guid.Empty || captured.Count == 0 || captured.Select(s => s.Id).Distinct().Count() != captured.Count)
             throw new WorkspaceStoreException("A reviewed breakdown needs a request identity and distinct shots.");
-        foreach (var shot in captured) H3Policy.Validate(shot, true);
-        var fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(captured, AtomicJsonFile.Options)));
+        foreach (var shot in captured) {
+            H3Policy.Validate(shot, true);
+            if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
+        }
+        var fingerprint = capturedStrategies.Count == 0 ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(captured, AtomicJsonFile.Options))) : ReferenceSetups.Hash(new { Shots = captured, Strategies = capturedStrategies });
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var d = await Read(dir, projectId, ct);
         // A lost acknowledgement must not add duplicates, even after Undo, recovery or deletion.
@@ -201,8 +216,13 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         if (captured.Any(s => d.Shots.Any(existing => existing.Id == s.Id))) throw new WorkspaceStoreException("A proposed shot already exists.");
         var assets = await new lumibelle.Services.Assets.FileAssetStore(files, clock).LoadAsync(projectId, ct);
         foreach (var shot in captured) ShotLooks.Validate(shot, assets);
-        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Add reviewed breakdown", ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups) }); d.Recovery = d.Recovery.Take(30).ToList();
-        d.Shots.AddRange(captured);
+        d.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Add reviewed breakdown", ShotCopy.Of(d.Shots)) { SceneSetups = ShotCopy.Of(d.SceneSetups), DirectionStrategies = ShotCopy.Of(d.DirectionStrategies) }); d.Recovery = d.Recovery.Take(30).ToList();
+        if (capturedStrategies.Any(s => d.DirectionStrategies.Any(old => old.Id == s.Id && ShotDirections.Hash(old) != ShotDirections.Hash(s))))
+            throw new WorkspaceStoreException("A reviewed strategy identity already has different content.");
+        d.DirectionStrategies.AddRange(capturedStrategies.Where(s => d.DirectionStrategies.All(old => old.Id != s.Id)));
+        var script = await new FileScriptStore(files, clock).LoadAsync(projectId, ct);
+        d.Shots = ShotPlanningOrder.Insert(d.Shots, captured, script.Blocks.Where(b => b.Kind == ScriptBlockKind.Scene).Select(b => b.Id));
+        foreach (var shot in captured) ShotDirections.Review(shot, ShotDirections.Strategy(d, shot), ShotDirections.Neighbours(d, shot));
         d.PlanningReviews.Add(new(jobId, clock.GetUtcNow(), captured.Select(s => s.Id).ToArray(), fingerprint));
         return await Publish(dir, d, ct);
     }
@@ -211,7 +231,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         var d = await LoadAsync(projectId, ct); Revision(d, expectedRevision);
         var recovered = ShotCopy.Of(d.Recovery.SingleOrDefault(r => r.Id == recoveryId)?.Shots ?? throw new WorkspaceStoreException("Recovery version not found."));
         foreach (var s in recovered) if (!d.Takes.Any(t => t.Id == s.SelectedTakeId && t.ShotId == s.Id)) s.SelectedTakeId = null;
-        return await SaveWorkspaceAsync(projectId, recovered, d.Recovery.Single(r => r.Id == recoveryId).SceneSetups, expectedRevision, "Restore recovery", ct);
+        return await SaveDirectedWorkspaceAsync(projectId, recovered, d.Recovery.Single(r => r.Id == recoveryId).SceneSetups, d.Recovery.Single(r => r.Id == recoveryId).DirectionStrategies, expectedRevision, "Restore recovery", ct);
     }
     private void TrashTake(ShotDocument d, ShotTake take, Shot owner)
     {

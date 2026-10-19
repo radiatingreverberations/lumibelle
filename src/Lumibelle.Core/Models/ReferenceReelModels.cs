@@ -3,7 +3,8 @@ namespace lumibelle.Models;
 public enum ReelFraming { ContinuousTurn, BodyToFace, ThreeAngles, Custom, SideRearFace, EnvironmentTurn, EnvironmentPan, EnvironmentPath,
     EnvironmentHalfTurn, EnvironmentHeldViews, EnvironmentPullBack, EnvironmentApproach, EnvironmentArc, CharacterCapture,
     CharacterNeutralTurntable, CharacterSilhouetteReveal, CharacterPoseExpansion, CharacterDrapeCheck, CharacterSeatedToStanding, CharacterFacePriority, CharacterVoiceReference,
-    PropOrbit, PropHalfOrbit, PropTurntable, PropHeldViews, PropRise, PropDetail, PropCustom }
+    PropOrbit, PropHalfOrbit, PropTurntable, PropHeldViews, PropRise, PropDetail, PropCustom,
+    EnvironmentFullSet, EnvironmentFeatureStudy, EnvironmentWalkthrough }
 public enum ReelCameraDirection { Right, Left }
 public enum ReelVoiceMode { NewVoice, ExistingRecording, Silent }
 public enum ReelArticulation { None, Arms, Knee }

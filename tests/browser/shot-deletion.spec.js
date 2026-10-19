@@ -1,5 +1,5 @@
 import { shotAction, generateTakes, composeProduction, toolsTab } from './workspace-tools.js';
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 async function setup(page, request) {
@@ -8,10 +8,11 @@ async function setup(page, request) {
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await submitPlanning(page);
   await planning.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   const state = async () => (await (await request.get(`/fixtures/${id}/shots`)).json());
   await expect.poll(async () => (await state()).shots.length).toBe(1);
   return { id, state };

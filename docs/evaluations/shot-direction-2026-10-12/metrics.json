@@ -1,0 +1,182 @@
+[
+  {
+    "scene": 1,
+    "arm": "baseline",
+    "shots": 10,
+    "seconds": 51,
+    "requestSeconds": 47.0412411,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 1,
+    "arm": "updated",
+    "shots": 7,
+    "seconds": 46,
+    "requestSeconds": 70.4341403,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 2,
+    "arm": "updated",
+    "shots": 5,
+    "seconds": 30,
+    "requestSeconds": 46.9988929,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 2,
+    "arm": "baseline",
+    "shots": 6,
+    "seconds": 32,
+    "requestSeconds": 28.4639611,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 3,
+    "arm": "updated",
+    "shots": 3,
+    "seconds": 14,
+    "requestSeconds": 36.9190833,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 3,
+    "arm": "baseline",
+    "shots": 4,
+    "seconds": 16,
+    "requestSeconds": 16.030065,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 4,
+    "arm": "updated",
+    "shots": 3,
+    "seconds": 15,
+    "requestSeconds": 36.3576377,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 4,
+    "arm": "baseline",
+    "shots": 4,
+    "seconds": 18,
+    "requestSeconds": 23.0469704,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 5,
+    "arm": "baseline",
+    "shots": 4,
+    "seconds": 21,
+    "requestSeconds": 21.8587219,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 5,
+    "arm": "updated",
+    "shots": 4,
+    "seconds": 18,
+    "requestSeconds": 41.1215918,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 6,
+    "arm": "updated",
+    "shots": 5,
+    "seconds": 20,
+    "requestSeconds": 43.9781272,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 6,
+    "arm": "baseline",
+    "shots": 6,
+    "seconds": 22,
+    "requestSeconds": 25.0603937,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 7,
+    "arm": "baseline",
+    "shots": 5,
+    "seconds": 26,
+    "requestSeconds": 21.766702,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 7,
+    "arm": "updated",
+    "shots": 4,
+    "seconds": 26,
+    "requestSeconds": 46.3584656,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 8,
+    "arm": "baseline",
+    "shots": 4,
+    "seconds": 15,
+    "requestSeconds": 18.1270436,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 8,
+    "arm": "updated",
+    "shots": 4,
+    "seconds": 17.5,
+    "requestSeconds": 42.3272149,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 9,
+    "arm": "baseline",
+    "shots": 5,
+    "seconds": 19,
+    "requestSeconds": 26.3849581,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 9,
+    "arm": "updated",
+    "shots": 4,
+    "seconds": 18,
+    "requestSeconds": 42.1897554,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 10,
+    "arm": "baseline",
+    "shots": 5,
+    "seconds": 34,
+    "requestSeconds": 23.3768475,
+    "success": "finished",
+    "usage": null
+  },
+  {
+    "scene": 10,
+    "arm": "updated",
+    "shots": 4,
+    "seconds": 32,
+    "requestSeconds": 44.5030632,
+    "success": "finished",
+    "usage": null
+  }
+]

@@ -37,7 +37,7 @@ public sealed class SingleShotDraftTests
         Assert.Equal("You called?", (string)task["alreadySpokenDialogue"]![0]!);
         Assert.DoesNotContain(task["unspokenDialogue"]!.AsArray(), line => (string)line! == "You called?");
         Assert.Equal("A close-up of the key in her hand", (string)task["directions"]!);
-        Assert.Equal("single-shot-v1", ShotPlanner.Profile(request));
+        Assert.Equal("single-shot-direction-v2", ShotPlanner.Profile(request));
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class SingleShotDraftTests
         Assert.Null(result.Error);
         var shot = Assert.Single(result.Shots);
         Assert.Equal("The key", shot.Title);
-        Assert.Equal("single-shot-v1", shot.Planning!.Profile);
+        Assert.Equal("single-shot-direction-v2", shot.Planning!.Profile);
         // "You called?" is spoken by the existing shot, so it is not reported as uncovered.
         Assert.DoesNotContain(result.UncoveredDialogue, line => line.Contains("You called?"));
     }

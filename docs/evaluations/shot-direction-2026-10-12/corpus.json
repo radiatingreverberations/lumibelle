@@ -1,0 +1,755 @@
+[
+  {
+    "name": "Noxian podium",
+    "origin": "Saved SparkleRiley screenplay; opening podium excerpt, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "5001563e-5d6b-4818-bf6e-44740aaeb01a",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "EXT. NOXIAN MAIN PLAZA — DAY",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "8bb38cf5-5462-4833-8b44-8c9cbdb052b6",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A judicial bench and battered defendant’s podium occupy a sunlit square. Three curious citizens stop to watch. Beyond the rooftops, an enormous black fortress dominates the skyline, its battlements bristling with crimson banners.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "f2908c82-0cda-4d6d-a9b5-f4bdd3d33ef8",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "The guard places Riley behind the podium. She edges toward an open passage. Without looking up, he slides his chair into her path. She returns to the podium.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "1ce579b4-b93a-4911-83a4-d3a66f98718d",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A NOXIAN MAGISTRATE sits behind the bench, armored in black iron. He puts on very small reading glasses.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "9cb7c748-9d0d-499e-8e2a-5ba69da90cc2",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "MAGISTRATE",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "c3a7c82b-2510-40be-9223-b1f9783c8add",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "You entered Noxus under suspicious circumstances—",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "baa5ef46-4b21-4427-9576-99d1acab1859",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "RILEY",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "412bb2d9-2f3a-498d-8532-927e55e11c83",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "That’s fair.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "3c3f1286-0dbb-4910-80d4-179e1773d279",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "MAGISTRATE",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "d8c6b36b-a86f-47f5-b95b-cec736d38f25",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "—and knowingly selected Lux for the top lane.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "7a00d858-7214-459f-ab41-fac9f7f6df5a",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "RILEY",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "e00e60f3-496e-41d7-9b05-5d200d7173b0",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "I’d like to focus on the first thing.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "ec53eedb-529d-4b52-8dd5-8c0d9f141a59",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A spectator leans closer. Riley shifts behind the podium, avoiding their gaze.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "b84785aa-d4c6-4244-8dfa-decf6d343dce",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "GUARD",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "60fbc714-8a98-4e21-812c-b19510e7333e",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Her team’s statement: “Please. We need someone to stand in front.”",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "ee49a2be-486a-4849-b003-849b6ce486db",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "RILEY",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "eabe9046-b5e9-4a4e-b923-9f9853fe5065",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "I can stand in front.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      },
+      {
+        "id": "f9181a6a-10b9-44af-bb04-dad0ef66f058",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "The magistrate peers at her over the podium. She reluctantly straightens.",
+            "bold": false,
+            "italic": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Ensemble accusation",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "a406ae2a-fd91-5d14-b2fa-13d3e3f8cb4b",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. COUNCIL ROOM - NIGHT"
+          }
+        ]
+      },
+      {
+        "id": "947b65d4-3ec0-5aa6-b767-1cd41916ab8b",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "Five council members sit together. Mara stands alone at the open end of their table. Len places a sealed letter in front of her."
+          }
+        ]
+      },
+      {
+        "id": "95159caf-2434-5c2e-a732-8137692090e1",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "LEN"
+          }
+        ]
+      },
+      {
+        "id": "9bb76fd5-85a6-5b7a-b652-d66dc3e2ec94",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Your seal. Your handwriting."
+          }
+        ]
+      },
+      {
+        "id": "e8f901e7-1748-5f10-95c5-b3b5b668a635",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "MARA"
+          }
+        ]
+      },
+      {
+        "id": "5d314760-ea59-5a03-b44c-71e4265cbe63",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Then someone has learned both."
+          }
+        ]
+      },
+      {
+        "id": "472912ca-cf32-5892-9a45-72adcc8e111c",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "The youngest councillor looks at Len. One by one the others turn their chairs away from Mara. Mara stays standing."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Delayed comic reaction",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "7ee7ac20-339e-5bd5-827d-9ac1cc482031",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. RECEPTION - DAY"
+          }
+        ]
+      },
+      {
+        "id": "ffcaa653-e728-5bab-879a-0c120d8cfddc",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A receptionist carefully stamps a form. Ivo waits with a fishbowl under his arm."
+          }
+        ]
+      },
+      {
+        "id": "30037a30-e205-510a-8ae9-53a985673819",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "RECEPTIONIST"
+          }
+        ]
+      },
+      {
+        "id": "4449eefb-636b-5bd4-a548-2b7b6295b6b4",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Any dependants?"
+          }
+        ]
+      },
+      {
+        "id": "97c88067-50a3-59c2-adb3-f62ed35c36e5",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "IVO"
+          }
+        ]
+      },
+      {
+        "id": "c2cb957e-aa69-53a7-bfd1-1097784cf8e3",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "One."
+          }
+        ]
+      },
+      {
+        "id": "75abeb10-6a8c-56a9-97d0-3ed39b290e20",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "She stamps again, then notices the fish. She stops with the stamp raised. Ivo gives the fish a reassuring nod."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Physical comedy",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. BANQUET HALL - DAY"
+          }
+        ]
+      },
+      {
+        "id": "a8bcb19a-8b14-5276-8755-4a30e1664f6e",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced."
+          }
+        ]
+      },
+      {
+        "id": "209674cd-f899-50f6-88f7-7cd1c4f6724f",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "NELL"
+          }
+        ]
+      },
+      {
+        "id": "a78b34bd-a0ef-5005-bda9-2d863a6e3723",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Excellent teamwork."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pursuit geography",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "2b81bb6b-f4ae-562d-8b74-664d1322b681",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "EXT. CANAL WALK - EVENING"
+          }
+        ]
+      },
+      {
+        "id": "16676de7-0dd4-5dbc-9b2f-1cc2416ca5fc",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A courier runs along the south bank toward a footbridge. Her pursuer follows twenty paces behind. The bridge is closed by a locked gate. She sees a low service boat drifting under it, jumps down onto its roof, and disappears beneath the bridge. The pursuer reaches the locked gate and sees her emerge on the north bank."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Concealed recognition",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. TRAIN CARRIAGE - NIGHT"
+          }
+        ]
+      },
+      {
+        "id": "3f1f616f-3068-5c3d-b4be-6bda7a462172",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm."
+          }
+        ]
+      },
+      {
+        "id": "e8b1bfe9-af5b-541d-b817-25beacdf5676",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "STRANGER"
+          }
+        ]
+      },
+      {
+        "id": "4d6b5f69-ad9d-5313-b7cf-22021891d410",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Have we met?"
+          }
+        ]
+      },
+      {
+        "id": "4f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "ADA"
+          }
+        ]
+      },
+      {
+        "id": "3e4c45f4-57a1-5cc1-b3b9-10a957cd3518",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "I would remember."
+          }
+        ]
+      },
+      {
+        "id": "93236959-ff76-5784-8666-75ff84785ba0",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "She slips her own ticket into her coat instead of handing it to him."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Reconciliation",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "b30599c2-de00-5514-918e-5b267366f049",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "EXT. GARDEN BENCH - MORNING"
+          }
+        ]
+      },
+      {
+        "id": "84e7586d-271c-5ee8-b5d5-5de1f1192ad5",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "An empty space separates two sisters on a bench. Lea puts a repaired cup in that space."
+          }
+        ]
+      },
+      {
+        "id": "b197968f-ec3b-5a46-b097-af11e0e4a6d8",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "LEA"
+          }
+        ]
+      },
+      {
+        "id": "53e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "It still leaks."
+          }
+        ]
+      },
+      {
+        "id": "c3d232df-0f54-500a-b64f-8a49ec2cb491",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "SANA"
+          }
+        ]
+      },
+      {
+        "id": "b4ef134a-9d68-56c0-8e9a-543f3935bd47",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "So do most things worth keeping."
+          }
+        ]
+      },
+      {
+        "id": "8e55cb11-4bef-59fd-9267-436dd754a001",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "Sana moves the cup aside and takes Lea’s hand. Neither looks at the other. They watch the gardener turn on the sprinklers."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Prop handoff",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "9206624c-8610-5c22-944c-7d7e991def65",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. WORKSHOP - DAY"
+          }
+        ]
+      },
+      {
+        "id": "6a71e214-8a1a-5202-8be5-bd8c09ce2b79",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "A red key rests on the workbench between Tess and Arlo. Tess picks it up in her right hand."
+          }
+        ]
+      },
+      {
+        "id": "fd57ef0d-deff-5365-aca5-ccfb0a9a802a",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "TESS"
+          }
+        ]
+      },
+      {
+        "id": "918c347e-dfa9-5090-bf8c-468844611c98",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Bring it back before dark."
+          }
+        ]
+      },
+      {
+        "id": "ba61e3fc-60e6-5d8c-b4fa-54f6a1882406",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "She places it in Arlo’s open left palm. He closes his hand and pockets the key on his left side. Tess looks at the now empty patch of workbench."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Interruption",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. FAMILY KITCHEN - NIGHT"
+          }
+        ]
+      },
+      {
+        "id": "96b772bc-4207-59ee-8a24-593a9a33d41f",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "FATHER"
+          }
+        ]
+      },
+      {
+        "id": "d053dd0f-20ca-523c-8f76-81d6a66ede46",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "What I should have told you years ago—"
+          }
+        ]
+      },
+      {
+        "id": "17dd3b83-7ae9-56cc-ad12-feaaf9b0053c",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "The kettle whistles. His daughter reaches past him and switches it off, keeping her eyes on him."
+          }
+        ]
+      },
+      {
+        "id": "0ab4ecaa-d492-5d1e-9771-6a6534e2fc33",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "DAUGHTER"
+          }
+        ]
+      },
+      {
+        "id": "a6d3ed58-e1b5-5174-8101-8309a8715cc0",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Go on."
+          }
+        ]
+      },
+      {
+        "id": "5ad851c2-018a-52f8-a04f-ed82dcd95b5a",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "He opens his mouth but cannot continue. She pulls out the chair beside her."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Sustained dialogue",
+    "origin": "Authored evaluation fixture, frozen 2026-10-12",
+    "blocks": [
+      {
+        "id": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "kind": "Scene",
+        "spans": [
+          {
+            "text": "INT. OBSERVATORY - DAWN"
+          }
+        ]
+      },
+      {
+        "id": "fa292184-e7b7-51d5-b3cf-7a13fec3503e",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "Two astronomers wait beside a covered telescope. The younger keeps reaching for the cover; the older steadies her hand."
+          }
+        ]
+      },
+      {
+        "id": "a3349e1b-723a-57ab-a3f6-6988668ff183",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "OLDER"
+          }
+        ]
+      },
+      {
+        "id": "200900f8-011c-5ffd-bf4c-5433329cfc3d",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment."
+          }
+        ]
+      },
+      {
+        "id": "a5b8d717-76ce-53d6-892f-6c52f7060a26",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "YOUNGER"
+          }
+        ]
+      },
+      {
+        "id": "02139e6d-6786-54e8-850b-13dd46cfef4d",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "And if it disappears?"
+          }
+        ]
+      },
+      {
+        "id": "e594744d-d953-5048-8f26-6e78d8c27d87",
+        "kind": "Character",
+        "spans": [
+          {
+            "text": "OLDER"
+          }
+        ]
+      },
+      {
+        "id": "a606b105-4c0a-572a-8121-346fc223781d",
+        "kind": "Dialogue",
+        "spans": [
+          {
+            "text": "Then we will have seen it together."
+          }
+        ]
+      },
+      {
+        "id": "b8c2cdba-3881-51b4-ba05-355f6e18afaf",
+        "kind": "Action",
+        "spans": [
+          {
+            "text": "They lift the cover together as the room begins to brighten."
+          }
+        ]
+      }
+    ]
+  }
+]

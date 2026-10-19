@@ -33,6 +33,24 @@ public sealed partial class FileProductionStore
             d.EarlierSetupContent.Any(s => s is null || Invalid(s.Content)) ||
             d.Compositions.Any(c => !d.ShotContent.Any(s => s.ShotId == c.ShotId)))
             throw new WorkspaceStoreException("The shot prompts or references are invalid. They have not been replaced.");
+        if (d.SchemaVersion == 3)
+        {
+            foreach (var content in d.ShotContent)
+            {
+                var setups = d.Compositions.Where(c => c.ShotId == content.ShotId).ToArray();
+                var environments = setups.Where(c => !c.Archived).Select(c => c.Shot.EnvironmentAssetId).OfType<Guid>().Distinct().ToArray();
+                // Recover a single established library, including when the default preset had none.
+                // Conflicting libraries require a fresh choice; retain their earlier setup records.
+                content.EnvironmentAssetId ??= environments.Length == 1 ? environments[0] : null;
+                foreach (var setup in setups.Where(c => c.Shot.EnvironmentAssetId is not null && c.Shot.EnvironmentAssetId != content.EnvironmentAssetId))
+                {
+                    var earlier = ShotCopy.Of(content); earlier.EnvironmentAssetId = setup.Shot.EnvironmentAssetId;
+                    if (!d.EarlierSetupContent.Any(e => e.SetupId == setup.Id && e.Content.EnvironmentAssetId == earlier.EnvironmentAssetId))
+                        d.EarlierSetupContent.Add(new(setup.Id, setup.Name, earlier));
+                }
+            }
+            d.SchemaVersion = 4;
+        }
         foreach (var c in d.Compositions) d.ShotContent.Single(s => s.ShotId == c.ShotId).Apply(c);
     }
 
@@ -64,6 +82,16 @@ public sealed partial class FileProductionStore
         if (existing?.SchemaVersion == 2)
         {
             var backup = Path.Combine(dir, "production-before-shared-inputs.json");
+            if (!File.Exists(backup)) {
+                var temporary = backup + ".tmp";
+                File.Copy(path, temporary, overwrite: true);
+                DurableFile.Flush(temporary);
+                File.Move(temporary, backup);
+            }
+        }
+        if (existing?.SchemaVersion == 3)
+        {
+            var backup = Path.Combine(dir, "production-before-shared-environment.json");
             if (!File.Exists(backup)) {
                 var temporary = backup + ".tmp";
                 File.Copy(path, temporary, overwrite: true);

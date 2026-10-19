@@ -19,7 +19,7 @@ for (const narrow of [false, true]) test(`protected regional edits review before
   await page.getByLabel('Edit instruction',{exact:true}).fill('Change the background colour');
   await page.locator('#aspect').selectOption('1:1');
   // Edit area and protection are separate editors on Image 1 in Manage references.
-  await page.getByRole('button',{name:'Manage references',exact:true}).click();
+  await page.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true}).click();
   const manager=page.locator('.image-input-manager-dialog');
   await expect(manager).toBeVisible();
   const selected=manager.getByRole('tab',{name:/^Selected references/});

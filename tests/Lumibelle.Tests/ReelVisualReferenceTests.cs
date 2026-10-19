@@ -17,16 +17,16 @@ public sealed class ReelVisualReferenceTests
     [InlineData(ReelFraming.ContinuousTurn)] [InlineData(ReelFraming.BodyToFace)]
     [InlineData(ReelFraming.CharacterCapture)] [InlineData(ReelFraming.CharacterNeutralTurntable)]
     [InlineData(ReelFraming.CharacterVoiceReference)]
-    [InlineData(ReelFraming.EnvironmentTurn)] [InlineData(ReelFraming.EnvironmentHeldViews)]
+    [InlineData(ReelFraming.EnvironmentFullSet)] [InlineData(ReelFraming.EnvironmentWalkthrough)]
     public async Task PresetsSupportVideoOnlyReferencesWithoutInventingPictures(ReelFraming framing)
     {
         using var f = new RefModOnDemandFixture();
         var accepted = await f.Preparation.CaptureAsync(f.Project.Id, f.Shot, _ct);
-        var environment = framing is ReelFraming.EnvironmentTurn or ReelFraming.EnvironmentHeldViews;
+        var environment = framing is ReelFraming.EnvironmentFullSet or ReelFraming.EnvironmentWalkthrough;
         var owner = f.Owner with { Category = environment ? AssetCategory.Environment : AssetCategory.Character };
         foreach (var mode in new[] { ReelVisuals.RefMod, ReelVisuals.FullReel })
         {
-            var draft = ReferenceReels.NewDraft(owner); draft.Framing = framing;
+            var draft = ReferenceReels.NewDraft(owner); draft.Framing = framing; draft.Instructions = "From the doorway along the wall to the desk.";
             draft.KeyframeReels = ShotCopy.Of(accepted.Videos);
             draft.KeyframeReels[0].Visuals = mode; draft.KeyframeReels[0].UseSoundtrack = false;
             var pair = ReferenceReels.Preset(draft);

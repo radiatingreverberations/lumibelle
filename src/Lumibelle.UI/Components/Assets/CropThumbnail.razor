@@ -36,15 +36,22 @@
     private int ActualHeight => _size is [> 0, > 0] ? _size[1] : Height;
     [Parameter] public int ThumbnailWidth { get; set; } = 58;
     [Parameter] public int ThumbnailHeight { get; set; } = 58;
+    [Parameter] public bool Responsive { get; set; }
 
     // Dimensions are already EXIF-oriented, just as they are for generation inputs.
     private SixLabors.ImageSharp.Rectangle Pixels => ImageGeometry.CropPixels(ActualWidth, ActualHeight, Crop ?? new());
-    private string BoxStyle => FormattableString.Invariant($"width:{ThumbnailWidth}px;height:{ThumbnailHeight}px");
+    private string BoxStyle => Responsive ? FormattableString.Invariant($"width:100%;aspect-ratio:{ThumbnailWidth}/{ThumbnailHeight}")
+        : FormattableString.Invariant($"width:{ThumbnailWidth}px;height:{ThumbnailHeight}px");
     private string RegionStyle
     {
         get
         {
             var pixels = Pixels;
+            if (Responsive) {
+                var ratio = (double)pixels.Width / pixels.Height;
+                var box = (double)ThumbnailWidth / ThumbnailHeight;
+                return FormattableString.Invariant($"width:{Math.Min(1, ratio / box) * 100:0.######}%;height:{Math.Min(1, box / ratio) * 100:0.######}%");
+            }
             var scale = Math.Min(ThumbnailWidth / (double)pixels.Width, ThumbnailHeight / (double)pixels.Height);
             return FormattableString.Invariant($"width:{pixels.Width * scale:0.######}px;height:{pixels.Height * scale:0.######}px");
         }

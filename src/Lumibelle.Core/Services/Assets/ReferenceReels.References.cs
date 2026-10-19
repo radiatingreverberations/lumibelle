@@ -53,6 +53,6 @@ public static partial class ReferenceReels
         videos = ResolvedReferences.For(Inputs(draft)).Videos.Select(v => new { label = $"<Video {v.Number}>", v.Reel.Name,
             representation = v.Reel.EffectiveVisuals.ToString(), authorProvidedDescription = v.Reel.Description }),
         sparseInspectionAttachments = frames.Select((f, i) => new { attachment = pictureCount + i + 1,
-            video = f.VideoNumber, frame = f.FrameNumber, f.ReelName, f.Notes, f.Sha256 })
+            video = f.VideoNumber, frame = f.FrameNumber, f.ReelName, f.ViewName, f.Notes, f.Sha256 })
     };
 }

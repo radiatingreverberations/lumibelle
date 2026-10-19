@@ -54,7 +54,8 @@ public static class AssetPickCatalog
                 candidates.Add(new() {
                     Id = Id("reel", reel.Id), Kind = "Reel", AssetId = asset.Id, SourceId = reel.Id,
                     Name = reel.Name, MediaId = reel.Media.Id, LookId = reel.LookId, Guidance = reel.UseGuidance,
-                    Description = string.Join("\n", (reel.Keyframes?.Frames ?? []).Select(f => f.Notes).Where(n => !string.IsNullOrWhiteSpace(n))),
+                    Description = string.Join("\n", (reel.Keyframes?.Frames ?? []).Select((f, i) =>
+                        $"{ReelViewSuggestions.Label(f, i + 1)} · {f.Frame.Seconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} s: {f.Notes}")),
                     Duration = reel.Media.Duration, ExcerptDuration = Math.Min(5, reel.Media.Duration),
                     AudioAvailable = audio, VoiceDescription = reel.Generation?.Recipe.VoiceDescription ?? "",
                     Language = reel.Generation?.Recipe.Language ?? "", KeyframeCount = frames,

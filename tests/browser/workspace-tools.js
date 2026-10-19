@@ -67,14 +67,14 @@ export async function shotAction(page, name) {
 }
 
 export async function addImageReference(page, key) {
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.image-input-manager-dialog');
   await picker.locator(`[data-reference="${key}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
 }
 export async function editShotReference(page, row = page.locator('.compact-reference').first()) {
   const id = await row.getAttribute('data-reference-id');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const editor = page.locator('.manual-reference-dialog');
   const expand = editor.locator(`[data-reference-id="${id}"] .reference-settings-button`);
   await expect(expand).toBeAttached();
@@ -159,7 +159,7 @@ export async function cropReference(page, manager, index = 0, zoom = 2, x = 50, 
 }
 
 export async function cropImageInput(page, index, zoom, x, y) {
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const manager = page.locator('.image-input-manager-dialog');
   const selected = manager.getByRole('tab', { name: /^Selected references/ });
   if (await selected.isVisible()) await selected.click();

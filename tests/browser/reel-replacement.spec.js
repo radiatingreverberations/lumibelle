@@ -56,15 +56,19 @@ for (const narrow of [false, true]) test(`a shot replaces its reel, also in othe
   const attention = page.locator('.shot-prompt-review');
   await expect(page.locator('.shots-outline')).toContainText('Production test');
   await expect(attention).toHaveCount(0);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
   await expect(refs.locator('[data-video-reference-id]')).toContainText(' MP · ');
   await refs.getByRole('button', { name: 'Video 1: Replace reel', exact: true }).click();
   const choice = refs.locator('.reel-swap-choices li').filter({ hasText: next.name });
   await expect(refs.locator('.reel-swap-choices li')).toHaveCount(1);
-  // The short list and the reference list both replace the reel.
-  if (narrow) await choice.getByRole('button', { name: /^Use / }).click();
+  // Replace opens the unified browser. Return to the selected tab to exercise its short list too.
+  if (narrow) {
+    await expect(refs.getByRole('tab', { name: 'Browse', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await refs.getByRole('tab', { name: /Selected references/ }).click();
+    await choice.getByRole('button', { name: /^Use / }).click();
+  }
   else await refs.locator(`[data-reel-id="${next.id}"]`).getByRole('button', { name: `Replace Video 1 with ${next.name}`, exact: true }).click();
   await expect(refs.locator('.reel-swap-result')).toContainText(`Uses ${next.name} · `); await expect(refs.locator('.reel-swap-result')).toContainText(`instead of ${old.name} · `);
   await refs.getByLabel('Also replace it in 1 other shot', { exact: true }).check();

@@ -1,0 +1,24 @@
+<button data-shot-take="@Take.Id" class="@(IsSelected ? "take-choice-selected" : null)" aria-pressed="@(IsViewing ? "true" : "false")" @onclick="() => View.InvokeAsync(Take.Id)">
+    <img data-ai-candidate="@Take.Id" src="@ThumbnailUrl" alt="" loading="lazy" />
+    <span class="take-choice-caption">
+        <span>@Label</span>
+        <span class="take-choice-states">
+            @if (IsSelected) { <span class="take-selected-badge" title="Selected for this shot">Selected</span> }
+            @if (IsViewing) { <span class="take-viewing-badge" title="Showing in the player">Viewing</span> }
+        </span>
+    </span>
+</button>
+<button disabled="@Busy" @onclick="() => Use.InvokeAsync(Take)">@(IsSelected ? "Deselect take" : "Use this take")</button>
+<button disabled="@(Busy || IsSelected)" @onclick="() => Discard.InvokeAsync(Take)">Discard</button>
+
+@code {
+    [Parameter, EditorRequired] public ShotTake Take { get; set; } = default!;
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string ThumbnailUrl { get; set; } = "";
+    [Parameter] public bool IsViewing { get; set; }
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<Guid> View { get; set; }
+    [Parameter] public EventCallback<ShotTake> Use { get; set; }
+    [Parameter] public EventCallback<ShotTake> Discard { get; set; }
+}

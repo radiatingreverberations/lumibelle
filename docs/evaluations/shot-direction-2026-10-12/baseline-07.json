@@ -1,0 +1,315 @@
+{
+  "name": "Reconciliation",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 21.766702,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Space Between\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u002284e7586d-271c-5ee8-b5d5-5de1f1192ad5\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Opening composition: a frontal, static wide shot of a garden bench in morning light. Lea and Sana sit at opposite ends, with a clear empty space between them on the bench. Both face forward. The camera holds, then pushes in very slowly as Lea reaches into the gap and sets down a repaired cup, its mended seams visible. She withdraws her hand. Ending composition: a medium-wide two-shot with the repaired cup alone at the center of the bench between the two sisters.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet, restrained morning stillness with soft natural light and a held distance between the sisters.\u0022,\n    \u0022music\u0022: \u0022Silence, or the faintest sustained ambient tone under the garden sounds.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022It Still Leaks\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b197968f-ec3b-5a46-b097-af11e0e4a6d8\u0022,\n      \u002253e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Cut to a static medium close-up of Lea in three-quarter profile from Sana\u0027s side of the bench. Sana is a soft out-of-focus shoulder at the frame edge. Lea\u0027s eyes stay forward and she does not look at her sister as she speaks. Ending composition: Lea\u0027s face, still and averted, holding after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022LEA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022It still leaks.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Understated and intimate. The admission is dry and carries quiet weight.\u0022,\n    \u0022music\u0022: \u0022None. Natural garden ambience only.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Worth Keeping\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022c3d232df-0f54-500a-b64f-8a49ec2cb491\u0022,\n      \u0022b4ef134a-9d68-56c0-8e9a-543f3935bd47\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Reverse angle to a static medium close-up of Sana in three-quarter profile from Lea\u0027s side, matching the opposing eyeline. Lea\u0027s shoulder is soft at the frame edge. Sana keeps her gaze forward and does not turn to Lea as she answers. Ending composition: Sana\u0027s face holding in the quiet after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022SANA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022So do most things worth keeping.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022LEA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Gentle and tender beneath a reserved surface.\u0022,\n    \u0022music\u0022: \u0022A soft, sparse note begins to enter, barely audible.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Taking Her Hand\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Cut to a high-angle close-up of the bench seat. The repaired cup sits in the empty space, with the sisters\u0027 hands resting near their own laps. Sana\u0027s hand enters, moves the cup aside, then crosses the gap and takes Lea\u0027s hand. Ending composition: the two clasped hands filling the space where the cup was, with the cup pushed to the edge of frame.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022LEA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Small, decisive tenderness. The gap is closed without words.\u0022,\n    \u0022music\u0022: \u0022A sparse, warm phrase on piano or soft strings.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Sprinklers\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Cut to a wide shot from behind the bench. Lea and Sana are seen from the back, hands joined between them, with the garden opening up beyond. Neither looks at the other. Both watch the gardener in the middle distance as he turns on the sprinklers and water begins to arc across the garden. The camera slowly drifts back, widening the view. Ending composition: the two small seated figures, hands linked, framed against the spraying sprinklers in the morning light.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022GARDENER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Calm, quietly reconciled closeness, with morning light catching the water spray.\u0022,\n    \u0022music\u0022: \u0022The gentle phrase resolves softly under the hiss of the sprinklers.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "216a0b8a-f0cb-43a3-96d6-f2076dbb1067",
+        "title": "The Space Between",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "b30599c2-de00-5514-918e-5b267366f049",
+          "84e7586d-271c-5ee8-b5d5-5de1f1192ad5"
+        ],
+        "sourceExcerpt": "## EXT. GARDEN BENCH - MORNING\n\nAn empty space separates two sisters on a bench. Lea puts a repaired cup in that space.",
+        "planning": {
+          "id": "bae7b584-6629-44c4-8e0f-ae73a0a8562d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T05:57:53.7271319+00:00"
+        },
+        "duration": 7,
+        "description": "Opening composition: a frontal, static wide shot of a garden bench in morning light. Lea and Sana sit at opposite ends, with a clear empty space between them on the bench. Both face forward. The camera holds, then pushes in very slowly as Lea reaches into the gap and sets down a repaired cup, its mended seams visible. She withdraws her hand. Ending composition: a medium-wide two-shot with the repaired cup alone at the center of the bench between the two sisters.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "7b2edbb3-b026-4ac8-a8dc-0b2daa727d70",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "9df87fb3-a749-4dd0-bca0-61cf9b19d00b",
+            "name": "SANA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet, restrained morning stillness with soft natural light and a held distance between the sisters.",
+        "music": "Silence, or the faintest sustained ambient tone under the garden sounds.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "08ec65f7-0030-4b76-a8d6-b15bd9b3aee9",
+        "title": "It Still Leaks",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "b197968f-ec3b-5a46-b097-af11e0e4a6d8",
+          "53e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd"
+        ],
+        "sourceExcerpt": "### LEA\n\nIt still leaks.",
+        "planning": {
+          "id": "bae7b584-6629-44c4-8e0f-ae73a0a8562d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T05:57:53.7271319+00:00"
+        },
+        "duration": 3,
+        "description": "Cut to a static medium close-up of Lea in three-quarter profile from Sana\u0027s side of the bench. Sana is a soft out-of-focus shoulder at the frame edge. Lea\u0027s eyes stay forward and she does not look at her sister as she speaks. Ending composition: Lea\u0027s face, still and averted, holding after the line.",
+        "dialogue": [
+          {
+            "id": "ea9169ec-3b75-478b-aea7-2e30a465bdae",
+            "speaker": "LEA",
+            "language": "en",
+            "text": "It still leaks."
+          }
+        ],
+        "characters": [
+          {
+            "id": "04392e33-c35b-47b6-b868-6a8b940de746",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "47aa7c5c-10b1-4723-b95a-c984fc47a46e",
+            "name": "SANA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Understated and intimate. The admission is dry and carries quiet weight.",
+        "music": "None. Natural garden ambience only.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "2b4493bc-e0f3-4d83-80c0-ddc0a0c7a8bb",
+        "title": "Worth Keeping",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "c3d232df-0f54-500a-b64f-8a49ec2cb491",
+          "b4ef134a-9d68-56c0-8e9a-543f3935bd47"
+        ],
+        "sourceExcerpt": "### SANA\n\nSo do most things worth keeping.",
+        "planning": {
+          "id": "bae7b584-6629-44c4-8e0f-ae73a0a8562d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T05:57:53.7271319+00:00"
+        },
+        "duration": 4,
+        "description": "Reverse angle to a static medium close-up of Sana in three-quarter profile from Lea\u0027s side, matching the opposing eyeline. Lea\u0027s shoulder is soft at the frame edge. Sana keeps her gaze forward and does not turn to Lea as she answers. Ending composition: Sana\u0027s face holding in the quiet after the line.",
+        "dialogue": [
+          {
+            "id": "06cf92b4-2e3f-4f74-a2bd-3833df44f5b5",
+            "speaker": "SANA",
+            "language": "en",
+            "text": "So do most things worth keeping."
+          }
+        ],
+        "characters": [
+          {
+            "id": "e02e0eb3-19ec-4787-9cfe-9ac42d747f06",
+            "name": "SANA",
+            "appearance": null
+          },
+          {
+            "id": "40803367-2b4a-48d7-9230-7a04c978a062",
+            "name": "LEA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Gentle and tender beneath a reserved surface.",
+        "music": "A soft, sparse note begins to enter, barely audible.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "c5c14617-ee70-4ffc-8cce-8d03e320a78a",
+        "title": "Taking Her Hand",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "8e55cb11-4bef-59fd-9267-436dd754a001"
+        ],
+        "sourceExcerpt": "Sana moves the cup aside and takes Lea\u2019s hand. Neither looks at the other. They watch the gardener turn on the sprinklers.",
+        "planning": {
+          "id": "bae7b584-6629-44c4-8e0f-ae73a0a8562d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T05:57:53.7271319+00:00"
+        },
+        "duration": 5,
+        "description": "Cut to a high-angle close-up of the bench seat. The repaired cup sits in the empty space, with the sisters\u0027 hands resting near their own laps. Sana\u0027s hand enters, moves the cup aside, then crosses the gap and takes Lea\u0027s hand. Ending composition: the two clasped hands filling the space where the cup was, with the cup pushed to the edge of frame.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "b925b142-0fdd-423d-978c-24236c1c9970",
+            "name": "SANA",
+            "appearance": null
+          },
+          {
+            "id": "4a019408-7dde-4e08-acc5-9b327b7a27d1",
+            "name": "LEA",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Small, decisive tenderness. The gap is closed without words.",
+        "music": "A sparse, warm phrase on piano or soft strings.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "dc20f4c6-aabc-4828-b494-cf3a8dfdd236",
+        "title": "Sprinklers",
+        "approvedScriptId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneId": "b30599c2-de00-5514-918e-5b267366f049",
+        "sceneTitle": "EXT. GARDEN BENCH - MORNING",
+        "sourceBlockIds": [
+          "8e55cb11-4bef-59fd-9267-436dd754a001"
+        ],
+        "sourceExcerpt": "Sana moves the cup aside and takes Lea\u2019s hand. Neither looks at the other. They watch the gardener turn on the sprinklers.",
+        "planning": {
+          "id": "bae7b584-6629-44c4-8e0f-ae73a0a8562d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "b30599c2-de00-5514-918e-5b267366f049"
+          ],
+          "createdUtc": "2026-10-12T05:57:53.7271319+00:00"
+        },
+        "duration": 7,
+        "description": "Cut to a wide shot from behind the bench. Lea and Sana are seen from the back, hands joined between them, with the garden opening up beyond. Neither looks at the other. Both watch the gardener in the middle distance as he turns on the sprinklers and water begins to arc across the garden. The camera slowly drifts back, widening the view. Ending composition: the two small seated figures, hands linked, framed against the spraying sprinklers in the morning light.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "19b4ac8e-c5a4-404a-8940-430d6e8b8a30",
+            "name": "LEA",
+            "appearance": null
+          },
+          {
+            "id": "dcd0a8d5-9218-4e94-bc6d-a32ca2fa902b",
+            "name": "SANA",
+            "appearance": null
+          },
+          {
+            "id": "bf30836d-7fc9-4a04-95d4-a3c7a9207f99",
+            "name": "GARDENER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Calm, quietly reconciled closeness, with morning light catching the water spray.",
+        "music": "The gentle phrase resolves softly under the hiss of the sprinklers.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Space Between\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n      \u002284e7586d-271c-5ee8-b5d5-5de1f1192ad5\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Opening composition: a frontal, static wide shot of a garden bench in morning light. Lea and Sana sit at opposite ends, with a clear empty space between them on the bench. Both face forward. The camera holds, then pushes in very slowly as Lea reaches into the gap and sets down a repaired cup, its mended seams visible. She withdraws her hand. Ending composition: a medium-wide two-shot with the repaired cup alone at the center of the bench between the two sisters.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Quiet, restrained morning stillness with soft natural light and a held distance between the sisters.\u0022,\n    \u0022music\u0022: \u0022Silence, or the faintest sustained ambient tone under the garden sounds.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022It Still Leaks\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022b197968f-ec3b-5a46-b097-af11e0e4a6d8\u0022,\n      \u002253e8e0a6-de1f-5503-8ef8-8b1d6f4bacdd\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Cut to a static medium close-up of Lea in three-quarter profile from Sana\u0027s side of the bench. Sana is a soft out-of-focus shoulder at the frame edge. Lea\u0027s eyes stay forward and she does not look at her sister as she speaks. Ending composition: Lea\u0027s face, still and averted, holding after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022LEA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022It still leaks.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Understated and intimate. The admission is dry and carries quiet weight.\u0022,\n    \u0022music\u0022: \u0022None. Natural garden ambience only.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Worth Keeping\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022c3d232df-0f54-500a-b64f-8a49ec2cb491\u0022,\n      \u0022b4ef134a-9d68-56c0-8e9a-543f3935bd47\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Reverse angle to a static medium close-up of Sana in three-quarter profile from Lea\u0027s side, matching the opposing eyeline. Lea\u0027s shoulder is soft at the frame edge. Sana keeps her gaze forward and does not turn to Lea as she answers. Ending composition: Sana\u0027s face holding in the quiet after the line.\u0022,\n    \u0022dialogue\u0022: [\n      { \u0022speaker\u0022: \u0022SANA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022So do most things worth keeping.\u0022 }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022LEA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Gentle and tender beneath a reserved surface.\u0022,\n    \u0022music\u0022: \u0022A soft, sparse note begins to enter, barely audible.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Taking Her Hand\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Cut to a high-angle close-up of the bench seat. The repaired cup sits in the empty space, with the sisters\u0027 hands resting near their own laps. Sana\u0027s hand enters, moves the cup aside, then crosses the gap and takes Lea\u0027s hand. Ending composition: the two clasped hands filling the space where the cup was, with the cup pushed to the edge of frame.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022LEA\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Small, decisive tenderness. The gap is closed without words.\u0022,\n    \u0022music\u0022: \u0022A sparse, warm phrase on piano or soft strings.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Sprinklers\u0022,\n    \u0022sceneId\u0022: \u0022b30599c2-de00-5514-918e-5b267366f049\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00228e55cb11-4bef-59fd-9267-436dd754a001\u0022\n    ],\n    \u0022duration\u0022: 7,\n    \u0022description\u0022: \u0022Cut to a wide shot from behind the bench. Lea and Sana are seen from the back, hands joined between them, with the garden opening up beyond. Neither looks at the other. Both watch the gardener in the middle distance as he turns on the sprinklers and water begins to arc across the garden. The camera slowly drifts back, widening the view. Ending composition: the two small seated figures, hands linked, framed against the spraying sprinklers in the morning light.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022LEA\u0022 },\n      { \u0022name\u0022: \u0022SANA\u0022 },\n      { \u0022name\u0022: \u0022GARDENER\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Calm, quietly reconciled closeness, with morning light catching the water spray.\u0022,\n    \u0022music\u0022: \u0022The gentle phrase resolves softly under the hiss of the sprinklers.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [
+      "It Still Leaks \u00B7 Camera/editing wording (Cut to). Review whether this describes a cut within the take or an edit between clips. The description is kept unchanged.",
+      "Taking Her Hand \u00B7 Camera/editing wording (Cut to). Review whether this describes a cut within the take or an edit between clips. The description is kept unchanged.",
+      "Sprinklers \u00B7 Camera/editing wording (Cut to). Review whether this describes a cut within the take or an edit between clips. The description is kept unchanged."
+    ],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

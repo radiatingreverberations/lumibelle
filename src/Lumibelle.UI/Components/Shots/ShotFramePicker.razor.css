@@ -1,0 +1,8 @@
+.shot-frame-picker { display:grid; gap:10px; min-width:0; align-content:start; }
+.shot-frame-picker label { display:grid; gap:5px; margin:0; font-size:var(--lumi-font-size-meta); color:var(--muted); }
+.shot-frame-picker select { width:100%; min-width:0; margin:0; font:inherit; color:var(--ink); padding:8px; border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); }
+.shot-frame-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+img { width:100%; max-height:220px; object-fit:contain; background:var(--lumi-surface-subtle); border-radius:var(--lumi-radius-control); }
+p { margin:0; }
+input[type=range] { width:100%; }
+.frame-take-shortcut { justify-self:start; padding:6px 10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--plum); background:var(--lumi-surface); font:inherit; font-size:var(--lumi-font-size-meta); cursor:pointer; }

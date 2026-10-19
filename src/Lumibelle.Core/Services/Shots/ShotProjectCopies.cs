@@ -21,6 +21,8 @@ public sealed record ShotProjectCopyPackage(ShotProjectCopyRequest Request, List
     List<AssetReuseCommand> Assets, Dictionary<Guid, Guid> Identities)
 {
     public List<ScriptSourceSnapshot> ScriptSources { get; init; } = [];
+    public List<DirectionStrategy> DirectionStrategies { get; init; } = [];
+    public List<SceneReferenceSetup> SceneSetups { get; init; } = [];
 }
 
 public interface IShotProjectCopyStore
@@ -72,6 +74,9 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
     {
         var ids = new HashSet<Guid>();
         foreach (var shot in Inputs(source, selected)) {
+            if (shot.EnvironmentAssetId is { } environment) ids.Add(environment);
+            if (shot.EnvironmentInspection is { } inspection) ids.Add(inspection.AssetId);
+            if (shot.DraftingEnvironment is { } accepted) ids.Add(accepted.LiveAssetId);
             foreach (var image in shot.Images) ids.Add(image.AssetId);
             foreach (var voice in shot.Voices) { ids.Add(voice.AssetId); if (voice.CharacterAssetId is { } character) ids.Add(character); }
             foreach (var voice in shot.CharacterVoices ?? []) ids.Add(voice.AssetId);
@@ -81,6 +86,10 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
                 if (owner is null) throw new WorkspaceStoreException($"The reel {video.Name} has no library asset. Save it to Assets before copying this shot.");
                 ids.Add(owner.Value);
             }
+        }
+        foreach (var setup in source.Shots.SceneSetups.Where(s => selected.Any(shot => shot.SceneId == s.SceneId))) {
+            if (setup.Environment is { } environment) ids.Add(environment.AssetId);
+            foreach (var image in setup.Images) ids.Add(image.Image.AssetId);
         }
         if (ids.Any(id => source.Assets.Assets.All(a => a.Id != id)))
             throw new WorkspaceStoreException("A referenced asset is unavailable. Restore it before copying these shots.");
@@ -207,8 +216,10 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         }
         if (copiedShots.Any(s => latest.Shots.Any(existing => existing.Id == s.Id)) || copiedTakes.Any(t => latest.Takes.Any(existing => existing.Id == t.Id)))
             throw new WorkspaceStoreException("A copied shot identity already exists without its acknowledgement. Nothing was overwritten.");
-        latest.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Before copying shots from another project", ShotCopy.Of(latest.Shots)) { SceneSetups = ShotCopy.Of(latest.SceneSetups) });
+        latest.Recovery.Insert(0, new(Guid.NewGuid(), clock.GetUtcNow(), "Before copying shots from another project", ShotCopy.Of(latest.Shots)) { SceneSetups = ShotCopy.Of(latest.SceneSetups), DirectionStrategies = ShotCopy.Of(latest.DirectionStrategies) });
         latest.Recovery = latest.Recovery.Take(30).ToList();
+        latest.DirectionStrategies.AddRange(Remap(package.DirectionStrategies, package.Identities, request.DestinationProjectId));
+        latest.SceneSetups.AddRange(Remap(package.SceneSetups, package.Identities, request.DestinationProjectId).Where(s => latest.SceneSetups.All(old => old.SceneId != s.SceneId)));
         latest.Shots.AddRange(copiedShots); latest.Takes.AddRange(copiedTakes);
         latest.ProjectCopies.Add(new(request.Id, fingerprint, request.SourceProjectId, copiedShots.Select(s => s.Id).ToArray(), clock.GetUtcNow()));
         latest.Revision++; latest.UpdatedUtc = clock.GetUtcNow();
@@ -237,6 +248,8 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         var map = new Dictionary<Guid, Guid> { [request.SourceProjectId] = request.DestinationProjectId };
         void Add(Guid id, string kind) => map.TryAdd(id, AssetReusePolicy.Identity(request.Id, kind, id));
         foreach (var shot in selected) Add(shot.Id, "shot");
+        var strategies = data.Shots.DirectionStrategies.Where(s => selected.Any(shot => shot.DirectionStrategyId == s.Id)).ToList();
+        foreach (var strategy in strategies) Add(strategy.Id, "direction-strategy");
         foreach (var block in blocks) Add(block.Id, "script-block");
         var compositions = data.Production.Compositions.Where(c => selected.Any(s => s.Id == c.ShotId)).Select(c => c.Copy()).ToList();
         foreach (var composition in compositions) Add(composition.Id, "composition");
@@ -252,7 +265,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
             foreach (var image in content.Asset.Images) AssetId(image.Id, "image");
             foreach (var look in content.Asset.Looks) AssetId(look.Id, "look");
             foreach (var voice in content.Voices) AssetId(voice.Id, "voice");
-            foreach (var reel in content.Reels) { AssetId(reel.Id, "reel"); AssetId(reel.Media.Id, "reel-media"); }
+            foreach (var reel in content.Reels) { AssetId(reel.Id, "reel"); AssetId(reel.Media.Id, "reel-media"); foreach (var frame in reel.Keyframes?.Frames ?? []) AssetId(frame.Id, "keyframe"); }
         }
         var copiedTakes = ShotCopy.Of(takes.ToList());
         foreach (var take in copiedTakes) {
@@ -260,7 +273,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
             // A copied take is not a new publication by the original AI request.
             take.AiJobId = null;
         }
-        return new(request, selected.Select(s => s.Copy()).ToList(), compositions.Select(c => new ShotProjectCopySetup(c, c.Shot.Copy())).ToList(), blocks, copiedTakes, commands, map);
+        return new(request, selected.Select(s => s.Copy()).ToList(), compositions.Select(c => new ShotProjectCopySetup(c, c.Shot.Copy())).ToList(), blocks, copiedTakes, commands, map) { DirectionStrategies = ShotCopy.Of(strategies), SceneSetups = ShotCopy.Of(data.Shots.SceneSetups.Where(s => selected.Any(shot => shot.SceneId == s.SceneId)).ToList()) };
     }
 
     private static T Remap<T>(T value, IReadOnlyDictionary<Guid, Guid> map, Guid destination)
@@ -271,7 +284,13 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
                 var accepted = obj["refMod"] is not null && obj.ContainsKey("keyframes") && obj.ContainsKey("media")
                     ? obj.Deserialize<ShotVideoBinding>(AtomicJsonFile.Options) : null;
                 if (accepted is not null && !ReelRefMods.Matches(accepted, accepted.RefMod)) accepted = null;
-                foreach (var key in obj.Select(p => p.Key).Where(k => k is not ("copySource" or "refinementPackage" or "sourcePackage" or "refinementInput" or "key")).ToArray()) Replace(obj[key], v => obj[key] = v);
+                foreach (var key in obj.Select(p => p.Key).Where(k => k is not ("draftingEnvironment" or "copySource" or "refinementPackage" or "sourcePackage" or "refinementInput" or "key")).ToArray()) Replace(obj[key], v => obj[key] = v);
+                if (obj["draftingEnvironment"] is { } historyNode) {
+                    var history = historyNode.Deserialize<AcceptedDraftingEnvironment>(AtomicJsonFile.Options)!;
+                    foreach (var key in history.Resources.Keys.ToArray()) history.Resources[key] = map.GetValueOrDefault(history.Resources[key], history.Resources[key]);
+                    foreach (var pair in map) if (!history.Resources.ContainsKey(pair.Key)) history.Resources[pair.Key] = pair.Value;
+                    obj["draftingEnvironment"] = JsonSerializer.SerializeToNode(history, AtomicJsonFile.Options);
+                }
                 if (accepted is not null) {
                     var mapped = obj.Deserialize<ShotVideoBinding>(AtomicJsonFile.Options)!;
                     var prior = accepted.RefMod!;
@@ -285,6 +304,11 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         }
         void Replace(JsonNode? child, Action<JsonNode> replace) {
             if (child is JsonValue scalar && scalar.TryGetValue<string>(out var text) && Guid.TryParse(text, out var id) && map.TryGetValue(id, out var mapped)) replace(JsonValue.Create(mapped)!);
+            else if (child is JsonValue candidate && candidate.TryGetValue<string>(out var candidateId) && (candidateId.StartsWith("image/") || candidateId.StartsWith("reel/"))) {
+                var parts = candidateId.Split('/');
+                for (var i = 1; i < parts.Length; i++) if (Guid.TryParse(parts[i], out var source) && map.TryGetValue(source, out var target)) parts[i] = target.ToString();
+                replace(JsonValue.Create(string.Join('/', parts))!);
+            }
             else if (child is not null) Visit(child);
         }
         Visit(node);

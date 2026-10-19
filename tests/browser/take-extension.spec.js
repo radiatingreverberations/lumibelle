@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js';
-import { submitPlanning } from './text-assistance-tools.js';
+import { submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { composeProduction, generateTakes, toolsTab } from './workspace-tools.js';
 
 const review = page => page.locator('.shot-review-dialog');
@@ -9,9 +9,10 @@ async function setup(page, request) {
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await page.getByLabel('Duration (seconds)').fill('1');
   await page.getByLabel('Duration (seconds)').blur();
   await expect.poll(async () => (await state(request, id)).shots[0].duration).toBe(1);
@@ -80,7 +81,7 @@ for (const narrow of [false, true]) test(`extension reference drafts apply, canc
   await expect(summary).toContainText('From the original take');
   await form.getByLabel('Next action', { exact: true }).fill('The camera slowly moves into the room.');
   await form.getByLabel('Extension prompt', { exact: true }).fill('Keep this authored prompt while changing the references.');
-  const manage = form.getByRole('button', { name: 'Manage references', exact: true });
+  const manage = form.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true });
   const editor = page.locator('.shot-reference-dialog').filter({ has: page.getByRole('button', { name: 'Close extension references', exact: true }) });
   await manage.click(); await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(summary).toContainText('From the original take');

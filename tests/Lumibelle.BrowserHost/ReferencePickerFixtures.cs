@@ -12,10 +12,20 @@ using Lumibelle.Testing;
 internal sealed class ReferenceTestProductionStore(FileProductionStore inner) : IProductionStore
 {
     public ConcurrentDictionary<Guid, bool> Failures { get; } = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _saveGates = new();
+    public void PauseSaves(Guid project, bool paused)
+    {
+        if (paused) _saveGates.TryAdd(project, new(TaskCreationOptions.RunContinuationsAsynchronously));
+        else if (_saveGates.TryRemove(project, out var gate)) gate.TrySetResult();
+    }
     public Task<ProductionDocument> LoadAsync(Guid p, CancellationToken ct = default) => inner.LoadAsync(p, ct);
     public Task<ProductionDocument> InitializeAsync(Guid p, CancellationToken ct = default) => inner.InitializeAsync(p, ct);
-    public Task<ProductionDocument> SaveAsync(Guid p, ProductionComposition c, long v, CancellationToken ct = default) => Failures.GetValueOrDefault(p)
-        ? Task.FromException<ProductionDocument>(new WorkspaceStoreException("Fixture storage unavailable")) : inner.SaveAsync(p, c, v, ct);
+    public async Task<ProductionDocument> SaveAsync(Guid p, ProductionComposition c, long v, CancellationToken ct = default)
+    {
+        if (Failures.GetValueOrDefault(p)) throw new WorkspaceStoreException("Fixture storage unavailable");
+        if (_saveGates.TryGetValue(p, out var gate)) await gate.Task.WaitAsync(ct);
+        return await inner.SaveAsync(p, c, v, ct);
+    }
     public Task<ProductionDocument> ApplyResultAsync(Guid p, Guid j, bool a, CancellationToken ct = default, bool accept = false) => inner.ApplyResultAsync(p, j, a, ct, accept);
     public Task<ProductionDocument> RecoverResponseAsync(Guid p, Guid j, long v, CancellationToken ct = default) => inner.RecoverResponseAsync(p, j, v, ct);
     public Task<ProductionDocument> AcceptAsync(Guid p, Guid c, long v, Guid? j = null, TextModelReference? m = null, CancellationToken ct = default) => inner.AcceptAsync(p, c, v, j, m, ct);
@@ -42,6 +52,97 @@ internal static class ReferencePickerFixtures
 {
     public static void MapReferencePickerFixtures(this WebApplication app)
     {
+        app.MapPost("/fixtures/{id:guid}/copy-reference-limits", async (Guid id, IProductionStore production, IAssetStore assets, IVoiceStore voices, ProjectFiles files) => {
+            var library = await assets.LoadAsync(id);
+            var owners = library.Assets.Take(2).Select(a => a with { Category = AssetCategory.Character }).ToArray();
+            library = await assets.SaveAsync(library with { Assets = library.Assets.Select(a => owners.FirstOrDefault(o => o.Id == a.Id) ?? a).ToList() }, library.Revision);
+            for (var i = 0; i < 9; i++) {
+                await using var picture = new MemoryStream(MockImages.Png(i % 3));
+                library = await assets.AddImageAsync(id, owners[0].Id, picture, new("view.png", [$"View {i + 1}"], AssetImageOrigin.Imported, new()), library.Revision);
+            }
+            foreach (var owner in owners) {
+                using var wave = new MemoryStream();
+                using (var writer = new BinaryWriter(wave, System.Text.Encoding.UTF8, true)) {
+                    var bytes = 32000 * 2 * 8;
+                    writer.Write("RIFF"u8); writer.Write(36 + bytes); writer.Write("WAVEfmt "u8); writer.Write(16);
+                    writer.Write((short)1); writer.Write((short)1); writer.Write(32000); writer.Write(64000); writer.Write((short)2); writer.Write((short)16);
+                    writer.Write("data"u8); writer.Write(bytes); writer.Write(new byte[bytes]);
+                }
+                wave.Position = 0;
+                library = await voices.AddVoiceAsync(id, owner.Id, wave, "voice.wav", owner.Name + " voice", 0, 8, new(), library.Revision);
+            }
+            var document = await production.InitializeAsync(id); var source = document.Compositions[0];
+            var imageOwner = library.Assets.First(a => a.Id == owners[0].Id);
+            source.Shot.Images = imageOwner.Images.TakeLast(9).Select(image => ReferenceSetups.Bind(imageOwner, image, source.Shot)).ToList();
+            source.Shot.Videos = library.Reels.Take(2).Select(r => new ShotVideoBinding { Name = r.Name, Media = r.Media, UseSoundtrack = false }).ToList();
+            source.Shot.Dialogue = [];
+            foreach (var owner in owners) {
+                var choice = new CharacterVoiceSelection { AssetId = owner.Id, CharacterName = owner.Name, SpeakerConfirmed = true };
+                CharacterVoices.SelectRecording(choice, library.Voices.Single(v => v.AssetId == owner.Id), false);
+                CharacterVoices.Set(source.Shot, choice, library);
+            }
+            // A saved older setup can exceed current combined limits; the copy editor must repair it.
+            document.ShotContent[0] = ShotProductionContent.From(source);
+            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            return new { names = owners.Select(o => o.Name).ToArray() };
+        });
+        app.MapPost("/fixtures/{id:guid}/historical-environment-selection", async (Guid id, AiTextJobCapture capture, IProductionStore production, AiJobCoordinator jobs) => {
+            var c = (await production.LoadAsync(id)).Compositions.First();
+            var input = await capture.CaptureEnvironmentViewsAsync(id, c.Id, c.Version, false, false);
+            return await jobs.EnqueueAsync(await capture.SelectEnvironmentViewsAsync(Guid.NewGuid(), Guid.NewGuid(), input,
+                input.Request.Pool.Select(v => v.Id).ToArray(), [], true, new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model"), false));
+        });
+        app.MapGet("/fixtures/{id:guid}/environment-setup", async (Guid id, IProductionStore production) => {
+            var c = (await production.LoadAsync(id)).Compositions[0]; return new { c.Id, c.ShotId, c.Shot, c.Prompt };
+        });
+        app.MapPost("/fixtures/{id:guid}/environment-copy-source", async (Guid id, IProductionStore production, ProjectFiles files) => {
+            var document = await production.LoadAsync(id); var source = document.Compositions[0];
+            var alternate = source.Copy(); alternate.Id = Guid.NewGuid(); alternate.Name = "Environment preset";
+            alternate.GenerationSetupId = null; alternate.GenerationSetupVersion = 0;
+            source.Shot.EnvironmentAssetId = null;
+            document.Compositions.Add(alternate); document.SchemaVersion = 3;
+            foreach (var content in document.ShotContent) content.EnvironmentAssetId = null;
+            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            return Results.Ok();
+        });
+        app.MapPost("/fixtures/{id:guid}/picture-ten", async (Guid id, IProductionStore production, IAssetStore assets, ProjectFiles files) => {
+            var c = (await production.LoadAsync(id)).Compositions[0];
+            var library = await assets.LoadAsync(id); var reel = library.Reels.First();
+            c.Shot.Images = Enumerable.Range(0, 8).Select(_ => { var b = ShotCopy.Of(c.Shot.Images[0]); b.Id = Guid.NewGuid(); return b; }).ToList();
+            c.Shot.Videos = [new() { Name = reel.Name, Media = reel.Media, OwnerAssetId = reel.AssetId, OwnerCategory = AssetCategory.Environment,
+                Visuals = ReelVisuals.Keyframes, Keyframes = new() { Frames = reel.Keyframes!.Frames.Take(2).ToList() } }];
+            // Simulate an older over-budget document without weakening the real save validation.
+            var path = Path.Combine(await files.DirectoryAsync(id, CancellationToken.None), "production.json");
+            var raw = (await AtomicJsonFile.ReadAsync<ProductionDocument>(path, CancellationToken.None))!;
+            raw.ShotContent[0] = ShotProductionContent.From(c);
+            await AtomicJsonFile.WriteAsync(path, raw, CancellationToken.None); return Results.Ok();
+        });
+        app.MapPost("/fixtures/{id:guid}/environment-library", async (Guid id, IAssetStore assets, IAssetReelStore reels, IProductionStore production, IShotStore shots, int extraViews = 0, string notes = "", bool selected = true, bool fullBudget = false, bool directed = false) => {
+            var library = await assets.LoadAsync(id); var owner = library.Assets.First();
+            owner = owner with { Name = "Plaza environment", Category = AssetCategory.Environment };
+            library = await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id == owner.Id ? owner : a).ToList() }, library.Revision);
+            foreach (var reel in library.Reels.ToArray()) {
+                library = await reels.SaveReelAsync(id, reel with { AssetId = owner.Id, Keyframes = new() { Frames = (extraViews > 0 ? Enumerable.Range(0, extraViews) : new[] { 0, 24, 48 }).Select(index => new ReelKeyframe {
+                    Name = reel.Name + " view " + index, Notes = "Keep the doorway design.", Crop = new() { Width = .8 },
+                    Frame = new(reel.Media.Id, reel.Media.Sha256, index, index / 24d) }).ToList() } }, library.Revision);
+            }
+            if (library.Reels.Count > 0) library = await reels.SaveReelAsync(id, library.Reels[0] with { Id = Guid.NewGuid(), Name = "Unkeyframed survey", Keyframes = null }, library.Revision);
+            var doc = await production.InitializeAsync(id); var c = doc.Compositions[0]; c.DirectingNotes = notes;
+            var character = library.Assets.First(a => a.Id != owner.Id && a.Images.Count > 0);
+            c.Shot.Images = [ReferenceSetups.Bind(character, character.Images[0], c.Shot)];
+            if (fullBudget) c.Shot.Images = Enumerable.Range(0, 9).Select(_ => { var image = ShotCopy.Of(c.Shot.Images[0]); image.Id = Guid.NewGuid(); return image; }).ToList();
+            c.Shot.EnvironmentAssetId = selected ? owner.Id : null;
+            if (directed) {
+                var source = await shots.LoadAsync(id);
+                c.Shot.Direction = new() { Intent = new() { Purpose = "Keep the escape route and podium legible together", Attention = "The listener's reaction" },
+                    Staging = new() { Camera = "Static lateral composition" } };
+                ShotDirections.Review(c.Shot, null, ShotDirections.Neighbours(source, c.Shot));
+                await shots.SaveAsync(id, source.Shots.Select(s => s.Id == c.ShotId ? c.Shot.Copy() : s).ToList(), source.Revision);
+            }
+            c.Prompt = "My authored prompt";
+            await production.SaveAsync(id, c, c.Version);
+            return library;
+        });
         // Seed saved source angles and an asset default; providers remain mocked.
         app.MapPost("/fixtures/{id:guid}/reel-reference-default", async (Guid id, ReelVisuals mode, IAssetStore assets,
             IAssetReelStore reels, IAiSettingsStore settings, IVideoGenerator generator) => {
@@ -82,6 +183,9 @@ internal static class ReferencePickerFixtures
             return target;
         });
         app.MapPost("/fixtures/reel-fresh-delay", (int milliseconds, ReferenceTestReelStore store) => { store.FreshDelay = milliseconds; return Results.Ok(); });
+        app.MapPost("/fixtures/{id:guid}/production-save-paused", (Guid id, bool paused, ReferenceTestProductionStore store) => {
+            store.PauseSaves(id, paused); return Results.Ok();
+        });
         app.MapPost("/fixtures/{id:guid}/reference-save-failure", (Guid id, bool fail, ReferenceTestProductionStore store) => { store.Failures[id] = fail; return Results.Ok(); });
         app.MapPost("/fixtures/{id:guid}/reference-reels", async (Guid id, Guid takeId, IReferenceVideoStore videos, IAiSettingsStore settings, IAssetStore assets, IAssetReelStore reels, bool environment = false) => {
             var library = await assets.LoadAsync(id); var owner = library.Assets.First(a => a.Category == AssetCategory.Character);

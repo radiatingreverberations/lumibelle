@@ -42,7 +42,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     }
     private static void ValidateDocument(ProductionDocument d, Guid project)
     {
-        if (d.SchemaVersion is not (2 or 3) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
+        if (d.SchemaVersion is not (2 or 3 or 4) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
             d.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 ||
                 string.IsNullOrWhiteSpace(c.Name) || c.History is null || c.Prompt is null || c.DirectingNotes is null || c.RevisionNotes is null || c.ReferenceUsage is null ||
                 c.History.Any(r => r is null) || c.History.Select(r => r.Id).Distinct().Count() != c.History.Count || c.AcceptedRevisionId is not null && c.Accepted is null) ||
@@ -50,6 +50,9 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             throw new WorkspaceStoreException("The production document is invalid. It has not been replaced.");
         HydrateSharedContent(d);
     }
+    // Retire legacy automatic image defaults, while keeping scene inspection and its recovery history.
+    private static List<SceneReferenceSetup> PlanningSetups(IEnumerable<SceneReferenceSetup> setups) =>
+        setups.Where(s => s.Environment is not null || s.Images.Count == 0).Select(s => s with { Images = [] }).ToList();
     public async Task<ProductionDocument> InitializeAsync(Guid project, CancellationToken ct = default)
     {
         var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
@@ -62,8 +65,9 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             await jobs.ResetProductionAsync(project, ct);
             // Publish production.json last: interrupted resets repeat safely. Media files stay untouched.
             source.Shots = source.Shots.Select(ProductionPolicy.CoverageCopy).ToList();
-            source.Takes.Clear(); source.Trash.Clear(); source.TakePublications.Clear(); source.SceneSetups.Clear();
-            source.Recovery = source.Recovery.Select(r => r with { Shots = r.Shots.Select(ProductionPolicy.CoverageCopy).ToList(), SceneSetups = [] }).ToList();
+            source.Takes.Clear(); source.Trash.Clear(); source.TakePublications.Clear();
+            source.SceneSetups = PlanningSetups(source.SceneSetups);
+            source.Recovery = source.Recovery.Select(r => r with { Shots = r.Shots.Select(ProductionPolicy.CoverageCopy).ToList(), SceneSetups = PlanningSetups(r.SceneSetups) }).ToList();
             source.Revision++;
             await AtomicJsonFile.WriteAsync(Path.Combine(dir, "shots.json"), source, ct);
             var cut = await AtomicJsonFile.ReadAsync<CutDocument>(Path.Combine(dir, "cut.json"), ct) ?? new() { ProjectId = project };
@@ -72,7 +76,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             raw = new() { ProjectId = project };
             await Publish(dir, raw, ct);
         }
-        var d = await Read(dir, project, ct); var changed = raw.SchemaVersion == 2;
+        var d = await Read(dir, project, ct); var changed = raw.SchemaVersion < 4;
         foreach (var shot in source.Shots.Where(s => d.Compositions.All(c => c.ShotId != s.Id)))
         {
             d.Compositions.Add(new() { ShotId = shot.Id, Name = "Default setup", Version = 1,
@@ -203,6 +207,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             model = request.Model;
         }
         var revision = new CompositionPromptRevision(Guid.NewGuid(), clock.GetUtcNow(), c.Prompt, c.ReferenceUsage, context, c.SourceFingerprint, job, model, imageData.Select(i => i.Identity).ToArray()) {
+            DirectionFingerprint = ShotDirections.Fingerprint(source, effective),
             ReferenceFingerprint = PromptReferenceFreshness.Fingerprint(effective, ShotReferences.Resolve(effective, library, source))
         };
         c.History.Add(revision); c.AcceptedRevisionId = revision.Id; c.ReviewJobId = null; c.Version++;
@@ -239,6 +244,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         c.Prompt = result.Prompt; c.ReferenceUsage = result.ReferenceUsage; c.AppliedJobId = job; c.ReviewJobId = null;
         c.SourceFingerprint = ProductionPolicy.SourceFingerprint(c.Shot);
         var revision = new CompositionPromptRevision(Guid.NewGuid(), clock.GetUtcNow(), c.Prompt, c.ReferenceUsage, request.ContextFingerprint, c.SourceFingerprint, job, request.Model, request.Images) {
+            DirectionFingerprint = request.DirectionContext is null ? null : ShotDirections.Hash(new { request.Shot.Direction, Context = request.DirectionContext }),
             ReferenceFingerprint = PromptReferenceFreshness.Fingerprint(request.Shot, request.Guidance)
         };
         c.History.Add(revision); c.AcceptedRevisionId = revision.Id; c.Version++;
@@ -275,6 +281,44 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
 
 public static class ProductionInputs
 {
+    // A token estimate needs dimensions, not decoded pixels, extracted frames or media validation.
+    // The capture path below remains authoritative when the request is submitted.
+    public static (IReadOnlyList<ImageSize> Images, int ReelFrames, bool OpeningFrame) EstimateSizes(Shot shot, AssetLibrary library, ShotDocument source)
+    {
+        static ImageSize Prepared(int width, int height, ImageCropRegion? crop = null)
+        {
+            if (width < 1 || height < 1) throw new WorkspaceStoreException("Reference dimensions are unavailable.");
+            if (crop is not null) { var bounds = ImageGeometry.CropPixels(width, height, crop); width = bounds.Width; height = bounds.Height; }
+            if ((long)width * height > ComfyReferenceImageEditor.MaximumSourcePixels) {
+                var scale = Math.Sqrt(ComfyReferenceImageEditor.MaximumSourcePixels / ((double)width * height));
+                width = Math.Max(1, (int)Math.Floor(width * scale)); height = Math.Max(1, (int)Math.Floor(height * scale));
+            }
+            return new(width, height);
+        }
+        ImageSize Take(Guid id, bool prepare)
+        {
+            var take = source.Takes.SingleOrDefault(t => t.Id == id) ?? throw new WorkspaceStoreException("Reference take metadata is unavailable.");
+            return prepare ? Prepared(take.Width, take.Height) : new(take.Width, take.Height);
+        }
+        List<ImageSize> images = [];
+        foreach (var binding in shot.Images) {
+            var image = library.Assets.SingleOrDefault(a => a.Id == binding.AssetId)?.Images.SingleOrDefault(i => i.Id == binding.MediaId)
+                ?? throw new WorkspaceStoreException("Reference image metadata is unavailable.");
+            images.Add(Prepared(image.Width, image.Height, binding.Crop));
+        }
+        if (shot.ContinuityFrame is { } continuity) images.Add(Take(continuity.TakeId, true));
+        var resolved = ResolvedReferences.For(shot);
+        foreach (var picture in resolved.Pictures.Where(p => p.Keyframe is not null))
+            images.Add(Prepared(picture.Reel!.Media.Width, picture.Reel.Media.Height, picture.Keyframe!.Crop));
+        var reelFrames = 0;
+        foreach (var video in resolved.Videos.Where(v => v.Reel.EffectiveVisuals == ReelVisuals.RefMod)) {
+            var recipe = video.Reel.RefMod?.Recipe ?? throw new WorkspaceStoreException("RefMod dimensions are unavailable.");
+            images.AddRange(Enumerable.Repeat(new ImageSize(recipe.Width, recipe.Height), recipe.LatentFrames));
+            reelFrames += recipe.LatentFrames;
+        }
+        if (shot.StartFrame is { } opening) images.Add(Take(opening.TakeId, false));
+        return (images, reelFrames, shot.StartFrame is not null);
+    }
     public static async Task<IReadOnlyList<(CompositionInput Identity, byte[] Bytes)>> CaptureAsync(Guid project, Shot shot, IAssetStore assets, CancellationToken ct, IReferenceVideoStore? reels = null, H3Settings? settings = null,
         IShotStore? shots = null)
     {

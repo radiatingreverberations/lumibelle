@@ -72,6 +72,7 @@ app.MapGet("/fixtures/enhancements", () => MockChat.Enhancements.ToArray());
 app.MapGet("/fixtures/guidance", () => MockChat.Guidance.ToArray());
 app.MapGet("/fixtures/compositions", () => MockChat.Compositions.ToArray());
 app.MapGet("/fixtures/reel-compositions", () => MockChat.ReelCompositions.ToArray());
+app.MapGet("/fixtures/environment-view-requests", () => MockChat.EnvironmentViews.ToArray());
 app.MapPost("/fixtures/{id:guid}/regeneration-source", async (Guid id, IAssetStore assets, IAssetReelStore reels, AiReelCapture capture, AiJobCoordinator jobs) => {
     var owner = (await assets.LoadAsync(id)).Assets.First();
     var draft = ReferenceReels.NewDraft(owner); draft.Duration = 5; draft.NativeResolution = false;
@@ -111,10 +112,20 @@ app.MapPost("/fixtures/{id:guid}/production-shot", async (Guid id, IShotStore sh
     return await shots.SaveAsync(id, [..d.Shots, source], d.Revision);
 });
 app.MapGet("/fixtures/{id:guid}/preferences", async (Guid id, IProjectAiPreferencesStore store) => await store.LoadAsync(id));
+app.MapPost("/fixtures/{id:guid}/long-shot-list", async (Guid id, IShotStore shots) => {
+    var doc = await shots.LoadAsync(id);
+    return await shots.SaveAsync(id, Enumerable.Range(1, 60).Select(i => new Shot { Title = $"Shot {i}", Description = "A held view.", Duration = 5 }).ToList(), doc.Revision);
+});
+app.MapPost("/fixtures/{id:guid}/long-scene-list", async (Guid id, IScriptStore scripts) => {
+    var d = await scripts.LoadAsync(id);
+    d = await scripts.SaveAsync(d with { Blocks = Enumerable.Range(1, 60).SelectMany(i => new[] { ScriptBlock.Create(ScriptBlockKind.Scene, $"INT. ROOM {i} - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "A held view.") }).ToList() }, d.Revision);
+    await scripts.ApproveAsync(id, d.Revision);
+    return d.Blocks.Where(b => b.Kind == ScriptBlockKind.Scene).ToArray();
+});
 app.MapGet("/fixtures/ai-jobs/{id:guid}/text-selection", async (Guid id, IAiJobStore store) => {
     var job = (await store.ReadAsync()).Jobs.Single(j => j.Id == id);
     var request = AiTextJobHandler.Read(job, await store.ReadSnapshotAsync(id));
-    return new { request.Model, SelectionSource = request.SelectionSource?.ToString(), request.FollowsDefault, request.Task, Text = request.Messages.SelectMany(m => m.Parts).Where(p => p.Text is not null).Select(p => p.Text).ToArray() };
+    return new { ImageCount = request.Messages.Sum(m => m.Parts.Count(p => p.Image is not null)), request.Model, SelectionSource = request.SelectionSource?.ToString(), request.FollowsDefault, request.Task, Text = request.Messages.SelectMany(m => m.Parts).Where(p => p.Text is not null).Select(p => p.Text).ToArray() };
 });
 app.MapPost("/fixtures/{id:guid}/environment-reel-owner", async (Guid id, IAssetStore assets) => {
     var library = await assets.LoadAsync(id); var owner = library.Assets[0];
@@ -128,6 +139,15 @@ app.MapPost("/fixtures/{id:guid}/prop-reel-owner", async (Guid id, IAssetStore a
         Category = AssetCategory.Prop, Name = "Armchair", Description = "A green velvet armchair with brass feet.",
         PreservationGuidance = "Keep the buttoned back and curved arms." } : a).ToList() }, library.Revision);
 });
+app.MapPost("/fixtures/{id:guid}/removed-environment-draft", async (Guid id, IAssetStore assets, IAssetReelStore reels) => {
+    var library = await assets.LoadAsync(id); var owner = library.Assets[0];
+    var draft = ReferenceReels.NewDraft(owner);
+    draft.Images = [new() { AssetId = owner.Id, MediaId = owner.Images[0].Id, Crop = new() { X = 0, Y = 0, Width = .5, Height = 1 } }];
+    var pair = ReferenceReels.Preset(draft);
+    draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance;
+    draft.Framing = ReelFraming.EnvironmentTurn; draft.Instructions = "My saved camera directions";
+    return await reels.SaveDraftAsync(id, draft, 0);
+});
 app.MapPost("/fixtures/{id:guid}/rename-project", async (Guid id, string name, IProjectStore projects) => {
     var project = await projects.GetAsync(id); return await projects.UpdateAsync(project!, new(name, project!.Description));
 });
@@ -139,6 +159,19 @@ app.MapPost("/fixtures/{id:guid}/approved", async (Guid id, IScriptStore scripts
     var d = await scripts.LoadAsync(id);
     d = await scripts.SaveAsync(d with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Scene,"INT. KITCHEN — NIGHT"),ScriptBlock.Create(ScriptBlockKind.Action,"Juniper appears in a saucepan."),ScriptBlock.Create(ScriptBlockKind.Character,"JUNIPER"),ScriptBlock.Create(ScriptBlockKind.Dialogue,"You called?")] }, d.Revision);
     return await scripts.ApproveAsync(id,d.Revision);
+});
+app.MapPost("/fixtures/{id:guid}/planning-order", async (Guid id, IScriptStore scripts, IShotStore shots) =>
+{
+    var plaza = ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. MAIN PLAZA — DAY");
+    var bedroom = ScriptBlock.Create(ScriptBlockKind.Scene, "INT. RILEY'S BEDROOM — NIGHT");
+    var script = await scripts.LoadAsync(id);
+    script = await scripts.SaveAsync(script with { Blocks = [plaza, ScriptBlock.Create(ScriptBlockKind.Action, "Juniper waits beside the podium."), bedroom,
+        ScriptBlock.Create(ScriptBlockKind.Action, "Juniper goes to sleep.")] }, script.Revision);
+    var approved = await scripts.ApproveAsync(id, script.Revision);
+    var document = await shots.LoadAsync(id);
+    await shots.SaveAsync(id, [new() { Title = "Bedroom remains", SceneId = bedroom.Id, SceneTitle = bedroom.Text, ApprovedScriptId = approved.ApprovedSnapshotId,
+        Description = "Juniper goes to sleep.", Duration = 2 }], document.Revision);
+    return new { plaza = plaza.Id, bedroom = bedroom.Id };
 });
 app.MapPost("/fixtures/{id:guid}/coverage-script", async (Guid id, IScriptStore scripts, string mode = "initial") =>
 {
@@ -401,16 +434,78 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     }
 
     public static System.Collections.Concurrent.ConcurrentQueue<object> Compositions = new();
+    public static System.Collections.Concurrent.ConcurrentQueue<object> EnvironmentViews = new();
     public static System.Collections.Concurrent.ConcurrentQueue<object> ReelCompositions = new();
     public static System.Collections.Concurrent.ConcurrentQueue<object> Enhancements = new();
     public static System.Collections.Concurrent.ConcurrentQueue<object> Guidance = new();
     public void Dispose() { }
     public object? GetService(Type serviceType, object? serviceKey = null) => null;
     public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    private static string DirectionReply(string raw, string? environmentText = null) {
+        var shots = System.Text.Json.Nodes.JsonNode.Parse(raw)!.AsArray();
+        foreach (var shot in shots) shot!["direction"] = JsonSerializer.SerializeToNode(new ShotDirection {
+            Intent = new() { Purpose = "Reveal the hesitation", Reason = "This changes what the audience expects.", Attention = "The held key", Relationships = "Juniper waits for a response." },
+            Staging = new() { Positions = "Juniper beside the table", Facing = "Toward the door", Eyelines = "At the doorway", Camera = "Hold a readable shared view" },
+            Editorial = new() { CutIn = "After the question", CutOut = "When the hesitation resolves", Timing = "Allow the reaction to land" },
+            Advanced = new() { Assumptions = "The doorway position needs reference support.", LongTakeIdea = "The exchange might sustain a later manual extension." }
+        }, AtomicJsonFile.Options);
+        var strategies = shots.Select(shot => shot!["sceneId"]!.GetValue<string>()).Distinct().Select(scene => new { sceneId = scene,
+            approach = "Shared framing with attention to the delayed reaction.", dramaticProgression = "Expectation gives way to hesitation.", visualProgression = "Begin shared, then draw attention to the key.", audienceInformation = "Reveal the response after the pause.", spatialAnchors = "Keep Juniper and the doorway understandable." });
+        var envelope = JsonSerializer.SerializeToNode(new { contractVersion = 4, sceneStrategies = strategies, shots }, AtomicJsonFile.Options)!;
+        if (environmentText is not null) {
+            using var context = JsonDocument.Parse(environmentText);
+            if (context.RootElement.TryGetProperty("sceneEnvironments", out var environments)) {
+                envelope["contractVersion"] = 5;
+                foreach (var strategy in envelope["sceneStrategies"]!.AsArray()) {
+                    var environment = environments.EnumerateArray().First(e => e.GetProperty("sceneId").GetString() == strategy!["sceneId"]!.GetValue<string>());
+                    var views = environment.GetProperty("views").EnumerateArray().ToArray();
+                    strategy!["environmentAssessment"] = JsonSerializer.SerializeToNode(new DraftingEnvironmentAssessment {
+                        Summary = "Use the visible standing side and preserve the oversized podium.", MissingCoverage = "The reverse sightline is not established.",
+                        Claims = views.Length == 0 ? [] : [new("The platform is established.", ReferenceSupportStatus.Supported, [views[0].GetProperty("candidateId").GetString()!]),
+                            new("The route is clear.", ReferenceSupportStatus.Inferred, [])]
+                    }, AtomicJsonFile.Options);
+                }
+            }
+        }
+        return envelope.ToJsonString(AtomicJsonFile.Options);
+    }
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if ((list[0].Text ?? "").Contains("Compose an environment reference reel.") || (list[0].Text ?? "").Contains("Compose a prop reference reel."))
+        if ((list[0].Text ?? "").Contains("Choose a compact, complementary set of pictures to help direct the WHOLE scene.")) {
+            using var context = JsonDocument.Parse(last); var candidates = context.RootElement.GetProperty("candidates").EnumerateArray().ToArray();
+            output = JsonSerializer.Serialize(new { summary = "Complementary scene views", views = candidates.GroupBy(c => c.GetProperty("reel").ToString()).Select(g => g.First()).Take(3).Select(c => new { candidateId = c.GetProperty("candidateId").GetString(), reason = "Readable acting area and route" }), warnings = Array.Empty<string>() });
+        }
+        else if ((list[0].Text ?? "").Contains("Choose the smallest sufficient set of environment reference views for ONE shot."))
+        {
+            using var context = JsonDocument.Parse(last); var root = context.RootElement;
+            EnvironmentViews.Enqueue(new { model, context = root.Clone(), images = list.SelectMany(m => m.Contents).OfType<DataContent>().Count() });
+            var candidates = root.GetProperty("candidates").EnumerateArray().ToArray();
+            var choices = candidates.Where(c => c.GetProperty("reelId").ValueKind == JsonValueKind.String)
+                .GroupBy(c => c.GetProperty("reelId").GetString()).Select(g => g.First()).Take(2).ToArray();
+            if (choices.Length == 0) choices = candidates.OrderByDescending(c => c.GetProperty("approved").GetBoolean()).Take(2).ToArray();
+            if (root.GetProperty("directingNotes").GetString()?.Contains("IMAGE_ENVIRONMENT") == true) choices = candidates.Where(c => c.GetProperty("reelId").ValueKind != JsonValueKind.String).Take(1).ToArray();
+            output = root.GetProperty("directingNotes").GetString()?.Contains("INVALID_ENVIRONMENT") == true ? "{}"
+                : JsonSerializer.Serialize(new { summary = "Useful complementary backgrounds", views = choices.Take(root.GetProperty("maximumViews").GetInt32()).Select(c => new {
+                    candidateId = c.GetProperty("candidateId").GetString(), reason = "Readable background for this shot; compare the platform design." }),
+                    staging = new { blocking = "Riley stands on the usable side of the podium, facing across it toward the judge. She edges sideways toward the passage and returns to face the podium.",
+                        camera = "Static side view shows Riley, the podium and the guard beside the passage.",
+                        assumptions = "Facing toward the judge is inferred from the court scene, not measured geometry.",
+                        concerns = "The references do not confirm the passage depth." },
+                    warnings = new[] { "Check the platform design across these views." } });
+        }
+        else if ((list[0].Text ?? "").Contains("Select useful reusable reference views from a reel."))
+        {
+            using var context = JsonDocument.Parse(last);
+            var root = context.RootElement;
+            var selected = root.GetProperty("candidates").EnumerateArray().Take(root.GetProperty("requestedCount").GetInt32()).Select((c, i) => new {
+                candidate = c.GetProperty("number").GetInt32(), name = i == 0 ? "Toward the judge platform" : "Reverse toward the entrance",
+                notes = i == 0 ? "Podium in foreground; raised platform beyond." : "Entrance and surrounding walls establish the reverse background."
+            }).ToArray();
+            output = root.GetProperty("selectionInstructions").GetString()?.Contains("INVALID_VIEWS") == true ? "{\"summary\":\"incomplete\"}"
+                : JsonSerializer.Serialize(new { summary = "Complementary views of the set", views = selected, warnings = new[] { "Review the softer moving view." } });
+        }
+        else if ((list[0].Text ?? "").Contains("Compose an environment reference reel.") || (list[0].Text ?? "").Contains("Compose a prop reference reel."))
         {
             using var context = JsonDocument.Parse(last);
             var draft = context.RootElement.GetProperty("draft").Deserialize<ReferenceReelDraft>(AtomicJsonFile.Options)!;
@@ -503,6 +598,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 sourceBlockIds = scene.GetProperty("blocks").EnumerateArray().Take(1).Select(b => b.GetProperty("id").GetString()).ToArray(),
                 duration = 2.0, description = "Close on Juniper's hands. " + context.RootElement.GetProperty("directions").GetString(),
                 characters = new[] { new { name = "JUNIPER" } }, dialogue = Array.Empty<object>(), atmosphere = "A quiet room", music = "No music" } });
+            if ((list[0].Text ?? "").Contains("contractVersion:4") || (list[0].Text ?? "").Contains("contractVersion:5")) output = DirectionReply(output, last);
         }
         else if ((list[0].Text ?? "").Contains("plan cinematic coverage", StringComparison.OrdinalIgnoreCase))
         {
@@ -534,6 +630,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                         lookId = (string?)null, endLookId = (string?)null } } });
                 output = proposed.ToJsonString();
             }
+            if ((list[0].Text ?? "").Contains("contractVersion:4") || (list[0].Text ?? "").Contains("contractVersion:5")) output = DirectionReply(output, last);
             if (last.Contains("FENCED")) output = "```json\n" + output + "\n```";
         }
         else if ((list[0].Text ?? "").Contains("identify reusable visual assets"))
@@ -574,7 +671,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
             var text = target.Scope == ScriptScope.Passage ? "A tiny mouse politely bows" : block.Text + (last.Contains("SECOND_CHANGE") ? " Second detail." : " First detail.");
             output = JsonSerializer.Serialize(new { version = 1, operations = new[] { new { kind = "replace", startId = block.Id, startOffset = target.Scope == ScriptScope.Passage ? (int?)target.StartOffset : null, endOffset = target.Scope == ScriptScope.Passage ? (int?)target.EndOffset : null, blocks = new[] { new { kind = block.Kind.ToString(), spans = new[] { new { text } } } } } } });
         }
-        if (last.Contains("INVALID")) output = "{\"kind\":\"Prompt\",\"text\":\"unfinished";
+        if (last.Contains("INVALID") && !(list[0].Text ?? "").Contains("Choose the smallest sufficient set of environment reference views")) output = "{\"kind\":\"Prompt\",\"text\":\"unfinished";
         if (last.Contains("SILENT_START")) await Task.Delay(2500, cancellationToken);
         for (int i = 0; i < output.Length; i += 80)
         {

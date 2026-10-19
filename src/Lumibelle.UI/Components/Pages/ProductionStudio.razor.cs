@@ -97,9 +97,11 @@ public partial class ProductionStudio
     protected override async Task OnParametersSetAsync()
     {
         if (_doc.ProjectId != Id) {
+            if (ScenesMode && Positions is not null) await Positions.LoadAsync(Id, "shots");
             _handledView = null; _promptStatusFilter = "all";
             _takeScriptSources.Clear(); _takeCurrentScript = null;
             _selected = Place<Guid?>(Id, "shots", "shot");
+            _sceneId = Place<Guid?>(Id, "scenes", "scene");
             // Consult the old selection only when importing into an empty global library.
             var earlierSelections = Place<Dictionary<Guid, Guid>>(Id, "shots", "setups", []);
             _compositionId = _selected is { } remembered ? earlierSelections.GetValueOrDefault(remembered) : null;
@@ -110,21 +112,25 @@ public partial class ProductionStudio
             if (RequestedShotId is not null || RequestedCompositionId is not null || RequestedJobId is not null) { _filter = ""; _takeSetupFilter = ""; }
             await ResetVideoProjectAsync();
             _project = await Projects.GetAsync(Id, _lifetime.Token);
-            await ResetPlanningProjectAsync(); await Reload(); await AiJobs.RefreshAsync(_lifetime.Token); if (_loadFailure is null) await RefreshMedia(); await RefreshPlanningJobsAsync(); _planningInitialized = true;
+            await ResetPlanningProjectAsync(); await Reload(); await AiJobs.RefreshAsync(_lifetime.Token); if (_loadFailure is null && !ScenesMode) await RefreshMedia(); await RefreshPlanningJobsAsync(); _planningInitialized = true;
+        }
+        if (ScenesMode) {
+            if (RequestedSceneId is { } sceneId && _handledScene != sceneId) { _handledScene = sceneId; _sceneId = sceneId; }
+            if (_sceneId is null) _sceneId = Scenes.FirstOrDefault()?.Id;
         }
         if (RequestedShotId is null) _handledShot = null;
         if (RequestedCompositionId is null) _handledComposition = null;
         if (RequestedShotId is { } shot && _handledShot != shot && _doc.Shots.Any(s => s.Id == shot)) { _handledShot = shot; _promptStatusFilter = "all"; _filter = ""; _takeSetupFilter = ""; await Select(shot); }
         if (RequestedCompositionId is { } composition && _handledComposition != composition && _production.Compositions.FirstOrDefault(c => c.Id == composition) is { } requested) { _handledComposition = composition; _promptStatusFilter = "all"; _filter = ""; _takeSetupFilter = ""; if (requested.Archived) _showArchived = true; await SelectComposition(composition); }
     }
-    private async Task RetryLoadAsync() { await Reload(); if (_loadFailure is null) await RefreshMedia(); }
+    private async Task RetryLoadAsync() { await Reload(); if (_loadFailure is null && !ScenesMode) await RefreshMedia(); }
     private async Task Reload()
     {
         try {
             _loadFailure = null; _saveDelay?.Cancel();
             try {
                 _doc = await Store.LoadAsync(Id, _lifetime.Token); _assets = await AssetStore.LoadAsync(Id, _lifetime.Token);
-                _production = await Production.InitializeAsync(Id, _lifetime.Token);
+                _production = ScenesMode ? new() : await Production.InitializeAsync(Id, _lifetime.Token);
                 _doc = await Store.LoadAsync(Id, _lifetime.Token); _approved = await Scripts.CaptureSourceAsync(Id, cancellationToken: _lifetime.Token);
             }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _loadFailure = e; return; }
@@ -134,7 +140,7 @@ public partial class ProductionStudio
             await ApplySelectedGlobalSetup();
             ValidateTakeFilter();
             _savedComposition = Current?.Copy(); _dirty = false; _saveStatus = "Saved"; _error = null; _saveFailed = false; _undo.Clear();
-            await RefreshCompositionResult(); await RefreshH3LorasAsync();
+            if (!ScenesMode) { await RefreshCompositionResult(); await RefreshH3LorasAsync(); }
         } catch (Exception e) { _error = e.Message; }
     }
     private async Task<bool> SaveForCloseAsync()
@@ -142,6 +148,7 @@ public partial class ProductionStudio
         if (_compositionBusy || _applyingProposal || _imageEditorSaving || BulkGenerateLocked || _copyShotsBusy) return false;
         if (_promptEditor is not null) await _promptEditor.FlushAsync();
         _planningDraftDelay?.Cancel();
+        await SaveSingleDirectionReview();
         return await SavePlanningDraftAsync() && !_planningDraftDirty && await Save();
     }
     private async Task<bool> Save() { _saveDelay?.Cancel(); await _saveGate.WaitAsync(); try { return await SaveLocked(); } finally { _saveGate.Release(); } }
@@ -180,6 +187,7 @@ public partial class ProductionStudio
             var undo = _undo.Pop();
             _doc.Shots = undo.Coverage.Shots;
             _doc.SceneSetups = undo.Coverage.SceneSetups;
+            _doc.DirectionStrategies = undo.Coverage.DirectionStrategies;
             // An added shot may already have autosaved a composition. Undo must leave
             // that removed shot before the next save tries to update its composition.
             if (SourceShot is null)
@@ -277,7 +285,8 @@ public partial class ProductionStudio
             if (RequestedView == "Prompt") { await OpenSetupDialog("Prompt"); StateHasChanged(); }
             else await _workspace.ShowCenterAsync(RequestedView);
         }
-        if (_doc.ProjectId == Id) {
+        if (_doc.ProjectId == Id && ScenesMode) await Remember(Id, "scenes", "scene", _sceneId);
+        if (_doc.ProjectId == Id && !ScenesMode) {
             await Remember(Id, "shots", "shot", _selected);
             await Remember(Id, "shots", "search", _filter);
             await Remember(Id, "shots", "takeFilter", _takeSetupFilter);
@@ -298,6 +307,12 @@ public partial class ProductionStudio
         await HandleRequestedPlanningAsync();
         await HandleRequestedVideoAsync();
         await HandleRequestedAssetPickAsync();
+        if (RequestedJobId is { } environmentJobId && _handledEnvironmentJob != environmentJobId && _environmentComposer is not null &&
+            AiJobs.View.Jobs.FirstOrDefault(j => j.Id == environmentJobId && j.Kind == AiJobKind.EnvironmentViewSelection && j.Target.ProjectId == Id) is { } environmentJob) {
+            _handledEnvironmentJob = environmentJobId;
+            if (environmentJob.Target.CompositionId is { } environmentSetup && Current?.Id == environmentSetup)
+                await _environmentComposer.OpenSavedAsync(environmentJobId);
+        }
         if (_workspace is not null && _openShotView && SourceShot is not null) { _openShotView = false; await _workspace.ShowCenterAsync("Shot"); }
         if (RequestedJobId is { } id && _handledCompositionJob != id && AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id) is { } job) {
             _handledCompositionJob = id;

@@ -18,7 +18,7 @@ async function fixture(page, request) {
   return { id, take, reels: lib.reels };
 }
 async function manage(page) { await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const dialog = page.locator('.manual-reference-dialog'); await expect(dialog).toBeVisible(); return dialog;
 }
 async function addFullReel(dialog, id) {

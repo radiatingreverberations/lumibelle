@@ -1,0 +1,240 @@
+{
+  "name": "Prop handoff",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 18.1270436,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Red Key\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u00226a71e214-8a1a-5202-8be5-bd8c09ce2b79\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a high-angle insert looking down onto the scarred wooden workbench. A single red key sits in the center of frame. At the edges, the torsos and hands of Tess (frame left) and Arlo (frame right) stand on opposite sides of the bench, which establishes the space between them. The camera holds still for a beat, then slowly pushes in toward the key. Tess\u0027s right hand enters from frame left and picks it up. As she lifts it, the camera tilts up with her hand and rises to her chest height. Ending composition: a medium side angle with Tess\u0027s right hand holding the red key just above the bench and Arlo\u0027s figure soft in the right background.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Daylight workshop, warm dust in the air, tools and wood shavings around the bench, quiet and focused.\u0022,\n    \u0022music\u0022: \u0022Silence, with faint ambient workshop sounds and the small scrape of metal on wood as the key is lifted.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Before Dark\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022fd57ef0d-deff-5365-aca5-ccfb0a9a802a\u0022,\n      \u0022918c347e-dfa9-5090-bf8c-468844611c98\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up over Arlo\u0027s right shoulder, framed on Tess\u0027s face. She stands on the far side of the bench at eye level and looks at Arlo, with the red key held in her right hand near her chest. This shot is clearly different from the previous low side-angle insert. She speaks firmly. The camera holds static with a very subtle drift closer during the line. Ending composition: a tighter medium close-up of Tess holding his gaze after the line, with the key still in her right hand.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022Tess\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Bring it back before dark.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate and serious; soft daylight on Tess\u0027s face, and the workshop falls into shallow focus behind her.\u0022,\n    \u0022music\u0022: \u0022No score; room tone only, so the line lands clearly.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Handover\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a two-shot in profile at waist height across the workbench. Tess is on frame left and Arlo on frame right, and their hands meet above the bench in the center. Arlo holds his left hand out, palm open and facing up. Tess places the red key in his left palm with her right hand. Arlo closes his hand around the key, draws it back, and slides it into his left-side pocket. The camera tracks slightly right and down with his hand to follow the key into the pocket. Ending composition: a medium shot of Arlo\u0027s left side, with his hand settling in his pocket and the key now hidden.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A quiet exchange of trust, unhurried and deliberate, in steady daylight.\u0022,\n    \u0022music\u0022: \u0022A soft, sparse single sustained note that rises gently under the handover.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Empty Bench\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up of Tess from the front, at a slightly low angle across the bench, which is clearly different from the previous shot\u0027s framing of Arlo\u0027s pocket. Tess lowers her eyes to the workbench. The camera slowly tilts down along her eyeline. Ending composition: a high-angle view of the now empty patch of workbench where the red key had rested, mirroring the opening shot of the scene without the key.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Lingering and reflective; the empty spot on the bench reads as an absence in the still daylight.\u0022,\n    \u0022music\u0022: \u0022The sustained note from the previous shot fades out, leaving quiet room tone.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "cee22037-c1ab-45b6-975d-abc683536c49",
+        "title": "The Red Key",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "9206624c-8610-5c22-944c-7d7e991def65",
+          "6a71e214-8a1a-5202-8be5-bd8c09ce2b79"
+        ],
+        "sourceExcerpt": "## INT. WORKSHOP - DAY\n\nA red key rests on the workbench between Tess and Arlo. Tess picks it up in her right hand.",
+        "planning": {
+          "id": "83c2c6b4-9403-4de7-94d3-17705af9871a",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T05:58:11.8555453+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a high-angle insert looking down onto the scarred wooden workbench. A single red key sits in the center of frame. At the edges, the torsos and hands of Tess (frame left) and Arlo (frame right) stand on opposite sides of the bench, which establishes the space between them. The camera holds still for a beat, then slowly pushes in toward the key. Tess\u0027s right hand enters from frame left and picks it up. As she lifts it, the camera tilts up with her hand and rises to her chest height. Ending composition: a medium side angle with Tess\u0027s right hand holding the red key just above the bench and Arlo\u0027s figure soft in the right background.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "4ebfeec4-67ff-4743-a321-b1df68d6c8c5",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "66c29b4d-2b02-4e32-92fe-8cab6c7c68ea",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Daylight workshop, warm dust in the air, tools and wood shavings around the bench, quiet and focused.",
+        "music": "Silence, with faint ambient workshop sounds and the small scrape of metal on wood as the key is lifted.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "5ad81e62-28a7-4442-9f2e-d913b96050ce",
+        "title": "Before Dark",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "fd57ef0d-deff-5365-aca5-ccfb0a9a802a",
+          "918c347e-dfa9-5090-bf8c-468844611c98"
+        ],
+        "sourceExcerpt": "### TESS\n\nBring it back before dark.",
+        "planning": {
+          "id": "83c2c6b4-9403-4de7-94d3-17705af9871a",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T05:58:11.8555453+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a medium close-up over Arlo\u0027s right shoulder, framed on Tess\u0027s face. She stands on the far side of the bench at eye level and looks at Arlo, with the red key held in her right hand near her chest. This shot is clearly different from the previous low side-angle insert. She speaks firmly. The camera holds static with a very subtle drift closer during the line. Ending composition: a tighter medium close-up of Tess holding his gaze after the line, with the key still in her right hand.",
+        "dialogue": [
+          {
+            "id": "dfa1ad74-f5d4-4bb2-8fc2-5d12f200b499",
+            "speaker": "Tess",
+            "language": "en",
+            "text": "Bring it back before dark."
+          }
+        ],
+        "characters": [
+          {
+            "id": "fe6d5efe-941a-44d3-9d9b-d19e4799633a",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "e3d7ecaa-4b6f-41da-a773-7c59d02a07a1",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate and serious; soft daylight on Tess\u0027s face, and the workshop falls into shallow focus behind her.",
+        "music": "No score; room tone only, so the line lands clearly.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "d43f45b5-8352-4339-b624-82abdbaa826c",
+        "title": "The Handover",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "ba61e3fc-60e6-5d8c-b4fa-54f6a1882406"
+        ],
+        "sourceExcerpt": "She places it in Arlo\u2019s open left palm. He closes his hand and pockets the key on his left side. Tess looks at the now empty patch of workbench.",
+        "planning": {
+          "id": "83c2c6b4-9403-4de7-94d3-17705af9871a",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T05:58:11.8555453+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a two-shot in profile at waist height across the workbench. Tess is on frame left and Arlo on frame right, and their hands meet above the bench in the center. Arlo holds his left hand out, palm open and facing up. Tess places the red key in his left palm with her right hand. Arlo closes his hand around the key, draws it back, and slides it into his left-side pocket. The camera tracks slightly right and down with his hand to follow the key into the pocket. Ending composition: a medium shot of Arlo\u0027s left side, with his hand settling in his pocket and the key now hidden.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "c8034d85-c6da-42c4-868e-bd6c3f4cdb7f",
+            "name": "Tess",
+            "appearance": null
+          },
+          {
+            "id": "2535a7cc-22f9-4e8b-99c9-f6b6758d79a1",
+            "name": "Arlo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A quiet exchange of trust, unhurried and deliberate, in steady daylight.",
+        "music": "A soft, sparse single sustained note that rises gently under the handover.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "ae696e44-9cb5-4703-bd5e-97b1b45a9147",
+        "title": "Empty Bench",
+        "approvedScriptId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneId": "9206624c-8610-5c22-944c-7d7e991def65",
+        "sceneTitle": "INT. WORKSHOP - DAY",
+        "sourceBlockIds": [
+          "ba61e3fc-60e6-5d8c-b4fa-54f6a1882406"
+        ],
+        "sourceExcerpt": "She places it in Arlo\u2019s open left palm. He closes his hand and pockets the key on his left side. Tess looks at the now empty patch of workbench.",
+        "planning": {
+          "id": "83c2c6b4-9403-4de7-94d3-17705af9871a",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "9206624c-8610-5c22-944c-7d7e991def65"
+          ],
+          "createdUtc": "2026-10-12T05:58:11.8555453+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a medium close-up of Tess from the front, at a slightly low angle across the bench, which is clearly different from the previous shot\u0027s framing of Arlo\u0027s pocket. Tess lowers her eyes to the workbench. The camera slowly tilts down along her eyeline. Ending composition: a high-angle view of the now empty patch of workbench where the red key had rested, mirroring the opening shot of the scene without the key.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "e260efa8-dea5-4e70-b021-2d673ae47f35",
+            "name": "Tess",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Lingering and reflective; the empty spot on the bench reads as an absence in the still daylight.",
+        "music": "The sustained note from the previous shot fades out, leaving quiet room tone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Red Key\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n      \u00226a71e214-8a1a-5202-8be5-bd8c09ce2b79\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a high-angle insert looking down onto the scarred wooden workbench. A single red key sits in the center of frame. At the edges, the torsos and hands of Tess (frame left) and Arlo (frame right) stand on opposite sides of the bench, which establishes the space between them. The camera holds still for a beat, then slowly pushes in toward the key. Tess\u0027s right hand enters from frame left and picks it up. As she lifts it, the camera tilts up with her hand and rises to her chest height. Ending composition: a medium side angle with Tess\u0027s right hand holding the red key just above the bench and Arlo\u0027s figure soft in the right background.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Daylight workshop, warm dust in the air, tools and wood shavings around the bench, quiet and focused.\u0022,\n    \u0022music\u0022: \u0022Silence, with faint ambient workshop sounds and the small scrape of metal on wood as the key is lifted.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Before Dark\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022fd57ef0d-deff-5365-aca5-ccfb0a9a802a\u0022,\n      \u0022918c347e-dfa9-5090-bf8c-468844611c98\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up over Arlo\u0027s right shoulder, framed on Tess\u0027s face. She stands on the far side of the bench at eye level and looks at Arlo, with the red key held in her right hand near her chest. This shot is clearly different from the previous low side-angle insert. She speaks firmly. The camera holds static with a very subtle drift closer during the line. Ending composition: a tighter medium close-up of Tess holding his gaze after the line, with the key still in her right hand.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022Tess\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Bring it back before dark.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Intimate and serious; soft daylight on Tess\u0027s face, and the workshop falls into shallow focus behind her.\u0022,\n    \u0022music\u0022: \u0022No score; room tone only, so the line lands clearly.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Handover\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a two-shot in profile at waist height across the workbench. Tess is on frame left and Arlo on frame right, and their hands meet above the bench in the center. Arlo holds his left hand out, palm open and facing up. Tess places the red key in his left palm with her right hand. Arlo closes his hand around the key, draws it back, and slides it into his left-side pocket. The camera tracks slightly right and down with his hand to follow the key into the pocket. Ending composition: a medium shot of Arlo\u0027s left side, with his hand settling in his pocket and the key now hidden.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 },\n      { \u0022name\u0022: \u0022Arlo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A quiet exchange of trust, unhurried and deliberate, in steady daylight.\u0022,\n    \u0022music\u0022: \u0022A soft, sparse single sustained note that rises gently under the handover.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Empty Bench\u0022,\n    \u0022sceneId\u0022: \u00229206624c-8610-5c22-944c-7d7e991def65\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022ba61e3fc-60e6-5d8c-b4fa-54f6a1882406\u0022\n    ],\n    \u0022duration\u0022: 3,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up of Tess from the front, at a slightly low angle across the bench, which is clearly different from the previous shot\u0027s framing of Arlo\u0027s pocket. Tess lowers her eyes to the workbench. The camera slowly tilts down along her eyeline. Ending composition: a high-angle view of the now empty patch of workbench where the red key had rested, mirroring the opening shot of the scene without the key.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Tess\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Lingering and reflective; the empty spot on the bench reads as an absence in the still daylight.\u0022,\n    \u0022music\u0022: \u0022The sustained note from the previous shot fades out, leaving quiet room tone.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

@@ -14,9 +14,15 @@ namespace lumibelle.Services.Assets;
 public static partial class ReferenceReels
 {
     public const string Profile = "character-reel-v1";
-    public static string Label(ReelFraming value) => CharacterCapturePresets.FirstOrDefault(p => p.Framing == value)?.Label ?? EnvironmentPresets.FirstOrDefault(p => p.Framing == value)?.Label ?? PropPresets.FirstOrDefault(p => p.Framing == value)?.Label ?? (value switch { ReelFraming.CharacterVoiceReference => "Voice reference", ReelFraming.BodyToFace => "Body → face", ReelFraming.ThreeAngles => "Three angles", ReelFraming.Custom => "Custom", ReelFraming.SideRearFace => "Side → rear → face", _ => "Continuous turn" });
+    public static string Label(ReelFraming value) => CharacterCapturePresets.FirstOrDefault(p => p.Framing == value)?.Label ?? EnvironmentPresets.FirstOrDefault(p => p.Framing == value)?.Label ?? PropPresets.FirstOrDefault(p => p.Framing == value)?.Label ?? (value switch {
+        // Display captured history without retaining the retired generation plans.
+        ReelFraming.EnvironmentTurn => "Full-room survey", ReelFraming.EnvironmentHalfTurn => "Half-turn reveal",
+        ReelFraming.EnvironmentHeldViews => "Held viewpoints", ReelFraming.EnvironmentPan => "Short reveal",
+        ReelFraming.EnvironmentPullBack => "Pull back", ReelFraming.EnvironmentApproach => "Move toward a feature", ReelFraming.EnvironmentArc => "Arc around a feature",
+        ReelFraming.CharacterVoiceReference => "Voice reference", ReelFraming.BodyToFace => "Body → face", ReelFraming.ThreeAngles => "Three angles", ReelFraming.Custom => "Custom", ReelFraming.SideRearFace => "Side → rear → face", _ => "Continuous turn" });
     public static string Views(ReelFraming value) => value switch
     {
+        _ when IsRemovedEnvironmentFraming(value) => throw new WorkspaceStoreException(EnvironmentReplacementRequired),
         ReelFraming.CharacterVoiceReference => throw new ArgumentException("Voice reference timing requires the complete reel recipe.", nameof(value)),
         _ when EnvironmentPresets.Any(p => p.Framing == value) => throw new ArgumentException("Environment camera timing requires the complete reel recipe.", nameof(value)),
         _ when PropPresets.Any(p => p.Framing == value) => throw new ArgumentException("Prop camera timing requires the complete reel recipe.", nameof(value)),
@@ -39,7 +45,7 @@ public static partial class ReferenceReels
     public static string[] PictureGuidance(ReferenceReelDraft draft, AssetLibrary? library) =>
         ResolvedReferences.For(Inputs(draft)).Pictures.Select(p => p.Image is { } image
             ? ShotReferences.Resolve(image, library ?? new() { ProjectId = Guid.Empty }, new()).Effective
-            : $"Selected still from {p.Reel!.Name} at {p.Keyframe!.Frame.Seconds.ToString("0.###", CultureInfo.InvariantCulture)} seconds. {p.Reel.Description} {p.Keyframe.Notes} Only this selected frame is visual evidence; source camera motion, actions and dialogue are not instructions for this reel.").ToArray();
+            : $"Selected still from {p.Reel!.Name} at {p.Keyframe!.Frame.Seconds.ToString("0.###", CultureInfo.InvariantCulture)} seconds. {p.Keyframe.Name} {p.Reel.Description} {p.Keyframe.Notes} Only this selected frame is visual evidence; source camera motion, actions and dialogue are not instructions for this reel.").ToArray();
 
     // Legacy engine projection only: no persisted shot, scene or source snapshot.
     public static Shot Inputs(ReferenceReelDraft d) => new()
@@ -65,6 +71,7 @@ public static partial class ReferenceReels
     public static void Validate(ReferenceReelDraft d, bool ready = false)
     {
         ValidateProfile(d);
+        if (ready && NeedsEnvironmentReplacement(d)) throw new WorkspaceStoreException(EnvironmentReplacementRequired);
         if (ReelGenerationSetups.TakeCount(d) is < 1 or > 4 || d.GenerationSetup is { Settings.Seed: < 0 } ||
             d.GenerationSetup is { } setup && (setup.Id == Guid.Empty || setup.Version < 1))
             throw new WorkspaceStoreException("Choose a valid generation preset and between one and four takes.");

@@ -6,6 +6,8 @@ public sealed record ReferenceVideoMedia(Guid Id, string Sha256, long Bytes, int
 public sealed record ShotVideoBinding
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? EnvironmentSelectionId { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Guid? OwnerAssetId { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public ReferenceVideoMedia Media { get; set; } = null!;

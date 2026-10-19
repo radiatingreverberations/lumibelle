@@ -1,0 +1,12 @@
+@using lumibelle.Services.Shots
+<label>Direction style<select value="@Value" @onchange="Changed" disabled="@Disabled">
+    @foreach (var style in Enum.GetValues<DirectingStyle>()) { <option value="@style">@(style == DirectingStyle.Auto ? "Auto — adapt to the scene" : ShotDirections.StyleName(style))</option> }
+</select></label>
+<p class="field-hint">@ShotDirections.StyleDescription(Value) These are preferences, not rules; your instructions take precedence.</p>
+@if (Value != DirectingStyle.Auto) { <details class="field-hint"><summary>Illustrative examples</summary><p>@ShotDirections.StyleExamples(Value) Examples illustrate one approach, not a genre or a model to imitate.</p></details> }
+@code {
+    [Parameter] public DirectingStyle Value { get; set; }
+    [Parameter] public EventCallback<DirectingStyle> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private Task Changed(ChangeEventArgs e) => Enum.TryParse<DirectingStyle>(e.Value?.ToString(), out var style) && Enum.IsDefined(style) ? ValueChanged.InvokeAsync(style) : Task.CompletedTask;
+}

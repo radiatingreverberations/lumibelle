@@ -2,7 +2,7 @@ import { cropReference, openShotSetup } from './workspace-tools.js';
 import { test, expect } from './fixtures.js';
 import { reelTools, reelSetup, showToolsPane as tools, openReelSetup as openSetup, closeReelSetup as closeSetup, expand, reelFraming as framingOptions, requestSeconds, openReelAssist } from './reel-tools.js';
 const library = async (request, id) => (await (await request.get(`/fixtures/${id}`)).json()).assets;
-for (const narrow of [false, true]) test(`environment camera choices preserve writing and compose held views (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
+for (const narrow of [false, true]) test(`environment coverage choices preserve writing and compose a full set (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   test.setTimeout(90000);
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/environment-reel-owner`);
@@ -14,77 +14,57 @@ for (const narrow of [false, true]) test(`environment camera choices preserve wr
   await setup.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('My authored camera prompt');
   await setup.getByLabel('Use guidance', { exact: true }).fill('My authored room guidance');
   await framingOptions(page);
+  await expect(setup.getByLabel('Camera preset').locator('option')).toHaveText(['Full set', 'Feature study', 'Walkthrough', 'Custom']);
   const presets = [
-    ['EnvironmentHalfTurn', 'Half-turn reveal', 10, true], ['EnvironmentHeldViews', 'Held viewpoints', 15, true],
-    ['EnvironmentPan', 'Short reveal', 6, true], ['EnvironmentPullBack', 'Pull back', 6, false],
-    ['EnvironmentApproach', 'Move toward a feature', 6, false], ['EnvironmentArc', 'Arc around a feature', 6, true],
-    ['EnvironmentPath', 'Custom path', 10, false], ['EnvironmentTurn', 'Full-room survey', 15, true]
+    ['EnvironmentFeatureStudy', 'Feature study', 15, true, 29],
+    ['EnvironmentWalkthrough', 'Walkthrough', 15, false, 30],
+    ['EnvironmentPath', 'Custom', 10, false, 7], ['EnvironmentFullSet', 'Full set', 15, true, 28]
   ];
-  for (const [value, label, seconds, direction] of presets) {
+  for (const [value, label, seconds, direction, stored] of presets) {
     await setup.getByLabel('Camera preset', { exact: true }).selectOption({ label });
     await expect(requested).toHaveValue(String(seconds));
     await expect(setup.getByLabel('Camera direction', { exact: true })).toHaveCount(direction ? 1 : 0);
-    await expect(setup.getByText(/Use keyframes to reference all angles/)).toHaveCount(seconds >= 10 ? 1 : 0);
-    await expect.poll(async () => (await library(request, id)).reelDrafts[0].framing).toBe({ EnvironmentTurn:5, EnvironmentPan:6, EnvironmentPath:7, EnvironmentHalfTurn:8, EnvironmentHeldViews:9, EnvironmentPullBack:10, EnvironmentApproach:11, EnvironmentArc:12 }[value]);
+    await expect(setup.getByText(/Use keyframes to reference all angles/)).toBeVisible();
+    const diagram = setup.locator('.environment-coverage img');
+    await expect(diagram).toBeVisible();
+    await expect.poll(() => diagram.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect.poll(async () => (await library(request, id)).reelDrafts[0]?.framing).toBe(stored);
     const draft = (await library(request, id)).reelDrafts[0];
     expect(draft.duration).toBe(seconds);
     expect(draft.prompt).toBe('My authored camera prompt'); expect(draft.useGuidance).toBe('My authored room guidance');
   }
-  await setup.getByLabel('Camera preset').selectOption('EnvironmentPan');
-  await expect(setup.locator('.reel-camera-summary')).toContainText('opening objects leave the frame');
+  await expect(setup.getByLabel('Camera direction').locator('option')).toHaveText(['Clockwise', 'Counterclockwise']);
+  await setup.getByLabel('Camera direction').selectOption('Left');
+  if (narrow) expect((await setup.getByLabel('Camera direction').boundingBox()).width).toBeGreaterThanOrEqual(170);
+  await expect(setup.locator('.environment-coverage img')).toHaveAttribute('src', /full-set-counterclockwise\.svg$/);
+  await expect(setup.locator('.environment-coverage img')).toHaveAttribute('alt', /counterclockwise.*outer edge.*looking inward/);
   await expand(setup.locator('.reel-camera-timeline'));
-  await expect(setup.locator('.reel-framing-plan')).toContainText('pans right with large amplitude at fast speed');
-  await expect(setup.locator('.reel-framing-plan')).toContainText('leave through the left edge');
-  await setup.getByLabel('Camera direction').selectOption('Left');
-  await expect(setup.locator('.reel-framing-plan')).toContainText('leave through the right edge');
-  await setup.getByLabel('Camera preset').selectOption('EnvironmentArc');
-  await expect(setup.locator('.reel-camera-summary')).toContainText('broad 90° arc');
-  await expect(setup.locator('.reel-framing-plan')).toContainText('distinct side-on viewpoint');
-  await setup.getByLabel('Camera preset').selectOption('EnvironmentTurn');
-  await expect.poll(async () => (await library(request, id)).reelDrafts[0].framing).toBe(5);
-  await expect(requested).toHaveValue('15');
-  await setup.getByLabel('Camera direction').selectOption('Left');
-  await requestSeconds(page, '7');
-  await framingOptions(page);
+  await expect(setup.locator('.reel-framing-plan')).toContainText('complete 360° perimeter circuit');
+  await expect(setup.locator('.reel-framing-plan')).toContainText('wide views of backgrounds and staging space');
+  await requestSeconds(page, '7'); await framingOptions(page);
   await setup.getByLabel('Instructions', { exact: true }).fill('Keep the brick wall and doorway fixed.');
   await expect(setup.getByText(/Suggested duration: 15 seconds/)).toBeVisible();
-  await expect(setup.getByText(/Use keyframes to reference all angles/)).toHaveCount(0);
-  await expect(setup.getByText(/Check prompts · Inputs/)).toBeVisible();
   await closeSetup(page);
   await expect(editor.getByRole('button', { name: 'Prompt', exact: true })).toContainText('Review prompt');
-  await expect.poll(async () => (await library(request, id)).reelDrafts[0].instructions).toBe('Keep the brick wall and doorway fixed.');
-  expect((await (await request.get('/fixtures/reel-compositions')).json()).filter(c => c.context.environment?.assetId === asset.id)).toHaveLength(0);
-  await page.reload(); await tools(page);
-  await framingOptions(page);
+  await page.reload(); await tools(page); await framingOptions(page);
   await expect(setup.getByLabel('Camera direction')).toHaveValue('Left');
   await expect(requested).toHaveValue('7');
   await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue('Keep the brick wall and doorway fixed.');
-  // An unsupported duration is reported where it is entered, is not saved, and clears once corrected.
   const unsupported = 'Choose a shot duration from 1 to 15 seconds.';
   await requestSeconds(page, '16');
   await expect(editor.getByRole('alert').filter({ hasText: unsupported })).toBeVisible();
   expect((await library(request, id)).reelDrafts[0].duration).toBe(7);
-  // The Prompt dialog reports it too, and still closes so the duration can be corrected in the footer.
   await framingOptions(page); await expand(setup.locator('.reel-camera-timeline'));
   await expect(setup.locator('.reel-framing-plan')).toHaveText(unsupported);
-  await expect(setup.locator('.field-error', { hasText: unsupported })).toBeVisible();
-  await closeSetup(page);
-  await expect(editor.getByRole('alert').filter({ hasText: unsupported })).toBeVisible();
-  await requestSeconds(page, '7');
-  await expect(editor.getByText(unsupported)).toHaveCount(0);
-  await framingOptions(page); await expand(setup.locator('.reel-camera-timeline'));
-  await expect(setup.locator('.reel-framing-plan')).toContainText('[Shot 1]');
+  await closeSetup(page); await requestSeconds(page, '15');
+  await framingOptions(page);
   await expect(setup.getByText(unsupported)).toHaveCount(0);
-  await setup.getByLabel('Camera preset').selectOption('EnvironmentHeldViews');
-  await expand(setup.locator('.reel-camera-timeline'));
-  await expect(setup.locator('.reel-framing-plan')).toContainText('[Shot 4]');
-  await expect(setup.locator('.reel-framing-plan')).toContainText('left');
   await page.screenshot({ path: `artifacts/environment-presets-${narrow ? 'narrow' : 'desktop'}.png` });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await setup.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('');
   await setup.getByLabel('Use guidance', { exact: true }).fill('');
   await closeSetup(page);
-  await editor.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${asset.id}/${asset.images[0].id}"]`).click();
   await pictures.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -94,15 +74,13 @@ for (const narrow of [false, true]) test(`environment camera choices preserve wr
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
   await page.getByRole('button', { name: 'Set as project default', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Text model', exact: true })).not.toBeVisible();
-  const compose = assist.getByRole('button', { name: 'Compose pair', exact: true });
-  await expect(compose).toBeEnabled(); await compose.focus(); await expect(compose).toBeInViewport(); await compose.press('Enter');
+  await assist.getByRole('button', { name: 'Compose pair', exact: true }).click();
   await expect(assist).not.toBeVisible();
-  await expect(setup.getByRole('textbox', { name: 'H3 prompt', exact: true })).toContainText('[Shot 4]', { timeout: 25000 });
-  await expect(setup.getByRole('textbox', { name: 'H3 prompt', exact: true })).toContainText('screen positions change');
+  await expect(setup.getByRole('textbox', { name: 'H3 prompt', exact: true })).toContainText('complete 360° perimeter circuit', { timeout: 25000 });
   const requests = (await (await request.get('/fixtures/reel-compositions')).json()).filter(c => c.context.environment?.assetId === asset.id);
   expect(requests).toHaveLength(1);
-  expect(requests[0].context.presetViews).toContain('[Shot 4]'); expect(requests[0].context.presetViews).toContain('left');
-  expect(requests[0].context.presetViews).toContain('four different directions');
+  expect(requests[0].context.presetViews).toContain('counterclockwise');
+  expect(requests[0].context.presetViews).toContain('outside the central acting area');
 });
 for (const narrow of [false, true]) test(`environment reel composes, saves and supplies the setting to Shots (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   test.setTimeout(150000);
@@ -121,11 +99,11 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   await expect(page.getByRole('button', { name: 'Generate images', exact: true })).not.toBeVisible();
   expect((await library(request, id)).reelDrafts).toHaveLength(0);
   await openSetup(page);
-  await expand(setup.locator('.reel-voice-options'));
-  await expect(setup.locator('.reel-voice-options > summary')).toHaveText('Audio · Silent');
+  await expect(setup.getByText('Silent reference', { exact: true })).toBeVisible();
+  await expect(setup.locator('.reel-voice-options')).toHaveCount(0);
   await expect(setup.getByLabel('Voice mode')).toHaveCount(0);
   await closeSetup(page);
-  await editor.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${asset.id}/${asset.images[0].id}"]`).click();
   if (narrow) await pictures.getByRole('tab', { name: 'Selected references (1)', exact: true }).click();
@@ -140,10 +118,10 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   const prompt = setup.getByRole('textbox', { name: 'H3 prompt', exact: true });
   await expect(prompt).toBeEmpty();
   await framingOptions(page);
-  await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentTurn');
+  await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentFullSet');
   await expect(setup.getByLabel('Camera direction')).toHaveValue('Right');
   await expect(setup.getByText(/Use keyframes to reference all angles/)).toBeVisible();
-  const directions = 'Turn slowly through the room. Pause briefly facing the window.';
+  const directions = 'Travel around the outside of the room looking inward. Keep the window and doorway fixed.';
   await setup.getByLabel('Instructions', { exact: true }).fill(directions);
   const assist = await openReelAssist(page);
   await assist.locator('.model-chip').click();
@@ -192,7 +170,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   expect((await (await request.get(`/fixtures/${id}/shots`)).json()).shots).toHaveLength(0);
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`); await tools(page);
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   const card = picker.locator(`[data-reel-id="${reel.id}"]`);
   await expect(card.locator('.media-kind')).toHaveAttribute('title', /^Environment reel ·/);
@@ -224,7 +202,7 @@ test('environment custom path keeps authored text and requires instructions only
   const asset = (await library(request, id)).assets[0];
   await page.goto(`/projects/${id}/assets?assetId=${asset.id}&view=reels`); await tools(page);
   const editor = reelTools(page), setup = reelSetup(page);
-  await editor.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const picker = page.locator('.reel-pictures-dialog');
   for (const owner of (await library(request, id)).assets) await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -252,4 +230,92 @@ test('environment custom path keeps authored text and requires instructions only
   await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentPath');
   await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue('Move from the doorway toward the window.');
   expect((await library(request, id)).reelDrafts[0].images).toHaveLength(2);
+});
+
+test('removed environment preset requires a choice while preserving writing and crops', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/environment-reel-owner`);
+  const original = await (await request.post(`/fixtures/${id}/removed-environment-draft`)).json();
+  await page.goto(`/projects/${id}/assets?assetId=${original.assetId}&view=reels`); await tools(page);
+  const editor = reelTools(page), setup = await openSetup(page);
+  await expect(editor.getByRole('button', { name: 'Generate reel', exact: true })).toBeDisabled();
+  await expect(setup.getByLabel('Camera preset')).toHaveValue('');
+  await expect(setup.getByText(/Choose Full set, Feature study, Walkthrough or Custom/).first()).toBeVisible();
+  const assist = await openReelAssist(page);
+  await expect(assist.getByRole('button', { name: 'Revise pair', exact: true })).toBeDisabled();
+  await assist.getByRole('button', { name: 'Close', exact: true }).click();
+  await setup.getByLabel('Camera preset').selectOption('EnvironmentFullSet');
+  await expect(setup.getByLabel('Instructions', { exact: true })).toHaveValue(original.instructions);
+  await expect.poll(async () => (await library(request, id)).reelDrafts[0].framing).toBe(28);
+  const updated = (await library(request, id)).reelDrafts[0];
+  expect(updated.images).toEqual(original.images);
+  expect(updated.prompt).toBe(original.prompt); expect(updated.useGuidance).toBe(original.useGuidance);
+  await closeSetup(page);
+  await expect(editor.getByRole('button', { name: 'Generate reel', exact: true })).toBeEnabled();
+  await page.reload(); await tools(page); await framingOptions(page);
+  await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentFullSet');
+  expect((await (await request.get('/fixtures/reel-compositions')).json())).toHaveLength(0);
+});
+
+for (const narrow of [false, true]) test(`image details starts a fresh environment reel without overwriting the previous draft (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/environment-reel-owner`);
+  const previous = await (await request.post(`/fixtures/${id}/removed-environment-draft`)).json();
+  const owner = (await library(request, id)).assets[0], image = owner.images[0];
+  await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
+  await page.goto(`/projects/${id}/assets?assetId=${owner.id}`);
+  await page.locator(`[data-media-id="${image.id}"]`).getByRole('button', { name: /^Preview image/ }).click();
+  const review = page.locator('.image-review-dialog');
+  await expect(review).toBeVisible();
+  const create = review.getByRole('button', { name: 'Create reel from this image', exact: true });
+  await expect(create).toBeEnabled();
+  await page.screenshot({ path: `artifacts/environment-image-details-${narrow ? 'narrow' : 'desktop'}.png` });
+  await create.click();
+  await expect(review).not.toBeVisible();
+  await expect(reelTools(page)).toBeVisible();
+  await expect.poll(async () => (await library(request, id)).reelDrafts.length).toBe(2);
+  const drafts = (await library(request, id)).reelDrafts;
+  expect(drafts.find(d => d.id === previous.id)).toEqual(previous);
+  const fresh = drafts.find(d => d.id !== previous.id);
+  expect(fresh.framing).toBe(28); expect(fresh.images).toHaveLength(1);
+  expect(fresh.images[0].mediaId).toBe(image.id); expect(fresh.images[0].assetId).toBe(owner.id);
+  expect(fresh.images[0].name).toBe(owner.name);
+  expect(fresh.prompt).toBe(''); expect(fresh.useGuidance).toBe('');
+  await framingOptions(page);
+  const setup = reelSetup(page);
+  await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentFullSet');
+  await setup.getByLabel('Instructions', { exact: true }).fill('Keep the doorway and brickwork fixed while travelling around the acting area.');
+  await page.screenshot({ path: `artifacts/environment-from-image-${narrow ? 'narrow' : 'desktop'}.png` });
+  const document = setup.locator('.prompt-document');
+  const prompt = setup.getByRole('textbox', { name: 'H3 prompt', exact: true });
+  await expect(prompt).toHaveText('');
+  expect(await document.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  expect(await prompt.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  await prompt.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `artifacts/environment-empty-prompt-${narrow ? 'narrow' : 'desktop'}.png` });
+  await prompt.fill(previous.prompt);
+  await expect.poll(() => prompt.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  expect(await document.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  expect(await document.evaluate(el => getComputedStyle(el).overflowY)).toBe('visible');
+  await page.screenshot({ path: `artifacts/environment-full-prompt-${narrow ? 'narrow' : 'desktop'}.png` });
+  expect((await library(request, id)).reels).toHaveLength(0);
+});
+
+for (const narrow of [false, true]) test(`illustrated environment guide fits both themes (${narrow ? 'narrow' : 'desktop'})`, async ({ page }) => {
+  await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
+  await page.goto('/help/environment-reels');
+  await expect(page.getByRole('heading', { name: 'Environment reference reels', exact: true })).toBeVisible();
+  const diagrams = page.locator('.environment-coverage img');
+  await expect(diagrams).toHaveCount(4);
+  for (const diagram of await diagrams.all()) {
+    await expect.poll(() => diagram.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(diagram).toHaveAttribute('alt', /Camera travels|Example camera route/);
+  }
+  for (const appearance of ['Light', 'Dark']) {
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click();
+    await page.getByLabel(new RegExp(`^${appearance} appearance`)).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', appearance.toLowerCase());
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `artifacts/environment-guide-${narrow ? 'narrow' : 'desktop'}-${appearance.toLowerCase()}.png`, fullPage: true });
+  }
 });

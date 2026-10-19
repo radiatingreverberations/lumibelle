@@ -23,6 +23,10 @@ public static class ReferenceVideos
     public static IEnumerable<(int Number, string? Speaker)> AudioMappings(Shot shot) => ResolvedReferences.For(shot).Audio.Select(a => (a.Number, a.Speaker));
     public static IReadOnlyList<(VideoInputKind Kind, int? VideoIndex)> InputOrder(Shot shot) => ResolvedReferences.For(shot).InputOrder();
     public static string FrameUrl(Guid project, ReelFrameIdentity frame) => Url(project, frame.MediaId) + $"/frames/{frame.Index}?source={frame.Source}&seconds={frame.Seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+    // A source reel holding still pictures is not a video input. Its frames use the picture budget;
+    // an optional soundtrack uses the separate audio budget.
+    public static bool UsesReelSlot(ShotVideoBinding binding) => binding.EffectiveVisuals is ReelVisuals.FullReel or ReelVisuals.RefMod;
+    public static int ReelSlotCount(Shot shot) => shot.Videos.Count(UsesReelSlot);
     public static void Validate(Shot shot, bool ready = false)
     {
         if (shot.Videos is null || shot.Videos.Any(v => v is null || v.Media is null)) throw new WorkspaceStoreException("Invalid video references.");
@@ -30,7 +34,7 @@ public static class ReferenceVideos
         foreach (var reel in shot.Videos) { ValidateMedia(reel.Media); if (reel.Keyframes is not null) ValidateKeyframes(reel.Media, reel.Keyframes); }
         var resolved = ResolvedReferences.For(shot);
         // Each limit is reported on its own, with this shot's count, so it is clear what to change.
-        if (shot.Videos.Count > 3) throw new WorkspaceStoreException($"Use up to three reels; this shot has {shot.Videos.Count}.");
+        if (ReelSlotCount(shot) > 3) throw new WorkspaceStoreException($"Use up to three reels; this shot has {ReelSlotCount(shot)}.");
         if (shot.Videos.Select(v => v.Id).Distinct().Count() != shot.Videos.Count || shot.Videos.Select(v => v.Media.Id).Distinct().Count() != shot.Videos.Count)
             throw new WorkspaceStoreException("Add each reel only once.");
         if (resolved.Pictures.Count > 9) throw new WorkspaceStoreException($"Use up to nine pictures, counting reel keyframes; this shot has {resolved.Pictures.Count}.");
@@ -89,7 +93,7 @@ public static class ReferenceVideos
         foreach (var f in set.Frames)
         {
             if (f.Id == Guid.Empty || f.Frame.MediaId != media.Id || f.Frame.Source is null || f.Frame.Source.Length != 64 || f.Frame.Source.Any(c => !Uri.IsHexDigit(c)) || f.Frame.Index < 0 || f.Frame.Index >= media.Frames ||
-                !double.IsFinite(f.Frame.Seconds) || f.Frame.Seconds < 0 || f.Frame.Seconds > media.Duration || f.Notes is null || f.Notes.Length > 20000)
+                !double.IsFinite(f.Frame.Seconds) || f.Frame.Seconds < 0 || f.Frame.Seconds > media.Duration || f.Notes is null || f.Notes.Length > 20000 || f.Name?.Length > 160)
                 throw new WorkspaceStoreException("A keyframe does not match this reel.");
             if (f.Crop is not null) ComfyReferenceImageEditor.ValidateCrop(f.Crop);
         }

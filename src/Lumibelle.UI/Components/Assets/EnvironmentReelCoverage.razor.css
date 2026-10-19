@@ -1,0 +1,10 @@
+.environment-coverage { display:grid; grid-template-columns:minmax(140px,210px) minmax(0,1fr); align-items:center; gap:16px; margin:12px 0; }
+.environment-coverage img { display:block; width:100%; height:auto; }
+.environment-coverage figcaption { min-width:0; }
+.environment-coverage strong { font-size:var(--lumi-font-size-meta,14px); }
+.environment-coverage p { margin:6px 0 0; color:var(--muted); font-size:var(--lumi-font-size-meta,14px); }
+.environment-coverage .coverage-legend { font-size:12px; }
+@media (max-width:600px) {
+    .environment-coverage { grid-template-columns:minmax(0,1fr); gap:8px; }
+    .environment-coverage img { max-width:240px; justify-self:center; }
+}

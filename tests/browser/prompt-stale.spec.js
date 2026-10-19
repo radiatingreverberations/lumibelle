@@ -1,5 +1,5 @@
 import { composeProduction, closeShotSetup, toolsTab } from './workspace-tools.js';
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 test('changing references after the prompt was reviewed says the prompt needs a review or a rewrite', async ({ page, request }) => {
   test.setTimeout(120000);
@@ -9,10 +9,11 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
   await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   await composeProduction(page);
   await closeShotSetup(page);
@@ -21,7 +22,7 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   await expect(prompt).not.toHaveClass(/stale/);
   await expect(prompt).not.toHaveAttribute('title');
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').nth(0).click();
   const manager = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references' }) });
   await manager.getByRole('button', { name: 'Apply changes', exact: true }).click();

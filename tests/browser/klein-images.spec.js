@@ -65,12 +65,12 @@ test('Klein multi-reference edit captures inputs and persists lineage', async ({
   await expect(page.getByLabel('Edit instruction')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await toolsTab(page, 'Inputs');
-  await page.getByRole('button',{name:'Manage references',exact:true}).focus();
-  await expect(page.getByRole('button',{name:'Manage references',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true}).focus();
+  await expect(page.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true})).toBeFocused();
   await page.screenshot({ path: 'test-results/klein-references-mobile.png', fullPage: true });
   await page.getByRole('button', { name: 'Generate edited images', exact: true }).click();
   await expect(page.getByLabel('Image workflow', { exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Manage references', exact:true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact:true })).toBeDisabled();
   const state = async () => (await (await request.get(`/fixtures/${project.id}`)).json()).assets;
   await expect.poll(async () => (await state()).assets[0].images.length).toBe(2);
   const edited = (await state()).assets[0].images.find(image => image.generation?.edit);

@@ -1,5 +1,5 @@
 import { cropReference, shotAction, generateTakes, composeProduction, closeShotSetup, openShotSetup, editShotReference, toolsTab, assetView, imageAction, compositionState } from './workspace-tools.js';
-import { planningComposer, submitPlanning, openPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 async function setup(page, request) {
@@ -8,7 +8,7 @@ async function setup(page, request) {
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const plan = page.locator('.shot-planning-dialog');
   await expect(planningComposer(page)).toBeVisible();
   await expect(planningComposer(page)).toContainText(/15[.,]083/);
@@ -17,6 +17,7 @@ async function setup(page, request) {
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeEnabled();
   await expect(plan).toContainText('You called?');
   await plan.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots.length).toBe(1);
   return { project, assets, state: () => compositionState(request, project.id) };
@@ -27,7 +28,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { project, state } = await setup(page, request);
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').first().click();
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await editShotReference(page);
@@ -94,7 +95,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   await review.getByRole('button', { name: 'Close', exact: true }).click();
   await shotAction(page, 'Duplicate');
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
   await page.getByLabel('Origin', { exact: true }).selectOption('VideoFrame');
   await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse after arrival/ }).click();
@@ -195,7 +196,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await page.screenshot({ path: `test-results/frame-assets-${workflow}-mobile.png`, fullPage: true });
     await page.getByRole('link', { name: 'Shots', exact: true }).click();
     await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
     await page.locator('.manual-reference-dialog').getByRole('combobox', { name: 'Reference type', exact: true }).selectOption('Images');
     await page.getByLabel('Origin', { exact: true }).selectOption('Cropped');
     await page.locator('.project-image-picker .picker-grid').getByRole('button', { name: /Mouse face crop/ }).click();
@@ -393,7 +394,8 @@ test('manual shots require duration and planning cancellation cannot apply', asy
   await plan.getByRole('button', { name: 'Cancel request' }).click();
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeDisabled();
   await expect(plan).toContainText('cancelled');
-  await page.keyboard.press('Escape');
+  await plan.getByRole('button', { name: 'Close', exact: true }).click();
+  await openShotsAfterPlanning(page);
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots.length).toBe(2);
   await page.reload();
   await expect(page.locator('.shot-list-row')).toHaveCount(2);
@@ -457,7 +459,7 @@ test('character voice upload, excerpt selection and shot assignment', async ({ p
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole('link', { name: 'Shots', exact: true }).click();
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   if (!await refs.getByLabel('Voice for Juniper', { exact: true }).count())
     await refs.getByLabel('Add character voice', { exact: true }).selectOption(library.voices[0].assetId);
@@ -523,7 +525,7 @@ test('shared preservation defaults, local overrides and captured take guidance r
   await expect.poll(async () => (await library()).assets.find(a => a.id === person.id).images[0].preservationGuidance).toBe('Preserve the gray hoodie.');
   await page.getByRole('link', { name: 'Shots', exact: true }).click();
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const reference = page.locator('.manual-reference-dialog');
   await reference.locator(`[data-reference="${person.id}/${person.images[0].id}"]`).click();
   await reference.getByLabel('Voice for Juniper', { exact: true }).selectOption('none');

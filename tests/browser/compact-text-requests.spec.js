@@ -11,7 +11,7 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
   const assets = await (await request.post(`/fixtures/${id}/images`)).json();
   const owner = assets.assets[0];
   if (workflow === 'prompt') await request.post(`/fixtures/${id}/production-shot`);
-  const route = workflow === 'script' ? 'script' : ['planning', 'prompt'].includes(workflow) ? 'shots' : 'assets';
+  const route = workflow === 'script' ? 'script' : workflow === 'planning' ? 'scenes' : workflow === 'prompt' ? 'shots' : 'assets';
   await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
   await page.goto(`/projects/${id}/${route}${workflow === 'reel' ? `?assetId=${owner.id}&view=reels` : ''}`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
@@ -32,9 +32,10 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
    } else {
     let start;
     if (workflow === 'extraction' || workflow === 'planning') {
-     await reveal('left');
+     if (workflow === 'extraction') await reveal('left');
+     else await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
      start = page.getByRole('button', { name: workflow === 'extraction' ? 'Extract assets from script' : 'Draft shots', exact: true });
-     control = page.locator(workflow === 'extraction' ? '.asset-library-extraction .request-action-button' : '.shots-library-tools .text-assistance .request-action-button').first();
+     control = page.locator(workflow === 'extraction' ? '.asset-library-extraction .request-action-button' : '.scene-drafting-tools .request-action-button').first();
      review = page.locator(workflow === 'extraction' ? '.extraction-dialog' : '.shot-planning-dialog');
     } else if (workflow === 'enhancement') {
      await reveal('right');
@@ -78,7 +79,7 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
    await close.click(); await expect(review).toBeHidden();
    if (narrow) {
     if (['script', 'enhancement'].includes(workflow)) await reveal('right');
-    else if (['extraction', 'planning'].includes(workflow)) await reveal('left');
+    else if (workflow === 'extraction') await reveal('left');
    }
    await expect(control).toBeInViewport();
    expect((await jobs(request, id)).map(j => j.id)).toEqual(captured.map(j => j.id));

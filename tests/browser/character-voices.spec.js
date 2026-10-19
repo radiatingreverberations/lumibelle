@@ -66,7 +66,7 @@ for (const narrow of [false, true]) test(`saved reel voice and combined characte
   await expect(reelVoice.getByRole('combobox', { name: 'Voice recording', exact: true })).toHaveValue(recording.id);
   await expect(reelVoice.getByRole('spinbutton', { name: 'Excerpt start', exact: true })).toHaveValue('0.5');
   await page.goto(`/projects/${id}/shots`); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   await refs.locator(`[data-reference="${library.assets[0].id}/${library.assets[0].images[0].id}"]`).click();
   await refs.locator(`[data-reel-id="${reel.id}"] .add-reel`).click();

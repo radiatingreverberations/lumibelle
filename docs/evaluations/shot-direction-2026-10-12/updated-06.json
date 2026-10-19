@@ -1,0 +1,479 @@
+{
+  "name": "Concealed recognition",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 43.9781272,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022dramaticProgression\u0022: \u0022A neutral encounter between strangers turns into a private recognition. Ada sees the scar, conceals what she knows, deflects his question, and quietly withholds her ticket. The tension is in her controlled surface over hidden knowledge.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens on a balanced two-shot of shared, ordinary space. A tight insert isolates the scar as the revelation. Coverage then narrows to Ada\u0027s guarded close-up, moves to an over-the-shoulder on the stranger for his probing question, and ends on a single of Ada whose frame includes her concealing hand.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the scar and Ada\u0027s recognition, which the stranger does not register. The audience does not learn what the scar means to her or who he is. That gap drives suspense.\u0022,\n      \u0022spatialAnchors\u0022: \u0022Ada and the stranger sit facing each other across the carriage seats. The night window runs beside them. His gloved hands and the ticket are between them. Ada\u0027s coat is on her side. Exact seat sides and window position are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Strangers Across the Carriage\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a wide-medium profile two-shot down the carriage. Ada sits on one side and the stranger sits opposite, the dark night window streaking between and beside them. His gloved hands rest visibly in his lap. The camera holds steady with only a slight train sway. The stranger shifts and reaches into his coat for his ticket, and his gloved hand begins to come forward. Ending: the two-shot, with his hand extending toward the space between them.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }, { \u0022name\u0022: \u0022Stranger\u0022 }],\n      \u0022atmosphere\u0022: \u0022Dim night carriage, rhythmic rail clatter, passing lights flickering across the window.\u0022,\n      \u0022music\u0022: \u0022None, or a barely audible low drone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the shared space and the stranger\u0027s concealed hands before the reveal.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the ordinary setup and the gloves registered before the scar can land.\u0022,\n          \u0022attention\u0022: \u0022The gloved hands, then the reaching motion.\u0022,\n          \u0022relationships\u0022: \u0022Two strangers in neutral, enforced proximity.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ada and the stranger sit opposite each other across the seats.\u0022,\n          \u0022facing\u0022: \u0022Both face each other in profile to camera.\u0022,\n          \u0022eyelines\u0022: \u0022Ada\u0027s gaze is casual, not yet fixed on him.\u0022,\n          \u0022movement\u0022: \u0022The stranger reaches into his coat and brings his hand forward with the ticket.\u0022,\n          \u0022camera\u0022: \u0022Static profile two-shot at seated eye level.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opening.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on the reaching action to the insert of the wrist.\u0022,\n          \u0022timing\u0022: \u0022Unhurried, letting the quiet settle before the reveal.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Gloves are on both hands. The ticket emerges from his coat.\u0022,\n          \u0022assumptions\u0022: \u0022The profile axis and window side are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Crescent Scar\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a tight insert on the stranger\u0027s gloved hand holding the ticket, roughly from Ada\u0027s seated vantage. As he extends the ticket, the glove\u0027s cuff slides back and exposes a crescent-shaped scar on his skin. Ending: the scar clearly framed beside the ticket.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Stranger\u0022 }],\n      \u0022atmosphere\u0022: \u0022Rail clatter continues, and window light passes over the skin.\u0022,\n      \u0022music\u0022: \u0022A subtle sting or a held tone as the scar is revealed.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Reveal the scar as the scene\u0027s key information.\u0022,\n          \u0022reason\u0022: \u0022The audience must see exactly what Ada sees.\u0022,\n          \u0022attention\u0022: \u0022The crescent scar.\u0022,\n          \u0022relationships\u0022: \u0022His unguarded moment becomes her knowledge.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022movement\u0022: \u0022The cuff slips back as his hand extends.\u0022,\n          \u0022camera\u0022: \u0022Close insert, roughly matching Ada\u0027s eyeline.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Matched on the stranger\u0027s reaching action from the two-shot.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Ada\u0027s reaction to the scar.\u0022,\n          \u0022timing\u0022: \u0022Brief, just long enough to read the shape.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Same hand and ticket as the previous shot.\u0022,\n          \u0022assumptions\u0022: \u0022The scar is on the wrist where the glove ends. The script states only that reaching exposes it.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Ada Recognises\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a tight close-up of Ada, her eyes lowered toward his hand. Recognition flickers in her eyes, but her face stays composed and calm. She lifts her gaze back to neutral. Ending: Ada\u0027s calm close-up with her eyes level.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Flickering window light across her face, steady rail rhythm.\u0022,\n      \u0022music\u0022: \u0022The held tone sustains quietly.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Ada\u0027s recognition and her controlled concealment of it.\u0022,\n          \u0022reason\u0022: \u0022The audience shares her secret while seeing that she hides it.\u0022,\n          \u0022attention\u0022: \u0022Her eyes against her still expression.\u0022,\n          \u0022relationships\u0022: \u0022Ada now holds knowledge the stranger does not know she has.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022eyelines\u0022: \u0022First down toward his hand, then level toward him.\u0022,\n          \u0022camera\u0022: \u0022Static tight close-up from the stranger\u0027s side of the axis.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Reaction to the scar insert.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the stranger as he speaks.\u0022,\n          \u0022timing\u0022: \u0022A held beat of restraint.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Ada keeps her eyeline consistent with the stranger\u0027s opposite position.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Have We Met?\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022e8b1bfe9-af5b-541d-b817-25beacdf5676\u0022, \u00224d6b5f69-ad9d-5313-b7cf-22021891d410\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: over Ada\u0027s shoulder, a medium close-up of the stranger facing her, his gloved hand with the ticket still between them. He studies her and asks his question. Ending: the stranger holding his look, waiting for her answer.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022STRANGER\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Have we met?\u0022 }\n      ],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Stranger\u0022 }, { \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Quiet carriage, rail rhythm under the line.\u0022,\n      \u0022music\u0022: \u0022Minimal, almost absent.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the stranger\u0027s probing question.\u0022,\n          \u0022reason\u0022: \u0022The question raises the stakes. Has he noticed something?\u0022,\n          \u0022attention\u0022: \u0022The stranger\u0027s face and his ambiguous intent.\u0022,\n          \u0022relationships\u0022: \u0022He tests the familiarity, and Ada sits in the foreground under scrutiny.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ada\u0027s shoulder is in the foreground and the stranger is opposite.\u0022,\n          \u0022eyelines\u0022: \u0022The stranger looks directly at Ada.\u0022,\n          \u0022camera\u0022: \u0022Static over-the-shoulder from Ada\u0027s side.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on the start of his line after Ada\u0027s held reaction.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Ada for her answer.\u0022,\n          \u0022timing\u0022: \u0022Tight, with the line landing quickly.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The ticket remains in his gloved hand. Screen direction matches Ada\u0027s eyeline.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022I Would Remember\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00224f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac\u0022,\n        \u00223e4c45f4-57a1-5cc1-b3b9-10a957cd3518\u0022,\n        \u002293236959-ff76-5784-8666-75ff84785ba0\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening: a medium single of Ada from the stranger\u0027s side, wider than her earlier close-up so that her coat and hands are in frame. She answers evenly. Then, keeping her eyes on him, she slips her own ticket into her coat instead of handing it to him. Ending: Ada composed, her hand withdrawing from her coat, her gaze level on the stranger.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022ADA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022I would remember.\u0022 }\n      ],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Window light continues to pass, rail rhythm steady, tension unresolved.\u0022,\n      \u0022music\u0022: \u0022The low drone returns faintly, unresolved.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Ada deflecting with a loaded line, then quietly withholding her ticket.\u0022,\n          \u0022reason\u0022: \u0022Her words and her action together show concealment and quiet defiance.\u0022,\n          \u0022attention\u0022: \u0022Her calm delivery, then the ticket disappearing into her coat.\u0022,\n          \u0022relationships\u0022: \u0022Ada asserts control while keeping her secret.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022eyelines\u0022: \u0022Ada holds her gaze on the stranger throughout.\u0022,\n          \u0022movement\u0022: \u0022Her hand moves the ticket into her coat.\u0022,\n          \u0022camera\u0022: \u0022Static medium single framed to include her hands.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut for Ada\u0027s answer to his question.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end on her held look.\u0022,\n          \u0022timing\u0022: \u0022Measured, with a pause after the line before the ticket action.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Ada\u0027s ticket is introduced here from her hand or lap. Her coat is on.\u0022,\n          \u0022assumptions\u0022: \u0022Where her ticket starts is not specified in the script.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the shared space and the stranger\u0027s concealed hands before the reveal.",
+            "reason": "The audience needs the ordinary setup and the gloves registered before the scar can land.",
+            "attention": "The gloved hands, then the reaching motion.",
+            "relationships": "Two strangers in neutral, enforced proximity."
+          },
+          "staging": {
+            "positions": "Ada and the stranger sit opposite each other across the seats.",
+            "facing": "Both face each other in profile to camera.",
+            "eyelines": "Ada\u0027s gaze is casual, not yet fixed on him.",
+            "movement": "The stranger reaches into his coat and brings his hand forward with the ticket.",
+            "camera": "Static profile two-shot at seated eye level."
+          },
+          "editorial": {
+            "cutIn": "Scene opening.",
+            "cutOut": "Cut on the reaching action to the insert of the wrist.",
+            "timing": "Unhurried, letting the quiet settle before the reveal."
+          },
+          "advanced": {
+            "continuity": "Gloves are on both hands. The ticket emerges from his coat.",
+            "assumptions": "The profile axis and window side are staging choices.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "621476b2c4a396c1395661255005f9d0d004d51eba1dd6f729a2f819f5a08772",
+            "strategy": "d32379c0325fa41ac1d59a8624bd415b0f06ed862d3a80d10aca2e27a11d0e79",
+            "cast": "62734c0fc265669d7bb5a0ef45b11635b73af8fe75c6b1839d3171c94afcc53a",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+            "neighbours": "ca33aafe2b8607b4545f7f59cab629ff54353c3fbdf955384637ad5075714a6a",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "ae326faa-b452-48c2-82bd-7ba8c88b97b7",
+        "title": "Strangers Across the Carriage",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "bef4e3ae-a328-47a5-9f57-2ff1a815ced0",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T06:08:32.7931722+00:00"
+        },
+        "duration": 5,
+        "description": "Opening: a wide-medium profile two-shot down the carriage. Ada sits on one side and the stranger sits opposite, the dark night window streaking between and beside them. His gloved hands rest visibly in his lap. The camera holds steady with only a slight train sway. The stranger shifts and reaches into his coat for his ticket, and his gloved hand begins to come forward. Ending: the two-shot, with his hand extending toward the space between them.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "b7a171e2-7f7f-48b3-adc0-86005f7a60d2",
+            "name": "Ada",
+            "appearance": null
+          },
+          {
+            "id": "93784165-8f39-48b8-85d2-0bf3f204edac",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Dim night carriage, rhythmic rail clatter, passing lights flickering across the window.",
+        "music": "None, or a barely audible low drone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "direction": {
+          "intent": {
+            "purpose": "Reveal the scar as the scene\u0027s key information.",
+            "reason": "The audience must see exactly what Ada sees.",
+            "attention": "The crescent scar.",
+            "relationships": "His unguarded moment becomes her knowledge."
+          },
+          "staging": {
+            "positions": "",
+            "facing": "",
+            "eyelines": "",
+            "movement": "The cuff slips back as his hand extends.",
+            "camera": "Close insert, roughly matching Ada\u0027s eyeline."
+          },
+          "editorial": {
+            "cutIn": "Matched on the stranger\u0027s reaching action from the two-shot.",
+            "cutOut": "Cut to Ada\u0027s reaction to the scar.",
+            "timing": "Brief, just long enough to read the shape."
+          },
+          "advanced": {
+            "continuity": "Same hand and ticket as the previous shot.",
+            "assumptions": "The scar is on the wrist where the glove ends. The script states only that reaching exposes it.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "2d5fcb753792806e3404abc6b4b29f97645f03d61c15b26bbb81c8e58121ff40",
+            "strategy": "d32379c0325fa41ac1d59a8624bd415b0f06ed862d3a80d10aca2e27a11d0e79",
+            "cast": "3af96bda0f6f7a4f05e7ecfd993f87ecdaff2afc886dbe0940eefe3b963285d0",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "508f448733c01acd2fd2d2d5ac1189e0c7b6a3c37de92e9f2de0b86020a6ca46",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "807992ee-1d02-452a-b2be-20ada7b36d3b",
+        "title": "The Crescent Scar",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "bef4e3ae-a328-47a5-9f57-2ff1a815ced0",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T06:08:32.7931722+00:00"
+        },
+        "duration": 3,
+        "description": "Opening: a tight insert on the stranger\u0027s gloved hand holding the ticket, roughly from Ada\u0027s seated vantage. As he extends the ticket, the glove\u0027s cuff slides back and exposes a crescent-shaped scar on his skin. Ending: the scar clearly framed beside the ticket.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "a825e852-a287-473d-be13-eec39521cef9",
+            "name": "Stranger",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Rail clatter continues, and window light passes over the skin.",
+        "music": "A subtle sting or a held tone as the scar is revealed.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "direction": {
+          "intent": {
+            "purpose": "Show Ada\u0027s recognition and her controlled concealment of it.",
+            "reason": "The audience shares her secret while seeing that she hides it.",
+            "attention": "Her eyes against her still expression.",
+            "relationships": "Ada now holds knowledge the stranger does not know she has."
+          },
+          "staging": {
+            "positions": "",
+            "facing": "",
+            "eyelines": "First down toward his hand, then level toward him.",
+            "movement": "",
+            "camera": "Static tight close-up from the stranger\u0027s side of the axis."
+          },
+          "editorial": {
+            "cutIn": "Reaction to the scar insert.",
+            "cutOut": "Cut to the stranger as he speaks.",
+            "timing": "A held beat of restraint."
+          },
+          "advanced": {
+            "continuity": "Ada keeps her eyeline consistent with the stranger\u0027s opposite position.",
+            "assumptions": "",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "fecef8312e00b768ff044c38b049aca2222343564c26317fce9648e31ce1739b",
+            "strategy": "d32379c0325fa41ac1d59a8624bd415b0f06ed862d3a80d10aca2e27a11d0e79",
+            "cast": "48976d218e21ad926823942d1ae0f243e3e000d76e517246bc1908c4a36f995d",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "996843385cc44d9c88e597f4171b20562d75a669cfeb9e5e71386f51ac9f0487",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "006ac5a4-92fa-48e6-9eac-3524f8b40748",
+        "title": "Ada Recognises",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "3f1f616f-3068-5c3d-b4be-6bda7a462172"
+        ],
+        "sourceExcerpt": "Ada sits opposite a stranger whose gloves hide his hands. He reaches for his ticket, exposing a crescent scar. Ada recognises it but keeps her expression calm.",
+        "planning": {
+          "id": "bef4e3ae-a328-47a5-9f57-2ff1a815ced0",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T06:08:32.7931722+00:00"
+        },
+        "duration": 3,
+        "description": "Opening: a tight close-up of Ada, her eyes lowered toward his hand. Recognition flickers in her eyes, but her face stays composed and calm. She lifts her gaze back to neutral. Ending: Ada\u0027s calm close-up with her eyes level.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "bac002ea-fadf-4c00-a4cc-d813bd6d537a",
+            "name": "Ada",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Flickering window light across her face, steady rail rhythm.",
+        "music": "The held tone sustains quietly.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "direction": {
+          "intent": {
+            "purpose": "Deliver the stranger\u0027s probing question.",
+            "reason": "The question raises the stakes. Has he noticed something?",
+            "attention": "The stranger\u0027s face and his ambiguous intent.",
+            "relationships": "He tests the familiarity, and Ada sits in the foreground under scrutiny."
+          },
+          "staging": {
+            "positions": "Ada\u0027s shoulder is in the foreground and the stranger is opposite.",
+            "facing": "",
+            "eyelines": "The stranger looks directly at Ada.",
+            "movement": "",
+            "camera": "Static over-the-shoulder from Ada\u0027s side."
+          },
+          "editorial": {
+            "cutIn": "Cut on the start of his line after Ada\u0027s held reaction.",
+            "cutOut": "Cut to Ada for her answer.",
+            "timing": "Tight, with the line landing quickly."
+          },
+          "advanced": {
+            "continuity": "The ticket remains in his gloved hand. Screen direction matches Ada\u0027s eyeline.",
+            "assumptions": "",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "c0ee8df52807c86ddc0b5b49ee3228ef1c750024e60650d9b3326fbe0a33e738",
+            "strategy": "d32379c0325fa41ac1d59a8624bd415b0f06ed862d3a80d10aca2e27a11d0e79",
+            "cast": "cf7438edaed05ed280b8cef107ace9b422bcc0a529ed14cc7efffb3df97f0c3f",
+            "dialogue": "87c4a0b1479a5fecf605cc89be96b3cacff75c772f4c96866e7c58447b32d684",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "1e3c50a9bc93be08d04b98f700855f90280ebd94794ec581e85332c493b45350",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "7e4f596f-32c0-4902-91c2-10b4d941557d",
+        "title": "Have We Met?",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "e8b1bfe9-af5b-541d-b817-25beacdf5676",
+          "4d6b5f69-ad9d-5313-b7cf-22021891d410"
+        ],
+        "sourceExcerpt": "### STRANGER\n\nHave we met?",
+        "planning": {
+          "id": "bef4e3ae-a328-47a5-9f57-2ff1a815ced0",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T06:08:32.7931722+00:00"
+        },
+        "duration": 3,
+        "description": "Opening: over Ada\u0027s shoulder, a medium close-up of the stranger facing her, his gloved hand with the ticket still between them. He studies her and asks his question. Ending: the stranger holding his look, waiting for her answer.",
+        "dialogue": [
+          {
+            "id": "c0b76af1-8cce-4302-85df-3e2af26c06b0",
+            "speaker": "STRANGER",
+            "language": "en",
+            "text": "Have we met?"
+          }
+        ],
+        "characters": [
+          {
+            "id": "a9cd4a89-0689-43fd-ae6a-1c52cc46515d",
+            "name": "Stranger",
+            "appearance": null
+          },
+          {
+            "id": "c53d8e7e-27f7-4e05-b799-e08bebac1f91",
+            "name": "Ada",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet carriage, rail rhythm under the line.",
+        "music": "Minimal, almost absent.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "direction": {
+          "intent": {
+            "purpose": "Show Ada deflecting with a loaded line, then quietly withholding her ticket.",
+            "reason": "Her words and her action together show concealment and quiet defiance.",
+            "attention": "Her calm delivery, then the ticket disappearing into her coat.",
+            "relationships": "Ada asserts control while keeping her secret."
+          },
+          "staging": {
+            "positions": "",
+            "facing": "",
+            "eyelines": "Ada holds her gaze on the stranger throughout.",
+            "movement": "Her hand moves the ticket into her coat.",
+            "camera": "Static medium single framed to include her hands."
+          },
+          "editorial": {
+            "cutIn": "Cut for Ada\u0027s answer to his question.",
+            "cutOut": "Scene end on her held look.",
+            "timing": "Measured, with a pause after the line before the ticket action."
+          },
+          "advanced": {
+            "continuity": "Ada\u0027s ticket is introduced here from her hand or lap. Her coat is on.",
+            "assumptions": "Where her ticket starts is not specified in the script.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "83b1cdd64bf11992142522faf8567896c3c835cd1b587dd79cb9088fab449568",
+            "strategy": "d32379c0325fa41ac1d59a8624bd415b0f06ed862d3a80d10aca2e27a11d0e79",
+            "cast": "48976d218e21ad926823942d1ae0f243e3e000d76e517246bc1908c4a36f995d",
+            "dialogue": "fe2fe3211e29cac1a9e6a2348d6fcfd0c701b15fa669a58be219dee040aceb0a",
+            "duration": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+            "neighbours": "a5548da7dca448b9d43114714d10facb3ea79ea5737b5170a07afd291565aae6",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "5b85d1b6-391f-4da6-b3e2-49dfe59c2f79",
+        "title": "I Would Remember",
+        "approvedScriptId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sceneTitle": "INT. TRAIN CARRIAGE - NIGHT",
+        "sourceBlockIds": [
+          "4f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac",
+          "3e4c45f4-57a1-5cc1-b3b9-10a957cd3518",
+          "93236959-ff76-5784-8666-75ff84785ba0"
+        ],
+        "sourceExcerpt": "### ADA\n\nI would remember.\n\nShe slips her own ticket into her coat instead of handing it to him.",
+        "planning": {
+          "id": "bef4e3ae-a328-47a5-9f57-2ff1a815ced0",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809"
+          ],
+          "createdUtc": "2026-10-12T06:08:32.7931722+00:00"
+        },
+        "duration": 6,
+        "description": "Opening: a medium single of Ada from the stranger\u0027s side, wider than her earlier close-up so that her coat and hands are in frame. She answers evenly. Then, keeping her eyes on him, she slips her own ticket into her coat instead of handing it to him. Ending: Ada composed, her hand withdrawing from her coat, her gaze level on the stranger.",
+        "dialogue": [
+          {
+            "id": "0f6cbe15-4dfd-43a8-aff3-3464e9c99bc8",
+            "speaker": "ADA",
+            "language": "en",
+            "text": "I would remember."
+          }
+        ],
+        "characters": [
+          {
+            "id": "aed1f66a-ba6b-43c7-a5f1-d9a63d4b9b99",
+            "name": "Ada",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Window light continues to pass, rail rhythm steady, tension unresolved.",
+        "music": "The low drone returns faintly, unresolved.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022dramaticProgression\u0022: \u0022A neutral encounter between strangers turns into a private recognition. Ada sees the scar, conceals what she knows, deflects his question, and quietly withholds her ticket. The tension is in her controlled surface over hidden knowledge.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens on a balanced two-shot of shared, ordinary space. A tight insert isolates the scar as the revelation. Coverage then narrows to Ada\u0027s guarded close-up, moves to an over-the-shoulder on the stranger for his probing question, and ends on a single of Ada whose frame includes her concealing hand.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience sees the scar and Ada\u0027s recognition, which the stranger does not register. The audience does not learn what the scar means to her or who he is. That gap drives suspense.\u0022,\n      \u0022spatialAnchors\u0022: \u0022Ada and the stranger sit facing each other across the carriage seats. The night window runs beside them. His gloved hands and the ticket are between them. Ada\u0027s coat is on her side. Exact seat sides and window position are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Strangers Across the Carriage\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 5,\n      \u0022description\u0022: \u0022Opening: a wide-medium profile two-shot down the carriage. Ada sits on one side and the stranger sits opposite, the dark night window streaking between and beside them. His gloved hands rest visibly in his lap. The camera holds steady with only a slight train sway. The stranger shifts and reaches into his coat for his ticket, and his gloved hand begins to come forward. Ending: the two-shot, with his hand extending toward the space between them.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }, { \u0022name\u0022: \u0022Stranger\u0022 }],\n      \u0022atmosphere\u0022: \u0022Dim night carriage, rhythmic rail clatter, passing lights flickering across the window.\u0022,\n      \u0022music\u0022: \u0022None, or a barely audible low drone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the shared space and the stranger\u0027s concealed hands before the reveal.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the ordinary setup and the gloves registered before the scar can land.\u0022,\n          \u0022attention\u0022: \u0022The gloved hands, then the reaching motion.\u0022,\n          \u0022relationships\u0022: \u0022Two strangers in neutral, enforced proximity.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ada and the stranger sit opposite each other across the seats.\u0022,\n          \u0022facing\u0022: \u0022Both face each other in profile to camera.\u0022,\n          \u0022eyelines\u0022: \u0022Ada\u0027s gaze is casual, not yet fixed on him.\u0022,\n          \u0022movement\u0022: \u0022The stranger reaches into his coat and brings his hand forward with the ticket.\u0022,\n          \u0022camera\u0022: \u0022Static profile two-shot at seated eye level.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opening.\u0022,\n          \u0022cutOut\u0022: \u0022Cut on the reaching action to the insert of the wrist.\u0022,\n          \u0022timing\u0022: \u0022Unhurried, letting the quiet settle before the reveal.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Gloves are on both hands. The ticket emerges from his coat.\u0022,\n          \u0022assumptions\u0022: \u0022The profile axis and window side are staging choices.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The Crescent Scar\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a tight insert on the stranger\u0027s gloved hand holding the ticket, roughly from Ada\u0027s seated vantage. As he extends the ticket, the glove\u0027s cuff slides back and exposes a crescent-shaped scar on his skin. Ending: the scar clearly framed beside the ticket.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Stranger\u0022 }],\n      \u0022atmosphere\u0022: \u0022Rail clatter continues, and window light passes over the skin.\u0022,\n      \u0022music\u0022: \u0022A subtle sting or a held tone as the scar is revealed.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Reveal the scar as the scene\u0027s key information.\u0022,\n          \u0022reason\u0022: \u0022The audience must see exactly what Ada sees.\u0022,\n          \u0022attention\u0022: \u0022The crescent scar.\u0022,\n          \u0022relationships\u0022: \u0022His unguarded moment becomes her knowledge.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022movement\u0022: \u0022The cuff slips back as his hand extends.\u0022,\n          \u0022camera\u0022: \u0022Close insert, roughly matching Ada\u0027s eyeline.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Matched on the stranger\u0027s reaching action from the two-shot.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Ada\u0027s reaction to the scar.\u0022,\n          \u0022timing\u0022: \u0022Brief, just long enough to read the shape.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Same hand and ticket as the previous shot.\u0022,\n          \u0022assumptions\u0022: \u0022The scar is on the wrist where the glove ends. The script states only that reaching exposes it.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Ada Recognises\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u00223f1f616f-3068-5c3d-b4be-6bda7a462172\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: a tight close-up of Ada, her eyes lowered toward his hand. Recognition flickers in her eyes, but her face stays composed and calm. She lifts her gaze back to neutral. Ending: Ada\u0027s calm close-up with her eyes level.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Flickering window light across her face, steady rail rhythm.\u0022,\n      \u0022music\u0022: \u0022The held tone sustains quietly.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Ada\u0027s recognition and her controlled concealment of it.\u0022,\n          \u0022reason\u0022: \u0022The audience shares her secret while seeing that she hides it.\u0022,\n          \u0022attention\u0022: \u0022Her eyes against her still expression.\u0022,\n          \u0022relationships\u0022: \u0022Ada now holds knowledge the stranger does not know she has.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022eyelines\u0022: \u0022First down toward his hand, then level toward him.\u0022,\n          \u0022camera\u0022: \u0022Static tight close-up from the stranger\u0027s side of the axis.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Reaction to the scar insert.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the stranger as he speaks.\u0022,\n          \u0022timing\u0022: \u0022A held beat of restraint.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Ada keeps her eyeline consistent with the stranger\u0027s opposite position.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Have We Met?\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\u0022e8b1bfe9-af5b-541d-b817-25beacdf5676\u0022, \u00224d6b5f69-ad9d-5313-b7cf-22021891d410\u0022],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening: over Ada\u0027s shoulder, a medium close-up of the stranger facing her, his gloved hand with the ticket still between them. He studies her and asks his question. Ending: the stranger holding his look, waiting for her answer.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022STRANGER\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022Have we met?\u0022 }\n      ],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Stranger\u0022 }, { \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Quiet carriage, rail rhythm under the line.\u0022,\n      \u0022music\u0022: \u0022Minimal, almost absent.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the stranger\u0027s probing question.\u0022,\n          \u0022reason\u0022: \u0022The question raises the stakes. Has he noticed something?\u0022,\n          \u0022attention\u0022: \u0022The stranger\u0027s face and his ambiguous intent.\u0022,\n          \u0022relationships\u0022: \u0022He tests the familiarity, and Ada sits in the foreground under scrutiny.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Ada\u0027s shoulder is in the foreground and the stranger is opposite.\u0022,\n          \u0022eyelines\u0022: \u0022The stranger looks directly at Ada.\u0022,\n          \u0022camera\u0022: \u0022Static over-the-shoulder from Ada\u0027s side.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut on the start of his line after Ada\u0027s held reaction.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to Ada for her answer.\u0022,\n          \u0022timing\u0022: \u0022Tight, with the line landing quickly.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The ticket remains in his gloved hand. Screen direction matches Ada\u0027s eyeline.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022I Would Remember\u0022,\n      \u0022sceneId\u0022: \u0022e5e5dc90-f9ea-5925-a9ea-ce2b71a16809\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00224f2c3f13-2a2f-54a4-8dc0-3f1f7bba9cac\u0022,\n        \u00223e4c45f4-57a1-5cc1-b3b9-10a957cd3518\u0022,\n        \u002293236959-ff76-5784-8666-75ff84785ba0\u0022\n      ],\n      \u0022duration\u0022: 6,\n      \u0022description\u0022: \u0022Opening: a medium single of Ada from the stranger\u0027s side, wider than her earlier close-up so that her coat and hands are in frame. She answers evenly. Then, keeping her eyes on him, she slips her own ticket into her coat instead of handing it to him. Ending: Ada composed, her hand withdrawing from her coat, her gaze level on the stranger.\u0022,\n      \u0022dialogue\u0022: [\n        { \u0022speaker\u0022: \u0022ADA\u0022, \u0022language\u0022: \u0022en\u0022, \u0022text\u0022: \u0022I would remember.\u0022 }\n      ],\n      \u0022characters\u0022: [{ \u0022name\u0022: \u0022Ada\u0022 }],\n      \u0022atmosphere\u0022: \u0022Window light continues to pass, rail rhythm steady, tension unresolved.\u0022,\n      \u0022music\u0022: \u0022The low drone returns faintly, unresolved.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show Ada deflecting with a loaded line, then quietly withholding her ticket.\u0022,\n          \u0022reason\u0022: \u0022Her words and her action together show concealment and quiet defiance.\u0022,\n          \u0022attention\u0022: \u0022Her calm delivery, then the ticket disappearing into her coat.\u0022,\n          \u0022relationships\u0022: \u0022Ada asserts control while keeping her secret.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022eyelines\u0022: \u0022Ada holds her gaze on the stranger throughout.\u0022,\n          \u0022movement\u0022: \u0022Her hand moves the ticket into her coat.\u0022,\n          \u0022camera\u0022: \u0022Static medium single framed to include her hands.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cut for Ada\u0027s answer to his question.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end on her held look.\u0022,\n          \u0022timing\u0022: \u0022Measured, with a pause after the line before the ticket action.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Ada\u0027s ticket is introduced here from her hand or lap. Her coat is on.\u0022,\n          \u0022assumptions\u0022: \u0022Where her ticket starts is not specified in the script.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "57230f6e-4de9-4d2b-a1ed-a0cc31bba40a",
+        "sceneId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sourceId": "e5e5dc90-f9ea-5925-a9ea-ce2b71a16809",
+        "sourceFingerprint": "fbeea840ccba00a6bd6b73211204e32cc88a81e5ea0e7245a51fe65c897e4a05",
+        "dramaticProgression": "A neutral encounter between strangers turns into a private recognition. Ada sees the scar, conceals what she knows, deflects his question, and quietly withholds her ticket. The tension is in her controlled surface over hidden knowledge.",
+        "visualProgression": "The scene opens on a balanced two-shot of shared, ordinary space. A tight insert isolates the scar as the revelation. Coverage then narrows to Ada\u0027s guarded close-up, moves to an over-the-shoulder on the stranger for his probing question, and ends on a single of Ada whose frame includes her concealing hand.",
+        "audienceInformation": "The audience sees the scar and Ada\u0027s recognition, which the stranger does not register. The audience does not learn what the scar means to her or who he is. That gap drives suspense.",
+        "spatialAnchors": "Ada and the stranger sit facing each other across the carriage seats. The night window runs beside them. His gloved hands and the ticket are between them. Ada\u0027s coat is on her side. Exact seat sides and window position are staging assumptions."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

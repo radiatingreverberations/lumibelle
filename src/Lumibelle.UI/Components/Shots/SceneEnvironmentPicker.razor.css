@@ -1,0 +1,6 @@
+.environment-view-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap: .75rem; margin-block: 1rem; }
+.inspection-toolbar { display: flex; gap: .75rem; flex-wrap: wrap; align-items: baseline; margin-block: .75rem; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.inspection-constraints { display: grid; gap: .35rem; margin-block: .75rem; font-weight: 600; }
+.inspection-constraints textarea { width: 100%; box-sizing: border-box; min-height: 4.5rem; padding: .65rem; border: 1px solid var(--mud-palette-lines-inputs); border-radius: .45rem; background: var(--mud-palette-surface); color: var(--mud-palette-text-primary); font: inherit; font-weight: 400; resize: vertical; }
+.inspection-reel-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }

@@ -15,4 +15,7 @@ public sealed record RefModBuildResult(ReelRefModReference Reference);
 public sealed record RefModPreparedBuild(AiJobSubmission Submission, IReadOnlyList<byte[]> Previews,
     ReelRefModReference? Existing);
 public sealed record RefModInspectionFrame(int VideoNumber, int FrameNumber, string ReelName,
-    string Notes, string Sha256, byte[] Png);
+    string Notes, string Sha256, byte[] Png)
+{
+    public string? ViewName { get; init; }
+}

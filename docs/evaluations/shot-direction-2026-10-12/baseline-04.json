@@ -1,0 +1,241 @@
+{
+  "name": "Physical comedy",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 23.0469704,
+  "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Tower Approaches\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a wide shot across the daytime banquet hall, with the swinging door on the right of frame. Nell enters from the left carrying a tall tower of empty trays stacked above her eyeline. The camera holds steady while she walks toward the door. As she nears it, the door swings open toward her and reveals Bo in the doorway. Ending composition: Nell is in the left-centre of the wide frame, close to the open door. Bo stands framed in the doorway, and the open door is about to meet the trays.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 },\n      { \u0022name\u0022: \u0022Bo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Bright daylight in an empty banquet hall. Clean geography, with a sense of building comic momentum.\u0022,\n    \u0022music\u0022: \u0022Light, bouncy pizzicato strings that tiptoe in time with Nell\u0027s steps.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Top Tray Tilts\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up on Nell from slightly below, with her face and the upper half of the tray tower filling the frame. The door is a soft blur behind her shoulder. Nell stops dead and the top tray tilts. The camera tilts up with it. Nell bobs and shifts her weight, then settles the tray flat on top of her head. Ending composition: Nell stands frozen in a low-angle medium shot, eyes rolled upward. The top tray sits balanced on her head above the rest of the tower.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A tense near-disaster played for comedy, ending in a held breath.\u0022,\n    \u0022music\u0022: \u0022The strings stop on a suspended note, then give a single relieved pluck as the tray settles.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Bo Takes the Handle\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a low side-profile shot at waist height. The doorway is in the centre of frame, with the tray tower and Nell\u0027s arms crossing the top of the frame. Bo ducks under the tower to help, still gripping the door handle. As he passes through to Nell\u0027s side, the handle comes away in his hand. The camera pans slightly to follow him. Behind him, the door swings shut. Ending composition: Bo is crouched beside Nell\u0027s legs, holding the detached handle. The closed door is behind them, with a bare hole where the handle was.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Bo\u0022 },\n      { \u0022name\u0022: \u0022Nell\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Well-meant help that goes quietly wrong, ending on a final click.\u0022,\n    \u0022music\u0022: \u0022A quick ascending run as Bo ducks under, cut short by the door closing.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Excellent Teamwork\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022,\n      \u0022209674cd-f899-50f6-88f7-7cd1c4f6724f\u0022,\n      \u0022a78b34bd-a0ef-5005-bda9-2d863a6e3723\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a frontal, eye-level, symmetrical medium-wide two-shot with the closed, handle-less door flat behind them. Nell and Bo stand side by side, trapped on the same side of the door. Bo holds the detached handle, and Nell has the tray tower balanced perfectly with the top tray on her head. The camera stays locked off. They stand motionless for a beat, then Nell delivers her line deadpan, without turning her head. Ending composition: the same static two-shot, held as both stay perfectly still.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022NELL\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Excellent teamwork.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 },\n      { \u0022name\u0022: \u0022Bo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Deadpan stillness. A symmetrical, tableau-like comic button.\u0022,\n    \u0022music\u0022: \u0022Silence through the line, then one soft, wry plucked note to close.\u0022\n  }\n]\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "id": "59752f78-73dc-439e-820d-4bc9d2f39536",
+        "title": "The Tower Approaches",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e"
+        ],
+        "sourceExcerpt": "## INT. BANQUET HALL - DAY\n\nNell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.",
+        "planning": {
+          "id": "db0cb046-99b8-413d-a837-c4141f4a674d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T05:57:30.6113794+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a wide shot across the daytime banquet hall, with the swinging door on the right of frame. Nell enters from the left carrying a tall tower of empty trays stacked above her eyeline. The camera holds steady while she walks toward the door. As she nears it, the door swings open toward her and reveals Bo in the doorway. Ending composition: Nell is in the left-centre of the wide frame, close to the open door. Bo stands framed in the doorway, and the open door is about to meet the trays.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "a79540b4-ccd2-4342-ae1b-e021f4470747",
+            "name": "Nell",
+            "appearance": null
+          },
+          {
+            "id": "b09ee4d3-f4cc-4221-aba2-37d3d89ca80e",
+            "name": "Bo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Bright daylight in an empty banquet hall. Clean geography, with a sense of building comic momentum.",
+        "music": "Light, bouncy pizzicato strings that tiptoe in time with Nell\u0027s steps.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "ac957d34-3f83-4f07-b72c-41cf91240814",
+        "title": "The Top Tray Tilts",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.",
+        "planning": {
+          "id": "db0cb046-99b8-413d-a837-c4141f4a674d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T05:57:30.6113794+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a medium close-up on Nell from slightly below, with her face and the upper half of the tray tower filling the frame. The door is a soft blur behind her shoulder. Nell stops dead and the top tray tilts. The camera tilts up with it. Nell bobs and shifts her weight, then settles the tray flat on top of her head. Ending composition: Nell stands frozen in a low-angle medium shot, eyes rolled upward. The top tray sits balanced on her head above the rest of the tower.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "c1771f43-55c5-40be-9109-e3de2e4a77eb",
+            "name": "Nell",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "A tense near-disaster played for comedy, ending in a held breath.",
+        "music": "The strings stop on a suspended note, then give a single relieved pluck as the tray settles.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "c77f8d22-dca4-4774-912f-ca79a3b98c47",
+        "title": "Bo Takes the Handle",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.",
+        "planning": {
+          "id": "db0cb046-99b8-413d-a837-c4141f4a674d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T05:57:30.6113794+00:00"
+        },
+        "duration": 5,
+        "description": "Opening composition: a low side-profile shot at waist height. The doorway is in the centre of frame, with the tray tower and Nell\u0027s arms crossing the top of the frame. Bo ducks under the tower to help, still gripping the door handle. As he passes through to Nell\u0027s side, the handle comes away in his hand. The camera pans slightly to follow him. Behind him, the door swings shut. Ending composition: Bo is crouched beside Nell\u0027s legs, holding the detached handle. The closed door is behind them, with a bare hole where the handle was.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "b928f039-dad9-406c-bd31-cef3d771910f",
+            "name": "Bo",
+            "appearance": null
+          },
+          {
+            "id": "1e2d473a-123a-476f-b58f-2e11414735ff",
+            "name": "Nell",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Well-meant help that goes quietly wrong, ending on a final click.",
+        "music": "A quick ascending run as Bo ducks under, cut short by the door closing.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "id": "998cf81d-021d-41b4-a0a2-a8ac312f0d14",
+        "title": "Excellent Teamwork",
+        "approvedScriptId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneId": "5b262cbb-9286-5215-a48f-8ec66b7bb260",
+        "sceneTitle": "INT. BANQUET HALL - DAY",
+        "sourceBlockIds": [
+          "a8bcb19a-8b14-5276-8755-4a30e1664f6e",
+          "209674cd-f899-50f6-88f7-7cd1c4f6724f",
+          "a78b34bd-a0ef-5005-bda9-2d863a6e3723"
+        ],
+        "sourceExcerpt": "Nell carries a tower of empty trays toward a swinging door. Bo opens it toward her. Nell stops; the top tray tilts. She balances it on her head. Bo ducks under the tower to help and accidentally takes the door handle with him. The door closes. They stand trapped on the same side with the trays perfectly balanced.\n\n### NELL\n\nExcellent teamwork.",
+        "planning": {
+          "id": "db0cb046-99b8-413d-a837-c4141f4a674d",
+          "profile": "shot-coverage-v3",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "5b262cbb-9286-5215-a48f-8ec66b7bb260"
+          ],
+          "createdUtc": "2026-10-12T05:57:30.6113794+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a frontal, eye-level, symmetrical medium-wide two-shot with the closed, handle-less door flat behind them. Nell and Bo stand side by side, trapped on the same side of the door. Bo holds the detached handle, and Nell has the tray tower balanced perfectly with the top tray on her head. The camera stays locked off. They stand motionless for a beat, then Nell delivers her line deadpan, without turning her head. Ending composition: the same static two-shot, held as both stay perfectly still.",
+        "dialogue": [
+          {
+            "id": "1eefd595-f0cb-4e9c-968f-fa4fcb1ca003",
+            "speaker": "NELL",
+            "language": "en",
+            "text": "Excellent teamwork."
+          }
+        ],
+        "characters": [
+          {
+            "id": "4063dd6d-d2d8-468a-80af-3c2e6a4b6d65",
+            "name": "Nell",
+            "appearance": null
+          },
+          {
+            "id": "e82c469b-e806-4871-8c13-291cffc61d78",
+            "name": "Bo",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Deadpan stillness. A symmetrical, tableau-like comic button.",
+        "music": "Silence through the line, then one soft, wry plucked note to close.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n[\n  {\n    \u0022title\u0022: \u0022The Tower Approaches\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a wide shot across the daytime banquet hall, with the swinging door on the right of frame. Nell enters from the left carrying a tall tower of empty trays stacked above her eyeline. The camera holds steady while she walks toward the door. As she nears it, the door swings open toward her and reveals Bo in the doorway. Ending composition: Nell is in the left-centre of the wide frame, close to the open door. Bo stands framed in the doorway, and the open door is about to meet the trays.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 },\n      { \u0022name\u0022: \u0022Bo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Bright daylight in an empty banquet hall. Clean geography, with a sense of building comic momentum.\u0022,\n    \u0022music\u0022: \u0022Light, bouncy pizzicato strings that tiptoe in time with Nell\u0027s steps.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022The Top Tray Tilts\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a medium close-up on Nell from slightly below, with her face and the upper half of the tray tower filling the frame. The door is a soft blur behind her shoulder. Nell stops dead and the top tray tilts. The camera tilts up with it. Nell bobs and shifts her weight, then settles the tray flat on top of her head. Ending composition: Nell stands frozen in a low-angle medium shot, eyes rolled upward. The top tray sits balanced on her head above the rest of the tower.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022A tense near-disaster played for comedy, ending in a held breath.\u0022,\n    \u0022music\u0022: \u0022The strings stop on a suspended note, then give a single relieved pluck as the tray settles.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Bo Takes the Handle\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022\n    ],\n    \u0022duration\u0022: 5,\n    \u0022description\u0022: \u0022Opening composition: a low side-profile shot at waist height. The doorway is in the centre of frame, with the tray tower and Nell\u0027s arms crossing the top of the frame. Bo ducks under the tower to help, still gripping the door handle. As he passes through to Nell\u0027s side, the handle comes away in his hand. The camera pans slightly to follow him. Behind him, the door swings shut. Ending composition: Bo is crouched beside Nell\u0027s legs, holding the detached handle. The closed door is behind them, with a bare hole where the handle was.\u0022,\n    \u0022dialogue\u0022: [],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Bo\u0022 },\n      { \u0022name\u0022: \u0022Nell\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Well-meant help that goes quietly wrong, ending on a final click.\u0022,\n    \u0022music\u0022: \u0022A quick ascending run as Bo ducks under, cut short by the door closing.\u0022\n  },\n  {\n    \u0022title\u0022: \u0022Excellent Teamwork\u0022,\n    \u0022sceneId\u0022: \u00225b262cbb-9286-5215-a48f-8ec66b7bb260\u0022,\n    \u0022sourceBlockIds\u0022: [\n      \u0022a8bcb19a-8b14-5276-8755-4a30e1664f6e\u0022,\n      \u0022209674cd-f899-50f6-88f7-7cd1c4f6724f\u0022,\n      \u0022a78b34bd-a0ef-5005-bda9-2d863a6e3723\u0022\n    ],\n    \u0022duration\u0022: 4,\n    \u0022description\u0022: \u0022Opening composition: a frontal, eye-level, symmetrical medium-wide two-shot with the closed, handle-less door flat behind them. Nell and Bo stand side by side, trapped on the same side of the door. Bo holds the detached handle, and Nell has the tray tower balanced perfectly with the top tray on her head. The camera stays locked off. They stand motionless for a beat, then Nell delivers her line deadpan, without turning her head. Ending composition: the same static two-shot, held as both stay perfectly still.\u0022,\n    \u0022dialogue\u0022: [\n      {\n        \u0022speaker\u0022: \u0022NELL\u0022,\n        \u0022language\u0022: \u0022en\u0022,\n        \u0022text\u0022: \u0022Excellent teamwork.\u0022\n      }\n    ],\n    \u0022characters\u0022: [\n      { \u0022name\u0022: \u0022Nell\u0022 },\n      { \u0022name\u0022: \u0022Bo\u0022 }\n    ],\n    \u0022atmosphere\u0022: \u0022Deadpan stillness. A symmetrical, tableau-like comic button.\u0022,\n    \u0022music\u0022: \u0022Silence through the line, then one soft, wry plucked note to close.\u0022\n  }\n]\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

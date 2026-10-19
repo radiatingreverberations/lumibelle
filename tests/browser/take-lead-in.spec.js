@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js';
-import { submitPlanning } from './text-assistance-tools.js';
+import { submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { composeProduction, generateTakes, toolsTab } from './workspace-tools.js';
 
 const review = page => page.locator('.shot-review-dialog');
@@ -8,8 +8,9 @@ async function setup(page, request, duration = 1) {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/approved`); await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click(); await submitPlanning(page);
+  await openPlanning(page); await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await page.getByLabel('Duration (seconds)').fill(String(duration)); await page.getByLabel('Duration (seconds)').blur();
   await expect.poll(async () => (await state(request, id)).shots[0].duration).toBe(duration);
   await composeProduction(page); await toolsTab(page, 'Generate');

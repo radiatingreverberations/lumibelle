@@ -23,7 +23,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     const green = Array(4).fill(cropColors[1]), blue = Array(4).fill(cropColors[2]);
     const manager = page.locator('.image-input-manager-dialog');
     async function cropInput(index, zoom, x, y, apply = true, reset = false) {
-      await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+      await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
       const crop = await openReferenceCrop(page, manager, index);
       if (reset) await crop.getByRole('button',{name:'Full image',exact:true}).click();
       else {
@@ -79,7 +79,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await imageOutput(page);
     await page.locator('#candidate-count').selectOption('2');
     await page.getByRole('button', { name: 'Generate edited images', exact: true }).click();
-    await expect(page.getByRole('button',{name:'Manage references',exact:true})).toBeDisabled();
+    await expect(page.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true})).toBeDisabled();
     const modal = page.locator('.image-review-dialog');
     await expect(modal).toBeVisible();
     await modal.getByRole('button', { name: 'Compare with Reference 2', exact: true }).click();

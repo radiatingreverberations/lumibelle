@@ -12,7 +12,7 @@ namespace lumibelle.Services.AI;
 public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProjectStore projects, IAssetStore assets,
     IPromptEnhancer enhancer, IGuidanceAssistant guidance, ICodexClient? codex = null,
     IProductionStore? production = null, IShotStore? shots = null, IScriptStore? scripts = null, IReferenceVideoStore? referenceVideos = null, ReelRefModStore? refmods = null, IProjectDubbingStore? dubbing = null,
-    VisualBriefCache? briefs = null)
+    VisualBriefCache? briefs = null, IAiProviderRegistry? providers = null)
 {
     public static AiJobSubmission Reissue(AiJobHeader job, AiTextJobRequest captured, Guid tab)
     {
@@ -48,6 +48,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
+            DirectionContext = await CaptureDirectionContextAsync(source, effective, ct),
             OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
@@ -82,24 +83,18 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
         var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
-        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        var library = await assets.LoadAsync(projectId, ct);
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct, estimateLibrary: library);
         var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
         // The references are always sent; their images are what they cost. A missing one is reported when composing, not here.
         try
         {
-            var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
-            var effective = ShotVideoDefaults.Capture(c.Shot, project);
-            var configured = await settings.LoadAsync(ct);
-            var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
-            var reelFrames = ReelRefMods.Uses(effective) && refmods is not null ? (await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png).ToList() : [];
-            images.AddRange(reelFrames);
-            var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
-            if (opening is { } frame) images.Add(frame.Bytes);
-            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))], ReelFrames = reelFrames.Count, OpeningFrame = opening is not null };
+            var references = ProductionInputs.EstimateSizes(c.Shot, library, source);
+            return size with { ReferenceImages = references.Images, ReelFrames = references.ReelFrames, OpeningFrame = references.OpeningFrame };
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
     }
-    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
+    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct, AssetLibrary? estimateLibrary = null)
     {
         var sceneText = "";
         // Standalone shots have no script source. A linked shot still reports a broken
@@ -112,9 +107,13 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         }
         var index = source.Shots.FindIndex(s => s.Id == shot.Id);
 
-        string NearbyShotSummary(Shot neighbor, string relation)
+        async Task<string> NearbyShotSummary(Shot neighbor, string relation)
         {
             var summary = relation + " shot — " + neighbor.Title + ": " + neighbor.Description;
+            // The sidebar estimate checks saved metadata only. Submission still validates exact media hashes.
+            var direction = estimateLibrary is null ? await CaptureDirectionContextAsync(source, neighbor, ct) :
+                ShotDirections.Context(source, neighbor, DraftingEnvironments.LiveMetadataIssue(neighbor.DraftingEnvironment, estimateLibrary));
+            if (direction is not null) summary += "\nReviewed direction and limitations: " + JsonSerializer.Serialize(ShotDirections.PromptContext(direction), AtomicJsonFile.Options);
             if (!string.Equals(relation, "Previous", StringComparison.Ordinal)) return summary;
             var priorPrompt = document.Compositions
                 .Where(x => x.ShotId == neighbor.Id && !x.Archived && !string.IsNullOrWhiteSpace(x.Prompt))
@@ -129,8 +128,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var nearbyShots = new List<string>();
         var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
         var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
-        if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
-        if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        if (previousShot is not null) nearbyShots.Add(await NearbyShotSummary(previousShot, "Previous"));
+        if (nextShot is not null) nearbyShots.Add(await NearbyShotSummary(nextShot, "Next"));
         return (sceneText, nearbyShots);
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)
@@ -164,11 +163,26 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (request.Assets.ProjectId != request.Script.ProjectId) throw new AiGenerationException("The asset library and saved script belong to different projects.");
         if (scripts is not null) await scripts.CaptureSourceAsync(request.Script.ProjectId, request.Script.SourceRevision, ct);
         ValidateScenes(request.Script, request.SceneIds); H3Policy.Frames(request.MaximumSeconds);
+        if (!Enum.IsDefined(request.Style)) throw new AiGenerationException("Choose an available directing style.");
+        ShotDirections.ValidateStrategies(request.Strategies);
         if (request.SingleShot is { } single && (request.SceneIds.Count != 1 || single.ShotId == Guid.Empty || single.Position < 0 || single.Position > single.SceneShots.Count))
             throw new AiGenerationException("Draft a single shot from exactly one saved scene.");
-        return await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
+        var messages = await DraftingMessagesAsync(request, ct);
+        AiModel? catalogModel = null;
+        if (request.Environments.Count > 0 && providers is not null) {
+            var check = await providers.CheckAsync(request.Selection.Backend, configured, cancellationToken: ct);
+            catalogModel = check.Models.FirstOrDefault(m => m.Id == request.Selection.Model);
+            if (messages.SelectMany(m => m.Contents).OfType<DataContent>().Any() && catalogModel?.SupportsImages != true)
+                throw new WorkspaceStoreException(TextVisionPolicy.SetupHint);
+        }
+        var submission = await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
             request.SingleShot is null ? "Draft shots" : "Draft shot", request, request.Selection,
-            followsDefault, configured, ShotPlanner.Profile(request), ShotPlanner.BuildMessages(request), configured.Temperature, null, ct);
+            followsDefault, configured, ShotPlanner.Profile(request), messages, configured.Temperature, null, ct);
+        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        if (ComfyTextCapacity.Assess(snapshot)?.Any(s => s.TooLarge) == true)
+            throw new WorkspaceStoreException("The complete drafting request exceeds this model's capacity. Reduce scenes or inspection views, or choose another model.");
+        DraftingEnvironments.ValidateCapacity(snapshot, catalogModel?.Catalog?.ContextLength);
+        return submission;
     }
     public async Task<AiJobSubmission> EnhanceAsync(Guid id, Guid tab, PromptEnhancementRequest request, CancellationToken ct = default)
     {

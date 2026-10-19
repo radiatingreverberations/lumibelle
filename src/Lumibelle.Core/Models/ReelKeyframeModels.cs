@@ -8,6 +8,8 @@ public enum ReelVisuals { FullReel, Keyframes, None, RefMod }
 public sealed record ReelFrameIdentity(Guid MediaId, string Source, int Index, double Seconds);
 public sealed record ReelKeyframe
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; set; }
     public Guid Id { get; init; } = Guid.NewGuid();
     public required ReelFrameIdentity Frame { get; init; }
     public ImageCropRegion? Crop { get; set; }

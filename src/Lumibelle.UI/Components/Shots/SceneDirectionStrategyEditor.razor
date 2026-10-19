@@ -1,0 +1,32 @@
+<section class="scene-direction-strategy" aria-label="Scene direction strategy">
+    <details open="@Expanded"><summary>Scene strategy</summary>
+        @if (ReadOnly)
+        {
+            <dl>@foreach (var field in Fields) { if (!string.IsNullOrWhiteSpace(field.Get(Value))) { <dt>@field.Label</dt><dd>@field.Get(Value)</dd> } }</dl>
+        }
+        else
+        {
+            <div class="strategy-fields">@foreach (var field in Fields) {
+                <label>@field.Label<textarea rows="2" value="@field.Get(Value)" disabled="@Disabled" @oninput="e => Edit(field.Set, e)" /></label>
+            }</div>
+        }
+    </details>
+</section>
+@code {
+    [Parameter, EditorRequired] public DirectionStrategy Value { get; set; } = new();
+    [Parameter] public EventCallback<DirectionStrategy> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    private sealed record Field(string Label, Func<DirectionStrategy,string> Get, Action<DirectionStrategy,string> Set);
+    private static readonly Field[] Fields = [
+        new("Directing approach", d => d.Approach, (d,v) => d.Approach=v),
+        new("Dramatic progression", d => d.DramaticProgression, (d,v) => d.DramaticProgression=v),
+        new("Visual progression", d => d.VisualProgression, (d,v) => d.VisualProgression=v),
+        new("Audience information", d => d.AudienceInformation, (d,v) => d.AudienceInformation=v),
+        new("Spatial anchors", d => d.SpatialAnchors, (d,v) => d.SpatialAnchors=v)
+    ];
+    private Task Edit(Action<DirectionStrategy,string> set, ChangeEventArgs e) {
+        var copy = ShotCopy.Of(Value); set(copy, e.Value?.ToString() ?? ""); return ValueChanged.InvokeAsync(copy);
+    }
+}

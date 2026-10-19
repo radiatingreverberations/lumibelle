@@ -1,0 +1,402 @@
+{
+  "name": "Interruption",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 42.1897554,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022dramaticProgression\u0022: \u0022A father begins a long-withheld confession, the kettle interrupts him, and his daughter silences it without looking away. Her quiet \u0027Go on.\u0027 presses him to continue, but he cannot. Instead of pushing further, she pulls out the chair beside her and turns pressure into invitation.\u0022,\n      \u0022visualProgression\u0022: \u0022Open on a shared frame that holds father, daughter and the kettle in one space. Tighten to singles as the moment narrows to her demand and his silence. Release into a wider frame that gives the chair and the space between them their meaning.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience learns only that something important went unsaid for years. They never learn what it is. The scene withholds the content and plays the struggle to say it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022Kitchen at night. The kettle is on the counter or stove near the father, within the daughter\u0027s reach past him. The chair stands beside the daughter. Exact positions are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Kettle interrupts\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n        \u002296b772bc-4207-59ee-8a24-593a9a33d41f\u0022,\n        \u0022d053dd0f-20ca-523c-8f76-81d6a66ede46\u0022,\n        \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a medium two-shot in the night kitchen. The father faces his daughter with the kettle visible near him. He begins, \u0027What I should have told you years ago\u2014\u0027 and the kettle whistles over his words, cutting him off. Without breaking her gaze, the daughter reaches past him and switches the kettle off. The camera holds steady with a slight, slow push. Ending composition: a tight two-shot, her arm still extended past him to the kettle, her eyes fixed on his face, the kitchen now silent.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022FATHER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022What I should have told you years ago\u2014\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022FATHER\u0022 },\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Dim night kitchen, low practical light, steam rising from the kettle, a building whistle, then abrupt silence.\u0022,\n      \u0022music\u0022: \u0022None; the kettle\u0027s whistle and the silence after it carry the moment.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the confession attempt and the interruption in one shared space.\u0022,\n          \u0022reason\u0022: \u0022Keeping both in frame shows that her reach is aimed at him, not the kettle.\u0022,\n          \u0022attention\u0022: \u0022The father\u0027s first words, the whistle, and then the daughter\u0027s unbroken gaze as her hand finds the switch.\u0022,\n          \u0022relationships\u0022: \u0022She removes the distraction that could have let him escape. She is listening and will not let the moment pass.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Father near the kettle. Daughter facing him, close enough to reach past him.\u0022,\n          \u0022facing\u0022: \u0022They face each other.\u0022,\n          \u0022eyelines\u0022: \u0022Her eyes stay on him throughout, even while she switches off the kettle.\u0022,\n          \u0022movement\u0022: \u0022Her arm reaches past him to the kettle, then stays there.\u0022,\n          \u0022camera\u0022: \u0022Medium two-shot with a restrained push-in toward a tighter two-shot.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene mid-attempt, with the confession already starting.\u0022,\n          \u0022cutOut\u0022: \u0022The silence after the kettle motivates a cut to the daughter\u0027s response.\u0022,\n          \u0022timing\u0022: \u0022Let the whistle overlap and swallow the end of his line, then hold a beat of silence.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The kettle stays switched off from here on. Her hand ends at the switch.\u0022,\n          \u0022assumptions\u0022: \u0022The kettle\u0027s placement and whether either character is seated are not specified.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Go on\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00220ab4ecaa-d492-5d1e-9771-6a6534e2fc33\u0022,\n        \u0022a6d3ed58-e1b5-5174-8101-8309a8715cc0\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening composition: a close-up of the daughter over the father\u0027s soft-focus shoulder, her hand drawing back from the kettle at the frame edge. Holding his eyes, she says quietly, \u0027Go on.\u0027 The camera is locked off. Ending composition: the same close-up, her expectant face waiting.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022DAUGHTER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Go on.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet kitchen after the whistle, a faint wisp of steam, intimate low light.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Isolate her demand that he continue.\u0022,\n          \u0022reason\u0022: \u0022Her two words carry the scene\u0027s pressure and need a frame of their own.\u0022,\n          \u0022attention\u0022: \u0022Her steady gaze and calm insistence.\u0022,\n          \u0022relationships\u0022: \u0022She gives him no way out but is not hostile. She is ready to hear it.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Unchanged from the previous shot.\u0022,\n          \u0022facing\u0022: \u0022Toward the father.\u0022,\n          \u0022eyelines\u0022: \u0022Directly to the father, just off the lens.\u0022,\n          \u0022movement\u0022: \u0022Her hand settles back from the kettle.\u0022,\n          \u0022camera\u0022: \u0022Static over-the-shoulder close-up favoring the daughter.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cuts on the silence after the kettle stops, moving from the two-shot to her close-up.\u0022,\n          \u0022cutOut\u0022: \u0022Her waiting look motivates the reverse onto the father.\u0022,\n          \u0022timing\u0022: \u0022Brief and clipped. Hold a fraction after the line.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her eyeline matches the father\u0027s position from shot one.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022He cannot\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a close-up of the father, the reverse of the daughter\u0027s eyeline. He opens his mouth to continue, but no words come. He stays there, stuck, unable to go on. The camera holds still. Ending composition: the same close-up, his mouth slightly open and the words unspoken.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Silence except for small kitchen sounds. The light falls softly on his face.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show his failure to speak.\u0022,\n          \u0022reason\u0022: \u0022The scene turns on what he cannot say, and that needs his face in isolation.\u0022,\n          \u0022attention\u0022: \u0022His open mouth and the moment the words fail.\u0022,\n          \u0022relationships\u0022: \u0022Years of silence are still stronger than her invitation to speak.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Unchanged.\u0022,\n          \u0022facing\u0022: \u0022Toward the daughter.\u0022,\n          \u0022eyelines\u0022: \u0022To the daughter, matching her close-up.\u0022,\n          \u0022movement\u0022: \u0022Minimal: the mouth opening, a stalled breath.\u0022,\n          \u0022camera\u0022: \u0022Static close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A reverse on her \u0027Go on,\u0027 answering her expectation.\u0022,\n          \u0022cutOut\u0022: \u0022His stalled silence motivates a wider view of her response.\u0022,\n          \u0022timing\u0022: \u0022Let the silence run long enough to become uncomfortable.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The kettle stays off. His eyeline mirrors hers.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The chair\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a wider side-angle two-shot that takes in both of them and the chair beside the daughter. Instead of pressing him, she pulls out the chair beside her, its legs scraping the floor. The camera holds wide and lets the gesture play. Ending composition: the pulled-out chair standing empty between the gap of father and daughter, an open invitation.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Night kitchen, the chair scraping in the quiet, warm low light.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest sustained tone entering as the chair settles.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Resolve the scene with her gesture of patience.\u0022,\n          \u0022reason\u0022: \u0022The chair\u0027s meaning depends on seeing the space between them, so this needs a wider frame.\u0022,\n          \u0022attention\u0022: \u0022Her hand on the chair and the empty seat beside her.\u0022,\n          \u0022relationships\u0022: \u0022She turns pressure into welcome and makes room for him to stay and speak in his own time.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The daughter beside a chair. The father at the edge of her space.\u0022,\n          \u0022facing\u0022: \u0022They remain turned toward each other.\u0022,\n          \u0022eyelines\u0022: \u0022She looks to him as she pulls the chair out.\u0022,\n          \u0022movement\u0022: \u0022She pulls the chair out.\u0022,\n          \u0022camera\u0022: \u0022Static, wider side angle.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cuts from his stalled close-up to the wider frame as she responds.\u0022,\n          \u0022cutOut\u0022: \u0022Ends on the offered chair as the scene\u0027s final image.\u0022,\n          \u0022timing\u0022: \u0022Hold briefly on the empty chair after the movement.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her position must support a chair \u0027beside her.\u0027 Keep the kettle off.\u0022,\n          \u0022assumptions\u0022: \u0022Whether she is seated or standing when she pulls out the chair is unspecified. Whether he sits is not stated and is not shown.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "c8eed87e-c2a7-4287-8259-e1c9b5fc314f",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the confession attempt and the interruption in one shared space.",
+            "reason": "Keeping both in frame shows that her reach is aimed at him, not the kettle.",
+            "attention": "The father\u0027s first words, the whistle, and then the daughter\u0027s unbroken gaze as her hand finds the switch.",
+            "relationships": "She removes the distraction that could have let him escape. She is listening and will not let the moment pass."
+          },
+          "staging": {
+            "positions": "Father near the kettle. Daughter facing him, close enough to reach past him.",
+            "facing": "They face each other.",
+            "eyelines": "Her eyes stay on him throughout, even while she switches off the kettle.",
+            "movement": "Her arm reaches past him to the kettle, then stays there.",
+            "camera": "Medium two-shot with a restrained push-in toward a tighter two-shot."
+          },
+          "editorial": {
+            "cutIn": "Opens the scene mid-attempt, with the confession already starting.",
+            "cutOut": "The silence after the kettle motivates a cut to the daughter\u0027s response.",
+            "timing": "Let the whistle overlap and swallow the end of his line, then hold a beat of silence."
+          },
+          "advanced": {
+            "continuity": "The kettle stays switched off from here on. Her hand ends at the switch.",
+            "assumptions": "The kettle\u0027s placement and whether either character is seated are not specified.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "4a9230f16f1820c4027c7e612f04135b3b32da1830f58bf02f02df9779bab2ae",
+            "strategy": "6eceaa401959145f340018acacc061609fd4f0080d886555eae4f518ab661912",
+            "cast": "68e7e95d5aaf1f172c9acb63c4ad61abac8ff09aad96b660981e7bc7b6f0039d",
+            "dialogue": "6e30f0a70c23c1907982d074e0563ea281d8686b1aa995906bc97e40b846df97",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "9df8bfb7cc0b1f5db01ec437a68cce0ebd505952482fb3746b389630d8286b26",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "53ccceb4-01ef-4a74-a87d-95e5bfb0fa15",
+        "title": "Kettle interrupts",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+          "96b772bc-4207-59ee-8a24-593a9a33d41f",
+          "d053dd0f-20ca-523c-8f76-81d6a66ede46",
+          "17dd3b83-7ae9-56cc-ad12-feaaf9b0053c"
+        ],
+        "sourceExcerpt": "## INT. FAMILY KITCHEN - NIGHT\n\n### FATHER\n\nWhat I should have told you years ago\u2014\n\nThe kettle whistles. His daughter reaches past him and switches it off, keeping her eyes on him.",
+        "planning": {
+          "id": "f384a875-3557-4c8c-a938-bedfa6d92efb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T06:09:35.6249914+00:00"
+        },
+        "duration": 7,
+        "description": "Opening composition: a medium two-shot in the night kitchen. The father faces his daughter with the kettle visible near him. He begins, \u0027What I should have told you years ago\u2014\u0027 and the kettle whistles over his words, cutting him off. Without breaking her gaze, the daughter reaches past him and switches the kettle off. The camera holds steady with a slight, slow push. Ending composition: a tight two-shot, her arm still extended past him to the kettle, her eyes fixed on his face, the kitchen now silent.",
+        "dialogue": [
+          {
+            "id": "4338ecb5-af42-421b-8ef8-ec475dfb567b",
+            "speaker": "FATHER",
+            "language": "en",
+            "text": "What I should have told you years ago\u2014"
+          }
+        ],
+        "characters": [
+          {
+            "id": "2794b26c-9a37-404e-a477-82f8ec52279f",
+            "name": "FATHER",
+            "appearance": null
+          },
+          {
+            "id": "8ab0cf32-18ec-4ee9-b66b-d88ebdeb2958",
+            "name": "DAUGHTER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Dim night kitchen, low practical light, steam rising from the kettle, a building whistle, then abrupt silence.",
+        "music": "None; the kettle\u0027s whistle and the silence after it carry the moment.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "c8eed87e-c2a7-4287-8259-e1c9b5fc314f",
+        "direction": {
+          "intent": {
+            "purpose": "Isolate her demand that he continue.",
+            "reason": "Her two words carry the scene\u0027s pressure and need a frame of their own.",
+            "attention": "Her steady gaze and calm insistence.",
+            "relationships": "She gives him no way out but is not hostile. She is ready to hear it."
+          },
+          "staging": {
+            "positions": "Unchanged from the previous shot.",
+            "facing": "Toward the father.",
+            "eyelines": "Directly to the father, just off the lens.",
+            "movement": "Her hand settles back from the kettle.",
+            "camera": "Static over-the-shoulder close-up favoring the daughter."
+          },
+          "editorial": {
+            "cutIn": "Cuts on the silence after the kettle stops, moving from the two-shot to her close-up.",
+            "cutOut": "Her waiting look motivates the reverse onto the father.",
+            "timing": "Brief and clipped. Hold a fraction after the line."
+          },
+          "advanced": {
+            "continuity": "Her eyeline matches the father\u0027s position from shot one.",
+            "assumptions": "",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "2d2480d65ca0f1224b62fe367057350b12ddfb6282d0758c0df1eb06a5c68602",
+            "strategy": "6eceaa401959145f340018acacc061609fd4f0080d886555eae4f518ab661912",
+            "cast": "854484d9cbd1c609ed8258fbcd4076b9fa7473f5cf3461bc279b2ba5eb3cb416",
+            "dialogue": "34ecf64a65eab6af5330399f4ae2313f423dad1f90ebcaad3ecd145fd35cc6e5",
+            "duration": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+            "neighbours": "6bd9733f2739cefc4acf3b7e34c0d7dc7fd640be3d174abc36168349d15f9ea6",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "830547de-d827-4dc6-9a6e-2ebaf69d4b6e",
+        "title": "Go on",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "0ab4ecaa-d492-5d1e-9771-6a6534e2fc33",
+          "a6d3ed58-e1b5-5174-8101-8309a8715cc0"
+        ],
+        "sourceExcerpt": "### DAUGHTER\n\nGo on.",
+        "planning": {
+          "id": "f384a875-3557-4c8c-a938-bedfa6d92efb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T06:09:35.6249914+00:00"
+        },
+        "duration": 3,
+        "description": "Opening composition: a close-up of the daughter over the father\u0027s soft-focus shoulder, her hand drawing back from the kettle at the frame edge. Holding his eyes, she says quietly, \u0027Go on.\u0027 The camera is locked off. Ending composition: the same close-up, her expectant face waiting.",
+        "dialogue": [
+          {
+            "id": "e40bfc54-76a3-4ba1-9cda-0d06a140060d",
+            "speaker": "DAUGHTER",
+            "language": "en",
+            "text": "Go on."
+          }
+        ],
+        "characters": [
+          {
+            "id": "f4c9e5c1-bed5-432d-b842-639db5c64f69",
+            "name": "DAUGHTER",
+            "appearance": null
+          },
+          {
+            "id": "bf39815c-b5b6-4e03-826a-f0549c75a9f4",
+            "name": "FATHER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Quiet kitchen after the whistle, a faint wisp of steam, intimate low light.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "c8eed87e-c2a7-4287-8259-e1c9b5fc314f",
+        "direction": {
+          "intent": {
+            "purpose": "Show his failure to speak.",
+            "reason": "The scene turns on what he cannot say, and that needs his face in isolation.",
+            "attention": "His open mouth and the moment the words fail.",
+            "relationships": "Years of silence are still stronger than her invitation to speak."
+          },
+          "staging": {
+            "positions": "Unchanged.",
+            "facing": "Toward the daughter.",
+            "eyelines": "To the daughter, matching her close-up.",
+            "movement": "Minimal: the mouth opening, a stalled breath.",
+            "camera": "Static close-up."
+          },
+          "editorial": {
+            "cutIn": "A reverse on her \u0027Go on,\u0027 answering her expectation.",
+            "cutOut": "His stalled silence motivates a wider view of her response.",
+            "timing": "Let the silence run long enough to become uncomfortable."
+          },
+          "advanced": {
+            "continuity": "The kettle stays off. His eyeline mirrors hers.",
+            "assumptions": "",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "a28ed14b741ecf77953d4005021acd14c5578755f2ec57e21b44c48f9174afd7",
+            "strategy": "6eceaa401959145f340018acacc061609fd4f0080d886555eae4f518ab661912",
+            "cast": "940b6f896a19e53790be457afbc55aae2f0ad3a6361cc870d57dc9df97cb49ce",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+            "neighbours": "f4902743a39322dd0c1ef3ccd5548b1e2095b5641bc23806a7f96a0416248649",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "12cd4d6a-3fdb-4732-99d0-9cf706b3c58c",
+        "title": "He cannot",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "5ad851c2-018a-52f8-a04f-ed82dcd95b5a"
+        ],
+        "sourceExcerpt": "He opens his mouth but cannot continue. She pulls out the chair beside her.",
+        "planning": {
+          "id": "f384a875-3557-4c8c-a938-bedfa6d92efb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T06:09:35.6249914+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a close-up of the father, the reverse of the daughter\u0027s eyeline. He opens his mouth to continue, but no words come. He stays there, stuck, unable to go on. The camera holds still. Ending composition: the same close-up, his mouth slightly open and the words unspoken.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "a125b19b-4fd7-4b93-be7b-3ce882342f45",
+            "name": "FATHER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Silence except for small kitchen sounds. The light falls softly on his face.",
+        "music": "None.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "c8eed87e-c2a7-4287-8259-e1c9b5fc314f",
+        "direction": {
+          "intent": {
+            "purpose": "Resolve the scene with her gesture of patience.",
+            "reason": "The chair\u0027s meaning depends on seeing the space between them, so this needs a wider frame.",
+            "attention": "Her hand on the chair and the empty seat beside her.",
+            "relationships": "She turns pressure into welcome and makes room for him to stay and speak in his own time."
+          },
+          "staging": {
+            "positions": "The daughter beside a chair. The father at the edge of her space.",
+            "facing": "They remain turned toward each other.",
+            "eyelines": "She looks to him as she pulls the chair out.",
+            "movement": "She pulls the chair out.",
+            "camera": "Static, wider side angle."
+          },
+          "editorial": {
+            "cutIn": "Cuts from his stalled close-up to the wider frame as she responds.",
+            "cutOut": "Ends on the offered chair as the scene\u0027s final image.",
+            "timing": "Hold briefly on the empty chair after the movement."
+          },
+          "advanced": {
+            "continuity": "Her position must support a chair \u0027beside her.\u0027 Keep the kettle off.",
+            "assumptions": "Whether she is seated or standing when she pulls out the chair is unspecified. Whether he sits is not stated and is not shown.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "d9a7c17d5e45a0e680aedef5b7d8b0a04a5e8a5771d33dc08b2997213730d9f4",
+            "strategy": "6eceaa401959145f340018acacc061609fd4f0080d886555eae4f518ab661912",
+            "cast": "854484d9cbd1c609ed8258fbcd4076b9fa7473f5cf3461bc279b2ba5eb3cb416",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+            "neighbours": "4dbb6febcab810c2bd28d000d1d5f1d8f73ac2da61a74ab1dd89f0d671d52e02",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "0fba008a-3eb2-4436-9e1c-30aac83cdfdd",
+        "title": "The chair",
+        "approvedScriptId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sceneTitle": "INT. FAMILY KITCHEN - NIGHT",
+        "sourceBlockIds": [
+          "5ad851c2-018a-52f8-a04f-ed82dcd95b5a"
+        ],
+        "sourceExcerpt": "He opens his mouth but cannot continue. She pulls out the chair beside her.",
+        "planning": {
+          "id": "f384a875-3557-4c8c-a938-bedfa6d92efb",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4"
+          ],
+          "createdUtc": "2026-10-12T06:09:35.6249914+00:00"
+        },
+        "duration": 4,
+        "description": "Opening composition: a wider side-angle two-shot that takes in both of them and the chair beside the daughter. Instead of pressing him, she pulls out the chair beside her, its legs scraping the floor. The camera holds wide and lets the gesture play. Ending composition: the pulled-out chair standing empty between the gap of father and daughter, an open invitation.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "e8dd9271-b81c-4405-98a5-6c21bdb56cff",
+            "name": "DAUGHTER",
+            "appearance": null
+          },
+          {
+            "id": "2046208c-487a-4ba5-89d8-11ec4cde49b2",
+            "name": "FATHER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Night kitchen, the chair scraping in the quiet, warm low light.",
+        "music": "None, or the faintest sustained tone entering as the chair settles.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022dramaticProgression\u0022: \u0022A father begins a long-withheld confession, the kettle interrupts him, and his daughter silences it without looking away. Her quiet \u0027Go on.\u0027 presses him to continue, but he cannot. Instead of pushing further, she pulls out the chair beside her and turns pressure into invitation.\u0022,\n      \u0022visualProgression\u0022: \u0022Open on a shared frame that holds father, daughter and the kettle in one space. Tighten to singles as the moment narrows to her demand and his silence. Release into a wider frame that gives the chair and the space between them their meaning.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience learns only that something important went unsaid for years. They never learn what it is. The scene withholds the content and plays the struggle to say it.\u0022,\n      \u0022spatialAnchors\u0022: \u0022Kitchen at night. The kettle is on the counter or stove near the father, within the daughter\u0027s reach past him. The chair stands beside the daughter. Exact positions are staging assumptions.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Kettle interrupts\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n        \u002296b772bc-4207-59ee-8a24-593a9a33d41f\u0022,\n        \u0022d053dd0f-20ca-523c-8f76-81d6a66ede46\u0022,\n        \u002217dd3b83-7ae9-56cc-ad12-feaaf9b0053c\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a medium two-shot in the night kitchen. The father faces his daughter with the kettle visible near him. He begins, \u0027What I should have told you years ago\u2014\u0027 and the kettle whistles over his words, cutting him off. Without breaking her gaze, the daughter reaches past him and switches the kettle off. The camera holds steady with a slight, slow push. Ending composition: a tight two-shot, her arm still extended past him to the kettle, her eyes fixed on his face, the kitchen now silent.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022FATHER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022What I should have told you years ago\u2014\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022FATHER\u0022 },\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Dim night kitchen, low practical light, steam rising from the kettle, a building whistle, then abrupt silence.\u0022,\n      \u0022music\u0022: \u0022None; the kettle\u0027s whistle and the silence after it carry the moment.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the confession attempt and the interruption in one shared space.\u0022,\n          \u0022reason\u0022: \u0022Keeping both in frame shows that her reach is aimed at him, not the kettle.\u0022,\n          \u0022attention\u0022: \u0022The father\u0027s first words, the whistle, and then the daughter\u0027s unbroken gaze as her hand finds the switch.\u0022,\n          \u0022relationships\u0022: \u0022She removes the distraction that could have let him escape. She is listening and will not let the moment pass.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Father near the kettle. Daughter facing him, close enough to reach past him.\u0022,\n          \u0022facing\u0022: \u0022They face each other.\u0022,\n          \u0022eyelines\u0022: \u0022Her eyes stay on him throughout, even while she switches off the kettle.\u0022,\n          \u0022movement\u0022: \u0022Her arm reaches past him to the kettle, then stays there.\u0022,\n          \u0022camera\u0022: \u0022Medium two-shot with a restrained push-in toward a tighter two-shot.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Opens the scene mid-attempt, with the confession already starting.\u0022,\n          \u0022cutOut\u0022: \u0022The silence after the kettle motivates a cut to the daughter\u0027s response.\u0022,\n          \u0022timing\u0022: \u0022Let the whistle overlap and swallow the end of his line, then hold a beat of silence.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The kettle stays switched off from here on. Her hand ends at the switch.\u0022,\n          \u0022assumptions\u0022: \u0022The kettle\u0027s placement and whether either character is seated are not specified.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Go on\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00220ab4ecaa-d492-5d1e-9771-6a6534e2fc33\u0022,\n        \u0022a6d3ed58-e1b5-5174-8101-8309a8715cc0\u0022\n      ],\n      \u0022duration\u0022: 3,\n      \u0022description\u0022: \u0022Opening composition: a close-up of the daughter over the father\u0027s soft-focus shoulder, her hand drawing back from the kettle at the frame edge. Holding his eyes, she says quietly, \u0027Go on.\u0027 The camera is locked off. Ending composition: the same close-up, her expectant face waiting.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022DAUGHTER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Go on.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Quiet kitchen after the whistle, a faint wisp of steam, intimate low light.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Isolate her demand that he continue.\u0022,\n          \u0022reason\u0022: \u0022Her two words carry the scene\u0027s pressure and need a frame of their own.\u0022,\n          \u0022attention\u0022: \u0022Her steady gaze and calm insistence.\u0022,\n          \u0022relationships\u0022: \u0022She gives him no way out but is not hostile. She is ready to hear it.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Unchanged from the previous shot.\u0022,\n          \u0022facing\u0022: \u0022Toward the father.\u0022,\n          \u0022eyelines\u0022: \u0022Directly to the father, just off the lens.\u0022,\n          \u0022movement\u0022: \u0022Her hand settles back from the kettle.\u0022,\n          \u0022camera\u0022: \u0022Static over-the-shoulder close-up favoring the daughter.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cuts on the silence after the kettle stops, moving from the two-shot to her close-up.\u0022,\n          \u0022cutOut\u0022: \u0022Her waiting look motivates the reverse onto the father.\u0022,\n          \u0022timing\u0022: \u0022Brief and clipped. Hold a fraction after the line.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her eyeline matches the father\u0027s position from shot one.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022He cannot\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a close-up of the father, the reverse of the daughter\u0027s eyeline. He opens his mouth to continue, but no words come. He stays there, stuck, unable to go on. The camera holds still. Ending composition: the same close-up, his mouth slightly open and the words unspoken.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Silence except for small kitchen sounds. The light falls softly on his face.\u0022,\n      \u0022music\u0022: \u0022None.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Show his failure to speak.\u0022,\n          \u0022reason\u0022: \u0022The scene turns on what he cannot say, and that needs his face in isolation.\u0022,\n          \u0022attention\u0022: \u0022His open mouth and the moment the words fail.\u0022,\n          \u0022relationships\u0022: \u0022Years of silence are still stronger than her invitation to speak.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Unchanged.\u0022,\n          \u0022facing\u0022: \u0022Toward the daughter.\u0022,\n          \u0022eyelines\u0022: \u0022To the daughter, matching her close-up.\u0022,\n          \u0022movement\u0022: \u0022Minimal: the mouth opening, a stalled breath.\u0022,\n          \u0022camera\u0022: \u0022Static close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A reverse on her \u0027Go on,\u0027 answering her expectation.\u0022,\n          \u0022cutOut\u0022: \u0022His stalled silence motivates a wider view of her response.\u0022,\n          \u0022timing\u0022: \u0022Let the silence run long enough to become uncomfortable.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The kettle stays off. His eyeline mirrors hers.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The chair\u0022,\n      \u0022sceneId\u0022: \u00227aa98ad9-0b12-5e1e-99e1-3e8b203817e4\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u00225ad851c2-018a-52f8-a04f-ed82dcd95b5a\u0022\n      ],\n      \u0022duration\u0022: 4,\n      \u0022description\u0022: \u0022Opening composition: a wider side-angle two-shot that takes in both of them and the chair beside the daughter. Instead of pressing him, she pulls out the chair beside her, its legs scraping the floor. The camera holds wide and lets the gesture play. Ending composition: the pulled-out chair standing empty between the gap of father and daughter, an open invitation.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022DAUGHTER\u0022 },\n        { \u0022name\u0022: \u0022FATHER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Night kitchen, the chair scraping in the quiet, warm low light.\u0022,\n      \u0022music\u0022: \u0022None, or the faintest sustained tone entering as the chair settles.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Resolve the scene with her gesture of patience.\u0022,\n          \u0022reason\u0022: \u0022The chair\u0027s meaning depends on seeing the space between them, so this needs a wider frame.\u0022,\n          \u0022attention\u0022: \u0022Her hand on the chair and the empty seat beside her.\u0022,\n          \u0022relationships\u0022: \u0022She turns pressure into welcome and makes room for him to stay and speak in his own time.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The daughter beside a chair. The father at the edge of her space.\u0022,\n          \u0022facing\u0022: \u0022They remain turned toward each other.\u0022,\n          \u0022eyelines\u0022: \u0022She looks to him as she pulls the chair out.\u0022,\n          \u0022movement\u0022: \u0022She pulls the chair out.\u0022,\n          \u0022camera\u0022: \u0022Static, wider side angle.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Cuts from his stalled close-up to the wider frame as she responds.\u0022,\n          \u0022cutOut\u0022: \u0022Ends on the offered chair as the scene\u0027s final image.\u0022,\n          \u0022timing\u0022: \u0022Hold briefly on the empty chair after the movement.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Her position must support a chair \u0027beside her.\u0027 Keep the kettle off.\u0022,\n          \u0022assumptions\u0022: \u0022Whether she is seated or standing when she pulls out the chair is unspecified. Whether he sits is not stated and is not shown.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "c8eed87e-c2a7-4287-8259-e1c9b5fc314f",
+        "sceneId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sourceId": "7aa98ad9-0b12-5e1e-99e1-3e8b203817e4",
+        "sourceFingerprint": "9fd8576d9df63f9644ce6b89ead7b167e9602d64c559f083dfc3bc50577db8ec",
+        "dramaticProgression": "A father begins a long-withheld confession, the kettle interrupts him, and his daughter silences it without looking away. Her quiet \u0027Go on.\u0027 presses him to continue, but he cannot. Instead of pushing further, she pulls out the chair beside her and turns pressure into invitation.",
+        "visualProgression": "Open on a shared frame that holds father, daughter and the kettle in one space. Tighten to singles as the moment narrows to her demand and his silence. Release into a wider frame that gives the chair and the space between them their meaning.",
+        "audienceInformation": "The audience learns only that something important went unsaid for years. They never learn what it is. The scene withholds the content and plays the struggle to say it.",
+        "spatialAnchors": "Kitchen at night. The kettle is on the counter or stove near the father, within the daughter\u0027s reach past him. The chair stands beside the daughter. Exact positions are staging assumptions."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}

@@ -1,0 +1,204 @@
+@inject AiJobCoordinator Jobs
+@inject IAiJobStore JobStore
+@inject AiTextJobCapture Requests
+@inject IAiReviewGate Reviews
+@implements IAsyncDisposable
+
+<section class="reel-view-assistant" aria-label="AI view suggestions">
+    <TextAssistance @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Production" Label="Suggest views"
+        Title="Suggest reel views" Request="Presentation" Preparing="_submitting" Disabled="Disabled" ModelLocked="@(_submitting || _active is not null)"
+        HasError="@(_pending is not null)" ReviewRequested="ShowReview" SelectionChanged="value => _model = value">
+        <ExtraActions>@ToolbarActions</ExtraActions>
+        <ChildContent>
+            <p>Choose clear, complementary views and name what each shows. Uses candidate frames, available original images and the reel's saved instructions.</p>
+            @if (_model is { SupportsImages: false }) { <p role="status">Choose a vision model using the model selector below.</p> }
+            <label>Selection instructions (optional)<textarea rows="3" maxlength="12000" @bind="_instructions" @bind:event="oninput" placeholder="Focus on different angles and important details. Skip blurry or repetitive views."></textarea></label>
+            <p class="field-hint">Choose enough complementary views for useful coverage, up to @Count. Review them before adding them or replacing your picks.</p>
+            @if (_operationError is not null) { <p role="alert">@_operationError</p> }
+        </ChildContent>
+        <Actions>
+            <MudButton Class="ai-assist-action" OnClick="Start" Disabled="@(!CanStart)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />@(_submitting ? "Preparing views…" : "Suggest views")</MudButton>
+        </Actions>
+    </TextAssistance>
+    @if (_operationError is not null) { <p role="alert">@_operationError</p> }
+    @if (_pending is not null) { <button type="button" @onclick="RetryEnqueue" disabled="@_submitting">Retry saving request</button> }
+    @if (_review && _job is { } job) {
+        <section class="view-review" aria-label="Review suggested views">
+            <header><strong>Suggested views</strong><button type="button" @onclick="() => _review = false">Close review</button></header>
+            <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
+            <AiResultAcknowledgement Observed="@(_observed is null ? [] : new[] { _observed })" />
+            @if (_history.Length > 1) { <label>Saved suggestion<select value="@job.Id" @onchange="ChooseHistory">
+                @foreach (var saved in _history) { <option value="@saved.Id">@saved.CreatedUtc.ToLocalTime().ToString("g") · @saved.State</option> }
+            </select></label> }
+            @if (_error is not null) { <p role="alert">@_error</p> }
+            @if (_result is { } result && _request is { } request) {
+                <p class="view-review-intro">@(result.Views.Count == 0 ? "No usable views were suggested. Open the selection notes to see why, or try another model." : "Choose the views to keep, then add them to your picks or replace the current selection.")</p>
+                @if (result.Warnings.Count > 0) { <p class="view-concerns">@result.Warnings.Count @(result.Warnings.Count == 1 ? "concern" : "concerns") to check in Selection notes below.</p> }
+                <div class="suggested-view-list">
+                    @foreach (var item in _choices) {
+                        var frame = request.Candidates.Single(c => c.Number == item.Candidate).Keyframe;
+                        <article @key="item.Candidate">
+                            <label class="view-check"><input type="checkbox" @bind="item.Selected" disabled="@_staged" /> @item.Name</label>
+                            <img src="@ReferenceVideos.FrameUrl(ProjectId, frame.Frame)" alt="@item.Name" loading="lazy" />
+                            <p class="view-source">Frame @(frame.Frame.Index + 1) · @frame.Frame.Seconds.ToString("0.###") s</p>
+                            <label>View name<input maxlength="160" @bind="item.Name" @bind:event="oninput" disabled="@_staged" /></label>
+                            <label>Frame notes<textarea rows="2" maxlength="20000" @bind="item.Notes" @bind:event="oninput" disabled="@_staged"></textarea></label>
+                        </article>
+                    }
+                </div>
+                @if (_staged) { <p role="status">Suggestions applied to your pending picks. Save keyframes to keep them, or Undo picks to restore the previous selection.</p> }
+                else {
+                    @if (Stale) { <p role="alert">Your picks, crops or notes changed. Request a new suggestion before applying this one.</p> }
+                    <div class="view-review-actions"><button type="button" @onclick="() => Stage(false)" disabled="@(!CanStage)">Add selected views</button>
+                    <button type="button" @onclick="() => Stage(true)" disabled="@(!CanStage)">Replace picks with selected views</button></div>
+                }
+                <details class="view-analysis"><summary>Selection notes @if (result.Warnings.Count > 0) { <span>· @result.Warnings.Count @(result.Warnings.Count == 1 ? "concern" : "concerns")</span> }</summary>
+                    <p>@result.Summary</p>
+                    @if (result.Warnings.Count > 0) { <ul class="view-warning-list">@foreach (var warning in result.Warnings) { <li>@warning</li> }</ul> }
+                </details>
+            }
+            <details class="view-request-details"><summary>Request and response</summary><AiTextRequestDetails JobId="job.Id" />
+                @if (_request is { } captured) {
+                    <h4>Pictures the AI reviewed</h4>
+                    <p class="field-hint">All candidate pictures supplied to this request, including views that weren't suggested.</p>
+                    <div class="view-candidates">
+                        @foreach (var candidate in captured.Candidates) {
+                            <figure><img src="@ReferenceVideos.FrameUrl(ProjectId, candidate.Keyframe.Frame)" alt="Candidate @candidate.Number at @candidate.Keyframe.Frame.Seconds.ToString("0.###") seconds" loading="lazy" /><figcaption>Candidate @candidate.Number · @candidate.Keyframe.Frame.Seconds.ToString("0.###") s</figcaption></figure>
+                        }
+                    </div>
+                }
+                <pre>@_raw</pre>
+            </details>
+            <div class="view-review-actions">
+                @if (_active is not null) { <button type="button" @onclick="CancelRequest">Cancel request</button> }
+                else { <button type="button" @onclick="NewRequest" disabled="@(Disabled || _submitting)">Try again / change model</button> }
+                @if (job.CanRetryCaptured) { <button type="button" @onclick="() => Jobs.ResumeAsync(job.Id)">Retry captured request</button> }
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public ReferenceVideoMedia Media { get; set; } = null!;
+    [Parameter, EditorRequired] public ReelKeyframeSet Current { get; set; } = null!;
+    [Parameter] public int Count { get; set; } = 9;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public Guid? RequestedJobId { get; set; }
+    [Parameter] public EventCallback<ReelKeyframeSet> Staged { get; set; }
+    [Parameter] public RenderFragment? ToolbarActions { get; set; }
+    private TextAssistance? _assist;
+    private TextModelSelectionState? _model;
+    private readonly CancellationTokenSource _lifetime = new();
+    private AiJobSubmission? _pending;
+    private AiJobHeader? _job, _active, _observed;
+    private AiJobHeader[] _history = [];
+    private ReelViewSuggestionRequest? _request;
+    private ReelViewSuggestionResult? _result;
+    private Guid? _selected, _loadedResult, _handledRequested;
+    private readonly HashSet<Guid> _acknowledged = [];
+    private readonly Dictionary<Guid, ReelViewSuggestionRequest> _requests = [];
+    private string _instructions = "", _raw = "";
+    private string? _error, _operationError;
+    private bool _submitting, _disposed, _refreshing, _again, _review, _staged;
+    private List<Choice> _choices = [];
+    private sealed class Choice {
+        public int Candidate { get; init; }
+        public string Name { get; set; } = "";
+        public string Notes { get; set; } = "";
+        public bool Selected { get; set; } = true;
+    }
+    private bool ReadyToStart => !Disabled && _active is null && _pending is null && _model is { Ready: true, SupportsImages: true } && Count is >= 1 and <= 9;
+    private bool CanStart => !_submitting && ReadyToStart;
+    private bool Stale => _request is not null && _request.Baseline != ReelViewSuggestions.Baseline(Current);
+    private bool CanStage => !Disabled && !_submitting && !_staged && !Stale && _error is null && _job is { State: AiJobState.Completed, CancelRequested: false } && _choices.Any(c => c.Selected);
+    private TextRequestPresentation? Presentation => _job is null ? null : new(_job, "Selecting views…", _staged ? TextRequestOutcome.Resolved : _error is not null ? TextRequestOutcome.Invalid : TextRequestOutcome.Proposal);
+    protected override async Task OnInitializedAsync() { Jobs.Changed += Changed; await Refresh(); }
+    protected override Task OnParametersSetAsync() => Refresh();
+    private void Changed() { if (!_disposed) _ = InvokeAsync(Refresh); }
+    private async Task Start()
+    {
+        if (!CanStart || _assist is null) return;
+        _submitting = true; _operationError = null;
+        try {
+            // Preparation extracts and captures pictures before a job exists. Render its busy state immediately.
+            await InvokeAsync(StateHasChanged);
+            if (!await _assist.PrepareSubmitAsync() || !ReadyToStart) return;
+            _pending = _assist.Attribute(await Requests.SuggestReelViewsAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), ProjectId, Media.Id,
+                Current, Count, _instructions, _model!.Model, _model.FollowsDefault, _lifetime.Token));
+            await Enqueue();
+        } catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception e) { if (!_disposed) _operationError = e.Message; }
+        finally { _submitting = false; if (!_disposed) await Refresh(); }
+    }
+    private async Task Enqueue()
+    {
+        if (_pending is not { } pending) return;
+        var job = await Jobs.EnqueueAsync(pending, _lifetime.Token);
+        _pending = null; _selected = job.Id; _review = true;
+        await Acknowledge(job.Id);
+    }
+    private async Task Acknowledge(Guid id) { if (_assist is not null && _acknowledged.Add(id)) await _assist.QueuedAsync(); }
+    private async Task RetryEnqueue()
+    {
+        if (_submitting || Disabled) return;
+        _submitting = true;
+        try { await Enqueue(); _operationError = null; }
+        catch (Exception e) { if (!_disposed) _operationError = e.Message; }
+        finally { _submitting = false; if (!_disposed) await Refresh(); }
+    }
+    private async Task Refresh()
+    {
+        if (_disposed) return;
+        if (_refreshing) { _again = true; return; }
+        _refreshing = true;
+        try {
+            do {
+                _again = false;
+                // The media identity is checked against the captured request below; each saved reel has its own durable request history.
+                var matches = Jobs.View.Jobs.Where(j => j.Kind == AiJobKind.ReelViewSuggestion && j.Target.ProjectId == ProjectId).OrderByDescending(j => j.CreatedUtc).ToArray();
+                var history = new List<AiJobHeader>();
+                foreach (var match in matches) {
+                    if (!_requests.TryGetValue(match.Id, out var saved)) {
+                        saved = AiTextJobHandler.Read(match, await JobStore.ReadSnapshotAsync(match.Id, _lifetime.Token)).Payload<ReelViewSuggestionRequest>();
+                        _requests[match.Id] = saved;
+                    }
+                    if (saved.Media.Id == Media.Id) history.Add(match);
+                }
+                _history = history.ToArray(); _active = _history.FirstOrDefault(j => j.LocksTarget);
+                if (_pending is { } pending && _history.Any(j => j.Id == pending.Id)) { _pending = null; _selected = pending.Id; _review = true; await Acknowledge(pending.Id); }
+                if (RequestedJobId is { } requested && _handledRequested != requested && _history.Any(j => j.Id == requested)) { _handledRequested = requested; _selected = requested; _review = true; }
+                var job = _history.FirstOrDefault(j => j.Id == _selected) ?? _history.FirstOrDefault();
+                if (_job?.Id != job?.Id) {
+                    _loadedResult = null; _staged = false; _result = null; _choices.Clear();
+                    if (job is not null) _instructions = _requests[job.Id].SelectionInstructions;
+                }
+                _job = job;
+                if (job is not null && (_review || job.LocksTarget)) {
+                    _request = _requests[job.Id];
+                    var artifact = await JobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _lifetime.Token);
+                    _observed = job; _raw = artifact?.Raw ?? ""; _error = artifact?.Error ?? job.Error;
+                    if (job is { State: AiJobState.Completed, CancelRequested: false } && artifact is { Complete: true, Error: null } && _loadedResult != job.Id) {
+                        _result = artifact.Read<ReelViewSuggestionResult>(); _loadedResult = job.Id;
+                        _choices = _result?.Views.Select(v => new Choice { Candidate = v.Candidate, Name = v.Name, Notes = v.Notes }).ToList() ?? [];
+                    }
+                }
+            } while (_again && !_disposed);
+        } catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception e) { if (!_disposed) _operationError = e.Message; }
+        finally { _refreshing = false; if (!_disposed) StateHasChanged(); }
+    }
+    private async Task ShowReview() { _review = true; await Refresh(); }
+    private async Task ChooseHistory(ChangeEventArgs e) { if (Guid.TryParse(e.Value?.ToString(), out var id)) { _selected = id; await Refresh(); } }
+    private async Task NewRequest() { if (_assist is not null) await _assist.OpenAsync(); }
+    private async Task CancelRequest() { if (_active is { } job) await Jobs.CancelAsync(job.Id); }
+    private async Task Stage(bool replace)
+    {
+        if (!CanStage || _request is null) return;
+        try {
+            var frames = ReelViewSuggestions.Stage(_request, _choices.Where(c => c.Selected).Select(c => new ReelViewSelection(c.Candidate, c.Name, c.Notes)), Current, replace);
+            await Staged.InvokeAsync(frames); _staged = true; _operationError = null;
+        } catch (WorkspaceStoreException e) { _operationError = e.Message; }
+    }
+    public ValueTask DisposeAsync() { _disposed = true; Jobs.Changed -= Changed; _lifetime.Cancel(); _lifetime.Dispose(); return ValueTask.CompletedTask; }
+}

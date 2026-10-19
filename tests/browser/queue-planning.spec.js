@@ -1,5 +1,5 @@
 import { shotAction } from './workspace-tools.js';
-import { planningComposer, submitPlanning, openPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 const dialog = page => page.locator('.shot-planning-dialog');
@@ -23,6 +23,13 @@ async function setup(page, request) {
 async function begin(page) {
   await openPlanning(page);
   await submitPlanning(page);
+}
+async function chooseCurrentScene(page) {
+  await expect(page.locator('.scene-planning')).toContainText('This scene is no longer in the saved script');
+  const scene = page.locator('.scene-outline-item').filter({ hasText: 'INT. BEDROOM — NIGHT' });
+  if (!await scene.isVisible()) await page.getByRole('button', { name: 'Show Scenes', exact: true }).click();
+  await scene.click();
+  await expect(page.locator('.scene-planning')).not.toContainText('This scene is no longer in the saved script');
 }
 async function openFromActivity(page, project, job) {
   await page.locator('.ai-activity-trigger').click();
@@ -132,6 +139,7 @@ test('deleted shots can be drafted from the latest saved script despite an older
   await planningComposer(page).getByLabel('Directing instructions (optional)').fill('Old directing notes');
   await submitPlanning(page);
   await dialog(page).getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
+  await openShotsAfterPlanning(page);
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(1);
   await shotAction(page, 'Delete');
   await page.locator('.shot-delete-dialog').getByRole('button', { name: 'Delete 1 shot', exact: true }).click();
@@ -140,11 +148,13 @@ test('deleted shots can be drafted from the latest saved script despite an older
   const latest = await (await request.get(`/fixtures/${id}/script-source`)).json();
   await page.reload();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await page.locator('.scene-planning-link').click();
+  await chooseCurrentScene(page);
   await openPlanning(page);
   await expect(dialog(page)).not.toBeVisible();
   await expect(planningComposer(page)).not.toContainText('captured source');
   await expect(planningComposer(page).getByLabel('Directing instructions (optional)')).toHaveValue('');
-  await expect(planningComposer(page).getByRole('checkbox', { name: 'INT. BEDROOM — NIGHT', exact: true })).toBeChecked();
+  await expect(planningComposer(page).getByLabel('Script scene').locator('option:checked')).toHaveText(/INT\. BEDROOM — NIGHT/);
   await submitPlanning(page);
   await dialog(page).getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).shots.length).toBe(1);
@@ -168,14 +178,20 @@ test('an old review offers a new breakdown and clears its job link without submi
   await page.setViewportSize({ width: 390, height: 844 });
   const fresh = dialog(page).getByRole('button', { name: 'New breakdown', exact: true });
   await fresh.focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/scenes\?/);
+  await expect(dialog(page)).toBeHidden();
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  await chooseCurrentScene(page);
+  await openPlanning(page);
   await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
   await expect(planningComposer(page)).not.toContainText('NeedsAttention');
   await expect(planningComposer(page)).not.toContainText('captured approval');
   await expect(planningComposer(page).getByLabel('Directing instructions (optional)')).toHaveValue('');
   await expect(planningComposer(page).getByLabel('Maximum shot length (seconds)')).toHaveValue('15');
-  await expect(planningComposer(page).getByRole('checkbox', { name: 'INT. BEDROOM — NIGHT', exact: true })).toBeChecked();
+  await expect(planningComposer(page).getByLabel('Script scene').locator('option:checked')).toHaveText(/INT\. BEDROOM — NIGHT/);
   const { slug } = await (await request.get(`/fixtures/${id}/project-route`)).json();
-  await expect(page).toHaveURL(`/projects/${slug}/shots?view=grid#focus`);
+  expect(new URL(page.url()).pathname).toBe(`/projects/${slug}/scenes`);
+  expect(new URL(page.url()).searchParams.has('jobId')).toBe(false);
   expect(await jobs(request, id)).toHaveLength(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/validation/new-shot-breakdown-mobile.png' });

@@ -14,6 +14,57 @@ namespace Lumibelle.Tests;
 public sealed partial class ShotTests
 {
     [Fact]
+    public async Task ManualEnvironmentNoneSurvivesSharedInputsReloadAndExplicitInheritance()
+    {
+        var f = Fixture(); var source = Ready();
+        source.EnvironmentInspection = new() { AssetId = Guid.NewGuid(), Constraints = "Earlier override" };
+        await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
+        var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
+        var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
+        var c = (await store.InitializeAsync(f.Project.Id, _ct)).Compositions[0];
+        Assert.NotNull(c.Shot.EnvironmentInspection);
+        c.Shot.EnvironmentInspectionDisabled = true;
+        await store.SaveAsync(f.Project.Id, c, c.Version, _ct);
+        c = (await store.LoadAsync(f.Project.Id, _ct)).Compositions[0];
+        Assert.True(c.Shot.EnvironmentInspectionDisabled);
+        Assert.Null(DraftingEnvironments.Effective(c.Shot, null));
+        c.Shot.EnvironmentInspectionDisabled = false;
+        c.Shot.EnvironmentInspection = null;
+        await store.SaveAsync(f.Project.Id, c, c.Version, _ct);
+        var loaded = await store.LoadAsync(f.Project.Id, _ct);
+        Assert.False(loaded.ShotContent[0].EnvironmentInspectionDisabled);
+        Assert.Null(loaded.Compositions[0].Shot.EnvironmentInspection);
+        Assert.NotNull((await f.Shots.LoadAsync(f.Project.Id, _ct)).Shots[0].EnvironmentInspection);
+    }
+
+    [Fact]
+    public async Task EnvironmentSelectionFollowsSharedShotReferencesAndCopiesWithoutAttachingMedia()
+    {
+        var f = Fixture(); var source = Ready();
+        await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
+        var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
+        var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
+        var c = (await store.InitializeAsync(f.Project.Id, _ct)).Compositions[0];
+        var environment = Guid.NewGuid(); c.Shot.EnvironmentAssetId = environment;
+        c.Shot.EnvironmentStaging = new(c.Shot.Id, environment, Guid.NewGuid(), EnvironmentViews.StagingAction(c.Shot), "", "",
+            new("Face across the podium toward the judge.", "Static side view.", "Facing inferred from court action.", "Reverse layout uncertain."), []);
+        var staging = ShotCopy.Of(c.Shot.EnvironmentStaging);
+        await store.SaveAsync(f.Project.Id, c, c.Version, _ct);
+        c = (await store.LoadAsync(f.Project.Id, _ct)).Compositions[0];
+        Assert.Equal(environment, c.Shot.EnvironmentAssetId);
+        var copy = new ProductionComposition { ShotId = source.Id, Name = "Alternate" };
+        await store.SaveAsync(f.Project.Id, copy, 0, _ct);
+        var loaded = await store.LoadAsync(f.Project.Id, _ct);
+        Assert.All(loaded.Compositions, item => Assert.Equal(environment, item.Shot.EnvironmentAssetId));
+        Assert.All(loaded.Compositions, item => Assert.Equal(staging.Plan, item.Shot.EnvironmentStaging!.Plan));
+        Assert.Equal(staging.Plan, loaded.Compositions[0].Copy().Shot.EnvironmentStaging!.Plan);
+        copy = loaded.Compositions.Single(item => item.Id == copy.Id); copy.Shot.EnvironmentAssetId = null;
+        await store.SaveAsync(f.Project.Id, copy, copy.Version, _ct);
+        loaded = await store.LoadAsync(f.Project.Id, _ct);
+        Assert.All(loaded.Compositions, item => Assert.Null(item.Shot.EnvironmentAssetId));
+        Assert.Empty(loaded.Compositions[0].Shot.Videos);
+    }
+    [Fact]
     public async Task ProductionImportIsIdempotentAndAlternativesNeverEditCoverage()
     {
         var f = Fixture(); var source = Ready();

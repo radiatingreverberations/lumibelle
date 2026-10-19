@@ -1,0 +1,414 @@
+{
+  "name": "Sustained dialogue",
+  "status": "finished",
+  "model": {
+    "backend": "ClaudeCode",
+    "model": "opus",
+    "name": "Opus",
+    "comfyUrl": null
+  },
+  "elapsedSeconds": 44.5030632,
+  "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022dramaticProgression\u0022: \u0022The younger astronomer\u0027s impatience is checked by the older\u0027s steadying hand. The older offers counsel to hold off on naming what they will see. The younger voices her fear that it may vanish. The older\u0027s reassurance turns the moment into a shared act, and they lift the cover together.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens wide in pre-dawn dimness to establish the covered telescope and the pair. It tightens to the restraining hands, then moves to intimate singles for the counsel and the fear. It closes on a low, shared frame as both pairs of hands lift the cover and dawn light floods the room. Framing moves from separation and restraint toward unity.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience never learns what is under the cover or what they expect to see. Knowledge stays withheld, matching the older\u0027s counsel. What the audience does learn is the relationship: mentorship, trust, and togetherness in uncertainty.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The covered telescope is the central anchor. The two astronomers stand beside it, close enough to touch hands. A gradual dawn brightening serves as the light and time anchor across all shots.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Waiting at the covered telescope\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n        \u0022fa292184-e7b7-51d5-b3cf-7a13fec3503e\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a wide shot of the dim observatory before dawn. The covered telescope dominates the frame, with the two astronomers small beside it, waiting. The younger astronomer reaches for the cover, pulls back, and reaches again. The older astronomer gently places a hand over hers to steady it. The camera eases in slowly. Ending composition: a medium close two-shot centred on their joined hands resting at the edge of the cover.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Hushed, cool blue pre-dawn darkness. Still air and expectant quiet.\u0022,\n      \u0022music\u0022: \u0022Near silence, or a faint sustained tone suggesting anticipation.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the place, the covered object and the dynamic between the pair.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography and the core tension of impatience versus restraint before any words are spoken.\u0022,\n          \u0022attention\u0022: \u0022The covered telescope first, then the younger\u0027s restless hand, then the older\u0027s steadying touch.\u0022,\n          \u0022relationships\u0022: \u0022The older restrains and protects the younger\u0027s eagerness. Mentor and student.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both stand beside the telescope, side by side, within arm\u0027s reach of each other and the cover.\u0022,\n          \u0022facing\u0022: \u0022Both face the telescope.\u0022,\n          \u0022eyelines\u0022: \u0022Both look at the cover. The younger\u0027s eyes may flick to the older when her hand is stopped.\u0022,\n          \u0022movement\u0022: \u0022The younger reaches repeatedly. The older\u0027s hand settles over hers.\u0022,\n          \u0022camera\u0022: \u0022A slow push from wide to medium close on the hands.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opening.\u0022,\n          \u0022cutOut\u0022: \u0022Cut from the hands to the older\u0027s face as she begins to speak, shifting from gesture to words.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The older\u0027s hand remains over the younger\u0027s hand at the end of the shot.\u0022,\n          \u0022assumptions\u0022: \u0022Side-by-side placement and the camera push are one possible arrangement.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The older\u0027s counsel\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a3349e1b-723a-57ab-a3f6-6988668ff183\u0022,\n        \u0022200900f8-011c-5ffd-bf4c-5433329cfc3d\u0022\n      ],\n      \u0022duration\u0022: 10,\n      \u0022description\u0022: \u0022Opening composition: a medium close-up on the older astronomer\u0027s face, with the younger\u0027s shoulder soft in the foreground. The older speaks quietly, her hand still steadying the younger\u0027s. She pauses on \u0027Wait.\u0027 and lets the silence sit before finishing. Ending composition: the older holding the younger\u0027s gaze, the frame unchanged, settled and still.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022OLDER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate and calm. The faintest cool light begins on the faces.\u0022,\n      \u0022music\u0022: \u0022Silence or a very low sustained tone under the speech.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the older\u0027s counsel about patience and not-knowing.\u0022,\n          \u0022reason\u0022: \u0022This line is the thematic heart of the scene and needs uninterrupted attention on the speaker.\u0022,\n          \u0022attention\u0022: \u0022The older\u0027s face and the pause on \u0027Wait.\u0027\u0022,\n          \u0022relationships\u0022: \u0022The mentor passes on a way of seeing to the student.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The older is turned toward the younger, beside the telescope.\u0022,\n          \u0022facing\u0022: \u0022The older faces the younger.\u0022,\n          \u0022eyelines\u0022: \u0022The older looks at the younger, slightly off the lens toward the foreground shoulder.\u0022,\n          \u0022movement\u0022: \u0022Minimal. The hand stays in contact.\u0022,\n          \u0022camera\u0022: \u0022A static or barely drifting over-the-shoulder medium close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022From the hands to the face as gesture gives way to speech.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the younger as she responds with her fear.\u0022,\n          \u0022timing\u0022: \u0022Allow the pause after \u0027Wait.\u0027 to breathe.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Maintain the eyeline direction so the reverse on the younger matches.\u0022,\n          \u0022assumptions\u0022: \u0022The over-the-shoulder placement is a staging assumption.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Fear and reassurance\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a5b8d717-76ce-53d6-892f-6c52f7060a26\u0022,\n        \u002202139e6d-6786-54e8-850b-13dd46cfef4d\u0022,\n        \u0022e594744d-d953-5048-8f26-6e78d8c27d87\u0022,\n        \u0022a606b105-4c0a-572a-8121-346fc223781d\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a close-up on the younger astronomer, tighter than the previous single, with the older out of frame. She asks her question with quiet worry. The older answers off-screen. The camera holds on the younger as the reassurance lands and her worry eases into resolve. Ending composition: the younger in close-up, calmer, her eyes turning back toward the cover.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022YOUNGER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022And if it disappears?\u0022\n        },\n        {\n          \u0022speaker\u0022: \u0022OLDER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Then we will have seen it together.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022YOUNGER\u0022 },\n        { \u0022name\u0022: \u0022OLDER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Tender and tentative. The light is slowly warming.\u0022,\n      \u0022music\u0022: \u0022A soft emerging warmth, perhaps a single sustained note entering.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Voice the younger\u0027s fear and show the reassurance landing on her.\u0022,\n          \u0022reason\u0022: \u0022The emotional turn is the younger\u0027s reaction, so staying on her avoids a mechanical cut to the speaker.\u0022,\n          \u0022attention\u0022: \u0022The younger\u0027s face, from worry to resolve.\u0022,\n          \u0022relationships\u0022: \u0022Shared experience replaces the fear of loss. The pair becomes \u0027together\u0027.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The younger is beside the telescope, facing the older.\u0022,\n          \u0022facing\u0022: \u0022The younger faces the older.\u0022,\n          \u0022eyelines\u0022: \u0022The younger looks toward the older, opposite to the older\u0027s eyeline in the previous shot, then glances to the cover.\u0022,\n          \u0022movement\u0022: \u0022A small shift of the gaze toward the cover at the end.\u0022,\n          \u0022camera\u0022: \u0022A static close-up with a subtle hold.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A reverse from the older\u0027s counsel to the younger\u0027s response.\u0022,\n          \u0022cutOut\u0022: \u0022Her glance to the cover motivates the cut to the shared lifting action.\u0022,\n          \u0022timing\u0022: \u0022Leave a brief beat of reaction after the older\u0027s line.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Eyelines must match the previous shot, and the light level should be slightly brighter.\u0022,\n          \u0022assumptions\u0022: \u0022The older\u0027s reply delivered off-screen is a coverage choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Lifting the cover at dawn\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b8c2cdba-3881-51b4-ba05-355f6e18afaf\u0022\n      ],\n      \u0022duration\u0022: 8,\n      \u0022description\u0022: \u0022Opening composition: a low-angle medium shot from beside the telescope, with both astronomers framed together and their hands on the cover. They lift it together in one shared motion. As they do, dawn light spreads through the room and brightens their faces. The camera rises gently with the cover. What lies beneath is not shown. Ending composition: the two astronomers side by side in warm, brightening light, the cover raised, their faces turned to the telescope.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Brightening dawn and a quiet sense of wonder. The light shifts from cool to warm.\u0022,\n      \u0022music\u0022: \u0022A gentle swell resolving softly, or rising ambient light-tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Complete the shared act and let the dawn mark the moment.\u0022,\n          \u0022reason\u0022: \u0022This shot pays off \u0027together\u0027 visually, with both lifting the cover as one.\u0022,\n          \u0022attention\u0022: \u0022The joined hands lifting, then the light on their faces.\u0022,\n          \u0022relationships\u0022: \u0022Equals in the act of discovery, united.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both stand beside the telescope with their hands on the cover.\u0022,\n          \u0022facing\u0022: \u0022Both face the telescope.\u0022,\n          \u0022eyelines\u0022: \u0022Both look at the cover, then toward what it reveals, which stays unseen by the audience.\u0022,\n          \u0022movement\u0022: \u0022A shared lift of the cover.\u0022,\n          \u0022camera\u0022: \u0022Low angle near the telescope, rising slowly with the cover.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022From the younger\u0027s glance to the cover to the action itself.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end, held on the lit faces.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The light must be brighter than in every previous shot. The reveal stays withheld.\u0022,\n          \u0022assumptions\u0022: \u0022The low-angle placement and the light direction are staging assumptions.\u0022,\n          \u0022longTakeIdea\u0022: \u0022The lift and the dawn brightening could be held longer in a later manual extension, as long as no further story is added.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+  "parsed": {
+    "shots": [
+      {
+        "directionStrategyId": "916434da-4561-4d83-bdd4-e1ad4deac956",
+        "direction": {
+          "intent": {
+            "purpose": "Establish the place, the covered object and the dynamic between the pair.",
+            "reason": "The audience needs the geography and the core tension of impatience versus restraint before any words are spoken.",
+            "attention": "The covered telescope first, then the younger\u0027s restless hand, then the older\u0027s steadying touch.",
+            "relationships": "The older restrains and protects the younger\u0027s eagerness. Mentor and student."
+          },
+          "staging": {
+            "positions": "Both stand beside the telescope, side by side, within arm\u0027s reach of each other and the cover.",
+            "facing": "Both face the telescope.",
+            "eyelines": "Both look at the cover. The younger\u0027s eyes may flick to the older when her hand is stopped.",
+            "movement": "The younger reaches repeatedly. The older\u0027s hand settles over hers.",
+            "camera": "A slow push from wide to medium close on the hands."
+          },
+          "editorial": {
+            "cutIn": "Scene opening.",
+            "cutOut": "Cut from the hands to the older\u0027s face as she begins to speak, shifting from gesture to words.",
+            "timing": ""
+          },
+          "advanced": {
+            "continuity": "The older\u0027s hand remains over the younger\u0027s hand at the end of the shot.",
+            "assumptions": "Side-by-side placement and the camera push are one possible arrangement.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "ca9bf2339660041d762d5ba6ffcaaf886bbd8ad8a2dda01b3dc1989e8523fc2d",
+            "strategy": "234baa9bd7341706290b56271e21e0a00383d90354b58d1a26377ac9ccc37c87",
+            "cast": "dcd6f13898f23cd2199c363f388a8dffb54912c9d4752f6cd1308b94461974a7",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "426ba424d078c4a3a3698db4e5a66096f777555d46bebdceb81f5b280968236f",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "bcc6052d-9509-42d3-9aad-60d65aa9926d",
+        "title": "Waiting at the covered telescope",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "39269648-9722-53ee-95fc-43c78e4bf3ff",
+          "fa292184-e7b7-51d5-b3cf-7a13fec3503e"
+        ],
+        "sourceExcerpt": "## INT. OBSERVATORY - DAWN\n\nTwo astronomers wait beside a covered telescope. The younger keeps reaching for the cover; the older steadies her hand.",
+        "planning": {
+          "id": "ccc51ef5-5c79-432c-88d5-81a7565c04b3",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T06:09:59.6261452+00:00"
+        },
+        "duration": 7,
+        "description": "Opening composition: a wide shot of the dim observatory before dawn. The covered telescope dominates the frame, with the two astronomers small beside it, waiting. The younger astronomer reaches for the cover, pulls back, and reaches again. The older astronomer gently places a hand over hers to steady it. The camera eases in slowly. Ending composition: a medium close two-shot centred on their joined hands resting at the edge of the cover.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "caf82695-5dd6-4147-86bc-0bdb7258aafc",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "033d485f-10a0-45db-a43a-e26ce234c07b",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Hushed, cool blue pre-dawn darkness. Still air and expectant quiet.",
+        "music": "Near silence, or a faint sustained tone suggesting anticipation.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "916434da-4561-4d83-bdd4-e1ad4deac956",
+        "direction": {
+          "intent": {
+            "purpose": "Deliver the older\u0027s counsel about patience and not-knowing.",
+            "reason": "This line is the thematic heart of the scene and needs uninterrupted attention on the speaker.",
+            "attention": "The older\u0027s face and the pause on \u0027Wait.\u0027",
+            "relationships": "The mentor passes on a way of seeing to the student."
+          },
+          "staging": {
+            "positions": "The older is turned toward the younger, beside the telescope.",
+            "facing": "The older faces the younger.",
+            "eyelines": "The older looks at the younger, slightly off the lens toward the foreground shoulder.",
+            "movement": "Minimal. The hand stays in contact.",
+            "camera": "A static or barely drifting over-the-shoulder medium close-up."
+          },
+          "editorial": {
+            "cutIn": "From the hands to the face as gesture gives way to speech.",
+            "cutOut": "Cut to the younger as she responds with her fear.",
+            "timing": "Allow the pause after \u0027Wait.\u0027 to breathe."
+          },
+          "advanced": {
+            "continuity": "Maintain the eyeline direction so the reverse on the younger matches.",
+            "assumptions": "The over-the-shoulder placement is a staging assumption.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "517322ed7e3d9859a252eef73a98d6faf16060acd96de47ca74c201451f1e052",
+            "strategy": "234baa9bd7341706290b56271e21e0a00383d90354b58d1a26377ac9ccc37c87",
+            "cast": "dcd6f13898f23cd2199c363f388a8dffb54912c9d4752f6cd1308b94461974a7",
+            "dialogue": "5ba6488c5fd124453d84bd789ff14a0ef8b0d2909a3381134418f94687abc675",
+            "duration": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+            "neighbours": "281d347da79337ac96bb250d40e9f8120b839c91a5db14dd78c43225649769a1",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "671602e0-0c55-4657-8670-3c79682c99a1",
+        "title": "The older\u0027s counsel",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "a3349e1b-723a-57ab-a3f6-6988668ff183",
+          "200900f8-011c-5ffd-bf4c-5433329cfc3d"
+        ],
+        "sourceExcerpt": "### OLDER\n\nWhen you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.",
+        "planning": {
+          "id": "ccc51ef5-5c79-432c-88d5-81a7565c04b3",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T06:09:59.6261452+00:00"
+        },
+        "duration": 10,
+        "description": "Opening composition: a medium close-up on the older astronomer\u0027s face, with the younger\u0027s shoulder soft in the foreground. The older speaks quietly, her hand still steadying the younger\u0027s. She pauses on \u0027Wait.\u0027 and lets the silence sit before finishing. Ending composition: the older holding the younger\u0027s gaze, the frame unchanged, settled and still.",
+        "dialogue": [
+          {
+            "id": "148d6469-4d07-4f30-b500-6b7772770250",
+            "speaker": "OLDER",
+            "language": "en",
+            "text": "When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment."
+          }
+        ],
+        "characters": [
+          {
+            "id": "e87c3d32-7f93-41c7-bed4-1d82e4bc599a",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "192d8870-5743-4384-a3c0-3a9eda9e0916",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Intimate and calm. The faintest cool light begins on the faces.",
+        "music": "Silence or a very low sustained tone under the speech.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "916434da-4561-4d83-bdd4-e1ad4deac956",
+        "direction": {
+          "intent": {
+            "purpose": "Voice the younger\u0027s fear and show the reassurance landing on her.",
+            "reason": "The emotional turn is the younger\u0027s reaction, so staying on her avoids a mechanical cut to the speaker.",
+            "attention": "The younger\u0027s face, from worry to resolve.",
+            "relationships": "Shared experience replaces the fear of loss. The pair becomes \u0027together\u0027."
+          },
+          "staging": {
+            "positions": "The younger is beside the telescope, facing the older.",
+            "facing": "The younger faces the older.",
+            "eyelines": "The younger looks toward the older, opposite to the older\u0027s eyeline in the previous shot, then glances to the cover.",
+            "movement": "A small shift of the gaze toward the cover at the end.",
+            "camera": "A static close-up with a subtle hold."
+          },
+          "editorial": {
+            "cutIn": "A reverse from the older\u0027s counsel to the younger\u0027s response.",
+            "cutOut": "Her glance to the cover motivates the cut to the shared lifting action.",
+            "timing": "Leave a brief beat of reaction after the older\u0027s line."
+          },
+          "advanced": {
+            "continuity": "Eyelines must match the previous shot, and the light level should be slightly brighter.",
+            "assumptions": "The older\u0027s reply delivered off-screen is a coverage choice.",
+            "longTakeIdea": ""
+          },
+          "dependencies": {
+            "story": "e03084c7d6f7afc71c906520b3e9bf696bf6003fcea0f042cd0c2f2bed977f1c",
+            "strategy": "234baa9bd7341706290b56271e21e0a00383d90354b58d1a26377ac9ccc37c87",
+            "cast": "b1713726901f454231b0a3886da8dddc7b11cb0d0707d99f8c58118c1e5f7d57",
+            "dialogue": "0ec7a061138dc2cc39869a7f692f6b88bf8f6dfd4591b56e346168b4404a6c35",
+            "duration": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+            "neighbours": "f25901ca93852d85efd7a7ab9b0a20c2aaadecd12a22cbfe7da45b8b5945285e",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "bd898178-6357-4624-b7e5-3b9539857f27",
+        "title": "Fear and reassurance",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "a5b8d717-76ce-53d6-892f-6c52f7060a26",
+          "02139e6d-6786-54e8-850b-13dd46cfef4d",
+          "e594744d-d953-5048-8f26-6e78d8c27d87",
+          "a606b105-4c0a-572a-8121-346fc223781d"
+        ],
+        "sourceExcerpt": "### YOUNGER\n\nAnd if it disappears?\n\n### OLDER\n\nThen we will have seen it together.",
+        "planning": {
+          "id": "ccc51ef5-5c79-432c-88d5-81a7565c04b3",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T06:09:59.6261452+00:00"
+        },
+        "duration": 7,
+        "description": "Opening composition: a close-up on the younger astronomer, tighter than the previous single, with the older out of frame. She asks her question with quiet worry. The older answers off-screen. The camera holds on the younger as the reassurance lands and her worry eases into resolve. Ending composition: the younger in close-up, calmer, her eyes turning back toward the cover.",
+        "dialogue": [
+          {
+            "id": "179490e4-7b1a-4528-b11f-4807cec0702a",
+            "speaker": "YOUNGER",
+            "language": "en",
+            "text": "And if it disappears?"
+          },
+          {
+            "id": "803fb6b1-efa0-49df-994c-fc4443135e55",
+            "speaker": "OLDER",
+            "language": "en",
+            "text": "Then we will have seen it together."
+          }
+        ],
+        "characters": [
+          {
+            "id": "9812f34a-43e1-466e-8923-8515c0eff320",
+            "name": "YOUNGER",
+            "appearance": null
+          },
+          {
+            "id": "6cb56ce3-0b05-4c04-b3a5-d72b3ee8c40c",
+            "name": "OLDER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Tender and tentative. The light is slowly warming.",
+        "music": "A soft emerging warmth, perhaps a single sustained note entering.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      },
+      {
+        "directionStrategyId": "916434da-4561-4d83-bdd4-e1ad4deac956",
+        "direction": {
+          "intent": {
+            "purpose": "Complete the shared act and let the dawn mark the moment.",
+            "reason": "This shot pays off \u0027together\u0027 visually, with both lifting the cover as one.",
+            "attention": "The joined hands lifting, then the light on their faces.",
+            "relationships": "Equals in the act of discovery, united."
+          },
+          "staging": {
+            "positions": "Both stand beside the telescope with their hands on the cover.",
+            "facing": "Both face the telescope.",
+            "eyelines": "Both look at the cover, then toward what it reveals, which stays unseen by the audience.",
+            "movement": "A shared lift of the cover.",
+            "camera": "Low angle near the telescope, rising slowly with the cover."
+          },
+          "editorial": {
+            "cutIn": "From the younger\u0027s glance to the cover to the action itself.",
+            "cutOut": "Scene end, held on the lit faces.",
+            "timing": ""
+          },
+          "advanced": {
+            "continuity": "The light must be brighter than in every previous shot. The reveal stays withheld.",
+            "assumptions": "The low-angle placement and the light direction are staging assumptions.",
+            "longTakeIdea": "The lift and the dawn brightening could be held longer in a later manual extension, as long as no further story is added."
+          },
+          "dependencies": {
+            "story": "889a42e59b2a2dcf1377e30f0fd8c9132e4654af289b9dcc86e4e4ef9886d4ac",
+            "strategy": "234baa9bd7341706290b56271e21e0a00383d90354b58d1a26377ac9ccc37c87",
+            "cast": "dcd6f13898f23cd2199c363f388a8dffb54912c9d4752f6cd1308b94461974a7",
+            "dialogue": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "duration": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+            "neighbours": "8a29b6065d9bfa3f88376047d190a875cd81a0002ea41b39107d80ed64a424b9",
+            "references": "9d70f5e9a35177425dbfa400a3e4c067e10aa6694df13cfe7832ecef19b4485c"
+          }
+        },
+        "id": "89094197-8132-4af1-a91b-b151d5229f37",
+        "title": "Lifting the cover at dawn",
+        "approvedScriptId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sceneTitle": "INT. OBSERVATORY - DAWN",
+        "sourceBlockIds": [
+          "b8c2cdba-3881-51b4-ba05-355f6e18afaf"
+        ],
+        "sourceExcerpt": "They lift the cover together as the room begins to brighten.",
+        "planning": {
+          "id": "ccc51ef5-5c79-432c-88d5-81a7565c04b3",
+          "profile": "shot-coverage-direction-v4",
+          "model": {
+            "backend": "ClaudeCode",
+            "model": "opus",
+            "name": "Opus",
+            "comfyUrl": null
+          },
+          "requestedMaximum": 15,
+          "effectiveMaximumFrames": 362,
+          "instructions": "",
+          "sceneIds": [
+            "39269648-9722-53ee-95fc-43c78e4bf3ff"
+          ],
+          "createdUtc": "2026-10-12T06:09:59.6261452+00:00"
+        },
+        "duration": 8,
+        "description": "Opening composition: a low-angle medium shot from beside the telescope, with both astronomers framed together and their hands on the cover. They lift it together in one shared motion. As they do, dawn light spreads through the room and brightens their faces. The camera rises gently with the cover. What lies beneath is not shown. Ending composition: the two astronomers side by side in warm, brightening light, the cover raised, their faces turned to the telescope.",
+        "dialogue": [],
+        "characters": [
+          {
+            "id": "0a316f8e-6459-4f3d-a757-4d206c3040ca",
+            "name": "OLDER",
+            "appearance": null
+          },
+          {
+            "id": "bd7ec9de-0143-4589-812e-5a9fbb26738e",
+            "name": "YOUNGER",
+            "appearance": null
+          }
+        ],
+        "atmosphere": "Brightening dawn and a quiet sense of wonder. The light shifts from cool to warm.",
+        "music": "A gentle swell resolving softly, or rising ambient light-tone.",
+        "images": [],
+        "voices": [],
+        "videos": [],
+        "aspect": "16:9",
+        "nativeResolution": false,
+        "turbo": false,
+        "turboSteps": 4,
+        "selectedTakeId": null
+      }
+    ],
+    "raw": "\u0060\u0060\u0060json\n{\n  \u0022contractVersion\u0022: 4,\n  \u0022sceneStrategies\u0022: [\n    {\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022dramaticProgression\u0022: \u0022The younger astronomer\u0027s impatience is checked by the older\u0027s steadying hand. The older offers counsel to hold off on naming what they will see. The younger voices her fear that it may vanish. The older\u0027s reassurance turns the moment into a shared act, and they lift the cover together.\u0022,\n      \u0022visualProgression\u0022: \u0022The scene opens wide in pre-dawn dimness to establish the covered telescope and the pair. It tightens to the restraining hands, then moves to intimate singles for the counsel and the fear. It closes on a low, shared frame as both pairs of hands lift the cover and dawn light floods the room. Framing moves from separation and restraint toward unity.\u0022,\n      \u0022audienceInformation\u0022: \u0022The audience never learns what is under the cover or what they expect to see. Knowledge stays withheld, matching the older\u0027s counsel. What the audience does learn is the relationship: mentorship, trust, and togetherness in uncertainty.\u0022,\n      \u0022spatialAnchors\u0022: \u0022The covered telescope is the central anchor. The two astronomers stand beside it, close enough to touch hands. A gradual dawn brightening serves as the light and time anchor across all shots.\u0022\n    }\n  ],\n  \u0022shots\u0022: [\n    {\n      \u0022title\u0022: \u0022Waiting at the covered telescope\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n        \u0022fa292184-e7b7-51d5-b3cf-7a13fec3503e\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a wide shot of the dim observatory before dawn. The covered telescope dominates the frame, with the two astronomers small beside it, waiting. The younger astronomer reaches for the cover, pulls back, and reaches again. The older astronomer gently places a hand over hers to steady it. The camera eases in slowly. Ending composition: a medium close two-shot centred on their joined hands resting at the edge of the cover.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Hushed, cool blue pre-dawn darkness. Still air and expectant quiet.\u0022,\n      \u0022music\u0022: \u0022Near silence, or a faint sustained tone suggesting anticipation.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Establish the place, the covered object and the dynamic between the pair.\u0022,\n          \u0022reason\u0022: \u0022The audience needs the geography and the core tension of impatience versus restraint before any words are spoken.\u0022,\n          \u0022attention\u0022: \u0022The covered telescope first, then the younger\u0027s restless hand, then the older\u0027s steadying touch.\u0022,\n          \u0022relationships\u0022: \u0022The older restrains and protects the younger\u0027s eagerness. Mentor and student.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both stand beside the telescope, side by side, within arm\u0027s reach of each other and the cover.\u0022,\n          \u0022facing\u0022: \u0022Both face the telescope.\u0022,\n          \u0022eyelines\u0022: \u0022Both look at the cover. The younger\u0027s eyes may flick to the older when her hand is stopped.\u0022,\n          \u0022movement\u0022: \u0022The younger reaches repeatedly. The older\u0027s hand settles over hers.\u0022,\n          \u0022camera\u0022: \u0022A slow push from wide to medium close on the hands.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022Scene opening.\u0022,\n          \u0022cutOut\u0022: \u0022Cut from the hands to the older\u0027s face as she begins to speak, shifting from gesture to words.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The older\u0027s hand remains over the younger\u0027s hand at the end of the shot.\u0022,\n          \u0022assumptions\u0022: \u0022Side-by-side placement and the camera push are one possible arrangement.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022The older\u0027s counsel\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a3349e1b-723a-57ab-a3f6-6988668ff183\u0022,\n        \u0022200900f8-011c-5ffd-bf4c-5433329cfc3d\u0022\n      ],\n      \u0022duration\u0022: 10,\n      \u0022description\u0022: \u0022Opening composition: a medium close-up on the older astronomer\u0027s face, with the younger\u0027s shoulder soft in the foreground. The older speaks quietly, her hand still steadying the younger\u0027s. She pauses on \u0027Wait.\u0027 and lets the silence sit before finishing. Ending composition: the older holding the younger\u0027s gaze, the frame unchanged, settled and still.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022OLDER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022When you look through there, you will want to give it a name. Wait. Let it be something you do not understand for a moment.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Intimate and calm. The faintest cool light begins on the faces.\u0022,\n      \u0022music\u0022: \u0022Silence or a very low sustained tone under the speech.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Deliver the older\u0027s counsel about patience and not-knowing.\u0022,\n          \u0022reason\u0022: \u0022This line is the thematic heart of the scene and needs uninterrupted attention on the speaker.\u0022,\n          \u0022attention\u0022: \u0022The older\u0027s face and the pause on \u0027Wait.\u0027\u0022,\n          \u0022relationships\u0022: \u0022The mentor passes on a way of seeing to the student.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The older is turned toward the younger, beside the telescope.\u0022,\n          \u0022facing\u0022: \u0022The older faces the younger.\u0022,\n          \u0022eyelines\u0022: \u0022The older looks at the younger, slightly off the lens toward the foreground shoulder.\u0022,\n          \u0022movement\u0022: \u0022Minimal. The hand stays in contact.\u0022,\n          \u0022camera\u0022: \u0022A static or barely drifting over-the-shoulder medium close-up.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022From the hands to the face as gesture gives way to speech.\u0022,\n          \u0022cutOut\u0022: \u0022Cut to the younger as she responds with her fear.\u0022,\n          \u0022timing\u0022: \u0022Allow the pause after \u0027Wait.\u0027 to breathe.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Maintain the eyeline direction so the reverse on the younger matches.\u0022,\n          \u0022assumptions\u0022: \u0022The over-the-shoulder placement is a staging assumption.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Fear and reassurance\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022a5b8d717-76ce-53d6-892f-6c52f7060a26\u0022,\n        \u002202139e6d-6786-54e8-850b-13dd46cfef4d\u0022,\n        \u0022e594744d-d953-5048-8f26-6e78d8c27d87\u0022,\n        \u0022a606b105-4c0a-572a-8121-346fc223781d\u0022\n      ],\n      \u0022duration\u0022: 7,\n      \u0022description\u0022: \u0022Opening composition: a close-up on the younger astronomer, tighter than the previous single, with the older out of frame. She asks her question with quiet worry. The older answers off-screen. The camera holds on the younger as the reassurance lands and her worry eases into resolve. Ending composition: the younger in close-up, calmer, her eyes turning back toward the cover.\u0022,\n      \u0022dialogue\u0022: [\n        {\n          \u0022speaker\u0022: \u0022YOUNGER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022And if it disappears?\u0022\n        },\n        {\n          \u0022speaker\u0022: \u0022OLDER\u0022,\n          \u0022language\u0022: \u0022en\u0022,\n          \u0022text\u0022: \u0022Then we will have seen it together.\u0022\n        }\n      ],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022YOUNGER\u0022 },\n        { \u0022name\u0022: \u0022OLDER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Tender and tentative. The light is slowly warming.\u0022,\n      \u0022music\u0022: \u0022A soft emerging warmth, perhaps a single sustained note entering.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Voice the younger\u0027s fear and show the reassurance landing on her.\u0022,\n          \u0022reason\u0022: \u0022The emotional turn is the younger\u0027s reaction, so staying on her avoids a mechanical cut to the speaker.\u0022,\n          \u0022attention\u0022: \u0022The younger\u0027s face, from worry to resolve.\u0022,\n          \u0022relationships\u0022: \u0022Shared experience replaces the fear of loss. The pair becomes \u0027together\u0027.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022The younger is beside the telescope, facing the older.\u0022,\n          \u0022facing\u0022: \u0022The younger faces the older.\u0022,\n          \u0022eyelines\u0022: \u0022The younger looks toward the older, opposite to the older\u0027s eyeline in the previous shot, then glances to the cover.\u0022,\n          \u0022movement\u0022: \u0022A small shift of the gaze toward the cover at the end.\u0022,\n          \u0022camera\u0022: \u0022A static close-up with a subtle hold.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022A reverse from the older\u0027s counsel to the younger\u0027s response.\u0022,\n          \u0022cutOut\u0022: \u0022Her glance to the cover motivates the cut to the shared lifting action.\u0022,\n          \u0022timing\u0022: \u0022Leave a brief beat of reaction after the older\u0027s line.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022Eyelines must match the previous shot, and the light level should be slightly brighter.\u0022,\n          \u0022assumptions\u0022: \u0022The older\u0027s reply delivered off-screen is a coverage choice.\u0022\n        }\n      }\n    },\n    {\n      \u0022title\u0022: \u0022Lifting the cover at dawn\u0022,\n      \u0022sceneId\u0022: \u002239269648-9722-53ee-95fc-43c78e4bf3ff\u0022,\n      \u0022sourceBlockIds\u0022: [\n        \u0022b8c2cdba-3881-51b4-ba05-355f6e18afaf\u0022\n      ],\n      \u0022duration\u0022: 8,\n      \u0022description\u0022: \u0022Opening composition: a low-angle medium shot from beside the telescope, with both astronomers framed together and their hands on the cover. They lift it together in one shared motion. As they do, dawn light spreads through the room and brightens their faces. The camera rises gently with the cover. What lies beneath is not shown. Ending composition: the two astronomers side by side in warm, brightening light, the cover raised, their faces turned to the telescope.\u0022,\n      \u0022dialogue\u0022: [],\n      \u0022characters\u0022: [\n        { \u0022name\u0022: \u0022OLDER\u0022 },\n        { \u0022name\u0022: \u0022YOUNGER\u0022 }\n      ],\n      \u0022atmosphere\u0022: \u0022Brightening dawn and a quiet sense of wonder. The light shifts from cool to warm.\u0022,\n      \u0022music\u0022: \u0022A gentle swell resolving softly, or rising ambient light-tone.\u0022,\n      \u0022direction\u0022: {\n        \u0022intent\u0022: {\n          \u0022purpose\u0022: \u0022Complete the shared act and let the dawn mark the moment.\u0022,\n          \u0022reason\u0022: \u0022This shot pays off \u0027together\u0027 visually, with both lifting the cover as one.\u0022,\n          \u0022attention\u0022: \u0022The joined hands lifting, then the light on their faces.\u0022,\n          \u0022relationships\u0022: \u0022Equals in the act of discovery, united.\u0022\n        },\n        \u0022staging\u0022: {\n          \u0022positions\u0022: \u0022Both stand beside the telescope with their hands on the cover.\u0022,\n          \u0022facing\u0022: \u0022Both face the telescope.\u0022,\n          \u0022eyelines\u0022: \u0022Both look at the cover, then toward what it reveals, which stays unseen by the audience.\u0022,\n          \u0022movement\u0022: \u0022A shared lift of the cover.\u0022,\n          \u0022camera\u0022: \u0022Low angle near the telescope, rising slowly with the cover.\u0022\n        },\n        \u0022editorial\u0022: {\n          \u0022cutIn\u0022: \u0022From the younger\u0027s glance to the cover to the action itself.\u0022,\n          \u0022cutOut\u0022: \u0022Scene end, held on the lit faces.\u0022\n        },\n        \u0022advanced\u0022: {\n          \u0022continuity\u0022: \u0022The light must be brighter than in every previous shot. The reveal stays withheld.\u0022,\n          \u0022assumptions\u0022: \u0022The low-angle placement and the light direction are staging assumptions.\u0022,\n          \u0022longTakeIdea\u0022: \u0022The lift and the dawn brightening could be held longer in a later manual extension, as long as no further story is added.\u0022\n        }\n      }\n    }\n  ]\n}\n\u0060\u0060\u0060",
+    "uncoveredDialogue": [],
+    "error": null,
+    "strategies": [
+      {
+        "id": "916434da-4561-4d83-bdd4-e1ad4deac956",
+        "sceneId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sourceId": "39269648-9722-53ee-95fc-43c78e4bf3ff",
+        "sourceFingerprint": "33e2d779ebdef947752960c8f19a97149c2adeef1cd7b1b9f41e107bc7f66546",
+        "dramaticProgression": "The younger astronomer\u0027s impatience is checked by the older\u0027s steadying hand. The older offers counsel to hold off on naming what they will see. The younger voices her fear that it may vanish. The older\u0027s reassurance turns the moment into a shared act, and they lift the cover together.",
+        "visualProgression": "The scene opens wide in pre-dawn dimness to establish the covered telescope and the pair. It tightens to the restraining hands, then moves to intimate singles for the counsel and the fear. It closes on a low, shared frame as both pairs of hands lift the cover and dawn light floods the room. Framing moves from separation and restraint toward unity.",
+        "audienceInformation": "The audience never learns what is under the cover or what they expect to see. Knowledge stays withheld, matching the older\u0027s counsel. What the audience does learn is the relationship: mentorship, trust, and togetherness in uncertainty.",
+        "spatialAnchors": "The covered telescope is the central anchor. The two astronomers stand beside it, close enough to touch hands. A gradual dawn brightening serves as the light and time anchor across all shots."
+      }
+    ],
+    "directionNotes": [],
+    "dialogueNotes": [],
+    "coverageNotes": [],
+    "sourceNotes": []
+  },
+  "error": null,
+  "usage": null
+}
