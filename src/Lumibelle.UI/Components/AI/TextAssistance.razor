@@ -120,6 +120,7 @@
         _open = !Inline;
         await InvokeAsync(StateHasChanged);
     }
+    public bool IsOpen => _open;
     public Task CloseAsync() { _open = false; return InvokeAsync(StateHasChanged); }
     // Return from a sibling picker without reinitializing the authored composer controls.
     public Task ResumeAsync() { _open = !Inline; return InvokeAsync(StateHasChanged); }

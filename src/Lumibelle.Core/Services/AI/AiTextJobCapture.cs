@@ -48,7 +48,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
-            DirectionContext = ShotDirections.Context(source, effective),
+            DirectionContext = await CaptureDirectionContextAsync(source, effective, ct),
             OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
@@ -83,24 +83,18 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
         var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
-        var context = await ScriptContextAsync(projectId, document, source, shot, ct);
+        var library = await assets.LoadAsync(projectId, ct);
+        var context = await ScriptContextAsync(projectId, document, source, shot, ct, estimateLibrary: library);
         var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
         // The references are always sent; their images are what they cost. A missing one is reported when composing, not here.
         try
         {
-            var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
-            var effective = ShotVideoDefaults.Capture(c.Shot, project);
-            var configured = await settings.LoadAsync(ct);
-            var images = (await ProductionInputs.CaptureAsync(projectId, effective, assets, ct, referenceVideos, configured.H3, shots)).Select(i => i.Bytes).ToList();
-            var reelFrames = ReelRefMods.Uses(effective) && refmods is not null ? (await refmods.InspectionAsync(projectId, effective, ct)).Select(f => f.Png).ToList() : [];
-            images.AddRange(reelFrames);
-            var opening = await ProductionInputs.StartFrameAsync(projectId, effective, shots!, ct);
-            if (opening is { } frame) images.Add(frame.Bytes);
-            return size with { ReferenceImages = [.. ComfyTextVision.InspectSizes(images).Select(s => new ImageSize(s.Width, s.Height))], ReelFrames = reelFrames.Count, OpeningFrame = opening is not null };
+            var references = ProductionInputs.EstimateSizes(c.Shot, library, source);
+            return size with { ReferenceImages = references.Images, ReelFrames = references.ReelFrames, OpeningFrame = references.OpeningFrame };
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or IOException) { return size; }
     }
-    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct)
+    private async Task<(string SceneText, IReadOnlyList<string> NearbyShots)> ScriptContextAsync(Guid projectId, ProductionDocument document, ShotDocument source, Shot shot, CancellationToken ct, AssetLibrary? estimateLibrary = null)
     {
         var sceneText = "";
         // Standalone shots have no script source. A linked shot still reports a broken
@@ -113,10 +107,13 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         }
         var index = source.Shots.FindIndex(s => s.Id == shot.Id);
 
-        string NearbyShotSummary(Shot neighbor, string relation)
+        async Task<string> NearbyShotSummary(Shot neighbor, string relation)
         {
             var summary = relation + " shot — " + neighbor.Title + ": " + neighbor.Description;
-            if (ShotDirections.Context(source, neighbor) is { } direction) summary += "\nReviewed direction and limitations: " + JsonSerializer.Serialize(direction, AtomicJsonFile.Options);
+            // The sidebar estimate checks saved metadata only. Submission still validates exact media hashes.
+            var direction = estimateLibrary is null ? await CaptureDirectionContextAsync(source, neighbor, ct) :
+                ShotDirections.Context(source, neighbor, DraftingEnvironments.LiveMetadataIssue(neighbor.DraftingEnvironment, estimateLibrary));
+            if (direction is not null) summary += "\nReviewed direction and limitations: " + JsonSerializer.Serialize(ShotDirections.PromptContext(direction), AtomicJsonFile.Options);
             if (!string.Equals(relation, "Previous", StringComparison.Ordinal)) return summary;
             var priorPrompt = document.Compositions
                 .Where(x => x.ShotId == neighbor.Id && !x.Archived && !string.IsNullOrWhiteSpace(x.Prompt))
@@ -131,8 +128,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var nearbyShots = new List<string>();
         var previousShot = source.Shots.Take(Math.Max(0, index)).Where(s => s.SceneId == shot.SceneId && s.Id != shot.Id).LastOrDefault();
         var nextShot = source.Shots.Skip(index + 1).FirstOrDefault(s => s.SceneId == shot.SceneId && s.Id != shot.Id);
-        if (previousShot is not null) nearbyShots.Add(NearbyShotSummary(previousShot, "Previous"));
-        if (nextShot is not null) nearbyShots.Add(NearbyShotSummary(nextShot, "Next"));
+        if (previousShot is not null) nearbyShots.Add(await NearbyShotSummary(previousShot, "Previous"));
+        if (nextShot is not null) nearbyShots.Add(await NearbyShotSummary(nextShot, "Next"));
         return (sceneText, nearbyShots);
     }
     public async Task<AiJobSubmission> ScriptAsync(Guid id, Guid tab, ScriptAssistantRequest request, bool followsDefault, CancellationToken ct = default)

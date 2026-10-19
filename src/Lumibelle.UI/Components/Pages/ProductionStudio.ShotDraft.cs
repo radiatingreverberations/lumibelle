@@ -13,7 +13,7 @@ public partial class ProductionStudio
     private TextModelSelectionState? _shotDraftModel;
     private string _shotDraftDirections = "";
     private double _shotDraftMaximum = 15;
-    private bool _shotDraftSubmitting, _shotDraftOpen;
+    private bool _shotDraftSubmitting, _shotDraftOpen, _allowUninspectedEnvironment;
     private AiJobSubmission? _pendingShotDraft;
     private string? _shotDraftError;
     private Guid? _shotDraftOrigin, _shotDraftReviewOwner;
@@ -60,7 +60,7 @@ public partial class ProductionStudio
     private async Task PrepareShotDraft()
     {
         _directingStyle = Place(Id, "shots", "directingStyle", DirectingStyle.Auto);
-        _shotDraftError = null;
+        _shotDraftError = null; _allowUninspectedEnvironment = false;
         // Directions stay for a retry after a failure; a fresh shot starts empty.
         if (SourceShot is { } shot && ShotDraftJob(shot) is null) _shotDraftDirections = "";
         await RefreshSavedSource();
@@ -77,8 +77,8 @@ public partial class ProductionStudio
         // Saving can replace the document with its saved copy, so read the shot again after it.
         if (SourceShot is not { } shot) return;
         if (ShotDraftIssue(shot) is { } issue) { _shotDraftError = issue; return; }
-        if (DraftingEnvironments.Effective(Current?.Shot ?? shot, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == shot.SceneId)) is { Version: var selectionVersion } && selectionVersion == Guid.Empty) {
-            _shotDraftError = "This shot's environment override has no reviewed inspection setup. Choose environment views, then use that setup with pictures or explicitly without pictures.";
+        if (DraftingEnvironments.Effective(Current?.Shot ?? shot, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == shot.SceneId)) is { Version: var selectionVersion } && selectionVersion == Guid.Empty && !_allowUninspectedEnvironment) {
+            _shotDraftError = "This environment override has no inspection selection. Confirm drafting without inspection pictures, or prepare the matching environment in Scenes.";
             return;
         }
         _shotDraftSubmitting = true; _shotDraftError = null;
@@ -86,8 +86,8 @@ public partial class ProductionStudio
         try
         {
             var scene = SceneShots(shot).ToList();
-            var single = new SingleShotDraft(shot.Id, scene.FindIndex(s => s.Id == shot.Id), [.. OtherSceneShots(shot).Select(s => SceneShotSummary.From(s, ShotDirections.Strategy(_doc, s)) with { DirectionContext = ShotDirections.Context(_doc, s) })],
-                HasCoverage(shot) ? SceneShotSummary.From(shot) with { DirectionContext = ShotDirections.Context(_doc, shot) } : null) { TargetFingerprint = ShotDirections.Target(shot) };
+            var single = new SingleShotDraft(shot.Id, scene.FindIndex(s => s.Id == shot.Id), [.. OtherSceneShots(shot).Select(s => SceneShotSummary.From(s, ShotDirections.Strategy(_doc, s)) with { DirectionContext = CurrentDirectionContext(s) })],
+                HasCoverage(shot) ? SceneShotSummary.From(shot) with { DirectionContext = CurrentDirectionContext(shot) } : null) { TargetFingerprint = ShotDirections.Target(shot) };
             var request = new ShotPlanningRequest(ShotCopy.Of(_approved), _assets.Copy(), [shot.SceneId!.Value], _shotDraftMaximum, _shotDraftDirections.Trim(), _shotDraftModel.Model)
                 { CoverageOnly = true, SingleShot = single, Style = _directingStyle, Environments = await TextRequests.CaptureDraftingEnvironmentsAsync(Id, [shot.SceneId.Value], Current?.Shot ?? shot, _lifetime.Token), Strategies = ShotDirections.Strategy(_doc, shot) is { } strategy ? [ShotCopy.Of(strategy)] : [] };
             var id = Guid.NewGuid();
@@ -157,6 +157,7 @@ public partial class ProductionStudio
                 var protectedEdited = edited.Shots.Select(s => { var copy = s.Copy(); copy.Direction = null; if (copy.DraftingEnvironment is { } environment) copy.DraftingEnvironment = environment with { Assessment = new() }; return copy; }).ToList();
                 if (Json(protectedOriginal) != Json(protectedEdited)) throw new WorkspaceStoreException("The saved shot review does not match its captured coverage.");
                 ValidateReviewStrategies(original.Strategies, edited.Strategies);
+                foreach (var shot in edited.Shots) if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
                 foreach (var strategy in original.Strategies.Where(s => _shotDraftRequest.Strategies.Any(existing => existing.Id == s.Id)))
                     if (edited.Strategies.FirstOrDefault(s => s.Id == strategy.Id) is { } changed && Json(strategy) != Json(changed))
                         throw new WorkspaceStoreException("An existing scene strategy cannot be changed by a single-shot review.");
@@ -191,6 +192,7 @@ public partial class ProductionStudio
         if (_shotDraftReviewJob is not { } job || _shotDraftResult is not { Error: null } result || _resolvedShotDrafts.Contains(job.Id)) return;
         await _shotDraftDraftGate.WaitAsync();
         try {
+            foreach (var shot in result.Shots) if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
             var saved = await ReviewDrafts.SaveAsync(job.Id, ShotCopy.Of(new ShotPlanningReviewDraft(result.Shots) { Strategies = result.Strategies }), _shotDraftDraftRevision);
             _shotDraftDraftRevision = saved.Revision;
         } catch (WorkspaceStoreException e) { _shotDraftError = e.Message; }

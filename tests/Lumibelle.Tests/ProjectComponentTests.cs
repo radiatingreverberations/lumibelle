@@ -211,10 +211,11 @@ public sealed class ProjectComponentTests : BunitContext
         var page = Render<ProjectHome>(parameters => parameters.Add(component => component.Id, project.Id));
         Assert.Equal(project.Name, page.Find("h1").TextContent);
         Assert.Contains("Second line", page.Find(".project-synopsis").TextContent);
-        Assert.Equal(3, page.FindAll(".project-areas article").Count);
+        Assert.Equal(4, page.FindAll(".project-areas article").Count);
         Assert.Empty(page.FindAll($"a[href='/projects/{project.Id:D}/production']"));
         Assert.Equal(project.CreatedUtc.ToString("O"), page.Find("time").GetAttribute("datetime"));
         Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/assets']"));
+        Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/scenes']"));
         Assert.NotNull(_navigation.Find($"a[href='/projects/{project.Id:D}/settings']"));
     }
 

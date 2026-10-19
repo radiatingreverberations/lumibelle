@@ -13,11 +13,71 @@ namespace lumibelle.Components.Shots;
 
 public partial class ShotReferenceEditor
 {
+    [Parameter] public IReadOnlyList<Shot> FrameShots { get; set; } = [];
+    [Parameter] public IReadOnlyList<ShotTake> FrameTakes { get; set; } = [];
+    private string _sourceBrowser = "Assets";
+    private void ChooseSource(string source) {
+        _sourceBrowser = source; _selectedTab = false; _selectionNotice = null;
+        _replacing = _replacingVideo = _swapVideo = null;
+    }
+    private void PickShotFrame(ShotContinuityFrame frame) {
+        if (_busy || _draft.ContinuityFrame is null && ResolvedReferences.For(_draft).Pictures.Count >= 9) return;
+        var replaced = _draft.ContinuityFrame is not null;
+        _draft.ContinuityFrame = frame;
+        _selectionNotice = $"{(replaced ? "Replaced" : "Added")} shot frame. Apply changes to save.";
+    }
+    private string ShotFrameTitle(ShotContinuityFrame frame) => FrameShots.FirstOrDefault(s => s.Id == FrameTakes.FirstOrDefault(t => t.Id == frame.TakeId)?.ShotId)?.Title ?? frame.Name;
+    private bool ShotFrameTakeChanged(ShotContinuityFrame frame) => FrameTakes.FirstOrDefault(t => t.Id == frame.TakeId) is { } take &&
+        FrameShots.FirstOrDefault(s => s.Id == take.ShotId)?.SelectedTakeId is { } selected && selected != frame.TakeId;
+    [Parameter] public DraftingEnvironmentSetup? SceneEnvironment { get; set; }
+    private bool _allEnvironmentViews;
+    private DraftingEnvironmentSetup? EffectiveEnvironment => DraftingEnvironments.Effective(_draft, new() { Environment = SceneEnvironment });
+    private string EnvironmentChoice => _draft.EnvironmentInspectionDisabled == true ? "" : _draft.EnvironmentAssetId?.ToString()
+        ?? (_draft.EnvironmentInspection?.AssetId.ToString() ?? (SceneEnvironment is null ? "" : "scene"));
+    private IReadOnlyList<EnvironmentViewCandidate> EnvironmentCandidates {
+        get {
+            if (EffectiveEnvironment is not { } setup) return [];
+            var candidates = EnvironmentPictures.Candidates(Library, setup.AssetId);
+            return candidates.Select(c => setup.Views.FirstOrDefault(v => v.Id == c.Id) is { } saved
+                ? c with { Name = saved.Name, Notes = saved.Notes, Image = c.Image is null ? null : c.Image with { Crop = saved.Image?.Crop, Name = saved.Name, Notes = saved.Notes },
+                    Keyframe = c.Keyframe is null ? null : c.Keyframe with { Crop = saved.Keyframe?.Crop, Name = saved.Keyframe?.Name, Notes = saved.Keyframe?.Notes ?? "" } } : c)
+                .OrderByDescending(c => setup.Views.Any(v => v.Id == c.Id)).ToArray();
+        }
+    }
+    private IEnumerable<EnvironmentViewCandidate> ShownEnvironmentCandidates => _allEnvironmentViews || EffectiveEnvironment?.Views.Count is not > 0
+        ? EnvironmentCandidates : EnvironmentCandidates.Where(c => EffectiveEnvironment!.Views.Any(v => v.Id == c.Id));
+    private void ChangeEnvironment(ChangeEventArgs e) {
+        var value = e.Value?.ToString();
+        _draft.EnvironmentAssetId = Guid.TryParse(value, out var id) ? id : null;
+        _draft.EnvironmentInspectionDisabled = string.IsNullOrEmpty(value);
+        if (value == "scene") _draft.EnvironmentInspection = null;
+        _allEnvironmentViews = false;
+    }
+    private void SelectEnvironmentPicture(EnvironmentViewCandidate view, bool selected) {
+        try {
+            EnvironmentPictures.Select(_draft, view, selected);
+            foreach (var removed in _reelSources.Keys.Where(id => _draft.Videos.All(v => v.Id != id)).ToArray()) _reelSources.Remove(removed);
+            if (selected && view.Reel is { } reel) {
+                var binding = _draft.Videos.Single(v => v.Media.Id == reel.Media.Id);
+                _reelSources[binding.Id] = reel.Id;
+            }
+            _error = null;
+        } catch (WorkspaceStoreException e) { _error = e.Message; }
+    }
     [Parameter, EditorRequired] public Shot Shot { get; set; } = null!;
     [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = null!;
     [Parameter] public IReadOnlyList<Shot> CopySources { get; set; } = [];
     [Parameter] public Shot? PreviousCopySource { get; set; }
     [Parameter] public bool ShowCopyControls { get; set; } = true;
+    [Parameter] public bool ReviewSelection { get; set; }
+    private string? ReviewSelectionIssue {
+        get {
+            if (!ReviewSelection) return null;
+            try { H3Policy.Validate(_draft); if (AllowReels) ReferenceVideos.Validate(_draft); }
+            catch (WorkspaceStoreException e) { return e.Message; }
+            return null;
+        }
+    }
     /// <summary>A shot's number in the shot list, to order and label the shots to copy from around this one.</summary>
     [Parameter] public Func<Shot, int>? CopySourceNumber { get; set; }
     [Parameter] public int CurrentShotNumber { get; set; }
@@ -64,7 +124,7 @@ public partial class ShotReferenceEditor
     private string PictureBreakdown {
         get {
             var parts = new List<string> { $"{_draft.Images.Count} library images" };
-            if (_draft.ContinuityFrame is not null) parts.Add("1 continuity frame");
+            if (_draft.ContinuityFrame is not null) parts.Add("1 shot frame");
             var frames = ResolvedReferences.For(_draft).Pictures.Count - _draft.Images.Count - (_draft.ContinuityFrame is null ? 0 : 1);
             if (frames > 0) parts.Add($"{frames} reel keyframes");
             return string.Join(" · ", parts);
@@ -72,9 +132,9 @@ public partial class ShotReferenceEditor
     }
     private void StartImageReplacement(ShotImageBinding binding)
     {
-        _replacing = binding.Id; _replacingVideo = _swapVideo = null; _selectedTab = false; _selectionNotice = null;
+        _sourceBrowser = "Assets"; _replacing = binding.Id; _replacingVideo = _swapVideo = null; _selectedTab = false; _selectionNotice = null;
     }
-    protected override void OnInitialized() { _draft = Shot.Copy(); _originalVoiceOwners = CharacterVoices.Owners(Shot, Library).ToHashSet(); ShotReferences.RetainCharacters(_draft); _expanded = Expanded; _selectedTab = Expanded is not null; }
+    protected override void OnInitialized() { _draft = Shot.Copy(); _originalVoiceOwners = CharacterVoices.Owners(Shot, Library).ToHashSet(); ShotReferences.RetainCharacters(_draft); _expanded = Expanded; _selectedTab = ReviewSelection || Expanded is not null; }
     // What a copy did, line by line; warnings ask for a decision before applying.
     private IReadOnlyList<(string Text, bool Warning)>? _copyNotice;
     private void CopyFromChanged(ChangeEventArgs e)
@@ -217,7 +277,9 @@ public partial class ShotReferenceEditor
     }
     private static bool RegeneratedFrom(AssetReferenceReel reel, AssetReferenceReel? source) =>
         source is not null && reel.Generation?.Snapshot.Reel?.RegenerationSource?.ReelId == source.Id;
-    private void ToggleSwap(ShotVideoBinding v) { _swapVideo = _swapVideo == v.Id ? null : v.Id; if (_swapVideo is not null) _expanded = null; }
+    private void ChooseShotFrames() => ChooseSource("Shot frames");
+    private void StartReelReplacement(ShotVideoBinding v) { _sourceBrowser = "Assets"; _replacingVideo = v.Id; _replacing = null; _selectedTab = false; }
+    private void ToggleSwap(ShotVideoBinding v) { _sourceBrowser = "Assets"; _selectedTab = false; _swapVideo = _swapVideo == v.Id ? null : v.Id; if (_swapVideo is not null) _expanded = null; }
     // The reel the reference list replaces rather than adds to.
     private Guid? ReelTarget => _swapVideo ?? _replacingVideo;
     private string LookName(AssetReferenceReel reel) =>

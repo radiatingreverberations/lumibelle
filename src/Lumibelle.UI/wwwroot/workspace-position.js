@@ -20,7 +20,7 @@ export function write(key, value) {
     try { localStorage.setItem(key, json); } catch {}
 }
 const finite = value => Number.isFinite(value) ? Math.max(0, value) : 0;
-const attributes = ['data-block-id', 'data-media-id', 'data-asset-id', 'data-shot-id', 'data-take-id'];
+const attributes = ['data-block-id', 'data-scene-id', 'data-media-id', 'data-asset-id', 'data-shot-id', 'data-take-id'];
 function capture(el) {
     const bounds = el.getBoundingClientRect();
     const anchor = [...el.querySelectorAll(attributes.map(a => `[${a}]`).join(','))].find(node => {
@@ -40,6 +40,7 @@ function restore(el, saved) {
 export function attach(root, storageKey, context) {
     const state = read(storageKey); state.scroll ??= {};
     const events = new AbortController(); let timer, settle, restoring = true, disposed = false;
+    let revealRestoredShot = ['Shots', 'Scenes'].includes(root.dataset.studio);
     const loading = () => root.getAttribute('aria-busy') === 'true';
     // Pane bodies, plus nested scrollers such as horizontal gallery strips that name themselves.
     const regions = () => [...root.querySelectorAll('.workspace-pane-body, [data-scroll-region]')].filter(el => el.getClientRects().length);
@@ -53,11 +54,29 @@ export function attach(root, storageKey, context) {
         for (const el of regions()) state.scroll[regionKey(el)] = capture(el);
     }
     function save() { snapshot(); if (!restoring && !disposed) write(storageKey, state); }
-    function apply() { if (!disposed && restoring && !loading()) for (const el of regions()) { const saved = state.scroll[regionKey(el)]; if (saved) restore(el, saved); } }
+    function revealShot() {
+        if (!revealRestoredShot || loading() || disposed) return;
+        const body = root.querySelector('.workspace-left .workspace-pane-body');
+        const row = body?.querySelector('.shot-outline-item.selected, .scene-outline-item.selected');
+        if (!body?.getClientRects().length || !row?.getClientRects().length) return;
+        const pane = body.getBoundingClientRect(), item = row.getBoundingClientRect();
+        // Move only the outline pane, without scrolling the page or taking focus.
+        if (item.top < pane.top) body.scrollTop += item.top - pane.top;
+        else if (item.bottom > pane.bottom) body.scrollTop += Math.min(item.bottom - pane.bottom, item.top - pane.top);
+        state.scroll[regionKey(body)] = capture(body);
+        revealRestoredShot = false;
+    }
+    function apply() {
+        if (!disposed && restoring && !loading()) {
+            for (const el of regions()) { const saved = state.scroll[regionKey(el)]; if (saved) restore(el, saved); }
+            revealShot();
+        }
+    }
     function resume() {
         clearTimeout(timer); clearTimeout(settle);
         if (loading()) { restoring = true; return; }
         for (const el of regions()) restore(el, state.scroll[regionKey(el)]);
+        revealShot();
         restoring = regions().some(el => !!state.scroll[regionKey(el)]);
         if (!restoring) return;
         requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); });
@@ -81,9 +100,11 @@ export function attach(root, storageKey, context) {
         restoreSide(side) {
             const el = root.querySelector(`.workspace-${side} .workspace-pane-body`);
             const saved = el && state.scroll[regionKey(el)];
-            if (!el || !saved) return false;
-            restore(el, saved);
-            return true;
+            if (!el) return false;
+            if (saved) restore(el, saved);
+            const revealing = revealRestoredShot;
+            revealShot();
+            return !!saved || side === 'left' && revealing && !revealRestoredShot;
         },
         dispose() { save(); disposed = true; clearTimeout(timer); clearTimeout(settle); events.abort(); resize.disconnect(); mutation.disconnect(); } };
 }

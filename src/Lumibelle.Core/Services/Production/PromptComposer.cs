@@ -64,7 +64,7 @@ public static class PromptComposer
                 nextShotProvided = r.NearbyShots.Any(s => s.StartsWith("Next shot", StringComparison.OrdinalIgnoreCase)),
                 mustOpenDifferentlyFromPrevious = r.OpeningFrame is null && r.MotionStills is null },
             r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.Appearances,
-            r.DirectionContext,
+            DirectionContext = Shots.ShotDirections.PromptContext(r.DirectionContext),
             environmentStaging = EnvironmentViews.CompositionStaging(r.Shot, r.DirectingNotes, r.RevisionNotes, r.DirectionContext),
             referenceImagesAttached = images.Count > 0 || modFrames.Count > 0,
             references = r.Shot.Images.Select((b, i) => new { picture = i + 1, b.Name, b.AiUseHint, b.Crop, purpose = b.Purpose?.ToString(), use = b.Use?.ToString(),

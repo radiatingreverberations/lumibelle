@@ -8,6 +8,41 @@ namespace Lumibelle.Tests;
 
 public sealed partial class AiTextJobTests
 {
+    [Theory] [InlineData(true)] [InlineData(false)]
+    public async Task CapturedEnvironmentHashCitationCanReopenWithoutAnotherProviderCall(bool resolvable)
+    {
+        var submission = await Request(AiJobKind.ShotPlanning);
+        var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        byte[] picture = [1, 2, 3];
+        var view = new EnvironmentViewCandidate($"reel/{Guid.NewGuid()}/{Guid.NewGuid()}", "Podium side", false, "", null, null, null,
+            lumibelle.Services.Production.ReelViewSuggestions.Hash(picture));
+        var planning = captured.Payload<ShotPlanningRequest>() with { Environments = [new(Guid.NewGuid(), _script.Blocks[0].Id, Guid.NewGuid(), Guid.NewGuid(), "Plaza", "", "", [view], "captured")], InspectionImageHashes = [view.Sha256] };
+        captured = captured with { Task = JsonSerializer.SerializeToElement(planning, AtomicJsonFile.Options),
+            Messages = ShotPlanner.BuildMessages(planning, new Dictionary<string, byte[]> { [view.Sha256] = picture }).Select(AiTextMessage.Capture).ToArray() };
+        submission = submission with { Snapshot = JsonSerializer.SerializeToElement(captured, AtomicJsonFile.Options) };
+        var shot = new Shot { Title = "Pause", SceneId = _script.Blocks[0].Id, SourceBlockIds = _script.Blocks.Select(b => b.Id).ToList(), Duration = 5, Description = "A mouse waits." };
+        var alias = view.Id[..(view.Id.LastIndexOf('/') + 1)] + (resolvable ? view.Sha256 : new string('f', 64));
+        var raw = JsonSerializer.Serialize(new { sceneStrategies = new[] { new { sceneId = shot.SceneId, environmentAssessment = new { claims = new[] { new EnvironmentSupportClaim("Standing side", ReferenceSupportStatus.Supported, [alias]) } } } }, shots = new[] { shot } }, AtomicJsonFile.Options);
+        const string error = "The proposal could not be applied: Environment evidence cites a picture not attached to this drafting request. Nothing was added; inspect it and retry.";
+        await Store.EnqueueAsync(submission, _ct);
+        await Store.WriteArtifactAsync(submission.Id, AiJobArtifact.Result, new AiTextJobResult(raw, true, "stop", Error: error), _ct);
+        await Store.UpdateAsync(submission.Id, j => j with { State = AiJobState.NeedsAttention, Error = error }, _ct);
+        _providers.OnCheck = () => throw new InvalidOperationException("Recovery needs no provider");
+        var snapshot = (await Store.ReadSnapshotAsync(submission.Id, _ct)).GetRawText();
+        var reopened = await Store.ReviewShotPlanningAsync(_project, submission.Id, _ct);
+        if (!resolvable) {
+            Assert.Equal(AiJobState.NeedsAttention, reopened.State);
+            var unchanged = (await Store.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _ct))!;
+            Assert.Equal(error, unchanged.Error); Assert.Equal(raw, unchanged.Raw); Assert.Null(unchanged.Value);
+            Assert.Equal(0, _providers.Created); return;
+        }
+        Assert.Equal(AiJobState.Completed, reopened.State);
+        var saved = (await Store.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _ct))!;
+        Assert.Null(saved.Error); Assert.Equal(raw, saved.Raw);
+        Assert.Equal(view.Id, saved.Read<ShotPlanningResult>()!.Shots[0].DraftingEnvironment!.Assessment.Claims[0].CandidateIds[0]);
+        Assert.Equal(snapshot, (await Store.ReadSnapshotAsync(submission.Id, _ct)).GetRawText());
+        Assert.Equal(0, _providers.Created);
+    }
     [Fact]
     public async Task CameraWarningRecoveryKeepsExactTextAndStableShotIdsWithoutAProviderCall()
     {

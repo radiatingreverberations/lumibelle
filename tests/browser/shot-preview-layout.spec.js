@@ -1,5 +1,5 @@
 import { generateTakes, composeProduction } from './workspace-tools.js';
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 const edges = page => page.evaluate(() => {
@@ -16,10 +16,11 @@ test('the take preview and the action and camera text line up side by side', asy
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
   await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(page.locator('.shot-preview-empty')).toBeVisible();
   await expect.poll(() => edges(page)).toEqual({ top: 0, bottom: 0 });
 

@@ -199,7 +199,10 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         var capturedStrategies = ShotCopy.Of(strategies.ToList()); ShotDirections.ValidateStrategies(capturedStrategies);
         if (jobId == Guid.Empty || captured.Count == 0 || captured.Select(s => s.Id).Distinct().Count() != captured.Count)
             throw new WorkspaceStoreException("A reviewed breakdown needs a request identity and distinct shots.");
-        foreach (var shot in captured) H3Policy.Validate(shot, true);
+        foreach (var shot in captured) {
+            H3Policy.Validate(shot, true);
+            if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
+        }
         var fingerprint = capturedStrategies.Count == 0 ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(captured, AtomicJsonFile.Options))) : ReferenceSetups.Hash(new { Shots = captured, Strategies = capturedStrategies });
         var dir = await files.DirectoryAsync(projectId, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var d = await Read(dir, projectId, ct);

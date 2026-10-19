@@ -1,0 +1,93 @@
+<section class="shot-frame-picker" aria-label="Pictures from shots">
+    @if (AvailableShots.Count == 0) {
+        <p class="field-hint">No saved takes yet. Frames from saved takes will appear here.</p>
+    } else {
+        <label>Shot<select aria-label="Source shot" value="@_shotId" @onchange="ChangeShot" disabled="@Disabled">
+            <optgroup label="This scene">@foreach (var shot in AvailableShots.Where(s => s.SceneId == CurrentShot.SceneId)) { <option value="@shot.Id">@ShotLabel(shot)</option> }</optgroup>
+            <optgroup label="Other shots">@foreach (var shot in AvailableShots.Where(s => s.SceneId != CurrentShot.SceneId)) { <option value="@shot.Id">@ShotLabel(shot)</option> }</optgroup>
+        </select></label>
+        <div class="shot-frame-controls">
+            <label>Take<select aria-label="Source take" value="@_takeId" @onchange="ChangeTake" disabled="@Disabled">
+                @foreach (var take in SourceTakes) { <option value="@take.Id">Take @(SourceTakes.IndexOf(take) + 1)@(SourceShot?.SelectedTakeId == take.Id ? " · Selected" : "")</option> }
+            </select></label>
+            <label>Frame<select aria-label="Source frame position" value="@_position" @onchange="ChangePosition" disabled="@Disabled">
+                <option value="last">Last frame</option><option value="first">First frame</option><option value="custom">Choose frame</option>
+            </select></label>
+        </div>
+        @if (SourceTake is { } selected) {
+            var preview = PreviewUrl;
+            @if (SourceShot?.SelectedTakeId is { } selectedId && selectedId != selected.Id && SourceTakes.Any(t => t.Id == selectedId)) {
+                <button type="button" class="frame-take-shortcut" disabled="@Disabled" @onclick="SelectDefaultTake">Preview selected take</button>
+            }
+            @if (_position == "custom") {
+                <label>Frame @(_frame + 1) of @selected.FrameCount<input type="range" aria-label="Source frame" min="0" max="@(selected.FrameCount - 1)" step="1" value="@_frame" @onchange="Seek" disabled="@Disabled" /></label>
+            }
+            <img @key="preview" src="@preview" alt="Frame @(_frame + 1) from @SourceShot?.Title" @onload="() => { if (PreviewUrl == preview) _loaded = true; }" @onerror="() => { if (PreviewUrl == preview) _failed = true; }" />
+            <p class="field-hint">@Label(new(Guid.Empty, selected.Id, _frame, ""), Shots, Takes) · @((_frame / selected.Fps).ToString("0.###")) s</p>
+            @if (_failed) { <p role="alert">This frame is unavailable. Choose another take or frame.</p> }
+            @if (Value is { } existing) {
+                <p class="field-hint">Replaces the attached shot frame, @Label(existing, Shots, Takes). Other references stay attached.</p>
+            }
+            @if (PictureCount >= 9 && Value is null) { <p role="status">@PictureCount/9 pictures. Remove a picture before adding this frame.</p> }
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(Disabled || !_loaded || _failed || PictureCount >= 9 && Value is null || IsCurrent)" OnClick="Pick">@(IsCurrent ? "Already attached" : Value is null ? "Add picture" : "Replace shot frame")</MudButton>
+            <p class="field-hint">Uses one picture slot. The reference stays pinned to this take and frame.</p>
+        }
+    }
+</section>
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public Shot CurrentShot { get; set; } = null!;
+    [Parameter] public IReadOnlyList<Shot> Shots { get; set; } = [];
+    [Parameter] public IReadOnlyList<ShotTake> Takes { get; set; } = [];
+    [Parameter] public ShotContinuityFrame? Value { get; set; }
+    [Parameter] public int PictureCount { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<ShotContinuityFrame> Picked { get; set; }
+    private Guid? _shotId, _takeId;
+    private string _position = "last";
+    private int _frame;
+    private bool _initialized, _loaded, _failed;
+    private string? _preview;
+    private List<Shot> AvailableShots => Shots.Where(s => Takes.Any(t => t.ShotId == s.Id && t.FrameCount > 0)).ToList();
+    private Shot? SourceShot => Shots.FirstOrDefault(s => s.Id == _shotId);
+    private List<ShotTake> SourceTakes => Takes.Where(t => t.ShotId == _shotId && t.FrameCount > 0).OrderBy(t => t.CreatedUtc).ThenBy(t => t.Id).ToList();
+    private ShotTake? SourceTake => SourceTakes.FirstOrDefault(t => t.Id == _takeId);
+    private string PreviewUrl => $"/media/projects/{ProjectId}/takes/{_takeId}/frames/{_frame}";
+    private bool IsCurrent => Value is { } current && current.TakeId == _takeId && current.Frame == _frame;
+    private string ShotLabel(Shot s) => $"{Shots.ToList().FindIndex(x => x.Id == s.Id) + 1} · {s.Title}";
+    protected override void OnParametersSet() {
+        if (_initialized || AvailableShots.Count == 0) return;
+        _initialized = true;
+        if (Value is { } value && Takes.FirstOrDefault(t => t.Id == value.TakeId) is { } saved && AvailableShots.Any(s => s.Id == saved.ShotId)) {
+            _shotId = saved.ShotId; _takeId = saved.Id; _frame = value.Frame;
+            _position = _frame == saved.FrameCount - 1 ? "last" : _frame == 0 ? "first" : "custom";
+        } else {
+            var before = Shots.TakeWhile(s => s.Id != CurrentShot.Id).Reverse().Where(s => AvailableShots.Any(a => a.Id == s.Id)).ToArray();
+            _shotId = (before.FirstOrDefault(s => s.SceneId == CurrentShot.SceneId) ?? before.FirstOrDefault() ?? AvailableShots.FirstOrDefault())?.Id;
+            SelectDefaultTake();
+        }
+        _preview = PreviewUrl;
+    }
+    private void SelectDefaultTake() {
+        _takeId = SourceTakes.FirstOrDefault(t => t.Id == SourceShot?.SelectedTakeId)?.Id ?? SourceTakes.LastOrDefault()?.Id;
+        PositionFrame();
+    }
+    private void ChangeShot(ChangeEventArgs e) { if (Guid.TryParse(e.Value?.ToString(), out var id) && AvailableShots.Any(s => s.Id == id)) { _shotId = id; SelectDefaultTake(); } }
+    private void ChangeTake(ChangeEventArgs e) { if (Guid.TryParse(e.Value?.ToString(), out var id) && SourceTakes.Any(t => t.Id == id)) { _takeId = id; PositionFrame(); } }
+    private void ChangePosition(ChangeEventArgs e) { if (e.Value?.ToString() is "last" or "first" or "custom") { _position = e.Value.ToString()!; PositionFrame(); } }
+    private void PositionFrame() { _frame = _position == "last" ? Math.Max(0, (SourceTake?.FrameCount ?? 1) - 1) : _position == "first" ? 0 : Math.Clamp(_frame, 0, Math.Max(0, (SourceTake?.FrameCount ?? 1) - 1)); ResetPreview(); }
+    private void Seek(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var frame)) { _frame = Math.Clamp(frame, 0, Math.Max(0, (SourceTake?.FrameCount ?? 1) - 1)); ResetPreview(); } }
+    private void ResetPreview() { if (_preview == PreviewUrl) return; _preview = PreviewUrl; _loaded = false; _failed = false; }
+    private Task Pick() {
+        if (Disabled || !_loaded || _failed || IsCurrent || PictureCount >= 9 && Value is null || SourceTake is not { } take || _frame < 0 || _frame >= take.FrameCount) return Task.CompletedTask;
+        var frame = new ShotContinuityFrame(Value?.Id ?? Guid.NewGuid(), take.Id, _frame, "");
+        return Picked.InvokeAsync(frame with { Name = $"{SourceShot?.Title} · {Label(frame, Shots, Takes)}" });
+    }
+    public static string Label(ShotContinuityFrame frame, IReadOnlyList<Shot> shots, IReadOnlyList<ShotTake> takes) {
+        if (takes.FirstOrDefault(t => t.Id == frame.TakeId) is not { } take) return frame.Name;
+        var shotNumber = shots.ToList().FindIndex(s => s.Id == take.ShotId) + 1;
+        var takeNumber = takes.Where(t => t.ShotId == take.ShotId).OrderBy(t => t.CreatedUtc).ThenBy(t => t.Id).ToList().FindIndex(t => t.Id == take.Id) + 1;
+        var position = frame.Frame == take.FrameCount - 1 ? "Last frame" : frame.Frame == 0 ? "First frame" : $"Frame {frame.Frame + 1}";
+        return $"{(shotNumber > 0 ? $"Shot {shotNumber} · " : "")}Take {takeNumber} · {position}";
+    }
+}

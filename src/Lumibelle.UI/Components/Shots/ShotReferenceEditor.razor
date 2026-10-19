@@ -6,12 +6,54 @@
 @inject IServiceProvider ReferenceServices
 <section class="manual-references" aria-label="@(ReelAuthoring ? "Reel references" : AllowReels ? "Setup references" : AllowInference ? "Composition image references" : "Shot image references")">
     <ImageReviewFocus Target="@_actionFocus" Handled="() => _actionFocus = null" />
-    <ReferencePicker Library="Library" IncludeReels="AllowReels" Disabled="_busy" OnlyKind="@(_replacing is not null ? "Images" : ReelTarget is not null ? "Reels" : null)"
+    <ReferencePicker BrowserTitle="@(AllowReels && !ReelAuthoring ? "Add references" : null)" UseCustomBrowser="@(_sourceBrowser != "Assets")" Library="Library" IncludeReels="AllowReels" Disabled="_busy" OnlyKind="@(_replacing is not null ? "Images" : ReelTarget is not null ? "Reels" : null)"
         Maximum="@(ReelTarget is not null ? 0 : _replacing is not null ? 1 : Math.Max(0, 9 - ResolvedReferences.For(_draft).Pictures.Count))" Excluded="Assigned" ImagePicked="Add"
         MaximumReels="@(_replacing is not null ? 0 : ReelTarget is not null ? 1 : 3 - ReferenceVideos.ReelSlotCount(_draft))" ExcludedVideoMedia="@_draft.Videos.Select(v => v.Media.Id).ToArray()" ReferencePicked="PickReference"
         ReelAction="@(ReelTarget is { } target ? $"Replace Video {_draft.Videos.FindIndex(v => v.Id == target) + 1}" : null)"
         ImageAction="@(_replacing is { } imageTarget ? $"Replace Picture {_draft.Images.FindIndex(v => v.Id == imageTarget) + 1}" : null)"
         SelectedCount="@(ResolvedReferences.For(_draft).Pictures.Count + (AllowReels ? ReferenceVideos.ReelSlotCount(_draft) : 0))" @bind-SelectedTab="_selectedTab">
+        <BrowserSources>
+            @if (AllowReels && !ReelAuthoring) {
+                <div class="reference-source-choices" role="group" aria-label="Reference sources">
+                    @foreach (var source in new[] { "Assets", "Environment", "Shot frames" }) {
+                        @if (source != "Shot frames" || FrameShots.Count > 0) {
+                            <button type="button" aria-pressed="@(_sourceBrowser == source ? "true" : "false")" disabled="@_busy" @onclick="() => ChooseSource(source)">@source</button>
+                        }
+                    }
+                </div>
+            }
+        </BrowserSources>
+        <BrowserContent>
+    @if (_sourceBrowser == "Environment") {
+        <section class="scene-environment-browser" aria-label="Scene environment">
+            <label>Environment<select aria-label="Reference environment" value="@EnvironmentChoice" @onchange="ChangeEnvironment" disabled="@_busy">
+                @if (SceneEnvironment is { } sceneSetup) { <option value="scene">Scene environment · @(Library.Assets.FirstOrDefault(a => a.Id == sceneSetup.AssetId)?.Name ?? "Unavailable environment")</option> }
+                <option value="">None</option>
+                @if (_draft.EnvironmentAssetId is { } missing && !Library.Assets.Any(a => a.Id == missing && a.Category == AssetCategory.Environment)) { <option value="@missing">Unavailable environment</option> }
+                @foreach (var owner in Library.Assets.Where(a => a.Category == AssetCategory.Environment)) { <option value="@owner.Id">@owner.Name</option> }
+            </select></label>
+            @if (EffectiveEnvironment?.AssetId is { } environment) {
+                <div>
+                    <p class="field-hint">@EnvironmentCandidates.Count available · Scene views first · One picture slot per view</p>
+                    <div class="environment-view-grid">@foreach (var view in ShownEnvironmentCandidates) {
+                        var picked = EnvironmentPictures.Contains(_draft, view);
+                        <EnvironmentViewCard @key="view.Id" ProjectId="Library.ProjectId" Candidate="view" Compact="true" Selected="picked" SelectedChanged="v => SelectEnvironmentPicture(view, v)" Disabled="@(_busy || !picked && ResolvedReferences.For(_draft).Pictures.Count >= 9)" />
+                    }</div>
+                    @if (!_allEnvironmentViews && EnvironmentCandidates.Count > ShownEnvironmentCandidates.Count()) { <MudButton OnClick="() => _allEnvironmentViews = true" Variant="Variant.Outlined" Size="Size.Small">Browse all environment views</MudButton> }
+                    @foreach (var reel in Library.Reels.Where(r => r.AssetId == environment && r.Keyframes?.Frames.Count is not > 0)) {
+                        <p><a href="@ProjectLink(Library.ProjectId, $"/assets?assetId={environment}&view=reels&reelId={reel.Id}")">@reel.Name · Needs keyframes</a></p>
+                    }
+                    @if (EnvironmentCandidates.Count == 0) { <p>No saved pictures available. Add stills or save reel keyframes in Assets.</p> }
+                </div>
+            }
+
+        </section>
+    }
+            else if (_sourceBrowser == "Shot frames") {
+                <ShotFramePicker ProjectId="Library.ProjectId" CurrentShot="Shot" Shots="FrameShots" Takes="FrameTakes" Value="_draft.ContinuityFrame"
+                    PictureCount="ResolvedReferences.For(_draft).Pictures.Count" Disabled="_busy" Picked="PickShotFrame" />
+            }
+        </BrowserContent>
         <Toolbar>
             @if (AssistPicking && AllowReels && AllowInference && !ReelAuthoring)
             {
@@ -118,13 +160,16 @@
             @if (_draft.ContinuityFrame is { } continuity)
             {
                 var continuityNumber = ResolvedReferences.For(_draft).Pictures.Single(p => p.Continuity is not null).Number;
-                <div class="reference-continuity-frame" role="group" aria-label="Continuity picture">
-                    <img src="@($"/media/projects/{Library.ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}")" alt="@($"Picture {continuityNumber}")" loading="lazy" />
-                    <div><strong>@(AllowReels ? $"<Picture {continuityNumber}>" : $"Picture {continuityNumber}") · Continuity</strong><span>@continuity.Name</span><span class="field-hint">Read from the take, not saved to Assets.</span></div>
-                    <button type="button" aria-label="Remove the continuity picture" disabled="@_busy" @onclick="() => _draft.ContinuityFrame = null">Remove</button>
-                </div>
+                <ol class="manual-reference-list shot-frame-reference-list">
+                    <ReferenceSelectionRow Label="@($"Picture {continuityNumber}")" Title="@ShotFrameTitle(continuity)" Name="@($"Picture {continuityNumber}")"
+                        Status="@ShotFramePicker.Label(continuity, FrameShots, FrameTakes)" CanReorder="false" Disabled="_busy" Remove="() => _draft.ContinuityFrame = null">
+                        <Thumbnail><img class="shot-frame-reference-thumbnail" src="@($"/media/projects/{Library.ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}")" alt="@($"Picture {continuityNumber}")" loading="lazy" /></Thumbnail>
+                        <QuickActions>@if (FrameShots.Count > 0) { <button type="button" aria-label="@($"Picture {continuityNumber}: Change shot frame")" disabled="@_busy" @onclick="ChooseShotFrames">Change</button> }</QuickActions>
+                        <ChildContent>@if (ShotFrameTakeChanged(continuity)) { <p class="field-hint">The source shot has a different selected take. Change this picture to review it.</p> }</ChildContent>
+                    </ReferenceSelectionRow>
+                </ol>
             }
-            else if (PreviousCopySource is { } previousShot && ContinuityFrameOf is not null)
+            else if (FrameShots.Count == 0 && PreviousCopySource is { } previousShot && ContinuityFrameOf is not null)
             {
                 var available = ContinuityFrameOf(previousShot) is not null; var full = ResolvedReferences.For(_draft).Pictures.Count >= 9;
                 <button type="button" class="add-continuity-frame" disabled="@(_busy || !available || full)" @onclick="AddContinuityFrame">Add the last frame of @previousShot.Title</button>
@@ -214,7 +259,7 @@
                                 @if (v.UseSoundtrack) { <label>Dialogue speaker (optional)<select @bind="v.Speaker"><option value="">No speaker mapping</option>@foreach (var speaker in _draft.Dialogue.Select(d => d.Speaker).Distinct(StringComparer.OrdinalIgnoreCase)) { <option>@speaker</option> }</select></label> }
                                 } else if (!ReelAuthoring) { <p class="field-hint">Voice: @CharacterVoices.Label(_draft.CharacterVoices?.FirstOrDefault(c => c.AssetId == v.OwnerAssetId)) · Change under Character voices below.</p> }
                                 <button @onclick="() => CopyUsage(index)">Copy usage snippet</button>
-                                <button @onclick="() => { _replacingVideo = v.Id; _replacing = null; _selectedTab = false; }">Replace reel</button>
+                                <button @onclick="() => StartReelReplacement(v)">Replace reel</button>
                             </fieldset>
                         }
                         </ChildContent>
@@ -228,10 +273,11 @@
         @if (_reelVoiceNotice is not null) { <p role="status" class="reel-voice-notice">@_reelVoiceNotice</p> }
         @if (_copyNotice is { } copied) { <div class="reference-copy-notice" role="status">@foreach (var (text, warning) in copied) { <p class="@(warning ? "field-error" : "field-hint")">@text</p> }</div> }
         @if (_error is not null) { <p role="alert">@_error</p> }
+        @if (ReviewSelectionIssue is { } selectionIssue && selectionIssue != _error) { <p role="alert">@selectionIssue</p> }
         <span role="status">@ResolvedReferences.For(_draft).Pictures.Count/9 pictures @(AllowReels ? $"· {ReferenceVideos.ReelSlotCount(_draft)}/3 reels" : "") · @ResolvedReferences.For(_draft).Audio.Count/3 audio · @(_preparingFrames ? "Preparing reference images…" : _busy ? "Saving…" : "Changes apply together")</span>
         <MudButton Disabled="@(_busy && !_preparingFrames)" OnClick="CancelDialog">Cancel</MudButton>
         @if (ResolvedReferences.For(_draft).Pictures.Count > 9) { <span role="alert">Over picture budget: choose fewer reel keyframes or remove pictures before applying.</span> }
-        <MudButton Disabled="@(_busy || ResolvedReferences.For(_draft).Pictures.Count > 9)" OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled">Apply changes</MudButton>
+        <MudButton Disabled="@(_busy || ResolvedReferences.For(_draft).Pictures.Count > 9 || ReviewSelectionIssue is not null)" OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled">Apply changes</MudButton>
         </Footer>
     </ReferencePicker>
 </section>

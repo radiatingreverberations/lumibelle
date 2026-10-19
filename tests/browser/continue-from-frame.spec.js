@@ -6,7 +6,7 @@ async function setup(page, request) {
   const project = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${project.id}/images`);
   await request.post(`/fixtures/${project.id}/approved`);
-  await page.goto(`/projects/${project.id}/shots`);
+  await page.goto(`/projects/${project.id}/scenes`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
   const plan = page.locator('.shot-planning-dialog');
@@ -14,6 +14,9 @@ async function setup(page, request) {
   await submitPlanning(page);
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeEnabled();
   await plan.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await expect(plan).toBeHidden();
+  await page.goto(`/projects/${project.id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   return project;
 }
@@ -98,10 +101,12 @@ test('copying references from the previous shot adds its production take\'s last
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   // The last frame can be added on its own, after the images, without copying the other references.
-  await picker.getByRole('button', { name: `Add the last frame of ${source.title}`, exact: true }).click();
-  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toContainText(`${source.title} · last frame`);
-  await picker.getByRole('button', { name: 'Remove the continuity picture', exact: true }).click();
-  await expect(picker.getByRole('group', { name: 'Continuity picture' })).toHaveCount(0);
+  await picker.getByRole('group', { name: 'Reference sources' }).getByRole('button', { name: 'Shot frames', exact: true }).click();
+  await picker.getByRole('button', { name: 'Add picture', exact: true }).click();
+  const shotFrame = picker.locator('.shot-frame-reference-list');
+  await expect(shotFrame).toContainText('Last frame');
+  await shotFrame.getByRole('button', { name: /^Remove Picture/ }).click();
+  await expect(shotFrame).toHaveCount(0);
   await expect(picker.getByLabel('Copy references from')).toHaveCount(0);
   await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(picker).toBeHidden();
@@ -123,8 +128,12 @@ test('copying references from the previous shot adds its production take\'s last
     expect(await copying.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await page.screenshot({ path: `artifacts/copy-references-${narrow ? 'narrow' : 'desktop'}.png` });
   }
-  await copying.getByRole('button', { name: 'Copy references', exact: true }).click();
+  await copying.getByRole('button', { name: 'Copy and edit references', exact: true }).click();
   await expect(copying).toBeHidden();
+  const copiedEditor = page.getByRole('dialog', { name: 'Manage references', exact: true });
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await copiedEditor.getByRole('button', { name: 'Apply changes', exact: true }).click();
+  await expect(copiedEditor).toBeHidden();
   await page.setViewportSize({ width: 1152, height: 1000 });
   await expect(page.locator('.shot-reference-tile').filter({ hasText: `${source.title} · last frame` })).toBeVisible();
   const copy = (await shots(request, project)).shots[1];

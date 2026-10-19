@@ -746,8 +746,10 @@ internal sealed class FakeAssetStore(Guid projectId) : IAssetStore, IImageTrashS
     public Task<ImagePurgeResult> PurgeImagesAsync(Guid id, IReadOnlyCollection<Guid> ids, long revision, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<IReadOnlyList<ImageTrashIssue>> CleanupExpiredAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ImageTrashIssue>>([]);
     public Task<AssetLibrary> DeleteAssetAsync(Guid id, Guid assetId, long expectedRevision, CancellationToken cancellationToken = default) => SaveAsync(Library with { Assets = Library.Assets.Where(asset => asset.Id != assetId).ToList() }, expectedRevision, cancellationToken);
+    public int ImageOpenCalls { get; private set; }
     public Task<AssetMedia?> OpenImageAsync(Guid id, Guid assetId, Guid imageId, CancellationToken cancellationToken = default)
     {
+        ImageOpenCalls++;
         var image = Library.Assets.SingleOrDefault(asset => asset.Id == assetId)?.Images.SingleOrDefault(value => value.Id == imageId);
         return Task.FromResult(image is null ? null : new AssetMedia(
             new MemoryStream(AssetStoreTests.Png(image.Width, image.Height)), image.ContentType, image.CreatedUtc));

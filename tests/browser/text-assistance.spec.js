@@ -1,5 +1,5 @@
 import { openShotSetup, closeShotSetup, toolsTab, assetView } from './workspace-tools.js';
-import { scriptAssist, modelOptions, closeComposer, submitPlanning, submitExtraction } from './text-assistance-tools.js';
+import { scriptAssist, modelOptions, closeComposer, submitPlanning, submitExtraction, openPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 const assist = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('button', { name: 'Close', exact: true }) }).last();
 const jobs = async (request, id) => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
@@ -79,7 +79,7 @@ test('shot prompt composer leaves the editor clear and preserves direction throu
  await expect(pane.locator('.prompt-toolbar').getByRole('button', { name: 'Prompt assistance', exact: true })).toBeVisible();
  await page.screenshot({ path: 'artifacts/text-assist-shots-desktop.png' });
  await closeShotSetup(page);
- await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+ await openPlanning(page);
  await expect(assist(page).getByLabel('Directing instructions (optional)')).toBeVisible();
  await submitPlanning(page);
  await expect(page.getByRole('button', { name: 'Add reviewed shots', exact: true })).toBeEnabled();

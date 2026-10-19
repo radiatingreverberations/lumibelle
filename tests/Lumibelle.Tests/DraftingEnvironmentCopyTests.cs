@@ -32,9 +32,10 @@ public sealed partial class ShotTests
         var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == f.Project.Id ? f.Project : target.Project) };
         var production = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
         await production.InitializeAsync(f.Project.Id, _ct);
-        // Production's one-time migration intentionally retires legacy scene reference setups.
+        // The first visit to Shots must not erase setup prepared in Scenes.
         var migrated = await f.Shots.LoadAsync(f.Project.Id, _ct);
-        await f.Shots.SaveWorkspaceAsync(f.Project.Id, migrated.Shots, [new() { SceneId = scene.Id, SceneTitle = scene.Text, Environment = setup }], migrated.Revision, ct: _ct);
+        Assert.Equal(setup.Constraints, Assert.Single(migrated.SceneSetups).Environment!.Constraints);
+        Assert.Equal(view.Id, migrated.SceneSetups[0].Environment!.Views[0].Id);
         var copier = new ShotProjectCopyStore(f.Files, f.Shots, production, scripts, f.Assets, f.Assets, _clock);
         var preview = await copier.PreviewAsync(f.Project.Id, [shot.Id], _ct);
         await copier.CopyAsync(new(Guid.NewGuid(), f.Project.Id, target.Project.Id, [shot.Id], preview.ShotRevision, preview.ProductionRevision, preview.ScriptRevision), ct: _ct);

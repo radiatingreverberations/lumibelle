@@ -9,6 +9,47 @@ namespace lumibelle.Services.Shots;
 public static class DraftingEnvironments
 {
     public const string SelectionProfile = "scene-environment-views-v1";
+    public static string LiveCandidateId(AcceptedDraftingEnvironment accepted, EnvironmentViewCandidate view)
+    {
+        Guid Map(Guid id) => accepted.Resources.GetValueOrDefault(id, id);
+        return view.Image is { } image ? "image/" + Map(image.MediaId) : $"reel/{Map(view.Reel!.Id)}/{Map(view.Keyframe!.Id)}";
+    }
+    public static string? LiveMetadataIssue(AcceptedDraftingEnvironment? accepted, AssetLibrary library)
+    {
+        if (accepted is null) return null;
+        var owner = library.Assets.SingleOrDefault(a => a.Id == accepted.LiveAssetId && a.Category == AssetCategory.Environment);
+        List<EnvironmentViewCandidate> current = [];
+        if (owner is not null) foreach (var view in accepted.InspectedViews) {
+            var id = LiveCandidateId(accepted, view);
+            if (view.Image is { } image) {
+                var live = owner.Images.SingleOrDefault(i => "image/" + i.Id == id);
+                if (live is not null) current.Add(view with { Id = id, Name = live.Name ?? "Environment image", Approved = live.IsReference,
+                    Notes = live.PreservationGuidance, Image = image with { AssetId = owner.Id, MediaId = live.Id, Crop = null } });
+            } else {
+                var reel = library.Reels.SingleOrDefault(r => r.AssetId == owner.Id && $"reel/{r.Id}/{accepted.Resources.GetValueOrDefault(view.Keyframe!.Id, view.Keyframe.Id)}" == id);
+                var frame = reel?.Keyframes?.Frames.SingleOrDefault(f => $"reel/{reel.Id}/{f.Id}" == id);
+                if (frame is not null) current.Add(view with { Id = id, Name = lumibelle.Services.Production.ReelViewSuggestions.Label(frame, reel!.Keyframes!.Frames.IndexOf(frame) + 1),
+                    Notes = frame.Notes, Reel = reel, Keyframe = frame });
+            }
+        }
+        // Media hashes are checked during request capture; this cheap check also drives editor and prompt freshness.
+        return LiveSourceIssue(accepted, new(library.ProjectId, owner?.Id ?? Guid.Empty, owner?.Name ?? "", string.Join("\n", owner?.Description, owner?.PreservationGuidance), "", current, [], new Dictionary<string, byte[]>()));
+    }
+    public static string? LiveSourceIssue(AcceptedDraftingEnvironment accepted, EnvironmentSourcePool pool)
+    {
+        const string changed = "Environment evidence changed. Staging, continuity and reference support need review; the earlier captured assessment is preserved in history.";
+        if (accepted.LiveAssetId != pool.AssetId || accepted.Snapshot.Guidance != pool.Guidance) return changed;
+        foreach (var view in accepted.InspectedViews) {
+            var actual = pool.Candidates.SingleOrDefault(v => v.Id == LiveCandidateId(accepted, view));
+            if (actual is null || actual.Sha256 != view.Sha256 || actual.Name != view.Name || actual.Notes != view.Notes || actual.Approved != view.Approved ||
+                ShotDirections.Hash(actual.Keyframe?.Crop ?? actual.Image?.Crop) != ShotDirections.Hash(view.Keyframe?.Crop ?? view.Image?.Crop) ||
+                actual.Reel?.Name != view.Reel?.Name || actual.Keyframe?.Frame.Index != view.Keyframe?.Frame.Index || actual.Keyframe?.Frame.Seconds != view.Keyframe?.Frame.Seconds ||
+                actual.Keyframe?.Frame.Source != view.Keyframe?.Frame.Source || actual.Keyframe is { } frame && view.Keyframe is { } captured &&
+                frame.Frame.MediaId != accepted.Resources.GetValueOrDefault(captured.Frame.MediaId, captured.Frame.MediaId))
+                return changed;
+        }
+        return null;
+    }
     public static DraftingEnvironmentAssessment? ReadAssessment(System.Text.Json.Nodes.JsonNode node)
     {
         if (node is not System.Text.Json.Nodes.JsonObject) throw new JsonException("Environment assessment must be an object.");
@@ -45,14 +86,35 @@ public static class DraftingEnvironments
         return new(Guid.NewGuid(), sceneId, setup.Version, setup.AssetId, pool.AssetName, pool.Guidance, setup.Constraints,
             selected, Semantic(setup.AssetId, pool.Guidance, setup.Constraints, selected));
     }
+    public static void ValidateAssessment(AcceptedDraftingEnvironment accepted) =>
+        ValidateAssessment(accepted.Assessment, accepted.Snapshot with { Views = accepted.InspectedViews.ToArray() });
+    public static bool ResolveCapturedEvidenceIds(DraftingEnvironmentAssessment assessment, DraftingEnvironmentSnapshot inspected)
+    {
+        var changed = false;
+        for (var i = 0; i < assessment.Claims.Count; i++) {
+            var claim = assessment.Claims[i];
+            if (claim?.CandidateIds is null) continue;
+            var ids = claim.CandidateIds.Select(id => {
+                if (id is null || inspected.Views.Any(v => v.Id == id)) return id!;
+                // Some responses substitute a media hash for the final identity component.
+                // Resolve only an exact hash in the same source, uniquely attached to this request.
+                var matches = inspected.Views.Where(v => id == v.Id[..(v.Id.LastIndexOf('/') + 1)] + v.Sha256).ToArray();
+                if (matches.Length != 1) return id;
+                changed = true; return matches[0].Id;
+            }).ToArray();
+            assessment.Claims[i] = claim with { CandidateIds = ids };
+        }
+        return changed;
+    }
     public static void ValidateAssessment(DraftingEnvironmentAssessment assessment, DraftingEnvironmentSnapshot snapshot)
     {
         if (assessment.Claims is null) throw new WorkspaceStoreException("Environment evidence is incomplete. Inspect the response before applying.");
         foreach (var claim in assessment.Claims) {
             if (claim is null || claim.CandidateIds is null || !Enum.IsDefined(claim.Status) || claim.CandidateIds.Distinct().Count() != claim.CandidateIds.Count ||
-                claim.CandidateIds.Any(id => !snapshot.Views.Any(v => v.Id == id)) ||
-                claim.Status == ReferenceSupportStatus.Supported && claim.CandidateIds.Count == 0)
+                claim.CandidateIds.Any(id => !snapshot.Views.Any(v => v.Id == id)))
                 throw new WorkspaceStoreException("Environment evidence cites a picture not attached to this drafting request.");
+            if (claim.Status == ReferenceSupportStatus.Supported && claim.CandidateIds.Count == 0)
+                throw new WorkspaceStoreException("A supported claim needs at least one inspected picture. Choose evidence or change its support status.");
         }
     }
     public static void ValidateCapacity(AiTextJobRequest request, long? contextLength)

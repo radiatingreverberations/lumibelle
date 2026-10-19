@@ -16,7 +16,8 @@ public sealed partial class FileAiJobStore
             ?? throw new WorkspaceStoreException("Shot planning request not found in this project.");
         if (job.State != AiJobState.NeedsAttention || job.CancelRequested || job.RemoteUnconfirmed ||
             !(job.Error?.StartsWith("The proposal changed or invented dialogue.", StringComparison.Ordinal) == true ||
-              job.Error?.StartsWith("The model returned an invalid or incomplete shot list.", StringComparison.Ordinal) == true)) return job;
+              job.Error?.StartsWith("The model returned an invalid or incomplete shot list.", StringComparison.Ordinal) == true ||
+              job.Error?.StartsWith("The proposal could not be applied: Environment evidence cites a picture not attached to this drafting request.", StringComparison.Ordinal) == true)) return job;
         var saved = await ReadArtifactAsync<AiTextJobResult>(jobId, AiJobArtifact.Result, ct);
         if (saved is not { Complete: true }) return job;
         // The artifact is published first. Reopening after an interrupted index save reuses

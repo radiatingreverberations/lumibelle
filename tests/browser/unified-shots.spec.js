@@ -1,3 +1,4 @@
+import { openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { cropReference, openShotSetup, closeShotSetup, toolsTab } from './workspace-tools.js';
 import { test, expect } from './fixtures.js';
 test.beforeEach(async ({ request }) => { await request.post('/fixtures/generation-setups/reset'); });
@@ -124,10 +125,11 @@ test('planning, cast, coverage-only duplication, deletion and recovery in the sa
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await page.locator('.ai-assist-dialog').getByRole('button', { name: 'Draft shots', exact: true }).click();
   await planning.getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
+  await openShotsAfterPlanning(page);
   await expect(planning).not.toBeVisible();
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeHidden();
@@ -293,12 +295,15 @@ test('new shots open Shot, existing shots keep the view, and hidden composition 
   await shotTab(page, 'Takes').click();
   await page.locator('.shot-list-row').last().click();
   await expect(shotTab(page, 'Takes')).toHaveAttribute('aria-selected', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await page.locator('.ai-assist-dialog').getByRole('button', { name: 'Draft shots', exact: true }).click();
   await planning.getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
+  await openShotsAfterPlanning(page);
   await expect(planning).not.toBeVisible();
-  await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
+  // Drafting in Scenes preserves the tab remembered by the separate Shots workspace.
+  await expect.poll(async () => (await shots(request, id)).shots.length).toBe(3);
+  await expect(shotTab(page, 'Takes')).toHaveAttribute('aria-selected', 'true');
 });
 
 
@@ -370,7 +375,7 @@ test('dialogue changes are optional review notes and do not block applying the p
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await page.locator('.ai-assist-dialog').getByLabel('Directing instructions (optional)').fill('DIALOGUE_VARIANT');
   await page.locator('.ai-assist-dialog').getByRole('button', { name: 'Draft shots', exact: true }).click();
@@ -399,7 +404,7 @@ for (const narrow of [false, true]) test(`camera and editing warnings preserve a
     await page.locator('[data-toggle-pane=left]').click();
     await expect(page.locator('.workspace-left')).toBeVisible();
   }
-  await page.getByRole('button', {name:'Draft shots', exact:true}).click();
+  await openPlanning(page);
   const composer = page.locator('.ai-assist-dialog');
   await composer.getByLabel('Directing instructions (optional)').fill('EDIT_AFTER_TAKE');
   await composer.getByRole('button', {name:'Draft shots', exact:true}).click();
@@ -432,7 +437,7 @@ test('unmatched source references keep the shot and appear as review notes', asy
   await request.post(`/fixtures/${id}/approved`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', {name:'Draft shots', exact:true}).click();
+  await openPlanning(page);
   const composer = page.locator('.ai-assist-dialog');
   await composer.getByLabel('Directing instructions (optional)').fill('DRIFTED_SOURCE_IDS');
   await composer.getByRole('button', {name:'Draft shots', exact:true}).click();

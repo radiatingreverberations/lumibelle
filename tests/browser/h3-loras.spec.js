@@ -1,5 +1,5 @@
 import { shotAction, generateTakes, composeProduction, closeShotSetup as closeSetup, toolsTab, compositionState } from './workspace-tools.js';
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 test('H3 LoRAs register, persist per shot, recover missing files and remain captured in takes and refinement', async ({ page, request }) => {
@@ -28,10 +28,11 @@ test('H3 LoRAs register, persist per shot, recover missing files and remain capt
   await page.locator('#lora-library-workflow').selectOption('MiniMaxH3Ref2VA');
   await expect(page.locator('.lora-library .lora-row')).toHaveCount(2);
   await page.getByRole('link', { name: /Back to shots/i }).click();
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await submitPlanning(page);
   await planning.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await page.getByLabel('Duration (seconds)').fill('1'); await page.getByLabel('Duration (seconds)').blur();
   await composeProduction(page);
   await toolsTab(page, 'Generate');
@@ -132,9 +133,10 @@ test('a shot keeps its own LoRAs beside its references, on top of the preset', a
   await page.getByRole('button', { name: 'Save LoRA library', exact: true }).click();
   await expect(page.locator('.lora-registration')).toHaveCount(0);
   await page.getByRole('link', { name: /Back to shots/i }).click();
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
 
   const section = page.locator('details.shot-loras');
   await expect(section.locator(':scope > summary')).toHaveText('LoRAs · 0 active');

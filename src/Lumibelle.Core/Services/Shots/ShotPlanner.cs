@@ -107,8 +107,9 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         "These pictures describe the set, not a storyboard, generation bindings or instructions to repeat reel camera movement. " +
         "Preserve story requirements, exact dialogue and authored set constraints including relative scale. Do not shrink architecture, enlarge a character, " +
         "invent platforms or change the story to obtain a convenient camera view. Design purposeful reaction coverage around obstructions. " +
+        "When a required feature cannot be confidently identified, distinguish ambiguity, occlusion and missing viewpoint coverage from evidence that the feature is absent. Do not relocate or add it solely because its role is unclear. " +
         "Distinguish authored facts, metadata, observed evidence and proposed staging. Metadata is not proof of unseen geometry. " +
-        "Only images in imageManifest were inspected; supported visual claims require candidateIds AND image hashes attached to this request. " +
+        "Only images in imageManifest were inspected; supported visual claims must cite their exact candidateIds. Copy candidate IDs verbatim from the attached views; sha256 is a media fingerprint, not a candidate ID. Never combine an ID prefix with a hash. " +
         "Do not manufacture image citations for authored facts. An unseen angle may be proposed with 'Additional environment view needed'; " +
         "identify the specific missing relationship rather than a generic disclaimer. Surface story/set conflicts, never silently resolve them. " +
         "Each sceneStrategy optionally includes environmentAssessment:{summary,assumptions,concerns,missingCoverage,claims:[{claim,status,candidateIds}]}. " +
@@ -153,7 +154,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         var single = r.SingleShot!;
         var scene = ScriptStructure.Sections(r.Script.Blocks).Single(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id));
         var blocks = r.Script.Blocks.Skip(scene.Start).Take(scene.Count).ToList();
-        object? Summary(SceneShotSummary? s) => s is null ? null : new { s.Title, s.Duration, s.Description, s.Dialogue, s.SourceBlockIds, direction = s.DirectionContext };
+        object? Summary(SceneShotSummary? s) => s is null ? null : new { s.Title, s.Duration, s.Description, s.Dialogue, s.SourceBlockIds, direction = ShotDirections.PromptContext(s.DirectionContext) };
         var previous = single.Position > 0 ? single.SceneShots[single.Position - 1] : null;
         var next = single.Position < single.SceneShots.Count ? single.SceneShots[single.Position] : null;
         // What the other shots already use, so the model can see the gaps instead of inferring them.
@@ -212,7 +213,12 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                             if (r.Environments.FirstOrDefault(e => e.SceneId == strategy.SceneId) is { } environment && item?["environmentAssessment"] is { } assessmentNode) {
                                 try {
                                     var assessment = DraftingEnvironments.ReadAssessment(assessmentNode);
-                                    if (assessment is not null) { DraftingEnvironments.ValidateAssessment(assessment, environment with { Views = environment.Views.Where(v => (r.InspectionImageHashes ?? environment.Views.Select(x => x.Sha256).ToArray()).Contains(v.Sha256)).ToArray() }); assessments[strategy.SceneId] = assessment; }
+                                    if (assessment is not null) {
+                                        var inspected = environment with { Views = environment.Views.Where(v => (r.InspectionImageHashes ?? environment.Views.Select(x => x.Sha256).ToArray()).Contains(v.Sha256)).ToArray() };
+                                        if (DraftingEnvironments.ResolveCapturedEvidenceIds(assessment, inspected))
+                                            directionNotes.Add("An environment citation used a media hash instead of a candidate ID. It was matched to the uniquely attached picture; review the assessment.");
+                                        DraftingEnvironments.ValidateAssessment(assessment, inspected); assessments[strategy.SceneId] = assessment;
+                                    }
                                 } catch (JsonException) { directionNotes.Add("The environment assessment was incomplete; review the preserved scene strategy and staging."); }
                             }
                         } catch (JsonException) { directionNotes.Add("An incomplete scene strategy was omitted; shot coverage remains available for review."); }

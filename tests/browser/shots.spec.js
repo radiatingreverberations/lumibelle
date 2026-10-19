@@ -1,5 +1,5 @@
 import { cropReference, shotAction, generateTakes, composeProduction, closeShotSetup, openShotSetup, editShotReference, toolsTab, assetView, imageAction, compositionState } from './workspace-tools.js';
-import { planningComposer, submitPlanning, openPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 async function setup(page, request) {
@@ -8,7 +8,7 @@ async function setup(page, request) {
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const plan = page.locator('.shot-planning-dialog');
   await expect(planningComposer(page)).toBeVisible();
   await expect(planningComposer(page)).toContainText(/15[.,]083/);
@@ -17,6 +17,7 @@ async function setup(page, request) {
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeEnabled();
   await expect(plan).toContainText('You called?');
   await plan.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots.length).toBe(1);
   return { project, assets, state: () => compositionState(request, project.id) };
@@ -393,7 +394,8 @@ test('manual shots require duration and planning cancellation cannot apply', asy
   await plan.getByRole('button', { name: 'Cancel request' }).click();
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeDisabled();
   await expect(plan).toContainText('cancelled');
-  await page.keyboard.press('Escape');
+  await plan.getByRole('button', { name: 'Close', exact: true }).click();
+  await openShotsAfterPlanning(page);
   await expect.poll(async () => (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots.length).toBe(2);
   await page.reload();
   await expect(page.locator('.shot-list-row')).toHaveCount(2);

@@ -1,5 +1,5 @@
 import { composeProduction, closeShotSetup, toolsTab } from './workspace-tools.js';
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 test('changing references after the prompt was reviewed says the prompt needs a review or a rewrite', async ({ page, request }) => {
   test.setTimeout(120000);
@@ -9,10 +9,11 @@ test('changing references after the prompt was reviewed says the prompt needs a 
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   await expect(planningComposer(page).getByRole('button', { name: 'Draft shots', exact: true })).toBeEnabled();
   await submitPlanning(page);
   await page.locator('.shot-planning-dialog').getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   await composeProduction(page);
   await closeShotSetup(page);

@@ -1,4 +1,4 @@
-import { planningComposer, submitPlanning } from './text-assistance-tools.js';
+import { planningComposer, submitPlanning, openPlanning, openShotsAfterPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 
 test('fenced shot responses require a complete result and explicit acceptance', async ({ page, request }) => {
@@ -7,7 +7,7 @@ test('fenced shot responses require a complete result and explicit acceptance', 
   const saved = async () => (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots;
   await page.goto(`/projects/${project.id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const plan = page.locator('.shot-planning-dialog');
   const instructions = planningComposer(page).getByLabel('Directing instructions (optional)');
   const apply = plan.getByRole('button', { name: 'Add reviewed shots' });
@@ -25,6 +25,7 @@ test('fenced shot responses require a complete result and explicit acceptance', 
   await expect(plan.locator('pre')).toContainText('```json');
   await expect(plan).toContainText('You called?');
   await apply.click();
+  await openShotsAfterPlanning(page);
   await expect.poll(async () => (await saved()).length).toBe(1);
   await expect(page.getByLabel('Exact dialogue')).toHaveValue('You called?');
 });
@@ -34,17 +35,18 @@ test('new coverage drafts retain cast and exact dialogue without assigning libra
   await request.post(`/fixtures/${project.id}/images`);
   await request.post(`/fixtures/${project.id}/approved`);
   await page.goto(`/projects/${project.id}/shots`);
-  await page.getByRole('button', { name: 'Draft shots', exact: true }).click();
+  await openPlanning(page);
   const plan = page.locator('.shot-planning-dialog');
   await submitPlanning(page);
   await expect(plan.getByRole('button', { name: 'Add reviewed shots' })).toBeEnabled();
   await expect(plan.getByLabel('Character name')).toHaveValue('JUNIPER');
   await expect(plan.getByLabel('Character asset', { exact: true })).toHaveCount(0);
   await plan.getByRole('button', { name: 'Add reviewed shots' }).click();
+  await openShotsAfterPlanning(page);
   await expect(plan).not.toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Exact dialogue')).toHaveValue('You called?');
   const shot = (await (await request.get(`/fixtures/${project.id}/shots`)).json()).shots[0];
   expect(shot.characters[0].appearance).toBeNull();
-  expect(shot.planning.profile).toBe('shot-coverage-v3');
+  expect(shot.planning.profile).toBe('shot-coverage-direction-v4');
 });

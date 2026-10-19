@@ -1,0 +1,7 @@
+@* ProductionStudio is the shared planning/review host; scene mode never initializes generation setups. *@
+<ProductionStudio Id="Id" ScenesMode="true" RequestedSceneId="RequestedSceneId" RequestedJobId="RequestedJobId" />
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Parameter] public Guid? RequestedSceneId { get; set; }
+    [Parameter] public Guid? RequestedJobId { get; set; }
+}

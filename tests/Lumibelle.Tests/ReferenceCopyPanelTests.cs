@@ -36,7 +36,7 @@ public sealed class ReferenceCopyPanelTests : BunitContext
         Assert.Contains("No environment library selected", panel.Markup);
         Assert.Equal("first", panel.Find("select[aria-label='Continuity frame']").GetAttribute("value"));
         panel.Find("select[aria-label='Copy from shot']").Change(previous.Id.ToString());
-        await panel.FindAll("button").Single(b => b.TextContent == "Copy references").ClickAsync(new());
+        await panel.FindAll("button").Single(b => b.TextContent == "Copy and edit references").ClickAsync(new());
         Assert.NotNull(applied); Assert.Equal(environment.Id, applied.Inputs.EnvironmentAssetId);
         Assert.Equal(48, applied.Inputs.ContinuityFrame!.Frame); Assert.Null(target.ContinuityFrame);
     }
@@ -52,7 +52,7 @@ public sealed class ReferenceCopyPanelTests : BunitContext
         Assert.Contains("No environment library selected", panel.Markup);
         panel.Find("select[aria-label='Environment library']").Change(environment.Id.ToString());
         Assert.Null(target.EnvironmentAssetId); Assert.Null(source.EnvironmentAssetId);
-        await panel.FindAll("button").Single(b => b.TextContent == "Copy references").ClickAsync(new());
+        await panel.FindAll("button").Single(b => b.TextContent == "Copy and edit references").ClickAsync(new());
         Assert.Equal(environment.Id, applied!.Inputs.EnvironmentAssetId);
         Assert.Empty(applied.Inputs.Images); Assert.Empty(applied.Inputs.Videos);
     }
@@ -66,5 +66,20 @@ public sealed class ReferenceCopyPanelTests : BunitContext
         Assert.True(panel.Find("input[aria-label='Include continuity picture']").HasAttribute("disabled"));
         Assert.Contains("9/9 pictures", panel.Markup); Assert.Contains("fill all nine picture slots", panel.Markup);
         Assert.Equal(9, previous.Images.Count);
+    }
+    [Fact] public async Task OverBudgetCopyCanContinueToTheEditorWithoutChangingEitherShot()
+    {
+        var source = new Shot { Duration = 5, Images = Enumerable.Range(0, 10).Select(_ => new ShotImageBinding()).ToList() };
+        var target = new Shot { Duration = 5 }; ReferenceSelection? staged = null;
+        var panel = Render<ReferenceCopyPanel>(p => p.Add(c => c.Shot, target).Add(c => c.Library, new AssetLibrary { ProjectId = Guid.NewGuid() })
+            .Add(c => c.Sources, new[] { source }).Add(c => c.Previous, source).Add(c => c.Number, _ => 1)
+            .Add(c => c.CurrentNumber, 2).Add(c => c.FrameOf, (_, _) => null)
+            .Add(c => c.Applied, (ReferenceSelection selection) => staged = selection));
+        Assert.Contains("Resolve this in Manage references", panel.Markup);
+        var next = panel.FindAll("button").Single(b => b.TextContent == "Copy and edit references");
+        Assert.False(next.HasAttribute("disabled"));
+        await next.ClickAsync(new());
+        Assert.Equal(10, staged!.Inputs.Images.Count);
+        Assert.Empty(target.Images); Assert.Equal(10, source.Images.Count);
     }
 }

@@ -56,6 +56,24 @@ public sealed class DraftingEnvironmentTests
         Assert.Empty(parsed.Shots[0].DraftingEnvironment!.InspectedViews);
         Assert.Single(parsed.Shots[0].DraftingEnvironment!.Snapshot.Views); // Metadata remains captured, explicitly uninspected.
     }
+    [Theory] [InlineData(false)] [InlineData(true)]
+    public void CapturedHashCitationResolvesOnlyToItsUniquelyAttachedSource(bool single)
+    {
+        var (r, _, _, shot) = Fixture();
+        if (single) r = r with { SingleShot = new(shot.Id, 0, [], SceneShotSummary.From(shot)) };
+        var view = r.Environments[0].Views[0];
+        var alias = "image/" + view.Sha256;
+        var strategy = new { sceneId = shot.SceneId, environmentAssessment = new { claims = new[] { new EnvironmentSupportClaim("Standing side", ReferenceSupportStatus.Supported, [alias]) } } };
+        var raw = JsonSerializer.Serialize(new { sceneStrategies = new[] { strategy }, shots = new[] { shot } }, AtomicJsonFile.Options);
+        var parsed = ShotPlanner.Parse(raw, r);
+        Assert.Null(parsed.Error); Assert.Equal(raw, parsed.Raw);
+        Assert.Equal(view.Id, Assert.Single(Assert.Single(parsed.Shots).DraftingEnvironment!.Assessment.Claims).CandidateIds.Single());
+        Assert.Contains(parsed.DirectionNotes, note => note.Contains("media hash"));
+        Assert.NotNull(ShotPlanner.Parse(raw, r with { InspectionImageHashes = [] }).Error);
+        var duplicate = view with { Id = "image/" + Guid.NewGuid() };
+        Assert.NotNull(ShotPlanner.Parse(raw, r with { Environments = [r.Environments[0] with { Views = [view, duplicate] }] }).Error);
+        Assert.NotNull(ShotPlanner.Parse(raw.Replace(alias, "reel/other/" + view.Sha256), r).Error);
+    }
     [Fact] public void IdenticalAttachmentsAreDeduplicatedAcrossScenesWithExplicitMappings()
     {
         var (r, _, _, _) = Fixture(); var second = r.Environments[0] with { SceneId = Guid.NewGuid() }; r = r with { Environments = [r.Environments[0], second] };
@@ -92,6 +110,40 @@ public sealed class DraftingEnvironmentTests
         Assert.Equal(r.Environments[0].Fingerprint, DraftingEnvironments.Snapshot(r.SceneIds[0], setup, pool with { Candidates = [.. pool.Candidates, pool.Candidates[0] with { Id = "another" }] }).Fingerprint);
         Assert.Throws<WorkspaceStoreException>(() => DraftingEnvironments.Snapshot(r.SceneIds[0], setup, pool with { Candidates = [] }));
         Assert.Throws<WorkspaceStoreException>(() => DraftingEnvironments.Snapshot(r.SceneIds[0], setup, pool with { Candidates = [pool.Candidates[0] with { Sha256 = new string('a', 64) }] }));
+    }
+    [Fact] public void LiveEvidenceChecksOnlyInspectedSourcesAndSupportsCopiedIdentities()
+    {
+        var (r, _, pool, _) = Fixture();
+        var view = pool.Candidates[0];
+        // Use real candidate/resource identities rather than treating library membership as inspection.
+        view = view with { Id = "image/" + view.Image!.MediaId };
+        var accepted = new AcceptedDraftingEnvironment(r.Environments[0] with { Views = [view] }, new());
+        pool = pool with { Candidates = [view] };
+        Assert.Null(DraftingEnvironments.LiveSourceIssue(accepted, pool));
+        Assert.Null(DraftingEnvironments.LiveSourceIssue(accepted, pool with { Candidates = [view, view with { Id = "unselected", Sha256 = "changed" }] }));
+        Assert.NotNull(DraftingEnvironments.LiveSourceIssue(accepted, pool with { Guidance = "A newly authored landmark note" }));
+        Assert.NotNull(DraftingEnvironments.LiveSourceIssue(accepted, pool with { Candidates = [] }));
+        Assert.NotNull(DraftingEnvironments.LiveSourceIssue(accepted, pool with { Candidates = [view with { Notes = "Changed landmark" }] }));
+        Assert.NotNull(DraftingEnvironments.LiveSourceIssue(accepted, pool with { Candidates = [view with { Image = view.Image! with { Crop = new() { Width = .5 } } }] }));
+        Assert.Null(DraftingEnvironments.LiveSourceIssue(accepted with { InspectionImageHashes = [] }, pool with { Candidates = [] }));
+        var mappedAsset = Guid.NewGuid(); var mappedImage = Guid.NewGuid();
+        accepted.Resources = new() { [accepted.Snapshot.AssetId] = mappedAsset, [view.Image.MediaId] = mappedImage };
+        Assert.Null(DraftingEnvironments.LiveSourceIssue(accepted, pool with { AssetId = mappedAsset,
+            Candidates = [view with { Id = "image/" + mappedImage, Image = view.Image with { AssetId = mappedAsset, MediaId = mappedImage } }] }));
+    }
+    [Fact] public void EditedClaimsCannotAcquireEvidenceOutsideTheExactInspectionManifest()
+    {
+        var (r, _, _, _) = Fixture(); var view = r.Environments[0].Views[0];
+        var unseen = view with { Id = "metadata-only", Sha256 = "uninspected" };
+        var accepted = new AcceptedDraftingEnvironment(r.Environments[0] with { Views = [view, unseen] }, new() {
+            Claims = [new("The bench is not identified", ReferenceSupportStatus.Inferred, [view.Id])]
+        }) { InspectionImageHashes = [view.Sha256] };
+        DraftingEnvironments.ValidateAssessment(accepted);
+        accepted.Assessment.Claims[0] = accepted.Assessment.Claims[0] with { CandidateIds = [unseen.Id] };
+        Assert.Throws<WorkspaceStoreException>(() => DraftingEnvironments.ValidateAssessment(accepted));
+        accepted.Assessment.Claims[0] = new("Bench confirmed", ReferenceSupportStatus.Supported, []);
+        Assert.Throws<WorkspaceStoreException>(() => DraftingEnvironments.ValidateAssessment(accepted));
+        accepted.Assessment.Claims.Clear(); DraftingEnvironments.ValidateAssessment(accepted);
     }
     [Fact] public async Task BoundedRoundsConsiderEverySourceAndRejectForeignWinners()
     {

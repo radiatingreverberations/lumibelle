@@ -29,7 +29,11 @@ public partial class ProductionStudio
     private readonly SemaphoreSlim _planningDraftGate = new(1, 1);
     private bool PlanningApplied => _planningJob is { } job && _doc.PlanningReviews.Any(r => r.JobId == job.Id);
     private bool PlanningComposerLocked => _planning || _planningSubmitting || _pendingPlanning is not null || _applyingProposal;
-    private AiJobHeader? PlanningStatusJob => AiJobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id && TextRequestPresentation.IsActive(j)) ?? _activePlanning ?? _planningJob ?? AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
+    private readonly Dictionary<Guid, HashSet<Guid>> _planningJobScenes = [];
+    private bool PlanningForScene(AiJobHeader job) => !ScenesMode || _planningJobScenes.TryGetValue(job.Id, out var scenes) && _sceneId is { } scene && scenes.Contains(scene);
+    private AiJobHeader? PlanningStatusJob => _activePlanning
+        ?? (_planningJob is { } selected && PlanningForScene(selected) ? selected : null)
+        ?? AiJobs.View.Jobs.Where(j => j.Kind == AiJobKind.ShotPlanning && j.Target.ShotId is null && j.Target.ProjectId == Id && PlanningForScene(j)).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
     private TextRequestPresentation? PlanningPresentation => PlanningStatusJob is { } job ? new(job, "Drafting shots…",
         _doc.PlanningReviews.Any(r => r.JobId == job.Id) ? TextRequestOutcome.Resolved : TextRequestOutcome.Proposal, "Draft shots") : null;
     private Task InspectPlanning() => PlanningStatusJob is { } job ? ReviewPlanningJobAsync(job) : Task.CompletedTask;
@@ -40,6 +44,7 @@ public partial class ProductionStudio
     private async Task ResetPlanningProjectAsync()
     {
         _planningInitialized = _planningComposerPrepared = false;
+        _planningJobScenes.Clear();
         await ReleasePlanningReviewAsync();
         _planningDraftDelay?.Cancel();
         if (_planningOriginJob is { } origin) await AiReviews.CloseAsync(origin);
@@ -67,7 +72,9 @@ public partial class ProductionStudio
             try
             {
                 var request = AiTextJobHandler.Read(job, await AiJobStore.ReadSnapshotAsync(job.Id));
-                if (request.Payload<ShotPlanningRequest>().Instructions.Trim() is { Length: > 0 } text && !found.Contains(text, StringComparer.Ordinal)) found.Add(text);
+                var planning = request.Payload<ShotPlanningRequest>();
+                _planningJobScenes[job.Id] = planning.SceneIds.ToHashSet();
+                if (planning.Instructions.Trim() is { Length: > 0 } text && !found.Contains(text, StringComparer.Ordinal)) found.Add(text);
             }
             // A pruned or unreadable request only means it cannot be offered again.
             catch (Exception e) when (e is WorkspaceStoreException or JsonException or IOException) { }
@@ -124,24 +131,33 @@ public partial class ProductionStudio
             _planningOriginJob = _planningAttempted = null;
             _planningDraftFingerprint = _planningDraftError = _planningError = null; _planningDraftRevision = 0; _planningDraftDirty = _planningDraftConflict = false;
             _approved = await Scripts.CaptureSourceAsync(Id, cancellationToken: _lifetime.Token);
-            _sceneSelection = Scenes.Select(s => s.Id).ToHashSet(); _planningSuppressed = false; _planningOpen = false; _planningComposerPrepared = true;
+            PlanningSceneId = (ScenesMode ? _sceneId : null) ?? Scenes.FirstOrDefault(s => s.Id == SourceShot?.SceneId)?.Id ?? Scenes.FirstOrDefault()?.Id;
+            _planningSuppressed = false; _planningOpen = false; _planningComposerPrepared = true;
             if (RequestedJobId is not null)
                 Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("jobId", (string?)null), replace: true);
         }
         catch (Exception e) { _error = e.Message; }
     }
-    private void ChooseScene(Guid id, bool selected) { if (selected) _sceneSelection.Add(id); else _sceneSelection.Remove(id); }
+    // Keep captured multi-scene requests readable, but new requests draft one scene at a time.
+    private Guid? PlanningSceneId
+    {
+        get => _sceneSelection.Count == 1 ? _sceneSelection.Single() : null;
+        set { _sceneSelection = value is { } id ? [id] : []; if (ScenesMode && value is not null) _sceneId = value; }
+    }
     private async Task Draft()
     {
         if (_planningAssist is null || !await _planningAssist.PrepareSubmitAsync()) return;
         if (_planning || _planningSubmitting || _applyingProposal || _pendingPlanning is not null || _model?.Ready != true ||
             (_planningRequest?.Script ?? _approved) is not { } approved || !await SavePlanningDraftAsync()) return;
+        if (PlanningSceneId is not { } sceneId || !PlanningScenes.Any(s => s.Id == sceneId)) {
+            _planningError = "Choose one scene to draft shots."; return;
+        }
         _planningSubmitting = true; _planningError = null;
         var project = Id;
         try
         {
             var id = Guid.NewGuid();
-            var request = new ShotPlanningRequest(ShotCopy.Of(approved), _assets.Copy(), _sceneSelection.ToArray(), _maximum, _instructions, _model.Model) { CoverageOnly = true, Style = _directingStyle, Environments = await TextRequests.CaptureDraftingEnvironmentsAsync(Id, _sceneSelection.ToArray(), ct: _lifetime.Token) };
+            var request = new ShotPlanningRequest(ShotCopy.Of(approved), _assets.Copy(), [sceneId], _maximum, _instructions, _model.Model) { CoverageOnly = true, Style = _directingStyle, Environments = await TextRequests.CaptureDraftingEnvironmentsAsync(Id, [sceneId], ct: _lifetime.Token) };
             var followsDefault = _model.FollowsDefault;
             var pending = await TextRequests.PlanShotsAsync(id, await AiReviews.TabIdAsync(), request, followsDefault, _lifetime.Token);
             if (_disposed || Id != project) return;
@@ -188,6 +204,7 @@ public partial class ProductionStudio
             var captured = AiTextJobHandler.Read(job, await AiJobStore.ReadSnapshotAsync(job.Id, _lifetime.Token));
             if (_disposed || job.Target.ProjectId != Id) return;
             _planningJob = job; _planningLoadedJob = job.Id; _planningRequest = captured.Payload<ShotPlanningRequest>();
+            _planningJobScenes[job.Id] = _planningRequest.SceneIds.ToHashSet();
             _sceneSelection = _planningRequest.SceneIds.ToHashSet(); _maximum = _planningRequest.MaximumSeconds; _instructions = _planningRequest.Instructions;
             _proposal = _planningOriginal = null; _planningRaw = ""; _planningError = null;
             _planningDraftRevision = 0; _planningDraftDirty = _planningDraftConflict = false; _planningDraftFingerprint = _planningDraftError = null;
@@ -228,7 +245,7 @@ public partial class ProductionStudio
     }
     private async Task HandleRequestedPlanningAsync()
     {
-        if (!_interactive || !_planningInitialized || string.IsNullOrEmpty(_planningOriginElement.Id) || RequestedJobId is not { } id || _planningRequestedJob == id || _doc.ProjectId != Id) return;
+        if (!_interactive || !_planningInitialized || RequestedJobId is not { } id || _planningRequestedJob == id || _doc.ProjectId != Id) return;
         _planningRequestedJob = id;
         try
         {
@@ -266,6 +283,12 @@ public partial class ProductionStudio
     {
         if (_applyingProposal || !await SavePlanningDraftAsync()) return;
         _planningOpen = false; _planningSuppressed = true; await ReleasePlanningReviewAsync();
+    }
+    private async Task GoToScenePlanning()
+    {
+        var scene = PlanningSceneId;
+        await ClosePlanning();
+        if (!_planningOpen) Navigation.NavigateTo(SceneUrl(scene));
     }
     private string PlanningDraftJson => JsonSerializer.Serialize(new ShotPlanningReviewDraft(_proposal?.Shots ?? []) { Strategies = _proposal?.Strategies ?? [] }, AtomicJsonFile.Options);
     private string PlanningDownloadUrl => "data:application/json;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(PlanningDraftJson));
@@ -310,6 +333,7 @@ public partial class ProductionStudio
         await _planningDraftGate.WaitAsync();
         try
         {
+            foreach (var shot in _proposal.Shots) if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
             var job = _planningJob!.Id; var content = PlanningDraftJson;
             if (!force && content == _planningDraftFingerprint) { _planningDraftDirty = false; return true; }
             var saved = await ReviewDrafts.SaveAsync(job, JsonSerializer.Deserialize<ShotPlanningReviewDraft>(content, AtomicJsonFile.Options)!, _planningDraftRevision);
@@ -344,6 +368,7 @@ public partial class ProductionStudio
                     Json(saved.Shots.Select(ComparableReviewSource).ToList()) != Json(_planningOriginal.Shots.Select(ComparableReviewSource).ToList()))
                     throw new WorkspaceStoreException("The saved review does not match this breakdown. Its content has not been replaced.");
                 ValidateReviewStrategies(_planningOriginal.Strategies, saved.Strategies);
+                foreach (var shot in saved.Shots) if (shot.DraftingEnvironment is { } accepted) DraftingEnvironments.ValidateAssessment(accepted);
                 _proposal = _planningOriginal with { Shots = ShotCopy.Of(saved.Shots), Strategies = ShotCopy.Of(saved.Strategies.Count == 0 ? _planningOriginal.Strategies : saved.Strategies) };
             }
             _planningDraftRevision = draft.Revision; _planningDraftFingerprint = PlanningDraftJson;

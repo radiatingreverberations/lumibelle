@@ -96,7 +96,7 @@ test('global generation presets follow shots and projects while prompts and refe
   await expect(page.locator('#blazor-error-ui')).not.toBeVisible();
 });
 
-test('the generation header switches setups from its menu and keeps their details in help', async ({ page, request }) => {
+test('the generation footer switches setups from its menu and keeps their details in help', async ({ page, request }) => {
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.setViewportSize({ width: 1173, height: 900 });

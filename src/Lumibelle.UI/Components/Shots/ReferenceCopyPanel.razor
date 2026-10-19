@@ -7,7 +7,7 @@
         }
     </select></label>
     @if (_copy is { } copy && _draft is { } draft) {
-        <p class="field-hint">Replaces this shot's references and environment library. Action, dialogue and prompt text stay as they are; the prompt will need review.</p>
+        <p class="field-hint">Copies references and the environment library into a draft. Review them in Manage references, then apply your changes. Action, dialogue and prompt text stay as they are; the prompt will need review.</p>
         <p class="reference-copy-budget">@ResolvedReferences.For(draft).Pictures.Count/9 pictures · @ReferenceVideos.ReelSlotCount(draft)/3 reels · @ResolvedReferences.For(draft).Audio.Count/3 audio</p>
         <label>Environment library<select aria-label="Environment library" value="@(_environmentId?.ToString() ?? "")" @onchange="EnvironmentChanged" disabled="@_busy">
             <option value="">None selected</option>
@@ -17,7 +17,7 @@
             @if (_environmentId is { } missing && !Library.Assets.Any(a => a.Id == missing && a.Category == AssetCategory.Environment)) { <option value="@missing" disabled>Unavailable environment</option> }
         </select></label>
         @if (_environmentId is null) { <p class="field-hint">No environment library selected. Copied pictures still work as references; choose a library to select other views for this shot.</p> }
-        else { <p class="field-hint">Copies the current reference views. Use Environment after copying to choose different views for this shot.</p> }
+        else { <p class="field-hint">Copies the current reference views. Use Edit references after copying to choose different views for this shot.</p> }
         <div class="reference-copy-pictures">
             @foreach (var picture in ResolvedReferences.For(draft).Pictures) {
                 var image = picture.Image; var frame = picture.Keyframe;
@@ -42,12 +42,12 @@
         </div> }
         @foreach (var warning in copy.Warnings) { <p class="field-hint">@warning</p> }
         @foreach (var note in copy.Notes ?? []) { <p class="field-hint">@note</p> }
-        @if (_issue is not null) { <p role="alert">@_issue</p> }
+        @if (_issue is not null) { <p role="status">@_issue Resolve this in Manage references before applying.</p> }
     }
     @if (_error is not null) { <p role="alert">@_error</p> }
     <div class="reference-copy-actions">
         <MudButton OnClick="() => Cancelled.InvokeAsync()" Disabled="_busy">Cancel</MudButton>
-        <MudButton OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || _draft is null || _issue is not null)">@(_busy ? "Copying…" : "Copy references")</MudButton>
+        <MudButton OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || _draft is null || _invalidEnvironment)">@(_busy ? "Copying…" : "Copy and edit references")</MudButton>
     </div>
 </div>
 
@@ -63,10 +63,11 @@
     [Parameter] public EventCallback Cancelled { get; set; }
     private Guid? _sourceId;
     private Guid? _environmentId;
+    private bool? _environmentDisabled;
     private ReferenceCopyResult? _copy;
     private Shot? _draft;
     private ShotContinuityFrame? _frame;
-    private bool _first, _includeFrame, _busy;
+    private bool _first, _includeFrame, _busy, _invalidEnvironment;
     private string? _error, _issue;
     protected override void OnInitialized() { _sourceId = Previous?.Id ?? Sources.OrderBy(s => Math.Abs(Number(s) - CurrentNumber)).FirstOrDefault()?.Id; PrepareSource(); }
     private void SourceChanged(ChangeEventArgs e) { _sourceId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; PrepareSource(); }
@@ -76,7 +77,7 @@
         if (Sources.FirstOrDefault(s => s.Id == _sourceId) is not { } source) return;
         try {
             _copy = ReferenceCopies.Into(source, Shot, Library);
-            _environmentId = _copy.Inputs.EnvironmentAssetId;
+            _environmentId = _copy.Inputs.EnvironmentAssetId; _environmentDisabled = _copy.Inputs.EnvironmentInspectionDisabled;
             _first = Number(source) > CurrentNumber;
             _frame = FrameOf(source, _first);
             _includeFrame = _frame is not null && ResolvedReferences.For(_copy.Inputs).Pictures.Count < 9;
@@ -84,7 +85,7 @@
         } catch (Exception e) { _error = e.Message; }
     }
     private void IncludeChanged(ChangeEventArgs e) { _includeFrame = e.Value is true; Stage(); }
-    private void EnvironmentChanged(ChangeEventArgs e) { _environmentId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; Stage(); }
+    private void EnvironmentChanged(ChangeEventArgs e) { _environmentId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; _environmentDisabled = _environmentId is null; Stage(); }
     private void FrameChanged(ChangeEventArgs e)
     {
         _first = e.Value?.ToString() == "first";
@@ -94,17 +95,17 @@
     private void Stage()
     {
         if (_copy is null) return;
-        _draft = _copy.Inputs.Copy(); _draft.EnvironmentAssetId = _environmentId; _draft.ContinuityFrame = _includeFrame ? _frame : null; _issue = null; _error = null;
+        _draft = _copy.Inputs.Copy(); _draft.EnvironmentAssetId = _environmentId; _draft.EnvironmentInspectionDisabled = _environmentDisabled; _draft.ContinuityFrame = _includeFrame ? _frame : null; _issue = null; _error = null;
+        _invalidEnvironment = _environmentId is { } environment && !Library.Assets.Any(a => a.Id == environment && a.Category == AssetCategory.Environment);
+        if (_invalidEnvironment) { _error = "Choose an available environment library, or None selected."; return; }
         try {
-            if (_environmentId is { } environment && !Library.Assets.Any(a => a.Id == environment && a.Category == AssetCategory.Environment))
-                throw new WorkspaceStoreException("Choose an available environment library, or None selected.");
             H3Policy.Validate(_draft); ReferenceVideos.Validate(_draft);
         }
         catch (Exception e) { _issue = e.Message; }
     }
     private async Task Apply()
     {
-        if (_busy || _draft is null || _issue is not null) return;
+        if (_busy || _draft is null || _invalidEnvironment) return;
         _busy = true; _error = null;
         try { await Applied.InvokeAsync(new ReferenceSelection(_draft.Copy(), new Dictionary<Guid, Guid>())); }
         catch (Exception e) { _error = e.Message; }

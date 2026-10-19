@@ -16,49 +16,26 @@
 
 @inject IProductionStore Production
 
-<PageTitle>Shots · Lumibelle</PageTitle>
+<PageTitle>@(ScenesMode ? "Scenes" : "Shots") · Lumibelle</PageTitle>
 <NavigationLock ConfirmExternalNavigation="@(_dirty || BulkGenerateLocked)" OnBeforeInternalNavigation="BeforeNavigation" />
 <EditSessionRegistration Save="SaveForCloseAsync" />
 @if (_project is null) { <p role="status">@(_error ?? "Opening Shots…")</p> }
 else
 {
-    <ProjectNavigation Project="_project" CurrentStudio="shots" />
-    <StudioPageHeader Title="Shots">
+    <ProjectNavigation Project="_project" CurrentStudio="@(ScenesMode ? "scenes" : "shots")" />
+    <StudioPageHeader Title="@(ScenesMode ? "Scenes" : "Shots")">
         <div data-interactive="@(_interactive && _planningInitialized ? "true" : "false")" class="shots-actions shots-heading"><span role="status">@_saveStatus</span><button disabled="@(!_dirty || _saving)" @onclick="Save">Save</button><button disabled="@(_undo.Count == 0)" @onclick="UndoEdit">Undo</button><button @onclick="() => _recoveryOpen = true">Recovery</button></div>
     </StudioPageHeader>
     @if (_error is not null && _loadFailure is null) { <MudAlert Severity="Severity.Error"><span role="alert">@_error</span>@if (_saveFailed) { <button @onclick="Reload">Reload saved version</button><button @onclick="DownloadDraft">Download unsaved copy</button> }</MudAlert> }
     @if (_loadFailure is not null) { <LoadFailure Title="Couldn’t open Shots" Error="_loadFailure" Retry="RetryLoadAsync" /> }
     else {
-    <StudioWorkspace @ref="_workspace" Studio="Shots" ProjectId="Id" LeftLabel="Shots" RightLabel="Shot tools" SelectionKey="@_selected?.ToString()">
+    @if (ScenesMode) {
+        <ScenePlanningHub ProjectId="Id" Scenes="@Scenes.ToArray()" Document="_doc" Library="_assets" SceneId="_sceneId" Busy="@(!_planningInitialized)" Excerpt="@SceneExcerpt" SelectedChanged="SelectPlanningScene" EditEnvironment="scene => OpenDraftEnvironment(scene)" Planning="SceneDraftControls" EnvironmentIssue="DraftEnvironmentIssue" />
+    } else {
+    <StudioWorkspace @ref="_workspace" Studio="Shots" ProjectId="Id" LeftLabel="Shots" RightLabel="Shot tools" SelectionKey="@_selected?.ToString()" Busy="@(!_planningInitialized)">
         <Left><StudioPane Class="shots-outline" Label="Shots"><Header>
             <div class="shots-library-heading"><h2>Shots <small>@_doc.Shots.Count</small></h2><button @ref="_addShotButton" @onclick="AddShot" disabled="@(!_planningInitialized || ShotListLocked)" title="@(!_planningInitialized ? "Loading shots…" : SourceShot is { } beside ? $"Add a blank shot after {beside.Title}, in the same scene" : "Add a blank shot")">+ Shot</button></div>
-            <div class="shots-library-tools" @ref="_planningOriginElement"><TextAssistance @ref="_planningAssist" ProjectId="Id" Studio="TextAssistantStudio.Shots" Request="PlanningPresentation" Preparing="_planningSubmitting" HasError="@(_pendingPlanning is not null)" ReviewRequested="InspectPlanning" CancelRequested="CancelPlanning" Label="Draft shots" Title="Draft shots" Opened="PreparePlanning" SelectionChanged="value => _model = value" ModelLocked="@(_planning || _planningSubmitting)">
-<ChildContent>
-        <p class="field-hint">Choose scenes from your saved script. Review the AI draft before adding shots to the project.</p>
-        <fieldset disabled="@PlanningComposerLocked"><legend>Script scenes</legend>@foreach (var entry in PlanningScenes.Select((scene, index) => (Scene: scene, Number: index + 1))) { <label class="check-row"><input type="checkbox" checked="@_sceneSelection.Contains(entry.Scene.Id)" @onchange="e => ChooseScene(entry.Scene.Id, e.Value is true)" />@entry.Number. @entry.Scene.Title</label> }</fieldset>
-        @if (!PlanningScenes.Any()) { <p role="status">Add a scene heading in <a href="@ProjectLink(Id, "/script")">Script</a> to start drafting shots.</p> }
-        else { <p class="field-hint" role="status">@(_sceneSelection.Count == 0 ? "Select at least one scene to draft shots." : $"{Counted(_sceneSelection.Count, "scene")} selected · Existing shots are kept. No video is generated.")</p> }
-        <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
-        @foreach (var scene in PlanningScenes.Where(s => _sceneSelection.Contains(s.Id))) {
-            <div class="draft-environment-summary"><strong>@scene.Title</strong><span>@EnvironmentLabel(SceneEnvironment(scene.Id))</span>
-                    <button disabled="@PlanningComposerLocked" @onclick="() => OpenDraftEnvironment(scene.Id)">Choose environment views</button>
-                @if (SceneEnvironment(scene.Id) is { Constraints.Length: > 0 } environment) { <small>Staging constraints: @environment.Constraints</small> }
-            </div>
-        }
-        <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="PlanningComposerLocked" />
-        <label>Directing instructions (optional)<textarea rows="3" @bind="_instructions" @bind:event="oninput" disabled="@PlanningComposerLocked"></textarea></label>
-        @if (_recentInstructions.Count > 0)
-        {
-            <div class="recent-instructions" role="group" aria-label="Recent directing instructions"><span class="field-hint">Recent instructions</span>
-                @foreach (var recent in _recentInstructions)
-                {
-                    <button type="button" class="recent-instruction" title="@recent" disabled="@PlanningComposerLocked" @onclick="() => UseRecentInstructions(recent)">@recent</button>
-                }
-            </div>
-        }
-@if (_planningError is not null) { <p role="alert">@_planningError</p> }</ChildContent>
-<Actions><MudButton Class="ai-assist-action" OnClick="Draft" Disabled="@(_planning || _planningSubmitting || _pendingPlanning is not null || _model?.Ready != true || _sceneSelection.Count == 0)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shots</MudButton>@if (_pendingPlanning is not null) { <button @onclick="RetryPlanningEnqueueAsync">Retry saving request</button> }</Actions>
-</TextAssistance><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotProjectCopy()">Copy to project…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
+            <div class="shots-library-tools" @ref="_planningOriginElement"><a class="scene-planning-link" href="@SceneUrl(SourceShot?.SceneId)">Plan scenes</a><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotProjectCopy()">Copy to project…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
             <label class="shots-status-filter"><span class="visually-hidden">Prompt status</span><select aria-label="Filter shots by prompt status" @bind="_promptStatusFilter">
                 <option value="all">All shots</option><option value="attention">Needs prompt attention</option>
                 <option value="missing">Prompt missing</option><option value="changed">References changed</option><option value="review">Review prompt</option>
@@ -70,7 +47,7 @@ else
             <ShotListOrder Disabled="ShotListLocked" Moved="MoveShotTo">
             @foreach (var group in VisibleGroups) {
                 var collapsed = SceneCollapsed(group[0]); var sceneCount = SceneShots(group[0]).Count();
-                <h2 class="shot-scene-title"><button class="shot-scene-toggle" aria-expanded="@(collapsed ? "false" : "true")" @onclick="() => ToggleScene(group[0])"><span aria-hidden="true">@(collapsed ? "▸" : "▾")</span><span class="shot-scene-name">@SceneLabel(group[0])</span><small>@(group.Count == sceneCount ? $"{sceneCount}" : $"{group.Count} of {sceneCount}")</small></button></h2>
+                <h2 class="shot-scene-title"><button class="shot-scene-toggle" aria-expanded="@(collapsed ? "false" : "true")" @onclick="() => ToggleScene(group[0])"><span aria-hidden="true">@(collapsed ? "▸" : "▾")</span><span class="shot-scene-name">@SceneLabel(group[0])</span><small>@(group.Count == sceneCount ? $"{sceneCount}" : $"{group.Count} of {sceneCount}")</small></button>@if (group[0].SceneId is { } groupedScene) { <a class="scene-setup-link" href="@SceneUrl(groupedScene)" aria-label="Scene setup">⚙</a> }</h2>
                 @if (collapsed) { continue; }
                 @foreach (var item in group) {
                 <div class="shot-outline-item @(item.Id == _selected ? "selected" : "")" @key="item.Id" data-shot-row="@item.Id" data-scene="@SceneKey(item)">
@@ -101,6 +78,7 @@ else
         <Center><StudioPane Class="shot-editor production-editor" Label="Shot editor"><Header>
             @if (SourceShot is { } identity) {
                 <div class="shot-workspace-identity">
+                    @if (identity.SceneId is { } selectedScene) { <a class="scene-setup-link" href="@SceneUrl(selectedScene)">Scene setup</a> }
                     <span class="shot-number">@((_doc.Shots.IndexOf(identity) + 1).ToString("00"))</span>
                     <input aria-label="Shot title" class="shot-title-input" @bind:get="identity.Title" @bind:set="value => EditCoverage(s => s.Title = value ?? string.Empty)" @bind:event="oninput" />
                     <div class="shot-draft-assist" @ref="_shotDraftOriginElement">
@@ -121,7 +99,8 @@ else
                             }
                             @if (identity.SceneId is { } sceneId) {
                                 <div class="draft-environment-summary"><strong>Environment for drafting</strong><span>@EnvironmentLabel(DraftingEnvironments.Effective(Current?.Shot ?? identity, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == sceneId)))</span>
-                                    <button disabled="@ShotDraftLocked" @onclick="() => OpenDraftEnvironment(sceneId, identity)">Choose environment views</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@SceneUrl(sceneId)">Scene setup</MudButton>
+                                    @if (DraftingEnvironments.Effective(Current?.Shot ?? identity, _doc.SceneSetups.FirstOrDefault(s => s.SceneId == sceneId)) is { Version: var inspectionVersion } && inspectionVersion == Guid.Empty) { <label><input type="checkbox" @bind="_allowUninspectedEnvironment" disabled="@ShotDraftLocked" />Draft without inspection pictures for this environment</label> }
                                 </div>
                             }
                             <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="ShotDraftLocked" />
@@ -152,8 +131,8 @@ else
                         @if (HasCoverage(source) || ShotTakes.Count > 0) { <ShotWorkspacePreview ProjectId="Id" ShotId="source.Id" SelectedTakeId="source.SelectedTakeId" Takes="ShotTakes" Review="OpenTake" /> }
                         <label class="shot-direction">Action and camera<textarea @ref="_shotDirectionField" rows="9" @bind:get="source.Description" @bind:set="value => EditCoverage(s => s.Description = value ?? string.Empty)" @bind:event="oninput" placeholder="Describe the action, staging, and camera movement in one continuous take."></textarea></label>
                     </div>
-                    @if (lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source) is { } strategy) { <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" /><DraftingEnvironmentReview Value="source.DraftingEnvironment" ReadOnly="true" Issue="@ShotDirections.EnvironmentIssue(_doc, source)" /> }
-                    <ShotDirectionEditor Value="source.Direction" ValueChanged="d => EditCoverage(s => s.Direction = d)" Freshness="@(lumibelle.Services.Shots.ShotDirections.Freshness(_doc, source))" Review="() => EditCoverage(s => lumibelle.Services.Shots.ShotDirections.Review(s, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, s), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, s)))" />
+                    @if (lumibelle.Services.Shots.ShotDirections.Strategy(_doc, source) is { } strategy) { <SceneDirectionStrategyEditor Value="strategy" ReadOnly="true" /><DraftingEnvironmentReview Value="source.DraftingEnvironment" ReadOnly="true" Issue="@DraftEnvironmentIssue(source)" /> }
+                    <ShotDirectionEditor Value="source.Direction" ValueChanged="d => EditCoverage(s => s.Direction = d)" Freshness="@(lumibelle.Services.Shots.ShotDirections.Freshness(_doc, source, DraftEnvironmentIssue(source)))" Review="() => EditCoverage(s => lumibelle.Services.Shots.ShotDirections.Review(s, lumibelle.Services.Shots.ShotDirections.Strategy(_doc, s), lumibelle.Services.Shots.ShotDirections.Neighbours(_doc, s)))" />
                     <div class="shots-section-heading"><h2>Dialogue <small>@source.Dialogue.Count</small></h2><button @onclick="AddMasterDialogueAsync">+ Line</button></div>
                     @if (source.Dialogue.Count == 0) { <p class="field-hint shot-dialogue-empty">No dialogue in this shot.</p> }
                     @foreach (var line in source.Dialogue)
@@ -216,39 +195,24 @@ else
             }
             else if (SourceShot is not null) { <p class="field-hint" role="status">@(_saveFailed ? "Save this shot to prepare its references and prompt." : "Preparing this shot’s references and prompt…")</p> }
             else if (!_planningInitialized) { <p class="field-hint" role="status">Loading shots…</p> }
-            else { <div class="shot-empty-guide"><h2>@(_doc.Shots.Count == 0 ? "Add your first shot" : "Choose a shot")</h2><p>Start with an action, a character, or a visual idea. Add a blank shot and choose references—no script required. You can link a script scene later.</p><div class="shots-actions"><button @onclick="AddShot">Add blank shot</button>@if (Scenes.Any()) { <button @onclick="OpenPlanning">Draft from script…</button> }</div></div> }
+            else { <div class="shot-empty-guide"><h2>@(_doc.Shots.Count == 0 ? "Add your first shot" : "Choose a shot")</h2><p>Start with an action, a character, or a visual idea. Add a blank shot and choose references—no script required. You can link a script scene later.</p><div class="shots-actions"><button @onclick="AddShot">Add blank shot</button>@if (Scenes.Any()) { <a href="@SceneUrl(null)">Plan scenes</a> }</div></div> }
         </ChildContent></StudioPane></Center>
             <Right><StudioPane Class="shot-controls" Label="Production tools">
-                <Header>@if (Current is { } current && Selected is { } selected) {
-                    <div class="shot-setup-summary">
-                        @* The name switches setups; the pencil edits the one in use. Its settings and scope are in its help. *@
-                        <select class="generation-preset-select" aria-label="Generation setup" value="@current.GenerationSetupId" disabled="@_setupBusy" @onchange="ChangeSetup">
-                            @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
-                            { <option value="@setup.Id">@setup.Name@(setup.Archived ? " · Archived" : "")</option> }
-                        </select>
-                        <span class="shot-setup-tools">
-                            <HelpHint Label="Generation setup" Text="@($"{H3Presets.Label(H3Presets.Key(selected))} · {PresetResolution} · {ActiveGlobalSetup?.Settings.TakeCount ?? 1} takes. Shared across shots and projects. Output changes in the footer stay with this shot.")" />
-                            <button class="shot-setup-edit" @ref="_setupSettingsButton" aria-label="Edit generation preset" title="Edit preset" @onclick="@(() => OpenSetupDialog("Settings"))"><MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-hidden="true" /></button>
-                        </span>
-                    </div>
-                }</Header>
                 <ChildContent>@if (Selected is { } shot) {
-                    <section class="shot-references"><h2 class="shot-references-title">References</h2>
-                        <div class="shot-reference-actions" role="group" aria-label="Reference actions">
-                            <button aria-label="Copy from shot…" title="Copy references and an optional continuity frame from another shot" @onclick="OpenReferenceCopy" disabled="@(!ReferenceCopySources.Any() || _imageEditorSaving)">Copy</button>
-                            <button aria-label="Choose environment views" title="Choose views from an environment's image and reel library" @onclick="OpenEnvironmentViews" disabled="@_compositionBusy">Environment</button>
-                            <button aria-label="Edit references" title="Add, remove, crop and reorder this setup's references" @onclick="OpenReferencePicker">Edit references</button>
+                    <section class="shot-references" data-next-reference-action="@NextReferenceAction">
+                        <div class="shot-references-heading">
+                            <h2 class="shot-references-title">References</h2>
+                            <button class="@(NextReferenceAction == "copy" ? "reference-next-step" : null)" aria-label="Copy from shot…" title="Copy references and an optional continuity frame from another shot" @onclick="OpenReferenceCopy" disabled="@(!ReferenceCopySources.Any() || _imageEditorSaving)"><span>Copy…</span></button>
                         </div>
-                        <p class="field-hint shot-environment-summary">Environment · @(_assets.Assets.FirstOrDefault(a => a.Id == shot.EnvironmentAssetId)?.Name ?? (shot.EnvironmentAssetId is null ? "None selected" : "Unavailable"))</p>
-                        @if (shot.EnvironmentStaging is { } staging) {
-                            <details class="shot-environment-staging"><summary>Reference-supported staging · @(EnvironmentViews.StagingIssue(shot, Current!.DirectingNotes, Current.RevisionNotes, lumibelle.Services.Shots.ShotDirections.Context(_doc, shot)) is null ? "Reviewed" : "Needs review")</summary>
-                                @if (EnvironmentViews.StagingIssue(shot, Current!.DirectingNotes, Current.RevisionNotes, lumibelle.Services.Shots.ShotDirections.Context(_doc, shot)) is { } issue) { <p role="status">@issue</p> }
-                                <p><strong>Blocking:</strong> @staging.Plan.Blocking</p><p><strong>Camera:</strong> @staging.Plan.Camera</p>
-                                @if (!string.IsNullOrWhiteSpace(staging.Plan.Assumptions)) { <p><strong>Assumptions:</strong> @staging.Plan.Assumptions</p> }
-                                @if (!string.IsNullOrWhiteSpace(staging.Plan.Concerns)) { <p><strong>Coverage:</strong> @staging.Plan.Concerns</p> }
-                            </details>
+                        <div class="shot-reference-actions" role="group" aria-label="Reference actions">
+                            <div class="shot-reference-action">
+                                <button class="@(NextReferenceAction == "edit" ? "reference-next-step" : null)" aria-label="Edit references" @onclick="OpenReferencePicker"><span class="reference-action-label">Edit references</span></button>
+                            </div>
+                        </div>
+                        @if (shot.EnvironmentStaging is not null) {
+                            <button class="shot-environment-staging" aria-label="Reference-supported staging" aria-haspopup="dialog" @onclick="() => _stagingComposition = Current!.Id"><span>Reference-supported staging · @(EnvironmentViews.StagingIssue(shot, Current!.DirectingNotes, Current.RevisionNotes, CurrentDirectionContext(shot)) is null ? "Reviewed" : "Needs review")</span><MudIcon Icon="@Icons.Material.Outlined.OpenInFull" Size="Size.Small" aria-hidden="true" /></button>
                         }
-                        <EnvironmentViewComposer @ref="_environmentComposer" @key="Current!.Id" ProjectId="Id" CompositionId="Current!.Id" CompositionVersion="Current!.Version" Shot="shot" DirectingNotes="@Current!.DirectingNotes" Library="_assets" Applied="ApplyEnvironmentViews" EnvironmentChanged="ApplyEnvironmentLibrary" />
+                        <EnvironmentViewComposer @ref="_environmentComposer" @key="Current!.Id" ProjectId="Id" CompositionId="Current!.Id" CompositionVersion="Current!.Version" Shot="shot" DirectingNotes="@Current!.DirectingNotes" Library="_assets" HistoryOnly="true"  />
                         @if (shot.StartFrame is { } start)
                         {
                             var startTake = StartTake(shot);
@@ -350,6 +314,19 @@ else
                     </details>
                 }</ChildContent>
                 <Footer>@if (Selected is { } shot) {
+                    @if (Current is { } current) {
+                        <div class="shot-setup-summary">
+                            @* Keep the shared preset beside this shot's output settings. *@
+                            <select class="generation-preset-select" aria-label="Generation setup" value="@current.GenerationSetupId" disabled="@_setupBusy" @onchange="ChangeSetup">
+                                @foreach (var setup in _globalSetups.Setups.Where(s => !s.Archived || s.Id == current.GenerationSetupId))
+                                { <option value="@setup.Id">@setup.Name@(setup.Archived ? " · Archived" : "")</option> }
+                            </select>
+                            <span class="shot-setup-tools">
+                                <HelpHint Label="Generation setup" Text="@($"{H3Presets.Label(H3Presets.Key(shot))} · {PresetResolution} · {ActiveGlobalSetup?.Settings.TakeCount ?? 1} takes. Shared across shots and projects. Output changes below stay with this shot.")" />
+                                <button class="shot-setup-edit" @ref="_setupSettingsButton" aria-label="Edit generation preset" title="Edit preset" @onclick="@(() => OpenSetupDialog("Settings"))"><MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-hidden="true" /></button>
+                            </span>
+                        </div>
+                    }
                     <fieldset @key="Current?.Id" class="generation-output" disabled="@(_starting || _setupBusy || _selectingShot)" aria-label="Generation output">
                         <label>Resolution<select aria-label="Resolution" value="@(shot.UpscalePreview ? "upscaled" : VideoResolutions.Key(VideoResolutions.Selected(shot)))" @onchange="ChangeOutputResolution">@foreach (var resolution in VideoResolutions.Choices) { <option value="@VideoResolutions.Key(resolution)">@VideoResolutions.Option(EffectiveAspect(shot), resolution)</option> }<option value="upscaled">Upscaled preview</option></select></label>
                         <div class="generation-output-row">
@@ -399,6 +376,7 @@ else
                 </Footer>
             </StudioPane></Right>
     </StudioWorkspace>
+    }
     }
 }
 
@@ -533,7 +511,7 @@ else
         }
     </div>
 }
-@if (shot.EnvironmentAssetId is not null) { <p class="field-hint">Compose uses the references attached to this setup. Change environment viewpoints with Choose environment views in References.</p> }
+@if (shot.EnvironmentAssetId is not null) { <p class="field-hint">Compose uses the references attached to this setup. Choose environment pictures in Edit references, or copy them from another shot.</p> }
 @if ((shot.EnvironmentAssetId is not null || ResolvedReferences.For(shot).Pictures.Count > 0 || ReelRefMods.Uses(shot)) && _compositionModel is { SupportsImages: false }) { <p role="status">Choose a model that can inspect images.</p> }@if (_compositionError is not null) { <p role="alert">@_compositionError</p> }</ChildContent>
                         <Actions><MudButton Class="ai-assist-action" @ref="_composeButton" OnClick="ComposePrompt" Disabled="@(!CanCompose)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Revise with AI")</MudButton>@if (_compositionEnqueue is not null) { <button @onclick="RetryCompositionEnqueue">Retry saved request</button> }</Actions>
                     </TextAssistance></div>
@@ -656,7 +634,7 @@ else
 <InlineDialog Visible="_referenceOpen" VisibleChanged="ImageEditorVisibility" Options="@(LargeDialog with { CloseOnEscapeKey = !_imageEditorSaving })" Class="manual-reference-dialog shot-reference-dialog"
               Title="Manage references" Context="@_imageEditorShot?.Title" CloseLabel="Close manage references" CloseDisabled="_imageEditorSaving">
     <DialogContent>@if (_referenceOpen && _imageEditorShot is not null) {
-        <ShotReferenceEditor Shot="_imageEditorShot" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" ShowCopyControls="false" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" CopySourceNumber="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentShotNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
+        <ShotReferenceEditor Shot="@(_referenceEditorDraft ?? _imageEditorShot)" ReviewSelection="@(_referenceEditorDraft is not null)" Library="_imageEditorAssets" RestoreTrashedImage="RestoreEditorImage" AssistPicking="true" ReferencePrompt="@(Current?.Prompt ?? "")" ReferenceDirectingNotes="@(Current?.DirectingNotes ?? "")" RequestedAssetPickJobId="RequestedJobId" AllowInference="true" AllowReels="true" Expanded="_imageEditorExpanded" ShowCopyControls="false" FrameShots="_doc.Shots" FrameTakes="_doc.Takes" SceneEnvironment="@SceneEnvironment(SourceShot?.SceneId ?? Guid.Empty)" CopySources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" PreviousCopySource="@PreviousReferenceSource?.Composition.Shot" CopySourceNumber="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentShotNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" ContinuityFrameOf="LastFrameOf" ReferencesApplied="ApplyReferences" ImageSaved="result => { _assets = result.Library; _imageEditorAssets = result.Library; }" Cancelled="() => _referenceOpen = false" />
     }</DialogContent>
 </InlineDialog>
 
@@ -665,7 +643,7 @@ else
     <DialogContent>@if (_copyReferenceOpen && _imageEditorShot is not null) {
         <ReferenceCopyPanel Shot="_imageEditorShot" Library="_imageEditorAssets" Sources="@ReferenceCopySources.Select(s => s.Composition.Shot).ToArray()" Previous="@PreviousReferenceSource?.Composition.Shot"
             Number="@(s => _doc.Shots.FindIndex(x => x.Id == s.Id) + 1)" CurrentNumber="@(_doc.Shots.FindIndex(x => x.Id == _selected) + 1)" FrameOf="CopyContinuityFrame"
-            Applied="ApplyCopiedReferences" Cancelled="() => _copyReferenceOpen = false" />
+            Applied="EditCopiedReferences" Cancelled="() => _copyReferenceOpen = false" />
     }</DialogContent>
 </InlineDialog>
 
@@ -874,7 +852,7 @@ else
         @if (_planning) { <MudButton OnClick="CancelPlanning">Cancel request</MudButton> }
         else
         {
-            @if (_planningJob is not null) { <MudButton OnClick="OpenPlanning" Disabled="@PlanningComposerLocked" Variant="Variant.Outlined">New breakdown</MudButton> }
+            @if (_planningJob is not null) { @if (ScenesMode) { <MudButton OnClick="OpenPlanning" Disabled="@PlanningComposerLocked" Variant="Variant.Outlined">New breakdown</MudButton> } else { <MudButton OnClick="GoToScenePlanning" Disabled="@PlanningComposerLocked" Variant="Variant.Outlined">New breakdown</MudButton> } }
 
             <MudButton OnClick="ApplyProposal" Disabled="@(PlanningComposerLocked || PlanningApplied || _planningDraftConflict || _planningJob?.State != AiJobState.Completed || _proposal is not { Error: null, Shots.Count: > 0 })" Color="Color.Primary" Variant="Variant.Filled">Add reviewed shots</MudButton>
         }
@@ -882,6 +860,33 @@ else
 </InlineDialog>
 
 @code {
+    private RenderFragment SceneDraftControls => @<div class="scene-drafting-tools" @ref="_planningOriginElement"><TextAssistance @ref="_planningAssist" ProjectId="Id" Studio="TextAssistantStudio.Shots" Request="PlanningPresentation" Preparing="_planningSubmitting" HasError="@(_pendingPlanning is not null)" ReviewRequested="InspectPlanning" CancelRequested="CancelPlanning" Label="Draft shots" Title="Draft shots" Opened="PreparePlanning" SelectionChanged="value => _model = value" ModelLocked="@(_planning || _planningSubmitting)">
+<ChildContent>
+        <p class="field-hint">Draft one scene at a time, then review its coverage before adding shots.</p>
+        <label>Script scene<select @bind="PlanningSceneId" disabled="@PlanningComposerLocked"><option value="">Choose a scene…</option>@foreach (var entry in PlanningScenes.Select((scene, index) => (Scene: scene, Number: index + 1))) { <option value="@entry.Scene.Id">@entry.Number. @entry.Scene.Title</option> }</select></label>
+        @if (!PlanningScenes.Any()) { <p role="status">Add a scene heading in <a href="@ProjectLink(Id, "/script")">Script</a> to start drafting shots.</p> }
+        else if (PlanningSceneId is null) { <p class="field-hint" role="status">Choose one scene to draft shots.</p> }
+        <label>Maximum shot length (seconds)<input type="number" min="1" max="15" step="0.1" @bind="_maximum" disabled="@PlanningComposerLocked" /></label><p class="field-hint">@MaximumLabel · applies to this breakdown only.</p>
+        @foreach (var scene in PlanningScenes.Where(s => s.Id == PlanningSceneId)) {
+            <div class="draft-environment-summary"><span>@EnvironmentLabel(SceneEnvironment(scene.Id))</span>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="PlanningComposerLocked" OnClick="() => OpenDraftEnvironment(scene.Id)">Choose environment views</MudButton>
+                @if (SceneEnvironment(scene.Id) is { Constraints.Length: > 0 } environment) { <small>Staging constraints: @environment.Constraints</small> }
+            </div>
+        }
+        <DirectingStyleSelect @bind-Value="_directingStyle" Disabled="PlanningComposerLocked" />
+        <label>Directing instructions (optional)<textarea rows="3" @bind="_instructions" @bind:event="oninput" disabled="@PlanningComposerLocked"></textarea></label>
+        @if (_recentInstructions.Count > 0)
+        {
+            <div class="recent-instructions" role="group" aria-label="Recent directing instructions"><span class="field-hint">Recent instructions</span>
+                @foreach (var recent in _recentInstructions)
+                {
+                    <button type="button" class="recent-instruction" title="@recent" disabled="@PlanningComposerLocked" @onclick="() => UseRecentInstructions(recent)">@recent</button>
+                }
+            </div>
+        }
+@if (_planningError is not null) { <p role="alert">@_planningError</p> }</ChildContent>
+<Actions><MudButton Class="ai-assist-action" OnClick="Draft" Disabled="@(_planning || _planningSubmitting || _pendingPlanning is not null || _model?.Ready != true || PlanningSceneId is null)" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Draft shots</MudButton>@if (_pendingPlanning is not null) { <button @onclick="RetryPlanningEnqueueAsync">Retry saving request</button> }</Actions>
+</TextAssistance></div>;
     private RenderFragment CloseTakePanelButton => @<button type="button" class="take-panel-close" disabled="@ReviewPanelBusy" @onclick="CloseReviewPanel">Close panel <span aria-hidden="true">×</span></button>;
 }
 
@@ -909,6 +914,19 @@ else
         <div class="shot-bulk-feedback">@if (DeleteActivityIssue is { } activityIssue) { <p role="status">@activityIssue</p> }@if (_deleteShotsError is not null) { <p role="alert">@_deleteShotsError</p><MudButton OnClick="ReviewLatestDeletion" Disabled="@_deletingShots">Review latest shots</MudButton> }</div>
     </Status>
     <Actions><MudButton OnClick="() => CloseShotDeletion()" Disabled="@_deletingShots">Cancel</MudButton><MudButton OnClick="ConfirmShotDeletion" Color="Color.Error" Variant="Variant.Filled" Disabled="@(_deletingShots || _deleteShotIds.Count == 0 || DeleteActivityIssue is not null || DeleteProductionCount > 0 && !_clearProductionSelections)">@(_deletingShots ? "Deleting…" : $"Delete {Counted(_deleteShotIds.Count, "shot")}")</MudButton></Actions>
+</InlineDialog>
+<InlineDialog Visible="StagingVisible" VisibleChanged="v => { if (!v) _stagingComposition = null; }" Options="@(LargeDialog with { MaxWidth = MaxWidth.Medium })" Class="environment-staging-dialog" Title="Reference-supported staging" Context="@SourceShot?.Title" CloseLabel="Close staging">
+    <DialogContent>@if (StagingVisible && Selected is { EnvironmentStaging: { } staging } stagedShot) {
+        <div class="environment-staging-content">
+            @if (EnvironmentViews.StagingIssue(stagedShot, Current!.DirectingNotes, Current.RevisionNotes, CurrentDirectionContext(stagedShot)) is { } issue) { <p class="field-hint" role="status">Needs review · @issue</p> }
+            else { <p class="field-hint">Reviewed</p> }
+            <section><h3>Blocking</h3><p>@staging.Plan.Blocking</p></section>
+            <section><h3>Camera</h3><p>@staging.Plan.Camera</p></section>
+            @if (!string.IsNullOrWhiteSpace(staging.Plan.Assumptions)) { <section><h3>Assumptions</h3><p>@staging.Plan.Assumptions</p></section> }
+            @if (!string.IsNullOrWhiteSpace(staging.Plan.Concerns)) { <section><h3>Coverage concerns</h3><p>@staging.Plan.Concerns</p></section> }
+        </div>
+    }</DialogContent>
+    <Actions><MudButton OnClick="() => _stagingComposition = null">Close</MudButton></Actions>
 </InlineDialog>
 <InlineDialog Visible="_recoveryOpen" VisibleChanged="v => _recoveryOpen = v" Options="@(LargeDialog with { MaxWidth = MaxWidth.Medium })" Class="shot-recovery-dialog" Title="Shot recovery" CloseLabel="Close shot recovery">
     <Summary>The last 30 versions are kept from before shot edits, deletions, reviewed breakdowns and restores.</Summary>
@@ -939,4 +957,4 @@ else
 
 <ShotProjectCopyDialog Visible="_copyShotsOpen" ProjectId="Id" Items="@_doc.Shots.Select((shot, index) => PickerItem(_doc, shot, index)).ToArray()" InitialShotId="_copyInitialShot" BusyChanged="value => _copyShotsBusy = value" Closed="() => _copyShotsOpen = false" />
 
-<SceneEnvironmentPicker @ref="_draftEnvironmentPicker" ProjectId="Id" Library="_assets" Applied="SaveDraftEnvironment" Closed="ReturnToDrafting" />
+<SceneEnvironmentPicker @ref="_draftEnvironmentPicker" HistoryOnly="@(_draftEnvironmentShot is not null)" ProjectId="Id" Library="_assets" Applied="SaveDraftEnvironment" Closed="ReturnToDrafting" />

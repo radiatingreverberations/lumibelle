@@ -11,10 +11,10 @@
 <InlineDialog Visible="_open" VisibleChanged="v => v ? Task.CompletedTask : Back()" Title="Environment for drafting" Context="@_title" CloseDisabled="@(_working || _preparing)"
     Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false })" Class="scene-environment-dialog">
 <DialogContent>
-    <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_asset" AssetIdChanged="ChangeAsset" Disabled="@(_working || _preparing)" Purpose="Choose inspection views for drafting; generation references stay separate." />
+    <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_asset" AssetIdChanged="ChangeAsset" Disabled="@(HistoryOnly || _working || _preparing)" Purpose="Choose inspection views for drafting; generation references stay separate." />
     <p class="field-hint">These views help plan the scene. Each shot chooses its generation references separately.</p>
-    <label class="inspection-constraints">Staging constraints<textarea rows="2" @bind="_constraints" @bind:event="oninput" disabled="@(_working || _preparing)" placeholder="Specify relationships the empty set cannot establish, such as a character's height relative to a feature."></textarea></label>
-    <TextModelPicker @ref="_picker" ProjectId="ProjectId" Studio="TextAssistantStudio.Shots" SelectionChanged="m => _model = m" Disabled="@(_working || _preparing)" />
+    <label class="inspection-constraints">Staging constraints<textarea rows="2" @bind="_constraints" @bind:event="oninput" disabled="@(HistoryOnly || _working || _preparing)" placeholder="Specify relationships the empty set cannot establish, such as a character's height relative to a feature."></textarea></label>
+    <TextModelPicker @ref="_picker" ProjectId="ProjectId" Studio="TextAssistantStudio.Shots" SelectionChanged="m => _model = m" Disabled="@(HistoryOnly || _working || _preparing)" />
     @if (_model is { SupportsImages: false }) { <p role="status">Choose a vision model for AI selection and drafting with pictures. Manual browsing remains available.</p> }
     @if (_preparing) { <p role="status">Preparing saved environment views…</p> }
     @if (_status is not null) { <p role="status">@_status</p> }
@@ -31,11 +31,11 @@
         }
         @if (_selected.Count == 0) { <p class="field-hint">Using this setup without pictures is an explicit text-only choice. The authored constraints still apply.</p> }
         <div class="inspection-reel-tools">@foreach (var reel in pool.Candidates.Where(c => c.Reel is not null).Select(c => c.Reel!).DistinctBy(r => r.Id)) {
-            <MudButton Disabled="@(_working || _preparing)" OnClick="() => IncludeReel(reel.Id)" Variant="Variant.Outlined" Size="Size.Small">Include saved views · @reel.Name</MudButton>
+            <MudButton Disabled="@(HistoryOnly || _working || _preparing)" OnClick="() => IncludeReel(reel.Id)" Variant="Variant.Outlined" Size="Size.Small">Include saved views · @reel.Name</MudButton>
         }</div>
         @if (_result is { } result) { <p>@result.Summary</p>@foreach (var warning in result.Warnings) { <p class="field-hint">@warning</p> } }
-        <div class="environment-view-grid">@foreach (var candidate in pool.Candidates.OrderByDescending(c => _selected.Contains(c.Id))) {
-            <EnvironmentViewCard ProjectId="ProjectId" Candidate="candidate" Selected="@_selected.Contains(candidate.Id)" SelectedChanged="v => Select(candidate.Id, v)" Disabled="@(_working || _preparing)" Reason="@(_result?.Views.FirstOrDefault(v => v.CandidateId == candidate.Id)?.Reason)" />
+        <div class="environment-view-grid">@foreach (var candidate in pool.Candidates) {
+            <EnvironmentViewCard @key="candidate.Id" ProjectId="ProjectId" Candidate="candidate" Selected="@_selected.Contains(candidate.Id)" SelectedChanged="v => Select(candidate.Id, v)" Disabled="@(HistoryOnly || _working || _preparing)" Reason="@(_result?.Views.FirstOrDefault(v => v.CandidateId == candidate.Id)?.Reason)" />
         }</div>
         @foreach (var warning in pool.Warnings) { <p class="field-hint">@warning</p> }
         <details><summary>Inspection accounting · @_inspected.Count/@pool.Candidates.Count available sources inspected by AI</summary>
@@ -52,20 +52,22 @@
     @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre>@_raw</pre></details> }
 </DialogContent>
 <DialogActions>
-    @if (_working) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
+    @if (HistoryOnly) { <MudButton OnClick="Back">Close</MudButton> }
+    else if (_working) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
     else {
         <MudButton OnClick="Back" Disabled="_preparing">Back</MudButton>
-        @if (_asset is null) { <MudButton OnClick="UseNone" Color="Color.Primary" Variant="Variant.Filled">Use no environment</MudButton> }
+        @if (_asset is null) { <MudButton OnClick="UseNone" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton> }
         else {
             @if (_pool is null) { <MudButton OnClick="Browse" Disabled="_preparing">Browse views</MudButton> }
             <MudButton Class="ai-assist-action" OnClick="Run" Disabled="@(_preparing || _model?.Ready != true || !_model.SupportsImages)" Variant="Variant.Outlined"><AiAssistIcon />Choose views with AI</MudButton>
-            <MudButton OnClick="Apply" Disabled="@(_preparing || _selected.Count > ComfyTextVision.MaximumImages)" Color="Color.Primary" Variant="Variant.Filled">Use for drafting</MudButton>
+            <MudButton OnClick="Apply" Disabled="@(_preparing || _selected.Count > ComfyTextVision.MaximumImages)" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton>
         }
     }
 </DialogActions>
 </InlineDialog>
 
 @code {
+    [Parameter] public bool HistoryOnly { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public AssetLibrary Library { get; set; } = null!;
     [Parameter] public EventCallback<DraftingEnvironmentSetup?> Applied { get; set; }

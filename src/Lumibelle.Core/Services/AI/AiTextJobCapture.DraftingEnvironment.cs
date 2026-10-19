@@ -8,6 +8,19 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiTextJobCapture
 {
+    public async Task<ShotDirectionContext?> CaptureDirectionContextAsync(ShotDocument document, Shot shot, CancellationToken ct = default)
+    {
+        if (ShotDirections.Context(document, shot)?.Environment is not { } accepted) return ShotDirections.Context(document, shot);
+        string? issue;
+        try {
+            var ids = accepted.InspectedViews.Select(v => DraftingEnvironments.LiveCandidateId(accepted, v)).ToHashSet();
+            var pool = await CaptureEnvironmentSourcesAsync(document.ProjectId, accepted.LiveAssetId, ids, ct);
+            issue = DraftingEnvironments.LiveSourceIssue(accepted, pool);
+        } catch (Exception e) when (e is WorkspaceStoreException or IOException or AiGenerationException) {
+            issue = "Environment evidence is unavailable. Staging, continuity and reference support need review; the captured assessment is preserved in history. " + e.Message;
+        }
+        return ShotDirections.Context(document, shot, issue);
+    }
     public async Task<bool> InspectionTooLargeAsync(AiJobSubmission submission, CancellationToken ct = default)
     {
         var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;

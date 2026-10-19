@@ -52,6 +52,12 @@ public static class ProductionPolicy
         target.SceneId = source.SceneId; target.SceneTitle = source.SceneTitle; target.SourceBlockIds = [..source.SourceBlockIds];
         target.SourceExcerpt = source.SourceExcerpt; target.Planning = source.Planning; target.Duration = source.Duration;
         target.DraftingEnvironment = ShotCopy.Of(source.DraftingEnvironment);
+        // Old documents kept inspection choices with coverage. An explicitly reviewed
+        // input choice (including false for scene inheritance) takes precedence.
+        if (target.EnvironmentInspectionDisabled is null && target.EnvironmentInspection is null) {
+            target.EnvironmentInspection = ShotCopy.Of(source.EnvironmentInspection);
+            target.EnvironmentInspectionDisabled = source.EnvironmentInspectionDisabled;
+        }
         target.Direction = ShotCopy.Of(source.Direction); target.DirectionStrategyId = source.DirectionStrategyId;
         target.Description = source.Description; target.Dialogue = ShotCopy.Of(source.Dialogue);
         target.Characters = ShotReferences.Characters(source).Select(c => c with { Appearance = looks.GetValueOrDefault(c.Id) }).ToList();
@@ -78,7 +84,8 @@ public static class ProductionPolicy
         if (shot.ContinuityFrame is { } continuity) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, ContinuityFrame = continuity });
         if (shot.EnvironmentAssetId is { } environment) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, EnvironmentAssetId = environment });
         if (shot.EnvironmentStaging is { } staging) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, EnvironmentStaging = staging });
-        if (shot.Direction is not null || shot.DirectionStrategyId is not null || shot.DraftingEnvironment is not null) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint, Direction = ShotDirections.Context(shots, shot) });
+        if (shot.Direction is not null || shot.DirectionStrategyId is not null || shot.DraftingEnvironment is not null) fingerprint = ReferenceSetups.Hash(new { Base = fingerprint,
+            Direction = ShotDirections.Context(shots, shot, DraftingEnvironments.LiveMetadataIssue(shot.DraftingEnvironment, assets)) });
         return fingerprint;
     }
     // What changed since a composition request, in the author's terms, so a changed

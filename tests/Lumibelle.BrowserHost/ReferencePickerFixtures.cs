@@ -42,6 +42,46 @@ internal static class ReferencePickerFixtures
 {
     public static void MapReferencePickerFixtures(this WebApplication app)
     {
+        app.MapPost("/fixtures/{id:guid}/copy-reference-limits", async (Guid id, IProductionStore production, IAssetStore assets, IVoiceStore voices, ProjectFiles files) => {
+            var library = await assets.LoadAsync(id);
+            var owners = library.Assets.Take(2).Select(a => a with { Category = AssetCategory.Character }).ToArray();
+            library = await assets.SaveAsync(library with { Assets = library.Assets.Select(a => owners.FirstOrDefault(o => o.Id == a.Id) ?? a).ToList() }, library.Revision);
+            for (var i = 0; i < 9; i++) {
+                await using var picture = new MemoryStream(MockImages.Png(i % 3));
+                library = await assets.AddImageAsync(id, owners[0].Id, picture, new("view.png", [$"View {i + 1}"], AssetImageOrigin.Imported, new()), library.Revision);
+            }
+            foreach (var owner in owners) {
+                using var wave = new MemoryStream();
+                using (var writer = new BinaryWriter(wave, System.Text.Encoding.UTF8, true)) {
+                    var bytes = 32000 * 2 * 8;
+                    writer.Write("RIFF"u8); writer.Write(36 + bytes); writer.Write("WAVEfmt "u8); writer.Write(16);
+                    writer.Write((short)1); writer.Write((short)1); writer.Write(32000); writer.Write(64000); writer.Write((short)2); writer.Write((short)16);
+                    writer.Write("data"u8); writer.Write(bytes); writer.Write(new byte[bytes]);
+                }
+                wave.Position = 0;
+                library = await voices.AddVoiceAsync(id, owner.Id, wave, "voice.wav", owner.Name + " voice", 0, 8, new(), library.Revision);
+            }
+            var document = await production.InitializeAsync(id); var source = document.Compositions[0];
+            var imageOwner = library.Assets.First(a => a.Id == owners[0].Id);
+            source.Shot.Images = imageOwner.Images.TakeLast(9).Select(image => ReferenceSetups.Bind(imageOwner, image, source.Shot)).ToList();
+            source.Shot.Videos = library.Reels.Take(2).Select(r => new ShotVideoBinding { Name = r.Name, Media = r.Media, UseSoundtrack = false }).ToList();
+            source.Shot.Dialogue = [];
+            foreach (var owner in owners) {
+                var choice = new CharacterVoiceSelection { AssetId = owner.Id, CharacterName = owner.Name, SpeakerConfirmed = true };
+                CharacterVoices.SelectRecording(choice, library.Voices.Single(v => v.AssetId == owner.Id), false);
+                CharacterVoices.Set(source.Shot, choice, library);
+            }
+            // A saved older setup can exceed current combined limits; the copy editor must repair it.
+            document.ShotContent[0] = ShotProductionContent.From(source);
+            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            return new { names = owners.Select(o => o.Name).ToArray() };
+        });
+        app.MapPost("/fixtures/{id:guid}/historical-environment-selection", async (Guid id, AiTextJobCapture capture, IProductionStore production, AiJobCoordinator jobs) => {
+            var c = (await production.LoadAsync(id)).Compositions.First();
+            var input = await capture.CaptureEnvironmentViewsAsync(id, c.Id, c.Version, false, false);
+            return await jobs.EnqueueAsync(await capture.SelectEnvironmentViewsAsync(Guid.NewGuid(), Guid.NewGuid(), input,
+                input.Request.Pool.Select(v => v.Id).ToArray(), [], true, new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model"), false));
+        });
         app.MapGet("/fixtures/{id:guid}/environment-setup", async (Guid id, IProductionStore production) => {
             var c = (await production.LoadAsync(id)).Compositions[0]; return new { c.Id, c.ShotId, c.Shot, c.Prompt };
         });

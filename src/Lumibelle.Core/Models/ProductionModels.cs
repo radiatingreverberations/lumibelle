@@ -50,6 +50,10 @@ public sealed record ShotProductionContent
     public Guid? EnvironmentAssetId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EnvironmentShotStaging? EnvironmentStaging { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? EnvironmentInspectionDisabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DraftingEnvironmentSetup? EnvironmentInspection { get; set; }
     public string Prompt { get; set; } = "";
     public string DirectingNotes { get; set; } = "";
     public string RevisionNotes { get; set; } = "";
@@ -72,7 +76,7 @@ public sealed record ShotProductionContent
     public ShotContinuityFrame? ContinuityFrame { get; set; }
 
     public static ShotProductionContent From(ProductionComposition c) => ShotCopy.Of(new ShotProductionContent {
-        ShotId = c.ShotId, EnvironmentAssetId = c.Shot.EnvironmentAssetId, EnvironmentStaging = c.Shot.EnvironmentStaging, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
+        ShotId = c.ShotId, EnvironmentInspectionDisabled = c.Shot.EnvironmentInspectionDisabled, EnvironmentInspection = c.Shot.EnvironmentInspection, EnvironmentAssetId = c.Shot.EnvironmentAssetId, EnvironmentStaging = c.Shot.EnvironmentStaging, Prompt = c.Prompt, DirectingNotes = c.DirectingNotes, RevisionNotes = c.RevisionNotes,
         ReferenceUsage = c.ReferenceUsage, AppliedJobId = c.AppliedJobId, ReviewJobId = c.ReviewJobId,
         AcceptedRevisionId = c.AcceptedRevisionId, History = c.History, CharacterVoices = c.Shot.CharacterVoices,
         Images = c.Shot.Images, Voices = c.Shot.Voices, Videos = c.Shot.Videos, AspectOverride = c.Shot.AspectOverride, Loras = c.Shot.ShotLoras,
@@ -82,6 +86,7 @@ public sealed record ShotProductionContent
     {
         var copy = ShotCopy.Of(this);
         c.Shot.EnvironmentAssetId = copy.EnvironmentAssetId;
+        c.Shot.EnvironmentInspectionDisabled = copy.EnvironmentInspectionDisabled; c.Shot.EnvironmentInspection = copy.EnvironmentInspection;
         c.Shot.EnvironmentStaging = copy.EnvironmentStaging;
         c.Prompt = copy.Prompt; c.DirectingNotes = copy.DirectingNotes; c.RevisionNotes = copy.RevisionNotes;
         c.ReferenceUsage = copy.ReferenceUsage; c.AppliedJobId = copy.AppliedJobId; c.ReviewJobId = copy.ReviewJobId;

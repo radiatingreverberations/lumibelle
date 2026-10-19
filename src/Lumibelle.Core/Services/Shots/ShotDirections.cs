@@ -8,6 +8,23 @@ namespace lumibelle.Services.Shots;
 
 public static class ShotDirections
 {
+    // Durable direction retains full source snapshots for history and freshness checks.
+    // Prompts need their reviewed meaning, not the reel generation jobs nested in every view.
+    public static object? PromptContext(ShotDirectionContext? context) => context is null ? null : new {
+        context.Strategy, context.Intent, context.ProposedStaging, context.Editorial, context.Advanced, context.Limitations,
+        Environment = context.Environment is { } environment ? new {
+            environment.Snapshot.Id, environment.Snapshot.AssetId, environment.Snapshot.AssetName,
+            environment.Snapshot.Guidance, environment.Snapshot.Constraints, environment.Assessment,
+            EvidenceScope = "Historical drafting assessment and its inspected source identities; these are not additional pictures attached to this request or verified geometry.",
+            Views = environment.InspectedViews.Select(view => new {
+                view.Id, view.Name, view.Approved, view.Notes, view.Sha256,
+                MediaId = view.Keyframe?.Frame.MediaId ?? view.Image?.MediaId,
+                ReelId = view.Reel?.Id, ReelName = view.Reel?.Name,
+                KeyframeId = view.Keyframe?.Id, Timestamp = view.Keyframe?.Frame.Seconds,
+                Crop = view.Keyframe?.Crop ?? view.Image?.Crop
+            })
+        } : null
+    };
     public static string StyleName(DirectingStyle style) => style switch {
         DirectingStyle.PrestigeDrama => "Prestige Drama", DirectingStyle.KineticAction => "Kinetic Action",
         DirectingStyle.EnsembleClassical => "Ensemble / Classical", DirectingStyle.PerformanceComedy => "Performance Comedy", _ => "Auto"
@@ -97,15 +114,15 @@ public static class ShotDirections
             return "Environment setup changed. Staging is based on the earlier captured views and constraints; review or redraft before adopting the new setup.";
         return null;
     }
-    public static DirectionFreshness Freshness(ShotDocument document, Shot shot)
+    public static DirectionFreshness Freshness(ShotDocument document, Shot shot, string? liveEnvironmentIssue = null)
     {
         var freshness = Freshness(shot, Strategy(document, shot), Neighbours(document, shot));
-        return EnvironmentIssue(document, shot) is { } issue ? freshness with { Staging = false, Continuity = false, ReferenceSupport = false, Limitations = [.. freshness.Limitations, issue] } : freshness;
+        return (EnvironmentIssue(document, shot) ?? liveEnvironmentIssue) is { } issue ? freshness with { Staging = false, Continuity = false, ReferenceSupport = false, Limitations = [.. freshness.Limitations, issue] } : freshness;
     }
-    public static ShotDirectionContext? Context(ShotDocument document, Shot shot)
+    public static ShotDirectionContext? Context(ShotDocument document, Shot shot, string? liveEnvironmentIssue = null)
     {
         var context = Context(shot, Strategy(document, shot), Neighbours(document, shot));
-        return context is not null && EnvironmentIssue(document, shot) is { } issue
+        return context is not null && (EnvironmentIssue(document, shot) ?? liveEnvironmentIssue) is { } issue
             ? context with { ProposedStaging = null, Advanced = null, Environment = null, Limitations = [.. context.Limitations, issue] } : context;
     }
     public static void ValidateStrategies(IEnumerable<DirectionStrategy> strategies)

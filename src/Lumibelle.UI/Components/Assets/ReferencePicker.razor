@@ -6,11 +6,14 @@
     </div>
     <div class="manual-reference-columns @(SelectedTab ? "show-selected" : "show-browse")">
         <section id="@(_id + "-browse")" class="reference-browser" aria-label="Browse references">
-            <h3>@(IncludeReels ? "Add from Assets" : "Add images from Assets")</h3>
+            <h3>@(BrowserTitle ?? (IncludeReels ? "Add from Assets" : "Add images from Assets"))</h3>
+            @BrowserSources
             @BrowserNotice
+            @if (UseCustomBrowser) { @BrowserContent } else {
             <ProjectImagePicker Library="Library" BrowseOnly="true" IncludeReels="IncludeReels" OnlyKind="@OnlyKind"
                 Maximum="@(Disabled ? 0 : Maximum)" Excluded="Excluded" ImagePicked="ImagePicked"
                 MaximumReels="@(Disabled ? 0 : MaximumReels)" ExcludedVideoMedia="ExcludedVideoMedia" ReferencePicked="ReferencePicked" ReelAction="@ReelAction" ImageAction="@ImageAction" />
+            }
         </section>
         <section id="@(_id + "-selected")" class="reference-selection" aria-label="Selected references">
             @if (SelectionToolbar is not null) { <div class="reference-selection-toolbar">@SelectionToolbar</div> }
@@ -39,6 +42,10 @@
     [Parameter] public EventCallback<bool> SelectedTabChanged { get; set; }
     [Parameter] public RenderFragment? Toolbar { get; set; }
     [Parameter] public RenderFragment? BrowserNotice { get; set; }
+    [Parameter] public string? BrowserTitle { get; set; }
+    [Parameter] public RenderFragment? BrowserSources { get; set; }
+    [Parameter] public RenderFragment? BrowserContent { get; set; }
+    [Parameter] public bool UseCustomBrowser { get; set; }
     [Parameter] public RenderFragment? SelectionToolbar { get; set; }
     [Parameter, EditorRequired] public RenderFragment Selection { get; set; } = null!;
     [Parameter, EditorRequired] public RenderFragment Footer { get; set; } = null!;

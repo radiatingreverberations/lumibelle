@@ -112,10 +112,20 @@ app.MapPost("/fixtures/{id:guid}/production-shot", async (Guid id, IShotStore sh
     return await shots.SaveAsync(id, [..d.Shots, source], d.Revision);
 });
 app.MapGet("/fixtures/{id:guid}/preferences", async (Guid id, IProjectAiPreferencesStore store) => await store.LoadAsync(id));
+app.MapPost("/fixtures/{id:guid}/long-shot-list", async (Guid id, IShotStore shots) => {
+    var doc = await shots.LoadAsync(id);
+    return await shots.SaveAsync(id, Enumerable.Range(1, 60).Select(i => new Shot { Title = $"Shot {i}", Description = "A held view.", Duration = 5 }).ToList(), doc.Revision);
+});
+app.MapPost("/fixtures/{id:guid}/long-scene-list", async (Guid id, IScriptStore scripts) => {
+    var d = await scripts.LoadAsync(id);
+    d = await scripts.SaveAsync(d with { Blocks = Enumerable.Range(1, 60).SelectMany(i => new[] { ScriptBlock.Create(ScriptBlockKind.Scene, $"INT. ROOM {i} - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "A held view.") }).ToList() }, d.Revision);
+    await scripts.ApproveAsync(id, d.Revision);
+    return d.Blocks.Where(b => b.Kind == ScriptBlockKind.Scene).ToArray();
+});
 app.MapGet("/fixtures/ai-jobs/{id:guid}/text-selection", async (Guid id, IAiJobStore store) => {
     var job = (await store.ReadAsync()).Jobs.Single(j => j.Id == id);
     var request = AiTextJobHandler.Read(job, await store.ReadSnapshotAsync(id));
-    return new { request.Model, SelectionSource = request.SelectionSource?.ToString(), request.FollowsDefault, request.Task, Text = request.Messages.SelectMany(m => m.Parts).Where(p => p.Text is not null).Select(p => p.Text).ToArray() };
+    return new { ImageCount = request.Messages.Sum(m => m.Parts.Count(p => p.Image is not null)), request.Model, SelectionSource = request.SelectionSource?.ToString(), request.FollowsDefault, request.Task, Text = request.Messages.SelectMany(m => m.Parts).Where(p => p.Text is not null).Select(p => p.Text).ToArray() };
 });
 app.MapPost("/fixtures/{id:guid}/environment-reel-owner", async (Guid id, IAssetStore assets) => {
     var library = await assets.LoadAsync(id); var owner = library.Assets[0];
@@ -448,7 +458,12 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 envelope["contractVersion"] = 5;
                 foreach (var strategy in envelope["sceneStrategies"]!.AsArray()) {
                     var environment = environments.EnumerateArray().First(e => e.GetProperty("sceneId").GetString() == strategy!["sceneId"]!.GetValue<string>());
-                    strategy!["environmentAssessment"] = JsonSerializer.SerializeToNode(new DraftingEnvironmentAssessment { Summary = "Use the visible standing side and preserve the oversized podium.", MissingCoverage = "The reverse sightline is not established." }, AtomicJsonFile.Options);
+                    var views = environment.GetProperty("views").EnumerateArray().ToArray();
+                    strategy!["environmentAssessment"] = JsonSerializer.SerializeToNode(new DraftingEnvironmentAssessment {
+                        Summary = "Use the visible standing side and preserve the oversized podium.", MissingCoverage = "The reverse sightline is not established.",
+                        Claims = views.Length == 0 ? [] : [new("The platform is established.", ReferenceSupportStatus.Supported, [views[0].GetProperty("candidateId").GetString()!]),
+                            new("The route is clear.", ReferenceSupportStatus.Inferred, [])]
+                    }, AtomicJsonFile.Options);
                 }
             }
         }

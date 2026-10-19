@@ -8,7 +8,10 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiTextJobCapture
 {
-    public async Task<EnvironmentSourcePool> CaptureEnvironmentSourcesAsync(Guid projectId, Guid assetId, CancellationToken ct = default)
+    public Task<EnvironmentSourcePool> CaptureEnvironmentSourcesAsync(Guid projectId, Guid assetId, CancellationToken ct = default)
+        => CaptureEnvironmentSourcesAsync(projectId, assetId, null, ct);
+    // Accepted direction rechecks only the pictures it inspected, not unrelated library additions.
+    private async Task<EnvironmentSourcePool> CaptureEnvironmentSourcesAsync(Guid projectId, Guid assetId, IReadOnlySet<string>? selected, CancellationToken ct)
     {
         var library = await assets.LoadAsync(projectId, ct);
         var owner = library.Assets.SingleOrDefault(a => a.Id == assetId && a.Category == AssetCategory.Environment)
@@ -17,7 +20,7 @@ public sealed partial class AiTextJobCapture
         var configured = Copy(await settings.LoadAsync(ct));
         var pictures = new Dictionary<string, byte[]>(); var pool = new List<EnvironmentViewCandidate>(); var warnings = new List<string>();
         var unavailable = new List<EnvironmentSourceIssue>();
-        foreach (var image in owner.Images.OrderByDescending(i => i.IsReference).ThenBy(i => i.Id)) {
+        foreach (var image in owner.Images.Where(i => selected is null || selected.Contains("image/" + i.Id)).OrderByDescending(i => i.IsReference).ThenBy(i => i.Id)) {
             ct.ThrowIfCancellationRequested();
             try {
                 var png = await PrepareImageAsync(projectId, new(owner.Id, image.Id), null, ct);
@@ -33,11 +36,12 @@ public sealed partial class AiTextJobCapture
             }
         }
         foreach (var reel in library.Reels.Where(r => r.AssetId == owner.Id).OrderBy(r => r.Id)) {
+            if (selected is not null && !selected.Any(id => id.StartsWith($"reel/{reel.Id}/", StringComparison.Ordinal))) continue;
             if (reel.Keyframes?.Frames.Count is not > 0) {
                 var warning = $"{reel.Name}: needs keyframes. Choose viewpoints in Assets before using its other angles.";
                 warnings.Add(warning); unavailable.Add(new("reel/" + reel.Id, reel.Name, warning)); continue;
             }
-            foreach (var frame in reel.Keyframes.Frames) {
+            foreach (var frame in reel.Keyframes.Frames.Where(f => selected is null || selected.Contains($"reel/{reel.Id}/{f.Id}"))) {
                 ct.ThrowIfCancellationRequested();
                 try {
                     await using var media = await referenceVideos!.OpenFrameAsync(projectId, frame.Frame, configured.H3, ct);
@@ -74,7 +78,7 @@ public sealed partial class AiTextJobCapture
             string.Join("\n", owner.Description, owner.PreservationGuidance), c.Shot.Copy(), c.DirectingNotes,
             includeSceneText ? context.SceneText : "", includeNearbyShots ? context.NearbyShots : [],
             EnvironmentViews.Context(c.Shot, c.DirectingNotes), EnvironmentViews.Sources(library, owner.Id), pool, [], [], 9, false, warnings)
-            { DirectionContext = ShotDirections.Context(source, c.Shot), IncludeSceneText = includeSceneText, IncludeNearbyShots = includeNearbyShots, CurrentPrompt = c.Prompt, RevisionNotes = c.RevisionNotes };
+            { DirectionContext = await CaptureDirectionContextAsync(source, c.Shot, ct), IncludeSceneText = includeSceneText, IncludeNearbyShots = includeNearbyShots, CurrentPrompt = c.Prompt, RevisionNotes = c.RevisionNotes };
         if (EnvironmentViews.Sources(await assets.LoadAsync(projectId, ct), owner.Id) != request.SourceFingerprint)
             throw new WorkspaceStoreException("The environment changed during inspection preparation. Try again.");
         return new(request, pictures, configured);
@@ -103,7 +107,7 @@ public sealed partial class AiTextJobCapture
             throw new WorkspaceStoreException("The prompt or revision notes changed. Review a fresh environment selection before applying.");
         var source = await shots!.LoadAsync(r.ProjectId, ct);
         var sourceShot = source.Shots.Single(s => s.Id == current.Id);
-        if (ShotDirections.Hash(r.DirectionContext) != ShotDirections.Hash(ShotDirections.Context(source, latest.Shot)))
+        if (ShotDirections.Hash(r.DirectionContext) != ShotDirections.Hash(await CaptureDirectionContextAsync(source, latest.Shot, ct)))
             throw new WorkspaceStoreException("The direction strategy or dependent shot context changed. Review a fresh environment selection.");
         var context = await ScriptContextAsync(r.ProjectId, document, source, sourceShot, ct);
         if ((r.IncludeSceneText && r.SceneContext != context.SceneText) ||

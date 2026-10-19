@@ -9,7 +9,8 @@
 <InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })"
     Class="environment-view-dialog" Title="Choose environment views" Context="@_request?.AssetName" CloseDisabled="@(_working || _applying)">
 <DialogContent>
-    @if (_open) {
+    @if (HistoryOnly) { <p>This saved selection is read-only. Use Edit references to change the pictures attached to a shot.</p> }
+    @if (_open && !HistoryOnly) {
         <details class="environment-options" open="@(_request is null)"><summary>Environment and context</summary>
         <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_assetId" AssetIdChanged="SelectEnvironment" Disabled="@(_working || _preparing || _applying)" />
             <div class="environment-selection-options">
@@ -24,13 +25,14 @@
     }
     @if (_preparing) { <p role="status">Preparing environment pictures…</p> }
     @if (_job is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }
-    @if (_status is not null) { <p role="status">@_status</p> }
+    @if (_status is not null && !HistoryOnly) { <p role="status">@_status</p> }
     @if (_history.Length > 0 && !_working) { <details class="environment-history"><summary>Previous selections · @_history.Length</summary><label>Saved selection<select aria-label="Saved environment selection" value="@_job?.Id" @onchange="HistoryChanged" disabled="@(_preparing || _applying)">
         <option value="">Choose a saved selection…</option>
         @foreach (var saved in _history) { <option value="@saved.Id">@saved.CreatedUtc.ToLocalTime().ToString("g") · @saved.State</option> }
     </select></label></details> }
     @if (_error is not null) { <p role="alert">@_error</p> }
     @if (_request is { } request) {
+        <fieldset disabled="@HistoryOnly"><legend class="sr-only">Historical environment selection</legend>
         <section class="environment-staging-review" aria-label="Reference-supported staging">
             <h3>Reference-supported staging</h3>
             <p class="field-hint">Confirm positions, facing and camera. Inferences are not confirmed geometry. Review staging again if you change views.</p>
@@ -75,13 +77,15 @@
             <div class="environment-view-grid">@foreach (var c in request.Pool.Where(c => !_selected.Contains(c.Id))) { @ViewCard(c) }</div>
         </details>
         @if (request.Pool.Count == 0) { <p>No usable images or saved views. Add images or save reel keyframes in Assets.</p> }
+        </fieldset>
     }
     @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre class="environment-response">@_raw</pre></details> }
 </DialogContent>
 <DialogActions>
     @if (_request is not null && StageIssue is { } issue) { <p class="environment-apply-issue" role="status">@issue</p> }
     <div class="environment-review-actions">
-    @if (_working) { <MudButton OnClick="CancelRequest">Cancel request</MudButton> }
+    @if (HistoryOnly) { <MudButton OnClick="Close">Close</MudButton> }
+    else if (_working) { <MudButton OnClick="CancelRequest">Cancel request</MudButton> }
     else {
         <MudButton OnClick="Close" Disabled="@_applying">Cancel</MudButton>
         @if (_request is null && _assetId is not null) {
@@ -99,6 +103,7 @@
 </InlineDialog>
 
 @code {
+    [Parameter] public bool HistoryOnly { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid CompositionId { get; set; }
     [Parameter] public long CompositionVersion { get; set; }
@@ -182,6 +187,7 @@
     private Task PrepareManual() => Prepare(run: false);
     private async Task Prepare(bool run)
     {
+        if (HistoryOnly) return;
         if (run && (_picker is null || !await _picker.PrepareSubmitAsync() || _model is null)) return;
         await Capture(_version, _model, _scene, _nearby, run);
     }
@@ -219,6 +225,7 @@
     }
     private async Task Run()
     {
+        if (HistoryOnly) return;
         if (_working || _capture is null || _model is null) return;
         if (_picker is null || !await _picker.PrepareSubmitAsync()) return;
         _working = true; _error = null; _selected.Clear(); _result = null; _browsing = false;
@@ -288,6 +295,7 @@
     }
     private async Task Apply()
     {
+        if (HistoryOnly) return;
         if (_applying || StageIssue is not null) return;
         _applying = true; _error = null;
         try { await Applied.InvokeAsync(Application); _open = false; }

@@ -43,7 +43,7 @@ public static class EnvironmentViews
             throw new WorkspaceStoreException("The environment inspection pictures changed.");
         var retained = Retained(r.Shot, r.RemovedBindings);
         var text = JsonSerializer.Serialize(new { profile = Profile, r.AssetName, r.Guidance, r.Shot.Title, r.Shot.Description,
-            r.Shot.Dialogue, r.DirectionContext, r.Shot.Atmosphere, r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.SceneContext, r.NearbyShots, maximumViews = r.MaximumViews,
+            r.Shot.Dialogue, DirectionContext = ShotDirections.PromptContext(r.DirectionContext), r.Shot.Atmosphere, r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.SceneContext, r.NearbyShots, maximumViews = r.MaximumViews,
             remainingReelBindings = 3 - ReferenceVideos.ReelSlotCount(retained), existingImages = retained.Images.Select(i => new { i.Name, i.Notes, i.Role }),
             existingReels = retained.Videos.Select(v => new { v.Name, v.Description, v.Keyframes }),
             continuityFrame = retained.ContinuityFrame, r.Warnings,

@@ -16,8 +16,25 @@
             <details><summary>Evidence and assumptions</summary>
                 @if (ReadOnly) { <p>@accepted.Assessment.Assumptions</p> }
                 else { <label>Assumptions<textarea rows="2" value="@accepted.Assessment.Assumptions" @oninput="e => Edit(a => a.Assumptions = e.Value?.ToString() ?? string.Empty)" /></label> }
-                @foreach (var claim in accepted.Assessment.Claims) { <p><strong>@claim.Status:</strong> @claim.Claim <small>@string.Join(" · ", claim.CandidateIds.Select(id => accepted.Snapshot.Views.FirstOrDefault(v => v.Id == id)?.Name ?? id))</small></p> }
-                @foreach (var view in accepted.Snapshot.Views) { <p class="field-hint">@view.Name @if (view.Reel is not null) { <span>· @view.Reel.Name · @view.Keyframe!.Frame.Seconds.ToString("0.###") s</span> }</p> }
+                @if (_claimError is not null) { <p class="field-error" role="alert">@_claimError</p> }
+                @foreach (var entry in accepted.Assessment.Claims.Select((claim, index) => (Claim: claim, Index: index))) {
+                    var claim = entry.Claim;
+                    @if (ReadOnly) { <p><strong>@claim.Status:</strong> @claim.Claim <small>@string.Join(" · ", claim.CandidateIds.Select(id => accepted.InspectedViews.FirstOrDefault(v => v.Id == id)?.Name ?? id))</small></p> }
+                    else {
+                        <details class="environment-claim"><summary>@claim.Status · @claim.Claim</summary>
+                            <label>Claim text<textarea rows="2" value="@claim.Claim" @oninput="e => ChangeClaim(entry.Index, current => current with { Claim = e.Value?.ToString() ?? string.Empty })" /></label>
+                            <label>Claim support<select @bind:get="claim.Status" @bind:set="value => ChangeClaim(entry.Index, current => current with { Status = value })">@foreach (var status in Enum.GetValues<ReferenceSupportStatus>()) { <option value="@status">@status</option> }</select></label>
+                            <fieldset><legend>Evidence pictures</legend>
+                                @foreach (var view in accepted.InspectedViews) {
+                                    <label class="check-row"><input type="checkbox" @bind:get="claim.CandidateIds.Contains(view.Id)" @bind:set="value => ChangeEvidence(entry.Index, view.Id, value)" />@view.Name @if (view.Reel is not null) { <span>· @view.Reel.Name · @view.Keyframe!.Frame.Seconds.ToString("0.###") s</span> }</label>
+                                }
+                                @if (!accepted.InspectedViews.Any()) { <p class="field-hint">No pictures were inspected in this request.</p> }
+                            </fieldset>
+                            <button type="button" @onclick="() => Edit(a => a.Claims.RemoveAt(entry.Index))">Remove claim</button>
+                        </details>
+                    }
+                }
+                @foreach (var view in accepted.InspectedViews) { <p class="field-hint">@view.Name @if (view.Reel is not null) { <span>· @view.Reel.Name · @view.Keyframe!.Frame.Seconds.ToString("0.###") s</span> }</p> }
             </details>
         </details>
     </section>
@@ -27,5 +44,15 @@
     [Parameter] public EventCallback<AcceptedDraftingEnvironment> ValueChanged { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public string? Issue { get; set; }
-    private Task Edit(Action<DraftingEnvironmentAssessment> edit) { var copy = ShotCopy.Of(Value!); edit(copy.Assessment); return ValueChanged.InvokeAsync(copy); }
+    private string? _claimError;
+    private Task ChangeClaim(int index, Func<EnvironmentSupportClaim, EnvironmentSupportClaim> change) => Edit(a => a.Claims[index] = change(a.Claims[index]));
+    private Task ChangeEvidence(int index, string id, bool selected) =>
+        ChangeClaim(index, claim => claim with { CandidateIds = selected ? claim.CandidateIds.Append(id).Distinct().ToArray() : claim.CandidateIds.Where(c => c != id).ToArray() });
+    private Task Edit(Action<DraftingEnvironmentAssessment> edit) {
+        var copy = ShotCopy.Of(Value!); edit(copy.Assessment);
+        try { DraftingEnvironments.ValidateAssessment(copy); _claimError = null; }
+        catch (WorkspaceStoreException e) { _claimError = e.Message; return Task.CompletedTask; }
+        Value = copy;
+        return ValueChanged.InvokeAsync(copy);
+    }
 }

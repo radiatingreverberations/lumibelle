@@ -6,6 +6,11 @@ internal static class CutFixtures
 {
     public static void MapCutFixtures(this WebApplication app)
     {
+        app.MapPost("/fixtures/{id:guid}/select-saved-take/{takeId:guid}", async (Guid id, Guid takeId, IShotStore store) => {
+            var doc = await store.LoadAsync(id); var take = doc.Takes.Single(t => t.Id == takeId);
+            doc.Shots.Single(s => s.Id == take.ShotId).SelectedTakeId = take.Id;
+            return await store.SaveAsync(id, doc.Shots, doc.Revision);
+        });
         app.MapPost("/fixtures/{id:guid}/reference-video-take", async (Guid id, IShotStore store, IVideoGenerator generator) =>
         {
             var doc = await store.LoadAsync(id); var shot = doc.Shots.Last().Copy(); shot.Duration = 5; shot.Description += " KEYFRAME_FIXTURE";

@@ -34,6 +34,7 @@ public partial class ProductionStudio
             var saved = await Store.SaveDirectedWorkspaceAsync(Id, state.Shots, state.SceneSetups, state.DirectionStrategies, latest.Revision, ct: _lifetime.Token);
             Baseline(saved); if (version == _version) { _doc = saved; _coverageDirty = false; } else MergeMedia(saved);
         }
+        if (ScenesMode) return;
         var initialized = await Production.InitializeAsync(Id, _lifetime.Token);
         foreach (var c in initialized.Compositions.Where(c => _production.Compositions.All(x => x.Id != c.Id))) _production.Compositions.Add(c);
         if (Current?.ShotId != _selected) { _compositionId = _production.Compositions.FirstOrDefault(c => c.ShotId == _selected && !c.Archived)?.Id; await ApplySelectedGlobalSetup(); _savedComposition = Current?.Copy(); }

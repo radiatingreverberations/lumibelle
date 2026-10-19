@@ -9,7 +9,16 @@ for (const width of [1440, 430]) {
     await page.goto(`/projects/${id}/shots`);
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
     await openPlanning(page);
-    await planningComposer(page).getByRole('checkbox', { name: /RILEY'S BEDROOM/ }).uncheck();
+    const composer = planningComposer(page);
+    const scene = composer.getByRole('combobox', { name: 'Script scene', exact: true });
+    await expect(scene).toHaveValue(scenes.bedroom);
+    await expect(scene).not.toHaveAttribute('multiple');
+    await expect(composer.locator('.draft-environment-summary')).toHaveCount(1);
+    await scene.selectOption('');
+    await expect(composer.getByRole('button', { name: 'Draft shots', exact: true })).toBeDisabled();
+    await scene.selectOption(scenes.plaza);
+    await page.screenshot({ path: `test-results/single-scene-drafting-${width}.png`, fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await submitPlanning(page);
     const review = page.locator('.shot-planning-dialog');
     await review.getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
@@ -17,7 +26,7 @@ for (const width of [1440, 430]) {
     await expect.poll(async () => (await state()).shots.length).toBe(2);
     expect((await state()).shots.map(s => s.sceneId)).toEqual([scenes.plaza, scenes.bedroom]);
     await expect(review).toBeHidden();
-    await expect(page.locator('section.shot-direction')).not.toContainText('Needs review');
+    await expect(page.locator('.scene-hub-section').first()).toBeVisible();
     await page.reload();
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
     expect((await state()).shots.map(s => s.sceneId)).toEqual([scenes.plaza, scenes.bedroom]);
@@ -62,7 +71,7 @@ for (const width of [1440, 430]) {
     expect(saved.shots[0].directionStrategyId).toBe(saved.directionStrategies[0].id);
     expect(saved.shots[0].direction.intent.purpose).toBe('Make the hesitation matter');
     await expect(review).toBeHidden();
-    await expect(page.locator('section.shot-direction')).not.toContainText('Needs review');
+    await expect(page.getByRole('region', { name: 'Shot direction', exact: true })).toContainText('Make the hesitation matter');
     await openPlanning(page);
     await expect(planningComposer(page).getByRole('combobox', { name: 'Direction style', exact: true })).toHaveValue('PerformanceComedy');
   });

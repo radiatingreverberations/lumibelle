@@ -11,6 +11,7 @@ public partial class ProductionStudio
 
     private async Task ApplySelectedGlobalSetup()
     {
+        if (ScenesMode) return;
         _globalSetups = await GenerationSetups.LoadAsync(_lifetime.Token);
         var selected = _globalSetups.Setups.FirstOrDefault(s => s.Id == _globalSetups.SelectedId && !s.Archived)
             ?? _globalSetups.Setups.FirstOrDefault(s => s.Id == Current?.GenerationSetupId && !s.Archived)
