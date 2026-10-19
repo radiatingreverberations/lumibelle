@@ -41,7 +41,7 @@ jobs:
           cache: npm
 
       - name: Install FFmpeg
-        run: choco install ffmpeg --no-progress -y
+        run: ./build/install-ci-ffmpeg.ps1
 
       - run: npm ci
 
@@ -93,7 +93,7 @@ jobs:
 
       # The browser host's video mock creates playable test media with FFmpeg.
       - name: Install FFmpeg
-        run: choco install ffmpeg --no-progress -y
+        run: ./build/install-ci-ffmpeg.ps1
 
       - run: npm ci
 
