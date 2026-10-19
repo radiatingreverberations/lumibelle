@@ -73,7 +73,11 @@ for (const width of [1440, 430]) test(`scene setup, drafting and manual referenc
   await expect(review.getByLabel('Set assessment')).toHaveValue(/visible standing side/);
   await review.getByLabel('Dramatic progression', { exact: true }).fill('Reveal the obstruction before the reaction.');
   await review.getByRole('button', { name: 'Close', exact: true }).click();
+  // Close flushes the pending review on the server. A click alone does not wait for that save.
+  await expect(review).toBeHidden();
   const job = (await (await request.get('/fixtures/ai-jobs')).json()).find(j => j.target.projectId === id && j.kind === 'ShotPlanning');
+  const savedReview = await (await request.get(`/fixtures/ai-jobs/${job.id}/review`)).json();
+  expect(savedReview.value.strategies[0].dramaticProgression).toBe('Reveal the obstruction before the reaction.');
   await page.goto(`/projects/${id}/scenes?sceneId=${setup.sceneId}&jobId=${job.id}`);
   await expect(review.getByLabel('Dramatic progression', { exact: true })).toHaveValue('Reveal the obstruction before the reaction.');
   await review.getByRole('button', { name: 'Add reviewed shots', exact: true }).click();
