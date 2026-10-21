@@ -90,6 +90,9 @@ public static class AiTextResults
             case AiJobKind.PromptComposition:
                 try { return Value(result, lumibelle.Services.Production.PromptComposer.Parse(raw, request.Payload<PromptCompositionRequest>())); }
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.SourceAnalysis:
+                try { return Value(result, SourceAnalysis.Parse(raw, request.Payload<SourceAnalysisRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.Guidance:
                 var guidance = PromptEnhancer.Parse(raw);
                 return guidance is null || guidance.Text.Length > 12000

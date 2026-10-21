@@ -3,7 +3,7 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Models;
 
-public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection }
+public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection, SourceAnalysis }
 public enum AiJobState { Waiting, Running, NeedsAttention, Completed, Cancelled }
 public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain }
 
@@ -25,6 +25,7 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         AiJobKind.ReelVideo => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/video",
         AiJobKind.RefModBuild => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/refmod",
         AiJobKind.ScriptAssistant => $"{ProjectId}/script",
+        AiJobKind.SourceAnalysis => $"{ProjectId}/source",
         AiJobKind.AssetExtraction => $"{ProjectId}/extraction",
         // A scene breakdown locks the project's planning; drafting one shot in place locks only that shot.
         AiJobKind.ShotPlanning => ShotId is { } drafted ? $"{ProjectId}/shots/{drafted}/draft" : $"{ProjectId}/planning",
@@ -119,6 +120,7 @@ public sealed record AiJobHeader
         AiJobKind.RefModBuild => $"/projects/{project}/refmods/{Id}",
         AiJobKind.ReelViewSuggestion => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.ScriptAssistant => $"/projects/{project}/script?jobId={Id}",
+        AiJobKind.SourceAnalysis => $"/projects/{project}/source?jobId={Id}",
         AiJobKind.ReelComposition or AiJobKind.ReelVideo => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.Video or AiJobKind.PromptComposition => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}" + (Target.CompositionId is { } composition ? $"&setupId={composition}" : "") + (Kind == AiJobKind.Video ? "&view=Takes" : "&view=Prompt"),
         AiJobKind.ShotPlanning => $"/projects/{project}/shots?jobId={Id}" + (Target.ShotId is { } shot ? $"&shotId={shot}" : ""),

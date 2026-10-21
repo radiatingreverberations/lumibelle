@@ -142,9 +142,20 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var model = request.Selection ?? TextModelPolicy.Reference(request.Run.Backend, request.Run.Model, request.Run.Model, configured);
         if (request.Run.Backend != model.Backend || request.Run.Model != model.Model) throw new AiGenerationException("The script request and model selection do not match.");
         ScriptStructure.ValidateBlocks(request.Script.Blocks);
+        if (request.Images.Count > 0)
+        {
+            if (!TextVisionPolicy.SupportsBackend(model.Backend)) throw new AiGenerationException(TextVisionPolicy.SetupHint);
+            if (providers is not null)
+            {
+                var check = await providers.CheckAsync(model.Backend, ComfyTextSettings.Capture(model, configured), cancellationToken: ct);
+                if (check.Models.FirstOrDefault(m => m.Id == model.Model)?.SupportsImages != true)
+                    throw new AiGenerationException(TextVisionPolicy.SetupHint);
+            }
+        }
+        var images = await ScriptReferences.CaptureAsync(assets, request.Script.ProjectId, request.Images, ct);
         return await BuildAsync(id, tab, AiJobKind.ScriptAssistant, new(request.Script.ProjectId), $"{request.Run.Operation} · {request.Run.Target.Name}",
             request, model, followsDefault, configured, request.Run.EditFormat == 1 ? ScriptEdits.Profile : "script-writing-v2",
-            ScriptAssistant.BuildMessages(request), configured.Temperature, null, ct);
+            ScriptAssistant.BuildMessages(request, images), configured.Temperature, null, ct);
     }
     public async Task<AiJobSubmission> ExtractAsync(Guid id, Guid tab, AssetExtractionRequest request, bool followsDefault, CancellationToken ct = default)
     {

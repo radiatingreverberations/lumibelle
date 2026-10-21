@@ -85,6 +85,9 @@ public partial class ScriptAssistantPanel
         run.Status == AssistantRunStatus.Running ? Jobs.View.Jobs.FirstOrDefault(j => j.Id == run.JobId)?.State == AiJobState.Waiting ? "Queued" : "Working" : run.Status.ToString();
     private string _instructions = "";
     private string? _projectContext;
+    private IReadOnlyList<AssetImageReference> _referenceImages = [];
+    private bool _supportsImages;
+    private void ReferencesChanged(ScriptReferenceSelection selection) { _projectContext = selection.Details; _referenceImages = selection.Images; }
     private readonly HashSet<Guid> _attachedDiscussion = [];
     private string? _requestDetails;
     private IReadOnlyList<ConversationMessage> AttachedConversation => ScriptAssistant.Conversation(_runs.Where(r => _attachedDiscussion.Contains(r.Id)));
@@ -138,7 +141,7 @@ public partial class ScriptAssistantPanel
     private ElementReference _originElement, _requestsOrigin;
     private bool TargetReady { get { try { return _target?.Capture(Document) is not null; } catch (WorkspaceStoreException) { return false; } } }
     private bool _modelPreparing;
-    private bool CanGenerate => !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && (WholeDocumentOperation || TargetReady);
+    private bool CanGenerate => !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && (_referenceImages.Count == 0 || _supportsImages) && (WholeDocumentOperation || TargetReady);
     private string TargetDescription
     {
         get
@@ -171,7 +174,7 @@ public partial class ScriptAssistantPanel
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _historyError = true; _error = e.Message; }
         _loading = false;
     }
-    private void ModelChanged(TextModelSelectionState state) { _model = state.Model; _ready = state.Ready; _followsDefault = state.FollowsDefault; }
+    private void ModelChanged(TextModelSelectionState state) { _model = state.Model; _ready = state.Ready; _followsDefault = state.FollowsDefault; _supportsImages = state.SupportsImages && TextVisionPolicy.SupportsBackend(state.Model.Backend); }
     private string InstructionsValue { get => _instructions; set { _instructions = value; _instructionsEdited = true; } }
     private async Task StartAsync(WritingOperation operation)
     {
@@ -179,8 +182,10 @@ public partial class ScriptAssistantPanel
         _modelPreparing = true;
         try { if (!await _assist.PrepareSubmitAsync()) return; }
         finally { _modelPreparing = false; }
+        if (!CanGenerate) return;
         _submitting = _generating = true; await CloseReview();
         var model = _model!; var instructions = _instructions; var conversation = AttachedConversation.ToArray(); var followsDefault = _followsDefault; var projectContext = _projectContext;
+        var images = _referenceImages.ToArray();
         var target = operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
         _error = null;
         _progress = new(GenerationPhase.Saving, "Saving the script…");
@@ -193,7 +198,7 @@ public partial class ScriptAssistantPanel
             var run = new AssistantRun { SessionId = Session.Id, Operation = operation, Target = context.Target, SourceRevision = context.Document.Revision,
                 SourceFingerprint = ScriptStructure.ContextFingerprint(context.Document), EditFormat = operation == WritingOperation.Revise ? 1 : 0, Instructions = instructions, Backend = model.Backend, Model = model.Model };
             var tab = await Reviews.TabIdAsync();
-            _pendingSubmission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model) { ProjectContext = projectContext }, followsDefault, _lifetime.Token);
+            _pendingSubmission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model) { ProjectContext = projectContext, Images = images }, followsDefault, _lifetime.Token);
             _pendingSubmission = _assist.Attribute(_pendingSubmission);
             _originJobId = _restoredJobId = run.Id;
             await EnqueuePendingAsync();

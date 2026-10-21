@@ -68,6 +68,7 @@ public sealed record ScriptAssistantRequest(AssistantRun Run, ScriptDocument Scr
     IReadOnlyList<ConversationMessage> Conversation, TextModelReference? Selection = null)
 {
     public string? ProjectContext { get; init; }
+    public IReadOnlyList<AssetImageReference> Images { get; init; } = [];
 }
 public sealed record AssistantUpdate(string? Text = null, string? Status = null,
     List<ScriptBlock>? Blocks = null, string? ValidationError = null, bool Complete = false,

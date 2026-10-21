@@ -326,9 +326,9 @@ public sealed partial class AiTextJobTests : IDisposable
     private static HttpResponseMessage Json(string content) => new(HttpStatusCode.OK) { Content = new StringContent(content, Encoding.UTF8, "application/json") };
     private sealed class TextProviders : IAiProviderRegistry
     {
-        public readonly TextChat Chat = new(); public int Created; public bool Vision = true; public string Model = "test/model"; public Action? OnCheck;
+        public readonly TextChat Chat = new(); public int Created; public bool Vision = true; public string Model = "test/model"; public Action? OnCheck; public long? ContextLength;
         public Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
-        { OnCheck?.Invoke(); return Task.FromResult(new AiConnectionCheck(true, "Available", [new(Model, "Test model", SupportsImages: Vision, ReasoningEfforts: ["low", "medium", "high"], DefaultEffort: "medium")], "v1")); }
+        { OnCheck?.Invoke(); return Task.FromResult(new AiConnectionCheck(true, "Available", [new(Model, "Test model", SupportsImages: Vision, ReasoningEfforts: ["low", "medium", "high"], DefaultEffort: "medium", Catalog: ContextLength is { } length ? new(ContextLength: length) : null)], "v1")); }
         public Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default) { Assert.Equal(Model, model); Created++; return Task.FromResult<IChatClient>(Chat); }
         public IAsyncEnumerable<AiModelVerificationUpdate> VerifyComfyTextModelAsync(string model, AiSettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public IAsyncEnumerable<AiModelVerificationUpdate> TestComfyTextModelAsync(string model, AiSettings settings, ComfyTextModelTestRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();

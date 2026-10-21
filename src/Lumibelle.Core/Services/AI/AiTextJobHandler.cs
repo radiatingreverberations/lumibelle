@@ -17,7 +17,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
     private const string Operation = "text";
     // First step of a two-step composition; its ComfyUI output is the visual brief.
     private const string BriefOperation = "brief";
-    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection, AiJobKind.SceneEnvironmentSelection];
+    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.SourceAnalysis, AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection, AiJobKind.SceneEnvironmentSelection];
 
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
@@ -254,6 +254,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         var expected = request.Kind switch
         {
             AiJobKind.ScriptAssistant => new AiJobTarget(request.Payload<ScriptAssistantRequest>().Script.ProjectId),
+            AiJobKind.SourceAnalysis => new AiJobTarget(request.Payload<SourceAnalysisRequest>().ProjectId),
             AiJobKind.AssetExtraction => new AiJobTarget(request.Payload<AssetExtractionRequest>().Script.ProjectId),
             AiJobKind.ShotPlanning => new AiJobTarget(request.Payload<ShotPlanningRequest>().Script.ProjectId, ShotId: request.Payload<ShotPlanningRequest>().SingleShot?.ShotId),
             AiJobKind.ShotTranslation => new AiJobTarget(request.Payload<ShotDubRequest>().ProjectId,
@@ -269,6 +270,12 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
             _ => throw new WorkspaceStoreException("Unknown text operation.")
         };
         if (expected != job.Target) throw new WorkspaceStoreException("The text request belongs to a different target.");
+        if (request.Kind == AiJobKind.SourceAnalysis) {
+            var source = request.Payload<SourceAnalysisRequest>();
+            if (request.Profile is not (SourceAnalysis.Profile or "source-analysis-v1" or "source-analysis-v2") || source.RunId == Guid.Empty || !Enum.IsDefined(source.Stage) ||
+                source.Inputs is not { Count: > 0 } || source.Inputs.Any(n => n is null || string.IsNullOrWhiteSpace(n.Text) || n.Sources is not { Length: > 0 } || n.Sources.Any(s => s < 1)))
+                throw new WorkspaceStoreException("The source analysis request is incomplete.");
+        }
         if (request.Kind == AiJobKind.AssetPicking) AssetPicker.ValidateRequest(request.Payload<AssetPickRequest>());
         if (request.Kind == AiJobKind.SceneEnvironmentSelection)
         {
@@ -305,6 +312,7 @@ public sealed class AiTextJobHandler(IAiProviderRegistry providers, IHttpClientF
         var imageCount = request.Messages.Concat(request.BriefMessages ?? []).Sum(m => m.Parts.Count(p => p.Image is not null));
         var expectedImages = request.Repair is not null || request.VisualBrief is not null ? 0 : request.Kind switch
         {
+            AiJobKind.ScriptAssistant => request.Payload<ScriptAssistantRequest>().Images.Count,
             AiJobKind.PromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
             AiJobKind.Guidance => request.Payload<GuidanceRequest>().InspectionImage is null ? 0 : 1,
             AiJobKind.PromptComposition => request.Payload<PromptCompositionRequest>().InspectReferenceImages == false

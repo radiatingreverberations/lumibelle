@@ -1,5 +1,7 @@
 # Script studio
 
+Adapting an existing story? Start in [Source](source.md) to analyze the original material in sections and review an adaptation outline before writing scenes.
+
 Open a project's **Script** tab to write directly or describe a draft in **Instructions**. **Suggest outline** creates headings and action beats; **Discuss idea** stays exploratory. Script supplies screenplay formatting and editing guidance, without an Idea brief, default duration, genre, tone or H3 profile. Production direction belongs in [Shots](shots.md).
 
 ## Structure
@@ -26,7 +28,11 @@ Script keeps a dedicated **Assistant** panel with action, scope, Instructions, a
 
 **Revise** is a focused edit to **Whole script**, **Current scene**, **Current act** or **Selected passage**. Unmentioned text, order and emphasis are preserved. **Rewrite selected scope** explicitly permits a broad replacement. **Continue** inserts after the target.
 
-Only the current script, selected target, Instructions and explicitly attached discussion enter new requests. Attached exchanges are removable. **Request details** shows the saved source revision, model and exact input.
+The current script, selected target, Instructions and explicitly attached references and discussions enter new requests. Attached exchanges are removable. **Request details** shows the saved source revision, model and exact input.
+
+**References → Manage references** uses the same thumbnail browser and selected-reference controls as Shots. Browse **Images**, **Shots**, or **Asset details**, reorder or remove selections, then **Apply changes**. Cancel keeps the previous selection. **Refresh saved details** reloads project descriptions for review.
+
+Images send the actual selected pictures and their asset, look and preservation notes to the chosen vision model (up to nine images). Shots and asset details send saved text; their thumbnails are browsing aids. A model that cannot read images requires switching models or removing the image references before submission. Each queued request captures its images, so later library changes do not alter its input. References inform a proposal; the script changes only when you apply the reviewed result.
 
 ## Reviewing proposals
 

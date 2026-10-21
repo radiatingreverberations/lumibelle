@@ -168,7 +168,7 @@
         _focusList = _open;
         StateHasChanged();
     }
-    private static bool IsText(AiJobHeader job) => job.Kind is AiJobKind.EnvironmentViewSelection or AiJobKind.ReelViewSuggestion or AiJobKind.ShotTranslation or AiJobKind.AssetPicking or AiJobKind.ContentProbe or AiJobKind.ReelComposition or AiJobKind.ScriptAssistant or AiJobKind.AssetExtraction or AiJobKind.ShotPlanning or AiJobKind.PromptComposition or AiJobKind.PromptEnhancement or AiJobKind.Guidance or AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest;
+    private static bool IsText(AiJobHeader job) => job.Kind is AiJobKind.SourceAnalysis or AiJobKind.EnvironmentViewSelection or AiJobKind.ReelViewSuggestion or AiJobKind.ShotTranslation or AiJobKind.AssetPicking or AiJobKind.ContentProbe or AiJobKind.ReelComposition or AiJobKind.ScriptAssistant or AiJobKind.AssetExtraction or AiJobKind.ShotPlanning or AiJobKind.PromptComposition or AiJobKind.PromptEnhancement or AiJobKind.Guidance or AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest;
     protected override async Task OnInitializedAsync() { Jobs.Changed += Changed; try { await Jobs.RefreshAsync(); } catch (WorkspaceStoreException e) { _error = e.Message; } }
     private void Changed()
     {
