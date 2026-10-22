@@ -60,7 +60,24 @@ internal static class TextGenerationOptions
     }
 
     // Version 1 snapshots predate provider-default semantics; keep their replay behavior.
-    public static ChatOptions Captured(AiTextJobRequest request) => request.Version == 1
-        ? new() { Temperature = request.Temperature, MaxOutputTokens = request.Settings.MaxOutputTokens, Seed = request.Seed }
-        : Create(request.Model.Backend, request.Settings, request.Temperature, request.Seed, request.Version >= 3 ? request.Model : null);
+    public static ChatOptions Captured(AiTextJobRequest request)
+    {
+        var options = request.Version == 1
+            ? new ChatOptions { Temperature = request.Temperature, MaxOutputTokens = request.Settings.MaxOutputTokens, Seed = request.Seed }
+            : Create(request.Model.Backend, request.Settings, request.Temperature, request.Seed, request.Version >= 3 ? request.Model : null);
+        if (request.ResponseGrammar is { } grammar)
+            options.RawRepresentationFactory = _ => VllmGrammarOptions(grammar);
+        else if (request.ResponseSchema is { } schema)
+            options.ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema(schema, "lumibelle_response");
+        return options;
+    }
+
+    private static ChatCompletionOptions VllmGrammarOptions(string grammar)
+    {
+        var options = new ChatCompletionOptions();
+#pragma warning disable SCME0001
+        options.Patch.Set("$.structured_outputs.grammar"u8, grammar);
+#pragma warning restore SCME0001
+        return options;
+    }
 }

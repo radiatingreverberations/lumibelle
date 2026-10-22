@@ -52,6 +52,10 @@ public sealed class FileAssistantHistoryStore(ProjectFiles files, ApplicationSes
             run.Model is null || !Enum.IsDefined(run.Status) || !Enum.IsDefined(run.Operation) || !Enum.IsDefined(run.Backend) || !Enum.IsDefined(run.Target.Scope))
             throw new WorkspaceStoreException("The assistant history contains an invalid request.");
         ScriptStructure.ValidateTarget(run.Target);
+        if (run.NormalizationNotes is { } notes && (notes.Count > 12 || notes.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 500)))
+            throw new WorkspaceStoreException("The screenplay format notices are invalid.");
+        if (run.SourceScene is { } scene && (!ScriptAdaptation.Valid(scene) || run.Operation != WritingOperation.Continue || run.Target.Scope != ScriptScope.Document))
+            throw new WorkspaceStoreException("The saved source scene request is invalid.");
         if (run.AppliedTarget is not null) ScriptStructure.ValidateTarget(run.AppliedTarget);
         if (run.Proposal is not null) ScriptStructure.ValidateBlocks(run.Proposal);
     }

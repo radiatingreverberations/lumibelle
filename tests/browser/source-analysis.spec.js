@@ -3,6 +3,7 @@ import { test, expect } from './fixtures.js';
 const source = `Prologue\nEira inherits a brass key in a rainstorm.\n\nChapter 1\n${'She follows the river, looking for the gate her grandmother described.\n\n'.repeat(90)}Chapter 2\nShe finds the gate. The key opens it onto a sheltered garden.`;
 
 async function openOutline(page) {
+  await expect(page.getByRole('region', { name: 'Source workspace', exact: true })).toBeVisible();
   const tab = page.getByRole('tab', { name: 'Outline', exact: true });
   if (!await tab.isVisible()) {
     const closeAssistant = page.getByRole('button', { name: 'Close Assistant', exact: true });
@@ -10,7 +11,12 @@ async function openOutline(page) {
     await page.getByRole('button', { name: /^Show (Source|Outline)$/ }).click();
   }
   await tab.click();
-  await page.locator('.workspace-left').getByRole('button', { name: 'Overview', exact: true }).click();
+  await expect(page.locator('#source-mode-outline')).toHaveAttribute('aria-selected', 'true');
+  const overview = page.locator('.workspace-left').getByRole('button', { name: 'Overview', exact: true });
+  // Changing navigation mode reveals the center and closes the compact drawer.
+  if (!await overview.isVisible())
+    await page.getByRole('button', { name: 'Show Outline', exact: true }).click();
+  await overview.click();
 }
 
 test('source analysis persists across navigation, pauses, and produces an editable plan without touching the screenplay', async ({ page, request }) => {
@@ -68,8 +74,8 @@ test('source analysis persists across navigation, pauses, and produces an editab
   await left.getByRole('tab', { name: 'Outline', exact: true }).click();
   await left.getByRole('button', { name: '1.1 A key in the rain', exact: true }).click();
   await expect(left.getByRole('button', { name: '1.1 A key in the rain', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(center.getByLabel('Act 1 scene 1 summary')).toBeVisible();
-  await expect(center.getByLabel('Act 2 scene 1 summary')).toHaveCount(0);
+  await expect(center.getByLabel('Act 1 sequence 1 summary')).toBeVisible();
+  await expect(center.getByLabel('Act 2 sequence 1 summary')).toHaveCount(0);
   await expect(center.getByRole('region', { name: 'Source coverage review', exact: true })).toHaveCount(0);
   await center.getByRole('button', { name: 'Back to original', exact: true }).click();
   await expect(manuscript).toBeVisible();
@@ -128,7 +134,7 @@ test('source import and analysis remain usable on a narrow screen', async ({ pag
   await page.getByRole('button', { name: 'Show Outline', exact: true }).click();
   await page.locator('.workspace-left').getByRole('button', { name: '1.1 A key in the rain', exact: true }).click();
   await expect(page.locator('.workspace-left')).toBeHidden();
-  await page.getByLabel('Act 1 scene 1 summary').fill('Eira finds the key and decides to investigate.');
+  await page.getByLabel('Act 1 sequence 1 summary').fill('Eira finds the key and decides to investigate.');
   await page.getByRole('button', { name: 'Save or accept outline →', exact: true }).click();
   await page.getByRole('button', { name: 'Accept outline', exact: true }).click();
   await openOutline(page);

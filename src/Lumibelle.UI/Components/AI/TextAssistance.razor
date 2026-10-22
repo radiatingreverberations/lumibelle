@@ -1,13 +1,12 @@
 <div class="text-assistance @(Inline ? "inline-assistance" : "")" @ref="_origin">
     @if (Inline) {
         <section class="assist-panel" aria-label="@Title" tabindex="-1" @ref="_trigger">
-            <header class="assist-panel-heading"><strong><AiAssistIcon />Assistant</strong>@ExtraActions</header>
+            <header class="assist-panel-heading"><strong>Assistant</strong>@ExtraActions</header>
             @if (Status is not null) { <div class="text-assist-status">@Status</div> }
             <div class="assist-panel-body">
                 @ChildContent
-                <div class="assist-composer-model">@ModelChip</div>
             </div>
-            <footer class="assist-panel-actions">@Actions</footer>
+            <footer class="assist-panel-actions"><div class="assist-composer-model assist-footer-model">@ModelChip</div>@Actions</footer>
         </section>
     } else {
         <div class="text-assist-controls">

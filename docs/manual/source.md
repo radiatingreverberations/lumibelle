@@ -4,13 +4,18 @@ Use the **Source** tab before Script to adapt an existing story, treatment, or o
 Paste the original material or import a UTF-8 text/Markdown file, add a title and adaptation
 direction, and **Save source**. The original text remains separate from the screenplay.
 
+Use adaptation direction to specify tone, style, audience, narration and deliberate changes
+to the source. The built-in prompts guide structure, evidence and continuity; they do not
+prescribe a genre or depiction level. The source's tone is preserved unless you request a
+change. Concise source notes do not instruct the screenplay to omit the events they summarize.
+
 The workspace follows the other editors: navigation is on the left, the manuscript or
 selected outline item is in the center, and the assistant is on the right. The source title
 stays above the manuscript while the text scrolls inside its editor. Adaptation direction,
 model selection, analysis progress, and review actions live in the assistant sidebar.
-Choose an act or scene to edit it in the center; **Back to original** returns to the same
+Choose an act or sequence to edit it in the center; **Back to original** returns to the same
 position in the manuscript. The left sidebar shows source sections when reading the
-original, and acts and scenes when reviewing the adaptation outline. Section numbers
+original, and acts and sequences when reviewing the adaptation outline. Section numbers
 identify chunks created for analysis, not chapter numbers; choose a section to read its
 captured passage and analysis notes. The fixed **Source** and **Outline** tabs at the top
 of the left sidebar switch between the two views. Outline explains the planning workflow
@@ -47,23 +52,23 @@ Wait for any current request to finish before switching. The replacement must ha
 context for the remaining source sections. Previous requests retain their original model
 and settings in AI activity.
 
-Review the proposed acts and scenes, edit their titles and descriptions, and change their
+Review the proposed acts and sequences, edit their titles and descriptions, and change their
 order. Source links open exact original passages captured for that analysis. Section notes
-remain available alongside the outline. Missing source coverage and identical scene summaries
+remain available alongside the outline. Missing source coverage and identical sequence summaries
 produce review warnings, not automatic rejection. These checks do not establish complete
 narrative fidelity: review the original passages when details matter.
 Outline-wide notices appear on **Overview**. Its source coverage notice links directly
-to passages without scenes. If the material belongs in the adaptation, add its number
-to the relevant scene's **Source sections**. Otherwise choose **Mark intentionally omitted**
+to passages without sequences. If the material belongs in the adaptation, add its number
+to the relevant sequence's **Source sections**. Otherwise choose **Mark intentionally omitted**
 and **Save review edits**. The decision clears that coverage reminder for this outline;
 expand **Intentionally omitted sections** and choose **Review again** to undo it.
-Scenes that combine source sections around material used in later scenes also get a
+Sequences that combine source sections around material used in later sequences also get a
 continuity warning. This can be intentional, so it does not block saving. In **Edit outline**,
-correct each scene's **Source sections** using comma-separated section numbers. Invalid or
+correct each sequence's **Source sections** using comma-separated section numbers. Invalid or
 empty links must be corrected before saving; links always address that analysis's captured text.
 
 **Save review edits** keeps a working plan. **Accept outline** marks the reviewed plan as
-accepted for later scene drafting; it does not write screenplay blocks. **Discard outline**
+accepted for use in the Script assistant; it does not write screenplay blocks. **Discard outline**
 retains its history. Changing the saved source or adaptation direction marks older analyses
 as out of date and prevents accepting them. Each analysis retains its original source snapshot.
 

@@ -1,24 +1,56 @@
 @implements IAsyncDisposable
 <div class="script-assistant" @ref="_originElement">
 <TextAssistance Inline="true" @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Story" Title="Script assistance" Disabled="_applying" ModelLocked="@(_generating || _applying)" SelectionChanged="ModelChanged" Opened="OpenComposerAsync">
-    <ExtraActions><button type="button" @onclick="() => _requestsOpen = true">Requests</button></ExtraActions>
+    <ExtraActions><button type="button" class="assist-requests" @onclick="() => _requestsOpen = true">Requests</button></ExtraActions>
     <ChildContent>            @if (_loading) { <p role="status">Opening assistant…</p> }
             else
             {
                 <div class="script-assistant-compose">
-                    <label for="script-operation">Action<select id="script-operation" @bind:get="Operation" @bind:set="value => _chosenOperation = value" disabled="@(_generating || _applying)">
+                    @if (_sourcePlan is not null) {
+                        <section class="script-source-plan" aria-label="Accepted source outline">
+                            <div class="script-source-heading"><strong>Source outline</strong><a href="@($"/projects/{ProjectId}/source")">Open Source</a><button type="button" @onclick="RefreshSourcePlan" disabled="@(_generating || _applying)" aria-label="Refresh source outline">↻</button></div>
+                            <label class="script-source-toggle"><input type="checkbox" checked="@_useSourceOutline" @onchange="e => UseSourceOutline(e.Value is true)" disabled="@(_generating || _applying)" />Use accepted outline</label>
+                            @if (_useSourceOutline) {
+                                @if (_draftOutlineScene) {
+                                    <label for="script-outline-act">Act</label><select id="script-outline-act" @bind:get="OutlineActValue" @bind:set="ChooseOutlineAct" disabled="@(_generating || _applying)">
+                                        <option value="">Choose an act…</option>
+                                        @for (var ai = 0; ai < OutlineActs.Count; ai++) { <option value="@ai">Act @(ai + 1): @OutlineActs[ai].Title</option> }
+                                    </select>
+                                }
+                                <label for="script-outline-focus">@(_draftOutlineScene ? "Sequence to draft" : "Outline context")</label><select id="script-outline-focus" @bind="_outlineFocus" disabled="@(_generating || _applying || _draftOutlineScene && SelectedOutlineAct is null)">
+                                    @if (!_draftOutlineScene || SelectedOutlineAct is null) { <option value="">@(_draftOutlineScene ? "Choose a sequence…" : "Whole outline")</option> }
+                                    @if (_draftOutlineScene) {
+                                        @foreach (var scene in OutlineScenes.Where(s => s.Act == SelectedOutlineAct)) { <option value="@(scene.Act + ":" + scene.Scene)">Sequence @(scene.Scene + 1): @scene.Title@(scene.InScript ? " · Added" : "")</option> }
+                                    } else {
+                                        @for (var ai = 0; ai < OutlineActs.Count; ai++) {
+                                            <optgroup label="Act @(ai + 1): @OutlineActs[ai].Title">
+                                                @foreach (var scene in OutlineScenes.Where(s => s.Act == ai)) { <option value="@(scene.Act + ":" + scene.Scene)">Sequence @(scene.Scene + 1): @scene.Title@(scene.InScript ? " · Added" : "")</option> }
+                                            </optgroup>
+                                        }
+                                    }
+                                </select>
+                                <div class="script-source-progress"><span>@OutlineScenes.Count(s => s.InScript) of @OutlineScenes.Count() sequences added</span><HelpHint Label="Sequence progress" Text="Counts outline sequences applied to the script. One sequence can become several screenplay scenes. Drafts awaiting review are not counted. Earlier or manually written scenes are not matched automatically." /></div>
+                                @if (NeedsOutlineActs) { <button type="button" class="source-add-acts" @onclick="AddOutlineActsAsync" disabled="@(_generating || _applying)">Add outline acts to script</button> }
+                                @if (_draftOutlineScene && HasScript && !OutlineScenes.Any(s => s.InScript)) { <p class="field-hint">Choose where to pick up the outline. Existing writing has no outline links yet.</p> }
+                                @if (_draftOutlineScene && !SourcePlanReady && _outlineFocus.Length > 0) { <p class="field-hint">This sequence is already in the script. Use Revise to change existing writing.</p> }
+                            }
+                        </section>
+                    }
+                    @if (_sourcePlanError is not null) { <p class="field-hint" role="status">@_sourcePlanError <a href="@($"/projects/{ProjectId}/source")">Open Source</a> <button type="button" @onclick="RefreshSourcePlan" disabled="@(_generating || _applying)" aria-label="Refresh source outline">Refresh</button></p> }
+                    <div><label for="script-operation">Action</label><select id="script-operation" @bind:get="ActionValue" @bind:set="ChooseAction" disabled="@(_generating || _applying)">
+                        @if (_sourcePlan is not null) { <option value="outline-scene">Draft sequence</option> }
                         @if (HasScript) { <option value="Revise">Revise · focused edits</option><option value="Rewrite">Rewrite selected scope</option><option value="Continue">Continue after the target</option> }
                         <option value="Discuss">Discuss idea</option>
                         @if (!HasScript || Operation == WritingOperation.Draft) { <option value="Draft">Draft entire script</option> }
                         @if (!HasScript || Operation == WritingOperation.Outline) { <option value="Outline">Suggest an outline</option> }
-                    </select></label>
-                    <label for="script-scope">Work on<select id="script-scope" @bind:get="_scope" @bind:set="ChooseScopeAsync" disabled="@(_generating || WholeDocumentOperation)"><option value="Document">Whole script</option><option value="Scene">Current scene</option><option value="Act">Current act</option><option value="Passage">Selected passage</option></select></label>
-                    <p class="field-hint assistant-target" role="status">@(WholeDocumentOperation ? "Whole script" : TargetDescription)</p>
+                    </select></div>
+                    @if (!_draftOutlineScene) { <div><label for="script-scope">Work on</label><select id="script-scope" @bind:get="_scope" @bind:set="ChooseScopeAsync" disabled="@(_generating || WholeDocumentOperation)"><option value="Document">Whole script</option><option value="Scene">Current scene</option><option value="Act">Current act</option><option value="Passage">Selected passage</option></select></div> }
+                    <p class="field-hint assistant-target" role="status">@(_draftOutlineScene ? "Adds the selected sequence at the end of the script, after review. Act headings follow the accepted outline." : WholeDocumentOperation ? "Whole script" : TargetDescription)</p>
                     @if (!WholeDocumentOperation) { <button class="capture-target" disabled="@_generating" @onclick="() => ChooseScopeAsync(_scope)">@(_scope == ScriptScope.Passage ? "Use selected passage" : _scope == ScriptScope.Document ? "Use whole script" : $"Use current {_scope.ToString().ToLowerInvariant()}")</button> }
-                    <label for="script-instructions">Instructions<textarea id="script-instructions" @bind="InstructionsValue" @bind:event="oninput" rows="5" placeholder="Describe what you want to change…"></textarea></label>
+                    <label for="script-instructions">Instructions<textarea id="script-instructions" @bind="InstructionsValue" @bind:event="oninput" rows="5" placeholder="@(_draftOutlineScene ? "Add direction for this sequence (optional)…" : "Describe what you want to change…")"></textarea></label>
                     <ScriptProjectContextPicker ProjectId="ProjectId" Disabled="@(_generating || _applying || _modelPreparing)" SupportsImages="_supportsImages" Changed="ReferencesChanged" />
                     @if (!string.IsNullOrWhiteSpace(_projectContext)) { <p class="field-hint">Attached project details will inform this proposal. Review the script changes before applying.</p> }
-                    <p class="context-estimate">Current script + instructions@(_attachedDiscussion.Count > 0 ? $" + {_attachedDiscussion.Count} attached discussions" : "") · ≈@EstimatedTokens.ToString("N0") text tokens@(_referenceImages.Count > 0 ? $" + {_referenceImages.Count} images" : "")</p>
+                    <p class="context-estimate">@(_draftOutlineScene ? "Script continuity" : "Current script") + instructions@(_useSourceOutline ? " + source outline" : "")@(_attachedDiscussion.Count > 0 ? $" + {_attachedDiscussion.Count} attached discussions" : "") · ≈@EstimatedTokens.ToString("N0") text tokens@(_referenceImages.Count > 0 ? $" + {_referenceImages.Count} images" : "")</p>
                     @if (_runs.Any(r => r.Operation == WritingOperation.Discuss && r.Status == AssistantRunStatus.Completed))
                     {
                         <details class="discussion-attachments"><summary>Attach discussion</summary>
@@ -30,11 +62,11 @@
                     { <button class="attached-context" @onclick="() => Attach(attached.Id, false)" aria-label="Remove attached discussion @attached.CreatedUtc.ToLocalTime().ToString("g")">Discussion · @attached.CreatedUtc.ToLocalTime().ToString("g") ×</button> }
                     @if (Operation is WritingOperation.Draft or WritingOperation.Outline && Document.Blocks.Any(b => !string.IsNullOrWhiteSpace(b.Text))) { <p class="field-hint">This proposes replacing the whole script. You review the result before applying it.</p> }
                 </div>
-                @if (HasScript) { <details class="assistant-start-over"><summary>Start over…</summary><p>Drafting or accepting an outline replaces the entire script. You review it before applying.</p><button disabled="@_generating" @onclick="() => _chosenOperation = WritingOperation.Draft">Draft replacement</button><button disabled="@_generating" @onclick="() => _chosenOperation = WritingOperation.Outline">Outline replacement</button></details> }
+                @if (HasScript) { <details class="assistant-start-over"><summary>Start over…</summary><p>Drafting or accepting an outline replaces the entire script. You review it before applying.</p><button disabled="@_generating" @onclick="() => ChooseAction(nameof(WritingOperation.Draft))">Draft replacement</button><button disabled="@_generating" @onclick="() => ChooseAction(nameof(WritingOperation.Outline))">Outline replacement</button></details> }
             }
 </ChildContent>
     <Actions><TextRequestAction @ref="_primaryAction" Primary="true" Label="@ActionLabel" Request="ScriptPresentation" Preparing="@(_submitting || _modelPreparing)"
-        Disabled="@(!CanGenerate || Operation == WritingOperation.Continue && _scope == ScriptScope.Passage)"
+        Disabled="@(!CanGenerate || !_draftOutlineScene && Operation == WritingOperation.Continue && _scope == ScriptScope.Passage)"
         OnStart="() => StartAsync(Operation)" OnReview="InspectScript" /></Actions>
     <Status>        @if (_error is not null && _reviewId is null) { <p class="generation-error" role="alert">@_error</p> }
         @if (_historyError && _reviewId is null) { <MudButton OnClick="RetryHistoryAsync">Retry saving history</MudButton> }
@@ -46,7 +78,7 @@
                 @foreach (var run in VisibleRuns)
                 {
                     <article class="assistant-run" @key="run.Id">
-                        <div class="run-heading"><strong>@run.Operation · @RunStatus(run)</strong><span>@run.CreatedUtc.ToLocalTime().ToString("g")</span></div>
+                        <div class="run-heading"><strong>@(run.SourceScene is null ? run.Operation.ToString() : $"Sequence {run.SourceScene.Act + 1}.{run.SourceScene.Scene + 1}") · @RunStatus(run)</strong><span>@run.CreatedUtc.ToLocalTime().ToString("g")</span></div>
                         <p class="run-meta">@run.Target.Name@(run.CorrectedFromRunId is null ? "" : " · Pasted JSON")</p>
                         <p class="run-instructions">@(run.Instructions.Length > 160 ? run.Instructions[..160] + "…" : run.Instructions)</p>
                         <MudButton OnClick="() => Review(run.Id)" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">@(RunStatus(run) == "Applied" ? "View changes" : "Open response")</MudButton>
@@ -74,9 +106,11 @@
             @if (_activeJob is { } active && active.Id == run.JobId)
             { <lumibelle.Components.AI.AiJobProgressView Job="active" Queue="Jobs.View" Progress="Jobs.Progress(active.Id)" /> }
             <details class="request-details"><summary>Request details</summary><p>Saved revision @run.SourceRevision · @run.Target.Name · @run.Backend · @run.Model</p><pre class="submitted-input">@(_requestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
+            @if (_scenePlan is not null) { <details class="scene-planning-brief"><summary>Sequence brief</summary><MarkdownView Text="@ScriptScenePlanning.Markdown(_scenePlan)" /></details> }
             var target = _reviewTarget ?? run.Target;
             var matches = ScriptStructure.Matches(Document, target);
             var historical = run.Applied || Document.AppliedProposalIds.Contains(run.Id);
+            var proposal = run.SourceScene is not null ? run.Proposal?.Where(b => b.Kind != ScriptBlockKind.Act).ToList() : run.Proposal;
             var hasOriginal = target.OriginalBlocks.Any(b => !string.IsNullOrWhiteSpace(b.Text));
             @if (_editingJson)
             {
@@ -95,7 +129,7 @@
             else if (run.Status == AssistantRunStatus.Running)
             {
                 <section class="script-response-working" aria-label="Response in progress">
-                    <h3>@run.Operation · @RunStatus(run)</h3><p>@run.Target.Name · @run.Backend · @run.Model</p>
+                    <h3>@RunAction(run) · @RunStatus(run)</h3><p>@run.Target.Name · @run.Backend · @run.Model</p>
                     @if (string.IsNullOrEmpty(run.Output))
                     { <p class="field-hint">The response will appear here as it arrives. Some models take time before sending their first text.</p> }
                     else
@@ -104,7 +138,8 @@
             }
             else if (run.Error is not null || run.Proposal is null)
             {
-                <section aria-label="Assistant response"><h3>@run.Operation · @RunStatus(run)</h3><p>@run.Target.Name · @ResponseSource(run)</p>
+                <section aria-label="Assistant response"><h3>@RunAction(run) · @RunStatus(run)</h3><p>@run.Target.Name · @ResponseSource(run)</p>
+                    @if (_scenePlanning) { <p class="field-hint">Sequence planning response. No screenplay has been drafted yet.</p> }
                     @if (run.Error is not null) { <p role="alert">@run.Error</p> }
                     @if (_responseJsonError is { } detail && run.Error?.Contains(detail, StringComparison.Ordinal) != true) { <p role="alert">@detail</p> }
                     @if (run.Operation == WritingOperation.Discuss && run.Error is null) { <MarkdownView Text="@run.Output" /><details><summary>Raw response</summary><pre class="raw-response">@run.Output</pre></details> }
@@ -115,7 +150,7 @@
             {
             <section class="script-review" aria-label="Script proposal">
                 <div class="script-review-meta">
-                    <div><strong>@run.Operation · @target.Name</strong><p>@ResponseSource(run)</p></div>
+                    <div><strong>@RunAction(run) · @(run.SourceScene is null ? target.Name : "New sequence at end of script")</strong><p>@ResponseSource(run)</p></div>
                     @if (hasOriginal)
                     {
                         <div class="review-view-switch" role="group" aria-label="Review view">
@@ -125,16 +160,20 @@
                     }
                 </div>
                 @if (_error is not null) { <div class="writing-error" role="alert">@_error</div> }
+                @foreach (var note in run.NormalizationNotes ?? Array.Empty<string>()) { <p class="review-notice script-format-normalization" role="status">@note</p> }
+                @if (!historical && run.SourceScene is not null) { <p class="field-hint">Act headings are supplied by the accepted source outline when you apply this sequence.</p> }
                 @if (_historyError) { <MudButton OnClick="RetryHistoryAsync">Retry saving history</MudButton> }
                 @if (historical) { <p class="review-notice">Historical comparison: captured before and applied writing. This is not the current script.</p> }
                 else if (!matches)
                 {
-                    <div class="review-notice" role="alert"><p>The target changed or was deleted. Request new changes against the current script. The saved response remains available for inspection.</p><MudButton OnClick="RetargetAsync" Disabled="_applying">@(run.EditFormat == 1 ? "Request fresh changes" : "Review against current target")</MudButton></div>
+                    <div class="review-notice" role="alert"><p>The target changed or was deleted. @(run.EditFormat == 1 ? "Request fresh changes against the current script before applying." : "Review this saved draft with the current script before applying it.")</p></div>
                 }
                 else if (run.SourceFingerprint != ScriptStructure.ContextFingerprint(Document)) { <p class="review-notice">Other script content changed since this request. Check the proposal in its current context.</p> }
                 @if (_reviewTarget is not null && !historical) { <p class="review-notice">You selected a new target for this proposal. Compare it carefully before applying.</p> }
                 @if (run.Edits is { } edits)
                 {
+                    @if (edits.Operations.Count == 0)
+                    { <p class="review-notice" role="status">No changes proposed. Your script is unchanged. Try a more specific instruction or a smaller scope.</p> }
                     @foreach (var note in edits.NormalizationNotes ?? Array.Empty<string>())
                     { <p class="review-notice script-edit-normalization" role="status">@note</p> }
                     <details class="edit-operations"><summary>@edits.Operations.Count focused @(edits.Operations.Count == 1 ? "change" : "changes")</summary><ul>
@@ -143,11 +182,11 @@
                 }
                 @if (_compare)
                 {
-                    <ScreenplayComparisonView Target="ComparisonTarget(run, target)" Proposal="run.Proposal!" Operation="run.Operation" Historical="historical" />
+                    <ScreenplayComparisonView Target="ComparisonTarget(run, target)" Proposal="proposal!" Operation="run.Operation" Historical="historical" />
                 }
                 else
                 {
-                    <div class="script-review-pages"><section class="review-page proposed-page" aria-label="Proposed script"><h3>@(historical ? "Applied writing at that time" : run.Operation == WritingOperation.Continue ? "Proposed addition" : "Proposed script")</h3><ScriptPreview Blocks="run.Proposal!" /></section></div>
+                    <div class="script-review-pages"><section class="review-page proposed-page" aria-label="Proposed script"><h3>@(historical ? "Applied writing at that time" : run.Operation == WritingOperation.Continue ? "Proposed addition" : "Proposed script")</h3><ScriptPreview Blocks="proposal!" /></section></div>
                 }
                 <details><summary>@(run.CorrectedFromRunId is null ? "Raw response" : "Pasted JSON")</summary><pre class="raw-response">@run.Output</pre></details>
             </section>
@@ -172,7 +211,7 @@
             {
             <span class="review-save-hint">@(_applying ? "Applying proposal…" : "Your script changes only when you apply.")</span>
             <MudButton OnClick="CloseReview" Disabled="@(_applying || _savingJson)">Close</MudButton>
-            @if (run.Status != AssistantRunStatus.Running) { <MudButton OnClick="NewRequestAsync" Disabled="@(_applying || _savingJson)">New request</MudButton> }
+            @if (run.Status != AssistantRunStatus.Running) { <MudButton OnClick="NewRequestAsync" Disabled="@(_applying || _savingJson)" Color="@(run.Edits is { Operations.Count: 0 } ? Color.Primary : Color.Default)" Variant="@(run.Edits is { Operations.Count: 0 } ? Variant.Filled : Variant.Text)">New request</MudButton> }
             @if (run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss && unresolved)
             {
                 <MudButton OnClick="EditJson" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">Paste / edit JSON</MudButton>
@@ -186,7 +225,14 @@
             @if (applicable && unresolved)
             {
             <MudButton OnClick="() => RejectAsync(run)" Disabled="@(_applying || _savingJson)">Discard</MudButton>
-            <MudButton OnClick="() => ApplyAsync(run)" Disabled="@(_applying || _savingJson || !matches || _historyError)" Color="Color.Primary" Variant="Variant.Filled">@(run.Operation is WritingOperation.Draft or WritingOperation.Outline && TargetHasContent(run) ? "Replace entire script" : "Apply changes")</MudButton>
+            @if (!matches)
+            {
+                <MudButton OnClick="RetargetAsync" Disabled="@(_applying || _savingJson || _retargeting)" Color="Color.Primary" Variant="Variant.Filled">@(_retargeting ? "Preparing review…" : run.EditFormat == 1 ? "Request fresh changes" : "Review with current script")</MudButton>
+            }
+            else if (run.Edits is not { Operations.Count: 0 })
+            {
+                <MudButton OnClick="() => ApplyAsync(run)" Disabled="@(_applying || _savingJson || _historyError)" Color="Color.Primary" Variant="Variant.Filled">@(run.Operation is WritingOperation.Draft or WritingOperation.Outline && TargetHasContent(run) ? "Replace entire script" : "Apply changes")</MudButton>
+            }
             }
             else if (unresolved && run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss)
             { <MudButton OnClick="() => RejectAsync(run)" Disabled="@(_applying || _savingJson)">Dismiss</MudButton> }

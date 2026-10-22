@@ -54,6 +54,10 @@ public sealed record AssistantRun
     public bool Rejected { get; init; }
     public bool Applied { get; init; }
     public ScriptTarget? AppliedTarget { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ScriptSourceScene? SourceScene { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? NormalizationNotes { get; init; }
 }
 
 public sealed record AssistantHistory
@@ -69,10 +73,12 @@ public sealed record ScriptAssistantRequest(AssistantRun Run, ScriptDocument Scr
 {
     public string? ProjectContext { get; init; }
     public IReadOnlyList<AssetImageReference> Images { get; init; } = [];
+    public ScriptOutlineSelection? OutlineSelection { get; init; }
+    public ScriptAdaptationContext? Adaptation { get; init; }
 }
 public sealed record AssistantUpdate(string? Text = null, string? Status = null,
     List<ScriptBlock>? Blocks = null, string? ValidationError = null, bool Complete = false,
-    GenerationProgress? Progress = null, ScriptEditProposal? Edits = null);
+    GenerationProgress? Progress = null, ScriptEditProposal? Edits = null, IReadOnlyList<string>? NormalizationNotes = null);
 
 public sealed record AiSettings
 {

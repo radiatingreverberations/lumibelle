@@ -18,7 +18,7 @@ using MudBlazor.Services;
 namespace Lumibelle.Tests;
 
 [Trait("Category", "Component")]
-public sealed class ScriptComponentTests : BunitContext
+public sealed partial class ScriptComponentTests : BunitContext
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.ScriptComponents", Guid.NewGuid().ToString("N"));
     private readonly IRenderedComponent<MudDialogProvider> _dialogs;
@@ -47,7 +47,8 @@ public sealed class ScriptComponentTests : BunitContext
         var enhancer = new PromptEnhancer(_providers, settings, assets); var guidance = new GuidanceAssistant(_providers, settings, assets);
         _queue = new(_jobs, settings, [_assistant], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
         Services.AddSingleton(_queue); Services.AddSingleton<IAiJobStore>(_jobs); Services.AddSingleton<IAiReviewGate>(_reviews);
-        Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, enhancer, guidance));
+        var sources = new FileSourceStore(files); Services.AddSingleton(sources);
+        Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, enhancer, guidance, sources: sources));
         Services.AddSingleton<IScriptStore>(_store); Services.AddSingleton<IAssistantHistoryStore>(_history); Services.AddSingleton<ApplicationSession>();
         Services.AddSingleton<IAiProviderRegistry>(_providers); Services.AddSingleton<IProjectAiPreferencesStore>(new FakeProjectAiPreferencesStore());
         Services.AddSingleton<IAiSettingsStore>(settings);
@@ -93,6 +94,34 @@ public sealed class ScriptComponentTests : BunitContext
         await Click(panel, "Replace entire script"); Assert.Single(_applications); Assert.True((await LastRun()).Applied);
         await panel.Instance.DisposeAsync(); panel.Dispose(); var reopened = Panel(); reopened.WaitForAssertion(() => Assert.Equal("Revise", reopened.Find(".request-action-button").GetAttribute("aria-label"))); Assert.Equal(1, _assistant.Calls);
     }
+
+    [Fact]
+    public async Task EmptyFocusedResponseOffersANewRequestInsteadOfApplyingUnchangedWriting()
+    {
+        var doc = _store.Document;
+        await _history.SaveRunAsync(doc.ProjectId, new() {
+            Status = AssistantRunStatus.Completed, Operation = WritingOperation.Revise, EditFormat = 1,
+            Target = ScriptStructure.Capture(doc, ScriptScope.Document, null), Proposal = doc.Blocks,
+            Edits = new(1, []), Output = "{\"version\":1,\"operations\":[]}",
+            SourceRevision = doc.Revision, SourceFingerprint = ScriptStructure.ContextFingerprint(doc),
+            SessionId = Services.GetRequiredService<ApplicationSession>().Id
+        }, _ct);
+        var panel = Panel();
+        await Click(panel, "Requests");
+        _dialogs.WaitForElement(".assistant-run");
+        await Click(panel, "Open response");
+        Reviewed();
+        _dialogs.WaitForAssertion(() => {
+            Assert.Contains("No changes proposed. Your script is unchanged.", _dialogs.Markup);
+            Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
+            Assert.Contains("mud-button-filled-primary", _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "New request").ClassName);
+        });
+        Assert.Empty(_applications);
+        Assert.Equal(0, _assistant.Calls);
+        await Click(panel, "Discard");
+        panel.WaitForElement(".request-action-button[aria-label='Revise']");
+    }
+
     [Fact]
     public async Task ScopedRequestCapturesModelAndStaleTargetNeedsExplicitRetarget()
     {
@@ -105,7 +134,12 @@ public sealed class ScriptComponentTests : BunitContext
         Assert.Equal(model, _assistant.LastRequest!.Selection); Assert.Equal(model.Model, (await LastRun()).Model);
         var changed = _store.Document.Copy(); changed.Blocks[1] = changed.Blocks[1] with { Spans = [new("Changed scene action.")] }; _store.Document = changed;
         panel.Render(p => p.Add(c => c.Document, changed));
-        await _dialogs.InvokeAsync(() => Assert.True(_dialogs.FindAll("button").Single(b => b.TextContent == "Apply changes").HasAttribute("disabled")));
+        await _dialogs.InvokeAsync(() => {
+            Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
+            var action = Assert.Single(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Request fresh changes");
+            Assert.False(action.HasAttribute("disabled"));
+            Assert.Contains("mud-button-filled-primary", action.ClassName);
+        });
         await Click(panel, "Request fresh changes"); await _assistant.Called(2);
         Assert.Equal("Changed scene action.", _assistant.LastRequest!.Run.Target.OriginalBlocks[1].Text);
     }
@@ -168,6 +202,7 @@ public sealed class ScriptComponentTests : BunitContext
         _dialogs.WaitForAssertion(() => Assert.Empty(_dialogs.FindAll(".script-review-dialog")));
         Assert.Empty(_applications);
         Assert.True((await LastRun()).Rejected);
+        panel.WaitForElement(".request-action-button[aria-label='Draft script']:not([disabled])");
         Controls(panel);
         await panel.InvokeAsync(() =>
         {

@@ -336,6 +336,9 @@ public sealed partial class AiTextJobTests : IDisposable
     private sealed class TextChat : IChatClient, IProgressReportingChatClient
     {
         public string Output = ""; public ChatFinishReason? Finish = ChatFinishReason.Stop; public bool FailAfterText;
+        public Queue<string> Outputs { get; } = new();
+        public List<List<ChatMessage>> Requests { get; } = [];
+        public Action<List<ChatMessage>>? OnRequest;
         public List<ChatMessage> Messages = []; public ChatOptions? Options;
         public OpenRouterRequestUsage? Usage; public bool FailAfterUsage; public Action? AfterUsage;
         public async IAsyncEnumerable<ProgressingChatUpdate> GetStreamingResponseWithProgressAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -348,7 +351,9 @@ public sealed partial class AiTextJobTests : IDisposable
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask; Messages = messages.ToList(); Options = options; cancellationToken.ThrowIfCancellationRequested();
-            yield return new(ChatRole.Assistant, Output);
+            Requests.Add(Messages);
+            OnRequest?.Invoke(Messages);
+            yield return new(ChatRole.Assistant, Outputs.Count > 0 ? Outputs.Dequeue() : Output);
             if (FailAfterText) throw new HttpRequestException("Provider disconnected");
             yield return new() { FinishReason = Finish };
         }

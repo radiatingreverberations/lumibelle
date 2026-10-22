@@ -71,6 +71,6 @@ public sealed class QueuedAssistantHistoryStore(FileAssistantHistoryStore histor
         if (!active && status == AssistantRunStatus.Completed && update is null)
             error ??= "No validated screenplay was saved. Inspect the response and retry explicitly.";
         return run with { JobId = job.Id, Revision = 0, Status = status, Output = result?.Raw ?? "", Proposal = update?.Blocks, Edits = update?.Edits,
-            Error = error, Applied = false, Rejected = false, AppliedTarget = null };
+            Error = error, NormalizationNotes = update?.NormalizationNotes, Applied = false, Rejected = false, AppliedTarget = null };
     }
 }

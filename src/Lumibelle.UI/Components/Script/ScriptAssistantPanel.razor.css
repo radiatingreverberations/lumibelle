@@ -1,0 +1,10 @@
+.script-source-plan { margin-bottom:16px; padding:12px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface-subtle); }
+.script-source-heading { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:13px; }
+.script-source-heading strong { flex:1; }
+.script-source-heading a { font-size:12px; }
+.script-source-heading button { padding:2px 6px; background:transparent; color:var(--plum); border:1px solid var(--line); border-radius:var(--lumi-radius-control); }
+.script-source-toggle { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.script-source-toggle input { width:auto; margin:0; }
+.script-source-plan select { margin-bottom:10px; }
+.script-source-progress { display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:var(--muted); }
+.source-add-acts { width:100%; margin-top:8px; padding:7px 10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--plum); cursor:pointer; }

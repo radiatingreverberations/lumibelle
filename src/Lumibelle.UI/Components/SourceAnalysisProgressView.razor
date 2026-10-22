@@ -22,7 +22,7 @@
         <small>Reading complete · @Run.Notes.Count / @Run.Chunks.Count source sections</small>
     } else if (_stage == SourceAnalysisStage.Outline) {
         @if (Run.State == SourceRunState.Running) { <progress aria-label="Adaptation outline progress"></progress> }
-        <p>Choosing acts and scenes from the story overview, with links to the original sections. The proposed outline will be ready for your review next.</p>
+        <p>Choosing acts and sequences from the story overview, with links to the original sections. The proposed outline will be ready for your review next.</p>
         <small>Reading complete · @Run.Notes.Count / @Run.Chunks.Count source sections</small>
     } else {
         @if (Run.State == SourceRunState.Running) { <progress aria-label="Preparing next analysis step"></progress> }

@@ -479,7 +479,14 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if ((list[0].Text ?? "").Contains("Lumibelle's source adaptation analyst.")) {
+        if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true)) {
+            var evidence = list.Single(m => m.Text?.StartsWith("ACCEPTED SOURCE OUTLINE AND LINKED EVIDENCE\n") == true).Text!;
+            var context = JsonSerializer.Deserialize<ScriptAdaptationContext>(evidence[(evidence.IndexOf('\n') + 1)..], AtomicJsonFile.Options)!;
+            var scene = context.Outline.Acts[context.Selection.Act!.Value].Scenes[context.Selection.Scene!.Value];
+            output = JsonSerializer.Serialize(new[] { ScriptBlock.Create(ScriptBlockKind.Scene, context.Selection.Scene == 0 && context.Selection.Act == 0 ? "EXT. RIVER - DAY" : "EXT. GARDEN - DAY"),
+                ScriptBlock.Create(ScriptBlockKind.Action, scene.Summary) }.Select(b => new { kind = b.Kind.ToString(), spans = b.Spans }), AtomicJsonFile.Options);
+        }
+        else if ((list[0].Text ?? "").Contains("Lumibelle's source adaptation analyst.")) {
             var input = JsonDocument.Parse(last).RootElement;
             var numbers = input.GetProperty("inputs").EnumerateArray().SelectMany(n => n.GetProperty("sources").EnumerateArray().Select(s => s.GetInt32())).Distinct().ToArray();
             var outline = (list[0].Text ?? "").Contains("Propose a reviewable movie adaptation outline");

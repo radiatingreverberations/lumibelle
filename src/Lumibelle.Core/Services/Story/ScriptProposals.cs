@@ -18,22 +18,34 @@ public static class ScriptProposals
         {
             Id = Guid.NewGuid(), Revision = 0, JobId = null, CorrectedFromRunId = source.Id,
             SessionId = sessionId, CreatedUtc = DateTimeOffset.UtcNow, Status = AssistantRunStatus.Completed,
-            Output = json, Proposal = parsed.Blocks, Edits = edits, Error = null, Applied = false, Rejected = false, AppliedTarget = null,
+            Output = json, Proposal = parsed.Blocks, Edits = edits, NormalizationNotes = parsed.NormalizationNotes, Error = null, Applied = false, Rejected = false, AppliedTarget = null,
             Target = source.Target with { OriginalBlocks = source.Target.OriginalBlocks.Select(b => b.Copy()).ToList() }
         };
     }
 
-    public static ScriptDocument Apply(ScriptDocument document, AssistantRun run) => ApplyWithChanges(document, run).Document;
+    public static ScriptDocument Apply(ScriptDocument document, AssistantRun run, SourceAnalysisRun? sourcePlan = null) => ApplyWithChanges(document, run, sourcePlan).Document;
 
-    public static ScriptProposalApplication ApplyWithChanges(ScriptDocument document, AssistantRun run)
+    public static ScriptProposalApplication ApplyWithChanges(ScriptDocument document, AssistantRun run, SourceAnalysisRun? sourcePlan = null)
     {
         if (run.Status != AssistantRunStatus.Completed || run.Error is not null || run.Rejected || run.Operation == WritingOperation.Discuss || run.Proposal is null)
             throw new WorkspaceStoreException("Only a complete, valid screenplay proposal can be applied.");
         if (document.AppliedProposalIds.Contains(run.Id)) throw new WorkspaceStoreException("This proposal has already been applied.");
+        if (run.SourceScene is { } plannedScene && sourcePlan is not null)
+        {
+            ScriptAdaptation.ValidateScenePlan(plannedScene, sourcePlan);
+            // Act boundaries belong to the accepted outline. The model supplies scene writing only.
+            run = run with { Proposal = run.Proposal.Where(b => b.Kind != ScriptBlockKind.Act).ToList() };
+        }
         if (run.Edits is not null) return ScriptEdits.Apply(document, run);
         ScriptStructure.ValidateTarget(run.Target);
         if (!ScriptStructure.Matches(document, run.Target)) throw new WorkspaceStoreException("The target changed or was deleted. Select and review a new target before applying.");
         ScriptStructure.ValidateBlocks(run.Proposal);
+        if (run.SourceScene is { } sourceScene && (!ScriptAdaptation.Valid(sourceScene) || run.Operation != WritingOperation.Continue || run.Target.Scope != ScriptScope.Document))
+            throw new WorkspaceStoreException("An outline sequence must be appended to the whole script.");
+        if (run.SourceScene is not null && ScriptAdaptation.InScript(document).Contains(run.SourceScene))
+            throw new WorkspaceStoreException("This sequence is already in the script. Review the existing writing before adding it again.");
+        if (run.SourceScene is not null && ScriptAdaptation.DraftError(run.Proposal) is { } draftError)
+            throw new WorkspaceStoreException(draftError);
         var target = run.Target;
         var start = target.Scope == ScriptScope.Document ? 0 : document.Blocks.FindIndex(b => b.Id == target.OriginalBlocks[0].Id);
         var count = target.OriginalBlocks.Count;
@@ -90,6 +102,15 @@ public static class ScriptProposals
         // A pure deletion has no inserted text to decorate. Mark its surviving boundary.
         if (changes.Count == 0 && comparison.Before.Any(b => b.Change != "Unchanged") && replacement.Count > 0)
             changes.Add(new(replacement[0].Id, 0, 0));
-        return new(document with { Blocks = blocks, AppliedProposalIds = [.. document.AppliedProposalIds, run.Id] }, changes);
+        var links = document.SourceSceneLinks.ToList();
+        if (run.SourceScene is not null) links.Add(new(run.SourceScene, replacement.Select(b => b.Id).ToArray()));
+        var result = document with { Blocks = blocks, AppliedProposalIds = [.. document.AppliedProposalIds, run.Id], SourceSceneLinks = links };
+        if (run.SourceScene is not null && sourcePlan is not null)
+        {
+            result = ScriptAdaptation.WithActHeadings(result, sourcePlan);
+            var existing = blocks.Select(b => b.Id).ToHashSet();
+            changes.AddRange(result.Blocks.Where(b => !existing.Contains(b.Id)).Select(b => new ScriptChangeRange(b.Id, 0, b.Text.Length)));
+        }
+        return new(result, changes);
     }
 }

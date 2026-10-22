@@ -55,7 +55,7 @@ public sealed class SourceAnalysisProgressTests : BunitContext
         var run = Pending(Example() with { State = state }, SourceAnalysisStage.Outline, [new("Story overview", Enumerable.Range(1, 38).ToArray())]);
         var ui = Render<SourceAnalysisProgressView>(p => p.Add(c => c.Run, run));
         Assert.Contains("Step 3 of 3", ui.Markup);
-        Assert.Contains("Choosing acts and scenes", ui.Markup);
+        Assert.Contains("Choosing acts and sequences", ui.Markup);
         if (state == SourceRunState.Running) {
             Assert.Equal("Proposing adaptation outline", ui.Find("strong").TextContent);
             Assert.Null(ui.Find("progress").GetAttribute("value"));

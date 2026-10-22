@@ -17,6 +17,11 @@ public sealed partial class ProjectPackageTests
         var accepted = run with { Id = Guid.NewGuid(), State = SourceRunState.Accepted, Proposal = SourceAnalysisTests.Outline(), Reviewed = SourceAnalysisTests.Outline(), ReviewRevision = 1 };
         run = run with { AnalysisFromRunId = accepted.Id };
         await store.UpdateAsync(project.Id, d => Task.FromResult(d with { Runs = [accepted, run] }), ct);
+        var scriptStore = new FileScriptStore(source.Files, TimeProvider.System);
+        var script = await scriptStore.LoadAsync(project.Id, ct);
+        var scene = ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. RIVER - DAY");
+        var link = new ScriptSourceScene(accepted.Id, accepted.ReviewRevision, 0, 0);
+        await scriptStore.SaveAsync(script with { Blocks = [scene], SourceSceneLinks = [new(link, [scene.Id])] }, script.Revision, cancellationToken: ct);
         var export = await source.Service.ExportAsync(project.Id, new(), ct: ct);
         using var target = new Fixture();
         await using var media = (await source.Service.OpenExportAsync(project.Id, export.Id, ct))!;
@@ -29,6 +34,7 @@ public sealed partial class ProjectPackageTests
         Assert.Equal(SourceRunState.Paused, imported.Runs[1].State);
         Assert.Null(imported.Runs[1].Pending);
         Assert.Equal(accepted.Id, imported.Runs[1].AnalysisFromRunId);
+        Assert.Equal(link, Assert.Single(ScriptAdaptation.InScript(await new FileScriptStore(target.Files, TimeProvider.System).LoadAsync(project.Id, ct))));
         Assert.Equal(SourceRunState.Running, (await store.LoadAsync(project.Id, ct)).Runs[1].State);
     }
 }

@@ -131,7 +131,7 @@ public partial class ScriptWorkspace
             var captured = Document.Copy(); var target = selection.Capture(captured);
             await AcknowledgeAsync(); return new(captured, target);
         }
-        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); } finally { _syncing = false; _operations.Release(); } }
+        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); } finally { _syncing = false; _operations.Release(); if (!_disposed) await InvokeAsync(StateHasChanged); } }
     }
     private async Task<bool> ExternalAsync(Func<Task<bool>> action)
     {
@@ -151,18 +151,30 @@ public partial class ScriptWorkspace
             return true;
         }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or JSException) { _error = e.Message; return false; }
-        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); await AcknowledgeAsync(); } finally { _syncing = false; _operations.Release(); } }
+        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); await AcknowledgeAsync(); } finally { _syncing = false; _operations.Release(); if (!_disposed) await InvokeAsync(StateHasChanged); } }
     }
     private async Task<bool> ApplyAsync(AssistantRun run)
     {
         ScriptProposalApplication? applied = null;
-        var saved = await ExternalAsync(() => _session!.MutateAsync(doc => (applied = ScriptProposals.ApplyWithChanges(doc, run)).Document, "Before applying an AI proposal"));
+        var saved = await ExternalAsync(async () =>
+        {
+            var plan = run.SourceScene is null ? null : ScriptAdaptation.Accepted(await Sources.LoadAsync(Project.Id))
+                ?? throw new WorkspaceStoreException("Accept a current source outline before applying this sequence.");
+            return await _session!.MutateAsync(doc => (applied = ScriptProposals.ApplyWithChanges(doc, run, plan)).Document, "Before applying an AI proposal");
+        });
         if (saved && applied is not null && _canvas is not null)
         {
             await _canvas.HighlightAsync(applied.Changes); _hasHighlights = applied.Changes.Count > 0; StateHasChanged();
         }
         return saved;
     }
+    private Task<bool> AddOutlineActsAsync(SourceAnalysisRun expected) => ExternalAsync(async () =>
+    {
+        var plan = ScriptAdaptation.Accepted(await Sources.LoadAsync(Project.Id));
+        if (plan?.Id != expected.Id || plan.ReviewRevision != expected.ReviewRevision)
+            throw new WorkspaceStoreException("The accepted outline changed. Refresh it before adding its act headings.");
+        return await _session!.MutateAsync(doc => ScriptAdaptation.WithActHeadings(doc, plan), "Before adding source outline acts");
+    });
     private async Task HideHighlightsAsync()
     {
         _hasHighlights = false;

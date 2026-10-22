@@ -68,13 +68,13 @@ public partial class ScriptAssistantPanel
     private async Task ChooseScopeAsync(ScriptScope scope)
     {
         _initialTargetChosen = true; _scope = scope; _target = null;
-        try { _target = await SelectTarget(scope); _error = null; }
+        try { _target = await SelectTarget(scope); FocusSourceForTarget(_target); _error = null; }
         catch (WorkspaceStoreException e) { _error = e.Message; }
     }
     private WritingOperation? _chosenOperation;
-    private WritingOperation Operation => _chosenOperation ?? (Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)) ? WritingOperation.Draft : WritingOperation.Revise);
-    private bool WholeDocumentOperation => Operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss;
-    private string ActionLabel => Operation switch { WritingOperation.Draft => "Draft script", WritingOperation.Outline => "Suggest outline", WritingOperation.Discuss => "Discuss idea", _ => Operation.ToString() };
+    private WritingOperation Operation => _draftOutlineScene ? WritingOperation.Continue : _chosenOperation ?? (Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)) ? WritingOperation.Draft : WritingOperation.Revise);
+    private bool WholeDocumentOperation => _draftOutlineScene || Operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss;
+    private string ActionLabel => _draftOutlineScene ? "Draft sequence" : Operation switch { WritingOperation.Draft => "Draft script", WritingOperation.Outline => "Suggest outline", WritingOperation.Discuss => "Discuss idea", _ => Operation.ToString() };
     private int _requestPage;
     private int RequestPages => Math.Max(1, (_runs.Count(r => r.Status != AssistantRunStatus.Running) + 19) / 20);
     private IEnumerable<AssistantRun> VisibleRuns => _runs.Where(r => r.Status != AssistantRunStatus.Running).OrderByDescending(r => r.CreatedUtc).Skip(_requestPage * 20).Take(20);
@@ -96,7 +96,7 @@ public partial class ScriptAssistantPanel
     private string? _error;
     private Guid? _reviewId;
     private ScriptTarget? _reviewTarget;
-    private bool _compare;
+    private bool _compare, _retargeting;
     private AssistantRun? ReviewRun => _runs.FirstOrDefault(r => r.Id == _reviewId);
     private static readonly DialogOptions ReviewOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private lumibelle.Components.AI.TextRequestAction? _primaryAction;
@@ -114,7 +114,7 @@ public partial class ScriptAssistantPanel
     private AiJobProgress? _reviewProgress;
     private readonly CancellationTokenSource _lifetime = new();
     private AssistantRun? InspectionRun => Jobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.ScriptAssistant && j.Target.ProjectId == ProjectId && TextRequestPresentation.IsActive(j)) is { } active
-        ? _runs.FirstOrDefault(r => r.JobId == active.Id) : LatestRun;
+        ? _runs.FirstOrDefault(r => r.JobId == active.Id) : _draftOutlineScene ? OutlineInspectionRun : LatestRun;
     private TextRequestPresentation? ScriptPresentation {
         get {
             var run = InspectionRun;
@@ -128,7 +128,7 @@ public partial class ScriptAssistantPanel
             };
             var outcome = run is not null && (run.Applied || run.Rejected || Document.AppliedProposalIds.Contains(run.Id)) ? TextRequestOutcome.Resolved
                 : run?.Error is not null ? TextRequestOutcome.Invalid : run?.Operation == WritingOperation.Discuss ? TextRequestOutcome.Response : TextRequestOutcome.Proposal;
-            var working = run?.Operation switch { WritingOperation.Draft => "Drafting script…", WritingOperation.Outline => "Outlining script…", WritingOperation.Discuss => "Responding…", WritingOperation.Rewrite => "Rewriting…", WritingOperation.Continue => "Continuing…", _ => "Revising…" };
+            var working = run?.SourceScene is not null ? (Jobs.Progress(job.Id)?.Progress.Label.StartsWith("Step 1 of 2", StringComparison.Ordinal) == true ? "Planning sequence…" : "Drafting sequence…") : run?.Operation switch { WritingOperation.Draft => "Drafting script…", WritingOperation.Outline => "Outlining script…", WritingOperation.Discuss => "Responding…", WritingOperation.Rewrite => "Rewriting…", WritingOperation.Continue => "Continuing…", _ => "Revising…" };
             return new(job, working, outcome, run?.Operation.ToString());
         }
     }
@@ -141,7 +141,7 @@ public partial class ScriptAssistantPanel
     private ElementReference _originElement, _requestsOrigin;
     private bool TargetReady { get { try { return _target?.Capture(Document) is not null; } catch (WorkspaceStoreException) { return false; } } }
     private bool _modelPreparing;
-    private bool CanGenerate => !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && (_referenceImages.Count == 0 || _supportsImages) && (WholeDocumentOperation || TargetReady);
+    private bool CanGenerate => !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && SourcePlanReady && (_referenceImages.Count == 0 || _supportsImages) && (WholeDocumentOperation || TargetReady);
     private string TargetDescription
     {
         get
@@ -164,7 +164,9 @@ public partial class ScriptAssistantPanel
             ScriptTarget target;
             try { target = !WholeDocumentOperation && _target is not null ? _target.Capture(Document) : ScriptStructure.Capture(Document, ScriptScope.Document, null); }
             catch (WorkspaceStoreException) { target = new(ScriptScope.Document, "Choose a target", []); }
-            return ScriptAssistant.EstimateInputTokens(new(new AssistantRun { Instructions = _instructions, Operation = Operation, EditFormat = Operation == WritingOperation.Revise ? 1 : 0, Target = target }, Document, AttachedConversation) { ProjectContext = _projectContext });
+            return ScriptAssistant.EstimateInputTokens(new(new AssistantRun { Instructions = _instructions, Operation = Operation, EditFormat = Operation == WritingOperation.Revise ? 1 : 0, Target = target,
+                SourceScene = _draftOutlineScene && OutlineSelection is { Act: { } ai, Scene: { } si } choice ? new(choice.RunId, choice.ReviewRevision, ai, si) : null }, Document, AttachedConversation)
+                { ProjectContext = _projectContext, Adaptation = OutlineContext });
         }
     }
     protected override async Task OnInitializedAsync()
@@ -173,6 +175,7 @@ public partial class ScriptAssistantPanel
         try { await Jobs.RefreshAsync(); await RefreshJobsAsync(); }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _historyError = true; _error = e.Message; }
         _loading = false;
+        await RefreshSourcePlan();
     }
     private void ModelChanged(TextModelSelectionState state) { _model = state.Model; _ready = state.Ready; _followsDefault = state.FollowsDefault; _supportsImages = state.SupportsImages && TextVisionPolicy.SupportsBackend(state.Model.Backend); }
     private string InstructionsValue { get => _instructions; set { _instructions = value; _instructionsEdited = true; } }
@@ -186,20 +189,21 @@ public partial class ScriptAssistantPanel
         _submitting = _generating = true; await CloseReview();
         var model = _model!; var instructions = _instructions; var conversation = AttachedConversation.ToArray(); var followsDefault = _followsDefault; var projectContext = _projectContext;
         var images = _referenceImages.ToArray();
-        var target = operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
+        var outlineSelection = OutlineSelection;
+        var target = _draftOutlineScene || operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
         _error = null;
         _progress = new(GenerationPhase.Saving, "Saving the script…");
         try
         {
             var context = await Capture(target);
             _lifetime.Token.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(instructions) && context.Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)))
+            if (outlineSelection is null && string.IsNullOrWhiteSpace(instructions) && context.Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)))
                 throw new WorkspaceStoreException("Write a starting passage or add instructions first.");
             var run = new AssistantRun { SessionId = Session.Id, Operation = operation, Target = context.Target, SourceRevision = context.Document.Revision,
                 SourceFingerprint = ScriptStructure.ContextFingerprint(context.Document), EditFormat = operation == WritingOperation.Revise ? 1 : 0, Instructions = instructions, Backend = model.Backend, Model = model.Model };
             var tab = await Reviews.TabIdAsync();
-            _pendingSubmission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model) { ProjectContext = projectContext, Images = images }, followsDefault, _lifetime.Token);
-            _pendingSubmission = _assist.Attribute(_pendingSubmission);
+            var submission = await Requests.ScriptAsync(run.Id, tab, new(run, context.Document, conversation, model) { ProjectContext = projectContext, Images = images, OutlineSelection = outlineSelection }, followsDefault, _lifetime.Token);
+            _pendingSubmission = _assist.Attribute(submission);
             _originJobId = _restoredJobId = run.Id;
             await EnqueuePendingAsync();
         }
@@ -272,6 +276,12 @@ public partial class ScriptAssistantPanel
                     _reviewProgress = progress;
                 }
                 if (_pendingSubmission is { } pending && view.Jobs.Any(j => j.Id == pending.Id)) _pendingSubmission = null;
+                if (_reviewId is { } reviewing && _runs.FirstOrDefault(r => r.Id == reviewing)?.SourceScene is not null &&
+                    view.Jobs.FirstOrDefault(j => j.Id == reviewing) is { } reviewedJob) {
+                    var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(reviewing, AiJobArtifact.Result, _lifetime.Token);
+                    if (_scenePlan is null && result?.ScenePlan is not null || _scenePlanning != (result?.ScenePlanning == true))
+                        await LoadRequestDetailsAsync(reviewedJob);
+                }
                 if (!_loading && _originJobId is { } origin && _attemptedAutomaticId != origin && view.Jobs.FirstOrDefault(j => j.Id == origin) is { } completed &&
                     completed.State is not (AiJobState.Waiting or AiJobState.Running))
                 {
@@ -328,11 +338,10 @@ public partial class ScriptAssistantPanel
         if (_disposed) { await Reviews.CloseAsync(run.Id); return; }
         _reviewId = run.Id; _reviewTarget = run.AppliedTarget; _compare = run.Operation is WritingOperation.Revise or WritingOperation.Rewrite; _reviewProgress = null;
         _editingJson = false; _pendingJsonProposal = null; _jsonError = null;
-        _requestDetails = null;
+        _requestDetails = null; _scenePlan = null; _scenePlanning = false;
         if (run.JobId is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } header)
         {
-            var request = AiTextJobHandler.Read(header, await JobStore.ReadSnapshotAsync(jobId, _lifetime.Token));
-            _requestDetails = "Captured model: " + System.Text.Json.JsonSerializer.Serialize(request.Model, AtomicJsonFile.Options) + "\nSelection: " + (request.SelectionSource?.ToString() ?? "Historical captured choice") + "\n\n" + string.Join("\n\n", request.Messages.Select(m => m.Role.ToUpperInvariant() + "\n" + string.Join("\n", m.Parts.Select(p => p.Text))));
+            await LoadRequestDetailsAsync(header);
         }
         _responseJsonError = run.EditFormat != 1 && run.Error is not null && run.Operation != WritingOperation.Discuss && !string.IsNullOrWhiteSpace(run.Output)
             ? ScreenplayJson.Parse(run.Output).Error : null;
@@ -347,14 +356,17 @@ public partial class ScriptAssistantPanel
     }
     private async Task RetargetAsync()
     {
+        if (_retargeting) return;
+        _retargeting = true;
         try
         {
             if (ReviewRun?.EditFormat == 1) { await CloseReview(); await StartAsync(WritingOperation.Revise); return; }
-            var target = ReviewRun?.Operation is WritingOperation.Draft or WritingOperation.Outline
+            var target = ReviewRun?.SourceScene is not null || ReviewRun?.Operation is WritingOperation.Draft or WritingOperation.Outline
                 ? new ScriptAssistantTarget(ScriptScope.Document) : _target ?? throw new WorkspaceStoreException("Choose an explicit target before retargeting.");
             _reviewTarget = (await Capture(target)).Target; _compare = true; _error = null;
         }
         catch (WorkspaceStoreException e) { _error = e.Message; }
+        finally { _retargeting = false; }
     }
     private async Task ApplyAsync(AssistantRun run)
     {
@@ -364,6 +376,8 @@ public partial class ScriptAssistantPanel
             if (await Apply(run with { Target = _reviewTarget ?? run.Target }))
             {
                 await PersistAsync(run with { Applied = true, AppliedTarget = _reviewTarget ?? run.Target }); await Reviews.CloseAsync(run.Id); _reviewId = null;
+                if (run.SourceScene is { } sourceScene && _draftOutlineScene && sourceScene.RunId == _sourcePlan?.Id && sourceScene.ReviewRevision == _sourcePlan.ReviewRevision)
+                    ChooseNextOutlineScene(sourceScene);
                 if (run.Operation is WritingOperation.Draft or WritingOperation.Outline && _chosenOperation == run.Operation) _chosenOperation = null;
             }
             else _error = "The proposal could not be applied. Close this review to check the editor’s save status, then try again.";
@@ -373,7 +387,7 @@ public partial class ScriptAssistantPanel
     }
     private async Task RejectAsync(AssistantRun run)
     {
-        try { await PersistAsync(run with { Rejected = true }); await Reviews.CloseAsync(run.Id); _reviewId = null; }
+        try { await PersistAsync(run with { Rejected = true }); await Reviews.CloseAsync(run.Id); _reviewId = null; if (_error == run.Error) _error = null; }
         catch (WorkspaceStoreException e) { _error = e.Message; }
     }
     private async Task Reuse(AssistantRun run) { _dismissedLatestId = LatestRun?.Id; _requestsOpen = false; if (_assist is not null) await _assist.OpenAsync(); _instructions = run.Instructions; _instructionsEdited = true; _error = "Instructions restored. Choose an action to make a new request."; }

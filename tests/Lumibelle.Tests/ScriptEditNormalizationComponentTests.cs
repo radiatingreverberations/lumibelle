@@ -37,6 +37,7 @@ public sealed class ScriptEditNormalizationComponentTests : BunitContext
         var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(FakeProjectStore.Project("Normalization") with { Id = id }) };
         Directory.CreateDirectory(Path.Combine(_root, "App_Data", "Projects", _store.Document.ProjectId.ToString()));
         var files = new ProjectFiles(Options.Create(new ProjectStorageOptions()), environment, projects);
+        Services.AddSingleton(new FileSourceStore(files));
         var jobs = new FileAiJobStore(environment, TimeProvider.System);
         _history = new(new QueuedAssistantHistoryStore(new(files, new()), jobs));
         var settings = new FakeAiSettingsStore { Value = new() { DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "test/model", HasOpenRouterKey = true } };
@@ -138,7 +139,8 @@ public sealed class ScriptEditNormalizationComponentTests : BunitContext
         var changed = _store.Document.Copy(); changed.Blocks[1] = changed.Blocks[1] with { Spans = [new("Edited after the request.")] };
         _store.Document = changed; panel.Render(p => p.Add(c => c.Document, changed));
         await Click(panel, "Reprocess saved response"); _dialogs.WaitForElement(".script-edit-normalization");
-        Assert.True(_dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").HasAttribute("disabled"));
+        Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
+        Assert.False(_dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Request fresh changes").HasAttribute("disabled"));
         Assert.Contains("target changed", _dialogs.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(_applications); Assert.Equal(0, _assistant.Calls);
     }
