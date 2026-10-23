@@ -361,6 +361,8 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   const manager = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   await manager.locator(`[data-reel-id="${original.id}"] .add-reel`).click();
+  // Adding a reel prepares keyframes before its reference controls become available.
+  await expect(manager.locator('[data-video-reference-id]')).toHaveCount(1, { timeout: 45000 });
   if (narrow) await manager.getByRole('tab', { name: /Selected references/ }).click();
   await manager.getByLabel('Visuals', { exact: true }).selectOption('FullReel');
   await manager.getByLabel('Voice for Juniper', { exact: true }).selectOption('none');
