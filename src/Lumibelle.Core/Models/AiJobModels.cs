@@ -5,7 +5,9 @@ namespace lumibelle.Models;
 
 public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection, SourceAnalysis }
 public enum AiJobState { Waiting, Running, NeedsAttention, Completed, Cancelled }
-public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain }
+// ContinueRequest is explicitly requeued execution from a saved checkpoint. Unlike
+// CheckStatus/RetryOutput, it may run an unfinished model step after the user retries.
+public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain, ContinueRequest, ApproveBrief }
 
 public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, Guid? ShotId = null,
     GuidanceScope? GuidanceScope = null, Guid? LookId = null, Guid? ImageId = null, string? ModelKey = null,
@@ -103,7 +105,7 @@ public sealed record AiJobHeader
     public bool CanClearActivity => State is not (AiJobState.Waiting or AiJobState.Running) && !RemoteUnconfirmed && ComfyControl is null;
     [System.Text.Json.Serialization.JsonIgnore]
     public bool CanRetryCaptured => State == AiJobState.NeedsAttention && !CancelRequested && !RemoteUnconfirmed &&
-        Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput;
+        Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput or AiJobRecovery.ContinueRequest;
     [System.Text.Json.Serialization.JsonIgnore]
     public bool CanRecoverCancelledOutputs => State == AiJobState.Cancelled && CancelRequested && !RemoteUnconfirmed &&
         Backend == AiBackend.ComfyUI && Kind is AiJobKind.Video or AiJobKind.ReelVideo && Batch is not null;
@@ -143,7 +145,7 @@ public sealed record AiJobProgress(GenerationProgress Progress, int? Candidate =
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<int>? CandidateExecutionOrder { get; init; }
 }
-public enum AiJobArtifact { Progress, Execution, Result, Composer }
+public enum AiJobArtifact { Progress, Execution, Result, Composer, SequenceBriefApproval, SequenceBriefCorrections }
 public enum AiActivityChange { Read, Clear, Restore }
 public sealed record AiActivityObservation(Guid Id, long Version);
 public sealed record AiJobSnapshot(string Fingerprint, JsonElement Request, AiBatchDefinition? InitialBatch = null);

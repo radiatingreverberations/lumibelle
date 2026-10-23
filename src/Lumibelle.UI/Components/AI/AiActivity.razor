@@ -92,8 +92,8 @@
                         <div class="ai-job-actions">
                             <a href="@ProjectLink(job.ReviewUrl)" @onclick="() => Review(job)" @onclick:preventDefault>@(active ? "View" : "Review")</a>
                             @if ((active || job.RemoteUnconfirmed || job.ComfyControl is not null) && !job.CancelRequested) { <button disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.CancelAsync(job.Id))">Cancel</button> }
-                            @if ((job.Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput || job.CanRecoverCancelledOutputs) && !active)
-                            { <button disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.ResumeAsync(job.Id))">@(job.CanRecoverCancelledOutputs ? "Recover completed takes" : job.Recovery == AiJobRecovery.RetryOutput ? "Retry download/save" : "Check status")</button> }
+                            @if ((job.Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput or AiJobRecovery.ContinueRequest || job.CanRecoverCancelledOutputs) && !active)
+                            { <button disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.ResumeAsync(job.Id))">@(job.CanRecoverCancelledOutputs ? "Recover completed takes" : job.Recovery == AiJobRecovery.ContinueRequest ? "Continue review" : job.Recovery == AiJobRecovery.RetryOutput ? "Retry download/save" : "Check status")</button> }
                             @if (job.Unread) { <button disabled="@pending" @onclick="() => Act(job.Id, async () => { await Jobs.ChangeActivityAsync([job], AiActivityChange.Read); })">Mark read</button> }
                             @if (job.ActivityClearedUtc is not null) { <button disabled="@pending" @onclick="() => Act(job.Id, async () => { await Jobs.ChangeActivityAsync([job], AiActivityChange.Restore); })">Restore to activity</button> }
                             @if (IsText(job) || job.Backend == AiBackend.Codex && job.Batch is not null) { <button disabled="@pending" @onclick="() => Inspect(job.Id)" aria-expanded="@((_inspect == job.Id).ToString().ToLowerInvariant())">@(_inspect == job.Id ? "Hide response" : "Inspect response")</button> }

@@ -46,7 +46,12 @@ public static class AiTextResults
                     }
                     catch (WorkspaceStoreException e) { return Value(result, new AssistantUpdate(ValidationError: e.Message, Complete: true), e.Message); }
                 }
-                var parsed = script.Run.Operation == WritingOperation.Discuss ? null : ScreenplayJson.Parse(raw);
+                ScreenplayJsonResult? parsed;
+                if (request.Profile == ScriptSequenceDrafting.Profile) {
+                    try { parsed = new(ScriptSequenceDrafting.Parse(raw).Blocks, null); }
+                    catch (WorkspaceStoreException e) { parsed = new(null, e.Message); }
+                }
+                else parsed = script.Run.Operation == WritingOperation.Discuss ? null : ScreenplayJson.Parse(raw);
                 var blocks = parsed?.Blocks;
                 var error = parsed is { Blocks: null } ? ScreenplayJson.Rejection(parsed.Error) : null;
                 if (error is null && blocks is not null && script.Run.SourceScene is not null) error = ScriptAdaptation.DraftError(blocks);

@@ -1,0 +1,37 @@
+import { test, expect } from './fixtures.js';
+
+test('remaining sequences append to the editor and continue after leaving the script tab', async ({ page, request }) => {
+  test.setTimeout(120000);
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await page.goto(`/projects/${id}/source`);
+  await page.getByLabel('Source title', { exact: true }).fill('The river key');
+  await page.getByLabel('Original text', { exact: true }).fill('Chapter 1\nEira inherits a brass key and follows the river.\n\nChapter 2\nThe key opens a gate onto a sheltered garden.');
+  await page.getByRole('button', { name: 'Analyze source', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Accept outline', exact: true })).toBeEnabled({ timeout: 60000 });
+  await page.getByRole('button', { name: 'Accept outline', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Script', exact: true }).click();
+  await page.getByLabel('Action', { exact: true }).selectOption('draft-remaining');
+  await expect(page.getByLabel('Sequence', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.assistant-target')).toContainText('directly to the script');
+  await page.getByRole('button', { name: 'Draft remaining sequences', exact: true }).click();
+  const batch = page.getByRole('region', { name: 'Screenplay batch', exact: true });
+  await expect(batch).toContainText('0 / 2 sequences added');
+  await expect(page.getByRole('button', { name: 'Pause after this sequence', exact: true })).toBeEnabled();
+  await expect(page.locator('.script-source-progress')).toContainText('1 of 2 sequences added', { timeout: 60000 });
+  await expect(page.locator('.script-canvas')).toContainText('Eira');
+  await expect(page.getByRole('dialog').filter({ hasText: 'Review script proposal' })).toHaveCount(0);
+  await page.screenshot({ path: 'artifacts/script-batch-writing.png', fullPage: true });
+  await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Overview', exact: true }).click();
+  await expect.poll(async () => (await (await request.get(`/fixtures/${id}`)).json()).script.sourceSceneLinks.length, { timeout: 60000 }).toBe(2);
+  await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Script', exact: true }).click();
+  await expect(batch).toContainText('Batch complete');
+  await expect(batch).toContainText('2 / 2 sequences added');
+  await expect(page.locator('.script-canvas')).toContainText('Eira');
+  await expect(page.getByRole('button', { name: 'Text model options', exact: true })).toContainText('Mock script writer');
+  const saved = await (await request.get(`/fixtures/${id}`)).json();
+  expect(saved.script.sourceSceneLinks).toHaveLength(2);
+  expect(saved.history.runs.filter(r => r.draftBatchId)).toHaveLength(2);
+  expect(saved.history.runs.filter(r => r.draftBatchId).every(r => r.applied)).toBe(true);
+  expect((await (await request.get(`/fixtures/${id}/script-recovery`)).json()).some(r => r.reason === 'Before drafting remaining sequences')).toBe(true);
+  await page.screenshot({ path: 'artifacts/script-batch-complete.png', fullPage: true });
+});

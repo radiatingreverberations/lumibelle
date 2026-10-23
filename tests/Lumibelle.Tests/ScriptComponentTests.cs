@@ -48,6 +48,7 @@ public sealed partial class ScriptComponentTests : BunitContext
         _queue = new(_jobs, settings, [_assistant], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
         Services.AddSingleton(_queue); Services.AddSingleton<IAiJobStore>(_jobs); Services.AddSingleton<IAiReviewGate>(_reviews);
         var sources = new FileSourceStore(files); Services.AddSingleton(sources);
+        Services.AddSingleton(new FileScriptDraftBatchStore(files)); Services.AddSingleton<ScriptDraftWorkflow>();
         Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, enhancer, guidance, sources: sources));
         Services.AddSingleton<IScriptStore>(_store); Services.AddSingleton<IAssistantHistoryStore>(_history); Services.AddSingleton<ApplicationSession>();
         Services.AddSingleton<IAiProviderRegistry>(_providers); Services.AddSingleton<IProjectAiPreferencesStore>(new FakeProjectAiPreferencesStore());
@@ -185,6 +186,7 @@ public sealed partial class ScriptComponentTests : BunitContext
     public async Task MissingModelBlocksRequestsAndInvalidProposalCannotBeApplied()
     {
         _providers.Models = []; var panel = Panel(); Assert.True(Controls(panel).Find(".request-action-button").HasAttribute("disabled")); Assert.Equal(0, _assistant.Calls);
+        panel.WaitForAssertion(() => Assert.Contains("Model unavailable: This model is no longer available", panel.Find(".assist-panel-actions .script-submit-reason").TextContent));
         await panel.Instance.DisposeAsync(); panel.Dispose(); _providers.Models = null; _assistant.Invalid = true; panel = Panel(); await Click(panel, "Draft replacement"); await Click(panel, "Draft script");
         panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), BunitDefaults.WaitTimeout(5)); await _dialogs.InvokeAsync(() => Assert.Empty(_dialogs.FindAll(".script-review")));
     }
@@ -276,7 +278,16 @@ internal sealed class ScriptReviewGate : IAiReviewGate
 internal sealed class ScriptQueueHandler : IAiJobHandler
 {
     public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant];
-    public bool Wait { get; set; } public bool Invalid { get; set; }
+    public bool Wait { get; set; } public bool Invalid { get; set; } public bool ScenePlanning { get; set; }
+    public string? PlanningOutput { get; set; }
+    public ScriptScenePlan? SavedPlan { get; set; }
+    private AiJobContext? _context;
+    public async Task BeginScreenplayAsync(ScriptScenePlan brief)
+    {
+        ScenePlanning = false; SavedPlan = brief;
+        await _context!.SaveResultAsync(new AiTextJobResult("Partial screenplay output") { ScenePlan = brief });
+        await _context.ReportAsync(new(new(GenerationPhase.Generating, "Step 2 of 2 · writing screenplay…")), checkpoint: true);
+    }
     private readonly CallCount _calls = new();
     public int Calls => _calls.Value; public Guid JobId { get; private set; } public CancellationToken Token { get; private set; }
     public Task Called(int times = 1) => _calls.Reached(times);
@@ -286,14 +297,14 @@ internal sealed class ScriptQueueHandler : IAiJobHandler
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
         LastRequest = snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<ScriptAssistantRequest>();
-        JobId = context.Job.Id; Token = ct; _calls.Increment();
-        await context.SaveResultAsync(new AiTextJobResult("Partial mock output"));
+        _context = context; JobId = context.Job.Id; Token = ct; _calls.Increment();
+        await context.SaveResultAsync(new AiTextJobResult("Partial mock output") { ScenePlanning = ScenePlanning, ScenePlan = SavedPlan });
         PartialSaved.TrySetResult();
         await context.ReportAsync(new(new(GenerationPhase.Generating, "Writing…")));
         if (Wait) await Release.Task.WaitAsync(ct);
         var error = Invalid ? "Invalid mock output" : null;
         var update = new AssistantUpdate(Complete: true, Blocks: Invalid ? null : ScriptFixtures.Document().Blocks, ValidationError: error);
-        await context.SaveResultAsync(new AiTextJobResult("Complete mock output", true, "stop", JsonSerializer.SerializeToElement(update, AtomicJsonFile.Options), error));
+        await context.SaveResultAsync(new AiTextJobResult(ScenePlanning ? PlanningOutput ?? "Complete mock output" : "Complete mock output", true, "stop", JsonSerializer.SerializeToElement(update, AtomicJsonFile.Options), error) { ScenePlanning = ScenePlanning, ScenePlan = SavedPlan });
         return Invalid ? AiJobOutcome.Attention(error!, AiJobRecovery.GenerateAgain) : AiJobOutcome.Complete();
     }
     public Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Task.FromResult(AiJobOutcome.Attention("Interrupted mock request", AiJobRecovery.GenerateAgain));

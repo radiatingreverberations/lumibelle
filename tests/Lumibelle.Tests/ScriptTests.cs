@@ -7,6 +7,31 @@ namespace Lumibelle.Tests;
 
 public sealed class ScriptTests
 {
+    [Theory]
+    [InlineData(ScriptScope.Document)]
+    [InlineData(ScriptScope.Scene)]
+    [InlineData(ScriptScope.Passage)]
+    public void TargetComparisonAcceptsSpanMergingButKeepsTextStyleAndStructureChangesVisible(ScriptScope scope)
+    {
+        var doc = ScriptFixtures.Document();
+        doc.Blocks[1] = doc.Blocks[1] with { Spans = [new("Eira "), new("waits."), new("", true), new("Quietly.", true), new("", false, true)] };
+        var target = ScriptStructure.Capture(doc, scope, new(doc.Blocks[1].Id, 0, doc.Blocks[1].Id, 5));
+        var normalized = doc.Copy();
+        normalized.Blocks[1] = normalized.Blocks[1] with { Spans = [new("Eira waits."), new("Quietly.", true)] };
+        Assert.NotEqual(ScriptStructure.Fingerprint(doc.Blocks), ScriptStructure.Fingerprint(normalized.Blocks));
+        Assert.True(ScriptStructure.Matches(normalized, target));
+        foreach (var change in new[] {
+            normalized.Blocks[1] with { Spans = [new("Eira moves."), new("Quietly.", true)] },
+            normalized.Blocks[1] with { Spans = [new("Eira waits.", true), new("Quietly.", true)] },
+            normalized.Blocks[1] with { Spans = [new("Eira waits."), new("Quietly.", true, true)] },
+            normalized.Blocks[1] with { Kind = ScriptBlockKind.Dialogue },
+            normalized.Blocks[1] with { Id = Guid.NewGuid() }
+        }) {
+            var changed = normalized.Copy(); changed.Blocks[1] = change;
+            Assert.False(ScriptStructure.Matches(changed, target));
+        }
+    }
+
     [Fact]
     public void OutlineIsDerivedFromOrderedBlocksAndOptionalActs()
     {

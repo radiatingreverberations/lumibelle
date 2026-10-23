@@ -89,7 +89,7 @@
         if (_session is null || _disposed) return;
         _session.Select(model); await RefreshAsync(); await InvokeAsync(StateHasChanged);
     }
-    private async Task PublishAsync() { if (_session is not null && !_disposed) await SelectionChanged.InvokeAsync(_session.State with { Ready = !_busy && _error is null && _session.Issue is null }); }
+    private async Task PublishAsync() { if (_session is not null && !_disposed) await SelectionChanged.InvokeAsync(_session.State with { Ready = !_busy && _error is null && _session.Issue is null, UnavailableReason = _busy ? null : _error ?? _session.Issue }); }
     private async Task RefreshAsync(bool all = false) {
         if (_session is null || _disposed) return;
         var session = _session;

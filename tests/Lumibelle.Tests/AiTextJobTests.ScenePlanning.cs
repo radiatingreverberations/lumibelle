@@ -8,7 +8,7 @@ namespace Lumibelle.Tests;
 public sealed partial class AiTextJobTests
 {
     private const string PlannedScene = "{\"beats\":[\"Eira finds the key.\"],\"continuity\":[\"The gate has not opened yet.\"],\"withhold\":[\"The garden remains undiscovered.\"],\"ending\":\"She takes the key.\",\"timeCue\":\"\"}";
-    private async Task<AiJobSubmission> LocalSceneRequest(int? replyLimit = null, int? profileLimit = null, string instructions = "")
+    private async Task<AiJobSubmission> LocalSceneRequest(int? replyLimit = null, int? profileLimit = null, string instructions = "", bool reviewed = false)
     {
         _model = new(AiBackend.Vllm, "test/model", "Local") { VllmUrl = "http://llm-server:8000/v1", MaxOutputTokens = replyLimit };
         _settings.Value = _settings.Value with { VllmUrl = _model.VllmUrl! };
@@ -17,7 +17,45 @@ public sealed partial class AiTextJobTests
         var source = await AcceptedScriptSource();
         var request = ScriptFromOutline(source);
         request = request with { Run = request.Run with { Instructions = instructions } };
-        return await SourceScriptCapture.ScriptAsync(request.Run.Id, Guid.NewGuid(), request, true, _ct);
+        var submission = await SourceScriptCapture.ScriptAsync(request.Run.Id, Guid.NewGuid(), request, true, _ct);
+        return reviewed ? submission : LegacySequence(submission);
+    }
+    // Exercise durable historical captures independently of the new reviewed profile.
+    private static AiJobSubmission LegacySequence(AiJobSubmission submission)
+    {
+        var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var payload = captured.Payload<ScriptAssistantRequest>();
+        return submission with { Snapshot = JsonSerializer.SerializeToElement(captured with {
+            Profile = ScriptScenePlanning.Profile,
+            Messages = ScriptAssistant.BuildMessages(payload, includeSourceEvidence: false).Select(AiTextMessage.Capture).ToArray(),
+            ScenePlanMessages = ScriptScenePlanning.Messages(payload).Select(AiTextMessage.Capture).ToArray(),
+            ResponseSchema = ScriptScenePlanning.ScreenplaySchema, ResponseGrammar = ScriptScenePlanning.ScreenplayGrammar
+        }, AtomicJsonFile.Options) };
+    }
+    [Fact]
+    public async Task LocalRedraftKeepsTheTwoStepWorkflowAndCapturedReplacementTarget()
+    {
+        _model = new(AiBackend.Vllm, "test/model", "Local") { VllmUrl = "http://llm-server:8000/v1" };
+        _settings.Value = _settings.Value with { VllmUrl = _model.VllmUrl! };
+        var source = await AcceptedScriptSource();
+        var scene = new ScriptSourceScene(source.Id, source.ReviewRevision, 0, 0);
+        var script = _script with { SourceSceneLinks = [new(scene, _script.Blocks.Select(b => b.Id).ToArray())] };
+        var request = ScriptFromOutline(source) with { Script = script };
+        request = request with { Run = request.Run with { Operation = WritingOperation.Rewrite, Instructions = "Use a quieter pace." },
+            OutlineSelection = request.OutlineSelection! with { RedraftScene = true } };
+        var submission = LegacySequence(await SourceScriptCapture.ScriptAsync(request.Run.Id, Guid.NewGuid(), request, true, _ct));
+        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal(ScriptScenePlanning.Profile, snapshot.Profile);
+        _providers.Chat.Outputs.Enqueue(PlannedScene); _providers.Chat.Outputs.Enqueue(Response(AiJobKind.ScriptAssistant));
+        var context = await Claim(submission);
+        Assert.Equal(AiJobState.Completed, (await Handler().ExecuteAsync(context, submission.Snapshot, _ct)).State);
+        var draft = (await context.ReadOperationAsync<AiTextJobRequest>("scene-draft", AiOperationArtifact.Request, _ct))!;
+        Assert.Equal(WritingOperation.Rewrite, draft.Payload<ScriptAssistantRequest>().Run.Operation);
+        Assert.Equal(ScriptStructure.Fingerprint(script.Blocks), ScriptStructure.Fingerprint(draft.Payload<ScriptAssistantRequest>().Run.Target.OriginalBlocks));
+        var text = string.Join("\n", draft.Messages.SelectMany(m => m.Parts).Select(p => p.Text));
+        Assert.Contains("Redraft ONLY", text);
+        Assert.Contains("Use a quieter pace.", text);
+        Assert.DoesNotContain("A mouse listens to rain.", text);
     }
     [Theory]
     [InlineData(null, null, 8192, 4096)]
@@ -232,7 +270,30 @@ public sealed partial class AiTextJobTests
         Assert.Equal(1, _providers.Created);
         Assert.Empty(_script.SourceSceneLinks);
         var result = await Store.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _ct);
-        Assert.Contains("Sequence planning", result!.Error);
+        Assert.Contains("Planning needs correction", result!.Error);
+        Assert.Contains("Retry planning", result.Error);
+    }
+
+    [Fact]
+    public async Task LongOptionalEvidenceContinuesToScreenplayWithTheRawPlanningReplyPreserved()
+    {
+        var submission = await LocalSceneRequest();
+        var plan = ScriptScenePlanning.Parse(PlannedScene)! with { Evidence = [new(1, new string('x', 1210))] };
+        var raw = JsonSerializer.Serialize(plan, AtomicJsonFile.Options);
+        _providers.Chat.Outputs.Enqueue(raw);
+        _providers.Chat.Outputs.Enqueue(Response(AiJobKind.ScriptAssistant));
+        var context = await Claim(submission);
+        Assert.Equal(AiJobState.Completed, (await Handler().ExecuteAsync(context, submission.Snapshot, _ct)).State);
+        var saved = (await context.ReadAsync<AiTextJobResult>(AiJobArtifact.Result, _ct))!;
+        Assert.False(saved.ScenePlanning);
+        Assert.Equal(1, saved.ScenePlan!.OversizedEvidenceCount);
+        Assert.Empty(saved.ScenePlan.Evidence!);
+        Assert.Equal(raw, (await context.ReadOperationAsync<AiTextJobResult>("scene-plan", AiOperationArtifact.Output, _ct))!.Raw);
+        var draft = (await context.ReadOperationAsync<AiTextJobRequest>("scene-draft", AiOperationArtifact.Request, _ct))!;
+        var input = string.Join("\n", draft.Messages.SelectMany(m => m.Parts).Select(p => p.Text));
+        Assert.Contains("brass key", input); // Original passages are still available.
+        Assert.DoesNotContain(new string('x', 1210), input);
+        Assert.Equal(2, _providers.Created);
     }
 
     [Fact]

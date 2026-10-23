@@ -2,7 +2,7 @@ using lumibelle.Models;
 
 namespace lumibelle.Services.Story;
 
-public static class ScriptAdaptation
+public static partial class ScriptAdaptation
 {
     // Source links, rather than model-written headings, identify each act's first surviving block.
     // Existing headings (including manually renamed acts) and all screenplay writing keep their identities.
@@ -84,11 +84,15 @@ public static class ScriptAdaptation
             throw new WorkspaceStoreException("The accepted source outline changed or is unavailable. Refresh the outline in the assistant before requesting writing.");
         if ((selection.Act is null) != (selection.Scene is null) || selection.Act is < 0 || selection.Scene is < 0 ||
             selection.Act is { } act && (act >= outline.Acts.Count || selection.Scene >= outline.Acts[act].Scenes.Count) ||
-            selection.DraftScene && selection.Scene is null)
+            selection.DraftScene && selection.Scene is null || selection.RedraftScene && !selection.DraftScene)
             throw new WorkspaceStoreException("Choose a sequence from the accepted source outline.");
         var inScript = InScript(script);
-        if (selection.DraftScene && inScript.Contains(new(run.Id, run.ReviewRevision, selection.Act!.Value, selection.Scene!.Value)))
-            throw new WorkspaceStoreException("This sequence is already in the script. Use Revise to change existing writing, or choose another sequence.");
+        if (selection.DraftScene) {
+            var scene = new ScriptSourceScene(run.Id, run.ReviewRevision, selection.Act!.Value, selection.Scene!.Value);
+            if (selection.RedraftScene) SequenceTarget(script, scene);
+            else if (inScript.Contains(scene))
+                throw new WorkspaceStoreException("This sequence is already in the script. Choose Redraft sequence to replace it, or Revise to make focused changes.");
+        }
         return Context(run, script, selection);
     }
 

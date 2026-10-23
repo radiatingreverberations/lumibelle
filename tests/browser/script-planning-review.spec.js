@@ -1,0 +1,97 @@
+import { test, expect } from './fixtures.js';
+
+for (const viewport of [{ name: 'desktop', width: 1280, height: 900 }, { name: 'mobile', width: 390, height: 844 }]) {
+  test(`screenplay review keeps both steps clear while writing and after completion on ${viewport.name}`, async ({ page, request }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const { id } = await (await request.get('/fixtures/new')).json();
+    const response = await request.post(`/fixtures/${id}/planning-review?stage=writing`);
+    expect(response.ok()).toBeTruthy();
+    const job = await response.json();
+    await page.goto(`/projects/${id}/script?jobId=${job.id}`);
+    const review = page.getByRole('dialog');
+    await expect(review.getByRole('heading', { name: 'Writing screenplay', exact: true })).toBeVisible();
+    await expect(review.locator('.planning-stages .is-complete')).toContainText('Brief saved');
+    await expect(review.locator('.planning-stages [aria-current=step]')).toContainText('Write screenplay');
+    await expect(review.locator('.planning-stages [aria-current=step]')).toContainText('In progress');
+    await expect(review.locator('.sequence-saved-brief')).not.toHaveAttribute('open', '');
+    await expect(review.locator('.raw-response')).not.toBeVisible();
+    await expect(review.getByRole('button', { name: 'Cancel request', exact: true })).toBeInViewport();
+    expect(await review.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: `artifacts/sequence-writing-${viewport.name}.png`, fullPage: true });
+    expect((await request.post(`/fixtures/${job.id}/complete-writing-preview`)).ok()).toBeTruthy();
+    await expect(review.getByRole('heading', { name: 'Review script proposal', exact: true })).toBeVisible();
+    await expect(review.locator('.planning-stages [aria-current=step]')).toContainText('Ready for review');
+    await expect(review.getByRole('region', { name: 'Proposed script' })).toContainText('Eira follows the paper map');
+    expect((await (await request.get(`/fixtures/${id}`)).json()).script.blocks.every(b => b.spans.every(s => !s.text))).toBe(true);
+    const apply = review.getByRole('button', { name: 'Apply changes', exact: true });
+    await expect(apply).toBeEnabled();
+    await expect(apply).toBeInViewport();
+    await review.locator('.sequence-saved-brief > summary').click();
+    await expect(review.locator('.brief-beats li')).toHaveCount(6);
+    await review.locator('.sequence-saved-brief > summary').click();
+    await review.locator('.planning-stages').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `artifacts/sequence-review-${viewport.name}.png`, fullPage: true });
+    await apply.click();
+    await expect(review).not.toBeVisible();
+    expect((await (await request.get(`/fixtures/${id}`)).json()).script.sourceSceneLinks).toHaveLength(1);
+    expect((await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.kind === 'ScriptAssistant')).toHaveLength(1);
+  });
+
+  test(`planning review presents readable notes and diagnostics on ${viewport.name}`, async ({ page, request }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const { id } = await (await request.get('/fixtures/new')).json();
+    const response = await request.post(`/fixtures/${id}/planning-review`);
+    expect(response.ok()).toBeTruthy();
+    const job = await response.json();
+    await page.goto(`/projects/${id}/script?jobId=${job.id}`);
+    const review = page.getByRole('dialog').filter({ hasText: 'Review sequence brief' });
+    await expect(review).toBeVisible();
+    await expect(review.getByRole('list', { name: 'Drafting progress' })).toContainText('Not started');
+    await expect(review.locator('.brief-beats li')).toHaveCount(6);
+    await expect(review.getByRole('alert')).toContainText('Planning stopped before screenplay drafting');
+    await expect(review.locator('.planning-request-heading')).toContainText('Sample text model');
+    await expect(review.locator('.submitted-input')).toContainText('Captured model:');
+    await expect(review.locator('.raw-response')).not.toBeVisible();
+    await expect(review.locator('.submitted-input')).not.toBeVisible();
+    const primary = review.getByRole('button', { name: 'Adjust request', exact: true });
+    await expect(review.getByRole('button', { name: 'Retry planning', exact: true })).toHaveClass(/mud-button-filled-primary/);
+    await expect(primary).toBeInViewport();
+    expect(await review.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    const responseDetails = review.locator('.planning-response-details');
+    await responseDetails.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(responseDetails.locator('.raw-response')).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(responseDetails.locator('.raw-response')).not.toBeVisible();
+    await review.locator('.planning-stages').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `artifacts/planning-review-${viewport.name}.png`, fullPage: true });
+    await primary.click();
+    await expect(review).not.toBeVisible();
+    if (!await page.getByLabel('Sequence', { exact: true }).isVisible())
+      await page.getByRole('button', { name: 'Show Assistant', exact: true }).click();
+    await expect(page.getByLabel('Sequence', { exact: true })).toHaveValue('0:0');
+    await expect(page.getByLabel('Instructions', { exact: true })).toHaveValue('Keep the journey quiet and observant.');
+    await expect(page.getByRole('button', { name: 'Draft sequence', exact: true })).toBeEnabled();
+    const jobs = await (await request.get('/fixtures/ai-jobs')).json();
+    expect(jobs.filter(j => j.kind === 'ScriptAssistant')).toHaveLength(1);
+    expect((await (await request.get(`/fixtures/${id}`)).json()).script.blocks.every(b => b.spans.every(s => !s.text))).toBe(true);
+  });
+}
+
+test('interrupted screenplay keeps the brief available and exposes the failure without applying', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  const response = await request.post(`/fixtures/${id}/planning-review?stage=failed`);
+  expect(response.ok()).toBeTruthy();
+  const job = await response.json();
+  await page.goto(`/projects/${id}/script?jobId=${job.id}`);
+  const review = page.getByRole('dialog');
+  await expect(review.getByRole('alert')).toContainText('Screenplay drafting stopped');
+  await expect(review.locator('.planning-stages .is-complete')).toContainText('Brief saved');
+  await expect(review.locator('.planning-stages [aria-current=step]')).toContainText('Stopped');
+  await expect(review.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
+  await review.locator('.sequence-saved-brief > summary').click();
+  await expect(review.locator('.brief-beats li')).toHaveCount(6);
+  await review.locator('.planning-response-details > summary').click();
+  await expect(review.locator('.planning-error-detail')).toContainText('interrupted');
+  expect((await (await request.get(`/fixtures/${id}`)).json()).script.blocks.every(b => b.spans.every(s => !s.text))).toBe(true);
+});

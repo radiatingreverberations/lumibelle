@@ -38,6 +38,7 @@ public sealed class ScriptEditNormalizationComponentTests : BunitContext
         Directory.CreateDirectory(Path.Combine(_root, "App_Data", "Projects", _store.Document.ProjectId.ToString()));
         var files = new ProjectFiles(Options.Create(new ProjectStorageOptions()), environment, projects);
         Services.AddSingleton(new FileSourceStore(files));
+        Services.AddSingleton(new FileScriptDraftBatchStore(files)); Services.AddSingleton<ScriptDraftWorkflow>();
         var jobs = new FileAiJobStore(environment, TimeProvider.System);
         _history = new(new QueuedAssistantHistoryStore(new(files, new()), jobs));
         var settings = new FakeAiSettingsStore { Value = new() { DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "test/model", HasOpenRouterKey = true } };

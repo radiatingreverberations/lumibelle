@@ -1,0 +1,122 @@
+@using lumibelle.Services.AI
+@using lumibelle.Services.Story
+
+@if (!Enabled) { @ChildContent }
+else {
+<div class="sequence-review-frame @(Planning ? "sequence-planning-review" : "sequence-drafting-review")">
+    <ol class="planning-stages @(ReviewedSequence ? "has-review" : null)" aria-label="Drafting progress">
+        <li class="@(Planning ? "is-current" : "is-complete")" aria-current="@(Planning ? "step" : null)"><span class="stage-number" aria-hidden="true">@(Planning ? "1" : "✓")</span><div><strong>Plan sequence</strong><span>@(Planning ? StageStatus : "Brief saved")</span></div></li>
+        <li class="@(!Planning ? Review is null ? "is-current" : "is-complete" : null)" aria-current="@(!Planning && Review is null ? "step" : null)"><span class="stage-number" aria-hidden="true">@(Review is null ? "2" : "✓")</span><div><strong>Write screenplay</strong><span>@(Planning ? "Not started" : Review is null ? StageStatus : "Draft saved")</span></div></li>
+        @if (ReviewedSequence) { <li class="@(Review is not null ? "is-current" : null)" aria-current="@(Review is not null ? "step" : null)"><span class="stage-number" aria-hidden="true">3</span><div><strong>Review draft</strong><span>@ReviewStatus</span></div></li> }
+    </ol>
+    <header class="planning-request-heading"><div><h3>@RequestTitle</h3><p>@(ModelName ?? Run.Model)</p></div></header>
+    @if (Progress is not null) { <div class="planning-live-progress">@Progress</div> }
+    @if (!Working && (Run.Error is not null || Run.Status is AssistantRunStatus.Cancelled or AssistantRunStatus.Failed or AssistantRunStatus.Interrupted)) {
+        <section class="planning-stopped" role="alert">
+            <span class="planning-stopped-icon" aria-hidden="true">!</span>
+            <div><strong>@(Run.Status == AssistantRunStatus.Cancelled ? "Request cancelled" : ApprovalPending ? "Brief ready for your approval" : Planning ? "Planning stopped before screenplay drafting" : ReviewValidationError is not null ? "Automatic review could not be verified" : Review is not null ? "Automatic review needs attention" : "Screenplay drafting stopped")</strong>
+                @if (ReviewValidationError is not null) { <p>@ReviewFailureDetail</p><p>This is a problem with the reviewer's response; it does not confirm a screenplay error. <strong>Recheck saved review</strong> validates the saved output without another AI call.</p> }
+                else { <p>@(ApprovalPending ? "Review the saved brief, then use it as it is or edit the JSON. Screenplay drafting has not started." : Planning && Brief is not null ? "The saved brief is available below." : Review is not null ? "The draft and review findings are saved below." : "The saved output is available in response details.")</p> }
+            </div>
+        </section>
+    }
+    <div class="sequence-review-body">@ChildContent</div>
+    @if (Review is not null) {
+        <details class="sequence-quality-review" open="@(Review.State == ScriptSequenceReviewState.NeedsAttention)">
+            <summary><span class="quality-review-summary">
+                <strong>Automatic review</strong>
+                <span class="quality-review-status @(Review.State == ScriptSequenceReviewState.Passed ? "is-passed" : Review.State == ScriptSequenceReviewState.NeedsAttention ? "needs-attention" : null)">@ReviewStatus</span>
+                @if (Review.Warnings.Length > 0) { <span class="quality-review-warning-count">@Review.Warnings.Length @(Review.Warnings.Length == 1 ? "citation warning" : "citation warnings")</span> }
+                @if (Review.Repairs > 0) { <span class="quality-review-repair-count">@Review.Repairs @(Review.Repairs == 1 ? "repair" : "repairs")</span> }
+            </span></summary>
+            <div class="quality-review-content">
+                @if (ReviewValidationError is not null && Review.Findings.Length == 0) { <p class="quality-review-empty">No verified screenplay findings are available from this review.</p> }
+                @if (Review.Beats.Length > 0) {
+                    <p class="quality-review-coverage"><strong>@Review.Beats.Count(b => b.Covered) / @Review.Beats.Length</strong> required checks supported by draft evidence</p>
+                }
+                @foreach (var severity in new[] { "repair", "note" }) {
+                    var findings = Review.Findings.Where(f => f.Severity == severity).ToArray();
+                    @if (findings.Length > 0) {
+                        <section class="quality-review-group" aria-label="@(severity == "repair" ? "Required corrections" : "Review notes")">
+                            <h4>@(severity == "repair" ? "Needs correction" : "Notes") <span>@findings.Length</span></h4>
+                            <ul class="quality-review-findings">
+                                @foreach (var finding in findings) {
+                                    <li class="@(severity == "repair" ? "review-finding" : "review-note")"><span class="quality-review-category">@FindingCategory(finding.Category)</span><MarkdownView Text="@finding.Detail" /></li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                }
+                @if (Review.Warnings.Length > 0) {
+                    <section class="quality-review-group quality-review-warnings" aria-label="Citation warnings">
+                        <h4>Citation warnings <span>@Review.Warnings.Length</span></h4>
+                        <ul>@foreach (var warning in Review.Warnings) { <li>@warning</li> }</ul>
+                    </section>
+                }
+                @if (Review.RawResponse is { Length: > 0 } raw) { <details class="saved-quality-response"><summary>Saved review response</summary><pre class="raw-response">@raw</pre></details> }
+            </div>
+        </details>
+    }
+    @if (!Planning && Brief is not null) {
+        <details class="sequence-saved-brief"><summary>Sequence brief <span>@Brief.Beats.Length @(Brief.Beats.Length == 1 ? "beat" : "beats") · saved in step 1</span></summary><SequenceBriefPreview Plan="Brief" /></details>
+    }
+    <div class="planning-diagnostics">
+        <details class="planning-response-details"><summary>Response details <span>@Run.Output.Length.ToString("N0") characters</span></summary>
+            @if (Run.Error is not null) { <p class="planning-error-detail">@Run.Error</p> }
+            <pre class="raw-response">@Run.Output</pre>
+        </details>
+        <details class="request-details"><summary>Request details</summary><p>Saved revision @Run.SourceRevision · @Run.Target.Name · @Run.Backend · @Run.Model</p><pre class="submitted-input">@(RequestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public bool Planning { get; set; }
+    [Parameter] public bool ApprovalPending { get; set; }
+    [Parameter] public bool Applied { get; set; }
+    [Parameter] public bool ReviewedSequence { get; set; }
+    [Parameter] public ScriptSequenceReview? Review { get; set; }
+    [Parameter, EditorRequired] public AssistantRun Run { get; set; } = null!;
+    [Parameter] public ScriptScenePlan? Brief { get; set; }
+    [Parameter] public string? ModelName { get; set; }
+    [Parameter] public string? RequestDetails { get; set; }
+    [Parameter] public RenderFragment? Progress { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private bool Working => Run.Status == AssistantRunStatus.Running;
+    private static string FindingCategory(string category) => category switch {
+        "coverage" => "Beat coverage", "ending" => "Ending", "source_facts" => "Source details",
+        "knowledge" => "Character knowledge", "continuity" => "Continuity", "duplication" => "Repetition",
+        "screenplay" => "Screenplay form", "scope" => "Sequence scope", _ => "Draft"
+    };
+    private string? ReviewValidationError => Review is { State: ScriptSequenceReviewState.NeedsAttention } review
+        ? review.ValidationError ?? (!review.Findings.Any(f => f.Severity == "repair") ? Run.Error : null) : null;
+    private string? ReviewFailureDetail {
+        get {
+            if (ReviewValidationError?.StartsWith("Beat check ", StringComparison.Ordinal) == true && Review?.RawResponse is { Length: > 0 } raw) {
+                try {
+                    using var document = System.Text.Json.JsonDocument.Parse(raw);
+                    if (document.RootElement.TryGetProperty("beats", out var beats) && beats.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        foreach (var beat in beats.EnumerateArray())
+                            if (beat.TryGetProperty("evidence", out var evidence) && evidence.ValueKind == System.Text.Json.JsonValueKind.Array && evidence.GetArrayLength() > 6)
+                                return $"The saved review supplied {evidence.GetArrayLength()} citations for one check and was rejected by the earlier six-citation limit. Recheck it with the current citation validator.";
+                }
+                catch (System.Text.Json.JsonException) { }
+                catch (InvalidOperationException) { }
+            }
+            return ReviewValidationError;
+        }
+    }
+    private string ReviewStatus => Review?.State switch {
+        ScriptSequenceReviewState.Checking => "Checking draft",
+        ScriptSequenceReviewState.Repairing => "Repairing findings",
+        ScriptSequenceReviewState.Passed => "Passed",
+        ScriptSequenceReviewState.NeedsAttention => "Needs attention",
+        _ => "Not started"
+    };
+    private string StageStatus => Working ? "In progress" : Applied || Run.Applied ? "Added to script" : Run.Rejected ? "Dismissed"
+        : Run.Status == AssistantRunStatus.Cancelled ? "Cancelled" : ApprovalPending ? "Awaiting approval" : Run.Error is not null || Run.Status is AssistantRunStatus.Failed or AssistantRunStatus.Interrupted ? "Stopped"
+        : Planning ? "Brief saved" : "Ready for review";
+    private string RequestTitle => Run.SourceScene is { } scene
+        ? $"{(ScriptAdaptation.IsRedraft(Run) ? "Redraft" : "Draft")} sequence {scene.Act + 1}.{scene.Scene + 1}" : Planning ? "Sequence brief" : "Screenplay draft";
+}

@@ -38,16 +38,16 @@ public static class ScriptProposals
         }
         if (run.Edits is not null) return ScriptEdits.Apply(document, run);
         ScriptStructure.ValidateTarget(run.Target);
-        if (!ScriptStructure.Matches(document, run.Target)) throw new WorkspaceStoreException("The target changed or was deleted. Select and review a new target before applying.");
+        if (!ScriptAdaptation.Matches(document, run, run.Target)) throw new WorkspaceStoreException("The target changed or was deleted. Select and review a new target before applying.");
         ScriptStructure.ValidateBlocks(run.Proposal);
-        if (run.SourceScene is { } sourceScene && (!ScriptAdaptation.Valid(sourceScene) || run.Operation != WritingOperation.Continue || run.Target.Scope != ScriptScope.Document))
-            throw new WorkspaceStoreException("An outline sequence must be appended to the whole script.");
-        if (run.SourceScene is not null && ScriptAdaptation.InScript(document).Contains(run.SourceScene))
+        if (run.SourceScene is { } sourceScene && (!ScriptAdaptation.Valid(sourceScene) || run.Operation is not (WritingOperation.Continue or WritingOperation.Rewrite) || run.Target.Scope != ScriptScope.Document || run.EditFormat != 0))
+            throw new WorkspaceStoreException("An outline sequence must be drafted or redrafted as linked screenplay writing.");
+        if (run.SourceScene is not null && !ScriptAdaptation.IsRedraft(run) && ScriptAdaptation.InScript(document).Contains(run.SourceScene))
             throw new WorkspaceStoreException("This sequence is already in the script. Review the existing writing before adding it again.");
         if (run.SourceScene is not null && ScriptAdaptation.DraftError(run.Proposal) is { } draftError)
             throw new WorkspaceStoreException(draftError);
         var target = run.Target;
-        var start = target.Scope == ScriptScope.Document ? 0 : document.Blocks.FindIndex(b => b.Id == target.OriginalBlocks[0].Id);
+        var start = target.Scope == ScriptScope.Document && !ScriptAdaptation.IsRedraft(run) ? 0 : document.Blocks.FindIndex(b => b.Id == target.OriginalBlocks[0].Id);
         var count = target.OriginalBlocks.Count;
         var replacement = run.Proposal.Select(b => b.Copy() with { Id = Guid.NewGuid() }).ToList();
         if (target.Scope == ScriptScope.Passage)
@@ -103,6 +103,7 @@ public static class ScriptProposals
         if (changes.Count == 0 && comparison.Before.Any(b => b.Change != "Unchanged") && replacement.Count > 0)
             changes.Add(new(replacement[0].Id, 0, 0));
         var links = document.SourceSceneLinks.ToList();
+        if (ScriptAdaptation.IsRedraft(run)) links.RemoveAll(l => l.Scene == run.SourceScene);
         if (run.SourceScene is not null) links.Add(new(run.SourceScene, replacement.Select(b => b.Id).ToArray()));
         var result = document with { Blocks = blocks, AppliedProposalIds = [.. document.AppliedProposalIds, run.Id], SourceSceneLinks = links };
         if (run.SourceScene is not null && sourcePlan is not null)

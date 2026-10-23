@@ -32,8 +32,13 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         {
             await context.ReportAsync(new(new(GenerationPhase.Preparing, "Checking the captured text model and inputs…")), checkpoint: true);
             await ValidateInputsAsync(context.Job, request, linked.Token);
+            if (request.Profile == ScriptSequenceDrafting.Profile && await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, linked.Token) is { Complete: true } savedDraft) {
+                timeout.Stop();
+                return await FinishAsync(context, request, savedDraft, ct);
+            }
             if (request.ScenePlanMessages is not null) {
                 (request, scenePlan) = await PrepareSceneAsync(context, request, timeout, linked.Token);
+                if (scenePlan is null) return AiJobOutcome.Attention("The complete sequence brief has size or concision warnings. Review it before continuing.", AiJobRecovery.ApproveBrief);
             }
             // Kept on every progress report, so the warning stays visible while the request runs.
             var capacityNotice = ComfyTextCapacity.Notice(request);
@@ -68,7 +73,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
                     if (lastTextProgress is null || now - lastTextProgress >= TimeSpan.FromSeconds(2))
                     {
                         // Notify reviews after checkpointing the stream, without publishing every token.
-                        await context.ReportAsync(new(new(GenerationPhase.Generating, (scenePlan is null ? "Receiving response from " : "Step 2 of 2 · receiving scene from ") + request.Model.Name + "…",
+                        await context.ReportAsync(new(new(GenerationPhase.Generating, (scenePlan is null ? "Receiving response from " : $"Step 2 of {(request.Profile == ScriptSequenceDrafting.Profile ? 3 : 2)} · receiving screenplay from ") + request.Model.Name + "…",
                             Current: output.Length, Unit: "characters", Elapsed: now - (context.Job.StartedUtc ?? now)), Notice: Notice(null)));
                         lastTextProgress = now;
                     }
@@ -103,6 +108,9 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         // its generated block/shot/proposal identities, not run its parser again.
         if (await context.ReadAsync<AiTextJobResult>(AiJobArtifact.Result, ct) is { Complete: true } complete)
         {
+            if (request.Profile == ScriptSequenceDrafting.Profile && complete.Error is not null && complete.SequenceReview is not null &&
+                await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, ct) is { Complete: true } originalDraft)
+                return await ReviewSequenceAsync(context, request, originalDraft, allowInference: false, ct);
             if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && request.Payload<PromptCompositionRequest>().MotionStills is null && production is not null && complete.Error is null)
                 await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct);
             if (request.Repair is null && request.Kind == AiJobKind.ReelComposition && reels is not null && complete.Error is null)
@@ -112,7 +120,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm)
         {
             var saved = await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, ct);
-            return saved is { Complete: true } ? await FinishAsync(context, request, saved, ct)
+            return saved is { Complete: true } ? await FinishAsync(context, request, saved, ct, allowInference: false)
                 : AiJobOutcome.Attention("The text request was interrupted. Its saved response remains inspectable; retry explicitly to make another request.", AiJobRecovery.GenerateAgain);
         }
         using var timeout = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, clock);
@@ -266,8 +274,8 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             throw new WorkspaceStoreException("The saved structured response format is invalid.");
         if (request.ResponseGrammar is { } grammar && (request.ResponseSchema is null || string.IsNullOrWhiteSpace(grammar) || grammar.Length > 16384 || grammar.Contains('\0')))
             throw new WorkspaceStoreException("The saved structured response grammar is invalid.");
-        if (request.Profile == ScriptScenePlanning.Profile && request.ScenePlanMessages is null || request.ScenePlanMessages is { } sceneMessages && (request.Kind != AiJobKind.ScriptAssistant || request.Model.Backend != AiBackend.Vllm ||
-            request.Profile != ScriptScenePlanning.Profile || request.Repair is not null || request.Payload<ScriptAssistantRequest>().Run.SourceScene is null ||
+        if (request.Profile is ScriptScenePlanning.Profile or ScriptSequenceDrafting.Profile && request.ScenePlanMessages is null || request.ScenePlanMessages is { } sceneMessages && (request.Kind != AiJobKind.ScriptAssistant || request.Model.Backend != AiBackend.Vllm ||
+            request.Profile is not (ScriptScenePlanning.Profile or ScriptSequenceDrafting.Profile) || request.Repair is not null || request.Payload<ScriptAssistantRequest>().Run.SourceScene is null ||
             sceneMessages.Count != 3 || sceneMessages.Any(m => m is null || m.Parts is not { Count: > 0 } || m.Parts.Any(p => p is null || string.IsNullOrWhiteSpace(p.Text) || p.Image is not null)) ||
             sceneMessages[0].Role != "system" || sceneMessages.Skip(1).Any(m => m.Role != "user")))
             throw new WorkspaceStoreException("The saved scene planning request is incomplete.");
@@ -369,8 +377,9 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
     }
 
     private static AiJobTarget GuidanceTarget(GuidanceTarget target) => new(target.ProjectId, target.AssetId, GuidanceScope: target.Scope, LookId: target.LookId, ImageId: target.ImageId);
-    private async Task<AiJobOutcome> FinishAsync(AiJobContext context, AiTextJobRequest request, AiTextJobResult raw, CancellationToken ct)
+    private async Task<AiJobOutcome> FinishAsync(AiJobContext context, AiTextJobRequest request, AiTextJobResult raw, CancellationToken ct, bool allowInference = true)
     {
+        if (request.Profile == ScriptSequenceDrafting.Profile) return await ReviewSequenceAsync(context, request, raw, allowInference, ct);
         var parsed = AiTextResults.Parse(request, raw.Raw, raw.FinishReason) with { OpenRouterUsage = raw.OpenRouterUsage, VisualBrief = raw.VisualBrief, ScenePlan = raw.ScenePlan };
         await PersistAsync(context, () => context.SaveResultAsync(parsed), ct);
         if (request.Repair is null && request.Kind == AiJobKind.PromptComposition && request.Payload<PromptCompositionRequest>().MotionStills is null && production is not null && parsed.Error is null)

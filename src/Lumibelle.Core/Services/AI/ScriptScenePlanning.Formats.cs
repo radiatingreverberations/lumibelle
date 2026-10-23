@@ -18,12 +18,12 @@ public static partial class ScriptScenePlanning
         strings ::= "[" ws (string (comma string)*)? ws "]"
         evidence ::= "{" ws "\"section\"" colon [1-9] [0-9]* comma "\"quote\"" colon string ws "}"
         """ + "\n" + JsonSeparators + "\n" + JsonStringGrammar;
-    private const string JsonSeparators = """
+    internal const string JsonSeparators = """
         comma ::= ws "," ws
         colon ::= ws ":" ws
         ws ::= [ \t\n\r]{0,16}
         """;
-    private const string JsonStringGrammar = """
+    internal const string JsonStringGrammar = """
         string ::= "\"" ([^"\\\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [a-fA-F0-9]{4}))* "\""
         """;
 
@@ -38,10 +38,10 @@ public static partial class ScriptScenePlanning
     public static JsonElement PlanningSchema { get; } = ReadSchema("""
         {"type":"object","properties":{
           "beats":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string"}},
-          "continuity":{"type":"array","maxItems":12,"items":{"type":"string"}},
-          "withhold":{"type":"array","maxItems":12,"items":{"type":"string"}},
+          "continuity":{"type":"array","items":{"type":"string"}},
+          "withhold":{"type":"array","items":{"type":"string"}},
           "ending":{"type":"string"},"timeCue":{"type":"string"},
-          "details":{"type":"array","maxItems":64,"items":{"type":"string"}},
+          "details":{"type":"array","items":{"type":"string"}},
           "evidence":{"type":"array","maxItems":12,"items":{"type":"object","properties":{
             "section":{"type":"integer","minimum":1},"quote":{"type":"string"}
           },"required":["section","quote"],"additionalProperties":false}}

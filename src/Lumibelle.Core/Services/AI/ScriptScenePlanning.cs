@@ -11,6 +11,8 @@ public sealed record ScriptScenePlan(string[] Beats, string[] Continuity, string
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public int UnverifiedEvidenceCount { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int OversizedEvidenceCount { get; init; }
 }
 
 public static partial class ScriptScenePlanning
@@ -18,6 +20,7 @@ public static partial class ScriptScenePlanning
     public const string Profile = "script-scene-planning-v1";
     public const int MaximumCharacters = 10000;
     public const int MaximumTokens = 3000;
+    public const int MaximumEvidenceCharacters = 800;
     public const int PlanningReplyTokens = 4096;
     public const int DefaultDraftReplyTokens = 8192;
     public const int MaximumDefaultDraftReplyTokens = 16384;
@@ -55,27 +58,29 @@ public static partial class ScriptScenePlanning
             Notes = request.Adaptation.Passages.Length == 0 ? request.Adaptation.Notes : [],
             request.Adaptation.ScenesInScript
         }, AtomicJsonFile.Options) +
-            "\n\n" + ScriptAdaptation.ScreenplayContinuity(request.Script)),
+            "\n\n" + ScriptAdaptation.WritingContinuity(request)),
         new(ChatRole.User, "Prepare ONLY the brief for " + request.Adaptation!.Focus +
+            (ScriptAdaptation.IsRedraft(request.Run) ? ". This is a fresh redraft of a sequence already in the script. Plan its replacement from the original passages and updated author instructions; do not treat it as a new addition or repeat later writing" : "") +
             ". Check later planned reveals explicitly when deciding what to withhold here.\nAuthor instructions:\n" + request.Run.Instructions)
     ];
 
     public static ScriptScenePlan? Parse(string raw)
     {
         ScriptScenePlan? Read(string text) {
-            try { var plan = JsonSerializer.Deserialize<ScriptScenePlan>(text, AtomicJsonFile.Options); return Valid(plan) ? plan : null; }
-            catch (JsonException) { return null; }
+            var plan = Decode(text);
+            return Valid(plan) ? plan : null;
         }
         return Read(raw) ?? AiJsonReply.Latest(raw, Read);
     }
-    public static bool Valid(ScriptScenePlan? plan) => plan is not null && plan.Beats is { Length: > 0 and <= MaximumBeats } &&
-        plan.Continuity is { Length: <= 12 } && plan.Withhold is { Length: <= 12 } &&
-        (plan.Details is null || plan.Details.Length <= 64) &&
-        (plan.Evidence is null || plan.Evidence.Length <= 12 && plan.Evidence.All(e => e is not null && e.Section > 0 && e.Quote is { Length: > 0 and <= 800 } && !string.IsNullOrWhiteSpace(e.Quote))) &&
-        plan.Beats.Concat(plan.Continuity).Concat(plan.Withhold).Concat(plan.Details ?? []).All(Meaningful) &&
-        Meaningful(plan.Ending) && plan.TimeCue is { Length: <= 200 } &&
-        Size(plan) is var size && size.Characters <= MaximumCharacters && size.Tokens <= MaximumTokens;
-    private static bool Meaningful(string? text) => text is { Length: > 0 and <= 1200 } && text.EnumerateRunes().Any(System.Text.Rune.IsLetterOrDigit);
+    public static bool Valid(ScriptScenePlan? plan) => InspectPlan(plan) is { Errors.Length: 0, Warnings.Length: 0 };
+    private static ScriptScenePlan? Decode(string text)
+    {
+        try {
+            var plan = JsonSerializer.Deserialize<ScriptScenePlan>(text, AtomicJsonFile.Options);
+            return plan is null ? null : WithoutOversizedEvidence(plan);
+        }
+        catch (JsonException) { return null; }
+    }
     private static (int Characters, int Tokens) Size(ScriptScenePlan plan)
     {
         var text = JsonSerializer.Serialize(plan, AtomicJsonFile.Options);
@@ -84,8 +89,20 @@ public static partial class ScriptScenePlanning
         return (text.Length, (int)Math.Ceiling(ascii / 4d) + other);
     }
 
+    // Excerpts are optional highlights; the writer still receives the original passages.
+    // Drop a long highlight without truncating or paraphrasing it, keeping the raw reply.
+    private static ScriptScenePlan WithoutOversizedEvidence(ScriptScenePlan plan)
+    {
+        var oversized = plan.Evidence?.Count(e => e?.Quote?.Length > MaximumEvidenceCharacters) ?? 0;
+        return oversized == 0 ? plan : plan with {
+            Evidence = plan.Evidence!.Where(e => e?.Quote?.Length is not > MaximumEvidenceCharacters).ToArray(),
+            OversizedEvidenceCount = plan.OversizedEvidenceCount + oversized
+        };
+    }
+
     public static ScriptScenePlan Ground(ScriptScenePlan plan, ScriptAdaptationContext context)
     {
+        plan = WithoutOversizedEvidence(plan);
         static string Normalize(string value) => System.Text.RegularExpressions.Regex.Replace(value, @"\s+", " ").Trim();
         var passages = context.Passages.Select(p => (p.Sources, Text: Normalize(p.Text))).ToArray();
         var verified = (plan.Evidence ?? []).Where(e => passages.Any(p => p.Sources.Contains(e.Section) &&
@@ -105,5 +122,6 @@ public static partial class ScriptScenePlanning
         (plan.Details is { Length: > 0 } ? "\n\n**Story details**\n\n" + string.Join("\n", plan.Details.Select(s => "- " + s)) : "") +
         (plan.Evidence is { Length: > 0 } ? "\n\n**Verified source excerpts**\n\n" + string.Join("\n\n", plan.Evidence.Select(e => $"Section {e.Section}:\n\n> {e.Quote.Replace("\n", "\n> ")}")) : "") +
         (plan.UnverifiedEvidenceCount > 0 ? $"\n\n{plan.UnverifiedEvidenceCount} proposed source excerpt(s) could not be verified and were left out of the writing input. Review the captured response if a detail is missing." : "") +
+        (plan.OversizedEvidenceCount > 0 ? $"\n\n{plan.OversizedEvidenceCount} optional source excerpt(s) exceeded {MaximumEvidenceCharacters} characters and were left out of the writing input. The complete selected original passages are still supplied to the writer." : "") +
         "\n\n**Ending:** " + plan.Ending + (plan.TimeCue.Length > 0 ? "\n\n**Time cue:** " + plan.TimeCue : "");
 }

@@ -66,6 +66,8 @@ public sealed record AiTextJobResult(string Raw, bool Complete = false, string? 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool ScenePlanning { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public lumibelle.Services.AI.ScriptSequenceReview? SequenceReview { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public OpenRouterRequestUsage? OpenRouterUsage { get; init; }
     // The brief a two-step composition was written from.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

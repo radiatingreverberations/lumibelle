@@ -132,4 +132,24 @@ public sealed partial class AiTextJobTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => SourceScriptCapture.ScriptAsync(request.Run.Id, Guid.NewGuid(), request with { Script = script }, true, _ct));
         Assert.Empty((await Store.ReadAsync(_ct)).Jobs);
     }
+
+    [Fact]
+    public async Task RedraftCapturesOnlyTheLinkedSequenceAndRequiresExplicitReplacementMode()
+    {
+        var source = await AcceptedScriptSource();
+        var scene = new ScriptSourceScene(source.Id, source.ReviewRevision, 0, 0);
+        var script = _script with { SourceSceneLinks = [new(scene, _script.Blocks.Select(b => b.Id).ToArray())] };
+        var request = ScriptFromOutline(source) with { Script = script };
+        request = request with { Run = request.Run with { Operation = WritingOperation.Rewrite }, OutlineSelection = request.OutlineSelection! with { RedraftScene = true } };
+        var submission = await SourceScriptCapture.ScriptAsync(request.Run.Id, Guid.NewGuid(), request, true, _ct);
+        var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var saved = captured.Payload<ScriptAssistantRequest>();
+        Assert.True(saved.Adaptation!.Selection.RedraftScene);
+        Assert.Equal(scene, saved.Run.SourceScene);
+        Assert.Equal(ScriptStructure.Fingerprint(script.Blocks), ScriptStructure.Fingerprint(saved.Run.Target.OriginalBlocks));
+        Assert.Contains("Redraft sequence", submission.TargetName);
+        Assert.Contains(captured.Messages.SelectMany(m => m.Parts), m => m.Text?.Contains("Redraft ONLY") == true);
+        var invalid = request with { Run = request.Run with { Id = Guid.NewGuid(), Operation = WritingOperation.Continue } };
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => SourceScriptCapture.ScriptAsync(invalid.Run.Id, Guid.NewGuid(), invalid, true, _ct));
+    }
 }

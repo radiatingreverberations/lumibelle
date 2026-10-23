@@ -36,7 +36,11 @@ public sealed record AssistantRun
     public Guid SessionId { get; init; }
     public Guid? JobId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DraftBatchId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Guid? CorrectedFromRunId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ManuallyReviewed { get; init; }
     public DateTimeOffset CreatedUtc { get; init; } = DateTimeOffset.UtcNow;
     public WritingOperation Operation { get; init; }
     public ScriptTarget Target { get; init; } = new(ScriptScope.Document, "Whole script", []);

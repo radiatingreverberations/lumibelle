@@ -34,7 +34,9 @@ foreach (var backend in new[] { "ComfyUI", "OpenRouter" })
         .ConfigurePrimaryHttpMessageHandler(s => new MockCapacityHandler(s.GetRequiredService<MockCapacityState>()));
 builder.Services.AddSingleton<IModelTestRunner, Lumibelle.Testing.MockModelTestRunner>();
 Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.RemoveAll<IAiJobHandler>(builder.Services);
-builder.Services.AddSingleton<IAiJobHandler, AiTextJobHandler>();
+builder.Services.AddSingleton<AiTextJobHandler>();
+builder.Services.AddSingleton<ScriptReviewPreviews>();
+builder.Services.AddSingleton<IAiJobHandler, ScriptReviewPreviewHandler>();
 builder.Services.AddSingleton<IAiJobHandler, AiModelTestJobHandler>();
 builder.Services.AddSingleton<IAiJobHandler, CodexImageHandler>();
 builder.Services.AddSingleton<IAiJobHandler, Lumibelle.Testing.MockVideoJobHandler>();
@@ -52,6 +54,7 @@ app.MapStorageFixtures();
 app.MapReferencePickerFixtures();
 app.MapShotCopyFixtures();
 app.MapCompositionRecoveryFixtures();
+app.MapScriptPlanningFixtures();
 app.MapPost("/fixtures/shutdown", (HttpContext http, IHostApplicationLifetime lifetime) => {
     http.Response.OnCompleted(() => { lifetime.StopApplication(); return Task.CompletedTask; });
     return Results.Ok();
@@ -295,6 +298,7 @@ app.MapPost("/fixtures/video-preset", async (string key, bool available, IVideoG
 });
 app.MapGet("/fixtures/{id:guid}", async (Guid id, IScriptStore scripts, IAssetStore assets, IAssistantHistoryStore history) =>
     new { script = await scripts.LoadAsync(id), approved = await scripts.LoadApprovedAsync(id), assets = await assets.LoadAsync(id), history = await history.LoadAsync(id) });
+app.MapGet("/fixtures/{id:guid}/script-recovery", async (Guid id, IScriptStore scripts) => await scripts.ListRecoveryAsync(id));
 app.MapPost("/fixtures/{id:guid}/trash/{imageId:guid}", async (Guid id, Guid imageId, IAssetStore store) =>
 {
     var library = await store.LoadAsync(id); var asset = library.Assets.Single(a => a.Images.Any(i => i.Id == imageId));
@@ -479,12 +483,12 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true)) {
+        if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true || m.Text?.Contains("Redraft ONLY the selected outline sequence") == true)) {
             var evidence = list.Single(m => m.Text?.StartsWith("ACCEPTED SOURCE OUTLINE AND LINKED EVIDENCE\n") == true).Text!;
             var context = JsonSerializer.Deserialize<ScriptAdaptationContext>(evidence[(evidence.IndexOf('\n') + 1)..], AtomicJsonFile.Options)!;
             var scene = context.Outline.Acts[context.Selection.Act!.Value].Scenes[context.Selection.Scene!.Value];
             output = JsonSerializer.Serialize(new[] { ScriptBlock.Create(ScriptBlockKind.Scene, context.Selection.Scene == 0 && context.Selection.Act == 0 ? "EXT. RIVER - DAY" : "EXT. GARDEN - DAY"),
-                ScriptBlock.Create(ScriptBlockKind.Action, scene.Summary) }.Select(b => new { kind = b.Kind.ToString(), spans = b.Spans }), AtomicJsonFile.Options);
+                ScriptBlock.Create(ScriptBlockKind.Action, context.Selection.RedraftScene ? "Eira studies the current before stepping into a boat." : scene.Summary) }.Select(b => new { kind = b.Kind.ToString(), spans = b.Spans }), AtomicJsonFile.Options);
         }
         else if ((list[0].Text ?? "").Contains("Lumibelle's source adaptation analyst.")) {
             var input = JsonDocument.Parse(last).RootElement;

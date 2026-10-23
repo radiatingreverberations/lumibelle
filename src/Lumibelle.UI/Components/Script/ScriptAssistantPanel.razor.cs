@@ -72,9 +72,9 @@ public partial class ScriptAssistantPanel
         catch (WorkspaceStoreException e) { _error = e.Message; }
     }
     private WritingOperation? _chosenOperation;
-    private WritingOperation Operation => _draftOutlineScene ? WritingOperation.Continue : _chosenOperation ?? (Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)) ? WritingOperation.Draft : WritingOperation.Revise);
-    private bool WholeDocumentOperation => _draftOutlineScene || Operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss;
-    private string ActionLabel => _draftOutlineScene ? "Draft sequence" : Operation switch { WritingOperation.Draft => "Draft script", WritingOperation.Outline => "Suggest outline", WritingOperation.Discuss => "Discuss idea", _ => Operation.ToString() };
+    private WritingOperation Operation => _batchDrafting ? WritingOperation.Continue : _draftOutlineScene ? _redraftOutlineScene ? WritingOperation.Rewrite : WritingOperation.Continue : _chosenOperation ?? (Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)) ? WritingOperation.Draft : WritingOperation.Revise);
+    private bool WholeDocumentOperation => _batchDrafting || _draftOutlineScene || Operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss;
+    private string ActionLabel => _batchDrafting ? "Draft remaining sequences" : _draftOutlineScene ? _redraftOutlineScene ? "Redraft sequence" : "Draft sequence" : Operation switch { WritingOperation.Draft => "Draft script", WritingOperation.Outline => "Suggest outline", WritingOperation.Discuss => "Discuss idea", _ => Operation.ToString() };
     private int _requestPage;
     private int RequestPages => Math.Max(1, (_runs.Count(r => r.Status != AssistantRunStatus.Running) + 19) / 20);
     private IEnumerable<AssistantRun> VisibleRuns => _runs.Where(r => r.Status != AssistantRunStatus.Running).OrderByDescending(r => r.CreatedUtc).Skip(_requestPage * 20).Take(20);
@@ -103,8 +103,18 @@ public partial class ScriptAssistantPanel
     // Starts over in the composer while this result stays as it is, to apply or discard later.
     private async Task NewRequestAsync()
     {
+        var planningRun = _scenePlanning ? ReviewRun : null;
         await CloseReview();
         if (_reviewId is not null) return;
+        if (planningRun?.SourceScene is { } scene && scene.RunId == _sourcePlan?.Id && scene.ReviewRevision == _sourcePlan.ReviewRevision) {
+            _useSourceOutline = _draftOutlineScene = true;
+            _redraftOutlineScene = ScriptAdaptation.IsRedraft(planningRun);
+            _chosenOperation = null;
+            _outlineFocus = $"{scene.Act}:{scene.Scene}";
+            _dismissedLatestId = planningRun.Id;
+            if (!_instructionsEdited) _instructions = planningRun.Instructions;
+            _error = null;
+        }
         _primaryAction?.StartFresh();
         await OpenComposerAsync();
     }
@@ -128,7 +138,7 @@ public partial class ScriptAssistantPanel
             };
             var outcome = run is not null && (run.Applied || run.Rejected || Document.AppliedProposalIds.Contains(run.Id)) ? TextRequestOutcome.Resolved
                 : run?.Error is not null ? TextRequestOutcome.Invalid : run?.Operation == WritingOperation.Discuss ? TextRequestOutcome.Response : TextRequestOutcome.Proposal;
-            var working = run?.SourceScene is not null ? (Jobs.Progress(job.Id)?.Progress.Label.StartsWith("Step 1 of 2", StringComparison.Ordinal) == true ? "Planning sequence…" : "Drafting sequence…") : run?.Operation switch { WritingOperation.Draft => "Drafting script…", WritingOperation.Outline => "Outlining script…", WritingOperation.Discuss => "Responding…", WritingOperation.Rewrite => "Rewriting…", WritingOperation.Continue => "Continuing…", _ => "Revising…" };
+            var working = run?.SourceScene is not null ? (Jobs.Progress(job.Id)?.Progress.Label.StartsWith("Step 1 of ", StringComparison.Ordinal) == true ? "Planning sequence…" : ScriptAdaptation.IsRedraft(run) ? "Redrafting sequence…" : "Drafting sequence…") : run?.Operation switch { WritingOperation.Draft => "Drafting script…", WritingOperation.Outline => "Outlining script…", WritingOperation.Discuss => "Responding…", WritingOperation.Rewrite => "Rewriting…", WritingOperation.Continue => "Continuing…", _ => "Revising…" };
             return new(job, working, outcome, run?.Operation.ToString());
         }
     }
@@ -141,7 +151,18 @@ public partial class ScriptAssistantPanel
     private ElementReference _originElement, _requestsOrigin;
     private bool TargetReady { get { try { return _target?.Capture(Document) is not null; } catch (WorkspaceStoreException) { return false; } } }
     private bool _modelPreparing;
-    private bool CanGenerate => !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && SourcePlanReady && (_referenceImages.Count == 0 || _supportsImages) && (WholeDocumentOperation || TargetReady);
+    private string? _modelUnavailableReason;
+    private bool CanGenerate => !BatchActive && !_modelPreparing && !_applying && !_loading && !_generating && _pendingSubmission is null && !_historyError && _ready && _model is not null && SourcePlanReady && (!_batchDrafting || _sourcePlan is not null && OutlineScenes.Any(s => !s.InScript)) && (_referenceImages.Count == 0 || _supportsImages) && (WholeDocumentOperation || TargetReady);
+    private string? GenerateDisabledReason => _loading || _generating || _applying || _modelPreparing ? null
+        : _pendingSubmission is not null ? "Save the pending request before starting another."
+        : _historyError ? "Save the request history before starting another request."
+        : !_ready || _model is null ? _modelUnavailableReason is { } issue ? $"Model unavailable: {issue} Choose an available model above." : "Checking model availability…"
+        : _batchDrafting && (_sourcePlan is null || !OutlineScenes.Any(s => !s.InScript)) ? "Accept an outline with sequences still to draft."
+        : !SourcePlanReady ? RedraftError ?? (_outlineFocus.Length == 0 ? "Choose an act and sequence above." : "This sequence is already added. Select Redraft sequence to replace it.")
+        : _referenceImages.Count > 0 && !_supportsImages ? "Choose a model that supports images, or remove the image references."
+        : !WholeDocumentOperation && !TargetReady ? "Choose the scene, act or passage to work on above."
+        : !_batchDrafting && !_draftOutlineScene && Operation == WritingOperation.Continue && _scope == ScriptScope.Passage ? "Choose a scene, act or the whole script to continue after."
+        : null;
     private string TargetDescription
     {
         get
@@ -165,19 +186,21 @@ public partial class ScriptAssistantPanel
             try { target = !WholeDocumentOperation && _target is not null ? _target.Capture(Document) : ScriptStructure.Capture(Document, ScriptScope.Document, null); }
             catch (WorkspaceStoreException) { target = new(ScriptScope.Document, "Choose a target", []); }
             return ScriptAssistant.EstimateInputTokens(new(new AssistantRun { Instructions = _instructions, Operation = Operation, EditFormat = Operation == WritingOperation.Revise ? 1 : 0, Target = target,
-                SourceScene = _draftOutlineScene && OutlineSelection is { Act: { } ai, Scene: { } si } choice ? new(choice.RunId, choice.ReviewRevision, ai, si) : null }, Document, AttachedConversation)
+                SourceScene = (_draftOutlineScene || _batchDrafting) && OutlineSelection is { Act: { } ai, Scene: { } si } choice ? new(choice.RunId, choice.ReviewRevision, ai, si) : null }, Document, AttachedConversation)
                 { ProjectContext = _projectContext, Adaptation = OutlineContext });
         }
     }
     protected override async Task OnInitializedAsync()
     {
         Jobs.Changed += QueueChanged;
+        DraftWorkflow.Changed += BatchChanged;
+        await RefreshBatchAsync();
         try { await Jobs.RefreshAsync(); await RefreshJobsAsync(); }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _historyError = true; _error = e.Message; }
         _loading = false;
         await RefreshSourcePlan();
     }
-    private void ModelChanged(TextModelSelectionState state) { _model = state.Model; _ready = state.Ready; _followsDefault = state.FollowsDefault; _supportsImages = state.SupportsImages && TextVisionPolicy.SupportsBackend(state.Model.Backend); }
+    private void ModelChanged(TextModelSelectionState state) { _model = state.Model; _ready = state.Ready; _modelUnavailableReason = state.UnavailableReason; _selectionSource = state.Source; _followsDefault = state.FollowsDefault; _supportsImages = state.SupportsImages && TextVisionPolicy.SupportsBackend(state.Model.Backend); }
     private string InstructionsValue { get => _instructions; set { _instructions = value; _instructionsEdited = true; } }
     private async Task StartAsync(WritingOperation operation)
     {
@@ -190,13 +213,21 @@ public partial class ScriptAssistantPanel
         var model = _model!; var instructions = _instructions; var conversation = AttachedConversation.ToArray(); var followsDefault = _followsDefault; var projectContext = _projectContext;
         var images = _referenceImages.ToArray();
         var outlineSelection = OutlineSelection;
-        var target = _draftOutlineScene || operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
+        var target = _batchDrafting || _draftOutlineScene || operation is WritingOperation.Draft or WritingOperation.Outline or WritingOperation.Discuss ? new ScriptAssistantTarget(ScriptScope.Document) : _target!;
         _error = null;
         _progress = new(GenerationPhase.Saving, "Saving the script…");
         try
         {
             var context = await Capture(target);
             _lifetime.Token.ThrowIfCancellationRequested();
+            if (_batchDrafting) {
+                var plan = _sourcePlan ?? throw new WorkspaceStoreException("Accept a source outline first.");
+                var batch = await DraftWorkflow.StartAsync(context.Document, plan.Id, plan.ReviewRevision, model, _selectionSource,
+                    await Reviews.TabIdAsync(), Session.Id, instructions, projectContext, images, _lifetime.Token, conversation);
+                _batch = batch.Runs.Last(); _originJobId = null;
+                await _assist.QueuedAsync();
+                return;
+            }
             if (outlineSelection is null && string.IsNullOrWhiteSpace(instructions) && context.Document.Blocks.All(b => string.IsNullOrWhiteSpace(b.Text)))
                 throw new WorkspaceStoreException("Write a starting passage or add instructions first.");
             var run = new AssistantRun { SessionId = Session.Id, Operation = operation, Target = context.Target, SourceRevision = context.Document.Revision,
@@ -242,7 +273,7 @@ public partial class ScriptAssistantPanel
                 if (_activeJob is { } active)
                 {
                     _progress = Jobs.Progress(active.Id)?.Progress;
-                    if (_restoredJobId != active.Id && !_instructionsEdited && !_submitting)
+                    if (!BatchActive && _restoredJobId != active.Id && !_instructionsEdited && !_submitting)
                     {
                         var saved = await JobStore.ReadSnapshotAsync(active.Id, _lifetime.Token);
                         var run = AiTextJobHandler.Read(active, saved).Payload<ScriptAssistantRequest>().Run;
@@ -279,8 +310,11 @@ public partial class ScriptAssistantPanel
                 if (_reviewId is { } reviewing && _runs.FirstOrDefault(r => r.Id == reviewing)?.SourceScene is not null &&
                     view.Jobs.FirstOrDefault(j => j.Id == reviewing) is { } reviewedJob) {
                     var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(reviewing, AiJobArtifact.Result, _lifetime.Token);
-                    if (_scenePlan is null && result?.ScenePlan is not null || _scenePlanning != (result?.ScenePlanning == true))
+                    if (_scenePlan is null && result?.ScenePlan is not null || _scenePlanning != (result?.ScenePlanning == true || _twoStepSequence && result?.ScenePlan is null) ||
+                        result is { ScenePlanning: true, Complete: true } && _planningPreviewRaw != result.Raw ||
+                        _sequenceReview?.State != result?.SequenceReview?.State || _sequenceReview?.Repairs != result?.SequenceReview?.Repairs)
                         await LoadRequestDetailsAsync(reviewedJob);
+                    else _sequenceReview = result?.SequenceReview;
                 }
                 if (!_loading && _originJobId is { } origin && _attemptedAutomaticId != origin && view.Jobs.FirstOrDefault(j => j.Id == origin) is { } completed &&
                     completed.State is not (AiJobState.Waiting or AiJobState.Running))
@@ -338,13 +372,13 @@ public partial class ScriptAssistantPanel
         if (_disposed) { await Reviews.CloseAsync(run.Id); return; }
         _reviewId = run.Id; _reviewTarget = run.AppliedTarget; _compare = run.Operation is WritingOperation.Revise or WritingOperation.Rewrite; _reviewProgress = null;
         _editingJson = false; _pendingJsonProposal = null; _jsonError = null;
-        _requestDetails = null; _scenePlan = null; _scenePlanning = false;
+        _requestDetails = _requestModelName = null; _scenePlan = _planningPreview = null; _scenePlanning = _twoStepSequence = _reviewedSequence = false; _sequenceReview = null; _planningPreviewRaw = _planningActionError = _reviewActionError = null; _completeSequenceDraft = false;
         if (run.JobId is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } header)
         {
             await LoadRequestDetailsAsync(header);
         }
-        _responseJsonError = run.EditFormat != 1 && run.Error is not null && run.Operation != WritingOperation.Discuss && !string.IsNullOrWhiteSpace(run.Output)
-            ? ScreenplayJson.Parse(run.Output).Error : null;
+        _responseJsonError = !_scenePlanning && run.EditFormat != 1 && run.Error is not null && run.Operation != WritingOperation.Discuss && !string.IsNullOrWhiteSpace(run.Output)
+            ? SavedResponseJsonError(run.Output) : null;
 
         StateHasChanged();
     }
@@ -363,7 +397,9 @@ public partial class ScriptAssistantPanel
             if (ReviewRun?.EditFormat == 1) { await CloseReview(); await StartAsync(WritingOperation.Revise); return; }
             var target = ReviewRun?.SourceScene is not null || ReviewRun?.Operation is WritingOperation.Draft or WritingOperation.Outline
                 ? new ScriptAssistantTarget(ScriptScope.Document) : _target ?? throw new WorkspaceStoreException("Choose an explicit target before retargeting.");
-            _reviewTarget = (await Capture(target)).Target; _compare = true; _error = null;
+            var context = await Capture(target);
+            _reviewTarget = ScriptAdaptation.IsRedraft(ReviewRun!) ? ScriptAdaptation.SequenceTarget(context.Document, ReviewRun!.SourceScene!) : context.Target;
+            _compare = true; _error = null;
         }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         finally { _retargeting = false; }
@@ -376,7 +412,7 @@ public partial class ScriptAssistantPanel
             if (await Apply(run with { Target = _reviewTarget ?? run.Target }))
             {
                 await PersistAsync(run with { Applied = true, AppliedTarget = _reviewTarget ?? run.Target }); await Reviews.CloseAsync(run.Id); _reviewId = null;
-                if (run.SourceScene is { } sourceScene && _draftOutlineScene && sourceScene.RunId == _sourcePlan?.Id && sourceScene.ReviewRevision == _sourcePlan.ReviewRevision)
+                if (!ScriptAdaptation.IsRedraft(run) && run.SourceScene is { } sourceScene && _draftOutlineScene && sourceScene.RunId == _sourcePlan?.Id && sourceScene.ReviewRevision == _sourcePlan.ReviewRevision)
                     ChooseNextOutlineScene(sourceScene);
                 if (run.Operation is WritingOperation.Draft or WritingOperation.Outline && _chosenOperation == run.Operation) _chosenOperation = null;
             }
@@ -399,7 +435,7 @@ public partial class ScriptAssistantPanel
     }
     public async ValueTask DisposeAsync()
     {
-        _disposed = true; Jobs.Changed -= QueueChanged; _lifetime.Cancel();
+        _disposed = true; Jobs.Changed -= QueueChanged; DraftWorkflow.Changed -= BatchChanged; _lifetime.Cancel();
         if (_reviewId is { } id) await Reviews.CloseAsync(id);
         // The application owns accepted requests; leaving this page only detaches.
     }

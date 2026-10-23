@@ -47,4 +47,4 @@ public sealed record ProjectAiPreferences
 }
 
 public sealed record TextModelSelectionState(TextModelReference Model, bool Ready, bool SupportsImages = false, bool FollowsDefault = false,
-    TextModelSelectionSource Source = TextModelSelectionSource.RequestOverride);
+    TextModelSelectionSource Source = TextModelSelectionSource.RequestOverride, string? UnavailableReason = null);

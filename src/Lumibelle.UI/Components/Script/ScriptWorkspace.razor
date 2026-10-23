@@ -84,6 +84,7 @@ else
 
             </div>
 </Header><ChildContent>
+            @if (_batchSyncNotice is { } batchNotice) { <p class="source-notice" role="status">@batchNotice</p> }
             <ScriptCanvas @ref="_canvas" InitialBlocks="_initialBlocks" InitialSelection="_selection" Changed="EditorChanged" Pending="BrowserDirty" Save="SaveAsync" />
 </ChildContent><Footer><div class="script-editor-footer"><span class="script-word-count">@WordCount words</span><span class="field-hint">Ctrl/⌘ + Alt + 1–7 changes element type.</span>@if (_hasHighlights) { <button @onclick="HideHighlightsAsync">Hide highlights</button><span class="sr-only" role="status">Applied changes are highlighted in the screenplay.</span> }</div></Footer></StudioPane></Center>
 

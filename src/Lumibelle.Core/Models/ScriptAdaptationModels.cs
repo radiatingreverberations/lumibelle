@@ -1,6 +1,6 @@
 namespace lumibelle.Models;
 
-public sealed record ScriptOutlineSelection(Guid RunId, long ReviewRevision, int? Act = null, int? Scene = null, bool DraftScene = false);
+public sealed record ScriptOutlineSelection(Guid RunId, long ReviewRevision, int? Act = null, int? Scene = null, bool DraftScene = false, bool RedraftScene = false);
 public sealed record ScriptSourceScene(Guid RunId, long ReviewRevision, int Act, int Scene);
 public sealed record ScriptSourceSceneLink(ScriptSourceScene Scene, Guid[] BlockIds);
 public sealed record ScriptAdaptationContext(Guid ProjectId, Guid RunId, long ReviewRevision, string Title,

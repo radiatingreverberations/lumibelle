@@ -19,7 +19,7 @@ public sealed class TextModelSession(Guid projectId, IAiSettingsStore settings, 
     public IEnumerable<TextModelReference> Choices => (Override is { } selected ? new[] { selected } : Array.Empty<TextModelReference>())
         .Concat(Settings.TextModelProfiles).Concat(Settings.StarredTextModels).Append(Base).DistinctBy(TextModelProfiles.ChoiceKey);
     public string? Issue => IssueFor(Model, Source != TextModelSelectionSource.GlobalDefault);
-    public TextModelSelectionState State => new(Model, Issue is null, CatalogModel?.SupportsImages == true, Source == TextModelSelectionSource.GlobalDefault, Source);
+    public TextModelSelectionState State => new(Model, Issue is null, CatalogModel?.SupportsImages == true, Source == TextModelSelectionSource.GlobalDefault, Source, Issue);
     public string? IssueFor(TextModelReference model, bool requireTest = true) => TextModelPolicy.Issue(model, Settings, Checks.GetValueOrDefault(model.Backend), requireTest);
     public async Task RefreshAsync(bool allProviders = false, CancellationToken ct = default)
     {

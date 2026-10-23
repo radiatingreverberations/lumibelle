@@ -38,7 +38,7 @@ Images send the actual selected pictures and their asset, look and preservation 
 
 Accept an adaptation outline in [Source](source.md), then open Script. **Use accepted outline**
 attaches its reviewed structure and direction to writing requests. For sequence drafting,
-choose an **Act**, then a **Sequence to draft**. Changing acts selects its first sequence not yet
+choose an **Act**, then a **Sequence**. Changing acts selects its first sequence not yet
 added to the script. Progress counts sequences; one sequence may produce several
 screenplay scenes. For other writing actions, choose **Whole outline** under **Outline context**
 for context or focus on a planned sequence to include its saved notes and original source passages.
@@ -51,33 +51,65 @@ remain available. Applying a sequence selects the next undrafted sequence; reope
 request restores the sequence being drafted.
 The request carries the whole plan, linked source evidence, current screenplay headings,
 and a bounded excerpt of recent writing for continuity. Review the result before applying it.
+
+**Redraft sequence** creates a fresh alternative for a sequence already linked to the script.
+Added sequences carry a **✓** in the sequence picker. Selecting one automatically switches
+to **Redraft sequence**; selecting an unadded sequence switches back to **Draft sequence**.
+Only the relevant sequence action appears in the action menu. A complete act
+selects an added sequence for redrafting. Model availability and other prerequisites appear
+beside the action button when a new request cannot start.
+Choose the sequence, update the instructions or model, and review the
+comparison. **Replace sequence** replaces only that sequence at its existing position. Earlier
+and later writing and existing act headings stay in place; the previous version is saved in
+**Recovery**. Discarding the proposal leaves the script unchanged. The request uses the source
+passages and surrounding screenplay continuity, excluding the old sequence draft so it does
+not steer the fresh version. Substantial changes may require later continuity edits; these
+are not applied automatically. Moved, shared or deleted sequence boundaries must be resolved
+before replacement. If the sequence changes while a request runs, review the current version
+again before applying. Use **Revise** for focused corrections that should retain existing prose.
+
 Applying an outline sequence adds the accepted act heading automatically, including when the
 model omits it. Later sequences in the same act keep that heading. Existing act headings and
 manual title edits are preserved. For linked sequences drafted before this support was added,
 **Add outline acts to script** adds missing headings with a recovery copy of the previous draft.
-With vLLM, this runs in two steps using the selected model: prepare a compact sequence brief,
-then write from that brief, the focused original passages and the screenplay context. The
+New vLLM requests use three stages with the selected model: prepare a compact sequence brief,
+write from that brief, then automatically review the screenplay. The
 writer can check the brief's paraphrases against the original wording and physical details.
-The whole adaptation outline and the planner's withheld disclosures stay in the planning
-step. The writer receives the selected reviewed sequence summary as its scope authority,
+The whole adaptation outline stays in the planning step. The brief describes permitted audience
+knowledge in spoiler-free states, which are supplied to the writer alongside indexed required beats.
+The writer receives the selected reviewed sequence summary as its scope authority,
 alongside the advisory brief and original passages. Linked passages can overlap neighbouring
 units, so that reviewed summary controls where the draft stops. A shortened brief must not
 remove its required aftermath. Review should still check reveal order and source facts.
-Progress identifies each step. **Sequence brief** in the response review shows the saved beats,
-continuity constraints, withheld information and ending. Both steps remain inspectable in
-**Request details**. An invalid brief stops before drafting; interrupted requests do not
-automatically start another inference request.
+Progress identifies planning, writing, checking and any repair. **Sequence brief** in the response review shows the saved beats,
+continuity constraints, audience knowledge and ending. The captured stages remain inspectable in
+**Request details**. During the first step, the review window is titled **Review sequence brief**;
+it contains planning rather than screenplay blocks. Missing fields, malformed JSON or an unfinished response stop before drafting; interrupted requests do not automatically start another inference request.
+Planning review shows saved notes as numbered beats with the ending and continuity alongside
+them. **Response details** and **Request details** expand the original JSON, failure message
+and captured input. Planning uses the same response frame, **Paste / edit JSON** editor and
+**Review corrected JSON** controls as screenplay responses. A corrected brief is saved separately;
+the original response remains accessible. Reviewing JSON sends no model request.
+
+A complete brief that exceeds recommended size or concision limits shows specific warnings.
+**Use brief and continue** records approval of that exact brief and starts writing without
+repeating planning. It checks the captured model's context window first. A later JSON correction
+needs its own approval. **Retry planning** starts a fresh request for the same sequence;
+**Adjust request** reopens its instructions and controls without submitting. The footer remains
+available while the notes scroll.
 
 The brief also carries exact story details such as names and code phrases. The writer
-uses those details literally and refers to missing specifics generically. Withheld answers
-remain in the reviewable brief; that list is omitted from the writing input.
+uses those details literally and refers to missing specifics generically. Audience-knowledge
+states describe what is established at this point rather than spelling out a hidden answer.
 The planner can also select short source excerpts for important dialogue, interpretation
 and physical continuity. The app checks each quotation against its cited original section
 before passing it to the writer. Unverifiable excerpts are omitted with a notice in
-**Sequence brief**; the original model response remains available. These checks establish
+**Sequence brief**; optional excerpts longer than 800 characters are also omitted without
+rejecting an otherwise usable brief. The writer still receives the selected original passages,
+and the original model response remains available. These checks establish
 where a quotation came from, not whether the model interpreted it correctly.
-Planning aims for up to twenty beats. Modest overruns are retained, up to thirty-two beats,
-within the same bounded brief budget. The planning
+Planning aims for up to twenty beats. Modest overruns are retained, up to thirty-two beats.
+Larger complete briefs can be explicitly approved within the model's available context. The planning
 instructions preserve the causal and emotional progression through the middle and aftermath,
 use original passages directly when available instead of repeating analysis notes, and keep prior preparations separate from
 current events. The source's tone is preserved unless the author requests a change. Adaptation
@@ -93,14 +125,73 @@ New vLLM sequence requests capture JSON grammars for the brief and screenplay st
 alongside their schema descriptions. Separator whitespace is bounded, allowing normal indentation,
 while spaces and Unicode within the prose remain unchanged. Existing captured requests keep their original format. Excessive
 separator whitespace stops a response with its partial output retained; it never retries inference automatically.
-The usual validation and review still apply; a valid structure does not establish story fidelity.
+The writer returns grouped scenes with separate headings. The app creates actual Scene blocks,
+so headings do not depend on the model selecting the right block kind. Scenes name the required
+beat IDs they dramatize, including **END** for the required ending and aftermath.
+
+**Automatic review** checks each required beat and ending against cited draft evidence. It also
+checks source facts, continuity, permitted audience knowledge, scope, duplication and playable
+screenplay form while respecting the author's adaptation and narration choices. The app verifies
+that cited quotations exist at their numbered draft blocks and source sections. Style suggestions
+are notes; material contradictions or missing events require correction. A malformed review gets
+one evidence-correction attempt. A draft with material findings gets one targeted repair followed
+by another review. Unresolved findings leave the draft saved and pause a batch; they are not
+silently accepted. The original draft, reviews, repair and captured requests remain available.
+An automatic pass is model assessment supported by quotations, not proof of interpretation or
+creative quality. Manual sequence proposals still require the author's apply decision.
+The app supplies the reviewer with the exact beat checklist and numbered screenplay passages.
+It verifies quotations against those passages before using a finding to request changes. A
+malformed review gets one correction attempt; it does not immediately trigger a screenplay rewrite.
+
+Saved requests retain their captured profile: older two-step jobs keep their original array
+format and do not acquire additional model calls. Review/repair output is checkpointed; restart
+recovery reuses completed stages and never initiates an unfinished model call. Explicit retry can
+reuse the saved initial draft and completed checks. The context-window preflight also reserves
+space for review and repair rather than truncating source passages.
+An interrupted review offers **Continue review**. It keeps the saved screenplay and completes
+only the unfinished checks or repair. Reopening the result alone does not start generation.
+If the review response cannot be validated, the dialog explains the cause separately from
+screenplay findings. **Recheck saved review** validates the saved draft and review again using
+the current validator, without another AI call. Redundant citations and unmatched extra citations
+are warnings when verified evidence remains; a covered beat still requires a verified quotation.
+**Review draft manually** opens a separate proposal for the author's review and normal **Apply
+changes** decision. It does not claim automatic approval or replace the original saved request.
 Applied sequence links persist with the screenplay and project exports; proposals that have only
 been generated do not count as added sequences. Existing writing is not matched to a plan
 automatically, so select where to pick up when continuing an earlier draft.
 
 Outline changes require **Refresh source outline** before submitting a new request. Already
 queued requests retain the exact accepted outline and passages they captured. A sequence already
-linked to existing writing cannot be drafted again through this action; use **Revise** to edit it.
+linked to existing writing uses **Redraft sequence** for replacement or **Revise** for focused edits.
+
+**Draft remaining sequences** fills the unstarted remainder of the accepted outline as a
+background batch. It skips the already added prefix, then writes one sequence at a time in
+outline order. New vLLM sequences pass automatic review before being saved directly in the main screenplay; the batch does not
+wait in a proposal modal. Existing writing is kept. A recovery copy is saved before the first
+addition, and individual requests remain in **Requests** with their captured inputs and output.
+This action adds new sequences; redrafting existing writing still requires review.
+
+The batch captures the model, settings, instructions, references and outline revision when
+started. Each next sequence uses the saved screenplay for continuity. **Pause after this sequence**
+finishes and saves the current sequence, then waits. **Resume batch** continues from its checkpoint;
+**Stop batch** cancels unfinished work and keeps the sequences already added. You can leave the tab
+for overnight processing, but Lumibelle and the model server must remain running.
+
+Invalid or interrupted requests pause the batch. **Retry and continue** explicitly retries the
+stopped sequence; completed sequences are not regenerated. Editing the saved script while a
+request runs pauses automatic addition rather than overwriting those edits. Resume drafts that
+sequence again with the new saved context. If the accepted outline changes, stop the batch and
+review existing writing before batching the new outline. Batching does not automatically match
+writing linked to an older outline revision. Earlier gaps must be resolved before appending later
+sequences. Unsaved editor changes are kept if background additions arrive; use the normal
+save-conflict and reload controls to reconcile them.
+
+If a batch pauses during planning, its response offers the same JSON editor and brief warnings.
+Continuity, withheld information and story details have no fixed entry-count limits; these lists
+follow the selected sequence. Overall brief size guidance and model context checks still apply.
+**Use brief and resume batch** continues the saved request after approval, preserving completed
+sequences. Changing a batch's captured model or author instructions requires stopping it and
+starting another batch.
 
 ## Reviewing proposals
 

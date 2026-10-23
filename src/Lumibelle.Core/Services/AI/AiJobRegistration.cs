@@ -18,6 +18,8 @@ public static class AiJobRegistration
         services.AddSingleton<AiTextJobCapture>();
         services.AddSingleton<FileSourceStore>();
         services.AddSingleton<SourceWorkflow>();
+        services.AddSingleton<FileScriptDraftBatchStore>();
+        services.AddSingleton<ScriptDraftWorkflow>();
         services.AddSingleton<IContentProbeStore, FileContentProbeStore>();
         services.AddSingleton<ContentProbeCapture>();
         services.AddSingleton<AiImageJobCapture>();
@@ -32,6 +34,7 @@ public static class AiJobRegistration
         services.AddSingleton<CodexAllowanceService>();
         services.AddHostedService(s => s.GetRequiredService<AiJobCoordinator>());
         services.AddHostedService<SourceWorkflowWorker>();
+        services.AddHostedService<ScriptDraftWorkflowWorker>();
         services.AddHostedService<CodexLaunch>();
         services.AddHostedService<ClaudeCodeLaunch>();
         services.AddSingleton<FileAssistantHistoryStore>();

@@ -1,0 +1,20 @@
+@using lumibelle.Services.AI
+@using lumibelle.Services.Story
+
+    @if (!Working && Inspection is { } inspection) {
+        @if (inspection.Errors.Length > 0) { <section class="planning-validation" aria-label="Planning errors"><strong>What needs fixing</strong><ul>@foreach (var issue in inspection.Errors) { <li>@issue</li> }</ul><p>Edit the JSON and review the correction, or retry planning.</p></section> }
+        @if (inspection.Warnings.Length > 0) { <section class="planning-validation" aria-label="Planning warnings"><strong>Size and concision warnings</strong><ul>@foreach (var warning in inspection.Warnings) { <li>@warning</li> }</ul><p>You can use this complete brief as it is or edit its JSON. Continuing checks the model's available context before writing.</p></section> }
+    }
+    @if (Corrected) { <p class="field-hint">Showing your saved JSON correction. The original model response is preserved.</p><details><summary>Original model response</summary><pre class="raw-response">@OriginalOutput</pre></details> }
+    @if (Brief is not null) { <SequenceBriefPreview Plan="Brief" /> }
+    else if (Working) { <p class="planning-empty">Preparing story beats and continuity for the screenplay.</p> }
+
+@code {
+    [Parameter] public bool Corrected { get; set; }
+    [Parameter] public string? OriginalOutput { get; set; }
+    [Parameter] public string? FinishReason { get; set; } = "stop";
+    [Parameter, EditorRequired] public AssistantRun Run { get; set; } = null!;
+    [Parameter] public ScriptScenePlan? Brief { get; set; }
+    private bool Working => Run.Status == AssistantRunStatus.Running;
+    private ScriptBriefInspection? Inspection => Working ? null : ScriptScenePlanning.Inspect(Run.Output, FinishReason);
+}
