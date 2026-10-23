@@ -25,6 +25,7 @@ test('source analysis persists across navigation, pauses, and produces an editab
   await request.post(`/fixtures/${id}/approved`);
   const script = (await (await request.get(`/fixtures/${id}`)).json()).script;
   await page.goto(`/projects/${id}/source`);
+  await expect(page.locator('.studio-workspace[data-studio=Source]')).toHaveAttribute('data-ready', 'true');
   const left = page.locator('.workspace-left');
   const center = page.locator('.workspace-center');
   const right = page.locator('.workspace-right');
@@ -48,12 +49,15 @@ test('source analysis persists across navigation, pauses, and produces an editab
   await page.getByRole('button', { name: 'Pause after this request', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Resume analysis', exact: true })).toBeVisible();
   await tabs.getByRole('link', { name: 'Script', exact: true }).click();
+  await expect(page.locator('.studio-workspace[data-studio=Script]')).toHaveAttribute('data-ready', 'true');
   await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Source', exact: true }).click();
+  await expect(page.locator('.studio-workspace[data-studio=Source]')).toHaveAttribute('data-ready', 'true');
   await expect(page.getByLabel('Original text', { exact: true })).toHaveValue(source);
   // Let the request being paused finish before switching, then retain its checkpoint.
   await expect.poll(async () => (await (await request.get('/fixtures/ai-jobs')).json())
     .some(j => j.target.projectId === id && ['Waiting', 'Running'].includes(j.state))).toBe(false);
   const paused = (await (await request.get(`/fixtures/${id}/source`)).json()).runs[0];
+  await expect(page.getByRole('button', { name: 'Resume analysis', exact: true })).toBeEnabled();
   await right.getByRole('button', { name: 'Text model options', exact: true }).click();
   const modelDialog = page.getByRole('dialog', { name: 'Text model', exact: true });
   await modelDialog.getByLabel('Text model', { exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
