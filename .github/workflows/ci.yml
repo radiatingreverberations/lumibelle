@@ -76,6 +76,9 @@ jobs:
           - group: shared studio
             id: shared-studio
             specs: script-polish.spec.js script-revisions.spec.js script-transport.spec.js unified-shots.spec.js text-assistance.spec.js cut.spec.js shared-host.spec.js ai-settings-navigation.spec.js vllm-provider.spec.js comfy-text-settings.spec.js
+          - group: source and screenplay
+            id: source-screenplay
+            specs: source-analysis.spec.js script-source-outline.spec.js script-project-context.spec.js script-planning-review.spec.js script-sequence-quality.spec.js script-brief-recovery.spec.js script-batch.spec.js script-studio.spec.js
           - group: reference reels
             id: reference-reels
             specs: reference-reels.spec.js

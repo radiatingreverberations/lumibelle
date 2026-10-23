@@ -59,8 +59,11 @@ async function openSubmittedReview(control, review) {
 }
 
 export async function scriptAssist(page) {
-  await expect(page.locator('.studio-workspace[data-studio=Script]')).toHaveAttribute('data-ready', 'true');
-  if (!await page.locator('.studio-workspace[data-studio=Script] .workspace-right').isVisible())
+  const workspace = page.locator('.studio-workspace[data-studio=Script]');
+  await expect(workspace).toHaveAttribute('data-ready', 'true');
+  // Closing a modal restores the mobile drawer asynchronously; wait before deciding to open it.
+  await expect(workspace).toHaveAttribute('data-suspended', 'false');
+  if (!await workspace.locator('.workspace-right').isVisible())
     await page.getByRole('button', { name: 'Show Assistant', exact: true }).click();
   await expect(page.locator('#script-instructions')).toBeVisible();
 }
