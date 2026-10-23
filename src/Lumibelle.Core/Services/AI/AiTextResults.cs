@@ -46,10 +46,16 @@ public static class AiTextResults
                     }
                     catch (WorkspaceStoreException e) { return Value(result, new AssistantUpdate(ValidationError: e.Message, Complete: true), e.Message); }
                 }
-                var parsed = script.Run.Operation == WritingOperation.Discuss ? null : ScreenplayJson.Parse(raw);
+                ScreenplayJsonResult? parsed;
+                if (request.Profile == ScriptSequenceDrafting.Profile) {
+                    try { parsed = new(ScriptSequenceDrafting.Parse(raw).Blocks, null); }
+                    catch (WorkspaceStoreException e) { parsed = new(null, e.Message); }
+                }
+                else parsed = script.Run.Operation == WritingOperation.Discuss ? null : ScreenplayJson.Parse(raw);
                 var blocks = parsed?.Blocks;
                 var error = parsed is { Blocks: null } ? ScreenplayJson.Rejection(parsed.Error) : null;
-                return Value(result, new AssistantUpdate(Blocks: blocks, ValidationError: error, Complete: true), error);
+                if (error is null && blocks is not null && script.Run.SourceScene is not null) error = ScriptAdaptation.DraftError(blocks);
+                return Value(result, new AssistantUpdate(Blocks: error is null ? blocks : null, ValidationError: error, Complete: true, NormalizationNotes: parsed?.NormalizationNotes), error);
             case AiJobKind.AssetExtraction:
                 var proposals = AssetExtractor.Parse(raw, request.Payload<AssetExtractionRequest>());
                 var extractionError = proposals is null ? "The response was not a valid asset list. Nothing was reviewed; inspect it and retry." : null;
@@ -89,6 +95,9 @@ public static class AiTextResults
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.PromptComposition:
                 try { return Value(result, lumibelle.Services.Production.PromptComposer.Parse(raw, request.Payload<PromptCompositionRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.SourceAnalysis:
+                try { return Value(result, SourceAnalysis.Parse(raw, request.Payload<SourceAnalysisRequest>())); }
                 catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.Guidance:
                 var guidance = PromptEnhancer.Parse(raw);

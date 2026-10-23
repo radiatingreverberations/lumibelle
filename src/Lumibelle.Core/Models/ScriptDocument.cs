@@ -33,8 +33,10 @@ public sealed record ScriptDocument
     [JsonIgnore] public ScriptBrief Brief { get; init; } = new();
     public List<ScriptBlock> Blocks { get; init; } = [];
     public List<Guid> AppliedProposalIds { get; init; } = [];
+    public List<ScriptSourceSceneLink> SourceSceneLinks { get; init; } = [];
     public Guid? ApprovedSnapshotId { get; init; }
-    public ScriptDocument Copy() => this with { Blocks = Blocks.Select(b => b.Copy()).ToList(), AppliedProposalIds = [.. AppliedProposalIds] };
+    public ScriptDocument Copy() => this with { Blocks = Blocks.Select(b => b.Copy()).ToList(), AppliedProposalIds = [.. AppliedProposalIds],
+        SourceSceneLinks = SourceSceneLinks.Select(l => l with { BlockIds = [.. l.BlockIds] }).ToList() };
 }
 public record ScriptSourceSnapshot(Guid Id, Guid ProjectId, long SourceRevision, DateTimeOffset CapturedUtc, List<ScriptBlock> Blocks);
 public sealed record ApprovedScriptSnapshot(Guid Id, Guid ProjectId, long SourceRevision, DateTimeOffset ApprovedUtc,

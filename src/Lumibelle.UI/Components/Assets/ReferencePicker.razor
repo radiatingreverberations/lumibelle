@@ -1,7 +1,7 @@
 <div class="reference-picker">
     @if (Toolbar is not null) { <div class="reference-picker-toolbar">@Toolbar</div> }
     <div class="reference-mobile-tabs" role="tablist" aria-label="Reference editor">
-        <button @ref="_browseTab" role="tab" id="@(_id + "-browse-tab")" aria-controls="@(_id + "-browse")" aria-selected="@(!SelectedTab ? "true" : "false")" tabindex="@(!SelectedTab ? 0 : -1)" @onclick="() => SelectTab(false)" @onkeydown="TabKey">@(IncludeReels ? "Browse" : "Browse images")</button>
+        <button @ref="_browseTab" role="tab" id="@(_id + "-browse-tab")" aria-controls="@(_id + "-browse")" aria-selected="@(!SelectedTab ? "true" : "false")" tabindex="@(!SelectedTab ? 0 : -1)" @onclick="() => SelectTab(false)" @onkeydown="TabKey">@(BrowseLabel ?? (IncludeReels ? "Browse" : "Browse images"))</button>
         <button @ref="_selectionTab" role="tab" id="@(_id + "-selected-tab")" aria-controls="@(_id + "-selected")" aria-selected="@(SelectedTab ? "true" : "false")" tabindex="@(SelectedTab ? 0 : -1)" @onclick="() => SelectTab(true)" @onkeydown="TabKey">Selected references (@SelectedCount)</button>
     </div>
     <div class="manual-reference-columns @(SelectedTab ? "show-selected" : "show-browse")">
@@ -43,6 +43,7 @@
     [Parameter] public RenderFragment? Toolbar { get; set; }
     [Parameter] public RenderFragment? BrowserNotice { get; set; }
     [Parameter] public string? BrowserTitle { get; set; }
+    [Parameter] public string? BrowseLabel { get; set; }
     [Parameter] public RenderFragment? BrowserSources { get; set; }
     [Parameter] public RenderFragment? BrowserContent { get; set; }
     [Parameter] public bool UseCustomBrowser { get; set; }

@@ -1,0 +1,260 @@
+@inherits ProjectAwareComponent
+@implements IAsyncDisposable
+@inject IProjectStore Projects
+@inject FileSourceStore Sources
+@inject SourceWorkflow Workflow
+@inject AiJobCoordinator Jobs
+@inject IAiJobStore JobStore
+@inject IAiReviewGate Reviews
+
+<PageTitle>Source · @(_project?.Name ?? "Lumibelle")</PageTitle>
+<NavigationLock ConfirmExternalNavigation="@(Dirty || _outlineDirty)" OnBeforeInternalNavigation="BeforeNavigation" />
+@if (_project is null || _doc is null) {
+    <h1>Source</h1>
+    @if (_error is null) { <p role="status">Opening source…</p> }
+    else { <p role="alert">@_error</p><button @onclick="Load">Try again</button> }
+} else {
+    <ProjectNavigation Project="_project" CurrentStudio="source" />
+    <StudioPageHeader Title="Source">
+        <span class="source-save-status" role="status">@(Dirty ? "Unsaved source changes" : "Source saved")</span>
+        <MudButton OnClick="Save" Disabled="@(_busy || !Dirty)" Size="Size.Small">Save source</MudButton>
+    </StudioPageHeader>
+    @if (_error is not null) { <p class="source-notice error" role="alert">@_error</p> }
+    <StudioWorkspace @ref="_workspace" Studio="Source" ProjectId="Id" LeftLabel="@(_center == "outline" ? "Outline" : "Source")" RightLabel="Assistant" SelectionKey="@CenterSelection">
+        <Status>@(Run is { } statusRun ? Status(statusRun) : "Add source material to begin")</Status>
+        <Left><StudioPane Class="source-outline" Label="Source outline">
+            <Header>
+                <div class="source-mode-tabs" role="tablist" aria-label="Source workspace view">
+                    <button type="button" role="tab" id="source-mode-material" aria-controls="source-navigation-material" aria-selected="@(_center != "outline" ? "true" : "false")" tabindex="@(_center != "outline" ? 0 : -1)" @ref="_materialTab" @onclick="() => SelectNavigationMode(false)" @onkeydown="e => NavigationModeKey(e, false)">Source</button>
+                    <button type="button" role="tab" id="source-mode-outline" aria-controls="source-navigation-outline" aria-selected="@(_center == "outline" ? "true" : "false")" tabindex="@(_center == "outline" ? 0 : -1)" @ref="_outlineTab" @onclick="() => SelectNavigationMode(true)" @onkeydown="e => NavigationModeKey(e, true)">Outline</button>
+                </div>
+            </Header>
+            <ChildContent>
+                <div role="tabpanel" id="@(_center == "outline" ? "source-navigation-outline" : "source-navigation-material")" aria-labelledby="@(_center == "outline" ? "source-mode-outline" : "source-mode-material")">
+                <nav class="source-navigation" aria-label="Source and adaptation outline">
+                    @if (_center == "outline") {
+                        <h2>Adaptation outline</h2>
+                        @if (_outline is null) {
+                            <p class="field-hint">The adaptation outline organizes your story into acts and sequences. Use Analyze source in the Assistant to create a proposal, then review and shape it here.</p>
+                        } else {
+                        <button class="source-nav-item" aria-pressed="@(_center == "outline" && _selectedAct is null ? "true" : "false")" @onclick="() => ShowOutline()">Overview</button>
+                        @for (var ai = 0; ai < _outline.Acts.Count; ai++) {
+                            var actIndex = ai; var act = _outline.Acts[ai];
+                            <div class="source-nav-act">
+                                <button class="source-nav-item act" aria-pressed="@(_center == "outline" && _selectedAct == ai && _selectedScene is null ? "true" : "false")" @onclick="() => ShowOutline(actIndex)"><span>@(ai + 1)</span><span>@act.Title</span></button>
+                                @for (var si = 0; si < act.Scenes.Count; si++) {
+                                    var sceneIndex = si;
+                                    <button class="source-nav-item scene" aria-pressed="@(_center == "outline" && _selectedAct == ai && _selectedScene == si ? "true" : "false")" @onclick="() => ShowOutline(actIndex, sceneIndex)"><span>@(ai + 1).@(si + 1)</span><span>@act.Scenes[si].Title</span></button>
+                                }
+                            </div>
+                        }
+                        }
+                    } else {
+                        <button class="source-nav-item" aria-pressed="@(_center == "source" ? "true" : "false")" @onclick="ShowMaterial"><span aria-hidden="true">▤</span><span>Original material</span></button>
+                        <div class="source-sections-heading"><h2>Source sections</h2><HelpHint Label="Source sections" Text="Sections created for this analysis; long chapters may span several sections." /></div>
+                        @if (Run is { Chunks.Count: > 0 } sectionsRun) {
+                            @foreach (var chunk in sectionsRun.Chunks) {
+                                <button class="source-nav-item section" aria-pressed="@(_center == "section" && _selectedSection == chunk.Number ? "true" : "false")" @onclick="() => ShowSection(chunk.Number)"><span>@chunk.Number</span><span>@chunk.Heading</span></button>
+                            }
+                        } else { <p class="field-hint">Source sections appear here after analysis begins. The adaptation outline will have its own acts and sequences.</p> }
+                    }
+                </nav>
+                </div>
+            </ChildContent>
+        </StudioPane></Left>
+        <Center><StudioPane Class="@($"source-paper {(_center == "source" ? "manuscript-open" : "")}")" Label="Source editor">
+            <Header>
+                <div class="source-title-bar" hidden="@(_center != "source")">
+                    <label class="sr-only" for="source-title">Source title</label>
+                    <input id="source-title" maxlength="200" @bind="_title" @bind:event="oninput" disabled="@_busy" placeholder="Story or work title" />
+                    <div class="material-tools"><label class="import-button">Import text <InputFile OnChange="Import" accept=".txt,.md,text/plain,text/markdown" disabled="@_busy" /></label><span>@_text.Length.ToString("N0") characters</span></div>
+                </div>
+                @if (_center != "source") {
+                    <div class="center-heading"><h2>@(_center == "section" ? "Source section" : "Adaptation outline")</h2><button @onclick="ShowMaterial">Back to original</button></div>
+                }
+            </Header>
+            <ChildContent>
+                @* Keep the manuscript mounted while reviewing so its scroll and selection survive. *@
+                <div class="source-manuscript" hidden="@(_center != "source")">
+                    <label class="sr-only" for="source-text">Original text</label>
+                    <textarea id="source-text" data-scroll-region="manuscript" @bind="_text" @bind:event="oninput" disabled="@_busy" maxlength="500000" spellcheck="false" placeholder="Paste your story, treatment, or novel here, or import a text or Markdown file. Chapter headings and paragraph breaks help organize the analysis."></textarea>
+                </div>
+                @if (_center == "section" && Run is { } sectionRun && sectionRun.Chunks.FirstOrDefault(c => c.Number == _selectedSection) is { } section) {
+                    <article class="source-section-reading">
+                        <p class="eyebrow">SECTION @section.Number</p><h2>@section.Heading</h2>
+                        <p class="field-hint">Original passage captured for this analysis.</p>
+                        @if (sectionRun.Notes.ElementAtOrDefault(section.Number - 1) is { } note) {
+                            <details class="source-details" open><summary>Analysis notes</summary><p class="section-note">@note.Text</p></details>
+                        }
+                        <pre class="source-excerpt">@sectionRun.Text.Substring(section.Start, section.Length)</pre>
+                    </article>
+                }
+                @if (_center == "outline" && _outline is null) {
+                    <article class="source-empty-outline">
+                        <p class="eyebrow">ADAPTATION OUTLINE</p>
+                        <h2>@(Active ? "Your outline is being prepared" : "Shape the story for the screen")</h2>
+                        <p>The outline proposes dramatic acts and sequences for the whole story. A sequence may become several screenplay scenes.</p>
+                        <p>@(Active ? "Follow the analysis progress in the Assistant. The proposal will appear here when it is ready for review." : "Add the original text in Source, set an adaptation direction in the Assistant, then choose Analyze source.")</p>
+                        <p>You can review and edit the proposal before accepting it. Accepting an outline saves a plan for later sequence drafting.</p>
+                    </article>
+                }
+                @if (_center == "outline" && Run is { } run && _outline is not null) {
+                    <div class="outline-review">
+                        <header><div><p class="eyebrow">ADAPTATION OUTLINE</p><h3>@(run.State == SourceRunState.Discarded ? "Discarded outline" : run.State == SourceRunState.Accepted && !_outlineDirty ? "Accepted plan" : "Review the proposed structure")</h3></div><span>@_outline.Acts.Sum(a => a.Scenes.Count) sequences</span></header>
+                        @if (_selectedAct is null) {
+                            @if (SourceAnalysis.UnlinkedSources(run, _outline) is { Length: > 0 } unlinked) {
+                                <section class="source-notice source-coverage" aria-label="Source coverage review">
+                                    <strong>Source sections without sequences</strong>
+                                    <p>Open each passage to check whether the outline missed story material. Link it to a sequence in Edit outline, or mark it intentionally omitted (for example, title pages or material you chose to cut). Section numbers refer to analysis sections, not chapters.</p>
+                                    @foreach (var number in unlinked) {
+                                        <div class="source-coverage-row">
+                                            <button class="source-passage-link" @onclick="() => ViewSource(number)">Section @number · @run.Chunks[number - 1].Heading ↗</button>
+                                            @if (run.State != SourceRunState.Discarded) { <button aria-label="Intentionally omit section @number" @onclick="() => SetOmission(number, true)" disabled="@_busy">Mark intentionally omitted</button> }
+                                        </div>
+                                    }
+                                </section>
+                            }
+                            @if (_outline.ReviewedOmissions.Length > 0) {
+                                <details class="source-reviewed-omissions"><summary>Intentionally omitted sections · @_outline.ReviewedOmissions.Length</summary>
+                                    @foreach (var number in _outline.ReviewedOmissions) {
+                                        <div class="source-coverage-row">
+                                            <button class="source-passage-link" @onclick="() => ViewSource(number)">Section @number · @run.Chunks[number - 1].Heading ↗</button>
+                                            @if (run.State != SourceRunState.Discarded) { <button aria-label="Review section @number again" @onclick="() => SetOmission(number, false)" disabled="@_busy">Review again</button> }
+                                        </div>
+                                    }
+                                </details>
+                                @if (_outlineDirty) { <p class="field-hint">Save review edits to keep your omission decisions.</p> }
+                            }
+                            @foreach (var warning in SourceAnalysis.Warnings(run, _outline, includeCoverage: false)) { <p class="source-notice">@warning</p> }
+                        }
+                        @if (run.State != SourceRunState.Discarded) { <button @onclick="() => _editingOutline = !_editingOutline" disabled="@(_busy || _outlineDirty)">@(_editingOutline ? "Read outline" : "Edit outline")</button> }
+                        @if (!_editingOutline) {
+                            <div class="outline-reading">
+                                @if (_selectedAct is null) {
+                                    <h3>@_outline.Title</h3><p class="premise">@_outline.Premise</p>
+                                    @if (!string.IsNullOrWhiteSpace(_outline.Approach)) { <p>@_outline.Approach</p> }
+                                }
+                                @for (var ai = 0; ai < _outline.Acts.Count; ai++) {
+                                    var act = _outline.Acts[ai];
+                                    if (_selectedAct is not null && _selectedAct != ai) { continue; }
+                                    <section class="plan-act"><h4>@act.Title</h4><p class="act-purpose">@act.Purpose</p>
+                                        <ol>@for (var si = 0; si < act.Scenes.Count; si++) {
+                                            var scene = act.Scenes[si];
+                                            if (_selectedScene is not null && _selectedScene != si) { continue; }
+                                            <li value="@(si + 1)"><strong>@scene.Title</strong><p>@scene.Summary</p>
+                                                <div class="source-links"><span>Source:</span>@foreach (var number in scene.Sources.Distinct()) { <button @onclick="() => ViewSource(number)">Section @number ↗</button> }</div>
+                                            </li>
+                                        }</ol>
+                                    </section>
+                                }
+                                @if (_selectedAct is null && !string.IsNullOrWhiteSpace(_outline.Omissions)) { <div class="plan-questions"><h4>Condensation and questions</h4><p>@_outline.Omissions</p></div> }
+                            </div>
+                        } else {
+                            @if (_selectedAct is null) {
+                                <label for="outline-title">Outline title</label><input id="outline-title" @bind="_outline.Title" @bind:event="oninput" @bind:after="OutlineChanged" disabled="@_busy" />
+                                <label for="outline-premise">Premise</label><textarea id="outline-premise" @bind="_outline.Premise" @bind:event="oninput" @bind:after="OutlineChanged" rows="3" disabled="@_busy"></textarea>
+                                <label for="outline-approach">Adaptation approach</label><textarea id="outline-approach" @bind="_outline.Approach" @bind:event="oninput" @bind:after="OutlineChanged" rows="4" disabled="@_busy"></textarea>
+                            }
+                            @for (var ai = 0; ai < _outline.Acts.Count; ai++) {
+                                var actIndex = ai; var act = _outline.Acts[ai];
+                                if (_selectedAct is not null && _selectedAct != ai) { continue; }
+                                <section class="outline-act" @key="act">
+                                    @if (_selectedScene is null) {
+                                        <label>Act @(ai + 1) title<input aria-label="Act @(ai + 1) title" @bind="act.Title" @bind:event="oninput" @bind:after="OutlineChanged" disabled="@_busy" /></label>
+                                        <label>Purpose<textarea aria-label="Act @(ai + 1) purpose" @bind="act.Purpose" @bind:event="oninput" @bind:after="OutlineChanged" rows="2" disabled="@_busy"></textarea></label>
+                                        <div class="order-controls">
+                                            <button aria-label="Move act @(ai + 1) up" disabled="@(_busy || ai == 0)" @onclick="() => MoveAct(actIndex, -1)">↑</button>
+                                            <button aria-label="Move act @(ai + 1) down" disabled="@(_busy || ai == _outline.Acts.Count - 1)" @onclick="() => MoveAct(actIndex, 1)">↓</button>
+                                        </div>
+                                    } else { <p class="eyebrow">ACT @(ai + 1) · @act.Title</p> }
+                                    @for (var si = 0; si < act.Scenes.Count; si++) {
+                                        var sceneIndex = si; var scene = act.Scenes[si];
+                                        if (_selectedScene is not null && _selectedScene != si) { continue; }
+                                        <article class="outline-scene" @key="scene">
+                                            <label>Sequence @(si + 1)<input aria-label="Act @(ai + 1) sequence @(si + 1) title" @bind="scene.Title" @bind:event="oninput" @bind:after="OutlineChanged" disabled="@_busy" /></label>
+                                            <textarea aria-label="Act @(ai + 1) sequence @(si + 1) summary" @bind="scene.Summary" @bind:event="oninput" @bind:after="OutlineChanged" rows="6" disabled="@_busy"></textarea>
+                                            <label>Source sections<input aria-label="Act @(ai + 1) sequence @(si + 1) source sections" value="@SourceInput(scene)" @oninput="e => EditSourceSections(scene, e.Value?.ToString() ?? string.Empty)" aria-invalid="@(_sourceErrors.ContainsKey(scene) ? "true" : "false")" disabled="@_busy" /></label>
+                                            @if (_sourceErrors.TryGetValue(scene, out var sourceError)) { <p class="source-notice error" role="alert">@sourceError</p> }
+                                            <p class="field-hint">Section numbers separated by commas. Open a link below to check the original passage.</p>
+                                            <div class="source-links"><span>Source:</span>@foreach (var number in scene.Sources.Distinct()) { <button @onclick="() => ViewSource(number)">Section @number ↗</button> }</div>
+                                            <div class="order-controls">
+                                                <button aria-label="Move sequence @(si + 1) in act @(ai + 1) up" disabled="@(_busy || si == 0)" @onclick="() => MoveScene(actIndex, sceneIndex, -1)">↑</button>
+                                                <button aria-label="Move sequence @(si + 1) in act @(ai + 1) down" disabled="@(_busy || si == act.Scenes.Count - 1)" @onclick="() => MoveScene(actIndex, sceneIndex, 1)">↓</button>
+                                            </div>
+                                        </article>
+                                    }
+                                </section>
+                            }
+                            @if (_selectedAct is null) { <label for="outline-omissions">Condensation, omissions, and questions</label><textarea id="outline-omissions" @bind="_outline.Omissions" @bind:event="oninput" @bind:after="OutlineChanged" rows="4" disabled="@_busy"></textarea> }
+                        }
+                    </div>
+                }
+            </ChildContent>
+            <Footer><div class="source-editor-footer"><span>@(_center == "source" ? "Original material" : _outlineDirty ? "Unsaved outline edits" : "Source-linked review")</span><button class="assistant-shortcut" @onclick="ShowAssistant">@(_outlineDirty ? "Save or accept outline →" : "Adaptation tools →")</button></div></Footer>
+        </StudioPane></Center>
+        <Right><StudioPane Class="source-assistant" Label="Source assistant">
+            <Header><h2 class="pane-title">Assistant</h2></Header>
+            <ChildContent>
+                <label for="source-direction">Adaptation direction</label>
+                <textarea id="source-direction" @bind="_direction" @bind:event="oninput" disabled="@_busy" maxlength="4000" rows="5" placeholder="What should the adaptation preserve or change? Tone, setting, point of view…"></textarea>
+                <div class="analysis-composer">
+                    <TextModelPicker @ref="_picker" ProjectId="Id" Studio="TextAssistantStudio.Story" Disabled="@(_busy || Active && Run?.State != SourceRunState.Paused)" SelectionChanged="s => _selection = s" />
+                    @if (Run?.State == SourceRunState.Paused) { <p class="field-hint">Choose a model for the remaining analysis, then resume. Completed notes are kept.</p> }
+                    @if (!Active) { <div class="source-ai-action"><button class="primary ai-assist-action primary-request-action" @onclick="Start" disabled="@(_busy || _outlineDirty || string.IsNullOrWhiteSpace(_text) || _selection?.Ready != true)"><AiAssistIcon /><span>Analyze source</span></button><HelpHint Label="Analyze source" Text="Reads the whole source in sections and proposes an adaptation outline for review." /></div> }
+                    @if (CanReplan) { <div class="source-ai-action"><button class="ai-assist-action" @onclick="Replan" disabled="@(_busy || _outlineDirty || _selection?.Ready != true)"><AiAssistIcon /><span>New outline from saved analysis</span></button><HelpHint Label="New outline from saved analysis" Text="Update the adaptation direction to try another structure. Creates a separate proposal from saved story notes; review edits stay with the previous outline." /></div> }
+                </div>
+                @if (_doc.Runs.Count > 0) {
+                    <label for="source-run">Analysis history</label>
+                    <select id="source-run" value="@Run?.Id" @onchange="SelectRun" disabled="@(_busy || _outlineDirty)">
+                        @foreach (var r in _doc.Runs.AsEnumerable().Reverse()) { <option value="@r.Id">@r.CreatedUtc.ToLocalTime().ToString("g") · @(r.AnalysisFromRunId is null ? "Full analysis" : "New outline") · @Status(r)</option> }
+                    </select>
+                }
+                @if (Run is { } run) {
+                    @if (run.AnalysisFromRunId is not null) {
+                        <p class="field-hint">Uses saved story notes. <button class="analysis-origin" @onclick="ViewAnalysisOrigin" disabled="@(_busy || _outlineDirty)">View original analysis</button></p>
+                    }
+                    <SourceAnalysisProgressView Run="run" />
+                    @if (SourceAnalysis.Stale(_doc, run)) { <p class="source-notice">This analysis uses an earlier version of the source or adaptation direction. Its original text is preserved for comparison.</p> }
+                    @if (run.Error is not null) { <p class="source-notice error" role="alert">@run.Error</p> }
+                    <div class="analysis-actions">
+                        @if (run.State == SourceRunState.Running) { <button @onclick="Pause" disabled="@_busy">Pause after this request</button> }
+                        @if (run.State == SourceRunState.Paused) {
+                            <button class="primary ai-assist-action primary-request-action" @onclick="Resume" disabled="@(_busy || Dirty || _selection?.Ready != true || SourceAnalysis.Stale(_doc, run))"><AiAssistIcon /><span>Resume analysis</span></button>
+                            <button @onclick="Discard" disabled="@_busy">Discard analysis</button>
+                        }
+                    </div>
+                    @if (_outline is not null && run.State != SourceRunState.Discarded) {
+                        <div class="review-actions" role="group" aria-label="Outline review actions">
+                            <button @onclick="() => SaveOutline(false)" disabled="@(_busy || !_outlineDirty || _sourceErrors.Count > 0)">Save review edits</button>
+                            <button class="primary" @onclick="() => SaveOutline(true)" disabled="@(_busy || _sourceErrors.Count > 0 || Dirty || SourceAnalysis.Stale(_doc, run) || run.State == SourceRunState.Accepted && !_outlineDirty)">Accept outline</button>
+                            @if (run.State == SourceRunState.Review) { <button @onclick="Discard" disabled="@_busy">Discard outline</button> }
+                        </div>
+                        <p class="field-hint">Accepting saves the plan for later sequence drafting.</p>
+                    }
+                    @if (run.Pending is { } pending) {
+                        <section class="source-current-request" aria-label="Current request">
+                            <h3>Current request</h3>
+                            @if (Jobs.View.Jobs.FirstOrDefault(j => j.Id == pending.Id) is { } job) { <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }
+                            <AiTextRequestDetails JobId="pending.Id" />
+                        </section>
+                    }
+                    @if (run.Jobs.Count > 0) {
+                        <details class="source-details" open="@(_inspectedJob is not null)"><summary @onclick="InspectLatest">AI requests · @run.Jobs.Count</summary>
+                            <label for="source-request">Saved request</label><select id="source-request" value="@_inspectedJob" @onchange="InspectSelected">
+                                <option value="">Choose a request</option>
+                                @foreach (var id in run.Jobs) { <option value="@id">@(Jobs.View.Jobs.FirstOrDefault(j => j.Id == id)?.TargetName ?? id.ToString())</option> }
+                            </select>
+                            @if (_inspectedJob is { } inspected) {
+                                <AiTextRequestDetails @key="inspected" JobId="inspected" />
+                                <details><summary>Saved response</summary><pre class="saved-response">@(_response ?? "Nothing received yet.")</pre></details>
+                            }
+                        </details>
+                    }
+                }
+            </ChildContent>
+        </StudioPane></Right>
+    </StudioWorkspace>
+}
+<AiAssistDialog Visible="@(_sourcePreview is not null)" VisibleChanged="v => { if (!v) _sourcePreview = null; }" Title="@_sourcePreviewTitle">
+    <ChildContent><p class="field-hint">Original passage captured for this analysis.</p><pre class="source-excerpt">@_sourcePreview</pre></ChildContent>
+</AiAssistDialog>

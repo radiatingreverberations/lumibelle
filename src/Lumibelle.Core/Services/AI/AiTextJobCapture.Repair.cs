@@ -36,7 +36,7 @@ public sealed partial class AiTextJobCapture
         // failed run's identity or review decisions in QueuedAssistantHistoryStore.
         var run = script.Run with { Id = id, JobId = id, Revision = 0, CreatedUtc = DateTimeOffset.UtcNow,
             Status = AssistantRunStatus.Running, Output = "", Error = null, Proposal = null, Edits = null,
-            Applied = false, Rejected = false, AppliedTarget = null, CorrectedFromRunId = null };
+            Applied = false, Rejected = false, AppliedTarget = null, CorrectedFromRunId = null, ManuallyReviewed = false };
         return JsonSerializer.SerializeToElement(script with { Run = run }, AtomicJsonFile.Options);
     }
 }

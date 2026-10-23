@@ -9,7 +9,8 @@ import { root, configuration } from './build-host.js';
 // Give each test its own real host, including tests that fail before their cleanup.
 export const test = base.extend({
   hostLifecycle: async ({}, use) => { await use({}); },
-  baseURL: async ({ hostLifecycle }, use, testInfo) => {
+  // Give cold CI hosts a separate startup budget without extending UI assertion timeouts.
+  baseURL: [async ({ hostLifecycle }, use, testInfo) => {
     const directory = await mkdtemp(path.join(tmpdir(), 'lumibelle-browser-'));
     const host = spawn('dotnet', [
       process.env.LUMIBELLE_BROWSER_HOST_DLL ?? path.join(root, 'tests/Lumibelle.BrowserHost/bin', configuration, 'net10.0/Lumibelle.BrowserHost.dll'),
@@ -22,7 +23,7 @@ export const test = base.extend({
     hostLifecycle.output = () => output;
     try {
       const address = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`Browser host did not start.\n${output}`)), 20000);
+        const timer = setTimeout(() => reject(new Error(`Browser host did not start.\n${output}`)), 45000);
         const fail = error => { clearTimeout(timer); reject(error); };
         host.once('error', fail);
         host.once('exit', code => fail(new Error(`Browser host exited (${code}).\n${output}`)));
@@ -43,7 +44,7 @@ export const test = base.extend({
       if (path.dirname(path.resolve(directory)) === path.resolve(tmpdir()) && path.basename(directory).startsWith('lumibelle-browser-'))
         await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
-  }
+  }, { timeout: 60000 }]
 });
 
 export { expect };

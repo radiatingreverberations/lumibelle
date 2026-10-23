@@ -204,18 +204,18 @@ public sealed class ProjectComponentTests : BunitContext
     }
 
     [Fact]
-    public void ProjectHomeShowsSavedMetadataAndFutureAreas()
+    public void ProjectHomeShowsSavedMetadataAndStudioLinks()
     {
         var project = FakeProjectStore.Project("A forest", "First line\nSecond line");
         _store.Get = _ => Task.FromResult<ProjectInfo?>(project);
         var page = Render<ProjectHome>(parameters => parameters.Add(component => component.Id, project.Id));
         Assert.Equal(project.Name, page.Find("h1").TextContent);
         Assert.Contains("Second line", page.Find(".project-synopsis").TextContent);
-        Assert.Equal(4, page.FindAll(".project-areas article").Count);
+        Assert.Equal(new[] { "Source", "Script", "Assets", "Scenes", "Shots" }, page.FindAll(".project-areas h2").Select(h => h.TextContent));
         Assert.Empty(page.FindAll($"a[href='/projects/{project.Id:D}/production']"));
         Assert.Equal(project.CreatedUtc.ToString("O"), page.Find("time").GetAttribute("datetime"));
-        Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/assets']"));
-        Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/scenes']"));
+        foreach (var studio in new[] { "source", "script", "assets", "scenes", "shots" })
+            Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/{studio}']"));
         Assert.NotNull(_navigation.Find($"a[href='/projects/{project.Id:D}/settings']"));
     }
 

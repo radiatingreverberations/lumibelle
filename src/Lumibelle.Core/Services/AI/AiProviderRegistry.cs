@@ -488,7 +488,7 @@ public static class AiErrors
     {
         401 => "The API key was rejected. Replace it in AI settings.",
         402 => "OpenRouter reports insufficient credits for this request.",
-        403 => "This API key does not have access to the requested model.",
+        403 => "The provider refused this request (HTTP 403). Check model access, content restrictions, or account limits.",
         404 => "The selected model or endpoint is unavailable. Refresh the model list.",
         400 or 413 or 422 => "The model rejected the request. Check the model, output limit, and context size; try including fewer scenes.",
         429 => "The backend’s rate limit was reached. Wait before retrying.",

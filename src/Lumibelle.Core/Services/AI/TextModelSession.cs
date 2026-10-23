@@ -19,7 +19,7 @@ public sealed class TextModelSession(Guid projectId, IAiSettingsStore settings, 
     public IEnumerable<TextModelReference> Choices => (Override is { } selected ? new[] { selected } : Array.Empty<TextModelReference>())
         .Concat(Settings.TextModelProfiles).Concat(Settings.StarredTextModels).Append(Base).DistinctBy(TextModelProfiles.ChoiceKey);
     public string? Issue => IssueFor(Model, Source != TextModelSelectionSource.GlobalDefault);
-    public TextModelSelectionState State => new(Model, Issue is null, CatalogModel?.SupportsImages == true, Source == TextModelSelectionSource.GlobalDefault, Source);
+    public TextModelSelectionState State => new(Model, Issue is null, CatalogModel?.SupportsImages == true, Source == TextModelSelectionSource.GlobalDefault, Source, Issue);
     public string? IssueFor(TextModelReference model, bool requireTest = true) => TextModelPolicy.Issue(model, Settings, Checks.GetValueOrDefault(model.Backend), requireTest);
     public async Task RefreshAsync(bool allProviders = false, CancellationToken ct = default)
     {
@@ -45,7 +45,14 @@ public sealed class TextModelSession(Guid projectId, IAiSettingsStore settings, 
     {
         if (captured is null) return submission;
         var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options) ?? throw new WorkspaceStoreException("The captured text request is unavailable.");
-        if (!TextModelProfiles.SameConfiguration(request.Model, captured.Model))
+        var selected = request.SelectedModel ?? request.Model;
+        // Unset sampling values may be filled by capture. An explicit choice and the
+        // provider/model/server/profile identity must still match exactly.
+        var comparable = request.Model with {
+            Temperature = selected.Temperature is null ? null : request.Model.Temperature,
+            MaxOutputTokens = selected.MaxOutputTokens is null ? null : request.Model.MaxOutputTokens
+        };
+        if (!TextModelProfiles.SameConfiguration(selected, captured.Model) || !TextModelProfiles.SameConfiguration(comparable, selected))
             throw new WorkspaceStoreException("The request model changed. Reopen assistance and submit again.");
         return submission with { Snapshot = JsonSerializer.SerializeToElement(request with { SelectionSource = captured.Source }, AtomicJsonFile.Options) };
     }

@@ -18,7 +18,7 @@ using MudBlazor.Services;
 namespace Lumibelle.Tests;
 
 [Trait("Category", "Component")]
-public sealed class ScriptComponentTests : BunitContext
+public sealed partial class ScriptComponentTests : BunitContext
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.ScriptComponents", Guid.NewGuid().ToString("N"));
     private readonly IRenderedComponent<MudDialogProvider> _dialogs;
@@ -47,7 +47,9 @@ public sealed class ScriptComponentTests : BunitContext
         var enhancer = new PromptEnhancer(_providers, settings, assets); var guidance = new GuidanceAssistant(_providers, settings, assets);
         _queue = new(_jobs, settings, [_assistant], TimeProvider.System, NullLogger<AiJobCoordinator>.Instance);
         Services.AddSingleton(_queue); Services.AddSingleton<IAiJobStore>(_jobs); Services.AddSingleton<IAiReviewGate>(_reviews);
-        Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, enhancer, guidance));
+        var sources = new FileSourceStore(files); Services.AddSingleton(sources);
+        Services.AddSingleton(new FileScriptDraftBatchStore(files)); Services.AddSingleton<ScriptDraftWorkflow>();
+        Services.AddSingleton(new AiTextJobCapture(settings, projects, assets, enhancer, guidance, sources: sources));
         Services.AddSingleton<IScriptStore>(_store); Services.AddSingleton<IAssistantHistoryStore>(_history); Services.AddSingleton<ApplicationSession>();
         Services.AddSingleton<IAiProviderRegistry>(_providers); Services.AddSingleton<IProjectAiPreferencesStore>(new FakeProjectAiPreferencesStore());
         Services.AddSingleton<IAiSettingsStore>(settings);
@@ -93,6 +95,34 @@ public sealed class ScriptComponentTests : BunitContext
         await Click(panel, "Replace entire script"); Assert.Single(_applications); Assert.True((await LastRun()).Applied);
         await panel.Instance.DisposeAsync(); panel.Dispose(); var reopened = Panel(); reopened.WaitForAssertion(() => Assert.Equal("Revise", reopened.Find(".request-action-button").GetAttribute("aria-label"))); Assert.Equal(1, _assistant.Calls);
     }
+
+    [Fact]
+    public async Task EmptyFocusedResponseOffersANewRequestInsteadOfApplyingUnchangedWriting()
+    {
+        var doc = _store.Document;
+        await _history.SaveRunAsync(doc.ProjectId, new() {
+            Status = AssistantRunStatus.Completed, Operation = WritingOperation.Revise, EditFormat = 1,
+            Target = ScriptStructure.Capture(doc, ScriptScope.Document, null), Proposal = doc.Blocks,
+            Edits = new(1, []), Output = "{\"version\":1,\"operations\":[]}",
+            SourceRevision = doc.Revision, SourceFingerprint = ScriptStructure.ContextFingerprint(doc),
+            SessionId = Services.GetRequiredService<ApplicationSession>().Id
+        }, _ct);
+        var panel = Panel();
+        await Click(panel, "Requests");
+        _dialogs.WaitForElement(".assistant-run");
+        await Click(panel, "Open response");
+        Reviewed();
+        _dialogs.WaitForAssertion(() => {
+            Assert.Contains("No changes proposed. Your script is unchanged.", _dialogs.Markup);
+            Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
+            Assert.Contains("mud-button-filled-primary", _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "New request").ClassName);
+        });
+        Assert.Empty(_applications);
+        Assert.Equal(0, _assistant.Calls);
+        await Click(panel, "Discard");
+        panel.WaitForElement(".request-action-button[aria-label='Revise']");
+    }
+
     [Fact]
     public async Task ScopedRequestCapturesModelAndStaleTargetNeedsExplicitRetarget()
     {
@@ -105,7 +135,12 @@ public sealed class ScriptComponentTests : BunitContext
         Assert.Equal(model, _assistant.LastRequest!.Selection); Assert.Equal(model.Model, (await LastRun()).Model);
         var changed = _store.Document.Copy(); changed.Blocks[1] = changed.Blocks[1] with { Spans = [new("Changed scene action.")] }; _store.Document = changed;
         panel.Render(p => p.Add(c => c.Document, changed));
-        await _dialogs.InvokeAsync(() => Assert.True(_dialogs.FindAll("button").Single(b => b.TextContent == "Apply changes").HasAttribute("disabled")));
+        await _dialogs.InvokeAsync(() => {
+            Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
+            var action = Assert.Single(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Request fresh changes");
+            Assert.False(action.HasAttribute("disabled"));
+            Assert.Contains("mud-button-filled-primary", action.ClassName);
+        });
         await Click(panel, "Request fresh changes"); await _assistant.Called(2);
         Assert.Equal("Changed scene action.", _assistant.LastRequest!.Run.Target.OriginalBlocks[1].Text);
     }
@@ -151,6 +186,7 @@ public sealed class ScriptComponentTests : BunitContext
     public async Task MissingModelBlocksRequestsAndInvalidProposalCannotBeApplied()
     {
         _providers.Models = []; var panel = Panel(); Assert.True(Controls(panel).Find(".request-action-button").HasAttribute("disabled")); Assert.Equal(0, _assistant.Calls);
+        panel.WaitForAssertion(() => Assert.Contains("Model unavailable: This model is no longer available", panel.Find(".assist-panel-actions .script-submit-reason").TextContent));
         await panel.Instance.DisposeAsync(); panel.Dispose(); _providers.Models = null; _assistant.Invalid = true; panel = Panel(); await Click(panel, "Draft replacement"); await Click(panel, "Draft script");
         panel.WaitForAssertion(() => Assert.True(panel.Markup.Contains("Invalid mock output"), _queue.Error ?? panel.Markup), BunitDefaults.WaitTimeout(5)); await _dialogs.InvokeAsync(() => Assert.Empty(_dialogs.FindAll(".script-review")));
     }
@@ -168,6 +204,7 @@ public sealed class ScriptComponentTests : BunitContext
         _dialogs.WaitForAssertion(() => Assert.Empty(_dialogs.FindAll(".script-review-dialog")));
         Assert.Empty(_applications);
         Assert.True((await LastRun()).Rejected);
+        panel.WaitForElement(".request-action-button[aria-label='Draft script']:not([disabled])");
         Controls(panel);
         await panel.InvokeAsync(() =>
         {
@@ -241,7 +278,16 @@ internal sealed class ScriptReviewGate : IAiReviewGate
 internal sealed class ScriptQueueHandler : IAiJobHandler
 {
     public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.ScriptAssistant];
-    public bool Wait { get; set; } public bool Invalid { get; set; }
+    public bool Wait { get; set; } public bool Invalid { get; set; } public bool ScenePlanning { get; set; }
+    public string? PlanningOutput { get; set; }
+    public ScriptScenePlan? SavedPlan { get; set; }
+    private AiJobContext? _context;
+    public async Task BeginScreenplayAsync(ScriptScenePlan brief)
+    {
+        ScenePlanning = false; SavedPlan = brief;
+        await _context!.SaveResultAsync(new AiTextJobResult("Partial screenplay output") { ScenePlan = brief });
+        await _context.ReportAsync(new(new(GenerationPhase.Generating, "Step 2 of 2 · writing screenplay…")), checkpoint: true);
+    }
     private readonly CallCount _calls = new();
     public int Calls => _calls.Value; public Guid JobId { get; private set; } public CancellationToken Token { get; private set; }
     public Task Called(int times = 1) => _calls.Reached(times);
@@ -251,14 +297,14 @@ internal sealed class ScriptQueueHandler : IAiJobHandler
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
         LastRequest = snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<ScriptAssistantRequest>();
-        JobId = context.Job.Id; Token = ct; _calls.Increment();
-        await context.SaveResultAsync(new AiTextJobResult("Partial mock output"));
+        _context = context; JobId = context.Job.Id; Token = ct; _calls.Increment();
+        await context.SaveResultAsync(new AiTextJobResult("Partial mock output") { ScenePlanning = ScenePlanning, ScenePlan = SavedPlan });
         PartialSaved.TrySetResult();
         await context.ReportAsync(new(new(GenerationPhase.Generating, "Writing…")));
         if (Wait) await Release.Task.WaitAsync(ct);
         var error = Invalid ? "Invalid mock output" : null;
         var update = new AssistantUpdate(Complete: true, Blocks: Invalid ? null : ScriptFixtures.Document().Blocks, ValidationError: error);
-        await context.SaveResultAsync(new AiTextJobResult("Complete mock output", true, "stop", JsonSerializer.SerializeToElement(update, AtomicJsonFile.Options), error));
+        await context.SaveResultAsync(new AiTextJobResult(ScenePlanning ? PlanningOutput ?? "Complete mock output" : "Complete mock output", true, "stop", JsonSerializer.SerializeToElement(update, AtomicJsonFile.Options), error) { ScenePlanning = ScenePlanning, ScenePlan = SavedPlan });
         return Invalid ? AiJobOutcome.Attention(error!, AiJobRecovery.GenerateAgain) : AiJobOutcome.Complete();
     }
     public Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Task.FromResult(AiJobOutcome.Attention("Interrupted mock request", AiJobRecovery.GenerateAgain));

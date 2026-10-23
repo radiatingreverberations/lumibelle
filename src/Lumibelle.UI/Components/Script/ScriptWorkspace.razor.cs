@@ -40,7 +40,7 @@ public partial class ScriptWorkspace
     private int WordCount => string.Join(" ", Document.Blocks.Select(b => b.Text)).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
     private string CurrentKind => Document.Blocks.FirstOrDefault(b => b.Id == _selection?.AnchorBlockId)?.Kind.ToString() ?? "Action";
     private string SaveStatus => _session!.Conflict ? "Save conflict" : _session.Error is not null ? "Couldn’t save" : _session.Saving || _saveRequested ? "Saving…" : Unsaved ? "Unsaved" : "Saved";
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync() { DraftWorkflow.Changed += BatchScriptChanged; await LoadAsync(); }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_session is not null) {
@@ -131,7 +131,7 @@ public partial class ScriptWorkspace
             var captured = Document.Copy(); var target = selection.Capture(captured);
             await AcknowledgeAsync(); return new(captured, target);
         }
-        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); } finally { _syncing = false; _operations.Release(); } }
+        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); } finally { _syncing = false; _operations.Release(); if (!_disposed) await InvokeAsync(StateHasChanged); } }
     }
     private async Task<bool> ExternalAsync(Func<Task<bool>> action)
     {
@@ -151,18 +151,31 @@ public partial class ScriptWorkspace
             return true;
         }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or JSException) { _error = e.Message; return false; }
-        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); await AcknowledgeAsync(); } finally { _syncing = false; _operations.Release(); } }
+        finally { try { if (_canvas is not null) await _canvas.SetEditableAsync(true); await AcknowledgeAsync(); } finally { _syncing = false; _operations.Release(); if (!_disposed) await InvokeAsync(StateHasChanged); } }
     }
     private async Task<bool> ApplyAsync(AssistantRun run)
     {
         ScriptProposalApplication? applied = null;
-        var saved = await ExternalAsync(() => _session!.MutateAsync(doc => (applied = ScriptProposals.ApplyWithChanges(doc, run)).Document, "Before applying an AI proposal"));
+        var saved = await ExternalAsync(async () =>
+        {
+            var plan = run.SourceScene is null ? null : ScriptAdaptation.Accepted(await Sources.LoadAsync(Project.Id))
+                ?? throw new WorkspaceStoreException("Accept a current source outline before applying this sequence.");
+            return await _session!.MutateAsync(doc => (applied = ScriptProposals.ApplyWithChanges(doc, run, plan)).Document,
+                ScriptAdaptation.IsRedraft(run) ? $"Before replacing sequence {run.SourceScene!.Act + 1}.{run.SourceScene.Scene + 1}" : "Before applying an AI proposal");
+        });
         if (saved && applied is not null && _canvas is not null)
         {
             await _canvas.HighlightAsync(applied.Changes); _hasHighlights = applied.Changes.Count > 0; StateHasChanged();
         }
         return saved;
     }
+    private Task<bool> AddOutlineActsAsync(SourceAnalysisRun expected) => ExternalAsync(async () =>
+    {
+        var plan = ScriptAdaptation.Accepted(await Sources.LoadAsync(Project.Id));
+        if (plan?.Id != expected.Id || plan.ReviewRevision != expected.ReviewRevision)
+            throw new WorkspaceStoreException("The accepted outline changed. Refresh it before adding its act headings.");
+        return await _session!.MutateAsync(doc => ScriptAdaptation.WithActHeadings(doc, plan), "Before adding source outline acts");
+    });
     private async Task HideHighlightsAsync()
     {
         _hasHighlights = false;
@@ -176,7 +189,7 @@ public partial class ScriptWorkspace
     private async Task RestoreAsync(Guid id) { if (await ExternalAsync(() => _session!.RestoreAsync(id))) _historyOpen = false; }
     private async Task ReloadAsync()
     {
-        await ExternalAsync(async () => { await _session!.LoadAsync(Project.Id); _confirmReload = false; return true; });
+        await ExternalAsync(async () => { await _session!.LoadAsync(Project.Id); _confirmReload = false; _batchSyncNotice = null; return true; });
     }
     private async Task DeleteConfirmedAsync(Guid id) => await ExternalAsync(() => _session!.MutateAsync(doc =>
     {
@@ -261,7 +274,7 @@ public partial class ScriptWorkspace
     }
     public async ValueTask DisposeAsync()
     {
-        _disposed = true;
+        _disposed = true; DraftWorkflow.Changed -= BatchScriptChanged;
         if (_session is not null) { await _session.SaveAsync(); _session.Dispose(); }
         try
         {

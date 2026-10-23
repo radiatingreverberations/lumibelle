@@ -1,56 +1,76 @@
-@inject IShotStore Shots
-@inject IAssetStore AssetStore
-
-<details class="script-project-context">
-    <summary>Attach shots or assets @(_selected.Count > 0 ? $"· {_selected.Count} selected" : "(optional)")</summary>
-    <p>Use saved shot action, dialogue, and asset descriptions to draft or revise the script. Images and videos are not sent.</p>
-    @if (!_loaded) { <button type="button" disabled="@(Disabled || _loading)" @onclick="Load">@(_loading ? "Loading…" : "Choose shots or assets")</button> }
+<section class="script-project-context" aria-label="Writing references">
+    <div class="context-heading"><strong>References</strong><button type="button" disabled="@(Disabled || _loading)" @onclick="Open">@(_loading ? "Loading…" : "Manage references")</button></div>
+    @if (_applied.Count == 0) { <p>Add images, shots, or asset details to guide the writing.</p> }
     else {
-        <label>Find shots or assets<input type="search" @bind="_search" @bind:event="oninput" placeholder="Title, name, or scene…" disabled="@Disabled" /></label>
-        <div class="context-choices">
-            @foreach (var group in _entries.Where(e => e.Label.Contains(_search, StringComparison.OrdinalIgnoreCase)).GroupBy(e => e.Kind)) {
-                <fieldset disabled="@Disabled"><legend>@group.Key</legend>
-                @foreach (var entry in group) { <label class="context-choice"><input type="checkbox" checked="@_selected.Contains(entry.Id)" @onchange="e => Select(entry.Id, e.Value is true)" />@entry.Label</label> }
-                </fieldset>
+        <ul class="context-summary">
+            @foreach (var entry in _applied) {
+                <li @key="entry.Key"><span class="context-thumbnail">@if (entry.Thumbnail is { } url) { <img src="@url" alt="" loading="lazy" /> } else { <MudIcon Icon="@Icons.Material.Outlined.Description" aria-hidden="true" /> }</span><span><strong>@Title(entry, _applied)</strong><small>@entry.Status</small></span></li>
             }
-            @if (!_entries.Any(e => e.Label.Contains(_search, StringComparison.OrdinalIgnoreCase))) { <p>No matching shots or assets.</p> }
-        </div>
-        <div class="context-actions"><button type="button" disabled="@(Disabled || _loading)" @onclick="Load">Refresh saved details</button><button type="button" disabled="@(Disabled || _selected.Count == 0)" @onclick="Clear">Clear attachments</button></div>
-        @if (_selected.Count > 0) { <details><summary>Preview attached details · @_selected.Count</summary><pre>@Context</pre></details> }
+        </ul>
     }
-    @if (_error is not null) { <p role="alert">@_error</p> }
-</details>
+    @if (ImageIssue) { <p class="context-warning" role="status">The selected model cannot read images. Choose a vision model in Text model options, or remove the image references.</p> }
+    @if (_error is not null && !_open) { <p role="alert">@_error</p> }
+</section>
 
-@code {
-    [Parameter] public Guid ProjectId { get; set; }
-    [Parameter] public bool Disabled { get; set; }
-    [Parameter] public EventCallback<string?> Changed { get; set; }
-    private sealed record Entry(Guid Id, string Kind, string Label, string Text);
-    private List<Entry> _entries = [];
-    private HashSet<Guid> _selected = [];
-    private string _search = "";
-    private string? _error;
-    private bool _loading, _loaded;
-    private string? Context => _selected.Count == 0 ? null : string.Join("\n\n", _entries.Where(e => _selected.Contains(e.Id)).Select(e => e.Kind + " · " + e.Label + "\n" + e.Text));
-    private async Task Select(Guid id, bool value) { if (value) _selected.Add(id); else _selected.Remove(id); await Changed.InvokeAsync(Context); }
-    private async Task Clear() { _selected.Clear(); await Changed.InvokeAsync(null); }
-    private async Task Load()
-    {
-        if (_loading || Disabled) return;
-        _loading = true; _error = null;
-        try {
-            var shots = await Shots.LoadAsync(ProjectId);
-            var assets = await AssetStore.LoadAsync(ProjectId);
-            var entries = shots.Shots.Select((s, i) => new Entry(s.Id, "Shots", $"{i + 1}. {s.Title}" + (string.IsNullOrWhiteSpace(s.SceneTitle) ? "" : $" · {s.SceneTitle}"),
-                Details(("Action and camera", s.Description), ("Dialogue", string.Join("\n", s.Dialogue.Select(d => $"{d.Speaker}: {d.Text}" + (string.IsNullOrWhiteSpace(d.Language) ? "" : $" ({d.Language})")))), ("Atmosphere", s.Atmosphere), ("Music", s.Music)))).ToList();
-            entries.AddRange(assets.Assets.Select(a => new Entry(a.Id, "Assets", a.Name,
-                Details(("Category", a.Category.ToString()), ("Description", a.Description), ("Keep consistent", a.PreservationGuidance), ("Looks", string.Join("\n\n", a.Looks.Where(l => !l.Archived).Select(l => l.Name + "\n" + Details(("Description", l.Description), ("Keep consistent", l.PreservationGuidance)))))))));
-            _entries = entries; _selected.IntersectWith(entries.Select(e => e.Id)); _loaded = true;
-            await Changed.InvokeAsync(Context);
+<InlineDialog Visible="_open" VisibleChanged="Close" Options="@(PickerOptions with { CloseOnEscapeKey = !Busy })"
+    Class="manual-reference-dialog writing-reference-dialog" Title="Manage references" Context="Script assistance" CloseLabel="Close manage references" CloseDisabled="Busy">
+    <DialogContent>
+        @if (_open) {
+            <div class="writing-references">
+                <ReferencePicker Library="_library" BrowserTitle="Add references" BrowseLabel="Browse" UseCustomBrowser="@(_source != "Images")"
+                    Maximum="@(ScriptReferences.MaximumImages - _draft.Count(e => e.Image is not null))" Disabled="Busy" Excluded="@_draft.Where(e => e.Image is not null).Select(e => e.Image!).ToArray()"
+                    ImagePicked="AddImage" SelectedCount="_draft.Count" @bind-SelectedTab="_selectedTab">
+                    <BrowserSources>
+                        <div class="context-sources" role="group" aria-label="Reference sources">
+                            @foreach (var source in new[] { "Images", "Shots", "Asset details" }) {
+                                <button type="button" aria-pressed="@(_source == source ? "true" : "false")" disabled="@Busy" @onclick="() => _source = source">@source</button>
+                            }
+                        </div>
+                    </BrowserSources>
+                    <BrowserNotice><p class="context-hint">@(_source == "Images" ? "Selected images and their descriptions are sent to the AI." : "Saved text is sent to the AI. Thumbnails help you find the right reference.")</p></BrowserNotice>
+                    <BrowserContent>
+                        @if (_source == "Shots") {
+                            <ShotPicker Items="_shotItems" SelectedIds="@_draft.Where(e => e.Kind == "Shots").Select(e => e.Id).ToHashSet()" SelectedIdsChanged="SelectShots" Disabled="Busy" />
+                        }
+                        else {
+                            <label class="context-search">Find assets<input type="search" @bind="_search" @bind:event="oninput" placeholder="Name or category…" disabled="@Busy" /></label>
+                            <div class="context-assets">
+                                @foreach (var entry in MatchingAssets) {
+                                    var selected = _draft.Any(e => e.Key == entry.Key);
+                                    <button type="button" class="context-asset" disabled="@(Busy || selected)" @onclick="() => Add(entry)">
+                                        <span class="context-thumbnail">@if (entry.Thumbnail is { } url) { <img src="@url" alt="" loading="lazy" /> } else { <MudIcon Icon="@Icons.Material.Outlined.Description" aria-hidden="true" /> }</span>
+                                        <span><strong>@entry.Label</strong><small>@entry.Category · Saved text</small></span><span class="context-add">@(selected ? "Added" : "Add details")</span>
+                                    </button>
+                                }
+                                @if (!MatchingAssets.Any()) { <p>No matching assets.</p> }
+                            </div>
+                        }
+                    </BrowserContent>
+                    <SelectionToolbar><h3>Selected references · @_draft.Count</h3></SelectionToolbar>
+                    <Selection>
+                        @if (_draft.Count == 0) { <p>Add references from the browser to guide this writing request.</p> }
+                        <ol class="manual-reference-list">
+                            @foreach (var entry in _draft) {
+                                var index = _draft.IndexOf(entry);
+                                <ReferenceSelectionRow @key="entry.Key" Label="@entry.Label" Title="@Title(entry, _draft)" Status="@entry.Status" Disabled="Busy"
+                                    First="@(index == 0)" Last="@(index == _draft.Count - 1)" MoveUp="() => Move(index, -1)" MoveDown="() => Move(index, 1)" Remove="() => Remove(entry)">
+                                    <Thumbnail><span class="context-thumbnail">@if (entry.Thumbnail is { } url) { <img src="@url" alt="" loading="lazy" /> } else { <MudIcon Icon="@Icons.Material.Outlined.Description" aria-hidden="true" /> }</span></Thumbnail>
+                                    <ChildContent>@if (!string.IsNullOrWhiteSpace(entry.Text)) { <details class="context-preview"><summary>Saved details</summary><pre>@entry.Text</pre></details> }</ChildContent>
+                                </ReferenceSelectionRow>
+                            }
+                        </ol>
+                        @if (_draft.Any(e => e.Image is not null) && !SupportsImages) { <p class="context-warning">Choose a vision model before submitting a request with images.</p> }
+                    </Selection>
+                    <Footer>
+                        <span>@_draft.Count(e => e.Image is not null)/@ScriptReferences.MaximumImages images · Changes apply together</span>
+                        @if (_error is not null) { <p role="alert">@_error</p> }
+                        <MudButton OnClick="Refresh" Disabled="Busy">Refresh saved details</MudButton>
+                        <MudButton OnClick="Clear" Disabled="@(Busy || _draft.Count == 0)">Clear</MudButton>
+                        <MudButton OnClick="() => Close(false)" Disabled="Busy">Cancel</MudButton>
+                        <MudButton OnClick="Apply" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Apply changes</MudButton>
+                    </Footer>
+                </ReferencePicker>
+            </div>
         }
-        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { _error = "Could not load project details. " + e.Message; }
-        finally { _loading = false; }
-    }
-    private static string Details(params (string Label, string? Value)[] fields) =>
-        string.Join("\n\n", fields.Where(f => !string.IsNullOrWhiteSpace(f.Value)).Select(f => f.Label + ":\n" + f.Value));
-}
+    </DialogContent>
+</InlineDialog>

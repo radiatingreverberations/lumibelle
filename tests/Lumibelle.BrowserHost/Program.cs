@@ -34,7 +34,9 @@ foreach (var backend in new[] { "ComfyUI", "OpenRouter" })
         .ConfigurePrimaryHttpMessageHandler(s => new MockCapacityHandler(s.GetRequiredService<MockCapacityState>()));
 builder.Services.AddSingleton<IModelTestRunner, Lumibelle.Testing.MockModelTestRunner>();
 Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.RemoveAll<IAiJobHandler>(builder.Services);
-builder.Services.AddSingleton<IAiJobHandler, AiTextJobHandler>();
+builder.Services.AddSingleton<AiTextJobHandler>();
+builder.Services.AddSingleton<ScriptReviewPreviews>();
+builder.Services.AddSingleton<IAiJobHandler, ScriptReviewPreviewHandler>();
 builder.Services.AddSingleton<IAiJobHandler, AiModelTestJobHandler>();
 builder.Services.AddSingleton<IAiJobHandler, CodexImageHandler>();
 builder.Services.AddSingleton<IAiJobHandler, Lumibelle.Testing.MockVideoJobHandler>();
@@ -52,6 +54,7 @@ app.MapStorageFixtures();
 app.MapReferencePickerFixtures();
 app.MapShotCopyFixtures();
 app.MapCompositionRecoveryFixtures();
+app.MapScriptPlanningFixtures();
 app.MapPost("/fixtures/shutdown", (HttpContext http, IHostApplicationLifetime lifetime) => {
     http.Response.OnCompleted(() => { lifetime.StopApplication(); return Task.CompletedTask; });
     return Results.Ok();
@@ -82,6 +85,7 @@ app.MapPost("/fixtures/{id:guid}/regeneration-source", async (Guid id, IAssetSto
     return await jobs.EnqueueAsync(await capture.CaptureAsync(Guid.NewGuid(), Guid.NewGuid(), id, draft.Id, draft.Revision, 1));
 });
 app.MapGet("/fixtures/{id:guid}/production", async (Guid id, IProductionStore production) => await production.LoadAsync(id));
+app.MapGet("/fixtures/{id:guid}/source", async (Guid id, FileSourceStore source) => await source.LoadAsync(id));
 app.MapGet("/fixtures/generation-setups", async (IGenerationSetupStore store) => await store.LoadAsync());
 app.MapPost("/fixtures/generation-setups/reset", async (ApplicationPaths paths) => {
     await AtomicJsonFile.WriteAsync(Path.Combine(paths.Data, "generation-setups.json"), new GenerationSetupLibrary(), default);
@@ -294,6 +298,7 @@ app.MapPost("/fixtures/video-preset", async (string key, bool available, IVideoG
 });
 app.MapGet("/fixtures/{id:guid}", async (Guid id, IScriptStore scripts, IAssetStore assets, IAssistantHistoryStore history) =>
     new { script = await scripts.LoadAsync(id), approved = await scripts.LoadApprovedAsync(id), assets = await assets.LoadAsync(id), history = await history.LoadAsync(id) });
+app.MapGet("/fixtures/{id:guid}/script-recovery", async (Guid id, IScriptStore scripts) => await scripts.ListRecoveryAsync(id));
 app.MapPost("/fixtures/{id:guid}/trash/{imageId:guid}", async (Guid id, Guid imageId, IAssetStore store) =>
 {
     var library = await store.LoadAsync(id); var asset = library.Assets.Single(a => a.Images.Any(i => i.Id == imageId));
@@ -478,7 +483,26 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if ((list[0].Text ?? "").Contains("Choose a compact, complementary set of pictures to help direct the WHOLE scene.")) {
+        if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true || m.Text?.Contains("Redraft ONLY the selected outline sequence") == true)) {
+            var evidence = list.Single(m => m.Text?.StartsWith("ACCEPTED SOURCE OUTLINE AND LINKED EVIDENCE\n") == true).Text!;
+            var context = JsonSerializer.Deserialize<ScriptAdaptationContext>(evidence[(evidence.IndexOf('\n') + 1)..], AtomicJsonFile.Options)!;
+            var scene = context.Outline.Acts[context.Selection.Act!.Value].Scenes[context.Selection.Scene!.Value];
+            output = JsonSerializer.Serialize(new[] { ScriptBlock.Create(ScriptBlockKind.Scene, context.Selection.Scene == 0 && context.Selection.Act == 0 ? "EXT. RIVER - DAY" : "EXT. GARDEN - DAY"),
+                ScriptBlock.Create(ScriptBlockKind.Action, context.Selection.RedraftScene ? "Eira studies the current before stepping into a boat." : scene.Summary) }.Select(b => new { kind = b.Kind.ToString(), spans = b.Spans }), AtomicJsonFile.Options);
+        }
+        else if ((list[0].Text ?? "").Contains("Lumibelle's source adaptation analyst.")) {
+            var input = JsonDocument.Parse(last).RootElement;
+            var numbers = input.GetProperty("inputs").EnumerateArray().SelectMany(n => n.GetProperty("sources").EnumerateArray().Select(s => s.GetInt32())).Distinct().ToArray();
+            var outline = (list[0].Text ?? "").Contains("Propose a reviewable movie adaptation outline");
+            output = JsonSerializer.Serialize(outline ? new SourceAnalysisResult("", new() {
+                Title = "The river key", Premise = "A courier follows a river to discover what an inherited key unlocks.",
+                Approach = "Two acts connect the discovery and its payoff. Preserve the reveal at the gate.",
+                Acts = [new() { Title = "The discovery", Purpose = "Turn curiosity into a decision.", Scenes = [new() { Title = "A key in the rain", Summary = "Eira finds a key and chooses to follow the river.", Sources = [numbers[0]] }] },
+                    new() { Title = "Beyond the gate", Purpose = "Pay off the key and resolve the journey.", Scenes = [new() { Title = "The gate opens", Summary = "Eira opens the gate and discovers a sheltered garden.", Sources = numbers.Skip(1).DefaultIfEmpty(numbers[0]).ToArray() }] }],
+                Omissions = "Condense repeated descriptions of the river; preserve the journey and reveal."
+            }) : new SourceAnalysisResult("Sections " + string.Join(", ", numbers) + ": Eira finds a key, follows the river and discovers a gate. The key's purpose is withheld until the gate opens. Preserve curiosity, the journey and its payoff."), AtomicJsonFile.Options);
+        }
+        else if ((list[0].Text ?? "").Contains("Choose a compact, complementary set of pictures to help direct the WHOLE scene.")) {
             using var context = JsonDocument.Parse(last); var candidates = context.RootElement.GetProperty("candidates").EnumerateArray().ToArray();
             output = JsonSerializer.Serialize(new { summary = "Complementary scene views", views = candidates.GroupBy(c => c.GetProperty("reel").ToString()).Select(g => g.First()).Take(3).Select(c => new { candidateId = c.GetProperty("candidateId").GetString(), reason = "Readable acting area and route" }), warnings = Array.Empty<string>() });
         }

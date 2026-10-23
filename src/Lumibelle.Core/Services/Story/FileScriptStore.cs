@@ -128,5 +128,6 @@ public sealed class FileScriptStore(ProjectFiles files, TimeProvider clock) : IS
             doc.Brief.Idea is null || doc.Brief.Duration is null || doc.Brief.Style is null || doc.Brief.ProductionProfile is null || doc.AppliedProposalIds is null)
             throw new WorkspaceStoreException("The script file is invalid or uses an unsupported format. It has not been replaced.");
         ScriptStructure.ValidateBlocks(doc.Blocks);
+        ScriptAdaptation.ValidateLinks(doc);
     }
 }

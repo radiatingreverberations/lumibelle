@@ -93,8 +93,8 @@ test('changed targets and invalid responses keep the authored script', async ({ 
   await expect(page.getByRole('button', { name: /Revising.*View request/ })).toBeVisible();
   const action = page.locator('.script-canvas [data-kind=Action]').first();
   await action.click(); await page.keyboard.press('End'); await page.keyboard.type(' New local detail.');
-  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Request fresh changes', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
   // New request in the review starts over and leaves this response as it is.
   await page.getByRole('button', { name: 'New request', exact: true }).click();
   await page.getByLabel('Instructions', { exact: true }).fill('INVALID');

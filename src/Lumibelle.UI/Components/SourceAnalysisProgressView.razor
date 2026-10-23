@@ -1,0 +1,70 @@
+@using System.Text.Json
+
+<div class="source-analysis-status" role="status">
+    @if (Run.State is SourceRunState.Running or SourceRunState.Paused) {
+        <span class="analysis-step">@StepLabel</span>
+    }
+    <strong>@Status(Run)</strong>
+    @if (Run.State is SourceRunState.Review or SourceRunState.Accepted or SourceRunState.Discarded) {
+        <span>@Run.Notes.Count / @Run.Chunks.Count source sections read</span>
+    } else if (_stage == SourceAnalysisStage.Read) {
+        <span>@Run.Notes.Count / @Run.Chunks.Count sections read</span>
+        <progress value="@Run.Notes.Count" max="@Run.Chunks.Count" aria-label="Source reading progress"></progress>
+        <p>Reading the original text and saving notes for each section. The story overview and adaptation outline come next.</p>
+    } else if (_stage == SourceAnalysisStage.Combine) {
+        <span>@Run.CombineIndex / @_total notes combined in this pass</span>
+        <progress value="@Run.CombineIndex" max="@_total" aria-label="Story overview progress"></progress>
+        @if (_inputCount > 0) {
+            <span>Current batch: notes @(Run.CombineIndex + 1)–@(Run.CombineIndex + _inputCount) of @_total.</span>
+        }
+        <span>@Run.Combined.Count summaries saved in this pass.</span>
+        <p>Condensing the notes into a story overview that fits the outline request. Longer sources may need several passes.</p>
+        <small>Reading complete · @Run.Notes.Count / @Run.Chunks.Count source sections</small>
+    } else if (_stage == SourceAnalysisStage.Outline) {
+        @if (Run.State == SourceRunState.Running) { <progress aria-label="Adaptation outline progress"></progress> }
+        <p>Choosing acts and sequences from the story overview, with links to the original sections. The proposed outline will be ready for your review next.</p>
+        <small>Reading complete · @Run.Notes.Count / @Run.Chunks.Count source sections</small>
+    } else {
+        @if (Run.State == SourceRunState.Running) { <progress aria-label="Preparing next analysis step"></progress> }
+        <p>Checking whether the saved notes fit the outline request or need another combining pass.</p>
+        <small>Reading complete · @Run.Notes.Count / @Run.Chunks.Count source sections</small>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SourceAnalysisRun Run { get; set; } = default!;
+    private SourceAnalysisStage? _stage;
+    private int _inputCount, _total;
+    private string StepLabel => _stage switch {
+        SourceAnalysisStage.Read => "Step 1 of 3 · Read source",
+        SourceAnalysisStage.Combine => "Step 2 of 3 · Build story overview",
+        SourceAnalysisStage.Outline => "Step 3 of 3 · Propose outline",
+        _ => "Reading finished · Preparing next step"
+    };
+    protected override void OnParametersSet()
+    {
+        _stage = CurrentStage(Run);
+        _total = Run.Level?.Count ?? Run.Notes.Count;
+        _inputCount = Run.Pending is { } pending
+            ? pending.Snapshot.GetProperty("task").GetProperty("inputs").GetArrayLength() : 0;
+    }
+    // Use the captured request, not just the reading count: a long source can have
+    // several combining passes after every original section has been read.
+    private static SourceAnalysisStage? CurrentStage(SourceAnalysisRun run) =>
+        run.Pending is { } pending
+            ? pending.Snapshot.GetProperty("task").GetProperty("stage").Deserialize<SourceAnalysisStage>(AtomicJsonFile.Options)
+            : run.Notes.Count < run.Chunks.Count ? SourceAnalysisStage.Read
+            : run.CombineIndex > 0 ? SourceAnalysisStage.Combine : null;
+    public static string Status(SourceAnalysisRun run) => run.State switch {
+        SourceRunState.Running => CurrentStage(run) switch {
+            SourceAnalysisStage.Read => "Reading source",
+            SourceAnalysisStage.Combine => "Combining story notes",
+            SourceAnalysisStage.Outline => "Proposing adaptation outline",
+            _ => "Preparing next step"
+        },
+        SourceRunState.Paused => "Paused",
+        SourceRunState.Review => "Ready for review",
+        SourceRunState.Accepted => "Outline accepted",
+        _ => "Discarded"
+    };
+}

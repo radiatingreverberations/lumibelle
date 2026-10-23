@@ -1,0 +1,47 @@
+@using lumibelle.Services.AI
+
+<div class="sequence-brief-layout" aria-label="Saved sequence brief">
+    <section class="brief-beats">
+        <header><h3>Sequence beats</h3><span>@Plan.Beats.Length @(Plan.Beats.Length == 1 ? "beat" : "beats")</span></header>
+        <ol>
+            @foreach (var beat in Plan.Beats) { <li><p>@beat</p></li> }
+        </ol>
+    </section>
+    <aside class="brief-context" aria-label="Sequence context">
+        <section class="brief-ending">
+            <h3>Sequence ending</h3><p>@Plan.Ending</p>
+            @if (!string.IsNullOrWhiteSpace(Plan.TimeCue)) { <div class="brief-time-cue"><span>Time cue</span><p>@Plan.TimeCue</p></div> }
+        </section>
+        @if (Plan.Continuity.Length > 0) {
+            <details open><summary>Continuity <span>@Plan.Continuity.Length</span></summary><ul>
+                @foreach (var fact in Plan.Continuity) { <li>@fact</li> }
+            </ul></details>
+        }
+        @if (Plan.Details is { Length: > 0 }) {
+            <details><summary>Story details <span>@Plan.Details.Length</span></summary><ul>
+                @foreach (var fact in Plan.Details) { <li>@fact</li> }
+            </ul></details>
+        }
+        @if (Plan.Withhold.Length > 0) {
+            <details><summary>Keep for later <span>@Plan.Withhold.Length</span></summary><ul>
+                @foreach (var fact in Plan.Withhold) { <li>@fact</li> }
+            </ul></details>
+        }
+        @if (Plan.Evidence is { Length: > 0 }) {
+            <details><summary>Source excerpts <span>@Plan.Evidence.Length</span></summary>
+                @foreach (var evidence in Plan.Evidence) { <blockquote><span>Section @evidence.Section</span><p>@evidence.Quote</p></blockquote> }
+            </details>
+        }
+        @if (Plan.OversizedEvidenceCount + Plan.UnverifiedEvidenceCount > 0) {
+            <details class="brief-excerpt-notice"><summary>Omitted highlights <span>@(Plan.OversizedEvidenceCount + Plan.UnverifiedEvidenceCount)</span></summary>
+                @if (Plan.OversizedEvidenceCount > 0) { <p>@Plan.OversizedEvidenceCount optional source excerpt(s) exceeded the length limit.</p> }
+                @if (Plan.UnverifiedEvidenceCount > 0) { <p>@Plan.UnverifiedEvidenceCount source excerpt(s) could not be verified.</p> }
+                <p>The original response is preserved in the response details.</p>
+            </details>
+        }
+    </aside>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ScriptScenePlan Plan { get; set; } = null!;
+}

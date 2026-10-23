@@ -1,6 +1,7 @@
 @inherits ProjectAwareComponent
 @implements IAsyncDisposable
 @inject IScriptStore Scripts
+@inject FileSourceStore Sources
 @inject TimeProvider Clock
 @inject IJSRuntime JS
 
@@ -83,10 +84,11 @@ else
 
             </div>
 </Header><ChildContent>
+            @if (_batchSyncNotice is { } batchNotice) { <p class="source-notice" role="status">@batchNotice</p> }
             <ScriptCanvas @ref="_canvas" InitialBlocks="_initialBlocks" InitialSelection="_selection" Changed="EditorChanged" Pending="BrowserDirty" Save="SaveAsync" />
 </ChildContent><Footer><div class="script-editor-footer"><span class="script-word-count">@WordCount words</span><span class="field-hint">Ctrl/⌘ + Alt + 1–7 changes element type.</span>@if (_hasHighlights) { <button @onclick="HideHighlightsAsync">Hide highlights</button><span class="sr-only" role="status">Applied changes are highlighted in the screenplay.</span> }</div></Footer></StudioPane></Center>
 
-        <Right><StudioPane Class="script-assistant-pane" Label="Script assistant"><ChildContent><ScriptAssistantPanel ProjectId="Project.Id" RequestedJobId="RequestedJobId" Document="Document" Selection="_selection" RequestedTarget="_requestedTarget" SelectTarget="SelectTargetAsync" Capture="CaptureAsync" Apply="ApplyAsync" ActivityChanged="value => _assistantStatus = value" /></ChildContent></StudioPane></Right>
+        <Right><StudioPane Class="script-assistant-pane" Label="Script assistant"><ChildContent><ScriptAssistantPanel ProjectId="Project.Id" RequestedJobId="RequestedJobId" Document="Document" Selection="_selection" RequestedTarget="_requestedTarget" SelectTarget="SelectTargetAsync" Capture="CaptureAsync" Apply="ApplyAsync" AddOutlineActs="AddOutlineActsAsync" ActivityChanged="value => _assistantStatus = value" /></ChildContent></StudioPane></Right>
     </StudioWorkspace>
 }
 

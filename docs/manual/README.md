@@ -10,6 +10,7 @@ Lumibelle runs on your own computer, and projects are ordinary files in a folder
 
 - [Getting started](getting-started.md): run Lumibelle and create a project.
 - [Projects and storage](projects.md): where projects live, backups and recovery.
+- [Source](source.md): analyze original material and review an adaptation outline.
 - [Script studio](script.md): write and revise the screenplay.
 - [Assets studio](assets.md): characters, environments and props, with reference images.
 - [Shots](shots.md): coverage, references, prompts and takes.

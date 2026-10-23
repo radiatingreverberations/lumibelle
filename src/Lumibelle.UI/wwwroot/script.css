@@ -61,6 +61,11 @@
 .review-close.dialog-close { position: absolute; top: 14px; right: 14px; z-index: 1; }
 .prompt-enhancement-dialog .mud-dialog-title { padding-right: 64px; }
 .script-review-dialog .script-review-content { position: static; min-height: 0; }
+.script-review-dialog.sequence-review-dialog.mud-dialog { height:auto; max-height:min(940px, calc(100dvh - 48px)); }
+.sequence-review-dialog .script-review-content { padding:24px; }
+.sequence-review-dialog .script-response-working { margin:0; padding:22px; border:1px solid var(--lumi-border); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface); }
+.sequence-review-dialog .script-response-working h3 { margin:0 0 8px; font-size:var(--lumi-font-size-ui); }
+.sequence-review-dialog .script-response-working p { margin:0; color:var(--muted); font-size:var(--lumi-font-size-compact); }
 .script-json-editor { min-width: 0; }
 .script-json-editor label { display: block; margin-bottom: 6px; }
 .script-json-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 280px; max-height: 55dvh; padding: 12px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface); color: var(--ink); resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: var(--lumi-font-size-compact); line-height: 1.5; tab-size: 2; }
@@ -89,6 +94,8 @@
 @media (max-width: 850px) {
   .script-review-dialog.mud-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0 !important; border-radius: 0; }
   .script-review-dialog .script-review-title { padding-right: 56px; }
+  .script-review-dialog.sequence-review-dialog.mud-dialog { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; margin:0 !important; border-radius:0; }
+  .sequence-review-dialog .script-review-content { padding:18px 14px; }
   .review-close.dialog-close { top: 10px; right: 8px; }
   .script-review-pages.is-comparison { grid-template-columns: minmax(0, 1fr); }
   .review-page .screenplay-preview { padding: 22px 18px 30px; }

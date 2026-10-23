@@ -26,9 +26,18 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
     IReadOnlyList<AiTextMessage> Messages, string? GuidanceBaseline = null)
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AiTextMessage>? ScenePlanMessages { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CodexCapture? Codex { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public TextModelSelectionSource? SelectionSource { get; init; }
+    // Preserve the user's choice separately from resolved provider defaults and task reply budgets.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TextModelReference? SelectedModel { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? ResponseSchema { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResponseGrammar { get; init; }
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AiTextRepair? Repair { get; init; }
@@ -52,6 +61,12 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
 }
 public sealed record AiTextJobResult(string Raw, bool Complete = false, string? FinishReason = null, JsonElement? Value = null, string? Error = null)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public lumibelle.Services.AI.ScriptScenePlan? ScenePlan { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ScenePlanning { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public lumibelle.Services.AI.ScriptSequenceReview? SequenceReview { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public OpenRouterRequestUsage? OpenRouterUsage { get; init; }
     // The brief a two-step composition was written from.

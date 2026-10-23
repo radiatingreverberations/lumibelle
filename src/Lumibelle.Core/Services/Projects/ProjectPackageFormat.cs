@@ -17,7 +17,7 @@ internal static class ProjectPackageFormat
     internal const int MaxFiles = 100_000;
     internal const int MaxJsonBytes = 64 * 1024 * 1024;
     internal const long MaxJsonTotalBytes = 256L * 1024 * 1024;
-    internal static readonly string[] Documents = ["project.json", "script.json", "assets.json", "shots.json", "production.json", "cut.json", "ai-preferences.json", "script-assistant.json"];
+    internal static readonly string[] Documents = ["project.json", "source.json", "script.json", "assets.json", "shots.json", "production.json", "cut.json", "ai-preferences.json", "script-assistant.json"];
     internal static readonly string[] ScriptFolders = ["script-sources", "script-approved", "script-history"];
     internal static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".webp"];
     internal static readonly string[] AudioExtensions = [".wav", ".mp3", ".flac", ".m4a", ".ogg"];

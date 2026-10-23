@@ -41,6 +41,17 @@ internal sealed class ProjectPackageState
         result.Validate();
         var script = await ProjectPackageFormat.ReadAsync<ScriptDocument>(root, "script.json", ct);
         if (script is not null) { FileScriptStore.Validate(script, project); result.Other.Add("script.json", ProjectPackageFormat.Json(script)); }
+        var source = await ProjectPackageFormat.ReadAsync<SourceDocument>(root, "source.json", ct);
+        if (source is not null) {
+            FileSourceStore.Validate(source, project);
+            // Packages carry original material and completed analysis, never live queue submissions
+            // or the global AI settings inside those submissions. Import must not launch paid work.
+            source = source with { Runs = source.Runs.Select(r => r with {
+                Pending = null, Jobs = [], State = r.State == SourceRunState.Running ? SourceRunState.Paused : r.State,
+                Error = r.State is SourceRunState.Running or SourceRunState.Paused ? "Analysis was paused for transfer. Resume to continue from its saved notes." : r.Error
+            }).ToList() };
+            result.Other.Add("source.json", ProjectPackageFormat.Json(source));
+        }
         var history = await ProjectPackageFormat.ReadAsync<AssistantHistory>(root, "script-assistant.json", ct);
         if (history is not null)
         {

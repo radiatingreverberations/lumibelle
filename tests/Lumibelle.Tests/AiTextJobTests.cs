@@ -326,16 +326,20 @@ public sealed partial class AiTextJobTests : IDisposable
     private static HttpResponseMessage Json(string content) => new(HttpStatusCode.OK) { Content = new StringContent(content, Encoding.UTF8, "application/json") };
     private sealed class TextProviders : IAiProviderRegistry
     {
-        public readonly TextChat Chat = new(); public int Created; public bool Vision = true; public string Model = "test/model"; public Action? OnCheck;
+        public readonly TextChat Chat = new(); public int Created; public bool Vision = true; public string Model = "test/model"; public Action? OnCheck; public long? ContextLength;
+        public Func<CancellationToken, Task<IChatClient>>? ClientFactory;
         public Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
-        { OnCheck?.Invoke(); return Task.FromResult(new AiConnectionCheck(true, "Available", [new(Model, "Test model", SupportsImages: Vision, ReasoningEfforts: ["low", "medium", "high"], DefaultEffort: "medium")], "v1")); }
-        public Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default) { Assert.Equal(Model, model); Created++; return Task.FromResult<IChatClient>(Chat); }
+        { OnCheck?.Invoke(); return Task.FromResult(new AiConnectionCheck(true, "Available", [new(Model, "Test model", SupportsImages: Vision, ReasoningEfforts: ["low", "medium", "high"], DefaultEffort: "medium", Catalog: ContextLength is { } length ? new(ContextLength: length) : null)], "v1")); }
+        public Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default) { Assert.Equal(Model, model); Created++; return ClientFactory?.Invoke(cancellationToken) ?? Task.FromResult<IChatClient>(Chat); }
         public IAsyncEnumerable<AiModelVerificationUpdate> VerifyComfyTextModelAsync(string model, AiSettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public IAsyncEnumerable<AiModelVerificationUpdate> TestComfyTextModelAsync(string model, AiSettings settings, ComfyTextModelTestRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class TextChat : IChatClient, IProgressReportingChatClient
     {
         public string Output = ""; public ChatFinishReason? Finish = ChatFinishReason.Stop; public bool FailAfterText;
+        public Queue<string> Outputs { get; } = new();
+        public List<List<ChatMessage>> Requests { get; } = [];
+        public Action<List<ChatMessage>>? OnRequest;
         public List<ChatMessage> Messages = []; public ChatOptions? Options;
         public OpenRouterRequestUsage? Usage; public bool FailAfterUsage; public Action? AfterUsage;
         public async IAsyncEnumerable<ProgressingChatUpdate> GetStreamingResponseWithProgressAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -348,7 +352,9 @@ public sealed partial class AiTextJobTests : IDisposable
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask; Messages = messages.ToList(); Options = options; cancellationToken.ThrowIfCancellationRequested();
-            yield return new(ChatRole.Assistant, Output);
+            Requests.Add(Messages);
+            OnRequest?.Invoke(Messages);
+            yield return new(ChatRole.Assistant, Outputs.Count > 0 ? Outputs.Dequeue() : Output);
             if (FailAfterText) throw new HttpRequestException("Provider disconnected");
             yield return new() { FinishReason = Finish };
         }

@@ -3,9 +3,11 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Models;
 
-public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection }
+public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection, SourceAnalysis }
 public enum AiJobState { Waiting, Running, NeedsAttention, Completed, Cancelled }
-public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain }
+// ContinueRequest is explicitly requeued execution from a saved checkpoint. Unlike
+// CheckStatus/RetryOutput, it may run an unfinished model step after the user retries.
+public enum AiJobRecovery { None, CheckStatus, RetryOutput, GenerateAgain, ContinueRequest, ApproveBrief }
 
 public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, Guid? ShotId = null,
     GuidanceScope? GuidanceScope = null, Guid? LookId = null, Guid? ImageId = null, string? ModelKey = null,
@@ -25,6 +27,7 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         AiJobKind.ReelVideo => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/video",
         AiJobKind.RefModBuild => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/refmod",
         AiJobKind.ScriptAssistant => $"{ProjectId}/script",
+        AiJobKind.SourceAnalysis => $"{ProjectId}/source",
         AiJobKind.AssetExtraction => $"{ProjectId}/extraction",
         // A scene breakdown locks the project's planning; drafting one shot in place locks only that shot.
         AiJobKind.ShotPlanning => ShotId is { } drafted ? $"{ProjectId}/shots/{drafted}/draft" : $"{ProjectId}/planning",
@@ -102,7 +105,7 @@ public sealed record AiJobHeader
     public bool CanClearActivity => State is not (AiJobState.Waiting or AiJobState.Running) && !RemoteUnconfirmed && ComfyControl is null;
     [System.Text.Json.Serialization.JsonIgnore]
     public bool CanRetryCaptured => State == AiJobState.NeedsAttention && !CancelRequested && !RemoteUnconfirmed &&
-        Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput;
+        Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput or AiJobRecovery.ContinueRequest;
     [System.Text.Json.Serialization.JsonIgnore]
     public bool CanRecoverCancelledOutputs => State == AiJobState.Cancelled && CancelRequested && !RemoteUnconfirmed &&
         Backend == AiBackend.ComfyUI && Kind is AiJobKind.Video or AiJobKind.ReelVideo && Batch is not null;
@@ -119,6 +122,7 @@ public sealed record AiJobHeader
         AiJobKind.RefModBuild => $"/projects/{project}/refmods/{Id}",
         AiJobKind.ReelViewSuggestion => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.ScriptAssistant => $"/projects/{project}/script?jobId={Id}",
+        AiJobKind.SourceAnalysis => $"/projects/{project}/source?jobId={Id}",
         AiJobKind.ReelComposition or AiJobKind.ReelVideo => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.Video or AiJobKind.PromptComposition => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}" + (Target.CompositionId is { } composition ? $"&setupId={composition}" : "") + (Kind == AiJobKind.Video ? "&view=Takes" : "&view=Prompt"),
         AiJobKind.ShotPlanning => $"/projects/{project}/shots?jobId={Id}" + (Target.ShotId is { } shot ? $"&shotId={shot}" : ""),
@@ -141,7 +145,7 @@ public sealed record AiJobProgress(GenerationProgress Progress, int? Candidate =
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<int>? CandidateExecutionOrder { get; init; }
 }
-public enum AiJobArtifact { Progress, Execution, Result, Composer }
+public enum AiJobArtifact { Progress, Execution, Result, Composer, SequenceBriefApproval, SequenceBriefCorrections }
 public enum AiActivityChange { Read, Clear, Restore }
 public sealed record AiActivityObservation(Guid Id, long Version);
 public sealed record AiJobSnapshot(string Fingerprint, JsonElement Request, AiBatchDefinition? InitialBatch = null);

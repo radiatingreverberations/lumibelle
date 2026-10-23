@@ -11,6 +11,7 @@
 <SectionContent SectionName="project-navigation">
     <nav class="project-tabs" aria-label="Project navigation">
         <a href="@ProjectUrl" class="@ActiveClass("overview")" aria-current="@CurrentPage("overview")">Overview</a>
+        <a href="@($"{ProjectUrl}/source")" class="@ActiveClass("source")" aria-current="@CurrentPage("source")">Source</a>
         <a href="@($"{ProjectUrl}/script")" class="@ActiveClass("script")" aria-current="@CurrentPage("script")">Script</a>
         <a href="@($"{ProjectUrl}/assets")" class="@ActiveClass("assets")" aria-current="@CurrentPage("assets")">Assets</a>
         <a href="@($"{ProjectUrl}/scenes")" class="@ActiveClass("scenes")" aria-current="@CurrentPage("scenes")">Scenes</a>

@@ -26,6 +26,22 @@ public static class ScriptStructure
     public static string Fingerprint(IEnumerable<ScriptBlock> blocks) => Convert.ToHexString(SHA256.HashData(
         Encoding.UTF8.GetBytes(JsonSerializer.Serialize(blocks, AtomicJsonFile.Options))));
     public static string ContextFingerprint(ScriptDocument doc) => Fingerprint(doc.Blocks);
+    // Importing into the editor merges adjacent spans with identical styling and
+    // removes empty spans. That representation change is not an author edit.
+    // Keep persisted fingerprints exact; normalize only when comparing writing.
+    public static bool EquivalentBlocks(IEnumerable<ScriptBlock> left, IEnumerable<ScriptBlock> right) =>
+        Fingerprint(left.Select(b => b with { Spans = MergeSpans(b.Spans) })) ==
+        Fingerprint(right.Select(b => b with { Spans = MergeSpans(b.Spans) }));
+    private static List<ScriptSpan> MergeSpans(IEnumerable<ScriptSpan> spans)
+    {
+        List<ScriptSpan> merged = [];
+        foreach (var span in spans.Where(s => s.Text.Length > 0)) {
+            if (merged.Count > 0 && merged[^1].Bold == span.Bold && merged[^1].Italic == span.Italic)
+                merged[^1] = merged[^1] with { Text = merged[^1].Text + span.Text };
+            else merged.Add(span);
+        }
+        return merged;
+    }
     public static bool SameProduction(ScriptDocument doc, ApprovedScriptSnapshot? approved) => approved is not null &&
         Fingerprint(doc.Blocks) == Fingerprint(approved.Blocks) && doc.Brief.Duration == approved.Duration && doc.Brief.ProductionProfile == approved.ProductionProfile;
 
@@ -61,7 +77,7 @@ public static class ScriptStructure
     }
     public static bool Matches(ScriptDocument doc, ScriptTarget target)
     {
-        if (target.Scope == ScriptScope.Document) return Fingerprint(doc.Blocks) == Fingerprint(target.OriginalBlocks);
+        if (target.Scope == ScriptScope.Document) return EquivalentBlocks(doc.Blocks, target.OriginalBlocks);
         if (target.OriginalBlocks.Count == 0) return false;
         var index = doc.Blocks.FindIndex(b => b.Id == target.OriginalBlocks[0].Id);
         if (index < 0) return false;
@@ -71,7 +87,7 @@ public static class ScriptStructure
             var section = Sections(doc.Blocks).SingleOrDefault(s => s.Id == target.OriginalBlocks[0].Id);
             if (section is null || section.Count != count) return false;
         }
-        return Fingerprint(doc.Blocks.Skip(index).Take(count)) == Fingerprint(target.OriginalBlocks);
+        return EquivalentBlocks(doc.Blocks.Skip(index).Take(count), target.OriginalBlocks);
     }
     public static void ValidateTarget(ScriptTarget target)
     {

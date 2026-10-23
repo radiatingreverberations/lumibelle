@@ -50,6 +50,26 @@ public sealed class ScriptStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task RedraftRecoveryRestoresThePriorSequenceAndItsSourceLinks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var project = await Projects.CreateAsync(new("A river journey"), ct);
+        var scene = new ScriptSourceScene(Guid.NewGuid(), 1, 0, 0);
+        var blocks = new List<ScriptBlock> { ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. RIVER - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "She waits."),
+            ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. GARDEN - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "The gate opens.") };
+        var initial = await Stories.SaveAsync(new() { ProjectId = project.Id, Blocks = blocks, SourceSceneLinks = [new(scene, blocks.Take(2).Select(b => b.Id).ToArray())] }, 0, cancellationToken: ct);
+        var run = new AssistantRun { Operation = WritingOperation.Rewrite, Status = AssistantRunStatus.Completed, SourceScene = scene,
+            Target = ScriptAdaptation.SequenceTarget(initial, scene), Proposal = [ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. BOAT - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "She rows.")] };
+        var next = ScriptProposals.Apply(initial, run);
+        var saved = await Stories.SaveAsync(next, initial.Revision, "Before replacing sequence 1.1", ct);
+        var recovery = Assert.Single(await Stories.ListRecoveryAsync(project.Id, ct));
+        var restored = await Stories.RestoreAsync(project.Id, recovery.Id, saved.Revision, ct);
+        Assert.Equal(ScriptStructure.Fingerprint(initial.Blocks), ScriptStructure.Fingerprint(restored.Blocks));
+        Assert.Equal(initial.SourceSceneLinks[0].BlockIds, restored.SourceSceneLinks[0].BlockIds);
+        Assert.Contains(run.Id, restored.AppliedProposalIds); // Restoring must not make an old proposal applicable twice.
+    }
+
+    [Fact]
     public async Task ConflictingAndCancelledWritesLeaveSavedStoryIntact()
     {
         var project = await Projects.CreateAsync(new("Film"), TestContext.Current.CancellationToken);

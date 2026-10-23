@@ -8,7 +8,8 @@ public static class WebHosting
 {
     public static IServiceCollection AddLumibelleWeb(this IServiceCollection services, ApplicationPaths paths, bool exclusive = true)
     {
-        services.AddRazorComponents().AddInteractiveServerComponents().AddHubOptions(o => o.MaximumReceiveMessageSize = 1024 * 1024);
+        // Source editing permits 500,000 characters; non-ASCII text can exceed 1 MiB in UTF-8.
+        services.AddRazorComponents().AddInteractiveServerComponents().AddHubOptions(o => o.MaximumReceiveMessageSize = 4 * 1024 * 1024);
         services.AddDataProtection().SetApplicationName("Lumibelle");
         services.AddSingleton<ISecretProtector, WebSecretProtector>();
         services.AddLumibelleCore(paths, exclusive).AddLumibelleUI();

@@ -105,8 +105,8 @@ test('editing during generation makes target stale and switching stays disabled'
   await expect(page.locator('.script-assistant .assist-composer-model .model-chip')).toBeDisabled();
   await expect.poll(async () => (await state(request, id)).history.runs.at(-1).target.name).toBe('INT. KITCHEN — NIGHT');
   await page.locator('.script-canvas [data-kind=Action]').first().click(); await page.keyboard.press('End'); await page.keyboard.type(' A new detail.');
-  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Request fresh changes', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
   await expect(page.getByText('The target changed or was deleted.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Request fresh changes', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeEnabled();

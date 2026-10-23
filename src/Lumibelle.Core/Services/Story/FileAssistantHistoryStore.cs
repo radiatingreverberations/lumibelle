@@ -47,11 +47,15 @@ public sealed class FileAssistantHistoryStore(ProjectFiles files, ApplicationSes
 
     private static void ValidateRun(AssistantRun run)
     {
-        if (run.Id == Guid.Empty || run.JobId == Guid.Empty || run.CorrectedFromRunId == Guid.Empty || run.CorrectedFromRunId == run.Id ||
+        if (run.Id == Guid.Empty || run.JobId == Guid.Empty || run.DraftBatchId == Guid.Empty || run.CorrectedFromRunId == Guid.Empty || run.CorrectedFromRunId == run.Id ||
             run.CorrectedFromRunId is not null && run.JobId is not null || run.Revision < 0 || run.Target is null || run.SourceFingerprint is null || run.Output is null || run.Instructions is null ||
             run.Model is null || !Enum.IsDefined(run.Status) || !Enum.IsDefined(run.Operation) || !Enum.IsDefined(run.Backend) || !Enum.IsDefined(run.Target.Scope))
             throw new WorkspaceStoreException("The assistant history contains an invalid request.");
         ScriptStructure.ValidateTarget(run.Target);
+        if (run.NormalizationNotes is { } notes && (notes.Count > 12 || notes.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 500)))
+            throw new WorkspaceStoreException("The screenplay format notices are invalid.");
+        if (run.SourceScene is { } scene && (!ScriptAdaptation.Valid(scene) || run.Operation is not (WritingOperation.Continue or WritingOperation.Rewrite) || run.Target.Scope != ScriptScope.Document || run.EditFormat != 0))
+            throw new WorkspaceStoreException("The saved source scene request is invalid.");
         if (run.AppliedTarget is not null) ScriptStructure.ValidateTarget(run.AppliedTarget);
         if (run.Proposal is not null) ScriptStructure.ValidateBlocks(run.Proposal);
     }

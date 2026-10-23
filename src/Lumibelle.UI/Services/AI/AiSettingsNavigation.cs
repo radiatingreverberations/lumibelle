@@ -36,7 +36,7 @@ public static class AiSettingsNavigation
         if (parts.Length is < 3 or > 4 || string.IsNullOrWhiteSpace(parts[2]) || !ValidProjectKey(parts[2])) return null;
         var label = parts.Length == 3 ? "project" : parts[3].ToLowerInvariant() switch
         {
-            "script" => "script", "assets" => "assets", "shots" => "shots", "production" => "production", "cut" => "cut",
+            "source" => "source", "script" => "script", "assets" => "assets", "shots" => "shots", "production" => "production", "cut" => "cut",
             "settings" => "project settings", _ => null
         };
         return label is null ? null : (url, $"Back to {label}");
