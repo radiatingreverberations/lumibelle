@@ -17,7 +17,12 @@ public sealed partial class AssetComponentTests
         if (text is "Queued · View extraction" or "Working · View extraction") text = "View request";
         if (text is "Review latest extraction" or "Review suggestions") text = "Review assets";
         if (text is "View request" or "Review assets") { await page.InvokeAsync(() => page.Find(".asset-library-extraction .request-action-button").ClickAsync(new())); return; }
-        await page.InvokeAsync(() => Press(page.FindAll("button").Concat(_dialogs.FindAll("button")).First(b => b.TextContent.Trim() == text)));
+        // Assertions outside the dispatcher can cache a DOM that a background queue render has
+        // already replaced. Refresh it on the dispatcher before resolving the current handler.
+        await page.InvokeAsync(() => {
+            page.Render();
+            return Press(page.FindAll("button").Concat(_dialogs.FindAll("button")).First(b => b.TextContent.Trim() == text));
+        });
         if (text == "Find assets") {
             await _queue.Until(() => Assert.NotEmpty(_queue.View.Jobs));
             page.WaitForElement(".asset-library-extraction .request-action-button", BunitDefaults.WaitTimeout(5));
