@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace lumibelle.Services.AI;
 
@@ -47,6 +48,25 @@ public static partial class ScriptScenePlanning
           },"required":["section","quote"],"additionalProperties":false}}
         },"required":["beats","continuity","withhold","ending","timeCue","details","evidence"],"additionalProperties":false}
         """);
+    public static JsonElement PlanningSchemaFor(IEnumerable<int> sections)
+    {
+        var schema = JsonNode.Parse(PlanningSchema.GetRawText())!;
+        var evidence = schema["properties"]!["evidence"]!["items"]!["properties"]!;
+        var ids = sections.Where(n => n > 0).Distinct().Order().ToArray();
+        if (ids.Length > 0) evidence["section"]!["enum"] = JsonSerializer.SerializeToNode(ids);
+        else schema["properties"]!["evidence"]!["maxItems"] = 0;
+        return ReadSchema(schema.ToJsonString());
+    }
+
+    public static string PlanningGrammarFor(IEnumerable<int> sections)
+    {
+        var ids = sections.Where(n => n > 0).Distinct().Order().ToArray();
+        var grammar = PlanningGrammar;
+        if (ids.Length > 0) grammar = grammar.Replace("[1-9] [0-9]*", "(" + string.Join(" | ", ids.Select(id => "\"" + id.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\"")) + ")", StringComparison.Ordinal);
+        else grammar = grammar.Replace("(evidence (comma evidence)*)?", "", StringComparison.Ordinal);
+        return grammar;
+    }
+
     private static JsonElement ReadSchema(string json)
     {
         using var document = JsonDocument.Parse(json);

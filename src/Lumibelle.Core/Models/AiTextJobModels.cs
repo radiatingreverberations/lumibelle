@@ -27,6 +27,14 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiTextMessage>? ScenePlanMessages { get; init; }
+    // Captured independently of screenplay writing. Missing on historical requests,
+    // which retain their original 4K planning clamp when replayed.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? ScenePlanReplyTokens { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? ScenePlanResponseSchema { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ScenePlanResponseGrammar { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CodexCapture? Codex { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -61,6 +69,8 @@ public sealed record AiTextJobRequest(int Version, AiJobKind Kind, TextModelRefe
 }
 public sealed record AiTextJobResult(string Raw, bool Complete = false, string? FinishReason = null, JsonElement? Value = null, string? Error = null)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LocallyCorrected { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public lumibelle.Services.AI.ScriptScenePlan? ScenePlan { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]

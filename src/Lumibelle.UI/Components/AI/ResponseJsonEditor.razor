@@ -1,0 +1,26 @@
+<section class="response-json-editor @Class" aria-label="@Title">
+    <h3>@Title</h3>
+    <p id="@HelpElement" class="field-hint">@Help Reviewing saves a separate correction and keeps the original response. No model request is sent.</p>
+    <label for="@Id">@Label</label>
+    <textarea id="@Id" value="@Value" @oninput="Changed" rows="18" spellcheck="false" disabled="@Busy" aria-describedby="@(HelpElement + " " + ErrorElement)"></textarea>
+    <div id="@ErrorElement" role="alert">@if (Error is not null) { <p class="writing-error">@Error</p> }</div>
+    <details><summary>JSON format</summary><pre class="raw-response">@Format</pre>@ChildContent</details>
+</section>
+@code {
+    [Parameter] public string Id { get; set; } = "response-json";
+    [Parameter] public string? HelpId { get; set; }
+    [Parameter] public string? ErrorId { get; set; }
+    private string HelpElement => HelpId ?? Id + "-help";
+    private string ErrorElement => ErrorId ?? Id + "-error";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string Title { get; set; } = "Correct response JSON";
+    [Parameter] public string Label { get; set; } = "Response JSON";
+    [Parameter] public string Help { get; set; } = "Paste or edit the complete response.";
+    [Parameter] public string? Format { get; set; }
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private Task Changed(ChangeEventArgs args) => ValueChanged.InvokeAsync(args.Value?.ToString() ?? "");
+}

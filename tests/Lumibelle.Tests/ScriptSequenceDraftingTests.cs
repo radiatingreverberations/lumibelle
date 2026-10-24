@@ -52,6 +52,40 @@ public sealed class ScriptSequenceDraftingTests
     }
 
     [Fact]
+    public void ConsecutiveDialogueParagraphsAndParentheticalsKeepTheirEstablishedSpeaker()
+    {
+        var candidate = ScriptSequenceDrafting.Parse("""
+            {"scenes":[{"heading":"INT. HALL — NIGHT","beatIds":["B1","END"],"blocks":[{"kind":"Character","spans":[{"text":"EIRA"}]},{"kind":"Dialogue","spans":[{"text":"I found a key."}]},{"kind":"Dialogue","spans":[{"text":"It was beside the river."}]},{"kind":"Parenthetical","spans":[{"text":"(quietly)"}]},{"kind":"Dialogue","spans":[{"text":"I will keep it."}]}]}]}
+            """);
+        Assert.Empty(ScriptSequenceDrafting.CheckStructure(candidate, Plan));
+        var scene = candidate.Scenes[0];
+        var withoutSpeaker = candidate with { Scenes = [scene with { Blocks = scene.Blocks.Skip(1).ToList() }] };
+        Assert.Equal(3, ScriptSequenceDrafting.CheckStructure(withoutSpeaker, Plan).Length);
+        var afterAction = candidate with { Scenes = [scene with { Blocks = [scene.Blocks[0], ScriptBlock.Create(ScriptBlockKind.Action, "She turns away."), scene.Blocks[1]] }] };
+        Assert.Single(ScriptSequenceDrafting.CheckStructure(afterAction, Plan));
+    }
+
+    [Theory]
+    [InlineData(true, ScriptSequenceReviewState.Passed)]
+    [InlineData(false, ScriptSequenceReviewState.NeedsAttention)]
+    public void BeatCoverageNeedsAPrimaryCitationButAllowsSupportingEvidenceInOtherScenes(bool primary, ScriptSequenceReviewState expected)
+    {
+        var candidate = ScriptSequenceDrafting.Parse("""
+            {"scenes":[{"heading":"EXT. RIVER — DAY","beatIds":["B1"],"blocks":[{"kind":"Action","spans":[{"text":"Eira finds a brass key."}]}]},{"heading":"INT. HALL — NIGHT","beatIds":["END"],"blocks":[{"kind":"Action","spans":[{"text":"Eira takes the key."}]}]}]}
+            """);
+        var primaryQuote = new ScriptDraftReference(1, 1, "Eira finds a brass key.");
+        var supportingQuote = new ScriptDraftReference(2, 1, "Eira takes the key.");
+        var raw = JsonSerializer.Serialize(new { beats = new[] {
+            new ScriptBeatReview("B1", true, "The key is found, then taken.", primary ? [primaryQuote, supportingQuote] : [supportingQuote]),
+            new ScriptBeatReview("END", true, "She takes the key.", [supportingQuote])
+        }, findings = Array.Empty<ScriptSequenceFinding>() }, AtomicJsonFile.Options);
+        var report = ScriptSequenceDrafting.ParseReview(raw, candidate, Plan, Context, 0);
+        Assert.Equal(expected, report.State);
+        if (primary) { Assert.Empty(report.Findings); Assert.Equal(2, report.Beats[0].Evidence.Length); }
+        else Assert.Contains(report.Findings, f => f.Severity == "repair" && f.Detail.Contains("Include B1"));
+    }
+
+    [Fact]
     public void EveryRequiredBeatAndTheEndingNeedVerifiedDraftEvidence()
     {
         var candidate = ScriptSequenceDrafting.Parse(Candidate);
@@ -85,6 +119,39 @@ public sealed class ScriptSequenceDraftingTests
         references.Add(JsonSerializer.SerializeToNode(new ScriptDraftReference(1, 99, "A misplaced quotation."), AtomicJsonFile.Options));
         json["beats"]![0]!["evidence"] = references;
         return json.ToJsonString();
+    }
+
+    internal static string FindingWithExtraCitation(string severity = "note")
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(Review(severity: severity))!;
+        json["findings"]![0]!["evidence"]!.AsArray().Add(JsonSerializer.SerializeToNode(new ScriptDraftReference(1, 1, "An unverifiable extra quotation."), AtomicJsonFile.Options));
+        return json.ToJsonString();
+    }
+
+    [Theory]
+    [InlineData("note", ScriptSequenceReviewState.Passed)]
+    [InlineData("repair", ScriptSequenceReviewState.NeedsAttention)]
+    public void FindingExtraCitationIsOmittedButItsSeverityAndVerifiedEvidenceRemain(string severity, ScriptSequenceReviewState expected)
+    {
+        var raw = FindingWithExtraCitation(severity);
+        var report = ScriptSequenceDrafting.ParseReview(raw, ScriptSequenceDrafting.Parse(Candidate), Plan, Context, 0);
+        Assert.Equal(expected, report.State); Assert.Equal(raw, report.RawResponse);
+        var finding = Assert.Single(report.Findings);
+        Assert.Equal(severity, finding.Severity); Assert.Equal("screenplay", finding.Category);
+        Assert.Equal(CandidateQuote, Assert.Single(finding.Evidence).Quote);
+        Assert.Contains("Finding 1 (screenplay): 1 draft citation(s)", Assert.Single(report.Warnings));
+    }
+
+    [Fact]
+    public void FindingWithoutVerifiedEvidenceOrWithInventedSourceEvidenceStillBlocksApproval()
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(FindingWithExtraCitation())!;
+        json["findings"]![0]!["evidence"]!.AsArray().RemoveAt(0);
+        var error = Assert.Throws<WorkspaceStoreException>(() => ScriptSequenceDrafting.ParseReview(json.ToJsonString(), ScriptSequenceDrafting.Parse(Candidate), Plan, Context, 0));
+        Assert.Contains("Finding 1", error.Message); Assert.Contains("none of its 1", error.Message);
+        json = System.Text.Json.Nodes.JsonNode.Parse(FindingWithExtraCitation())!;
+        json["findings"]![0]!["sourceEvidence"] = JsonSerializer.SerializeToNode(new[] { new ScriptSceneEvidence(1, "The key was silver.") }, AtomicJsonFile.Options);
+        Assert.Throws<WorkspaceStoreException>(() => ScriptSequenceDrafting.ParseReview(json.ToJsonString(), ScriptSequenceDrafting.Parse(Candidate), Plan, Context, 0));
     }
 
     [Fact]
@@ -154,5 +221,54 @@ public sealed class ScriptSequenceDraftingTests
         Assert.Contains("B1", text); Assert.Contains("END", text); Assert.Contains("The visitor remains unidentified.", text);
         Assert.DoesNotContain("sexual", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("American", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PlanningSeparatesItsFormatExampleFromTheRealSourceAndFinalTask()
+    {
+        var script = new ScriptDocument { ProjectId = Context.ProjectId };
+        var request = new ScriptAssistantRequest(new() {
+            Target = ScriptStructure.Capture(script, ScriptScope.Document, null),
+            Instructions = "Present the story as a silent visual comedy."
+        }, script, []) { Adaptation = Context };
+        var messages = ScriptSequenceDrafting.PlanningMessages(request);
+        Assert.Equal("system", messages[0].Role.Value);
+        Assert.Contains("separate screenplay writer", messages[0].Text);
+        Assert.Contains("third-person factual sentences", messages[0].Text);
+        Assert.Contains("FORMAT EXAMPLE ONLY", messages[1].Text);
+        Assert.Equal("assistant", messages[2].Role.Value);
+        var example = ScriptScenePlanning.Inspect(messages[2].Text!);
+        Assert.True(example.CanUse); Assert.Empty(example.Warnings);
+        Assert.Equal(4, example.Plan!.Beats.Length);
+        Assert.Empty(example.Plan.Withhold);
+        Assert.Empty(example.Plan.Evidence!); Assert.Empty(example.Plan.TimeCue);
+        Assert.All(example.Plan.Beats, beat => Assert.InRange(beat.Length, 1, 200));
+        Assert.Contains("ORIGINAL SOURCE EVIDENCE", messages[3].Text);
+        Assert.DoesNotContain("RECENT SCREENPLAY WRITING", messages[3].Text);
+        using var task = JsonDocument.Parse(messages[^1].Text!);
+        Assert.Contains("each distinct consequential change", task.RootElement.GetProperty("task").GetString());
+        Assert.Equal(request.Run.Instructions, task.RootElement.GetProperty("authorInstructions").GetString());
+        Assert.Equal(Context.Focus, task.RootElement.GetProperty("focus").GetString());
+        Assert.Equal(Context.Passages.SelectMany(p => p.Sources).Distinct().Order(),
+            task.RootElement.GetProperty("evidenceSectionIds").EnumerateArray().Select(v => v.GetInt32()));
+    }
+
+    [Fact]
+    public void PlannerReceivesSourceAndProgressWhileWriterStillReceivesActualScreenplayContinuity()
+    {
+        var source = Context with { Outline = new() { Acts = [new() { Scenes = [new() { Title = "The key", Summary = "Eira finds the key.", Sources = [1] }] }] } };
+        source = source with { Selection = new(source.RunId, 0, 0, 0, true) };
+        var script = new ScriptDocument { ProjectId = source.ProjectId,
+            Blocks = [ScriptBlock.Create(ScriptBlockKind.Scene, "INT. KITCHEN - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "The kettle has gone cold.")] };
+        var request = new ScriptAssistantRequest(new() {
+            Target = ScriptStructure.Capture(script, ScriptScope.Document, null),
+            SourceScene = new(source.RunId, 0, 0, 0)
+        }, script, []) { Adaptation = source };
+        var planning = string.Join("\n", ScriptSequenceDrafting.PlanningMessages(request).Select(m => m.Text));
+        var writing = string.Join("\n", ScriptSequenceDrafting.Messages(request, []).Select(m => m.Text));
+        Assert.DoesNotContain("The kettle has gone cold.", planning);
+        Assert.Contains("The kettle has gone cold.", writing);
+        Assert.Contains("ORIGINAL SOURCE EVIDENCE", planning);
+        Assert.Contains("scenesInScript", planning);
     }
 }

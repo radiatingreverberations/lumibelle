@@ -1,0 +1,76 @@
+@using System.Text.Json
+@using System.Text.RegularExpressions
+
+@if (_groups.Count > 0) {
+    <section class="streaming-response-preview" aria-label="Live response preview">
+        <header class="streaming-preview-heading"><div><h3>@Title</h3><p>Receiving response · not yet checked</p></div><span class="streaming-preview-indicator" aria-hidden="true"></span></header>
+        @for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++) {
+            var group = _groups[groupIndex];
+            <section class="streaming-preview-group" @key="groupIndex" aria-label="@group.Title">
+                <h4>@group.Title <span>@group.Parts.Count</span></h4>
+                <div class="streaming-preview-cards">
+                    @for (var i = 0; i < group.Parts.Count; i++) {
+                        var part = group.Parts[i];
+                        <article class="streaming-preview-card @(!part.Complete ? "is-writing" : null)" @key="i">
+                            <header><div class="streaming-part-heading">@if (part.Property("category") is { Text: { Length: > 0 } category } && part.Property("name") is not null) { <span class="streaming-asset-category">@Label(category)</span> }<strong>@PartTitle(group.Key, part, i)</strong></div><span class="streaming-part-state">@(part.Complete ? "Received" : "Still writing…")</span></header>
+                            <StreamingResponseValue Value="part" HideTitle="true" />
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+        @if (_limited) { <p class="streaming-preview-limit">Showing the first part of this response. The full output remains available in response details.</p> }
+        <p class="streaming-preview-footnote">This preview updates as text arrives. Validation runs when this step finishes.</p>
+    </section>
+}
+else if (EmptyMessage is not null) {
+    <section class="streaming-response-empty"><AiAssistIcon /><h3>@Title</h3><p>@EmptyMessage</p></section>
+}
+
+@code {
+    [Parameter] public string? Raw { get; set; }
+    [Parameter] public string Title { get; set; } = "Live preview";
+    [Parameter] public string ArrayLabel { get; set; } = "Parts";
+    [Parameter] public string? EmptyMessage { get; set; }
+    private string? _previous, _previousArrayLabel;
+    private bool _limited;
+    private List<Group> _groups = [];
+    protected override void OnParametersSet()
+    {
+        if (Raw == _previous && ArrayLabel == _previousArrayLabel) return;
+        _previous = Raw; _previousArrayLabel = ArrayLabel;
+        var preview = StreamingJsonPreview.Read(Raw);
+        _limited = preview.Limited; _groups = [];
+        if (preview.Root is not { } root) return;
+        var properties = root.Kind == JsonValueKind.Object ? root.Children : [root];
+        var remaining = 200;
+        foreach (var property in properties) {
+            var parts = (property.Kind == JsonValueKind.Array ? property.Children : [property]).Where(c => c.HasContent).ToArray();
+            if (parts.Length == 0) continue;
+            var key = property.Name ?? "parts";
+            if (parts.Length > remaining) _limited = true;
+            var title = key == "parts" ? ArrayLabel : key.Equals("beats", StringComparison.OrdinalIgnoreCase) && parts.Any(p => p.Property("covered") is not null) ? "Beat checks" : Label(key);
+            _groups.Add(new(key, title, parts.Take(remaining).ToArray()));
+            remaining -= Math.Min(parts.Length, remaining);
+            if (remaining == 0) break;
+        }
+    }
+    internal static string Label(string name) => name.ToLowerInvariant() switch {
+        "beats" => "Story beats", "scenes" => "Scenes", "continuity" => "Continuity", "withhold" => "Keep for later",
+        "ending" => "Sequence ending", "timecue" => "Time cue", "details" => "Story details", "evidence" => "Evidence",
+        "findings" => "Review findings", "beatids" => "Beat references", "sourceevidence" => "Source evidence", "spans" => "Text", "parts" => "Parts",
+        _ => SentenceCase(name)
+    };
+    private static string SentenceCase(string name)
+    {
+        var label = Regex.Replace(name.Replace('_', ' ').Replace('-', ' '), "([a-z])([A-Z])", "$1 $2");
+        return label.Length == 0 ? "Part" : char.ToUpperInvariant(label[0]) + label[1..];
+    }
+    private static string PartTitle(string group, StreamingJsonValue part, int index)
+    {
+        foreach (var key in new[] { "heading", "title", "name", "id", "kind" })
+            if (part.Property(key)?.Text is { Length: > 0 } title) return title;
+        return group.ToLowerInvariant() switch { "scenes" => $"Scene {index + 1}", "beats" => $"Beat {index + 1}", "findings" => $"Finding {index + 1}", _ => $"Part {index + 1}" };
+    }
+    private sealed record Group(string Key, string Title, IReadOnlyList<StreamingJsonValue> Parts);
+}

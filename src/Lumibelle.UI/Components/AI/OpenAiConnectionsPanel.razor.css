@@ -1,0 +1,24 @@
+.connections-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.connections-heading h2 { margin: 0; font-size: 20px; }
+.connections-heading p { margin: 6px 0 0; color: var(--muted); }
+.connections-heading > button { flex: 0 0 auto; }
+.connections-layout { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.connection-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.connection-list button { display: flex; flex-direction: column; gap: 6px; align-items: start; padding: 14px; text-align: left; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface); overflow-wrap: anywhere; }
+.connection-list button[aria-pressed=true] { border-color: var(--plum); background: var(--lumi-surface-subtle); }
+.connection-list span, .connection-list small { font-size: var(--lumi-font-size-meta); color: var(--muted); }
+.connection-form { min-width: 0; }
+.connection-form h3 { margin-top: 0; }
+.connection-form > input, .connection-form select { width: 100%; min-width: 0; }
+.connection-fields { margin-top: 14px; }
+.connection-fields input { width: 100%; }
+.connection-advanced { padding: 14px 0; border-block: 1px solid var(--lumi-border); margin: 18px 0; }
+.connection-advanced summary { cursor: pointer; color: var(--plum); }
+.connection-advanced label { display: block; margin-top: 16px; }
+.connection-advanced input { width: 100%; }
+.connection-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.connection-models { list-style: none; padding: 0; display: grid; gap: 10px; }
+.connection-models li { display: flex; flex-direction: column; gap: 4px; font-size: var(--lumi-font-size-meta); overflow-wrap: anywhere; }
+.connection-models li > span { color: var(--muted); }
+@media (max-width: 1100px) { .connections-layout { grid-template-columns: minmax(0, 1fr); } .connection-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } }
+@media (max-width: 600px) { .connections-heading { flex-direction: column; } .connection-list { grid-template-columns: minmax(0, 1fr); } }

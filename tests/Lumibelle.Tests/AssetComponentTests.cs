@@ -476,10 +476,10 @@ public sealed partial class AssetComponentTests : BunitContext
         var providers = (FakeProviders)Services.GetRequiredService<IAiProviderRegistry>();
         providers.Models = [new(cloud.Model, cloud.Name), new("test/model", "Default")];
         var page = Page(); await ExtractionClick(page, "Extract from script");
-        await _dialogs.InvokeAsync(() => _dialogs.Find(".assist-composer-model .model-chip").ClickAsync(new()));
+        await page.InvokeAsync(() => page.Find(".extraction-footer .model-chip").ClickAsync(new()));
         await _dialogs.InvokeAsync(() => _dialogs.Find("select[id^=text-model]").Change(TextModelPolicy.Key(cloud)));
         providers.Success = false; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
-        await _dialogs.InvokeAsync(() => Assert.True(_dialogs.FindAll("button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled")));
+        await page.InvokeAsync(() => Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled")));
         Assert.Equal(0, _extractor.Calls);
         providers.Success = true; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
         await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Done"));
@@ -495,8 +495,8 @@ public sealed partial class AssetComponentTests : BunitContext
     {
         _extractor.Result = new([new() { Category = AssetCategory.Character, Name = "Mira", Description = "Short hair and a red coat.", SuggestedTags = ["face", "full body"], Evidence = [new("Story", null, "Mira enters")] }], "[]");
         var page = Page(); page.WaitForElement(".asset-empty");
-        await ExtractionClick(page, "Extract from script"); _dialogs.WaitForElement(".ai-assist-dialog");
-        Assert.Contains("Approximate input", _dialogs.Markup); Assert.Empty(_assets.Library.Assets);
+        await ExtractionClick(page, "Extract from script"); page.WaitForElement(".extraction-dialog");
+        Assert.Contains("Approximate input", page.Markup); Assert.Empty(_assets.Library.Assets);
         await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
         Assert.Empty(_assets.Library.Assets);
         await page.InvokeAsync(() => page.Find(".apply-extraction").ClickAsync(new()));
@@ -510,7 +510,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _extractor.WaitForRelease = true;
         var page = Page(); page.WaitForElement(".asset-empty");
         await ExtractionClick(page, "Extract from script");
-        _dialogs.WaitForElement(".ai-assist-dialog");
+        page.WaitForElement(".extraction-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
         page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
@@ -525,7 +525,7 @@ public sealed partial class AssetComponentTests : BunitContext
         _extractor.WaitForRelease = true;
         var page = Page(); page.WaitForElement(".asset-empty");
         await ExtractionClick(page, "Extract from script");
-        _dialogs.WaitForElement(".ai-assist-dialog");
+        page.WaitForElement(".extraction-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
         page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
@@ -765,7 +765,7 @@ internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler
     {
         Token = ct; JobId = context.Job.Id;
         var request = snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<AssetExtractionRequest>();
-        await context.SaveResultAsync(new AiTextJobResult("partial extraction"));
+        await context.SaveResultAsync(new AiTextJobResult(PartialResponse));
         await foreach (var update in ExtractAsync(request, ct))
         {
             if (update.Progress is { } progress) await context.ReportAsync(new(progress));
@@ -777,6 +777,7 @@ internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler
     public Task<bool> CancelRemoteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Task.FromResult(true);
     public AssetExtractionRequest? LastRequest { get; private set; }
     public AssetExtractionResult Result { get; set; } = new([], "[]");
+    public string PartialResponse { get; set; } = "partial extraction";
     private readonly CallCount _calls = new();
     public int Calls => _calls.Value;
     public Task Called(int times = 1) => _calls.Reached(times);

@@ -27,7 +27,7 @@ public sealed partial class AiTextJobCapture
         if (ComfyTextCapacity.Assess(captured)?.Any(s => s.TooLarge) == true) return true;
         if (providers is null) return false;
         var check = await providers.CheckAsync(captured.Model.Backend, captured.Settings, cancellationToken: ct);
-        var model = check.Models.FirstOrDefault(m => m.Id == captured.Model.Model);
+        var model = TextModelPolicy.CatalogModel(captured.Model, check);
         if (model?.SupportsImages != true) throw new WorkspaceStoreException(TextVisionPolicy.SetupHint);
         try { DraftingEnvironments.ValidateCapacity(captured, model.Catalog?.ContextLength); return false; }
         catch (WorkspaceStoreException) { return true; }

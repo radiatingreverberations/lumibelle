@@ -6,10 +6,6 @@ namespace lumibelle.Components.Pages;
 
 public partial class AiSettingsPage
 {
-    private string _vllmUrl = "", _vllmKey = "";
-    private string? _vllmCheck;
-    private int _vllmConcurrency = 1;
-    private bool _removeVllmKey;
     private sealed class VllmTextDraft { public float? Temperature { get; set; } public int? Tokens { get; set; } }
     private readonly Dictionary<string, VllmTextDraft> _vllmTextDrafts = new(StringComparer.Ordinal);
     private VllmTextDraft VllmDraft(TextModelReference model)
@@ -35,11 +31,7 @@ public partial class AiSettingsPage
         }, reset ? "Model now uses server defaults." : "Model generation settings saved.")) CancelVllmDraft(model);
     }
 
-    private void CancelVllm()
-    {
-        _vllmUrl = _settings!.VllmUrl; _vllmConcurrency = _settings.VllmConcurrency;
-        _vllmKey = ""; _removeVllmKey = false; _vllmCheck = null;
-    }
+    private void CancelVllm() => _vllmTextDrafts.Clear();
 
     private async Task ReloadVllmTestAsync(VllmTextModelBenchmark benchmark)
     {
@@ -47,42 +39,46 @@ public partial class AiSettingsPage
         try
         {
             var known = _settings!.VllmTextModelBenchmarks.Any(b => b.Measurement.TestId == benchmark.Measurement.TestId);
-            _settings = await Settings.LoadAsync(_token); if (!known) _saveMessage = "vLLM test saved.";
+            _settings = await Settings.LoadAsync(_token); if (!known) _saveMessage = "Model test saved.";
         }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
         finally { if (!_token.IsCancellationRequested) await InvokeAsync(StateHasChanged); }
     }
 
-    private async Task CheckVllmAsync()
+    private async Task<bool> SaveOpenAiConnectionAsync(OpenAiConnectionSettings connection, string key, bool removeKey)
     {
-        if (Busy) return;
-        _checking = true; _error = null; _vllmCheck = null;
+        if (Busy) return false;
+        _saving = true; _error = null; _saveMessage = null; StateHasChanged();
         try
         {
-            var check = await Providers.CheckAsync(AiBackend.Vllm, _settings! with { VllmUrl = _vllmUrl },
-                _removeVllmKey ? "" : string.IsNullOrWhiteSpace(_vllmKey) ? null : _vllmKey, _token);
-            _vllmCheck = check.Message;
-        }
-        catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException) { _error = e.Message; }
-        catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
-        finally { _checking = false; }
-    }
-
-    private async Task SaveVllmAsync()
-    {
-        if (Busy) return;
-        _saving = true; _error = null; _saveMessage = null;
-        try
-        {
-            _settings = await Settings.SaveVllmAsync(_settings! with { VllmUrl = _vllmUrl, VllmConcurrency = _vllmConcurrency },
-                _vllmKey, _removeVllmKey, _token);
-            InvalidateTextCatalog(AiBackend.Vllm); CancelVllm(); _conflict = false;
-            _saveMessage = "vLLM connection saved. Refresh vLLM in Text models to choose a served model.";
+            connection = OpenAiConnections.Normalize(connection);
+            var current = OpenAiConnections.All(_settings!);
+            var connections = current.Any(c => c.Id == connection.Id)
+                ? current.Select(c => c.Id == connection.Id ? connection : c).ToArray() : [.. current, connection];
+            _settings = await Settings.SaveOpenAiConnectionAsync(_settings! with { OpenAiConnections = connections }, connection.Id, key, removeKey, _token);
+            InvalidateTextCatalog(AiBackend.Vllm); _conflict = false;
+            _saveMessage = $"{connection.Name} connection saved. Refresh OpenAI-compatible models under Text models.";
+            return true;
         }
         catch (WorkspaceConflictException) { _conflict = true; _error = "Another tab changed AI settings. Reload saved settings, then retry your change."; }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
-        finally { _saving = false; }
+        finally { _saving = false; StateHasChanged(); }
+        return false;
+    }
+
+    private async Task<bool> RemoveOpenAiConnectionAsync(Guid id)
+    {
+        var save = SaveChangeAsync(settings => settings with { OpenAiConnections = OpenAiConnections.All(settings).Where(c => c.Id != id).ToArray() },
+            "Connection removed. Saved model choices and captured requests retain their server identity.");
+        StateHasChanged();
+        try
+        {
+            var saved = await save;
+            if (saved) InvalidateTextCatalog(AiBackend.Vllm);
+            return saved;
+        }
+        finally { StateHasChanged(); }
     }
 }

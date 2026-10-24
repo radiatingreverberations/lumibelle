@@ -117,10 +117,23 @@ direction and writing instructions control how directly events are depicted; con
 notes do not force events offscreen. An offscreen narrator specifies voiceover, not a restriction
 on what the screenplay shows. Character choices, relationships, chronology and outcomes must remain
 faithful to the source or be identified as deliberate adaptation choices.
-For vLLM sequence drafts, an unset reply limit scales with the linked source volume from
+For OpenAI-compatible sequence drafts, an unset reply limit scales with the linked source volume from
 8,192 to 16,384 tokens, leaving room for several screenplay scenes and their aftermath.
 An explicit model or server-profile reply limit is
-preserved. Brief preparation uses at most 4,096 reply tokens. Captured requests retain their budgets.
+preserved. Planning captures its own reply budget, scaled from 8,192 to 16,384 tokens
+according to source volume and bounded by the chosen reply limit. This is generation
+headroom; the brief still consists of concise, separate event summaries. **Request details**
+shows the planning reply limit. Historical captures keep their original budgets, including
+the earlier 4,096-token planning cap.
+The planner receives original passages, the accepted outline and sequence progress.
+The writer and reviewer receive the actual screenplay for continuity. New vLLM planning
+grammars use only the supplied source-section identifiers
+for optional citations. Complete saved or manually corrected briefs can still be reviewed
+and approved with size warnings.
+While a step streams, live cards show the arriving beats, screenplay scenes or review
+findings. The current card updates as text arrives and is marked **Still writing**.
+These are unvalidated previews; the original JSON remains in **Response details** and
+the normal completion and review checks still run before applying.
 New vLLM sequence requests capture JSON grammars for the brief and screenplay stages,
 alongside their schema descriptions. Separator whitespace is bounded, allowing normal indentation,
 while spaces and Unicode within the prose remain unchanged. Existing captured requests keep their original format. Excessive

@@ -17,6 +17,33 @@ public sealed class ScriptScenePlanningTests
     private static ScriptScenePlan Brief(params ScriptSceneEvidence[] evidence) =>
         new(["Eira finds the key."], [], ["The garden's identity."], "She takes the key.", "", Evidence: evidence);
 
+    [Theory]
+    [InlineData(100, 16384, 8192)]
+    [InlineData(40000, 16384, 10240)]
+    [InlineData(100000, 16384, 16384)]
+    [InlineData(100000, 2048, 2048)]
+    public void PlanningHeadroomScalesWithSourceSizeWithinTheChosenReplyLimit(int sourceCharacters, int replyLimit, int expected)
+    {
+        var context = Context() with { Passages = [new(new string('x', sourceCharacters), [1])] };
+        Assert.Equal(expected, ScriptScenePlanning.PlanningReplyBudget(context, replyLimit));
+    }
+
+    [Fact]
+    public void PlanningFormatsUseSourceSectionsRatherThanChapterNumbersWithoutConstrainingProseLength()
+    {
+        var schema = ScriptScenePlanning.PlanningSchemaFor([11, 5, 11]);
+        Assert.False(schema.GetProperty("properties").GetProperty("beats").GetProperty("items").TryGetProperty("maxLength", out _));
+        var evidence = schema.GetProperty("properties").GetProperty("evidence").GetProperty("items").GetProperty("properties");
+        Assert.Equal(new[] { 5, 11 }, evidence.GetProperty("section").GetProperty("enum").EnumerateArray().Select(v => v.GetInt32()));
+        var grammar = ScriptScenePlanning.PlanningGrammarFor([11, 5, 11]);
+        Assert.Contains("ws string (comma string)*", grammar);
+        Assert.DoesNotContain("){1,1200}", grammar);
+        Assert.Contains("(\"5\" | \"11\")", grammar);
+        Assert.False(ScriptScenePlanning.PlanningSchema.GetProperty("properties").GetProperty("beats").GetProperty("items").TryGetProperty("maxLength", out _));
+        Assert.Equal(0, ScriptScenePlanning.PlanningSchemaFor([]).GetProperty("properties").GetProperty("evidence").GetProperty("maxItems").GetInt32());
+        Assert.DoesNotContain("(evidence (comma evidence)*)?", ScriptScenePlanning.PlanningGrammarFor([]));
+    }
+
     [Fact]
     public void GroundingKeepsOnlyVerbatimExcerptsInTheirCitedSelectedSections()
     {

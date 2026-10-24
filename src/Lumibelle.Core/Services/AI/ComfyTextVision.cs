@@ -10,7 +10,7 @@ namespace lumibelle.Services.AI;
 public static class TextVisionPolicy
 {
     public static bool SupportsBackend(AiBackend backend) =>
-        backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.ComfyUI;
+        backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.ComfyUI or AiBackend.Vllm;
 
     public const string SetupHint = "Choose a vision model. For ComfyUI, enable image input in this model's AI settings and refresh the model picker.";
 }

@@ -56,24 +56,7 @@ else
                         @if (_visitedProviders.Contains("vllm"))
                         {
                             <section id="ai-connection-vllm" role="tabpanel" aria-labelledby="ai-provider-vllm" hidden='@(ConnectionProvider != "vllm")'>
-                                <form id="connection-vllm-form" class="settings-card" @onsubmit="SaveVllmAsync" @onsubmit:preventDefault>
-                                    <div class="settings-card-title"><span class="provider-badge">SERVER</span><h2>vLLM</h2></div>
-                                    <p>Connect to a vLLM server for text assistance, on this computer or elsewhere.</p>
-                                    <label for="vllm-url">Server URL</label><input id="vllm-url" type="url" @bind="_vllmUrl" @bind:after='() => _vllmCheck = null' required disabled="@Busy" placeholder="http://llm-server:8000/v1" />
-                                    <p class="field-hint">Use the API base URL, for example http://llm-server:8000/v1. A server address without a path uses /v1.</p>
-                                    <p class="key-status">@(_settings.HasVllmKey ? "API key is configured" : "No API key configured")</p>
-                                    <label for="vllm-key">Optional API key</label><input id="vllm-key" type="password" autocomplete="new-password" @bind="_vllmKey" @bind:after='() => _vllmCheck = null' disabled="@Busy" placeholder="@(_settings.HasVllmKey ? "Leave blank to keep the saved key" : "Only if your server requires a key")" />
-                                    @if (_settings.HasVllmKey) { <label class="check-row"><input type="checkbox" @bind="_removeVllmKey" disabled="@Busy" />Remove saved API key</label> }
-                                    <p class="field-hint">Keys stay protected on this computer. Changing the server address clears its saved key; enter a key for the new server if needed.</p>
-                                    <MudButton OnClick="CheckVllmAsync" Disabled="Busy" Variant="Variant.Outlined">@(_checking ? "Checking…" : "Check connection")</MudButton>
-                                    @if (_vllmCheck is not null) { <p class="field-hint" role="status">@_vllmCheck</p> }
-                                    <p class="field-hint">Checking lists served models without generating text. Save, then refresh vLLM under Text models and star a model.</p>
-                                    <div class="connection-request-settings">
-                                        <label for="vllm-concurrency">Concurrent requests</label><input id="vllm-concurrency" type="number" min="1" max="8" step="1" @bind="_vllmConcurrency" disabled="@Busy" />
-                                        <p class="field-hint">Start with one request at a time. Set temperature and reply limits on each model under Text models.</p>
-                                    </div>
-                                    <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="CancelVllm" Disabled="Busy">Cancel</MudButton></div>
-                                </form>
+                                <lumibelle.Components.AI.OpenAiConnectionsPanel Settings="_settings" Busy="Busy" SaveConnection="SaveOpenAiConnectionAsync" RemoveConnection="RemoveOpenAiConnectionAsync" />
                             </section>
                         }
                         @if (_visitedProviders.Contains("openrouter"))
@@ -149,6 +132,10 @@ else
                         else if (TextState.Message is not null) { <span class="field-error">@TextState.Message</span>@if (TextState.Catalog is not null) { <span> Showing the last loaded catalog · may be out of date.</span> } }
                         @if (TextState.Refreshed is { } refreshed) { <span> Updated <time datetime="@refreshed.ToString("O")">@refreshed.ToLocalTime().ToString("MMM d, HH:mm")</time>.</span> }
                     </div>
+                    @if (TextBackend == AiBackend.Vllm) {
+                        <label for="openai-model-server">Connection<select id="openai-model-server" @bind="_openAiModelServer" @bind:after="ResetPage"><option value="">All connections</option>@foreach (var connection in OpenAiConnections.All(_settings)) { <option value="@connection.Url">@connection.Name@(!connection.Enabled ? " · Disabled" : "")</option> }</select></label>
+                        @if (_checks.GetValueOrDefault(AiBackend.Vllm)?.Connections is { } connections) { <ul class="openai-connection-statuses">@foreach (var connection in connections.Where(c => !c.Success)) { <li class="field-error"><strong>@connection.Name:</strong> @connection.Message</li> }</ul> }
+                    }
                     @if (TextBackend == AiBackend.ComfyUI)
                     {
                     <details class="text-generation-fallback" open="@_providerDefaultsOpen"><summary @onclick="() => _providerDefaultsOpen = !_providerDefaultsOpen" @onclick:preventDefault>ComfyUI defaults</summary>
@@ -207,6 +194,7 @@ else
                                     <div class="text-model-name-cell" role="cell">
                                     <button type="button" class="model-star @(starred ? "starred" : "")" aria-label="@(starred ? $"Unstar {name}" : $"Star {name}")" aria-pressed="@(starred ? "true" : "false")" title="@(starred ? "Remove from starred models" : issue ?? "Add to starred models")" disabled="@(Busy || (!starred && issue is not null))" @onclick="() => ToggleStarAsync(model)"><MudIcon Icon="@(starred ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" /></button>
                                     <div class="text-model-info"><div class="text-model-title"><button type="button" class="text-model-expand" aria-expanded="@(expanded ? "true" : "false")" aria-controls="@domId" @onclick="() => ExpandModel(model)">@name</button>@if (TextModelPolicy.Same(model, TextModelPolicy.Default(_settings))) { <span class="model-default-tag">Default</span> }</div>
+                                        @if (model.Backend == AiBackend.Vllm) { <p class="text-model-status">@OpenAiConnections.Name(_settings, model.VllmUrl) · @model.VllmUrl</p> }
                                         @if (ModelStatus(model) is { } status) { <p class="text-model-status">@status</p> }
                                         @if (testStatus is not null) { <p class="text-model-test-status" title="@testStatus.Detail">@testStatus.Label</p> }
                                         @if (TextBackend == AiBackend.OpenRouter)

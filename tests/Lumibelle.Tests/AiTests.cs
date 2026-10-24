@@ -501,6 +501,14 @@ internal sealed class FakeAiSettingsStore : IAiSettingsStore
     public string? Key { get; set; } = "test-only-key";
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => LoadError is { } error ? Task.FromException<AiSettings>(error) : Task.FromResult(Value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult(Key);
+    public async Task<AiSettings> SaveOpenAiConnectionAsync(AiSettings settings, Guid connectionId, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
+    {
+        FileAiSettingsStore.Validate(settings);
+        return await SaveAsync(settings with { Revision = Value.Revision + 1, OpenAiConnections = OpenAiConnections.All(settings)
+            .Select(c => OpenAiConnections.Normalize(c) with { HasApiKey = c.Id == connectionId
+                ? !removeKey && (!string.IsNullOrWhiteSpace(replacementKey) || c.HasApiKey && OpenAiConnections.Find(Value, c.Url)?.HasApiKey == true)
+                : c.HasApiKey }).ToArray() }, cancellationToken: cancellationToken);
+    }
     public async Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
     {
         FileAiSettingsStore.Validate(settings);

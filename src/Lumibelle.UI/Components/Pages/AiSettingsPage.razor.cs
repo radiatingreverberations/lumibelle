@@ -256,7 +256,7 @@ public partial class AiSettingsPage
             var check = model.Backend switch
             {
                 AiBackend.OpenRouter => _checks.GetValueOrDefault(AiBackend.OpenRouter),
-                AiBackend.Vllm => TextModelPolicy.SameVllmServer(model.VllmUrl, _settings!.VllmUrl) ? _checks.GetValueOrDefault(AiBackend.Vllm) : null,
+                AiBackend.Vllm => _checks.GetValueOrDefault(AiBackend.Vllm),
                 _ => TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? _checks.GetValueOrDefault(AiBackend.ComfyUI) : null
             };
             advanced &= model.Backend is AiBackend.ComfyUI or AiBackend.Vllm;

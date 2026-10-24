@@ -141,6 +141,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var configured = Copy(capturedSettings ?? await settings.LoadAsync(ct));
         var model = request.Selection ?? TextModelPolicy.Reference(request.Run.Backend, request.Run.Model, request.Run.Model, configured);
         var selectedModel = model;
+        if (model.Backend == AiBackend.Vllm) configured = OpenAiConnections.Capture(model, configured);
         if (request.Run.Backend != model.Backend || request.Run.Model != model.Model) throw new AiGenerationException("The script request and model selection do not match.");
         ScriptStructure.ValidateBlocks(request.Script.Blocks);
         ScriptAdaptation.ValidateLinks(request.Script);
@@ -162,7 +163,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         request = request with { Adaptation = adaptation, Run = request.Run with { SourceScene = sourceScene } };
         if (adaptation is not null && providers is not null) {
             var capacity = await providers.CheckAsync(model.Backend, configured, cancellationToken: ct);
-            if (capacity.Models.FirstOrDefault(m => m.Id == model.Model)?.Catalog?.ContextLength is { } contextLength &&
+            if (model.Backend == AiBackend.Vllm) configured = OpenAiConnections.WithDiscovery(configured, capacity);
+            if (TextModelPolicy.CatalogModel(model, capacity)?.Catalog?.ContextLength is { } contextLength &&
                 Math.Max(ScriptAssistant.EstimateInputTokens(request) + 1024,
                     sourceScene is not null && model.Backend == AiBackend.Vllm ? ScriptAssistant.EstimateInputTokens(request, false) + ScriptScenePlanning.MaximumTokens : 0) +
                     (model.MaxOutputTokens ?? configured.MaxOutputTokens) +
@@ -175,19 +177,25 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             if (providers is not null)
             {
                 var check = await providers.CheckAsync(model.Backend, ComfyTextSettings.Capture(model, configured), cancellationToken: ct);
-                if (check.Models.FirstOrDefault(m => m.Id == model.Model)?.SupportsImages != true)
+                if (TextModelPolicy.CatalogModel(model, check)?.SupportsImages != true)
                     throw new AiGenerationException(TextVisionPolicy.SetupHint);
             }
         }
         var images = await ScriptReferences.CaptureAsync(assets, request.Script.ProjectId, request.Images, ct);
         var planScene = sourceScene is not null && model.Backend == AiBackend.Vllm;
+        var serverKind = model.Backend == AiBackend.Vllm ? OpenAiConnections.Kind(OpenAiConnections.Find(configured, model.VllmUrl)!) : OpenAiServerKind.Standard;
         return await BuildAsync(id, tab, AiJobKind.ScriptAssistant, new(request.Script.ProjectId), sourceScene is not null
                 ? $"{(redraft ? "Redraft" : "Draft")} sequence · {sourceScene.Act + 1}.{sourceScene.Scene + 1}" : $"{request.Run.Operation} · {request.Run.Target.Name}",
             request, model, followsDefault, configured, planScene ? ScriptSequenceDrafting.Profile : request.Run.EditFormat == 1 ? ScriptEdits.Profile : "script-writing-v2",
             planScene ? ScriptSequenceDrafting.Messages(request, images) : ScriptAssistant.BuildMessages(request, images), configured.Temperature, null, ct,
             scenePlan: planScene ? ScriptSequenceDrafting.PlanningMessages(request).Select(AiTextMessage.Capture).ToArray() : null, selectedModel: selectedModel,
-            responseSchema: planScene ? ScriptSequenceDrafting.DraftSchema : null,
-            responseGrammar: planScene ? ScriptSequenceDrafting.DraftGrammar : null);
+            scenePlanReplyTokens: planScene ? ScriptScenePlanning.PlanningReplyBudget(adaptation!, model.MaxOutputTokens!.Value) : null,
+            // Strata prompts and validates after generation, buffering its schema responses.
+            // Stream normally and use our brief, screenplay and review validators instead.
+            responseSchema: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptSequenceDrafting.DraftSchema : null,
+            responseGrammar: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptSequenceDrafting.DraftGrammar : null,
+            scenePlanResponseSchema: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptScenePlanning.PlanningSchemaFor(adaptation!.Passages.SelectMany(p => p.Sources)) : null,
+            scenePlanResponseGrammar: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptScenePlanning.PlanningGrammarFor(adaptation!.Passages.SelectMany(p => p.Sources)) : null);
     }
     public async Task<AiJobSubmission> ExtractAsync(Guid id, Guid tab, AssetExtractionRequest request, bool followsDefault, CancellationToken ct = default)
     {
@@ -198,7 +206,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var model = request.Selection ?? TextModelPolicy.Reference(request.Backend, request.Model, request.Model, configured);
         if (request.Backend != model.Backend || request.Model != model.Model) throw new AiGenerationException("The extraction request and model selection do not match.");
         return await BuildAsync(id, tab, AiJobKind.AssetExtraction, new(request.Script.ProjectId), "Extract assets", request, model,
-            followsDefault, configured, "asset-extraction-v1", AssetExtractor.BuildMessages(request), 0.2f, null, ct);
+            followsDefault, configured, "asset-extraction-v2", AssetExtractor.BuildMessages(request), 0.2f, null, ct);
     }
     public async Task<AiJobSubmission> PlanShotsAsync(Guid id, Guid tab, ShotPlanningRequest request, bool followsDefault, CancellationToken ct = default)
     {
@@ -214,7 +222,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         AiModel? catalogModel = null;
         if (request.Environments.Count > 0 && providers is not null) {
             var check = await providers.CheckAsync(request.Selection.Backend, configured, cancellationToken: ct);
-            catalogModel = check.Models.FirstOrDefault(m => m.Id == request.Selection.Model);
+            catalogModel = TextModelPolicy.CatalogModel(request.Selection, check);
             if (messages.SelectMany(m => m.Contents).OfType<DataContent>().Any() && catalogModel?.SupportsImages != true)
                 throw new WorkspaceStoreException(TextVisionPolicy.SetupHint);
         }
@@ -275,7 +283,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     private async Task<AiJobSubmission> BuildAsync<T>(Guid id, Guid tab, AiJobKind kind, AiJobTarget target, string label, T payload,
         TextModelReference model, bool followsDefault, AiSettings configured, string profile, List<ChatMessage> messages, float temperature, string? baseline, CancellationToken ct,
         (IReadOnlyList<AiTextMessage>? Messages, string? Brief, string Key, int Tokens)? brief = null,
-        IReadOnlyList<AiTextMessage>? scenePlan = null, TextModelReference? selectedModel = null, JsonElement? responseSchema = null, string? responseGrammar = null)
+        IReadOnlyList<AiTextMessage>? scenePlan = null, TextModelReference? selectedModel = null, JsonElement? responseSchema = null, string? responseGrammar = null,
+        int? scenePlanReplyTokens = null, JsonElement? scenePlanResponseSchema = null, string? scenePlanResponseGrammar = null)
     {
         selectedModel = TextModelPolicy.WithDefaultEffort(selectedModel ?? model, configured);
         model = TextModelPolicy.WithDefaultEffort(model, configured);
@@ -288,7 +297,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var version = TextModelProfiles.RequiresSnapshotVersion3(model) ? 3 : 2;
         var snapshot = new AiTextJobRequest(version, kind, model, followsDefault, configured, profile, temperature, Random.Shared.NextInt64(1, long.MaxValue),
             JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), messages.Select(AiTextMessage.Capture).ToArray(), baseline)
-        { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key, BriefTokens = brief?.Tokens, ScenePlanMessages = scenePlan, SelectedModel = selectedModel, ResponseSchema = responseSchema, ResponseGrammar = responseGrammar };
+        { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key, BriefTokens = brief?.Tokens, ScenePlanMessages = scenePlan, ScenePlanReplyTokens = scenePlanReplyTokens,
+            ScenePlanResponseSchema = scenePlanResponseSchema, ScenePlanResponseGrammar = scenePlanResponseGrammar, SelectedModel = selectedModel, ResponseSchema = responseSchema, ResponseGrammar = responseGrammar };
         // Smaller images first, then whatever room is left for the reply.
         snapshot = ComfyTextCapacity.FitReplyLimit(ComfyTextCapacity.FitImageSide(snapshot));
         ComfyTextVision.ValidateSnapshot(snapshot);

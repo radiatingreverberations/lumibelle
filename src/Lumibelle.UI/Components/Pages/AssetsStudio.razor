@@ -43,10 +43,7 @@ else
         } else if (_library is not null) {
         <StudioPane Class="asset-library" Label="Asset library"><Header>
             <div class="asset-library-heading"><h2>Assets <small>@_library.Assets.Count</small></h2><div class="asset-library-actions"><button @onclick="() => _createOpen = true" aria-label="Create asset" title="Create asset">+</button><MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Asset library options" Size="Size.Small" Dense="true"><MudMenuItem role="menuitem" OnClick="OpenAllAssetDeletionAsync" Disabled="@(_library.Assets.Count == 0 || _saving || _deletingAllAssets)" Class="danger-link">Delete all assets…</MudMenuItem></MudMenu></div></div>
-            <div class="asset-library-extraction" @ref="_extractionOriginElement"><TextAssistance @ref="_extractionAssist" ProjectId="Id" Studio="TextAssistantStudio.AssetExtraction" Request="ExtractionPresentation" Preparing="_extractionSubmitting" HasError="@(_pendingExtraction is not null)" ReviewRequested="InspectExtraction" CancelRequested="CancelExtraction" Label="Extract from script" Title="Extract assets from script" Notice="@ExtractionCoverageNotice" Disabled="@(_saving || _finishingReview || _deletingAllAssets)" ModelLocked="_extracting" Opened="PrepareExtractionComposerAsync" SelectionChanged="ExtractionModelChanged">
-<ChildContent><ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" />@if (_approvedScript is null) { <p>Write a scene in Script before extracting assets.</p> } else { <ScriptCoveragePicker Source="_approvedScript" Reviews="_library!.ExtractionReviews" Selected="_selectedScenes" SelectedChanged="value => _selectedScenes = value" Disabled="_extracting" /> }<p class="context-estimate">Approximate input: ≈@ExtractionTokens.ToString("N0") tokens</p>@if (_extractionError is not null) { <p role="alert">@_extractionError</p> }</ChildContent>
-<Actions><MudButton Class="ai-assist-action" OnClick="ExtractAsync" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_extracting || _pendingExtraction is not null || !_extractionReady || _approvedScript is null || _selectedScenes.Count == 0)"><AiAssistIcon />Find assets</MudButton>@if (_pendingExtraction is not null) { <button @onclick="RetryExtractionEnqueueAsync">Retry saving request</button> }</Actions>
-</TextAssistance></div>
+            <div class="asset-library-extraction" @ref="_extractionOriginElement"><TextAssistance @ref="_extractionAssist" ProjectId="Id" Studio="TextAssistantStudio.AssetExtraction" ExternalComposer="true" Request="ExtractionPresentation" Preparing="_extractionSubmitting" HasError="@(_pendingExtraction is not null)" ReviewRequested="InspectExtraction" CancelRequested="CancelExtraction" Label="Extract from script" Title="Extract assets from script" Notice="@ExtractionCoverageNotice" Disabled="@(_saving || _finishingReview || _deletingAllAssets)" ModelLocked="_extracting" Opened="PrepareExtractionComposerAsync" SelectionChanged="ExtractionModelChanged" /></div>
             <div class="asset-library-search" data-workspace-menu-open="@(_assetCategoryMenuOpen ? "true" : "false")" @onkeydown="AssetCategoryMenuKeyDown">
                 <label class="sr-only" for="asset-search">Search assets</label><input id="asset-search" type="search" placeholder="Search assets…" @bind="_search" @bind:event="oninput" @bind:after="RememberAssetPosition" />
                 <MudMenu @ref="_assetCategoryMenu" @bind-Open="_assetCategoryMenuOpen" Icon="@(_categoryFilter is null ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt)" AriaLabel="@AssetCategoryFilterLabel" title="@AssetCategoryFilterLabel" Class="@($"asset-category-filter {(_categoryFilter is null ? "" : "active")}")" PopoverClass="asset-category-menu" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
@@ -512,39 +509,73 @@ else
                         <p class="field-hint">@(_reviewRequest?.Selection?.Name ?? _extractionModel?.Name) · @_extractionResult!.Proposals.Count suggestions</p>
                     }
                     else if (_extractionJob is { } headerJob) { <p class="field-hint">@headerJob.TargetName · @_reviewRequest?.Selection?.Name</p> }
+                    <ol class="extraction-workflow" aria-label="Extraction steps">
+                        @for (var step = 1; step <= 3; step++) {
+                            <li class="@(step < ExtractionStage || ExtractionFinished ? "is-complete" : step == ExtractionStage ? "is-current" : null)" aria-current="@(step == ExtractionStage ? "step" : null)"><span class="extraction-step-number" aria-hidden="true">@(step < ExtractionStage || ExtractionFinished ? "✓" : step.ToString())</span><span>@(step switch { 1 => "Choose scenes", 2 => "Find assets", _ => "Review & add" })</span></li>
+                        }
+                    </ol>
                 </header>
                 <div class="extraction-body">
-                    <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" />
-                    @if (_extractionJob is { } extractionJob && !ExtractionReadyForReview)
+                    @if (_extractionJob is null && !_extracting) { <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" /> }
+                    @if (_extractionJob is { } extractionJob && _extractionResult is null)
                     {
-                        <lumibelle.Components.AI.AiJobProgressView Job="extractionJob" Queue="AiJobs.View" Progress="AiJobs.Progress(extractionJob.Id)" />
-                        @if (_activeExtraction is not null) { <p class="field-hint">You can close this review or leave Assets. The request keeps running in AI activity.</p><div class="extraction-inline-actions"><MudButton OnClick="CancelExtraction" Variant="Variant.Outlined">Cancel request</MudButton></div> }
+                        <section class="extraction-progress-card" aria-label="Extraction status"><lumibelle.Components.AI.AiJobProgressView Job="extractionJob" Queue="AiJobs.View" Progress="AiJobs.Progress(extractionJob.Id)" />
+                        @if (_activeExtraction is not null) { <p class="field-hint">You can close this window. Extraction continues in AI activity.</p> }</section>
                     }
                     @if (_reviewDraftError is not null)
                     { <p role="alert" class="generation-error">@_reviewDraftError</p><div class="extraction-inline-actions"><MudButton OnClick="() => SaveReviewDraftAsync()" Disabled="@_reviewDraftConflict" Variant="Variant.Outlined">Retry saving review</MudButton><MudButton OnClick="LoadReviewDraftAsync" Variant="Variant.Outlined">Load saved review</MudButton><a href="@ReviewDownloadUrl" download="asset-review.json">Download my decisions</a></div> }
                     @if (_pendingExtraction is not null) { <div class="extraction-inline-actions"><MudButton OnClick="RetryExtractionEnqueueAsync" Disabled="@_extractionSubmitting" Variant="Variant.Outlined">Retry saving request</MudButton></div> }
-                    @if (_extractionResult is null)
+                    @if (_editingExtractionJson)
                     {
-                        @if (_approvedScript is null)
+                        <ResponseJsonEditor Id="corrected-extraction-json" Title="Correct asset suggestions JSON" Label="Asset suggestions JSON" Help="Paste or edit the complete asset array. Use the captured scene IDs listed below." Format="@ExtractionJsonFormat" @bind-Value="_extractionJson" Busy="_savingExtractionJson" Error="@_extractionJsonError" />
+                        <details class="extraction-source-scenes" open><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
+                    }
+                    else if (_extractionResult is null)
+                    {
+                        @if (_extracting) {
+                            <div class="extraction-live-content"><StreamingResponsePreview Raw="@_extractionRaw" Title="Asset suggestions arriving" ArrayLabel="Assets" EmptyMessage="Characters, environments and props will appear here as the response arrives." /></div>
+                        }
+                        @if (_extractionJob is { } captured)
+                        {
+                            <details class="extraction-request-details"><summary><strong>@_reviewRequest?.SceneIds.Count selected @(_reviewRequest?.SceneIds.Count == 1 ? "scene" : "scenes")</strong><span>Request details</span></summary>
+                                <div class="extraction-request-content">
+                                    @if (_reviewRequest is { } source) {
+                                        <p class="field-hint">Saved script · @source.Script.CapturedUtc.ToLocalTime().ToString("g")</p>
+                                        <ol class="extraction-captured-scenes">@foreach (var scene in ExtractionCoverage.Scenes(source.Script).Where(s => source.SceneIds.Contains(s.SceneId))) { <li>@scene.Title</li> }</ol>
+                                    }
+                                    <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" />
+                                    <AiTextRequestDetails JobId="captured.Id" />
+                                </div>
+                            </details>
+                        }
+                        else if (!_extracting && _approvedScript is null)
                         {
                             <p>Write a scene in Script before extracting assets.</p><MudButton Href="@(ProjectLink(Id, "/script"))" Variant="Variant.Outlined">Open Script studio</MudButton>
                         }
-                        else
+                        else if (!_extracting && _approvedScript is { } selectedSource)
                         {
-                            <p>Saved source @_approvedScript.CapturedUtc.ToLocalTime().ToString("g"). Choose scenes from this fixed version.</p>
-                            <ScriptCoveragePicker Source="_approvedScript" Reviews="_library!.ExtractionReviews" Selected="_selectedScenes" SelectedChanged="value => _selectedScenes = value" Disabled="_extracting" />
+                            <p>Saved source @selectedSource.CapturedUtc.ToLocalTime().ToString("g"). Choose scenes from this fixed version.</p>
+                            <ScriptCoveragePicker Source="selectedSource" Reviews="_library!.ExtractionReviews" Selected="_selectedScenes" SelectedChanged="value => _selectedScenes = value" Disabled="_extracting" />
                             @if (_unapprovedScriptChanges) { <p class="writing-notice">The script has newer edits. This review retains its captured source. <a href="@(ProjectLink(Id, "/script"))">Open Script studio</a></p> }
                         }
-                        @if (_extractionJob is { } captured) { <AiTextRequestDetails JobId="captured.Id" /> }
-                        <p class="context-estimate">Approximate input: ≈@ExtractionTokens.ToString("N0") tokens</p>
-                        @if (_extractionRaw.Length > 0) { <details><summary>Raw response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
+                        @if (_extractionJob is null && !_extracting) { <p class="context-estimate">@_selectedScenes.Count selected @(_selectedScenes.Count == 1 ? "scene" : "scenes") · Approximate input: ≈@ExtractionTokens.ToString("N0") tokens</p> }
+                        @if (_extractionRaw.Length > 0) { <details class="extraction-raw-details"><summary>Raw response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
                     }
                     else if (_extractionResult.ValidationError is not null)
                     {
-                        <MudAlert Severity="Severity.Warning">@_extractionResult.ValidationError</MudAlert><details><summary>Raw response</summary><pre class="raw-response">@_extractionResult.RawText</pre></details>
+                        <section class="extraction-validation" aria-label="Extraction needs correction">
+                            <h3>Asset suggestions need correction</h3><p>Your library is unchanged. Fix the fields below, recheck the saved response, or start a new extraction.</p>
+                            @if (_extractionResult.ValidationIssues.Count > 0) { <ul>@foreach (var issue in _extractionResult.ValidationIssues) { <li>@issue</li> }</ul> }
+                            else { <p>@_extractionResult.ValidationError</p> }
+                            @if (_extractionJsonError is not null) { <p role="alert">@_extractionJsonError</p> }
+                        </section>
+                        <details class="extraction-source-scenes"><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
+                        <details><summary>Saved model response</summary><pre class="raw-response">@_extractionResult.RawText</pre></details>
+                        @if (_extractionJob is { } failedRequest) { <AiTextRequestDetails JobId="failedRequest.Id" /> }
                     }
                     else
                     {
+                        @if (_extractionCorrected) { <p class="extraction-review-notice">Showing your saved JSON correction. The original model response is preserved.</p><details><summary>Original model response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
                         @if (_approvedScript?.Id != _latestApprovalId)
                         { <p class="writing-notice">A newer saved script is available. These suggestions retain their original source.</p><MudButton OnClick="StartNewExtractionAsync" Disabled="_finishingReview" Variant="Variant.Outlined">Use latest saved script</MudButton> }
                         @if (ExtractionFinished)
@@ -569,7 +600,11 @@ else
                         <p class="generation-error" role="alert">@_extractionError</p>
                         @if (_conflict) { <p class="field-hint">Close and reload the library to review current update targets. Your suggestion draft stays available.</p> }
                     }
-                    @if (ExtractionReadyForReview)
+                    @if (_editingExtractionJson)
+                    {
+                        <div class="dialog-actions"><MudButton OnClick="() => _editingExtractionJson = false" Disabled="_savingExtractionJson" Variant="Variant.Outlined">Cancel JSON edit</MudButton><MudButton OnClick="() => CorrectExtractionAsync(true)" Disabled="@(_savingExtractionJson || string.IsNullOrWhiteSpace(_extractionJson))" Color="Color.Primary" Variant="Variant.Filled">Review corrected JSON</MudButton></div>
+                    }
+                    else if (ExtractionReadyForReview)
                     {
                         @if (!ExtractionFinished) { <p class="extraction-apply-summary">@ReviewSummary</p> }
                         <div class="extraction-footer-row">
@@ -577,12 +612,19 @@ else
                             <div class="dialog-actions"><MudButton OnClick="RetryExtraction" Disabled="_finishingReview" Variant="Variant.Outlined">Start over</MudButton><MudButton OnClick="CloseExtraction" Disabled="_finishingReview" Variant="Variant.Outlined">Close</MudButton><MudButton OnClick="ApplyExtractionAsync" Class="apply-extraction" Disabled="@(_finishingReview || ExtractionFinished || _reviewDraftConflict)" Color="Color.Primary" Variant="Variant.Filled">@ApplyExtractionLabel</MudButton></div>
                         </div>
                     }
+                    else if (_extracting)
+                    {
+                        <div class="extraction-footer-row"><p class="field-hint">Your library changes only when you apply.</p><div class="dialog-actions">@if (_activeExtraction is { CancelRequested: false }) { <MudButton OnClick="CancelExtraction" Variant="Variant.Outlined">Cancel request</MudButton> }<MudButton OnClick="CloseExtraction" Color="Color.Primary" Variant="Variant.Filled">Close</MudButton></div></div>
+                    }
+                    else if (_extractionResult is null)
+                    {
+                        <div class="extraction-footer-row"><div class="assist-composer-model assist-footer-model">@(_extractionAssist?.ModelControl)</div><div class="dialog-actions"><MudButton OnClick="CloseExtraction" Variant="Variant.Outlined">Close</MudButton><MudButton Class="ai-assist-action" OnClick="ExtractAsync" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_pendingExtraction is not null || !_extractionReady || (_approvedScript is null || _selectedScenes.Count == 0) || string.IsNullOrWhiteSpace(ExtractionModel))"><AiAssistIcon />Find assets</MudButton></div></div>
+                    }
                     else
                     {
                         <div class="dialog-actions">
-                            @if (_extractionResult is null)
-                            { <MudButton OnClick="ExtractAsync" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_extracting || _pendingExtraction is not null || !_extractionReady || (_approvedScript is null || _selectedScenes.Count == 0) || string.IsNullOrWhiteSpace(ExtractionModel))">@(_extracting ? _activeExtraction?.State == AiJobState.Waiting ? "Queued" : "Working…" : "Find assets")</MudButton> }
-                            else { <MudButton OnClick="RetryExtraction" Color="Color.Primary" Variant="Variant.Filled">Retry</MudButton> }
+                                @if (CanCorrectExtraction) { <MudButton OnClick="() => CorrectExtractionAsync(false)" Disabled="_savingExtractionJson" Variant="Variant.Outlined">Recheck saved response</MudButton><MudButton OnClick="EditExtractionJson" Color="Color.Primary" Variant="Variant.Filled">Edit JSON</MudButton> }
+                                <MudButton OnClick="RetryExtraction" Variant="Variant.Outlined">New extraction</MudButton>
                             <MudButton OnClick="CloseExtraction" Variant="Variant.Outlined">Close</MudButton>
                         </div>
                     }

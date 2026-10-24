@@ -22,23 +22,23 @@ public sealed partial class AssetComponentTests
         Assert.Contains("extraction review", page.Find($"#{button.GetAttribute("aria-describedby")}").TextContent);
 
         await ExtractionClick(page, "Extract from script");
-        _dialogs.WaitForElement(".extraction-reminder-choice input");
-        Assert.Contains("0 /", _dialogs.Find(".coverage-summary").TextContent);
-        await _dialogs.Find(".extraction-reminder-choice input").ChangeAsync(new() { Value = true });
+        page.WaitForElement(".extraction-reminder-choice input");
+        Assert.Contains("0 /", page.Find(".coverage-summary").TextContent);
+        await page.Find(".extraction-reminder-choice input").ChangeAsync(new() { Value = true });
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".request-notice-badge")));
         Assert.True(positions.Get(_projectId, "assets", "ignoreExtractionReminders", false));
         Assert.False(positions.Get(Guid.NewGuid(), "assets", "ignoreExtractionReminders", false));
         Assert.Empty(_assets.Library.ExtractionReviews);
         Assert.Equal(0, _extractor.Calls);
 
-        await _dialogs.FindAll(".ai-assist-dialog .mud-dialog-actions button").Single(b => b.TextContent.Trim() == "Close").ClickAsync(new());
+        await page.FindAll(".extraction-footer button").Single(b => b.TextContent.Trim() == "Close").ClickAsync(new());
         await page.Instance.DisposeAsync(); page.Dispose();
         page = Page(false);
         page.WaitForElement(".asset-library-extraction .request-action-button");
         Assert.Empty(page.FindAll(".request-notice-badge"));
         await ExtractionClick(page, "Extract from script");
-        _dialogs.WaitForAssertion(() => Assert.True(_dialogs.Find(".extraction-reminder-choice input").HasAttribute("checked")));
-        await _dialogs.Find(".extraction-reminder-choice input").ChangeAsync(new() { Value = false });
+        page.WaitForAssertion(() => Assert.True(page.Find(".extraction-reminder-choice input").HasAttribute("checked")));
+        await page.Find(".extraction-reminder-choice input").ChangeAsync(new() { Value = false });
         page.WaitForElement(".asset-library-extraction .request-notice-badge");
         Assert.Empty(_assets.Library.ExtractionReviews);
         Assert.Equal(0, _extractor.Calls);

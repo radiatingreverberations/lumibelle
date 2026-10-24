@@ -46,12 +46,14 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             // the stream. The watchdog separately rejects heartbeat-only streams.
             NetworkTimeout = TimeSpan.FromSeconds(settings.TimeoutSeconds)
         });
-        return new OwnedChatClient(client.AsIChatClient(), transportClient, backend == AiBackend.OpenRouter);
+        return new OwnedChatClient(client.AsIChatClient(), transportClient, backend == AiBackend.OpenRouter,
+            backend == AiBackend.Vllm && OpenAiConnections.Find(settings, settings.VllmUrl) is { } connection && OpenAiConnections.Kind(connection) == OpenAiServerKind.Strata);
     }
 
     public async Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
     {
         FileAiSettingsStore.Validate(settings);
+        if (backend == AiBackend.Vllm) return await CheckOpenAiConnectionsAsync(settings, replacementKey, cancellationToken);
         if (backend == AiBackend.Codex)
         {
             if (codex is null) return new(false, "Codex is not configured.", []);
@@ -69,7 +71,6 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         try
         {
             using var http = clients.CreateClient(backend.ToString());
-            if (backend == AiBackend.Vllm) return await CheckVllmAsync(http, settings, replacementKey, timeout.Token);
             if (backend == AiBackend.ComfyUI)
             {
                 http.BaseAddress = new Uri(NormalizeComfyUrl(settings.ComfyUrl) + "/");
@@ -465,12 +466,14 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         }
     }
 
-    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport, bool openRouter) : DelegatingChatClient(inner), IProgressReportingChatClient
+    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport, bool openRouter, bool bufferedJson) : DelegatingChatClient(inner), IProgressReportingChatClient
     {
         public async IAsyncEnumerable<ProgressingChatUpdate> GetStreamingResponseWithProgressAsync(
             IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            if (bufferedJson && options?.ResponseFormat is not null)
+                yield return new(Progress: new(GenerationPhase.Preparing, "Waiting for the server to finish and validate its JSON response…", LiveUpdatesAvailable: false));
             await foreach (var update in InnerClient.GetStreamingResponseAsync(messages, options, cancellationToken))
                 yield return new(update, Activity: TextStreamActivity.Reasoning(update), OpenRouterUsage: openRouter ? OpenRouterUsageParser.Read(update) : null);
         }

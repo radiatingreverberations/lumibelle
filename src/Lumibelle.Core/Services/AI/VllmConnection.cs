@@ -8,7 +8,7 @@ public static class VllmConnection
     {
         if (!Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") ||
             uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
-            throw new WorkspaceStoreException("Enter a vLLM HTTP or HTTPS server URL without credentials, a query, or a fragment.");
+            throw new WorkspaceStoreException("Enter an OpenAI-compatible HTTP or HTTPS server URL without credentials, a query, or a fragment.");
     }
 
     public static string NormalizeUrl(string url)

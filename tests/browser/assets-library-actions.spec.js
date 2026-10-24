@@ -64,7 +64,7 @@ test('mobile library actions use one modal surface and restore keyboard focus', 
   await expect(workspace).toHaveAttribute('data-drawer', 'left');
   const extract = rail.getByRole('button', { name: 'Extract assets from script', exact: true });
   await extract.click();
-  const extraction = page.locator('.ai-assist-dialog');
+  const extraction = page.locator('.extraction-dialog');
   await expect(extraction).toBeVisible();
   await expect(workspace).toHaveAttribute('data-suspended', 'true');
   await expect.poll(() => extraction.evaluate(el => el.contains(document.activeElement))).toBe(true);

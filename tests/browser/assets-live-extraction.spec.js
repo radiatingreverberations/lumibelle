@@ -1,0 +1,57 @@
+import { test, expect } from './fixtures.js';
+import { submitExtraction } from './text-assistance-tools.js';
+
+for (const width of [1280, 390]) {
+  test(`asset extraction prioritizes live cards and keeps request details collapsed at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 960 });
+    const { id } = await (await request.get('/fixtures/new')).json();
+    await request.post(`/fixtures/${id}/looks-script?slow=true`);
+    await page.goto(`/projects/${id}/assets`);
+    await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+    const trigger = page.locator('.asset-library-extraction .request-action-button');
+    const libraryToggle = page.locator('[data-toggle-pane=left]');
+    if (await libraryToggle.isVisible() && await libraryToggle.getAttribute('aria-expanded') === 'false') await libraryToggle.click();
+    await expect(trigger).toBeVisible();
+    const area = await page.locator('.asset-library-extraction').boundingBox();
+    const button = await trigger.boundingBox();
+    expect(Math.abs(button.width - area.width)).toBeLessThan(2);
+    await trigger.click();
+    const setup = page.locator('.extraction-dialog');
+    await expect(setup.locator('.extraction-workflow [aria-current=step]')).toContainText('Choose scenes');
+    await expect(setup.getByRole('button', { name: 'Text model options', exact: true })).toBeVisible();
+    await page.screenshot({ path: `artifacts/assets-choose-scenes-${width}.png` });
+    await submitExtraction(page);
+    const dialog = page.locator('.extraction-dialog');
+    const preview = dialog.locator('.extraction-live-content .streaming-response-preview');
+    await expect(preview.locator('.streaming-asset-category')).not.toHaveCount(0);
+    await expect(preview.locator('.streaming-preview-card').first()).toContainText('Juniper');
+    const card = preview.locator('.streaming-preview-card').first();
+    const cardArea = await preview.locator('.streaming-preview-cards').boundingBox();
+    const cardBox = await card.boundingBox();
+    expect(Math.abs(cardBox.width - cardArea.width)).toBeLessThan(2);
+    await expect(card.locator('.streaming-asset-content.has-details')).toBeVisible();
+    const main = await card.locator('.streaming-asset-main').boundingBox();
+    const details = await card.locator('.streaming-asset-details').boundingBox();
+    if (width >= 760) expect(details.x).toBeGreaterThanOrEqual(main.x + main.width);
+    else expect(details.y).toBeGreaterThanOrEqual(main.y + main.height);
+    await expect(dialog.locator('.extraction-request-details')).not.toHaveAttribute('open');
+    await expect(dialog.locator('.extraction-workflow [aria-current=step]')).toContainText('Find assets');
+    await expect(dialog.locator('.extraction-footer')).not.toContainText('Working…');
+    await expect(dialog.locator('.extraction-footer').getByRole('button', { name: 'Cancel request', exact: true })).toBeEnabled();
+    await expect(dialog.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true })).toBeEnabled();
+    await expect(dialog.locator('.apply-extraction')).toHaveCount(0);
+    expect((await (await request.get(`/fixtures/${id}`)).json()).assets.assets).toHaveLength(0);
+    await preview.locator('.streaming-preview-card').first().scrollIntoViewIfNeeded();
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: `artifacts/assets-live-extraction-${width}.png` });
+    await dialog.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toContainText('Finding assets');
+    const runningArea = await page.locator('.asset-library-extraction').boundingBox();
+    const runningButton = await trigger.boundingBox();
+    expect(Math.abs(runningButton.width - runningArea.width)).toBeLessThan(2);
+    const jobs = (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
+    expect(jobs).toHaveLength(1);
+    expect(['Running', 'Waiting']).toContain(jobs[0].state);
+  });
+}

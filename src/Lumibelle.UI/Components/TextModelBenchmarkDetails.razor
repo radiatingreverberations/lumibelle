@@ -4,7 +4,7 @@
     @if (!Benchmark.HasReply && !Benchmark.Refused && Benchmark.FinishReason != "content_filter")
     { <p class="benchmark-no-answer">@OpenRouterTestStatus.NoAnswerDetail(Benchmark)</p> }
     <p>@Seconds(Benchmark.ElapsedSeconds) total · @Seconds(Benchmark.FirstTextSeconds) to first text</p>
-    @if (Provider == "vLLM")
+    @if (OutputThroughput)
     { <details class="benchmark-details"><summary>Token usage &amp; test details</summary>@Measurements</details> }
     else { @Measurements }
 </div>

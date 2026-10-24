@@ -13,10 +13,11 @@ public sealed partial class AiTextJobHandler
     {
         var result = await context.ReadOperationAsync<AiTextJobResult>(ScenePlanOperation, AiOperationArtifact.Output, ct);
         if (result is not { Complete: true }) {
-            var planning = request with { Messages = request.ScenePlanMessages!, ScenePlanMessages = null,
-                ResponseSchema = request.ResponseSchema is null ? null : ScriptScenePlanning.PlanningSchema,
-                ResponseGrammar = request.ResponseGrammar is null ? null : ScriptScenePlanning.PlanningGrammar,
-                Model = request.Model with { MaxOutputTokens = Math.Min(request.Model.MaxOutputTokens ?? ScriptScenePlanning.PlanningReplyTokens, ScriptScenePlanning.PlanningReplyTokens) } };
+            var planning = request with { Messages = request.ScenePlanMessages!, ScenePlanMessages = null, ScenePlanReplyTokens = null,
+                ScenePlanResponseSchema = null, ScenePlanResponseGrammar = null,
+                ResponseSchema = request.ScenePlanResponseSchema ?? (request.ResponseSchema is null ? null : ScriptScenePlanning.PlanningSchema),
+                ResponseGrammar = request.ScenePlanResponseGrammar ?? (request.ResponseGrammar is null ? null : ScriptScenePlanning.PlanningGrammar),
+                Model = request.Model with { MaxOutputTokens = ScriptScenePlanning.CapturedReplyLimit(request) } };
             await context.SaveOperationAsync(ScenePlanOperation, AiOperationArtifact.Request, planning, ct);
             var steps = request.Profile == ScriptSequenceDrafting.Profile ? 3 : 2;
             await context.ReportAsync(new(new(GenerationPhase.Preparing, $"Step 1 of {steps} · preparing sequence continuity and reveal boundaries…")), checkpoint: true);
@@ -69,7 +70,7 @@ public sealed partial class AiTextJobHandler
     private async Task ValidateApprovedBriefCapacityAsync(AiTextJobRequest draft, CancellationToken ct)
     {
         var check = await providers.CheckAsync(draft.Model.Backend, draft.Settings, cancellationToken: ct);
-        if (check.Models.FirstOrDefault(m => m.Id == draft.Model.Model)?.Catalog?.ContextLength is not { } limit) return;
+        if (TextModelPolicy.CatalogModel(draft.Model, check)?.Catalog?.ContextLength is not { } limit) return;
         long ascii = 0, other = 0;
         foreach (var rune in draft.Messages.SelectMany(m => m.Parts).Where(p => p.Text is not null).SelectMany(p => p.Text!.EnumerateRunes())) {
             if (rune.Value <= 127) ascii++; else if (!Rune.IsWhiteSpace(rune)) other++;

@@ -1,0 +1,50 @@
+@using System.Text.Json
+
+@if (Value.Kind == JsonValueKind.Object) {
+    @if (Value.Property("heading") is not null && Value.Property("blocks") is { } blocks) {
+        <div class="streaming-screenplay">@foreach (var block in blocks.Children) { <StreamingResponseValue Value="block" /> }</div>
+    }
+    else if (Value.Property("kind") is { } kind && Value.Property("spans") is { } spans) {
+        <p class="streaming-script-block @BlockClass(kind.Text)">@foreach (var span in spans.Children) { @span.Property("text")?.Text }</p>
+    }
+    else if (Value.Property("category") is not null && Value.Property("name") is not null) {
+        <div class="streaming-asset-content @(HasAssetDetails ? "has-details" : null)">
+            <div class="streaming-asset-main">
+            @if (Value.Property("description") is { HasContent: true } description) { <p>@description.Text</p> }
+            @if (Value.Property("suggestedTags") is { } tags && tags.Children.Any(t => t.HasContent)) {
+                <div class="streaming-asset-tags">@foreach (var tag in tags.Children.Where(t => t.HasContent)) { <span>@tag.Text</span> }</div>
+            }
+            </div>
+            @if (HasAssetDetails) { <div class="streaming-asset-details">
+            @if (Value.Property("looks") is { } looks && looks.Children.Any(l => l.HasContent)) {
+                <section class="streaming-asset-looks"><h5>Looks</h5>@foreach (var look in looks.Children.Where(l => l.HasContent)) { <div><strong>@look.Property("name")?.Text</strong><p>@look.Property("description")?.Text</p></div> }</section>
+            }
+            @if (Value.Property("preservationGuidance") is { HasContent: true } guidance) { <div><h5>Keep consistent</h5><p>@guidance.Text</p></div> }
+            @if (Value.Property("evidence") is { } evidence && evidence.Children.Any(e => e.HasContent)) {
+                <details class="streaming-asset-evidence"><summary>Script evidence · @evidence.Children.Count(e => e.HasContent)</summary>@foreach (var item in evidence.Children.Where(e => e.HasContent)) { <blockquote><strong>@item.Property("label")?.Text</strong><p>@item.Property("excerpt")?.Text</p></blockquote> }</details>
+            }
+            </div> }
+        </div>
+    }
+    else {
+        <dl class="streaming-preview-fields">
+            @foreach (var child in Value.Children.Where(c => c.HasContent && !(HideTitle && IsTitle(c.Name)))) {
+                <div><dt>@StreamingResponsePreview.Label(child.Name ?? "Part")</dt><dd><StreamingResponseValue Value="child" /></dd></div>
+            }
+        </dl>
+    }
+}
+else if (Value.Kind == JsonValueKind.Array) {
+    <ul class="streaming-preview-list">@foreach (var child in Value.Children.Where(c => c.HasContent)) { <li><StreamingResponseValue Value="child" /></li> }</ul>
+}
+else { <p class="streaming-preview-text">@Value.Text</p> }
+
+@code {
+    [Parameter, EditorRequired] public StreamingJsonValue Value { get; set; } = null!;
+    [Parameter] public bool HideTitle { get; set; }
+    private bool HasAssetDetails => new[] { "looks", "preservationGuidance", "evidence" }.Any(key => Value.Property(key)?.HasContent == true);
+    private static bool IsTitle(string? name) => name?.ToLowerInvariant() is "heading" or "title" or "name" or "id";
+    private static string? BlockClass(string? kind) => kind?.ToLowerInvariant() switch {
+        "character" => "is-character", "dialogue" => "is-dialogue", "parenthetical" => "is-parenthetical", "transition" => "is-transition", _ => null
+    };
+}

@@ -15,7 +15,7 @@ public sealed class TextModelSession(Guid projectId, IAiSettingsStore settings, 
         : Preferences.TextDefault is not null ? TextModelSelectionSource.ProjectDefault : TextModelSelectionSource.GlobalDefault;
     public TextModelReference Base => Preferences.TextDefault ?? TextModelPolicy.Default(Settings);
     public TextModelReference Model => TextModelPolicy.WithDefaultEffort(Override ?? Base, Settings);
-    public AiModel? CatalogModel => Checks.GetValueOrDefault(Model.Backend)?.Models.FirstOrDefault(m => m.Id == Model.Model);
+    public AiModel? CatalogModel => TextModelPolicy.CatalogModel(Model, Checks.GetValueOrDefault(Model.Backend));
     public IEnumerable<TextModelReference> Choices => (Override is { } selected ? new[] { selected } : Array.Empty<TextModelReference>())
         .Concat(Settings.TextModelProfiles).Concat(Settings.StarredTextModels).Append(Base).DistinctBy(TextModelProfiles.ChoiceKey);
     public string? Issue => IssueFor(Model, Source != TextModelSelectionSource.GlobalDefault);

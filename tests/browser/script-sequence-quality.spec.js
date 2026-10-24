@@ -1,5 +1,19 @@
 import { test, expect } from './fixtures.js';
 
+test('captured request details show the planning reply budget separately from screenplay writing', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  const fixture = await request.post('/fixtures/' + id + '/planning-review?stage=checking');
+  expect(fixture.ok()).toBeTruthy();
+  const job = await fixture.json();
+  await page.goto('/projects/' + id + '/script?jobId=' + job.id);
+  const dialog = page.getByRole('dialog');
+  const details = dialog.locator('.planning-diagnostics .request-details');
+  await details.locator('summary').click();
+  await expect(details).toContainText('Planning reply limit: 8,192 tokens');
+  await expect(details).toContainText('FORMAT EXAMPLE ONLY');
+  await expect(dialog.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
+});
+
 for (const viewport of [{ name: 'desktop', width: 1280, height: 900 }, { name: 'mobile', width: 390, height: 844 }]) {
   test(`automatic screenplay review is visible and gates applying on ${viewport.name}`, async ({ page, request }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });

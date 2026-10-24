@@ -1,5 +1,5 @@
 import { openShotSetup, closeShotSetup, toolsTab, assetView } from './workspace-tools.js';
-import { scriptAssist, modelOptions, closeComposer, submitPlanning, submitExtraction, openPlanning } from './text-assistance-tools.js';
+import { scriptAssist, modelOptions, closeComposer, submitPlanning, submitExtraction, extractionComposer, openPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
 const assist = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('button', { name: 'Close', exact: true }) }).last();
 const jobs = async (request, id) => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
@@ -87,7 +87,7 @@ test('shot prompt composer leaves the editor clear and preserves direction throu
 test('assets extraction, prompt enhancement and guidance share the composer and keep their review flows', async ({ page, request }) => {
  const id = await fresh(page, request, 'assets');
  await page.getByRole('button', { name: 'Extract assets from script', exact: true }).click();
- await expect(assist(page).getByRole('button', { name: 'Find assets', exact: true })).toBeEnabled();
+ await expect(extractionComposer(page).getByRole('button', { name: 'Find assets', exact: true })).toBeEnabled();
  await submitExtraction(page);
  await expect(page.locator('.extraction-dialog')).toBeVisible();
  // On a slow runner the first Close can arrive before the review settles; retry until it is gone.

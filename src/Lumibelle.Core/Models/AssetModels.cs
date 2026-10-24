@@ -254,7 +254,10 @@ public sealed record AssetExtractionRequest(
 public sealed record AssetExtractionResult(
     IReadOnlyList<AssetExtractionProposal> Proposals,
     string RawText,
-    string? ValidationError = null);
+    string? ValidationError = null)
+{
+    public IReadOnlyList<string> ValidationIssues { get; init; } = [];
+}
 
 public sealed record AssetExtractionUpdate(
     GenerationProgress? Progress = null,

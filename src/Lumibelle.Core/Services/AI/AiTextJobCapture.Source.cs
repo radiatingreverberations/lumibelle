@@ -23,7 +23,7 @@ public sealed partial class AiTextJobCapture
         if (providers is not null) {
             var check = await providers.CheckAsync(model.Backend, configured, cancellationToken: ct);
             if (TextModelPolicy.Issue(model, configured, check, true) is { } issue) throw new AiGenerationException(issue);
-            context = check.Models.FirstOrDefault(m => m.Id == model.Model)?.Catalog?.ContextLength ?? context;
+            context = TextModelPolicy.CatalogModel(model, check)?.Catalog?.ContextLength ?? context;
         }
         var budget = (int)Math.Min(SourceAnalysis.MaximumPromptBudget, context - (model.MaxOutputTokens ?? 4096) - 1024);
         if (budget < 3000) throw new WorkspaceStoreException("This model has too little context available for source analysis. Reduce its reply limit or choose a model with a larger context window.");

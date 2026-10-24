@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 export const planningComposer = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Draft shots', exact: true }) });
-export const extractionComposer = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Extract assets from script', exact: true }) });
+export const extractionComposer = page => page.locator('.extraction-dialog');
 
 export async function openPlanning(page) {
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
@@ -41,9 +41,13 @@ export async function submitPlanning(page) {
 
 export async function submitExtraction(page) {
   const composer = extractionComposer(page);
+  await expect(composer.locator('.extraction-workflow [aria-current=step]')).toContainText('Choose scenes');
+  const original = await composer.elementHandle();
   await composer.getByRole('button', { name: 'Find assets', exact: true }).click();
-  await expect(composer).toBeHidden();
-  await openSubmittedReview(page.locator('.asset-library-extraction .request-action-button'), page.locator('.extraction-dialog'));
+  await expect(composer).toBeVisible();
+  expect(await composer.evaluate((element, first) => element === first, original)).toBe(true);
+  await expect(composer.locator('.extraction-workflow [aria-current=step]')).toContainText(/Find assets|Review & add/);
+  await expect(page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Extract assets from script', exact: true }) })).toHaveCount(0);
 }
 
 async function openSubmittedReview(control, review) {

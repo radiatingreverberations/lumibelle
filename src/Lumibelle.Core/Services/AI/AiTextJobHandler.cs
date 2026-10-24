@@ -243,7 +243,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         if (await projects.GetAsync(job.Target.ProjectId!.Value, ct) is null) throw new AiGenerationException("The target project no longer exists. The saved request has not been redirected.");
         var check = await providers.CheckAsync(request.Model.Backend, request.Settings, cancellationToken: ct);
         if (TextModelPolicy.Issue(request.Model, request.Settings, check, !request.FollowsDefault) is { } issue) throw new AiGenerationException(issue);
-        if (request.InspectsImages && (!TextVisionPolicy.SupportsBackend(request.Model.Backend) || check.Models.FirstOrDefault(m => m.Id == request.Model.Model)?.SupportsImages != true))
+        if (request.InspectsImages && (!TextVisionPolicy.SupportsBackend(request.Model.Backend) || TextModelPolicy.CatalogModel(request.Model, check)?.SupportsImages != true))
             throw new AiGenerationException(TextVisionPolicy.SetupHint + " The server must still advertise the required image nodes.");
         // A repair sends captured text only. Current media/target checks still run
         // when the resulting suggestion is explicitly applied in its studio.
@@ -274,10 +274,17 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             throw new WorkspaceStoreException("The saved structured response format is invalid.");
         if (request.ResponseGrammar is { } grammar && (request.ResponseSchema is null || string.IsNullOrWhiteSpace(grammar) || grammar.Length > 16384 || grammar.Contains('\0')))
             throw new WorkspaceStoreException("The saved structured response grammar is invalid.");
+        if (request.ScenePlanReplyTokens is { } planningReply && (request.ScenePlanMessages is null || planningReply is < 1 or > 32768 ||
+            request.Model.MaxOutputTokens is { } writingReply && planningReply > writingReply))
+            throw new WorkspaceStoreException("The saved sequence planning reply limit is invalid.");
+        if (request.ScenePlanResponseSchema is { } planningSchema && (request.ScenePlanMessages is null || planningSchema.ValueKind != JsonValueKind.Object) ||
+            request.ScenePlanResponseGrammar is { } planningGrammar && (request.ScenePlanMessages is null || request.ScenePlanResponseSchema is null ||
+                string.IsNullOrWhiteSpace(planningGrammar) || planningGrammar.Length > 16384 || planningGrammar.Contains('\0')))
+            throw new WorkspaceStoreException("The saved sequence planning format is invalid.");
         if (request.Profile is ScriptScenePlanning.Profile or ScriptSequenceDrafting.Profile && request.ScenePlanMessages is null || request.ScenePlanMessages is { } sceneMessages && (request.Kind != AiJobKind.ScriptAssistant || request.Model.Backend != AiBackend.Vllm ||
             request.Profile is not (ScriptScenePlanning.Profile or ScriptSequenceDrafting.Profile) || request.Repair is not null || request.Payload<ScriptAssistantRequest>().Run.SourceScene is null ||
-            sceneMessages.Count != 3 || sceneMessages.Any(m => m is null || m.Parts is not { Count: > 0 } || m.Parts.Any(p => p is null || string.IsNullOrWhiteSpace(p.Text) || p.Image is not null)) ||
-            sceneMessages[0].Role != "system" || sceneMessages.Skip(1).Any(m => m.Role != "user")))
+            sceneMessages.Count is not (3 or 5) || sceneMessages.Any(m => m is null || m.Parts is not { Count: > 0 } || m.Parts.Any(p => p is null || string.IsNullOrWhiteSpace(p.Text) || p.Image is not null)) ||
+            sceneMessages.Where((m, index) => m.Role != (index == 0 ? "system" : sceneMessages.Count == 5 && index == 2 ? "assistant" : "user")).Any()))
             throw new WorkspaceStoreException("The saved scene planning request is incomplete.");
         var expected = request.Kind switch
         {

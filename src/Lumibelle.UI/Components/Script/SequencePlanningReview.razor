@@ -7,7 +7,10 @@
     }
     @if (Corrected) { <p class="field-hint">Showing your saved JSON correction. The original model response is preserved.</p><details><summary>Original model response</summary><pre class="raw-response">@OriginalOutput</pre></details> }
     @if (Brief is not null) { <SequenceBriefPreview Plan="Brief" /> }
-    else if (Working) { <p class="planning-empty">Preparing story beats and continuity for the screenplay.</p> }
+    else if (Working) {
+        <StreamingResponsePreview Raw="@Run.Output" Title="Sequence brief arriving" />
+        @if (string.IsNullOrWhiteSpace(Run.Output)) { <p class="planning-empty">Preparing story beats and continuity for the screenplay.</p> }
+    }
 
 @code {
     [Parameter] public bool Corrected { get; set; }

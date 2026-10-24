@@ -18,6 +18,7 @@
         @if (request.Model.ProfileId is not null || request.Model.ReasoningEffort is not null || request.Model.Temperature is not null || request.Model.MaxOutputTokens is not null || request.Model.ReasoningMaxTokens is not null) {
             <p>Requested settings · @TextModelProfiles.Describe(request.Model)</p>
         }
+        @if (request.ScenePlanMessages is not null) { <p>Planning reply limit · @ScriptScenePlanning.CapturedReplyLimit(request).ToString("N0") tokens</p> }
         @if (request.Model.Backend == AiBackend.ComfyUI && request.Model.MaxOutputTokens is null && request.Settings.MaxOutputTokens is var replyLimit) {
             <p>Reply limit · @replyLimit.ToString("N0") tokens@(replyLimit > ComfyTextSettings.Resolve(request.Model, request.Settings).MaxOutputTokens ? ", raised to fit GPU memory" : "")</p>
         }
