@@ -16,7 +16,7 @@ public sealed class ScriptAssistant(IAiProviderRegistry providers, IAiSettingsSt
         if ((request.OutlineSelection is not null || request.Run.SourceScene is not null) && request.Adaptation is null)
             throw new AiGenerationException("Capture the accepted source outline before starting this writing request.");
         var settings = await settingsStore.LoadAsync(cancellationToken);
-        settings = ComfyTextSettings.Capture(request.Selection ?? new(request.Run.Backend, request.Run.Model, request.Run.Model, settings.ComfyUrl), settings);
+        settings = ComfyTextSettings.Capture(request.Selection ?? TextModelPolicy.Reference(request.Run.Backend, request.Run.Model, request.Run.Model, settings), settings);
         TextModelPolicy.CheckRequestServer(request.Selection, settings);
         using var timeout = new TextInactivityWatchdog(settings.TimeoutSeconds, cancellationToken);
         if (request.Images.Count > 0)

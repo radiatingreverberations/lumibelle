@@ -10,9 +10,10 @@ public static class ScriptPlanningFixtures
         app.MapPost("/fixtures/{id:guid}/planning-review", async (Guid id, FileSourceStore sources, IScriptStore scripts,
             AiTextJobCapture capture, IAiJobStore store, AiJobCoordinator queue, ScriptReviewPreviews previews, IAiSettingsStore settings, string stage = "planning") =>
         {
-            if (stage is not ("planning" or "writing" or "complete" or "failed" or "checking" or "repairing" or "review-interrupted" or "review-invalid" or "brief-warning" or "brief-json" or "brief-count")) return Results.BadRequest();
+            if (stage is not ("planning" or "writing" or "complete" or "failed" or "checking" or "repairing" or "review-interrupted" or "review-invalid" or "brief-warning" or "brief-json" or "brief-count" or "stream-planning" or "stream-writing" or "stream-review")) return Results.BadRequest();
+            var streaming = stage.StartsWith("stream-", StringComparison.Ordinal);
             var approval = stage is "brief-warning" or "brief-json" or "brief-count";
-            var reviewed = approval || stage is "checking" or "repairing" or "review-interrupted" or "review-invalid";
+            var reviewed = approval || stage is "checking" or "repairing" or "review-interrupted" or "review-invalid" or "stream-review";
             var interrupted = stage == "review-interrupted";
             var invalidReview = stage == "review-invalid";
             const string title = "The river key";
@@ -49,9 +50,9 @@ public static class ScriptPlanningFixtures
             if (approval) brief = brief with { Evidence = [] };
             await queue.SetPausedAsync(model.Backend, true);
             try {
-                var held = stage == "writing" || reviewed && !interrupted && !approval && !invalidReview;
+                var held = streaming || stage == "writing" || reviewed && !interrupted && !approval && !invalidReview;
                 if (held || interrupted || approval) previews.Add(submission.Id, brief, reviewed ? new(stage == "repairing" ? ScriptSequenceReviewState.Repairing : ScriptSequenceReviewState.Checking,
-                    stage == "repairing" ? 1 : 0, [], []) : null);
+                    stage == "repairing" ? 1 : 0, [], []) : null, streaming ? stage : null);
                 await store.EnqueueAsync(submission);
                 if (!held) {
                     var stopped = stage is "planning" or "failed" || interrupted || approval || invalidReview;
@@ -87,16 +88,27 @@ public static class ScriptPlanningFixtures
             return Results.Ok(new { submission.Id });
         });
         app.MapPost("/fixtures/{id:guid}/complete-writing-preview", (Guid id, ScriptReviewPreviews previews) => { previews.Complete(id); return Results.Ok(); });
+        app.MapPost("/fixtures/{id:guid}/advance-streaming-preview", (Guid id, ScriptReviewPreviews previews) => { previews.Advance(id); return Results.Ok(); });
     }
 }
 
 public sealed class ScriptReviewPreviews
 {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, (ScriptScenePlan Brief, TaskCompletionSource Complete, ScriptSequenceReview? Review)> _requests = new();
-    public void Add(Guid id, ScriptScenePlan brief, ScriptSequenceReview? review = null) => _requests[id] = (brief, new(TaskCreationOptions.RunContinuationsAsynchronously), review);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, (ScriptScenePlan Brief, TaskCompletionSource Complete, ScriptSequenceReview? Review, string? StreamingStage, TaskCompletionSource Advance)> _requests = new();
+    public void Add(Guid id, ScriptScenePlan brief, ScriptSequenceReview? review = null, string? streamingStage = null) => _requests[id] = (brief, new(TaskCreationOptions.RunContinuationsAsynchronously), review, streamingStage, new(TaskCreationOptions.RunContinuationsAsynchronously));
     public bool Contains(Guid id) => _requests.ContainsKey(id);
-    public (ScriptScenePlan Brief, TaskCompletionSource Complete, ScriptSequenceReview? Review) Get(Guid id) => _requests[id];
+    public (ScriptScenePlan Brief, TaskCompletionSource Complete, ScriptSequenceReview? Review, string? StreamingStage, TaskCompletionSource Advance) Get(Guid id) => _requests[id];
     public void Complete(Guid id) => _requests[id].Complete.TrySetResult();
+    public void Advance(Guid id) => _requests[id].Advance.TrySetResult();
+    public static AiTextJobResult StreamingResult(string stage, ScriptScenePlan brief, bool advanced)
+    {
+        var suffix = advanced ? "ver to the garden gate." : "";
+        if (stage == "stream-planning") return new("""{"beats":["Eira finds the brass key.","She follows the ri""" + suffix) { ScenePlanning = true };
+        if (stage == "stream-review") return ReviewedResult(brief) with { Complete = false, Value = null,
+            SequenceReview = new(ScriptSequenceReviewState.Checking, 0, [], [],
+                """{"beats":[{"id":"B1","covered":true,"reason":"The key is shown.","evidence":[]},{"id":"B2","covered":true,"reason":"She follows the ri""" + suffix) };
+        return new("""{"scenes":[{"heading":"EXT. RIVER BANK - DAY","blocks":[{"kind":"Action","spans":[{"text":"Eira finds the brass key."}]}]},{"heading":"EXT. GARDEN GATE - DAY","blocks":[{"kind":"Character","spans":[{"text":"EIRA"}]},{"kind":"Dialogue","spans":[{"text":"She follows the ri""" + suffix) { ScenePlan = brief };
+    }
     public static AiTextJobResult Result(ScriptScenePlan brief, string? error = null)
     {
         List<ScriptBlock> blocks = [ScriptBlock.Create(ScriptBlockKind.Scene, "EXT. RIVER BANK - DAY"), ScriptBlock.Create(ScriptBlockKind.Action, "Eira follows the paper map along the river. At a willow-covered gate, she tries the brass key. The lock turns.")];
@@ -133,9 +145,17 @@ public sealed class ScriptReviewPreviewHandler(AiTextJobHandler inner, ScriptRev
         }
         var result = ScriptReviewPreviews.Result(preview.Brief);
         if (preview.Review is not null) result = ScriptReviewPreviews.ReviewedResult(preview.Brief, preview.Review.Repairs);
-        await context.SaveResultAsync(new AiTextJobResult(preview.Review is null ? result.Raw[..100] : result.Raw) { ScenePlan = preview.Brief, SequenceReview = preview.Review });
+        await context.SaveResultAsync(preview.StreamingStage is { } streamStage ? ScriptReviewPreviews.StreamingResult(streamStage, preview.Brief, false) :
+            new AiTextJobResult(preview.Review is null ? result.Raw[..100] : result.Raw) { ScenePlan = preview.Brief, SequenceReview = preview.Review });
         await context.ReportAsync(new(new(GenerationPhase.Generating, preview.Review is null ? "Step 2 of 2 · receiving screenplay from Sample text model…" :
             preview.Review.State == ScriptSequenceReviewState.Repairing ? "Step 3 of 3 · repairing cited findings…" : "Step 3 of 3 · checking the screenplay…", Current: 100, Unit: "characters")), checkpoint: true);
+        if (preview.StreamingStage is { } streamingStage) {
+            await Task.WhenAny(preview.Advance.Task, preview.Complete.Task).WaitAsync(ct);
+            if (preview.Advance.Task.IsCompleted && !preview.Complete.Task.IsCompleted) {
+                await context.SaveResultAsync(ScriptReviewPreviews.StreamingResult(streamingStage, preview.Brief, true));
+                await context.ReportAsync(new(new(GenerationPhase.Generating, "Receiving response…", Current: 200, Unit: "characters")), checkpoint: true);
+            }
+        }
         await preview.Complete.Task.WaitAsync(ct);
         await context.SaveResultAsync(result);
         return AiJobOutcome.Complete();

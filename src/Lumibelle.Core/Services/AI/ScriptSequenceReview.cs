@@ -60,14 +60,17 @@ public static partial class ScriptSequenceDrafting
         foreach (var unknown in claims.Except(required)) findings.Add(Problem("coverage", $"Replace unknown beat ID {unknown} with the applicable required beat IDs."));
         for (var si = 0; si < candidate.Scenes.Length; si++) {
             var scene = candidate.Scenes[si];
+            var hasSpeaker = false;
             for (var bi = 0; bi < scene.Blocks.Count; bi++) {
                 var block = scene.Blocks[bi];
+                if (block.Kind == ScriptBlockKind.Character) hasSpeaker = true;
+                else if (block.Kind is ScriptBlockKind.Action or ScriptBlockKind.Transition) hasSpeaker = false;
                 // A clear standalone conventional slugline is a structural issue. A
                 // new scene object resolves it without changing the author's prose.
                 if (block.Kind == ScriptBlockKind.Action && Regex.IsMatch(block.Text, @"^(?:INT\.|EXT\.|INT/EXT\.)\s+[^\r\n]{1,160}$", RegexOptions.CultureInvariant) &&
                     !block.Text.Any(char.IsLower))
                     findings.Add(Problem("screenplay", "Move this location/time heading into a new scene object.", new(si + 1, bi + 1, block.Text[..Math.Min(block.Text.Length, 400)])));
-                if (block.Kind == ScriptBlockKind.Dialogue && (bi == 0 || scene.Blocks[bi - 1].Kind is not (ScriptBlockKind.Character or ScriptBlockKind.Parenthetical)))
+                if (block.Kind == ScriptBlockKind.Dialogue && !hasSpeaker)
                     findings.Add(Problem("screenplay", "Give this spoken exchange a Character block identifying its speaker.", new(si + 1, bi + 1, block.Text[..Math.Min(block.Text.Length, 400)])));
             }
         }
@@ -100,16 +103,27 @@ public static partial class ScriptSequenceDrafting
                 if (beat.Evidence.Length > 6) warnings.Add($"{beat.Id}: the reviewer supplied {beat.Evidence.Length} citations instead of the recommended maximum of 6. Extra verified citations were retained.");
                 checks[i] = beat with { Evidence = verified };
             }
-            foreach (var issue in issues) {
+            for (var i = 0; i < issues.Length; i++) {
+                var issue = issues[i];
                 if (issue is null || issue.Category is not ("coverage" or "ending" or "source_facts" or "knowledge" or "continuity" or "duplication" or "screenplay" or "scope") ||
                     issue.Severity is not ("repair" or "note") || !MeaningfulReviewText(issue.Detail) || issue.Evidence is not { Length: > 0 and <= 6 } ||
-                    issue.Evidence.Any(e => !ReferenceMatches(e, candidate)) || issue.SourceEvidence is not { Length: <= 6 } ||
+                    issue.SourceEvidence is not { Length: <= 6 } ||
                     issue.SourceEvidence.Any(e => e is null || e.Quote is not { Length: > 0 and <= 800 } || string.IsNullOrWhiteSpace(e.Quote) || !context.Passages.Any(p => p.Sources.Contains(e.Section) && Normalize(p.Text).Contains(Normalize(e.Quote), StringComparison.Ordinal))))
                     throw new WorkspaceStoreException("Review findings need valid categories and verifiable draft/source evidence.");
+                // Findings use the same citation rule as beat checks: an invalid
+                // extra does not erase verified evidence. Never invent a quote,
+                // relocate a citation, discard the finding or change its severity.
+                var verified = issue.Evidence.Where(e => ReferenceMatches(e, candidate)).ToArray();
+                if (verified.Length == 0)
+                    throw new WorkspaceStoreException($"Finding {i + 1} ({issue.Category}): none of its {issue.Evidence.Length} draft citation(s) match the numbered draft. This is a review-evidence failure, not a confirmed screenplay error.");
+                if (verified.Length < issue.Evidence.Length)
+                    warnings.Add($"Finding {i + 1} ({issue.Category}): {issue.Evidence.Length - verified.Length} draft citation(s) could not be verified and were omitted; {verified.Length} verified citation(s) remain. The finding and original review response are preserved.");
+                issues[i] = issue with { Evidence = verified };
             }
-            var misplacedClaims = checks.Where(b => b.Covered).SelectMany(b => b.Evidence
-                .Where(e => !candidate.Scenes[e.Scene - 1].BeatIds.Contains(b.Id, StringComparer.Ordinal))
-                .Select(e => Problem("coverage", $"Include {b.Id} in the beatIds of the scene that dramatizes it.", e)));
+            // A beat needs verified evidence in a scene that claims it. Additional
+            // verified setup/aftermath citations may legitimately span other scenes.
+            var misplacedClaims = checks.Where(b => b.Covered && !b.Evidence.Any(e => candidate.Scenes[e.Scene - 1].BeatIds.Contains(b.Id, StringComparer.Ordinal)))
+                .Select(b => Problem("coverage", $"Include {b.Id} in the beatIds of the scene that dramatizes it.", b.Evidence[0]));
             var allIssues = CheckStructure(candidate, plan).Concat(issues).Concat(misplacedClaims)
                 .Concat(checks.Where(b => !b.Covered).Select(b => Problem("coverage", $"{b.Id}: {b.Reason}"))).ToArray();
             return new(allIssues.Any(f => f.Severity == "repair") ? ScriptSequenceReviewState.NeedsAttention : ScriptSequenceReviewState.Passed, repairs, checks, allIssues, raw) { Warnings = warnings.ToArray() };

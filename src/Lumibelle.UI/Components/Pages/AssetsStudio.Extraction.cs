@@ -9,6 +9,9 @@ namespace lumibelle.Components.Pages;
 
 public partial class AssetsStudio
 {
+    private const string ExtractionJsonFormat = """
+        [{"category":"character","name":"Eira","description":"Short dark hair.","suggestedTags":["portrait"],"evidence":[{"label":"Scene title","sceneId":"copy a selected source scene ID","excerpt":"Supporting script quotation"}],"preservationGuidance":"","looks":[],"matchedAssetId":null}]
+        """;
     private lumibelle.Components.AI.TextAssistance? _extractionAssist;
     private bool _extractionComposerPrepared;
     private bool _ignoreExtractionReminders;
@@ -21,9 +24,9 @@ public partial class AssetsStudio
         await Remember(Id, "assets", "ignoreExtractionReminders", ignored);
     }
     private async Task PrepareExtractionComposerAsync() {
-        if (_extracting) return;
-        if (!_extractionComposerPrepared || _reviewRequest is not null) await PrepareExtractionAsync();
-        _extractOpen = false; _extractionComposerPrepared = true;
+        if (!_extractOpen && _assetsModule is not null) await _assetsModule.InvokeVoidAsync("rememberExtractionFocus");
+        if (!_extracting && _pendingExtraction is null && (!_extractionComposerPrepared || _reviewRequest is not null)) await PrepareExtractionAsync();
+        _extractOpen = true; _extractionComposerPrepared = true;
     }
     private ScriptSourceSnapshot? _coverageScript;
     private AssetExtractionRequest? _reviewRequest;
@@ -36,7 +39,9 @@ public partial class AssetsStudio
     private string CoverageSummary => _coverageScript is null ? "No saved scenes" : $"{CoverageScenes.Count(s => ExtractionCoverage.State(s, _library!.ExtractionReviews) == SceneCoverageState.Current)} / {CoverageScenes.Count} scenes up to date";
     private bool ExtractionReadyForReview => _extractionResult is { ValidationError: null };
     private ExtractionDecisionSummary ReviewDecisions => ExtractionCoverage.Summary(_extractionResult?.Proposals ?? []);
-    private string ExtractionDialogTitle => ExtractionReadyForReview ? "Review asset suggestions" : "Extract assets from script";
+    private int ExtractionStage => _extractionResult is not null ? 3 : _extractionJob is not null || _extracting ? 2 : 1;
+    private string ExtractionDialogTitle => _editingExtractionJson ? "Correct asset suggestions" : ExtractionReadyForReview ? "Review asset suggestions" : _extracting ? "Finding assets" :
+        _extractionResult?.ValidationError is not null ? "Review extraction response" : "Extract assets from script";
     private string ApplyExtractionLabel => _finishingReview ? "Applying…" : ExtractionFinished ? "Applied to library" :
         ReviewDecisions.Merged > 0 ? "Apply to library" : ReviewDecisions.Created > 0 ? "Add to library" : "Finish review";
     private string ReviewSummary
@@ -77,8 +82,9 @@ public partial class AssetsStudio
         if (!await SaveReviewDraftAsync()) return;
         await ReleaseExtractionReviewAsync();
         _extractionJob = null; _extractionLoadedJob = null; _reviewId = Guid.Empty; _reviewDraftRevision = 0;
-        _extractOpen = false; _extractionResult = null; _extractionError = null; _extractionProgress = null; _reviewRequest = null;
+        _extractionResult = null; _extractionError = null; _extractionProgress = null; _reviewRequest = null;
         _extractionRaw = ""; _reviewDraftFingerprint = null; _reviewDraftError = null;
+        _capturedExtraction = null; _editingExtractionJson = false; _extractionJsonError = null;
         try
         {
             await RefreshCoverageAsync(); _approvedScript = _coverageScript; _settings = await SettingsStore.LoadAsync();
@@ -147,7 +153,7 @@ public partial class AssetsStudio
     }
     private async Task CloseExtraction()
     {
-        if (_finishingReview || !await SaveReviewDraftAsync()) return;
+        if (_finishingReview || _savingExtractionJson || !await SaveReviewDraftAsync()) return;
         _extractOpen = false; _restoreExtractionFocus = true; _extractionReviewSuppressed = true; _extractionCloses++;
         await ReleaseExtractionReviewAsync();
     }

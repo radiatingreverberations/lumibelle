@@ -16,7 +16,7 @@ test('connections sidebar preserves drafts, supports keyboard navigation and res
   await page.locator('#comfy-url').fill('http://draft.invalid:8188');
   await provider(page, 'ComfyUI').focus();
   await page.keyboard.press('ArrowDown');
-  await expect(provider(page, 'vLLM')).toBeFocused();
+  await expect(provider(page, 'OpenAI-compatible')).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(provider(page, 'OpenRouter')).toBeFocused();
   await expect(page.locator('#comfy-url')).toBeHidden();
@@ -138,7 +138,7 @@ test('connection panels fit desktop and mobile with a scrollable section row', a
   expect(sidebar.width).toBe(220); expect(panel.x).toBeGreaterThan(sidebar.x + sidebar.width);
   await page.screenshot({ path: 'test-results/ai-connections-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const name of ['ComfyUI', 'vLLM', 'OpenRouter', 'Codex']) {
+  for (const name of ['ComfyUI', 'OpenAI-compatible', 'OpenRouter', 'Codex']) {
     await provider(page, name).click();
     await expect(provider(page, name)).toHaveAttribute('aria-selected', 'true');
     const activePanel = page.locator('.ai-connection-content > section:not([hidden])');

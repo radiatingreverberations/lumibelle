@@ -2,6 +2,7 @@ namespace lumibelle.Models;
 
 public enum WritingOperation { Discuss, Outline, Draft, Revise, Continue, Rewrite }
 public enum AssistantRunStatus { Running, Completed, Failed, Cancelled, Interrupted }
+// Vllm is the persisted identity of the OpenAI-compatible provider. Keep existing requests readable.
 public enum AiBackend { ComfyUI, OpenRouter, Codex, ClaudeCode, Vllm }
 public enum AiModelVerificationState { NotApplicable, Untested, Verified }
 public enum GenerationPhase { Submitting, Queued, Preparing, Generating, Finalizing, Downloading, Saving, Completed }
@@ -101,6 +102,8 @@ public sealed record AiSettings
     public string VllmUrl { get; init; } = "http://127.0.0.1:8000/v1";
     public bool HasVllmKey { get; init; }
     public int VllmConcurrency { get; init; } = 1;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<OpenAiConnectionSettings>? OpenAiConnections { get; init; }
     public float Temperature { get; init; } = 0.7f;
     public int MaxOutputTokens { get; init; } = 2048;
     public int TimeoutSeconds { get; init; } = 300;
@@ -172,7 +175,10 @@ public sealed record ComfyTextModelVerification(string ComfyUrl, string ComfyVer
 public sealed record ComfyTextModelCapabilities(bool SystemPrompt, ComfyVisionInput Vision);
 public sealed record ComfyTextModelTestRequest(string Prompt, int MaxOutputTokens = 256);
 public sealed record VllmTextModelSettings(float? Temperature = null, int? MaxOutputTokens = null);
-public sealed record AiModel(string Id, string Name, AiModelVerificationState Verification = AiModelVerificationState.NotApplicable, bool SupportsImages = false, IReadOnlyList<string>? ReasoningEfforts = null, string? DefaultEffort = null, AiModelCatalogInfo? Catalog = null);
+public sealed record AiModel(string Id, string Name, AiModelVerificationState Verification = AiModelVerificationState.NotApplicable, bool SupportsImages = false, IReadOnlyList<string>? ReasoningEfforts = null, string? DefaultEffort = null, AiModelCatalogInfo? Catalog = null)
+{
+    public string? ServerUrl { get; init; }
+}
 public sealed record AiModelCatalogInfo(string? Description = null, long? ContextLength = null, long? MaxOutputTokens = null,
     bool SupportsReasoning = false, AiModelPricing? Pricing = null, DateTimeOffset? AddedUtc = null, int? PopularityOrder = null)
 {
@@ -188,6 +194,9 @@ public sealed record AiModelPricing(decimal? InputPerToken, decimal? OutputPerTo
     public bool FreeText => !Variable && !Conditional && InputPerToken == 0 && OutputPerToken == 0 &&
         new[] { "request", "internal_reasoning" }.All(key => !Additional.ContainsKey(key) || Additional[key] == 0);
 }
-public sealed record AiConnectionCheck(bool Success, string Message, IReadOnlyList<AiModel> Models, string? BackendVersion = null);
+public sealed record AiConnectionCheck(bool Success, string Message, IReadOnlyList<AiModel> Models, string? BackendVersion = null)
+{
+    public IReadOnlyList<OpenAiConnectionStatus>? Connections { get; init; }
+}
 public sealed record AiModelVerificationUpdate(GenerationProgress? Progress = null, ComfyTextModelVerification? Verification = null,
     string? Response = null);

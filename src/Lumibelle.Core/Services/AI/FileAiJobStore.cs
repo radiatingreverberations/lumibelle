@@ -16,6 +16,7 @@ public interface IAiJobStore
     // Validates against a header the caller already holds instead of rereading the index.
     Task<JsonElement> ReadSnapshotAsync(AiJobHeader job, CancellationToken ct = default) => ReadSnapshotAsync(job.Id, ct);
     Task<AiJobHeader?> ClaimNextAsync(AiBackend provider, int concurrency, CancellationToken ct = default);
+    Task<AiJobHeader?> ClaimNextForConnectionAsync(string server, int concurrency, CancellationToken ct = default);
     Task<AiJobHeader> UpdateAsync(Guid id, Func<AiJobHeader, AiJobHeader> update, CancellationToken ct = default);
     Task<IReadOnlyList<AiJobHeader>> ChangeActivityAsync(IReadOnlyList<AiActivityObservation> observed, AiActivityChange change, CancellationToken ct = default);
     Task SetPausedAsync(AiBackend provider, bool paused, CancellationToken ct = default);
@@ -127,7 +128,8 @@ public sealed partial class FileAiJobStore : IAiJobStore
         if (AiJobLocks.IsImage(request.Kind) && AiJobLocks.ActiveImageBatches(document.Jobs, request.Target.ProjectId, request.Target.AssetId) >= AiJobLocks.MaxActiveImageBatchesPerAsset)
             throw new WorkspaceStoreException(AiJobLocks.ImageLimitMessage);
         var header = new AiJobHeader { Id = request.Id, Kind = request.Kind, Backend = request.Backend, Target = request.Target, ProjectName = request.ProjectName,
-            TargetName = request.TargetName, OriginTabId = request.OriginTabId, RequestFingerprint = fingerprint, CreatedUtc = clock.GetUtcNow(), Batch = captured.Batch };
+            TargetName = request.TargetName, OriginTabId = request.OriginTabId, RequestFingerprint = fingerprint, CreatedUtc = clock.GetUtcNow(), Batch = captured.Batch,
+            ConnectionUrl = request.Backend == AiBackend.Vllm ? OpenAiConnections.CapturedServer(payload) : null };
         var path = SnapshotPath(request.Id);
         if (Directory.Exists(DirectoryFor(request.Id)) && await AtomicJsonFile.ReadAsync<AiJobSnapshot>(path, ct) is { } orphan && orphan.Fingerprint != fingerprint)
             throw new WorkspaceStoreException("A different request already owns this job's saved input.");
@@ -141,20 +143,49 @@ public sealed partial class FileAiJobStore : IAiJobStore
     {
         var snapshot = await AtomicJsonFile.ReadAsync<AiJobSnapshot>(SnapshotPath(header.Id), ct);
         if (snapshot is null || snapshot.Fingerprint != header.RequestFingerprint || snapshot.Request.ValueKind != JsonValueKind.Object ||
-            Fingerprint(new(header.Id, header.Kind, header.Backend, header.Target, header.ProjectName, header.TargetName, header.OriginTabId, snapshot.Request, snapshot.InitialBatch)) != header.RequestFingerprint)
+            Fingerprint(new(header.Id, header.Kind, header.Backend, header.Target, header.ProjectName, header.TargetName, header.OriginTabId, snapshot.Request, snapshot.InitialBatch)) != header.RequestFingerprint ||
+            header.ConnectionUrl is not null && header.ConnectionUrl != OpenAiConnections.CapturedServer(snapshot.Request))
             throw new WorkspaceStoreException("The saved AI request is missing or invalid. It cannot be submitted.");
         return snapshot.Request;
     }
-    public async Task<AiJobHeader?> ClaimNextAsync(AiBackend provider, int concurrency, CancellationToken ct = default)
+    public Task<AiJobHeader?> ClaimNextAsync(AiBackend provider, int concurrency, CancellationToken ct = default) =>
+        ClaimNextCoreAsync(provider, concurrency, null, ct);
+    public Task<AiJobHeader?> ClaimNextForConnectionAsync(string server, int concurrency, CancellationToken ct = default) =>
+        ClaimNextCoreAsync(AiBackend.Vllm, concurrency, VllmConnection.NormalizeUrl(server), ct);
+    private async Task<AiJobHeader?> ClaimNextCoreAsync(AiBackend provider, int concurrency, string? server, CancellationToken ct)
     {
         if (!Enum.IsDefined(provider) || concurrency is < 1 or > 8 || provider == AiBackend.ComfyUI && concurrency != 1) throw new WorkspaceStoreException("Invalid provider concurrency.");
         using var gate = await ProjectFiles.LockAsync(Index, ct);
         var document = await ReadIndexAsync(ct);
-        if (document.Paused.Contains(provider) || document.Jobs.Any(j => j.Backend == provider && j.RemoteUnconfirmed) ||
-            document.Jobs.Count(j => j.Backend == provider && j.HoldsProvider) >= concurrency) return null;
+        if (server is not null)
+        {
+            // Older queue indexes predate connection metadata. Recover it from the immutable
+            // request once, rather than assigning those jobs to whichever server is selected now.
+            var jobs = document.Jobs.ToArray(); var changed = false;
+            for (var i = 0; i < jobs.Length; i++)
+                if (jobs[i].Backend == AiBackend.Vllm && jobs[i].ConnectionUrl is null &&
+                    (jobs[i].State == AiJobState.Waiting || jobs[i].HoldsProvider))
+                {
+                    try {
+                        var endpoint = OpenAiConnections.CapturedServer(await ReadSnapshotAsync(jobs[i], ct))
+                            ?? throw new WorkspaceStoreException("The saved request does not identify its OpenAI-compatible connection.");
+                        jobs[i] = jobs[i] with { ConnectionUrl = endpoint, Version = jobs[i].Version + 1 };
+                    }
+                    catch (WorkspaceStoreException) when (jobs[i].State == AiJobState.Waiting) {
+                        jobs[i] = jobs[i] with { State = AiJobState.NeedsAttention, Recovery = AiJobRecovery.GenerateAgain,
+                            Error = "The saved request's connection could not be read. Create a new request with an enabled connection.",
+                            Unread = true, FinishedUtc = clock.GetUtcNow(), Version = jobs[i].Version + 1 };
+                    }
+                    changed = true;
+                }
+            if (changed) { document = document with { Jobs = jobs }; await PublishAsync(document, ct); }
+        }
+        bool Matches(AiJobHeader job) => job.Backend == provider && (server is null || job.ConnectionUrl == server);
+        if (document.Paused.Contains(provider) || document.Jobs.Any(j => Matches(j) && j.RemoteUnconfirmed) ||
+            document.Jobs.Count(j => Matches(j) && j.HoldsProvider) >= concurrency) return null;
         // Priority changes the next selection only; pause, capacity and uncertain
         // remote-work guards above remain authoritative for every request.
-        var next = AiQueueOrder.Waiting(document.Jobs, provider).FirstOrDefault();
+        var next = AiQueueOrder.Waiting(document.Jobs, provider).FirstOrDefault(Matches);
         if (next is null) return null;
         next = next with { State = AiJobState.Running, StartedUtc = clock.GetUtcNow(), FinishedUtc = null, Error = null,
             ComfyControl = next.Recovery != AiJobRecovery.None && next.ComfyControl is { } control ? control with { PauseRequested = false } : null,
@@ -168,7 +199,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
         var document = await ReadIndexAsync(ct);
         var current = document.Jobs.FirstOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("AI request not found.");
         var next = update(current);
-        if (next.Id != current.Id || next.Target != current.Target || next.Kind != current.Kind || next.Backend != current.Backend ||
+        if (next.Id != current.Id || next.Target != current.Target || next.Kind != current.Kind || next.Backend != current.Backend || next.ConnectionUrl != current.ConnectionUrl ||
             next.OriginTabId != current.OriginTabId || next.RequestFingerprint != current.RequestFingerprint || next.CreatedUtc != current.CreatedUtc ||
             next.ProjectName != current.ProjectName || next.TargetName != current.TargetName ||
             !BatchEquals(next.Batch, current.Batch))

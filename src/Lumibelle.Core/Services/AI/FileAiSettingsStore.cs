@@ -14,20 +14,31 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
     public async Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         var stored = await ReadAsync(cancellationToken);
-        return stored.Settings with { HasOpenRouterKey = !string.IsNullOrEmpty(stored.ProtectedKey), HasVllmKey = !string.IsNullOrEmpty(stored.ProtectedVllmKey) };
+        var keys = ConnectionKeys(stored);
+        return stored.Settings with { HasOpenRouterKey = !string.IsNullOrEmpty(stored.ProtectedKey),
+            HasVllmKey = keys.ContainsKey(VllmConnection.NormalizeUrl(stored.Settings.VllmUrl)),
+            OpenAiConnections = OpenAiConnections.All(stored.Settings).Select(c => OpenAiConnections.Normalize(c) with
+                { HasApiKey = keys.ContainsKey(VllmConnection.NormalizeUrl(c.Url)) }).ToArray() };
     }
 
     public Task<AiSettings> SaveAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
         SaveCoreAsync(settings, replacementKey, removeKey, null, false, cancellationToken);
 
     public Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
-        SaveCoreAsync(settings, null, false, replacementKey, removeKey, cancellationToken);
+        SaveCoreAsync(settings with { OpenAiConnections = OpenAiConnections.All(settings)
+            .Where(c => c.Id != OpenAiConnections.LegacyId).Append(new() { Id = OpenAiConnections.LegacyId, Name = "vLLM",
+                Url = settings.VllmUrl, Concurrency = settings.VllmConcurrency, Kind = OpenAiServerKind.Vllm }).ToArray() },
+            null, false, replacementKey, removeKey, cancellationToken, OpenAiConnections.LegacyId);
+
+    public Task<AiSettings> SaveOpenAiConnectionAsync(AiSettings settings, Guid connectionId, string? replacementKey = null,
+        bool removeKey = false, CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(settings, null, false, replacementKey, removeKey, cancellationToken, connectionId);
 
     private async Task<AiSettings> SaveCoreAsync(AiSettings settings, string? replacementKey, bool removeKey,
-        string? replacementVllmKey, bool removeVllmKey, CancellationToken cancellationToken)
+        string? replacementVllmKey, bool removeVllmKey, CancellationToken cancellationToken, Guid? connectionId = null)
     {
         Validate(settings);
-        settings = settings with { LoraLibrary = LoraPolicy.CopyLibrary(settings.LoraLibrary), H3 = ShotCopy.Of(settings.H3), TextModelProfiles = settings.TextModelProfiles.ToList() };
+        settings = settings with { LoraLibrary = LoraPolicy.CopyLibrary(settings.LoraLibrary), H3 = ShotCopy.Of(settings.H3), TextModelProfiles = settings.TextModelProfiles.ToList(), OpenAiConnections = settings.OpenAiConnections?.ToArray() };
         using var gate = await ProjectFiles.LockAsync(_path, cancellationToken);
         var current = await ReadAsync(cancellationToken);
         if (current.Settings.Revision != settings.Revision) throw new WorkspaceConflictException();
@@ -38,15 +49,22 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             try { secret = _protector.Protect(replacementKey.Trim()); }
             catch (CryptographicException) { throw new WorkspaceStoreException("Couldn’t protect the API key using this account’s key ring. Settings have not been saved."); }
         }
-        var vllmSecret = current.ProtectedVllmKey;
-        if (removeVllmKey || VllmConnection.NormalizeUrl(current.Settings.VllmUrl) != VllmConnection.NormalizeUrl(settings.VllmUrl)) vllmSecret = null;
+        var connections = OpenAiConnections.All(settings).Select(OpenAiConnections.Normalize).ToArray();
+        var endpoints = connections.Select(c => c.Url).ToHashSet(StringComparer.Ordinal);
+        var connectionKeys = ConnectionKeys(current).Where(pair => endpoints.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var keyServer = connectionId is { } id ? connections.SingleOrDefault(c => c.Id == id)?.Url
+            ?? throw new WorkspaceStoreException("The connection being saved is unavailable.") : null;
+        if (removeVllmKey && keyServer is not null) connectionKeys.Remove(keyServer);
         if (!removeVllmKey && !string.IsNullOrWhiteSpace(replacementVllmKey))
         {
-            try { vllmSecret = _protector.Protect(replacementVllmKey.Trim()); }
-            catch (CryptographicException) { throw new WorkspaceStoreException("Couldn’t protect the vLLM API key. Settings have not been saved."); }
+            try { connectionKeys[keyServer!] = _protector.Protect(replacementVllmKey.Trim()); }
+            catch (CryptographicException) { throw new WorkspaceStoreException("Couldn’t protect the connection’s API key. Settings have not been saved."); }
         }
+        var vllmSecret = connectionKeys.GetValueOrDefault(VllmConnection.NormalizeUrl(settings.VllmUrl));
         var saved = settings with { Revision = settings.Revision + 1, HasOpenRouterKey = secret is not null,
             VllmUrl = VllmConnection.NormalizeUrl(settings.VllmUrl), HasVllmKey = vllmSecret is not null,
+            OpenAiConnections = connections.Select(c => c with { HasApiKey = connectionKeys.ContainsKey(c.Url) }).ToArray(),
             QwenImage21 = settings.QwenImage21 is { } qwen ? QwenImage21Policy.Normalize(qwen) : null,
             LoraLibrary = settings.LoraLibrary.Select(d => d with { Reference = d.Reference with
             { ComfyUrl = AiProviderRegistry.NormalizeComfyUrl(d.Reference.ComfyUrl), Name = d.Reference.Name.Trim() }, TriggerText = d.TriggerText.Trim(), Tags = LoraPolicy.NormalizeTags(d.Tags) }).ToArray(),
@@ -80,7 +98,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
                         group.Where(item => item.Capabilities is not null).MaxBy(item => item.VerifiedUtc)?.Capabilities };
                 })
                 .OrderByDescending(item => item.VerifiedUtc).ToList() };
-        await AtomicJsonFile.WriteAsync(_path, new StoredSettings(1, saved with { HasOpenRouterKey = false, HasVllmKey = false }, secret, vllmSecret), cancellationToken);
+        await AtomicJsonFile.WriteAsync(_path, new StoredSettings(1, saved with { HasOpenRouterKey = false, HasVllmKey = false,
+            OpenAiConnections = saved.OpenAiConnections!.Select(c => c with { HasApiKey = false }).ToArray() }, secret, vllmSecret, connectionKeys), cancellationToken);
         return saved;
     }
 
@@ -96,10 +115,16 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
     public async Task<string?> ReadVllmKeyAsync(string serverUrl, CancellationToken cancellationToken = default)
     {
         var stored = await ReadAsync(cancellationToken);
-        // A captured request for another server must never receive the current server's key.
-        if (stored.ProtectedVllmKey is null || VllmConnection.NormalizeUrl(serverUrl) != VllmConnection.NormalizeUrl(stored.Settings.VllmUrl)) return null;
-        try { return _protector.Unprotect(stored.ProtectedVllmKey); }
-        catch (CryptographicException) { throw new AiGenerationException("This account cannot open the saved vLLM key. Replace it in AI settings."); }
+        if (!ConnectionKeys(stored).TryGetValue(VllmConnection.NormalizeUrl(serverUrl), out var protectedKey)) return null;
+        try { return _protector.Unprotect(protectedKey); }
+        catch (CryptographicException) { throw new AiGenerationException("This account cannot open the saved connection key. Replace it in AI settings."); }
+    }
+
+    private static Dictionary<string, string> ConnectionKeys(StoredSettings stored)
+    {
+        var keys = new Dictionary<string, string>(stored.ProtectedOpenAiKeys ?? new(), StringComparer.Ordinal);
+        if (stored.ProtectedVllmKey is { } legacy) keys.TryAdd(VllmConnection.NormalizeUrl(stored.Settings.VllmUrl), legacy);
+        return keys;
     }
 
     private async Task<StoredSettings> ReadAsync(CancellationToken ct)
@@ -130,6 +155,7 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
     public static void Validate(AiSettings settings)
     {
         VllmConnection.ValidateUrl(settings.VllmUrl);
+        OpenAiConnections.Validate(settings);
         if (settings.VllmConcurrency is < 1 or > 8) throw new WorkspaceStoreException("Choose vLLM concurrency between 1 and 8.");
         QwenImage21Policy.ValidateSettings(settings.QwenImage21);
         ComfyTextSettings.Validate(settings);
@@ -200,5 +226,6 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             benchmark.BaselineTorchAllocatedBytes is { } baselineTorch && benchmark.PeakTorchAllocatedBytes is { } peakTorch && peakTorch < baselineTorch;
     }
 
-    public sealed record StoredSettings(int SchemaVersion, AiSettings Settings, string? ProtectedKey, string? ProtectedVllmKey = null);
+    public sealed record StoredSettings(int SchemaVersion, AiSettings Settings, string? ProtectedKey, string? ProtectedVllmKey = null,
+        Dictionary<string, string>? ProtectedOpenAiKeys = null);
 }

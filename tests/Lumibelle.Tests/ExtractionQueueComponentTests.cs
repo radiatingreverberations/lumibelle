@@ -21,7 +21,7 @@ public sealed partial class AssetComponentTests
         if (text == "Find assets") {
             await _queue.Until(() => Assert.NotEmpty(_queue.View.Jobs));
             page.WaitForElement(".asset-library-extraction .request-action-button", BunitDefaults.WaitTimeout(5));
-            await page.InvokeAsync(() => page.FindAll(".extraction-dialog").Count == 0 ? Press(page.Find(".asset-library-extraction .request-action-button")) : Task.CompletedTask);
+            page.WaitForElement(".extraction-dialog", BunitDefaults.WaitTimeout(5));
         }
     }
     private async Task<IRenderedComponent<AssetsStudio>> ReviewableExtraction()

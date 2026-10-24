@@ -117,7 +117,7 @@ public partial class ScriptAssistantPanel
         static string Transcript(IEnumerable<AiTextMessage> messages) => string.Join("\n\n", messages.Select(m => m.Role.ToUpperInvariant() + "\n" + string.Join("\n", m.Parts.Select(p => p.Text))));
         var draft = request.ScenePlanMessages is null ? null : await JobStore.ReadOperationAsync<AiTextJobRequest>(header.Id, "scene-draft", AiOperationArtifact.Request, _lifetime.Token);
         _requestDetails = "Captured model: " + System.Text.Json.JsonSerializer.Serialize(request.Model, AtomicJsonFile.Options) + "\nSelection: " + (request.SelectionSource?.ToString() ?? "Historical captured choice") + "\n\n" +
-            (request.ScenePlanMessages is null ? "" : "SEQUENCE PLANNING INPUT\n" + Transcript(request.ScenePlanMessages) + "\n\nDRAFT INPUT\n") +
+            (request.ScenePlanMessages is null ? "" : $"Planning reply limit: {ScriptScenePlanning.CapturedReplyLimit(request):N0} tokens\n\nSEQUENCE PLANNING INPUT\n" + Transcript(request.ScenePlanMessages) + "\n\nDRAFT INPUT\n") +
             Transcript(draft?.Messages ?? request.Messages);
         if (_reviewedSequence) {
             foreach (var operation in new[] { "sequence-review-0-0", "sequence-review-0-1", "sequence-repair-1", "sequence-review-1-0", "sequence-review-1-1" }) {

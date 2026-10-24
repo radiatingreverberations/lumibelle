@@ -39,8 +39,11 @@ test('queued extraction survives closing, reload and navigation, preserving its 
     await expect(page.getByRole('button', { name: /^Queued.*View request$/ })).toBeVisible();
     await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
     await page.getByRole('button', { name: /^Queued.*View request$/ }).click();
-    await expect(modal(page).locator('.coverage-scene').filter({ hasText: 'EMPTY FIELD' }).getByRole('checkbox')).not.toBeChecked();
-    await expect(modal(page).locator('.coverage-scene').first().getByRole('checkbox')).toBeDisabled();
+    const captured = modal(page).locator('.extraction-request-details');
+    await captured.locator('summary').first().click();
+    await expect(captured.locator('.extraction-captured-scenes li')).toHaveCount(1);
+    await expect(captured.locator('.extraction-captured-scenes')).not.toContainText('EMPTY FIELD');
+    await expect(modal(page).locator('.coverage-scene input')).toHaveCount(0);
     await modal(page).locator('.dialog-actions').getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.project-tabs').getByRole('link', { name: 'Script', exact: true }).click();
     await request.post(`/fixtures/${id}/coverage-script?mode=change`);

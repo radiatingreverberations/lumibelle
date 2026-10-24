@@ -18,7 +18,7 @@
     }
     <TextModelPicker @ref="_picker" ProjectId="ProjectId" Studio="Studio" HideTrigger="true" Disabled="ModelLocked" SelectionChanged="Changed" />
 </div>
-@if (!Inline) {
+@if (!Inline && !ExternalComposer) {
 <AiAssistDialog Visible="_open" VisibleChanged="VisibilityChanged" Title="@Title">
     <ChildContent>
         @ChildContent
@@ -34,6 +34,8 @@
         @if (job.Error is { } error) { <p class="field-error" role="alert">@error</p> }
         @if (_requestError is not null) { <p class="field-error" role="alert">@_requestError</p> }
         <AiTextRequestDetails @key="job.Id" JobId="job.Id" RepairReviewRequested="ReviewRepair" />
+        @if (TextRequestPresentation.IsActive(job)) { <StreamingResponsePreview Raw="@_inspectedPreview" /> }
+        @if (_inspectedCorrection) { <p class="field-hint">Saved local correction. The original model response is preserved in the asset review.</p> }
         <details class="request-details"><summary>Response details</summary>@if (_inspectedRaw.Length > 0) { <pre>@_inspectedRaw</pre> } else { <p class="field-hint">Nothing received yet.</p> }</details>
     }</ChildContent>
     <Actions>@if (InspectedJob is { } job) {
@@ -56,6 +58,8 @@
     [Parameter] public string Title { get; set; } = "Text assistance";
     [Parameter] public string? Notice { get; set; }
     [Parameter] public bool Inline { get; set; }
+    // The studio owns one persistent dialog; model selection and capture stay shared.
+    [Parameter] public bool ExternalComposer { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public bool ModelLocked { get; set; }
     [Parameter] public TextRequestPresentation? Request { get; set; }
@@ -85,7 +89,9 @@
     private Guid? _inspectedId;
     private AiJobHeader? _inspectedResultJob;
     private string _inspectedRaw = "";
-    private (Guid, AiJobState, DateTimeOffset?)? _inspectedVersion;
+    private bool _inspectedCorrection;
+    private string? _inspectedPreview;
+    private (Guid, AiJobState, DateTimeOffset?, AiJobProgress?)? _inspectedVersion;
     private AiJobHeader? InspectedJob => Jobs.View.Jobs.FirstOrDefault(j => j.Id == _inspectedId);
     private TextRequestAction? _action;
     private ElementReference _origin, _trigger;
@@ -98,20 +104,34 @@
     }
     public async ValueTask DisposeAsync()
     {
+        _disposed = true; Jobs.Changed -= QueueChanged;
         if (_focusModule is not null) try { await _focusModule.DisposeAsync(); } catch (JSDisconnectedException) { }
     }
+    private bool _disposed;
+    protected override void OnInitialized() => Jobs.Changed += QueueChanged;
+    private void QueueChanged() { if (!_disposed && _requestOpen) _ = InvokeAsync(async () => { await RefreshInspectedResult(); if (!_disposed) StateHasChanged(); }); }
     // Each review shows the request's progress and can cancel it while it runs.
     private async Task ReviewAsync() { if (ReviewRequested.HasDelegate) await ReviewRequested.InvokeAsync(); else await OpenRequestAsync(); }
     private string ModelLabel => _picker?.DisplayLabel ?? "Loading model…";
     // Like the request action's notice: a (!) badge with the reason as tooltip and description.
     private readonly string _modelNoticeId = $"model-notice-{Guid.NewGuid():N}";
+    /// <summary>The shared model control for a studio-owned composer footer.</summary>
+    public RenderFragment ModelControl => ModelChip;
     private RenderFragment ModelChip => @<text><button type="button" class="model-chip" aria-label="Text model options" aria-describedby="@(_picker?.Notice is null ? null : _modelNoticeId)" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel @if (_picker?.Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> } ▾</button>@if (_picker?.Notice is { } notice) { <span id="@_modelNoticeId" class="sr-only">@notice</span> }</text>;
     private async Task Changed(TextModelSelectionState value) { _state = value; await SelectionChanged.InvokeAsync(value); }
-    private async Task StartOrResumeAsync() { if (HasError) { _open = !Inline; await InvokeAsync(StateHasChanged); } else await OpenAsync(); }
+    private async Task StartOrResumeAsync() { if (HasError && !ExternalComposer) { _open = !Inline; await InvokeAsync(StateHasChanged); } else await OpenAsync(); }
     public async Task OpenAsync()
     {
+        // A studio-owned dialog remembers focus before it opens. Mouse-down on
+        // the request action intentionally preserves focus, so establish its
+        // return target before the studio mounts its focus trap.
+        if (ExternalComposer) {
+            try { await FocusAsync(); }
+            catch (JSDisconnectedException) { return; }
+        }
         await Opened.InvokeAsync();
         if (_picker is not null) await _picker.RefreshModel();
+        if (ExternalComposer) { await InvokeAsync(StateHasChanged); return; }
         // Capture the editor selection before focusing the trigger, then let the
         // dialog restore focus here when it closes.
         try { await FocusAsync(); }
@@ -122,10 +142,10 @@
     public bool IsOpen => _open;
     public Task CloseAsync() { _open = false; return InvokeAsync(StateHasChanged); }
     // Return from a sibling picker without reinitializing the authored composer controls.
-    public Task ResumeAsync() { _open = !Inline; return InvokeAsync(StateHasChanged); }
+    public async Task ResumeAsync() { if (ExternalComposer) await Opened.InvokeAsync(); else _open = !Inline; await InvokeAsync(StateHasChanged); }
     public async Task OpenRequestAsync() {
         if (Request is not { } request) return;
-        _inspectedId = request.Job.Id; _inspectedRaw = ""; _inspectedResultJob = null; _requestError = null; _requestOpen = true;
+        _inspectedId = request.Job.Id; _inspectedRaw = ""; _inspectedPreview = null; _inspectedResultJob = null; _requestError = null; _requestOpen = true;
         _inspectedVersion = null; await RefreshInspectedResult();
         await InvokeAsync(StateHasChanged);
     }
@@ -142,13 +162,16 @@
     }
     private async Task RefreshInspectedResult() {
         if (!_requestOpen || InspectedJob is not { } job) return;
-        var version = (job.Id, job.State, job.FinishedUtc);
+        var version = (job.Id, job.State, job.FinishedUtc, Jobs.Progress(job.Id));
         if (_inspectedVersion == version) return;
         _inspectedVersion = version;
         try {
-            var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result);
-            if (_inspectedId == job.Id) { _inspectedRaw = result?.Raw ?? "No response yet."; _inspectedResultJob = job; }
-        } catch (WorkspaceStoreException e) { if (_inspectedId == job.Id) _inspectedRaw = e.Message; }
+            var result = await AiTextResponseCorrections.ReadAsync(JobStore, job);
+            if (!_disposed && _inspectedId == job.Id && _inspectedVersion == version) {
+                _inspectedRaw = result?.Raw ?? ""; _inspectedResultJob = job; _inspectedCorrection = result?.LocallyCorrected == true;
+                _inspectedPreview = result?.SequenceReview?.State == ScriptSequenceReviewState.Checking ? result.SequenceReview.RawResponse : result?.Raw;
+            }
+        } catch (WorkspaceStoreException e) { if (!_disposed && _inspectedId == job.Id && _inspectedVersion == version) _inspectedRaw = e.Message; }
     }
     private Task VisibilityChanged(bool visible) { _open = visible; _restoreFocus = !visible; return Task.CompletedTask; }
     private Task OpenModel() => _picker?.OpenAsync() ?? Task.CompletedTask;

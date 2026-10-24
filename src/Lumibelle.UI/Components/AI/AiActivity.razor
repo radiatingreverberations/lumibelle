@@ -50,7 +50,7 @@
                                 else if (provider == AiBackend.ClaudeCode)
                                 { <p class="field-hint">Claude Code does not report remaining usage to other apps. If a usage or rate limit ends a request, this queue pauses; resume it when the limit resets.</p> }
                                 else if (provider == AiBackend.Vllm)
-                                { <p class="field-hint">Requests run on your vLLM server. Set concurrent requests in Connections → vLLM.</p> }
+                                { <p class="field-hint">Each enabled server has its own request limit in Connections → OpenAI-compatible. Pausing this queue pauses all of those connections.</p> }
                                 else { <ProviderCapacity Backend="provider" /> }
                             </div>
                         }
@@ -86,6 +86,7 @@
                         <div class="ai-job-heading"><h3>@job.TargetName</h3><span class="ai-job-state">@(job.Priority ? "Priority · " : "")@StateLabel(job)</span></div>
                         @if (job.ActivityClearedUtc is not null) { <span class="ai-job-cleared">Cleared from activity</span> }
                         <p class="ai-job-context">@(job.Target.ProjectId is null ? "AI settings" : job.ProjectName) · @TextModelPolicy.ProviderName(job.Backend)</p>
+                        @if (job.ConnectionUrl is { } endpoint) { <p class="ai-job-context">@endpoint</p> }
                         <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" PriorityChanged="PriorityChanged" />
                         @if (job.Backend == AiBackend.OpenRouter) { <OpenRouterJobUsage Job="job" /> }
                         @if (job.Error is not null) { <p class="field-error">@job.Error</p> }
@@ -109,7 +110,12 @@
                         @if (_inspect == job.Id)
                         {
                             <div class="ai-job-response"><AiResultAcknowledgement Observed="@(_inspectedJob is { } read ? new[] { read } : [])" /><p class="field-hint">Saved response · @job.TargetName. Applying is available in its studio after checking the original target.</p>
-                                <pre tabindex="0">@(_response?.Raw ?? "No response has been saved yet.")</pre>
+                                @if (job.State == AiJobState.Running) {
+                                    <StreamingResponsePreview Raw="@(_response?.SequenceReview?.State == ScriptSequenceReviewState.Checking ? _response.SequenceReview.RawResponse : _response?.Raw)" />
+                                    <details><summary>Response details</summary><pre tabindex="0">@(_response?.Raw ?? "No response has been saved yet.")</pre></details>
+                                }
+                                else { <pre tabindex="0">@(_response?.Raw ?? "No response has been saved yet.")</pre> }
+                                @if (_response?.LocallyCorrected == true) { <p class="field-hint">Saved local correction. The original model response is preserved in the asset review.</p> }
                                 @if (_response?.Error is not null) { <p class="field-error">@_response.Error</p> }
                                 @if (Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
                                 { <AiTextRepairAction @key="job.Id" JobId="job.Id" ReviewRequested="Review" /> }
@@ -174,7 +180,8 @@
     {
         if (!_disposed) _ = InvokeAsync(async () =>
         {
-            if (_inspect is { } id && Jobs.View.Jobs.FirstOrDefault(j => j.Id == id) is { } current && current.Version != _inspectedJob?.Version)
+            if (_inspect is { } id && Jobs.View.Jobs.FirstOrDefault(j => j.Id == id) is { } current &&
+                (current.Version != _inspectedJob?.Version || !ReferenceEquals(Jobs.Progress(id), _inspectedProgress)))
                 await LoadInspection(id);
             if (!_disposed) StateHasChanged();
         });
@@ -214,13 +221,15 @@
         return LoadInspection(id);
     }
     private long _inspectionVersion;
-    private void CollapseInspection() { _inspectionVersion++; _inspect = null; _inspectedJob = null; _response = null; }
+    private AiJobProgress? _inspectedProgress;
+    private void CollapseInspection() { _inspectionVersion++; _inspect = null; _inspectedJob = null; _response = null; _inspectedProgress = null; }
     private async Task LoadInspection(Guid id)
     {
         var version = ++_inspectionVersion;
         try
         {
             var job = Jobs.View.Jobs.Single(j => j.Id == id);
+            var progress = Jobs.Progress(id);
             AiTextJobResult? response;
             if (job.Backend == AiBackend.Codex && job.Batch is { } batch)
             {
@@ -244,9 +253,9 @@
                 var result = await Store.ReadArtifactAsync<ContentProbeResult>(id, AiJobArtifact.Result);
                 response = result is null ? null : new(string.IsNullOrWhiteSpace(result.Raw) ? result.ApiRefusal : result.Raw, result.Complete, result.FinishReason);
             }
-            else response = await Store.ReadArtifactAsync<AiTextJobResult>(id, AiJobArtifact.Result);
+            else response = await AiTextResponseCorrections.ReadAsync(Store, job);
             if (_disposed || version != _inspectionVersion) return;
-            _response = response; _inspect = id; _inspectedJob = job; _error = null;
+            _response = response; _inspect = id; _inspectedJob = job; _inspectedProgress = progress; _error = null;
         }
         catch (WorkspaceStoreException e) { _error = e.Message; }
     }

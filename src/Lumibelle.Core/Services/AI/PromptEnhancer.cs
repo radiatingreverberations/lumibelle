@@ -28,7 +28,7 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         if (TextModelPolicy.Issue(request.Model, settings, check, !request.FollowsDefault) is { } issue)
             throw new AiGenerationException(issue);
         if (request.InspectImages && (!context.IsEdit || !TextVisionPolicy.SupportsBackend(request.Model.Backend) ||
-            check.Models.FirstOrDefault(m => m.Id == request.Model.Model)?.SupportsImages != true))
+            TextModelPolicy.CatalogModel(request.Model, check)?.SupportsImages != true))
             throw new AiGenerationException(TextVisionPolicy.SetupHint);
         await ValidateInputsAsync(context, timeout.Token);
         var images = new List<byte[]>();
@@ -246,7 +246,9 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         try { return await updates.MoveNextAsync(); }
         catch (OperationCanceledException) when (!caller.IsCancellationRequested) { throw new AiGenerationException(timeout.Message); }
         catch (ClientResultException e) { throw new AiGenerationException(AiErrors.HttpStatus(e.Status)); }
-        catch (HttpRequestException) { throw new AiGenerationException("The connection to the enhancement provider failed. Retry when ready."); }
+        catch (Exception e) when (e is HttpRequestException or IOException) {
+            throw new AiGenerationException("The connection to the text provider was interrupted. Saved output remains available; retry when ready.");
+        }
     }
 }
 

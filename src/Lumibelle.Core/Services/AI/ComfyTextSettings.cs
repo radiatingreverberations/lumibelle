@@ -38,6 +38,7 @@ public static class ComfyTextSettings
 
     public static AiSettings Capture(TextModelReference model, AiSettings settings)
     {
+        if (model.Backend == AiBackend.Vllm) return OpenAiConnections.Capture(model, settings);
         if (model.Backend != AiBackend.ComfyUI) return settings;
         var resolved = Resolve(model, settings);
         return settings with { MaxOutputTokens = resolved.MaxOutputTokens, Temperature = resolved.Temperature };

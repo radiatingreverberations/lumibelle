@@ -1,0 +1,114 @@
+@using lumibelle.Models
+@using lumibelle.Services.AI
+@using lumibelle.Services.Story
+@inject IAiProviderRegistry Providers
+
+<section class="openai-connections" aria-label="OpenAI-compatible connections">
+    <header class="connections-heading"><div><h2>OpenAI-compatible</h2><p>Connect text and vision models from your own servers.</p></div><MudButton OnClick="Add" Disabled="Locked" Variant="Variant.Outlined">Add connection</MudButton></header>
+    <div class="connections-layout">
+        <nav class="connection-list" aria-label="Configured servers">
+            @foreach (var connection in Connections) {
+                <button type="button" @key="connection.Id" aria-pressed="@(connection.Id == _id ? "true" : "false")" @onclick="() => Edit(connection)" disabled="@Locked">
+                    <strong>@connection.Name</strong><span>@connection.Url</span><small>@(connection.Enabled ? "Enabled" : "Disabled") · @connection.Concurrency at a time</small>
+                </button>
+            }
+            @if (Connections.Count == 0) { <p class="field-hint">Add a connection to discover its models.</p> }
+        </nav>
+        <form id="openai-connection-form" class="settings-card connection-form" @onsubmit="Save" @onsubmit:preventDefault>
+            <h3>@(Saved is null ? "New connection" : Saved.Name)</h3>
+            <label for="openai-name">Connection name</label><input id="openai-name" maxlength="120" @bind="_name" @bind:after="Changed" required disabled="@Locked" placeholder="Name this server" />
+            <label for="openai-url">API base URL</label><input id="openai-url" type="url" @bind="_url" @bind:after="EndpointChanged" required disabled="@Locked" placeholder="http://llm-server:8000/v1" />
+            <label class="check-row"><input type="checkbox" @bind="_enabled" @bind:after="Changed" disabled="@Locked" />Enabled</label>
+            <div class="connection-fields"><label for="openai-concurrency">Concurrent requests<input id="openai-concurrency" type="number" min="1" max="8" @bind="_concurrency" @bind:after="Changed" disabled="@Locked" /></label></div>
+            <p class="field-hint">Each connection has its own queue limit. Active requests finish when you disable a connection.</p>
+            <p class="key-status">@(HasKey ? "API key is configured" : "No API key configured")</p>
+            <label for="openai-key">Optional API key</label><input id="openai-key" type="password" autocomplete="new-password" @bind="_key" @bind:after="Changed" disabled="@Locked" placeholder="@(HasKey ? "Leave blank to keep the saved key" : "Only if this server requires a key")" />
+            @if (HasKey) { <label class="check-row"><input type="checkbox" @bind="_removeKey" @bind:after="Changed" disabled="@Locked" />Remove saved API key</label> }
+            <p class="field-hint">Keys are protected on this computer and stay with their server URL. Changing the URL requires a key for the new server.</p>
+            <details class="connection-advanced"><summary>Compatibility &amp; capabilities</summary>
+                <label for="openai-kind">Server compatibility</label><select id="openai-kind" @bind="_kind" @bind:after="Changed" disabled="@Locked"><option value="Auto">Detect automatically</option><option value="Standard">Standard OpenAI-compatible</option><option value="Vllm">vLLM</option><option value="Strata">Strata</option></select>
+                @if (_kind == OpenAiServerKind.Auto && _detected is { } detected) { <p class="field-hint">Detected: @KindLabel(detected)</p> }
+                <label for="openai-vision">Image input</label><select id="openai-vision" @bind="_vision" @bind:after="Changed" disabled="@Locked"><option value="auto">Use server metadata</option><option value="yes">Enabled</option><option value="no">Disabled</option></select>
+                <label for="openai-context">Context window override<input id="openai-context" type="number" min="1" max="100000000" @bind="_context" @bind:after="Changed" disabled="@Locked" placeholder="Use server metadata" /></label>
+                <p class="field-hint">Override capabilities when the server does not report them. Context is shared by the prompt and reply.</p>
+            </details>
+            <div class="connection-actions"><MudButton OnClick="Check" Disabled="Locked" Variant="Variant.Outlined">@(_checking ? "Checking…" : "Check connection")</MudButton></div>
+            @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
+            @if (_check is { } check) {
+                <p class="field-hint" role="status">@check.Message</p>
+                @if (check.Success) { <ul class="connection-models" aria-label="Served models">@foreach (var model in check.Models) { <li><strong>@model.Name</strong><span>@(model.SupportsImages ? "Text + images" : "Text")@if (model.Catalog?.ContextLength is { } context) { <span> · @context.ToString("N0") context</span> }</span></li> }</ul> }
+            }
+            <div class="settings-section-actions connection-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Locked" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="Cancel" Disabled="Locked">Cancel</MudButton>@if (Saved is not null) { <MudButton OnClick="Remove" Disabled="Locked" Color="Color.Error">Remove connection</MudButton> }</div>
+        </form>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public AiSettings Settings { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter, EditorRequired] public Func<OpenAiConnectionSettings, string, bool, Task<bool>> SaveConnection { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<Guid, Task<bool>> RemoveConnection { get; set; } = null!;
+    private IReadOnlyList<OpenAiConnectionSettings> Connections => OpenAiConnections.All(Settings);
+    private OpenAiConnectionSettings? Saved => Connections.FirstOrDefault(c => c.Id == _id);
+    private bool HasKey => Saved is { HasApiKey: true } saved && string.Equals(_url.Trim().TrimEnd('/'), saved.Url.TrimEnd('/'), StringComparison.Ordinal);
+    private bool Locked => Busy || _working;
+    private Guid _id;
+    private long _revision = -1;
+    private string _name = "", _url = "", _key = "", _vision = "auto";
+    private bool _enabled = true, _removeKey, _dirty, _working, _saving, _checking;
+    private int _concurrency = 1;
+    private long? _context;
+    private OpenAiServerKind _kind;
+    private OpenAiServerKind? _detected;
+    private AiConnectionCheck? _check;
+    private string? _error;
+    private OpenAiConnectionSettings Draft => new() { Id = _id, Name = _name, Url = _url, Enabled = _enabled,
+        Concurrency = _concurrency, Kind = _kind, DetectedKind = _detected,
+        SupportsImages = _vision == "auto" ? null : _vision == "yes", ContextLength = _context, HasApiKey = HasKey };
+    protected override void OnParametersSet()
+    {
+        if (_revision == Settings.Revision) return;
+        _revision = Settings.Revision;
+        if (_dirty && !_saving) return;
+        if ((Connections.FirstOrDefault(c => c.Id == _id) ?? Connections.FirstOrDefault()) is { } connection) Edit(connection);
+        else Add();
+    }
+    private void Edit(OpenAiConnectionSettings connection)
+    {
+        _id = connection.Id; _name = connection.Name; _url = connection.Url; _enabled = connection.Enabled;
+        _concurrency = connection.Concurrency; _kind = connection.Kind; _detected = connection.DetectedKind;
+        _vision = connection.SupportsImages is null ? "auto" : connection.SupportsImages == true ? "yes" : "no";
+        _context = connection.ContextLength; _key = ""; _removeKey = false; _check = null; _error = null; _dirty = false;
+    }
+    private void Add() { Edit(new() { Name = "", Url = "", Kind = OpenAiServerKind.Auto }); _dirty = true; }
+    private void Cancel() { if (Saved is { } saved) Edit(saved); else if (Connections.FirstOrDefault() is { } first) Edit(first); else Add(); }
+    private void Changed() { _dirty = true; _check = null; _error = null; }
+    private void EndpointChanged() { Changed(); _detected = null; }
+    private async Task Check()
+    {
+        if (Locked) return;
+        _working = _checking = true; _error = null; _check = null;
+        try {
+            var draft = OpenAiConnections.Normalize(Draft with { Enabled = true });
+            _check = await Providers.CheckAsync(AiBackend.Vllm, OpenAiConnections.Scope(Settings, draft), _removeKey ? "" : string.IsNullOrWhiteSpace(_key) ? null : _key);
+            _detected = _check.Connections?.SingleOrDefault()?.Kind;
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException) { _error = e.Message; }
+        finally { _working = _checking = false; }
+    }
+    private async Task Save()
+    {
+        if (Locked) return;
+        _working = _saving = true;
+        try { if (await SaveConnection(Draft, _key, _removeKey)) { _dirty = false; _key = ""; _removeKey = false; } }
+        finally { _working = _saving = false; }
+    }
+    private async Task Remove()
+    {
+        if (Locked || Saved is null) return;
+        _working = _saving = true;
+        try { if (await RemoveConnection(_id)) _dirty = false; }
+        finally { _working = _saving = false; }
+    }
+    private static string KindLabel(OpenAiServerKind kind) => kind switch { OpenAiServerKind.Vllm => "vLLM", OpenAiServerKind.Strata => "Strata", _ => "Standard OpenAI-compatible" };
+}

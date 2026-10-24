@@ -385,6 +385,13 @@ internal sealed class FakeProviders : IAiProviderRegistry
     {
         CheckedBackends.Add(backend); _checks.Increment();
         if (CheckResult is not null) return CheckResult(backend);
+        if (backend == AiBackend.Vllm)
+        {
+            var connections = OpenAiConnections.All(settings).Where(c => c.Enabled).ToArray();
+            return Task.FromResult(new AiConnectionCheck(Success && connections.Length > 0, Success ? "Connected" : "Not configured",
+                connections.SelectMany(c => (Models ?? [new("local/model", "Configured model")]).Select(m => m with { ServerUrl = VllmConnection.NormalizeUrl(c.Url) })).ToArray())
+                { Connections = connections.Select(c => new OpenAiConnectionStatus(VllmConnection.NormalizeUrl(c.Url), c.Name, Success, Success ? "Connected" : "Not configured", OpenAiConnections.Kind(c))).ToArray() });
+        }
         return Task.FromResult(new AiConnectionCheck(Success, Success ? "Connected" : "Not configured",
             Models ?? [new(backend == AiBackend.ComfyUI ? settings.ComfyModel : settings.OpenRouterModel, "Configured model", AiModelVerificationState.Untested)],
             backend == AiBackend.ComfyUI ? BackendVersion : null));

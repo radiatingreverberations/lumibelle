@@ -11,6 +11,9 @@ public interface IAiSettingsStore
     Task<string?> ReadVllmKeyAsync(string serverUrl, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
     Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("This settings store does not support vLLM credentials.");
+    Task<AiSettings> SaveOpenAiConnectionAsync(AiSettings settings, Guid connectionId, string? replacementKey = null,
+        bool removeKey = false, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This settings store does not support OpenAI-compatible connections.");
 }
 
 public interface IAiProviderRegistry

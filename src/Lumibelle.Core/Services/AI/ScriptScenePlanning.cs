@@ -22,10 +22,25 @@ public static partial class ScriptScenePlanning
     public const int MaximumTokens = 3000;
     public const int MaximumEvidenceCharacters = 800;
     public const int PlanningReplyTokens = 4096;
+    public const int DefaultPlanningReplyTokens = 8192;
+    public const int MaximumDefaultPlanningReplyTokens = 16384;
     public const int DefaultDraftReplyTokens = 8192;
     public const int MaximumDefaultDraftReplyTokens = 16384;
 
     public static int DraftReplyBudget(ScriptAdaptationContext context)
+        => (int)Math.Clamp(Math.Ceiling(SourceTokens(context) * 3 / 1024) * 1024,
+            DefaultDraftReplyTokens, MaximumDefaultDraftReplyTokens);
+
+    public static int PlanningReplyBudget(ScriptAdaptationContext context, int writingReplyLimit)
+        // The brief stays concise; this leaves generation headroom for larger sources
+        // and reasoning while honoring an explicitly selected model/profile limit.
+        => Math.Min(writingReplyLimit, (int)Math.Clamp(Math.Ceiling(SourceTokens(context) / 1024) * 1024,
+            DefaultPlanningReplyTokens, MaximumDefaultPlanningReplyTokens));
+
+    public static int CapturedReplyLimit(AiTextJobRequest request) => request.ScenePlanReplyTokens ??
+        Math.Min(request.Model.MaxOutputTokens ?? PlanningReplyTokens, PlanningReplyTokens);
+
+    private static double SourceTokens(ScriptAdaptationContext context)
     {
         var ascii = 0; var other = 0;
         foreach (var rune in context.Passages.SelectMany(p => p.Text.EnumerateRunes()))
@@ -33,11 +48,7 @@ public static partial class ScriptScenePlanning
             if (rune.Value <= 127) ascii++;
             else if (!System.Text.Rune.IsWhiteSpace(rune)) other++;
         }
-        // Leave room for playable dialogue/action and screenplay JSON around the
-        // source facts. This is a bounded default, never an override of an explicit cap.
-        var sourceTokens = Math.Ceiling(ascii / 4d) + other;
-        return (int)Math.Clamp(Math.Ceiling(sourceTokens * 3 / 1024) * 1024,
-            DefaultDraftReplyTokens, MaximumDefaultDraftReplyTokens);
+        return Math.Ceiling(ascii / 4d) + other;
     }
     // Twenty beats is prompt guidance. Allow modest overruns without dropping story
     // content; the character and token budgets remain the actual context constraint.

@@ -67,12 +67,14 @@
     private string SelectedKey => _session?.Override is { } model ? TextModelProfiles.ChoiceKey(model) : "default";
     private string SourceLabel => _session?.Source switch { TextModelSelectionSource.RequestOverride => "Override", TextModelSelectionSource.ProjectDefault => "Project", _ => "Global" };
     private string FullLabel => _session is null ? "Choose text model" : Label(_session.Model);
-    private string ShortLabel => _session is null || !_hasLoadedSettings ? "Text model" : TextModelPolicy.DisplayName(_session.Model, _session.Settings, CatalogName(_session.Model));
+    private string ShortLabel => _session is null || !_hasLoadedSettings ? "Text model" :
+        (_session.Model.Backend == AiBackend.Vllm ? OpenAiConnections.Name(_session.Settings, _session.Model.VllmUrl) + " · " : "") +
+        TextModelPolicy.DisplayName(_session.Model, _session.Settings, CatalogName(_session.Model));
     private string BaseLabel => _session is null ? "Loading…" : Label(_session.Base);
     private string InheritanceLabel => _session?.Source switch { TextModelSelectionSource.RequestOverride => "For this request only.", TextModelSelectionSource.ProjectDefault => "Using the project default.", _ => "The project follows the global default." };
     private string ManageUrl => AiSettingsNavigation.Link(Navigation, "text", ProjectId, Studio == TextAssistantStudio.Story ? "script" : Studio is TextAssistantStudio.Shots or TextAssistantStudio.Production ? "shots" : "assets");
     private IEnumerable<TextModelReference> Choices => (_session?.Choices ?? []).OrderBy(Label, StringComparer.OrdinalIgnoreCase);
-    private string? CatalogName(TextModelReference model) => _session?.Checks.GetValueOrDefault(model.Backend)?.Models.FirstOrDefault(m => m.Id == model.Model)?.Name;
+    private string? CatalogName(TextModelReference model) => TextModelPolicy.CatalogModel(model, _session?.Checks.GetValueOrDefault(model.Backend))?.Name;
     private string Label(TextModelReference model) => _session is null ? model.Name : TextModelPolicy.PickerLabel(model, _session.Settings, _session.Choices, CatalogName);
     protected override async Task OnParametersSetAsync() {
         if (_loaded == ProjectId) return;

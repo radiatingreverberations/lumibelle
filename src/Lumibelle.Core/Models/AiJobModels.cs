@@ -80,6 +80,8 @@ public sealed record AiJobHeader
     public required Guid Id { get; init; }
     public required AiJobKind Kind { get; init; }
     public required AiBackend Backend { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ConnectionUrl { get; init; }
     public required AiJobTarget Target { get; init; }
     public required string ProjectName { get; init; }
     public required string TargetName { get; init; }
@@ -145,7 +147,7 @@ public sealed record AiJobProgress(GenerationProgress Progress, int? Candidate =
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<int>? CandidateExecutionOrder { get; init; }
 }
-public enum AiJobArtifact { Progress, Execution, Result, Composer, SequenceBriefApproval, SequenceBriefCorrections }
+public enum AiJobArtifact { Progress, Execution, Result, Composer, SequenceBriefApproval, SequenceBriefCorrections, TextResponseCorrections }
 public enum AiActivityChange { Read, Clear, Restore }
 public sealed record AiActivityObservation(Guid Id, long Version);
 public sealed record AiJobSnapshot(string Fingerprint, JsonElement Request, AiBatchDefinition? InitialBatch = null);

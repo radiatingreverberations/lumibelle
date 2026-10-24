@@ -83,7 +83,7 @@
     private RenderFragment VllmMeasurements => @<text>
         @if (LatestVllmBenchmark is { } local)
         {
-            <TextModelBenchmarkDetails Benchmark="local.Measurement" Provider="vLLM" OutputThroughput="true" />
+            <TextModelBenchmarkDetails Benchmark="local.Measurement" Provider="OpenAI-compatible" OutputThroughput="true" />
             <p class="field-hint">Server: @local.Server · Temperature: @(local.Temperature?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "server default")</p>
         }
     </text>;
@@ -130,7 +130,8 @@
     private bool Busy => _commandBusy || _loadingJob || ActiveJob is not null;
     private bool SelectedModelVerified => _comfyVersion is not null && _verifications.Any(item =>
         TextModelPolicy.SameServer(item.ComfyUrl, _comfyUrl) && item.Model == _comfyModel && item.ComfyVersion == _comfyVersion);
-    private bool CanTestModel => !Busy && _pending is null && Check?.Success == true && Check.Models.Any(model => model.Id == _comfyModel);
+    private bool CanTestModel => !Busy && _pending is null && Check?.Success == true && TextModelPolicy.CatalogModel(Model, Check) is not null &&
+        (Model.Backend != AiBackend.Vllm || TextModelPolicy.Issue(Model, SettingsSnapshot, Check, requireTest: false) is null);
     private bool CanRunAdvancedTest => CanTestModel && !string.IsNullOrWhiteSpace(_advancedTestPrompt) && _advancedTestTokens >= 1 && _advancedTestTokens <= AdvancedTokenLimit;
     private int ReplyLimit => ComfyTextSettings.Resolve(Model, SettingsSnapshot).MaxOutputTokens;
     // Includes a test finished while the dialog is open.
@@ -146,7 +147,7 @@
     internal static bool BenchmarkIsStale(ComfyTextModelBenchmark benchmark, int replyLimit) =>
         !benchmark.CustomPrompt && (benchmark.ContextTokens is null || benchmark.TokenLimit != replyLimit);
     private string VerificationStatus => IsVllm
-        ? Check is null ? "Refresh vLLM models to enable a new test." : !Check.Success ? Check.Message : Check.Models.All(m => m.Id != Model.Model) ? "This model is not available on the saved server." : "Ready to test."
+        ? Check is null ? "Refresh OpenAI-compatible models to enable a new test." : TextModelPolicy.Issue(Model, SettingsSnapshot, Check, requireTest: false) ?? "Ready to test."
         : IsOpenRouter
         ? Check is null ? "Refresh OpenRouter in Text models to enable a new test." : !Check.Success ? Check.Message : Check.Models.All(m => m.Id != Model.Model) ? "This model is not available on OpenRouter." : "Run a benchmark to check generation before starring. Availability can change between requests."
         : Check is null ? "Refresh ComfyUI in Text models to enable a new test on the saved server." : !Check.Success ? Check.Message : Check.Models.All(model => model.Id != _comfyModel) ? "This model is not available on the saved server." : SelectedModelVerified ? $"Verified with ComfyUI {_comfyVersion}." : "Run a test before starring this model.";

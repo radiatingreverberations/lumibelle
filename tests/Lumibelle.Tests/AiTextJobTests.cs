@@ -336,7 +336,7 @@ public sealed partial class AiTextJobTests : IDisposable
     }
     private sealed class TextChat : IChatClient, IProgressReportingChatClient
     {
-        public string Output = ""; public ChatFinishReason? Finish = ChatFinishReason.Stop; public bool FailAfterText;
+        public string Output = ""; public ChatFinishReason? Finish = ChatFinishReason.Stop; public bool FailAfterText; public bool FailWithIoException;
         public Queue<string> Outputs { get; } = new();
         public List<List<ChatMessage>> Requests { get; } = [];
         public Action<List<ChatMessage>>? OnRequest;
@@ -355,7 +355,10 @@ public sealed partial class AiTextJobTests : IDisposable
             Requests.Add(Messages);
             OnRequest?.Invoke(Messages);
             yield return new(ChatRole.Assistant, Outputs.Count > 0 ? Outputs.Dequeue() : Output);
-            if (FailAfterText) throw new HttpRequestException("Provider disconnected");
+            if (FailAfterText) {
+                if (FailWithIoException) throw new IOException("Transport stream disconnected");
+                throw new HttpRequestException("Provider disconnected");
+            }
             yield return new() { FinishReason = Finish };
         }
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();

@@ -187,10 +187,10 @@ app.MapPost("/fixtures/{id:guid}/coverage-script", async (Guid id, IScriptStore 
     if (mode != "draft") await scripts.ApproveAsync(id, d.Revision);
     return await scripts.LoadApprovedAsync(id);
 });
-app.MapPost("/fixtures/{id:guid}/looks-script", async (Guid id, IScriptStore scripts, bool many = false) =>
+app.MapPost("/fixtures/{id:guid}/looks-script", async (Guid id, IScriptStore scripts, bool many = false, bool invalidEvidence = false, bool slow = false) =>
 {
     var d = await scripts.LoadAsync(id);
-    d = await scripts.SaveAsync(d with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Scene, "INT. BEDROOM — NIGHT"), ScriptBlock.Create(ScriptBlockKind.Action, "Juniper has dark eyes and a round face. She wears an Everyday gray hoodie, then changes into white and gold Gala costume armor." + (many ? " UX_REVIEW" : "")), ScriptBlock.Create(ScriptBlockKind.Character, "JUNIPER"), ScriptBlock.Create(ScriptBlockKind.Dialogue, "You called?")] }, d.Revision);
+    d = await scripts.SaveAsync(d with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Scene, "INT. BEDROOM — NIGHT"), ScriptBlock.Create(ScriptBlockKind.Action, "Juniper has dark eyes and a round face. She wears an Everyday gray hoodie, then changes into white and gold Gala costume armor." + (many ? " UX_REVIEW" : "") + (invalidEvidence ? " WRONG_EXTRACTION_SCENE" : "") + (slow ? " SLOW" : "")), ScriptBlock.Create(ScriptBlockKind.Character, "JUNIPER"), ScriptBlock.Create(ScriptBlockKind.Dialogue, "You called?")] }, d.Revision);
     return await scripts.ApproveAsync(id, d.Revision);
 });
 app.MapPost("/fixtures/{id:guid}/look-description", async (Guid id, Guid lookId, string description, IAssetStore store) =>
@@ -382,6 +382,12 @@ sealed class MockSettings : IAiSettingsStore
         StarredTextModels = [new(AiBackend.OpenRouter, "mock/alternate", "Alternate mock model")] };
     public Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value);
     public Task<string?> ReadOpenRouterKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>("mock-only");
+    public Task<AiSettings> SaveOpenAiConnectionAsync(AiSettings settings, Guid connectionId, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
+    {
+        FileAiSettingsStore.Validate(settings);
+        return SaveAsync(settings with { OpenAiConnections = OpenAiConnections.All(settings).Select(c => OpenAiConnections.Normalize(c) with
+            { HasApiKey = c.Id == connectionId ? !removeKey && (!string.IsNullOrWhiteSpace(replacementKey) || c.HasApiKey && OpenAiConnections.Find(_value, c.Url)?.HasApiKey == true) : c.HasApiKey }).ToArray() }, cancellationToken: cancellationToken);
+    }
     public Task<AiSettings> SaveVllmAsync(AiSettings settings, string? replacementKey = null, bool removeKey = false, CancellationToken cancellationToken = default)
     {
         FileAiSettingsStore.Validate(settings);
@@ -409,6 +415,14 @@ sealed class MockProviders(ICodexClient codex) : IAiProviderRegistry
         if (backend == AiBackend.OpenRouter) await Task.Delay(200, cancellationToken);
         if (backend == AiBackend.OpenRouter && CatalogFailure) return new(false, "Mock OpenRouter connection unavailable", []);
         if (backend == AiBackend.Codex) { var check = await codex.CheckAsync(settings.Codex, cancellationToken); return new(check.Success, check.Message, check.Models, check.Version); }
+        if (backend == AiBackend.Vllm)
+        {
+            var connections = OpenAiConnections.All(settings).Where(c => c.Enabled).ToArray();
+            return new(connections.Length > 0, connections.Length == 1 ? "Mock provider ready" : $"{connections.Length} connections available", connections.SelectMany(c => new[] {
+                new AiModel("mock/script", "Mock script writer", SupportsImages: c.SupportsImages ?? c.Kind == OpenAiServerKind.Strata, Catalog: new(ContextLength: c.ContextLength ?? 131072)) { ServerUrl = VllmConnection.NormalizeUrl(c.Url) },
+                new AiModel("mock/alternate", "Alternate mock model", SupportsImages: true) { ServerUrl = VllmConnection.NormalizeUrl(c.Url) }
+            }).ToArray()) { Connections = connections.Select(c => new OpenAiConnectionStatus(VllmConnection.NormalizeUrl(c.Url), c.Name, true, "Mock provider ready", OpenAiConnections.Kind(c))).ToArray() };
+        }
         if (backend == AiBackend.OpenRouter && ComparisonCatalog)
         {
             var models = Enumerable.Range(1, 30).Select(i => new AiModel($"catalog/model-{i:D2}", $"Catalog model {i:D2}", SupportsImages: i == 30,
@@ -665,12 +679,15 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
         }
         else if ((list[0].Text ?? "").Contains("identify reusable visual assets"))
         {
-            var scene = Regex.Match(last, @"Scene \[([a-f0-9-]+)\]").Groups[1].Value;
+            using var extractionData = JsonDocument.Parse(last[last.IndexOf('{')..]);
+            var extractionScenes = extractionData.RootElement.GetProperty("selectedScenes");
+            var existingAssets = extractionData.RootElement.GetProperty("existingAssets");
+            var scene = extractionScenes[0].GetProperty("sceneId").GetString();
             output = $$"""[{"category":"character","name":"Juniper","description":"A tiny mouse with a striped scarf.","suggestedTags":["face","full body"],"evidence":[{"label":"Kitchen","sceneId":"{{scene}}","excerpt":"A tiny mouse appears"}],"matchedAssetId":null}]""";
             if (last.Contains("Gala costume"))
             {
-                var existing = Regex.Match(last, @"([a-f0-9-]+) \| Character \| Juniper \|").Groups[1].Value;
-                var match = Guid.TryParse(existing, out var assetId) ? (Guid?)assetId : null;
+                var existing = existingAssets.EnumerateArray().FirstOrDefault(a => a.GetProperty("name").GetString() == "Juniper");
+                var match = existing.ValueKind == JsonValueKind.Object ? existing.GetProperty("id").GetGuid() : (Guid?)null;
                 var evidence = new[] { new { label = "Bedroom", sceneId = scene, excerpt = "Everyday gray hoodie, then white and gold Gala costume armor" } };
                 output = JsonSerializer.Serialize(new[] { new { category = "character", name = "Juniper", description = "Dark eyes and a round face.", preservationGuidance = "Preserve her facial identity.", matchedAssetId = match, evidence, looks = new[] { new { name = "Everyday", description = "Gray hoodie.", preservationGuidance = "Soft gray fabric.", evidence }, new { name = "Gala costume", description = "White and gold armor.", preservationGuidance = "Gold trim and white armor.", evidence } } } });
             }
@@ -680,7 +697,8 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 for (var i = 1; i <= 12; i++) proposals.Add(JsonSerializer.SerializeToNode(new { category = "prop", name = $"Reference object {i}", description = "A recognizable object described in the script.", evidence = new[] { new { label = "Bedroom", sceneId = scene, excerpt = "An object in the bedroom" } } }));
                 output = proposals.ToJsonString();
             }
-            if (last.Split("EXISTING ASSETS")[0].Contains("EMPTY_COVERAGE") && !last.Split("EXISTING ASSETS")[0].Contains("Mira enters")) output = "[]";
+            if (extractionScenes.GetRawText().Contains("EMPTY_COVERAGE") && !extractionScenes.GetRawText().Contains("Mira enters")) output = "[]";
+            if (last.Contains("WRONG_EXTRACTION_SCENE")) output = output.Replace(scene!, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         }
         else if (last.Contains("Return readable Markdown")) output = "A simple summoning mishap could turn into a warm dinner scene.";
         else

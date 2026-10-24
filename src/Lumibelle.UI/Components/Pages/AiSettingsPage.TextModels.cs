@@ -18,18 +18,18 @@ public partial class AiSettingsPage
     }
     private readonly Dictionary<AiBackend, TextCatalogState> _textCatalogs = Enum.GetValues<AiBackend>().ToDictionary(b => b, _ => new TextCatalogState());
     private readonly Dictionary<string, string> _aliasDrafts = new(StringComparer.Ordinal);
+    private string _openAiModelServer = "";
     private AiBackend TextBackend => _connectionProvider switch { "vllm" => AiBackend.Vllm, "openrouter" => AiBackend.OpenRouter, "codex" => AiBackend.Codex, "claudecode" => AiBackend.ClaudeCode, _ => AiBackend.ComfyUI };
     private TextCatalogState TextState => _textCatalogs[TextBackend];
     private IEnumerable<TextModelReference> AllModels => _textCatalogs.SelectMany(pair => (pair.Value.Catalog?.Models ?? [])
-            .Select(model => TextModelPolicy.Reference(pair.Key, model.Id, model.Name, _settings!)))
+            .Select(model => TextModelPolicy.Reference(pair.Key, model, _settings!)))
         .Concat(_settings!.StarredTextModels).Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .Where(model => !string.IsNullOrWhiteSpace(model.Model)).DistinctBy(TextModelPolicy.Key);
     private TextModelReference[] DefaultChoices => _settings!.TextModelProfiles.Concat(_settings.StarredTextModels).Append(TextModelPolicy.Default(_settings))
         .Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .DistinctBy(TextModelProfiles.ChoiceKey).OrderBy(ModelName, StringComparer.OrdinalIgnoreCase).ToArray();
     private AiModel? CatalogModel(TextModelReference model) => model.Backend == AiBackend.ComfyUI && !TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? null
-        : model.Backend == AiBackend.Vllm && !TextModelPolicy.SameVllmServer(model.VllmUrl, _settings!.VllmUrl) ? null
-        : _textCatalogs[model.Backend].Catalog?.Models.FirstOrDefault(m => m.Id == model.Model);
+        : TextModelPolicy.CatalogModel(model, _textCatalogs[model.Backend].Catalog);
     private string? CatalogName(TextModelReference model) => CatalogModel(model)?.Name;
     private string ModelName(TextModelReference model) => TextModelPolicy.DisplayName(model, _settings!, CatalogName(model));
     private string DefaultChoiceLabel(TextModelReference model) => string.IsNullOrWhiteSpace(model.Model) ? $"{TextModelPolicy.ProviderName(model.Backend)} · No model selected"
@@ -46,7 +46,7 @@ public partial class AiSettingsPage
     {
         get
         {
-            var models = AllModels.Where(m => m.Backend == TextBackend && (!_starredOnly || IsStarred(m)) &&
+            var models = AllModels.Where(m => m.Backend == TextBackend && (m.Backend != AiBackend.Vllm || _openAiModelServer.Length == 0 || TextModelPolicy.SameVllmServer(m.VllmUrl, _openAiModelServer)) && (!_starredOnly || IsStarred(m)) &&
                 (_search.Length == 0 || new[] { ModelName(m), m.Name, m.Model, CatalogName(m) }.Any(value => value?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true)));
             var named = models.OrderBy(ModelName, StringComparer.OrdinalIgnoreCase).ThenBy(TextModelPolicy.Key, StringComparer.Ordinal);
             if (TextState.Sort == "name") return (TextState.Descending ? models.OrderByDescending(ModelName, StringComparer.OrdinalIgnoreCase).ThenBy(TextModelPolicy.Key, StringComparer.Ordinal) : named).ToList();
@@ -137,7 +137,7 @@ public partial class AiSettingsPage
     private string ConnectionIdentity(AiBackend backend) => backend switch
     {
         AiBackend.ComfyUI => _settings!.ComfyUrl,
-        AiBackend.Vllm => $"{_settings!.VllmUrl}\n{_settings.HasVllmKey}",
+        AiBackend.Vllm => System.Text.Json.JsonSerializer.Serialize(OpenAiConnections.All(_settings!)),
         AiBackend.Codex => $"{_settings!.Codex.Enabled}\n{_settings.Codex.ExecutablePath}",
         AiBackend.ClaudeCode => $"{_settings!.ClaudeCode.Enabled}\n{_settings.ClaudeCode.ExecutablePath}",
         _ => _settings!.HasOpenRouterKey.ToString()
@@ -145,6 +145,7 @@ public partial class AiSettingsPage
     private void InvalidateTextCatalog(AiBackend backend)
     {
         var state = _textCatalogs[backend]; state.Epoch++; state.Attempted = false; state.Catalog = null;
+        if (backend == AiBackend.Vllm) _openAiModelServer = "";
         state.Refreshed = null; state.Message = null; _checks.Remove(backend);
     }
     private Task RefreshTextAsync(AiBackend backend)

@@ -28,7 +28,7 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         if (model.Backend == AiBackend.Vllm)
         {
             model = VllmTextSettings.Apply(model, settings);
-            settings = settings with { VllmUrl = model.VllmUrl! };
+            settings = OpenAiConnections.Capture(model, settings);
         }
         var hosted = model.Backend == AiBackend.OpenRouter;
         var vllm = model.Backend == AiBackend.Vllm;

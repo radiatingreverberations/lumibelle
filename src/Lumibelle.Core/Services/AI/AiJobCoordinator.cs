@@ -203,11 +203,15 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             await DispatchAsync(AiBackend.ComfyUI, 1, ct);
             try
             {
-                await DispatchAsync(AiBackend.Vllm, (await settings.LoadAsync(ct)).VllmConcurrency, ct);
+                var configured = await settings.LoadAsync(ct);
+                if (configured.OpenAiConnections is null) await DispatchAsync(AiBackend.Vllm, configured.VllmConcurrency, ct);
+                else foreach (var connection in configured.OpenAiConnections.Where(c => c.Enabled))
+                    while (await store.ClaimNextForConnectionAsync(connection.Url, connection.Concurrency, ct) is { } next)
+                    { _reconciled.Add(next.Id); StartWorker(next, next.Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput); }
                 ClearError("vllm");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception e) { Failed("vLLM scheduling needs readable settings and writable job storage. It will retry without repeating active requests.", e, "vllm"); }
+            catch (Exception e) { Failed("OpenAI-compatible scheduling needs readable settings and writable job storage. It will retry without repeating active requests.", e, "vllm"); }
             try
             {
                 // Concurrency is scheduling policy, not generation context. Reading the

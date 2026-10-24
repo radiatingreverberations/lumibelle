@@ -8,6 +8,21 @@ namespace Lumibelle.Tests;
 public sealed partial class AiTextJobTests
 {
     [Fact]
+    public async Task WriterFormatExampleShowsOneBeatAcrossScenesAndClaimsTheEnding()
+    {
+        var submission = await LocalSceneRequest(reviewed: true);
+        var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var instruction = captured.Messages[0].Parts[0].Text!;
+        var exampleStart = instruction.IndexOf("{\"scenes\":", StringComparison.Ordinal);
+        var exampleEnd = instruction.IndexOf(". Each location heading", exampleStart, StringComparison.Ordinal);
+        var example = ScriptSequenceDrafting.Parse(instruction[exampleStart..exampleEnd]);
+        Assert.Equal(2, example.Scenes.Length);
+        Assert.All(example.Scenes, scene => Assert.Contains("B1", scene.BeatIds));
+        Assert.Contains("END", example.Scenes[^1].BeatIds);
+        Assert.Empty(ScriptSequenceDrafting.CheckStructure(example, ScriptSequenceDraftingTests.Plan));
+    }
+
+    [Fact]
     public async Task NewLocalSequenceCapturesTheGroupedContractAndRequiresAnEvidenceBasedReview()
     {
         var submission = await LocalSceneRequest(instructions: "Use a silent visual style.", reviewed: true);
@@ -84,11 +99,14 @@ public sealed partial class AiTextJobTests
         Assert.Null(await context.ReadOperationAsync<AiTextJobResult>("sequence-repair-1", AiOperationArtifact.Output, _ct));
     }
 
-    [Fact]
-    public async Task AStoppedReviewCannotPublishOrRegenerateDuringRecoveryAndExplicitRetryReusesTheDraft()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AStoppedReviewCannotPublishOrRegenerateDuringRecoveryAndExplicitRetryReusesTheDraft(bool ioFailure)
     {
         var submission = await LocalSceneRequest(reviewed: true);
         foreach (var output in new[] { PlannedScene, ScriptSequenceDraftingTests.Candidate, ScriptSequenceDraftingTests.Review(severity: "none") }) _providers.Chat.Outputs.Enqueue(output);
+        _providers.Chat.FailWithIoException = ioFailure;
         _providers.Chat.OnRequest = messages => _providers.Chat.FailAfterText = messages[0].Text!.StartsWith("Review a screenplay adaptation");
         var context = await Claim(submission);
         var interrupted = await Handler().ExecuteAsync(context, submission.Snapshot, _ct);
@@ -164,6 +182,29 @@ public sealed partial class AiTextJobTests
         var result = (await context.ReadAsync<AiTextJobResult>(AiJobArtifact.Result, _ct))!;
         Assert.Equal(ScriptSequenceReviewState.Passed, result.SequenceReview!.State);
         Assert.Equal(2, result.SequenceReview.Warnings.Length);
+        Assert.Equal(original.Raw, result.Raw);
+        Assert.Equal(raw, (await context.ReadOperationAsync<AiTextJobResult>("sequence-review-0-0", AiOperationArtifact.Output, _ct))!.Raw);
+    }
+
+    [Fact]
+    public async Task SavedFindingWithOneValidCitationAndOneBadExtraRecoversWithoutInference()
+    {
+        var submission = await LocalSceneRequest(reviewed: true);
+        var context = await Claim(submission);
+        var original = new AiTextJobResult(ScriptSequenceDraftingTests.Candidate, true, "stop") { ScenePlan = ScriptScenePlanning.Parse(PlannedScene)! };
+        var raw = ScriptSequenceDraftingTests.FindingWithExtraCitation();
+        await context.SaveOperationAsync("text", AiOperationArtifact.Output, original, _ct);
+        await context.SaveOperationAsync("sequence-review-0-0", AiOperationArtifact.Output, new AiTextJobResult(raw, true, "stop"), _ct);
+        await context.SaveResultAsync(original with { Error = "Review findings need valid categories and verifiable draft/source evidence.", SequenceReview = new(ScriptSequenceReviewState.NeedsAttention, 0, [], [], raw) });
+        await Store.UpdateAsync(context.Job.Id, j => j with { State = AiJobState.NeedsAttention, Recovery = AiJobRecovery.GenerateAgain }, _ct);
+        await ScriptSequenceReviewRecovery.PrepareRecheckAsync(Store, context.Job.Id, _ct);
+        await Store.RequeueAsync(context.Job.Id, _ct);
+        var recovered = Context((await Store.ClaimNextAsync(AiBackend.Vllm, 1, _ct))!, true);
+        Assert.Equal(AiJobState.Completed, (await Handler().RecoverAsync(recovered, submission.Snapshot, _ct)).State);
+        Assert.Equal(0, _providers.Created);
+        var result = (await context.ReadAsync<AiTextJobResult>(AiJobArtifact.Result, _ct))!;
+        Assert.Equal(ScriptSequenceReviewState.Passed, result.SequenceReview!.State);
+        Assert.Single(result.SequenceReview.Warnings);
         Assert.Equal(original.Raw, result.Raw);
         Assert.Equal(raw, (await context.ReadOperationAsync<AiTextJobResult>("sequence-review-0-0", AiOperationArtifact.Output, _ct))!.Raw);
     }

@@ -14,25 +14,30 @@ public static class TextModelPolicy
         Func<TextModelReference, string?> catalogName)
     {
         var name = DisplayName(model, settings, catalogName(model));
+        var provider = model.Backend == AiBackend.Vllm ? OpenAiConnections.Name(settings, model.VllmUrl) : ProviderName(model.Backend);
         if (model.ProfileId is not null)
-            return $"{ProviderName(model.Backend)} · {name} · {model.Model}{(Server(model) is { } server ? $" · {server}" : "")} · {TextModelProfiles.Describe(model)}";
+            return $"{provider} · {name} · {model.Model}{(Server(model) is { } server ? $" · {server}" : "")} · {TextModelProfiles.Describe(model)}";
         var duplicates = choices.Where(other => other.Backend == model.Backend &&
+            (model.Backend != AiBackend.Vllm || OpenAiConnections.Name(settings, other.VllmUrl).Equals(provider, StringComparison.OrdinalIgnoreCase)) &&
             DisplayName(other, settings, catalogName(other)).Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
         var suffix = duplicates.Any(other => !Same(other, model)) ? $" · {model.Model}" : "";
         if (duplicates.Any(other => !Same(other, model) && other.Model == model.Model)) suffix += $" · {Server(model)}";
-        return $"{ProviderName(model.Backend)} · {name}{suffix}";
+        return $"{provider} · {name}{suffix}";
     }
-    public static string ProviderName(AiBackend backend) => backend switch { AiBackend.ClaudeCode => "Claude Code", AiBackend.Vllm => "vLLM", _ => backend.ToString() };
+    public static string ProviderName(AiBackend backend) => backend switch { AiBackend.ClaudeCode => "Claude Code", AiBackend.Vllm => "OpenAI-compatible", _ => backend.ToString() };
     public static string? Server(TextModelReference model) => model.Backend switch { AiBackend.ComfyUI => model.ComfyUrl, AiBackend.Vllm => model.VllmUrl, _ => null };
     public static TextModelReference Reference(AiBackend backend, string id, string name, AiSettings settings) =>
         new(backend, id, name, backend == AiBackend.ComfyUI ? settings.ComfyUrl : null)
         { VllmUrl = backend == AiBackend.Vllm ? settings.VllmUrl : null };
+    public static TextModelReference Reference(AiBackend backend, AiModel model, AiSettings settings) =>
+        Reference(backend, model.Id, model.Name, settings) with { VllmUrl = backend == AiBackend.Vllm ? model.ServerUrl ?? settings.VllmUrl : null };
+    public static AiModel? CatalogModel(TextModelReference model, AiConnectionCheck? check) => check?.Models.FirstOrDefault(m =>
+        m.Id == model.Model && (model.Backend != AiBackend.Vllm || m.ServerUrl is null || SameVllmServer(m.ServerUrl, model.VllmUrl)));
     public static void CheckRequestServer(TextModelReference? selection, AiSettings settings)
     {
         if (selection?.Backend == AiBackend.ComfyUI && !SameServer(selection.ComfyUrl, settings.ComfyUrl))
             throw new AiGenerationException("The ComfyUI server changed. Refresh the model picker before trying again.");
-        if (selection?.Backend == AiBackend.Vllm && !SameVllmServer(selection.VllmUrl, settings.VllmUrl))
-            throw new AiGenerationException("The vLLM server changed. Refresh the model picker before trying again.");
+        if (selection?.Backend == AiBackend.Vllm) _ = OpenAiConnections.Capture(selection, settings);
     }
     public static TextModelReference Default(AiSettings settings) => settings.TextDefault ?? (settings.DefaultBackend switch
     {
@@ -87,14 +92,20 @@ public static class TextModelPolicy
         catch (WorkspaceStoreException e) { return e.Message; }
         if (model.Backend == AiBackend.ComfyUI && !SameServer(model.ComfyUrl, settings.ComfyUrl)) return "This model belongs to a different ComfyUI server.";
         if (model.Backend == AiBackend.OpenRouter && !settings.HasOpenRouterKey) return "Add an OpenRouter key in Connections.";
-        if (model.Backend == AiBackend.Vllm && !SameVllmServer(model.VllmUrl, settings.VllmUrl)) return "This model belongs to a different vLLM server.";
+        if (model.Backend == AiBackend.Vllm)
+        {
+            var connection = OpenAiConnections.Find(settings, model.VllmUrl);
+            if (connection is null) return "This model belongs to a removed or different OpenAI-compatible connection.";
+            if (!connection.Enabled) return $"Enable {connection.Name} in Connections.";
+            if (check?.Connections?.FirstOrDefault(c => SameVllmServer(c.Server, model.VllmUrl)) is { Success: false } failed) return failed.Message;
+        }
         if (model.Backend == AiBackend.Codex && !settings.Codex.Enabled) return "Enable Codex in Connections.";
         if (model.Backend == AiBackend.ClaudeCode && !settings.ClaudeCode.Enabled) return "Enable Claude Code in Connections.";
         if (check is null) return "Refresh this provider to check availability.";
         if (!check.Success) return check.Message;
-        if (check.Models.All(item => item.Id != model.Model)) return "This model is no longer available. Choose another model.";
-        if (UsesNamedEffort(model.Backend) && model.ReasoningEffort is { } effort && check.Models.First(m => m.Id == model.Model).ReasoningEfforts?.Contains(effort) != true) return "Choose a supported reasoning effort for this model.";
-        if (TextModelProfiles.CatalogIssue(model, check.Models.First(m => m.Id == model.Model)) is { } profileIssue) return profileIssue;
+        if (CatalogModel(model, check) is not { } catalogModel) return "This model is no longer available. Choose another model.";
+        if (UsesNamedEffort(model.Backend) && model.ReasoningEffort is { } effort && catalogModel.ReasoningEfforts?.Contains(effort) != true) return "Choose a supported reasoning effort for this model.";
+        if (TextModelProfiles.CatalogIssue(model, catalogModel) is { } profileIssue) return profileIssue;
         if (requireTest && model.Backend == AiBackend.ComfyUI &&
             (check.BackendVersion is null || Verification(model, settings, check.BackendVersion) is null))
             return "Test this model with the current ComfyUI version before selecting it.";

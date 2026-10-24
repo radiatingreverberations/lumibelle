@@ -10,6 +10,12 @@ Create Characters, Environments and Props manually, or choose **Extract from scr
 
 Evidence is tied to the captured script snapshot and scene IDs.
 
+Scene selection, extraction progress and review stay in one dialog, with **Choose scenes → Find assets → Review & add** showing the current step. Choose the text model in the footer before starting. After submission, the selected scenes and captured request remain available under **Request details**. Closing the window keeps extraction running; reopen it from the library button or AI activity.
+
+As extraction streams, readable asset cards show the suggestions arriving. Each card fills the available width, with descriptions and tags alongside looks, consistency notes and script evidence on wider screens. Narrow screens stack those details. The raw response remains available separately. These are previews; validation and your review still precede library changes.
+
+If an extraction needs correction, the review lists the affected fields and offers **Selected source scenes** with the captured scene IDs. **Recheck saved response** runs local validation again without another model call. **Edit JSON** uses the same response editor as Script; **Review corrected JSON** validates and saves a separate correction, preserving the original response and request. It then opens the usual add/update/skip review. Unknown scene references and invalid asset or look matches must be corrected before applying. **New extraction** starts a new model request.
+
 ## Images
 
 Import PNG, JPEG or WebP files up to 25 MB, or generate one to four local Krea 2 or Klein KV candidates. Image runs are sequential and keep candidates completed before a later failure or cancellation. Prompts, model filenames, aspect ratios, seeds, dimensions and generation timestamps remain with each generated take.

@@ -57,9 +57,8 @@ public static class AiTextResults
                 if (error is null && blocks is not null && script.Run.SourceScene is not null) error = ScriptAdaptation.DraftError(blocks);
                 return Value(result, new AssistantUpdate(Blocks: error is null ? blocks : null, ValidationError: error, Complete: true, NormalizationNotes: parsed?.NormalizationNotes), error);
             case AiJobKind.AssetExtraction:
-                var proposals = AssetExtractor.Parse(raw, request.Payload<AssetExtractionRequest>());
-                var extractionError = proposals is null ? "The response was not a valid asset list. Nothing was reviewed; inspect it and retry." : null;
-                return Value(result, new AssetExtractionResult(proposals ?? [], raw, extractionError), extractionError);
+                var extraction = AssetExtractor.Inspect(raw, request.Payload<AssetExtractionRequest>());
+                return Value(result, extraction, extraction.ValidationError);
             case AiJobKind.ShotPlanning:
                 var shots = ShotPlanner.Parse(raw, request.Payload<ShotPlanningRequest>());
                 return Value(result, shots, shots.Error);

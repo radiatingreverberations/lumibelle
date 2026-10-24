@@ -64,19 +64,23 @@ Add comma-separated **Tags** to LoRA registrations, then search or filter the li
 
 An already selected, enabled LoRA that the project now excludes blocks generation until it is disabled, removed or allowed again. Each batch checks the saved project rules when it starts; changes never rewrite earlier images or their recorded LoRAs. To use LoRAs on an asset, see [Assets studio](assets.md#loras).
 
-## vLLM
+## OpenAI-compatible servers
 
-Connect a vLLM server on this computer or your network:
+Connect servers such as vLLM and Strata on this computer or your network. Multiple connections can remain enabled at the same time:
 
-1. Open **Connections → vLLM** and enter its API base URL, such as `http://llm-server:8000/v1`. A bare server address automatically uses `/v1`; include the full API path when using a reverse proxy.
+1. Open **Connections → OpenAI-compatible**, choose **Add connection**, give the server a name, and enter its API base URL, such as `http://llm-server:8000/v1`. A bare server address automatically uses `/v1`; include the full API path when using a reverse proxy. Existing vLLM settings appear as a connection automatically.
 2. Enter an API key only if the server requires one. Choose **Check connection**, then **Save connection**.
-3. Open **Text models → vLLM**, refresh, and star a served model. Select it in **Assist**, or set it as the global default under **Defaults & profiles**.
+3. Open **Text models → OpenAI-compatible**, refresh, and star a served model. Filter by connection when needed. Select it in **Assist**, or set it as the global default under **Defaults & profiles**. Choices include the connection name, so the same model ID on two servers stays distinct.
 
-Checks call the server's model catalog without generating text. The server must serve a chat-capable model with a chat template. Text requests stream through the existing AI activity queue, with one concurrent request by default.
+Checks read the model catalog and optional compatibility metadata without generating text. The server must serve a chat-capable model with a chat template. Each connection has its own concurrent-request limit, initially one; work on one server does not block another. Disabling a connection prevents new dispatches while active requests finish. The OpenAI-compatible pause in AI activity pauses all these connections.
 
-Expand a model under **Text models → vLLM** to set its temperature and maximum reply tokens. Blank fields use the server defaults; **Use server defaults** clears both overrides. Settings belong to the exact model and server. LLM profiles override individual values, and queued requests keep the values captured when submitted. **Test model** runs a short benchmark with the saved temperature and reply limit (2,048 tokens when no limit is set). **Advanced test** accepts a custom message and reply limit. **Details** reopens the saved response and measurements without generating again. Tests retain their server and settings; output speed includes reasoning and time waiting for the response. GPU memory and prompt-capacity measurements are available for ComfyUI only.
+Expand a model under **Text models → OpenAI-compatible** to set its temperature and maximum reply tokens. Blank fields use the server defaults; **Use server defaults** clears both overrides. Settings belong to the exact model and server. LLM profiles override individual values, and queued requests keep the values captured when submitted. **Test model** runs a short benchmark with the saved temperature and reply limit (2,048 tokens when no limit is set). **Advanced test** accepts a custom message and reply limit. **Details** reopens the saved response and measurements without generating again. Tests retain their server and settings; output speed includes reasoning and time waiting for the response. GPU memory and prompt-capacity measurements are available for ComfyUI only.
 
-Saved choices and queued requests retain their server address. Changing servers clears the old saved key; credentials are stored protected and never included in queued requests. This connection currently supports text input; the model catalog does not establish vision support. Configure model-specific reasoning on the vLLM server.
+Saved choices and queued requests retain their server address. Changing an address does not transfer its saved key to the new server; credentials are stored protected and never included in queued requests. Removing or disabling a server makes its saved choices unavailable instead of routing them elsewhere.
+
+**Compatibility & capabilities** normally uses automatic detection. Lumibelle recognizes vLLM and Strata metadata; **Standard OpenAI-compatible** uses ordinary chat requests. Select the runtime explicitly if a proxy hides its metadata. vLLM sequence drafting uses constrained JSON generation. Strata streams normally using the JSON format instructions in the prompt; Lumibelle validates the completed brief, screenplay and review locally. Existing captured requests keep their original format, including server validation and buffering when a JSON schema was captured.
+
+Context windows and image support come from the served model's metadata. Context is a runtime setting: refresh the catalog after changing it. When metadata is missing or inaccurate, set an explicit capability override on the connection. A context override applies to all models on that connection; leave it empty to follow the server. Reference images require image support. Configure model-specific reasoning on the server.
 
 ## OpenRouter
 

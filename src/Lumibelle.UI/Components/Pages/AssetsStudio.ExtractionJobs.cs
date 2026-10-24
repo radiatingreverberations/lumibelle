@@ -21,6 +21,10 @@ public partial class AssetsStudio
     private readonly CancellationTokenSource _extractionLifetime = new();
     private ElementReference _extractionOriginElement;
     private string _extractionRaw = "";
+    private AiTextJobRequest? _capturedExtraction;
+    private bool _editingExtractionJson, _savingExtractionJson, _extractionCorrected;
+    private string _extractionJson = "";
+    private string? _extractionJsonError;
     private bool _reviewDraftDirty, _reviewDraftConflict;
     private long _reviewDraftRevision;
     private string? _reviewDraftFingerprint, _reviewDraftError;
@@ -95,6 +99,8 @@ public partial class AssetsStudio
             var captured = AiTextJobHandler.Read(job, await AiJobStore.ReadSnapshotAsync(job.Id, _extractionLifetime.Token));
             if (_disposed || job.Target.ProjectId != Id) return;
             _extractionJob = job; _extractionLoadedJob = _reviewId = job.Id;
+            _capturedExtraction = captured;
+            _editingExtractionJson = false; _extractionJsonError = null;
             _reviewRequest = captured.Payload<AssetExtractionRequest>(); _approvedScript = _reviewRequest.Script;
             _selectedScenes = _reviewRequest.SceneIds.ToHashSet(); _extractionModel = captured.Model;
             _extractionFollowsDefault = captured.FollowsDefault;
@@ -106,17 +112,29 @@ public partial class AssetsStudio
     private AiJobHeader? _observedExtractionJob;
     private async Task ReadExtractionResultAsync(AiJobHeader job)
     {
-        var result = await AiJobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _extractionLifetime.Token);
+        var original = await AiJobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _extractionLifetime.Token);
+        var result = job.State == AiJobState.Completed
+            ? await AiTextResponseCorrections.ReadAsync(AiJobStore, job, _extractionLifetime.Token) : original;
         if (_disposed || job.Target.ProjectId != Id || _extractionJob?.Id != job.Id) return;
         _observedExtractionJob = job;
-        _extractionRaw = result?.Raw ?? "";
+        _extractionRaw = original?.Raw ?? "";
+        _extractionCorrected = result?.LocallyCorrected == true;
+        if (_extractionCorrected && _extractionResult?.ValidationError is not null) _extractionResult = null;
         _extractionProgress = AiJobs.Progress(job.Id)?.Progress;
-        _extractionError = job.CancelRequested || job.State == AiJobState.Cancelled ? job.Error ?? "Asset extraction cancelled. No assets were changed." : result?.Error ?? job.Error;
-        if (job.State == AiJobState.Completed && result?.Complete == true && _extractionResult is null)
+        _extractionError = job.CancelRequested || job.State == AiJobState.Cancelled ? job.Error ?? "Asset extraction cancelled. No assets were changed." :
+            job.State == AiJobState.NeedsAttention && result?.Complete == true ? null : result?.Error ?? job.Error;
+        if (job.State is AiJobState.Completed or AiJobState.NeedsAttention && result?.Complete == true && _extractionResult is null)
         {
             // Saved decisions load before the proposals show: an edit made while they loaded would be taken for
             // the saved draft and never saved.
-            var response = result.Read<AssetExtractionResult>();
+            var response = result.Error is not null && _capturedExtraction is not null
+                ? AiTextResults.Parse(_capturedExtraction, result.Raw, result.FinishReason).Read<AssetExtractionResult>()
+                : result.Read<AssetExtractionResult>();
+            response ??= new([], result.Raw, result.Error ?? "No complete asset proposal is available.");
+            // Revalidating is display-only until the author explicitly recovers it.
+            if (job.State == AiJobState.NeedsAttention && response.ValidationError is null)
+                response = response with { Proposals = [], ValidationError = "This saved response now passes validation. Use Recheck saved response to prepare its suggestions for review without another model call." };
+            _extractionError = null;
             if (response is not { ValidationError: null }) _extractionResult = response;
             else
             {
@@ -135,6 +153,23 @@ public partial class AssetsStudio
             }
             await RefreshCoverageAsync();
         }
+    }
+
+    private bool CanCorrectExtraction => _extractionJob is { State: AiJobState.NeedsAttention, CancelRequested: false, RemoteUnconfirmed: false } &&
+        !_extracting && _extractionRaw.Length > 0;
+    private void EditExtractionJson() { _extractionJson = _extractionRaw; _extractionJsonError = null; _editingExtractionJson = true; }
+    private async Task CorrectExtractionAsync(bool edited)
+    {
+        if (_savingExtractionJson || !CanCorrectExtraction || _extractionJob is not { } job) return;
+        _savingExtractionJson = true; _extractionJsonError = null;
+        try {
+            await AiTextResponseCorrections.SaveAsync(AiJobStore, job.Id, edited ? _extractionJson : _extractionRaw, edited, _extractionLifetime.Token);
+            _extractionResult = null; _editingExtractionJson = false;
+            await AiJobs.RefreshAsync(_extractionLifetime.Token);
+            await RefreshExtractionJobsAsync();
+        }
+        catch (WorkspaceStoreException e) { _extractionJsonError = e.Message; }
+        finally { _savingExtractionJson = false; }
     }
     // Counts closings of the review. An opening that began before the author closed it must not show it again,
     // whether it was the automatic opening for a finished request or a click still waiting on a save or claim.

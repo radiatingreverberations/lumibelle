@@ -29,6 +29,8 @@ public sealed partial class AiTextJobTests
             Profile = ScriptScenePlanning.Profile,
             Messages = ScriptAssistant.BuildMessages(payload, includeSourceEvidence: false).Select(AiTextMessage.Capture).ToArray(),
             ScenePlanMessages = ScriptScenePlanning.Messages(payload).Select(AiTextMessage.Capture).ToArray(),
+            ScenePlanReplyTokens = null,
+            ScenePlanResponseSchema = null, ScenePlanResponseGrammar = null,
             ResponseSchema = ScriptScenePlanning.ScreenplaySchema, ResponseGrammar = ScriptScenePlanning.ScreenplayGrammar
         }, AtomicJsonFile.Options) };
     }
@@ -83,6 +85,48 @@ public sealed partial class AiTextJobTests
         Assert.Equal(draftLimit, _providers.Chat.Options!.MaxOutputTokens);
         Assert.Null(_providers.Chat.Options.ResponseFormat);
         Assert.NotNull(_providers.Chat.Options.RawRepresentationFactory);
+    }
+
+    [Theory]
+    [InlineData(null, null, 8192)]
+    [InlineData(2048, null, 2048)]
+    [InlineData(null, 3072, 3072)]
+    [InlineData(6144, 2048, 6144)]
+    public async Task NewSequencePlanningCapturesItsBudgetAndHonorsSelectedReplyLimits(int? selected, int? profile, int expected)
+    {
+        var submission = await LocalSceneRequest(selected, profile, reviewed: true);
+        var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal(expected, request.ScenePlanReplyTokens);
+        Assert.NotNull(request.ScenePlanResponseSchema); Assert.NotNull(request.ScenePlanResponseGrammar);
+        // Stop after planning so this test checks the actual transmitted stage budget.
+        _providers.Chat.Outputs.Enqueue("{");
+        var context = await Claim(submission);
+        await Assert.ThrowsAsync<AiGenerationException>(() => Handler().ExecuteAsync(context, submission.Snapshot, _ct));
+        var planning = await context.ReadOperationAsync<AiTextJobRequest>("scene-plan", AiOperationArtifact.Request, _ct);
+        Assert.Equal(expected, planning!.Model.MaxOutputTokens);
+        Assert.Equal(expected, _providers.Chat.Options!.MaxOutputTokens);
+        Assert.Null(planning.ScenePlanReplyTokens);
+        Assert.Equal(request.ScenePlanResponseGrammar, planning.ResponseGrammar);
+        Assert.True(JsonElement.DeepEquals(request.ScenePlanResponseSchema!.Value, planning.ResponseSchema!.Value));
+        Assert.Equal(1, _providers.Created);
+    }
+
+    [Fact]
+    public async Task InvalidPlanningBudgetsAndExampleRolesAreRejectedBeforeInference()
+    {
+        var submission = await LocalSceneRequest(reviewed: true);
+        var request = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var context = await Claim(submission);
+        foreach (var limit in new[] { 0, 32769, request.Model.MaxOutputTokens!.Value + 1 }) {
+            var invalid = request with { ScenePlanReplyTokens = limit };
+            Assert.Throws<WorkspaceStoreException>(() => AiTextJobHandler.Read(context.Job, JsonSerializer.SerializeToElement(invalid, AtomicJsonFile.Options)));
+        }
+        var invalidExample = request with { ScenePlanMessages = request.ScenePlanMessages!.Select((m, index) => index == 2 ? m with { Role = "user" } : m).ToArray() };
+        Assert.Throws<WorkspaceStoreException>(() => AiTextJobHandler.Read(context.Job, JsonSerializer.SerializeToElement(invalidExample, AtomicJsonFile.Options)));
+        foreach (var invalid in new[] { request with { ScenePlanResponseSchema = JsonSerializer.SerializeToElement(true) },
+            request with { ScenePlanResponseGrammar = " " }, request with { ScenePlanResponseSchema = null } })
+            Assert.Throws<WorkspaceStoreException>(() => AiTextJobHandler.Read(context.Job, JsonSerializer.SerializeToElement(invalid, AtomicJsonFile.Options)));
+        Assert.Equal(0, _providers.Created);
     }
 
     [Theory]

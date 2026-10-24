@@ -59,7 +59,7 @@ public sealed class GuidanceAssistant(IAiProviderRegistry providers, IAiSettings
         yield return new(Progress: new(GenerationPhase.Preparing, "Checking guidance model…"));
         var check = await providers.CheckAsync(request.Model.Backend, settings, cancellationToken: token);
         if (TextModelPolicy.Issue(request.Model, settings, check, !request.FollowsDefault) is { } issue) throw new AiGenerationException(issue);
-        if (request.InspectionImage is not null && (!TextVisionPolicy.SupportsBackend(request.Model.Backend) || check.Models.FirstOrDefault(m => m.Id == request.Model.Model)?.SupportsImages != true))
+        if (request.InspectionImage is not null && (!TextVisionPolicy.SupportsBackend(request.Model.Backend) || TextModelPolicy.CatalogModel(request.Model, check)?.SupportsImages != true))
             throw new AiGenerationException(TextVisionPolicy.SetupHint);
         await ReadTargetAsync(request.Context.Target, token);
         byte[]? image = null;
