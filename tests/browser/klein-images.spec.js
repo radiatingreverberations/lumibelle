@@ -30,6 +30,9 @@ test('Klein settings preserve Krea and fit desktop and mobile', async ({ page })
   await entry('Defaults').click();
   await expect(page.getByLabel('Default image workflow')).toHaveValue('Flux2Klein9bKv');
   await entry('FLUX.2 Klein 9B KV').click();
+  // Wait for the selected workflow's Blazor render before checking its tab order.
+  await expect(entry('FLUX.2 Klein 9B KV')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('Klein 9B KV model')).toHaveValue('flux-2-klein-9b-kv-fp8.safetensors');
   await page.setViewportSize({ width: 390, height: 844 });
   await entry('FLUX.2 Klein 9B KV').focus();
   await page.keyboard.press('Tab');
@@ -71,6 +74,8 @@ test('Klein multi-reference edit captures inputs and persists lineage', async ({
   await page.screenshot({ path: 'test-results/klein-references-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await toolsTab(page, 'Prompt');
+  // Opening the mobile drawer moves focus on its next animation frame.
+  await expect(page.getByRole('button', { name: 'Close Asset tools', exact: true })).toBeFocused();
   await expect(page.getByLabel('Edit instruction')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await toolsTab(page, 'Inputs');
