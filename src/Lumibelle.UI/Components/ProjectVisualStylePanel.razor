@@ -1,0 +1,42 @@
+@inject IProjectAiPreferencesStore Preferences
+<section class="settings-card project-visual-style" aria-labelledby="@_heading">
+    <h2 id="@_heading">Visual style</h2>
+    <p>The shared visual treatment for new asset images, reference reels and their AI reviews. Assets and individual runs can override it.</p>
+    @if (_loading) { <p role="status">Loading visual style…</p> }
+    else {
+        <VisualStyleEditor Label="Project visual style" Value="_draft" ValueChanged="value => _draft = value ?? new()" AllowInherit="false" Disabled="_saving" />
+        <p class="field-hint">Saved media and queued requests keep their captured style.</p>
+        <MudButton OnClick="Save" Disabled="@(_saving || _preferences is null)" Variant="Variant.Filled" Color="Color.Primary">Save visual style</MudButton>
+        @if (_notice is not null) { <p role="status">@_notice</p> }
+    }
+    @if (_error is not null) { <p role="alert" class="field-error">@_error</p><button @onclick="Load">Reload saved style</button> }
+</section>
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    private Guid _loaded;
+    private readonly string _heading = "project-style-" + Guid.NewGuid().ToString("N");
+    private ProjectAiPreferences? _preferences;
+    private VisualStyle _draft = new();
+    private bool _loading, _saving;
+    private string? _error, _notice;
+    protected override async Task OnParametersSetAsync() { if (_loaded != ProjectId) { _loaded = ProjectId; await Load(); } }
+    private async Task Load()
+    {
+        _loading = true; _error = _notice = null;
+        try { _preferences = await Preferences.LoadAsync(ProjectId); _draft = _preferences.VisualStyle; }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _preferences = null; _error = e.Message; }
+        finally { _loading = false; }
+    }
+    private async Task Save()
+    {
+        if (_saving || _preferences is null) return;
+        _saving = true; _error = _notice = null;
+        try { _preferences = await Preferences.SetVisualStyleAsync(ProjectId, _draft, _preferences.VisualStyleRevision); _draft = _preferences.VisualStyle; _notice = "Visual style saved."; }
+        catch (WorkspaceConflictException) {
+            try { _preferences = await Preferences.LoadAsync(ProjectId); _error = "The project style changed in another tab. Your draft is retained; review it and save again, or reload the saved style."; }
+            catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _preferences = null; _error = e.Message; }
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+        finally { _saving = false; }
+    }
+}

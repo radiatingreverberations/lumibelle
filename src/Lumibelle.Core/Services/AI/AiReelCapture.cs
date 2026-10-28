@@ -11,7 +11,7 @@ public sealed partial class AiReelCapture(IAssetStore assets, IAssetReelStore re
     IVideoGenerator generator, IProjectStore projects, IProjectAiPreferencesStore preferences, IAiJobStore? jobs = null, IReferenceVideoStore? referenceVideos = null,
     IGenerationSetupStore? generationSetups = null)
 {
-    public async Task<AiJobSubmission> CaptureAsync(Guid id, Guid tab, Guid project, Guid draftId, long revision, int count, CancellationToken ct = default)
+    public async Task<AiJobSubmission> CaptureAsync(Guid id, Guid tab, Guid project, Guid draftId, long revision, int count, CancellationToken ct = default, AiSettings? capturedSettings = null)
     {
         var library = await assets.LoadAsync(project, ct);
         var draft = library.ReelDrafts.SingleOrDefault(d => d.Id == draftId)?.Copy() ?? throw new WorkspaceStoreException("Save the reel recipe first.");
@@ -20,17 +20,19 @@ public sealed partial class AiReelCapture(IAssetStore assets, IAssetReelStore re
         ReferenceReels.Validate(draft, true);
         var owner = library.Assets.SingleOrDefault(a => a.Id == draft.AssetId) ?? throw new WorkspaceStoreException("Choose an available character, environment or prop.");
         ReferenceReels.ValidateOwner(draft, owner);
+        draft.CapturedVisualStyle = await VisualStyles.CaptureAsync(project, owner, draft.VisualStyle, preferences, ct);
         var character = LookPolicy.Capture(owner, draft.LookId); LookPolicy.ValidateTarget(library, character);
-        var configured = ShotCopy.Of(await settings.LoadAsync(ct)); var inputs = ReferenceReels.Inputs(draft);
+        var configured = ShotCopy.Of(capturedSettings ?? await settings.LoadAsync(ct)); var inputs = ReferenceReels.Inputs(draft);
         var check = await generator.CheckAsync(configured, ct);
         if (!check.Ready(inputs)) throw new WorkspaceStoreException(check.Issue(inputs));
         var loras = H3Loras.Selections(inputs).Any(l => l.Enabled && l.Strength != 0)
             ? H3Loras.Capture(inputs, configured, (await preferences.LoadAsync(project, ct)).LoraVisibility, check.OptionalLoras) : null;
         var size = VideoResolutions.Size(draft);
-        var snapshot = new VideoSnapshot(project, revision, inputs, draft.Prompt, VideoResolutions.Fingerprint(draft),
+        var snapshot = new VideoSnapshot(project, revision, inputs, VisualStyles.Apply(draft.Prompt, draft.CapturedVisualStyle), VideoResolutions.Fingerprint(draft),
             AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), configured.H3, size.Width, size.Height, H3Policy.Frames(draft.Duration), draft.PresetVersion)
         { Reel = new(draft, character) { Owner = owner with { Images = [] } }, AppliedLoras = loras, OutputPolicy = new(inputs.SaveLosslessFrames), Preset = H3Presets.Capture(inputs, configured.H3),
             Performance = H3Performance.Capture(H3Presets.NewPerformance(configured.H3)), Sampling = H3Policy.Sampling(inputs, configured.H3),
+            CaptureRefinementData = inputs.SaveLatents && !inputs.UpscalePreview,
             PreviewUpscale = inputs.UpscalePreview ? H3PreviewUpscaling.Capture(check.PreviewUpscaling.Implementation!.Value, configured.H3.LatentUpscaler, draft.Aspect) : null };
         var expectedImages = await ProductionInputs.CaptureAsync(project, inputs, assets, ct, referenceVideos, configured.H3);
         var directory = await reels.RunDirectoryAsync(project, id, ct); using var gate = await ProjectFiles.LockAsync(directory, ct);

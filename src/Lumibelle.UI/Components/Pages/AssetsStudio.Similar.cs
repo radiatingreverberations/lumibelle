@@ -40,13 +40,13 @@ public partial class AssetsStudio
             var crops = edit?.ReferenceCrops.ToList() ?? [];
             if (edit?.SourceCrop is { } crop) crops.Insert(0, new(new(edit.SourceAssetId, edit.SourceImageId), crop));
             // Keep the original inputs, including missing ones, so validation can explain what needs restoring.
-            var draft = new ImageComposerDraft(recipe.Workflow, recipe.Prompt, string.Join(", ", image.Tags), recipe.AspectRatio,
+            var draft = new ImageComposerDraft(recipe.Workflow, recipe.AuthorPrompt ?? recipe.Prompt, string.Join(", ", image.Tags), recipe.AspectRatio,
                 recipe.Workflow == ImageWorkflow.CodexImages ? "" : recipe.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 1, edit?.SourceImageId, recipe.Look is { } look && look.AssetId == _selectedAssetId ? look.LookId : null,
                 edit?.References.Where(r => r != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId)).ToArray() ?? [], crops,
                 edit?.ReferenceBoost ?? 4, edit?.BaseReferenceBoost ?? 1, edit?.GroundingPixels ?? 768, edit?.Regions,
                 recipe.QwenImage21?.Options, true, edit?.SourceAssetId,
-                recipe.Loras.Select(l => new LoraSelection(l.Reference, l.Strength)).ToArray(), recipe.Resolution);
+                recipe.Loras.Select(l => new LoraSelection(l.Reference, l.Strength)).ToArray(), recipe.Resolution, recipe.VisualStyle);
             ApplyImageComposer(draft);
             _presentation.Selection = null; _presentation.Creation = AssetCreationKind.Image;
             _lookPromptDrafts[(_selectedAssetId!.Value, _targetLookId)] = _imagePrompt;

@@ -13,6 +13,8 @@ public sealed record PromptReference(AssetImageReference Image, string Label, st
 
 public sealed record PromptEnhancementContext
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; init; }
     public AssetLookContext? TargetLook { get; init; }
     public required Guid ProjectId { get; init; }
     public required Guid AssetId { get; init; }
@@ -34,7 +36,7 @@ public sealed record PromptEnhancementContext
         References = Array.AsReadOnly(References.Select(r => r with { Crop = r.Crop is null ? null : r.Crop with { }, Region = r.Region?.Copy() }).ToArray()),
         Loras = Array.AsReadOnly(Loras.ToArray()), ProtectedTriggers = Array.AsReadOnly(ProtectedTriggers.ToArray())
     };
-    public string Fingerprint() => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(this))));
+    public string Fingerprint() => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(this with { VisualStyle = lumibelle.Services.Assets.VisualStyles.Context(VisualStyle) }))));
 }
 
 // Direction is the author's guidance for this rewrite only, so it is not part of the prompt setup a suggestion is checked against.

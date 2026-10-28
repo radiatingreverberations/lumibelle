@@ -153,7 +153,8 @@ public sealed partial class AiImageJobHandler(IAssetStore assets, IComfyImageJob
                     await context.ReportAsync(new(new(GenerationPhase.Saving, "Saving candidate to Assets…"), candidate.Number, total), true);
                     using var content = new MemoryStream(staged.Bytes, writable: false);
                     await assets.PublishGeneratedImageAsync(request.ProjectId, new(context.Job.Id, candidate.Id, request.AssetId,
-                        new(staged.FileName, request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, metadata, request.Look?.LookId)), content, linked.Token);
+                        new(staged.FileName, request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, metadata, request.Look?.LookId,
+                            (request.Create?.PendingReview ?? request.Edit?.PendingReview) == true ? true : null)), content, linked.Token);
                     completed.Add(new(candidate.Id, candidate.Number, candidate.Id, metadata));
                     await SaveResultAsync(context, completed, linked.Token);
                     await context.MarkReviewableAsync(linked.Token);

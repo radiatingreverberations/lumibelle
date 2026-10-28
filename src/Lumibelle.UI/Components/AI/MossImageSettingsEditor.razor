@@ -1,0 +1,39 @@
+@using lumibelle.Services.Assets
+
+<fieldset disabled="@Disabled" class="moss-settings" aria-label="MOSS image settings">
+    <legend>Creation and editing</legend>
+    <label for="moss-edit-lora">Edit LoRA</label>
+    <select id="moss-edit-lora" @bind:get="Value.EditLora" @bind:set="(string v) => Update(Value with { EditLora = v })">
+        <option value="">Choose an edit LoRA to enable editing</option>
+        @if (Value.EditLora.Length > 0 && Loras.All(l => l.Id != Value.EditLora)) { <option value="@Value.EditLora">@Value.EditLora (not discovered)</option> }
+        @foreach (var lora in Loras) { <option value="@lora.Id">@lora.Name</option> }
+    </select>
+    <ImageModelDownloads Workflow="ImageWorkflow.MossImage" Kind="ImageFileKind.EditLora" Selected="@Value.EditLora" />
+    <label for="moss-edit-format">Edit LoRA format</label>
+    <select id="moss-edit-format" @bind:get="Value.EditFormat" @bind:set="(string v) => Update(Value with { EditFormat = v })">
+        @foreach (var format in MossImagePolicy.EditFormats) { <option value="@format">@format</option> }
+    </select>
+    <p class="field-hint">Use Moss-Image-Edit for chinoll’s adapter, or the matching AI Toolkit format for an adapter trained that way. The edit LoRA is applied at strength 1. Creation works without an edit LoRA. Installed files are listed without claiming tested compatibility.</p>
+    <label for="moss-steps">Creation steps</label>
+    <input id="moss-steps" type="number" min="1" max="150" @bind:get="Value.Steps" @bind:set="(int v) => Update(Value with { Steps = v })" />
+    <label for="moss-guidance">Creation guidance (CFG)</label>
+    <input id="moss-guidance" type="number" min="1" max="20" step="0.1" @bind:get="Value.Guidance" @bind:set="(double v) => Update(Value with { Guidance = v })" />
+    <label for="moss-edit-steps">Editing steps</label>
+    <input id="moss-edit-steps" type="number" min="1" max="150" @bind:get="Value.EditSteps" @bind:set="(int v) => Update(Value with { EditSteps = v })" />
+    <label for="moss-edit-guidance">Editing guidance (CFG)</label>
+    <input id="moss-edit-guidance" type="number" min="1" max="20" step="0.1" @bind:get="Value.EditGuidance" @bind:set="(double v) => Update(Value with { EditGuidance = v })" />
+    <label for="moss-shift">Sampling shift</label>
+    <input id="moss-shift" type="number" min="0.1" max="100" step="0.1" @bind:get="Value.Shift" @bind:set="(double v) => Update(Value with { Shift = v })" />
+    <label for="moss-slg"><input id="moss-slg" type="checkbox" @bind:get="Value.SkipLayerGuidance" @bind:set="(bool v) => Update(Value with { SkipLayerGuidance = v })" /> Skip layer 22 on the creation negative branch</label>
+    <label for="moss-negative">Negative prompt</label>
+    <textarea id="moss-negative" rows="2" @bind:get="Value.NegativePrompt" @bind:set="(string v) => Update(Value with { NegativePrompt = v })"></textarea>
+    <p class="field-hint">Euler/simple sampling with separate defaults: 50 steps / CFG 3 for creation, 30 steps / CFG 4 for chinoll edits. New edits retain each reference's crop and proportions at the output's pixel budget, preserving detail on larger canvases. Historical queued edits retain their original reference sizing.</p>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public MossImageSettings Value { get; set; } = new();
+    [Parameter] public EventCallback<MossImageSettings> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<AiModel> Loras { get; set; } = [];
+    [Parameter] public bool Disabled { get; set; }
+    private Task Update(MossImageSettings value) => ValueChanged.InvokeAsync(value);
+}

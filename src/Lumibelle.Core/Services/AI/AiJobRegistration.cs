@@ -1,4 +1,5 @@
 using lumibelle.Services.Story;
+using lumibelle.Services.Assets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace lumibelle.Services.AI;
@@ -20,6 +21,8 @@ public static class AiJobRegistration
         services.AddSingleton<SourceWorkflow>();
         services.AddSingleton<FileScriptDraftBatchStore>();
         services.AddSingleton<ScriptDraftWorkflow>();
+        services.AddSingleton<FileAssetBatchStore>();
+        services.AddSingleton<AssetBatchWorkflow>();
         services.AddSingleton<IContentProbeStore, FileContentProbeStore>();
         services.AddSingleton<ContentProbeCapture>();
         services.AddSingleton<AiImageJobCapture>();
@@ -35,6 +38,7 @@ public static class AiJobRegistration
         services.AddHostedService(s => s.GetRequiredService<AiJobCoordinator>());
         services.AddHostedService<SourceWorkflowWorker>();
         services.AddHostedService<ScriptDraftWorkflowWorker>();
+        services.AddHostedService<AssetBatchWorker>();
         services.AddHostedService<CodexLaunch>();
         services.AddHostedService<ClaudeCodeLaunch>();
         services.AddSingleton<FileAssistantHistoryStore>();

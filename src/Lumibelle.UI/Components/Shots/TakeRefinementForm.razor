@@ -1,17 +1,17 @@
 @inject NavigationManager Navigation
-<section class="take-refinement-form" aria-label="Refine take">
+<section class="take-refinement-form" aria-label="@($"Refine {Kind}")">
     <h3>@(Source.Composition is null ? "Refine at a larger size" : "Refine extension")</h3>
-    <p>@RefinementPolicy.Label(Source) · @Source.Width × @Source.Height · @Source.FrameCount frames at 24 fps</p>
-    <label>Mode<select @ref="_modeElement" aria-label="Mode" @bind="_mode" disabled="@Busy"><option value="Refine">Refine · keep the take's audio</option><option value="Rework">Rework · regenerate audio</option></select></label>
+    <p>@(Kind == "reel" ? "Reel" : RefinementPolicy.Label(Source)) · @Source.Width × @Source.Height · @Source.FrameCount frames at 24 fps</p>
+    <label>Mode<select @ref="_modeElement" aria-label="Mode" @bind="_mode" disabled="@Busy"><option value="Refine">Refine · keep the @Kind's audio</option><option value="Rework">Rework · regenerate audio</option></select></label>
     @if (Source.Composition is not null) { <p class="field-hint">Refines the @(Leading ? "lead-in" : "final") generation at the existing size. @(_mode == TakeRefinementMode.Refine ? "Its audio remains unchanged." : "Its audio is regenerated.")</p> }
-    else { <p class="field-hint">@(_mode == TakeRefinementMode.Refine ? "Enlarges the take and re-noises it lightly, so its motion and composition carry over. The audio is the take's own, unchanged." : "Enlarges the take and re-noises more of it, so more can change, and generates new audio.")</p> }
+    else { <p class="field-hint">@(_mode == TakeRefinementMode.Refine ? $"Enlarges the {Kind} and re-noises it lightly, so its motion and composition carry over. Its audio stays unchanged." : $"Enlarges the {Kind} and re-noises more of it, so more can change, and generates new audio.")</p> }
     @if (Source.Trim is not null) { <p class="field-hint">Refinement processes the full @((Source.Snapshot.FrameCount / Source.Fps).ToString("0.###")) s source, then automatically reapplies your trim. Both versions are saved.</p> }
     @if (Source.Composition is not null) { <p class="field-hint">Processes the @(Leading ? "lead-in" : "final") segment's full @((Source.Snapshot.FrameCount / Source.Fps).ToString("0.###")) s generation, preserving its context. The other segments remain unchanged; the combined result keeps its dimensions.</p> }
     <label>Output size<select aria-label="Output size" @bind="_sizeIndex" disabled="@Busy">
         @for (var i = 0; i < _sizes.Count; i++) { var size = _sizes[i]; <option value="@i" disabled="@(size.Issue is not null)">@size.Name · @size.Width × @size.Height @(size.Issue is null ? "" : "· unavailable")</option> }
     </select></label>
     <p>@Size.Width × @Size.Height · @((Size.Pixels / 1_000_000d).ToString("0.00")) MP · @(_mode == TakeRefinementMode.Refine ? "7 steps · denoise 0.35" : "13 steps · denoise 0.65")</p>
-    <p class="field-hint">Uses the take's saved prompt, references and model with Standard sampling. Larger sizes need more GPU memory.</p>
+    <p class="field-hint">Uses the @Kind's saved prompt, references and model with Standard sampling. Larger sizes need more GPU memory.</p>
     @foreach (var size in _sizes.Where(s => s.Issue is not null)) { <p class="field-hint">@size.Name: @size.Issue</p> }
     @if (ContextChanged) { <p role="status">The shot or its defaults changed since this take. Refinement uses the take's saved prompt and references, so those changes aren't included.</p> }
     @if (Issue is not null) { <p role="status">@Issue</p><a href='@AiSettingsNavigation.Link(Navigation, "video")'>Video models and setup</a> }
@@ -20,6 +20,7 @@
 
 @code {
     [Parameter, EditorRequired] public ShotTake Source { get; set; } = null!;
+    [Parameter] public string Kind { get; set; } = "take";
     private bool Leading => Source.Snapshot.Motion?.Direction == TakeExtensionDirection.Before;
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool ContextChanged { get; set; }

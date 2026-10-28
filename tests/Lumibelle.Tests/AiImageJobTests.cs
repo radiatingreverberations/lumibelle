@@ -222,7 +222,7 @@ public sealed partial class AssetStoreTests
             var clients = new TestHttpFactory(_http); var monitor = TestComfy.Monitor();
             var real = new ComfyImageJobAdapter(new(clients, Settings, TimeProvider.System, monitor), new(clients, Settings, TimeProvider.System, monitor),
                 new(clients, TimeProvider.System, monitor), clients, Settings, new FakeProjectAiPreferencesStore());
-            Adapter = new(real, workflow == ImageWorkflow.Flux2Klein9bKv ? "14" : editing ? "13" : "9");
+            Adapter = new(real, workflow is ImageWorkflow.MossImage or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2 or ImageWorkflow.ZImage ? "9" : workflow == ImageWorkflow.Flux2Klein9bKv ? "14" : editing ? "13" : "9");
             Worker = new(Assets, Adapter, clients, new(monitor), TimeProvider.System);
         }
         public static async Task<ImageJobFixture> Create(AssetStoreTests owner, ImageWorkflow workflow, bool editing)

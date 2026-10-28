@@ -7,7 +7,7 @@ using lumibelle.Services.Story;
 
 namespace Lumibelle.Tests;
 
-public sealed class VllmModelTestJobTests
+public sealed partial class VllmModelTestJobTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private const string Reply = "data: {\"model\":\"served/model\",\"choices\":[{\"delta\":{\"content\":\"Visible reply.\"},\"finish_reason\":\"stop\"}]}\n\n";
@@ -30,7 +30,7 @@ public sealed class VllmModelTestJobTests
         Assert.Equal(42 / saved.Measurement.ElapsedSeconds, saved.TokensPerSecond);
         Assert.NotNull(saved.Measurement.FirstTextSeconds); Assert.Equal(advanced, saved.Measurement.CustomPrompt);
         Assert.Equal("http://other:8000/v1", f.Settings.Value.VllmUrl); Assert.Empty(f.Settings.Value.OpenRouterTextModelBenchmarks);
-        using var body = JsonDocument.Parse(Assert.Single(f.Http.Requests, r => r.Method == "POST").Body);
+        using var body = JsonDocument.Parse(Assert.Single(f.Http.Requests, IsTextPost).Body);
         Assert.Equal(0f, body.RootElement.GetProperty("temperature").GetSingle());
         Assert.Equal(advanced ? 96 : 4096, body.RootElement.GetProperty("max_tokens").GetInt32());
         Assert.True(body.RootElement.GetProperty("stream_options").GetProperty("include_usage").GetBoolean());
@@ -39,7 +39,7 @@ public sealed class VllmModelTestJobTests
         f.NoNetwork = true;
         await f.Worker.RecoverAsync(f.Recover(context), submission.Snapshot, Ct);
         Assert.Single(f.Settings.Value.VllmTextModelBenchmarks);
-        Assert.Single(f.Http.Requests, r => r.Method == "POST");
+        Assert.Single(f.Http.Requests, IsTextPost);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public sealed class VllmModelTestJobTests
     {
         using var f = new Fixture(); var submission = f.Capture(); var context = await f.Claim(submission);
         await f.Worker.ExecuteAsync(context, submission.Snapshot, Ct);
-        using var body = JsonDocument.Parse(Assert.Single(f.Http.Requests, r => r.Method == "POST").Body);
+        using var body = JsonDocument.Parse(Assert.Single(f.Http.Requests, IsTextPost).Body);
         Assert.False(body.RootElement.TryGetProperty("temperature", out _));
         Assert.Equal(2048, body.RootElement.GetProperty("max_tokens").GetInt32());
         var captured = submission.Snapshot.Deserialize<AiModelTestJobRequest>(AtomicJsonFile.Options)!;
@@ -65,7 +65,7 @@ public sealed class VllmModelTestJobTests
         Assert.Equal(AiJobRecovery.RetryOutput, error.Recovery);
         f.Settings.SaveError = null; f.NoNetwork = true;
         Assert.Equal(AiJobState.Completed, (await f.Worker.RecoverAsync(f.Recover(context), submission.Snapshot, Ct)).State);
-        Assert.Single(f.Http.Requests, r => r.Method == "POST");
+        Assert.Single(f.Http.Requests, IsTextPost);
     }
 
     [Theory] [InlineData(401)] [InlineData(503)]
@@ -76,7 +76,7 @@ public sealed class VllmModelTestJobTests
         Assert.Equal(AiJobState.NeedsAttention, outcome.State); Assert.Equal(AiJobRecovery.GenerateAgain, outcome.Recovery);
         Assert.False(Assert.Single(f.Settings.Value.VllmTextModelBenchmarks).Measurement.Complete);
         f.NoNetwork = true; await f.Worker.RecoverAsync(f.Recover(context), submission.Snapshot, Ct);
-        Assert.Single(f.Http.Requests, r => r.Method == "POST");
+        Assert.Single(f.Http.Requests, IsTextPost);
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public sealed class VllmModelTestJobTests
         Assert.True(await f.Worker.CancelRemoteAsync(context, submission.Snapshot, Ct));
         f.NoNetwork = true;
         await Assert.ThrowsAsync<AiJobRecoveryException>(() => f.Worker.RecoverAsync(f.Recover(context), submission.Snapshot, Ct));
-        Assert.Single(f.Http.Requests, r => r.Method == "POST");
+        Assert.Single(f.Http.Requests, IsTextPost);
     }
 
     private sealed class Fixture : IDisposable
@@ -126,7 +126,10 @@ public sealed class VllmModelTestJobTests
         public List<string> Addresses { get; } = [];
         public string Stream = Reply + Usage;
         public bool NoNetwork, WaitForCancellation;
+        public bool StrataDiscovery;
         public HttpStatusCode Status = HttpStatusCode.OK;
+        public Func<JsonElement, HttpResponseMessage>? ImageReply;
+        public Func<JsonElement, HttpResponseMessage>? SchemaReply;
         public TaskCompletionSource PostStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Fixture()
         {
@@ -138,6 +141,14 @@ public sealed class VllmModelTestJobTests
                 Assert.Null(request.Headers.Authorization); Assert.False(request.Headers.Contains("X-OpenRouter-Metadata"));
                 if (request.Method == HttpMethod.Post) PostStarted.TrySetResult();
                 if (request.Method == HttpMethod.Post && WaitForCancellation) await Task.Delay(Timeout.Infinite, ct);
+                if (request.Method == HttpMethod.Post)
+                {
+                    using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+                    if (body.RootElement.TryGetProperty("response_format", out _)) return SchemaReply?.Invoke(body.RootElement) ?? AnswerSchemaProbe(body.RootElement);
+                    if (!body.RootElement.GetProperty("stream").GetBoolean()) return ImageReply?.Invoke(body.RootElement) ?? AnswerImageProbe(body.RootElement);
+                }
+                if (StrataDiscovery && request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath.EndsWith("/status", StringComparison.Ordinal))
+                    return new(HttpStatusCode.OK) { Content = new StringContent("{\"structured_output\":{\"method\":\"prompt_and_validate\"}}", Encoding.UTF8, "application/json") };
                 return request.Method == HttpMethod.Get
                     ? new(HttpStatusCode.OK) { Content = new StringContent("{\"data\":[{\"id\":\"test/model\"}]}", Encoding.UTF8, "application/json") }
                     : new(Status) { Content = new StringContent(Stream, Encoding.UTF8, "text/event-stream") };

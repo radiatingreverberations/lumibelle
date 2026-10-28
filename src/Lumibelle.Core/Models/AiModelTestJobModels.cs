@@ -1,16 +1,22 @@
 namespace lumibelle.Models;
 
 public sealed record AiModelTestJobRequest(int Version, TextModelReference Model, AiSettings Settings,
-    ComfyTextModelTestRequest Test, bool Advanced, long Seed);
+    ComfyTextModelTestRequest Test, bool Advanced, long Seed, bool TestImageInput = false, bool TestStructuredOutput = false);
 public sealed record AiModelTestJobResult(ComfyTextModelVerification? Verification, string? Response,
     bool Recovered = false, bool Saved = false, TextModelBenchmark? OpenRouter = null, string? Refusal = null, string? Error = null, string? GuardrailReport = null,
     ComfyTextModelBenchmark? PartialBenchmark = null, VllmTextModelBenchmark? Vllm = null);
 
 public sealed record VllmTextModelBenchmark(string Server, float? Temperature, TextModelBenchmark Measurement)
 {
+    public OpenAiImageInputTest? ImageInput { get; init; }
+    public OpenAiStructuredOutputTest? StructuredOutput { get; init; }
     public double? TokensPerSecond => Measurement is { Complete: true, HasReply: true, Refused: false, OutputTokens: > 0, ElapsedSeconds: > 0 }
         ? Measurement.OutputTokens / Measurement.ElapsedSeconds : null;
 }
+
+// Null means the probe was inconclusive, including timeouts and unavailable servers.
+public sealed record OpenAiImageInputTest(DateTimeOffset TestedUtc, bool? Supported, bool MultipleImages, string Detail);
+public sealed record OpenAiStructuredOutputTest(DateTimeOffset TestedUtc, bool? Supported, string Detail);
 
 public sealed record TextModelBenchmark(Guid TestId, string Model, DateTimeOffset MeasuredUtc,
     int TokenLimit, bool CustomPrompt, double ElapsedSeconds, double? FirstTextSeconds,

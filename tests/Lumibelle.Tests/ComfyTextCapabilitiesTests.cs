@@ -252,14 +252,14 @@ public sealed class ComfyTextCapabilitiesTests
         }
     }
 
-    private static string ReadColors(byte[] png)
+    internal static string ReadColors(byte[] png)
     {
         using var image = Image.Load<Rgba32>(png);
         return string.Join(", ", Enumerable.Range(0, (image.Width - 96 + 32) / 128).Select(i => ComfyTextCapabilities.ProbeColors
             .First(c => c.Color == image[48 + i * 128 + 48, 96]).Name));
     }
 
-    private static string ReadDigits(byte[] png)
+    internal static string ReadDigits(byte[] png)
     {
         const int cell = 20, gap = 40, margin = 60;
         using var image = Image.Load<Rgba32>(png);

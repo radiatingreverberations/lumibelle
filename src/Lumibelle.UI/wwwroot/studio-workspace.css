@@ -211,6 +211,7 @@
 .image-resolution-options label { color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); font-weight: 650; }
 .image-resolution-options select { min-width: 0; padding: 6px 8px; }
 .image-resolution-options .image-output-size { grid-column: 1 / -1; margin: 0; font-size: var(--lumi-font-size-meta); }
+.image-resolution-options .image-resolution-hint { grid-column: 1 / -1; margin: 0; font-size: var(--lumi-font-size-meta); }
 .image-generation-settings { border-top: 1px solid var(--lumi-border); margin-top: 16px; }
 .image-generation-settings > summary { padding: 12px 0; cursor: pointer; font-weight: 600; }
 .image-settings-fields { display: grid; gap: 16px; padding: 0 0 8px; }

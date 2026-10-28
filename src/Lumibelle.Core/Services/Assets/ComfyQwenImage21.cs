@@ -9,6 +9,8 @@ namespace lumibelle.Services.Assets;
 
 public sealed partial class ComfyQwenImage21(IHttpClientFactory clients, TimeProvider clock, IComfyExecutionMonitor monitor)
 {
+    // From the official Qwen Image 2.1 Turbo templates; changing steps alone is not equivalent.
+    public const string TurboSigmas = "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0";
     public const string OutputNode = "9";
     public static readonly ComfyExecutionOptions ExecutionOptions = new(
         new Dictionary<string, ComfyNodeStage>
@@ -35,6 +37,8 @@ public sealed partial class ComfyQwenImage21(IHttpClientFactory clients, TimePro
         ArgumentNullException.ThrowIfNull(references);
         QwenImage21Policy.ValidateOptions(options, references.Count > 0);
         var qwen = QwenImage21Policy.Settings(settings); QwenImage21Policy.ValidateSettings(qwen);
+        if (qwen.Variant == QwenImage21Variant.Turbo && options.Steps != 8)
+            throw new AiGenerationException("Qwen Image 2.1 Turbo requires its fixed eight-step schedule.");
         if (references.Count > QwenImage21Policy.MaximumReferences || references.Any(string.IsNullOrWhiteSpace) ||
             seed < 0 || string.IsNullOrWhiteSpace(prompt) || width < 32 || height < 32 || width > 16384 || height > 16384 || width % 32 != 0 || height % 32 != 0 ||
             (long)width * height > QwenImage21Policy.MaximumNativePixels)
@@ -108,6 +112,15 @@ public sealed partial class ComfyQwenImage21(IHttpClientFactory clients, TimePro
             sampler_name = "euler", scheduler = "simple", denoise = 1.0,
             positive = Link("4"), negative = Link("4", 1), latent_image = latent
         });
+        if (qwen.Variant == QwenImage21Variant.Turbo)
+        {
+            nodes["turbo_sigmas"] = Node("ManualSigmas", new { sigmas = TurboSigmas });
+            nodes["turbo_sampler"] = Node("KSamplerSelect", new { sampler_name = "euler" });
+            nodes["turbo_noise"] = Node("RandomNoise", new { noise_seed = seed });
+            nodes["turbo_guider"] = Node("CFGGuider", new { model = Link(model), positive = Link("4"), negative = Link("4", 1), cfg = 1.0 });
+            nodes["7"] = Node("SamplerCustomAdvanced", new { noise = Link("turbo_noise"), guider = Link("turbo_guider"),
+                sampler = Link("turbo_sampler"), sigmas = Link("turbo_sigmas"), latent_image = latent });
+        }
         return new { client_id = clientId ?? Guid.NewGuid().ToString("D"), prompt = nodes };
     }
 
@@ -156,6 +169,7 @@ public sealed partial class ComfyQwenImage21(IHttpClientFactory clients, TimePro
     {
         sources = sources.ToArray(); selections = LoraPolicy.Capture(selections);
         settings = settings with { QwenImage21 = QwenImage21Policy.Settings(settings) };
+        options = QwenImage21Policy.CaptureOptions(settings, options);
         FileAiSettingsStore.Validate(settings); QwenImage21Policy.ValidateOptions(options, edit is not null);
         if (string.IsNullOrWhiteSpace(prompt) || count is < 1 or > 4 || fixedSeed is < 0 || fixedSeed > long.MaxValue - count + 1)
             throw new AiGenerationException("Enter a prompt and choose one to four candidates with a valid seed.");

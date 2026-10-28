@@ -14,6 +14,10 @@ public enum ReelCloseUpTransition { Cut, PushIn }
 // into the legacy H3 transport at its boundary, never into the shot library.
 public sealed record ReferenceReelDraft
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? CapturedVisualStyle { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AssetId { get; set; }
     public Guid? LookId { get; set; }
@@ -46,6 +50,8 @@ public sealed record ReferenceReelDraft
     public VideoResolution? Resolution { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? SaveLosslessFrames { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SaveLatents { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<LoraSelection>? Loras { get; set; }
     // This reel's own LoRAs, on top of the preset's Loras; for the same LoRA the reel's entry wins. Null keeps older fingerprints.
@@ -91,6 +97,10 @@ public sealed record AssetReferenceReel
     public required ReferenceVideoMedia Media { get; init; }
     public DateTimeOffset CreatedUtc { get; init; }
     public ReferenceReelGeneration? Generation { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public H3RefinementPackage? RefinementPackage { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TakeRefinement? Refinement { get; init; }
     public Guid? SourceTakeId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ReelKeyframeSet? Keyframes { get; init; }

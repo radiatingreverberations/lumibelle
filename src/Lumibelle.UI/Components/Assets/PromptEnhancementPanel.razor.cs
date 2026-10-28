@@ -51,8 +51,8 @@ public partial class PromptEnhancementPanel
         _resolvedJob == job.Id ? TextRequestOutcome.Resolved : _result is { Kind: not PromptEnhancementKind.Prompt } ? TextRequestOutcome.Response : TextRequestOutcome.Proposal, "Enhance prompt") : null;
     private Task InspectEnhancement() => InspectionJob is { } job ? Review(job) : Task.CompletedTask;
     private string TargetKey => new AiJobTarget(Context.ProjectId, Context.AssetId).LockKey(AiJobKind.PromptEnhancement);
-    private string? VisionIssue => !_inspect || !Context.IsEdit ? null : _model is { SupportsImages: true } && TextVisionPolicy.SupportsBackend(_model.Model.Backend)
-        ? null : TextVisionPolicy.SetupHint + " Or turn off inspection to use text context.";
+    private string? VisionIssue => !_inspect || !Context.IsEdit || TextVisionPolicy.ImageIssue(_model) is not { } issue
+        ? null : issue + " Or turn off inspection to use text context.";
     private bool Blocked => Disabled || Jobs.View.Jobs.Any(j => j.Kind != AiJobKind.PromptEnhancement && j.LocksTarget && j.Target.LockKey(j.Kind) == TargetKey);
     private bool CanEnhance => !Blocked && !_busy && _pending is null && _model?.Ready == true && !string.IsNullOrWhiteSpace(Context.Prompt) && VisionIssue is null;
     // Changes since the request, compared with the prompt setup as it is now and, once Apply has

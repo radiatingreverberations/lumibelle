@@ -184,7 +184,7 @@ public sealed partial class FileAssetStore : IAssetReuseStore
                     current.Assets.Select(a => a.Id != asset.Id ? a : a with {
                         Images = a.Images.Where(i => !imageIds.Contains(i.Id)).ToList(),
                         DefaultVoiceId = a.DefaultVoiceId is { } id && voiceIds.Contains(id) ? null : a.DefaultVoiceId, UpdatedUtc = clock.GetUtcNow() }).ToList(),
-                Trash = [.. current.Trash, .. content.Asset.Images.Select(i => TrashEntry(asset, i))],
+                Trash = [.. current.Trash, .. content.Asset.Images.Select(i => TrashEntry(current, asset, i))],
                 Reels = current.Reels.Where(r => !reelIds.Contains(r.Id)).ToList(),
                 ReelTrash = [.. current.ReelTrash, .. content.Reels.Select(r => TrashedReferenceReel.Removed(r, asset with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow()))],
                 Voices = current.Voices.Where(v => !voiceIds.Contains(v.Id)).ToList(),

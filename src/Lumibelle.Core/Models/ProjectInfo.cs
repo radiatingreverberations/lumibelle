@@ -12,7 +12,10 @@ public sealed record ProjectInfo
     public required DateTimeOffset CreatedUtc { get; init; }
 }
 
-public sealed record CreateProjectRequest(string Name, string? Description = null);
+public sealed record CreateProjectRequest(string Name, string? Description = null)
+{
+    public VisualStyle? VisualStyle { get; init; }
+}
 
 public sealed record UpdateProjectRequest(string Name, string? Description = null, string? VideoAspect = null);
 

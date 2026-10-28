@@ -28,14 +28,20 @@ public partial class AssetsStudio
     }
 
     private int _imageResolution = 1024;
-    private int ImageResolution => IsQwen ? QwenResolution : _imageResolution;
-    private int CapturedImageResolution => IsQwen || IsCodex ? 1024 : _imageResolution;
+    private int _flux3Resolution = 1024;
+    private int ImageResolution => IsQwen ? QwenResolution : IsFlux3 ? _flux3Resolution : _imageResolution;
+    private int CapturedImageResolution => IsQwen || IsCodex ? 1024 : ImageResolution;
+    private void RestoreImageResolution(int resolution, ImageWorkflow workflow)
+    {
+        if (workflow == ImageWorkflow.Flux3ImageKlein) _flux3Resolution = resolution;
+        else _imageResolution = resolution;
+    }
     private void ChangeImageResolution(ChangeEventArgs args)
     {
         if (_composerLocked) return;
         if (IsQwen) { ChangeQwenResolution(args); return; }
-        if (int.TryParse(args.Value?.ToString(), out var resolution) && ImageAspectPolicy.IsResolutionSupported(resolution))
-            _imageResolution = resolution;
+        if (int.TryParse(args.Value?.ToString(), out var resolution) && ImageWorkflowLimits.SupportsResolution(_imageWorkflow, resolution))
+            RestoreImageResolution(resolution, _imageWorkflow);
         RememberImageComposer();
     }
     private string ImageOutputLabel
@@ -46,7 +52,7 @@ public partial class AssetsStudio
             try
             {
                 var source = BaseReference is { } reference ? SourceImageSize(reference) : default;
-                var size = ImageAspectPolicy.Size(ImageAspect, source.Width, source.Height, _imageResolution);
+                var size = ImageAspectPolicy.Size(ImageAspect, source.Width, source.Height, ImageResolution);
                 return string.Create(CultureInfo.InvariantCulture, $"{size.Width} × {size.Height} · {(long)size.Width * size.Height / 1_000_000d:0.00} MP");
             }
             catch (AiGenerationException) { return "Choose an available source image"; }

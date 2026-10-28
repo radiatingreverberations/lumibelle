@@ -10,6 +10,8 @@ public sealed record AiImageJobRequest(int Version, Guid BatchId, Guid ProjectId
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CodexCapture? Codex { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? OriginalPrompt { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public RegionalImageCapture? Regional { get; init; }
     public ImageWorkflow Workflow => Settings.DefaultImageWorkflow;
     public string Prompt => Create?.Prompt ?? Edit!.Prompt;

@@ -9,6 +9,7 @@
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Move)" Disabled="MoveDisabled">Move to asset…</MudMenuItem>
             @if (CreateSimilar.HasDelegate && Image.Generation is not null) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(CreateSimilar)" Disabled="CreateSimilarDisabled">Create similar</MudMenuItem> }
             @if (ChangeLook.HasDelegate) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ChangeLook)" Disabled="ChangeLookDisabled">Change look…</MudMenuItem> }
+            @if (Image.PendingReview == true && KeepAsTake.HasDelegate) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(KeepAsTake)">Keep as take</MudMenuItem> }
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ToggleReference)">@(Image.IsReference ? "Unapprove reference" : "Approve reference")</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(MakeCover)" Disabled="Image.IsCover">Make cover</MudMenuItem>
             <MudDivider />
@@ -30,6 +31,7 @@
     [Parameter] public EventCallback Move { get; set; }
     [Parameter] public EventCallback ChangeLook { get; set; }
     [Parameter] public EventCallback ToggleReference { get; set; }
+    [Parameter] public EventCallback KeepAsTake { get; set; }
     [Parameter] public EventCallback MakeCover { get; set; }
     [Parameter] public EventCallback Trash { get; set; }
     private MudMenu? _menu;

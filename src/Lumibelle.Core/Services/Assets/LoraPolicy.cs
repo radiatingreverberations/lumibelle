@@ -63,6 +63,8 @@ public static class LoraPolicy
     {
         if (Invalid(item.Reference) || InvalidStrength(item.Strength)) return "This LoRA selection is invalid.";
         if (item.Reference.Workflow != workflow) return "This LoRA is assigned to another workflow.";
+        if (workflow == LoraWorkflow.MossImage && item.Reference.FileName == settings.MossImage?.EditLora)
+            return "The MOSS edit LoRA is managed by the image workflow. Remove this optional selection.";
         if (workflow == LoraWorkflow.MiniMaxH3Ref2VA && ReservedH3(item.Reference.FileName, settings.H3)) return "Acceleration weights are managed by the generation preset. Remove this optional selection.";
         if (AiProviderRegistry.NormalizeComfyUrl(item.Reference.ComfyUrl) != AiProviderRegistry.NormalizeComfyUrl(settings.ComfyUrl)) return "This LoRA belongs to another ComfyUI server.";
         var definition = settings.LoraLibrary.FirstOrDefault(d => Same(d.Reference, item.Reference));

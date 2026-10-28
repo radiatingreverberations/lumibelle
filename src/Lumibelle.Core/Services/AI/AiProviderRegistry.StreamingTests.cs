@@ -74,8 +74,8 @@ public sealed partial class AiProviderRegistry
             }
             if (!response.IsSuccessStatusCode)
             {
-                if (!vllm) throw new AiGenerationException(AiErrors.HttpStatus((int)response.StatusCode));
-                error = AiErrors.HttpStatus((int)response.StatusCode);
+                if (!vllm) throw new AiGenerationException(AiErrors.HttpStatus((int)response.StatusCode, "OpenRouter"));
+                error = AiErrors.HttpStatus((int)response.StatusCode, AiErrors.ProviderName(request.Model.Backend, request.Settings, request.Model.VllmUrl));
                 throw new HttpRequestException(error);
             }
             using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(ct));
@@ -139,6 +139,20 @@ public sealed partial class AiProviderRegistry
             try { await context.SaveOperationAsync(operation, AiOperationArtifact.Output, result, context.Cancellation); break; }
             catch (WorkspaceStoreException e) when (e.InnerException is IOException or UnauthorizedAccessException)
             { await context.ReportAsync(new(new(GenerationPhase.Saving, "Test finished · waiting to save its response…"))); await Task.Delay(1000, context.Cancellation); }
+        }
+        var promptValidation = check.Connections?.Any(c => TextModelPolicy.SameVllmServer(c.Server, request.Model.VllmUrl) && c.Kind == OpenAiServerKind.Strata) == true;
+        if (vllm && request.TestStructuredOutput && !promptValidation && complete && result.Vllm!.Measurement is { HasReply: true, Refused: false } && error is null)
+        {
+            var schema = await ProbeOpenAiSchemaAsync(context, request, key, ct);
+            result = result with { Vllm = result.Vllm with { StructuredOutput = schema } };
+            await context.SaveOperationAsync("model-test/schema-capabilities", AiOperationArtifact.Output, result, ct);
+        }
+        if (vllm && request.TestImageInput && complete && result.Vllm!.Measurement is { HasReply: true, Refused: false } && error is null)
+        {
+            // Text timing and output are already retained. Probing must not inflate benchmark throughput or replay on recovery.
+            var images = await ProbeOpenAiImagesAsync(context, request, key, ct);
+            result = result with { Vllm = result.Vllm with { ImageInput = images } };
+            await context.SaveOperationAsync("model-test/image-capabilities", AiOperationArtifact.Output, result, ct);
         }
         return result;
     }

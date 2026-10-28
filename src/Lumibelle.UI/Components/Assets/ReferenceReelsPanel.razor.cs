@@ -95,8 +95,8 @@ public partial class ReferenceReelsPanel
     private AiJobHeader? _videoJob;
     private AssetReferenceReel? _details, _keyframeReel;
     private AssetReferenceReel? _regenerateReel;
-    public static bool CanRegenerate(AssetReferenceReel reel) => reel.Generation is { } generation && !ReferenceReels.NeedsEnvironmentReplacement(generation.Recipe);
-    public void Regenerate(AssetReferenceReel reel) { if (_busy || !CanRegenerate(reel)) return; _regenerateReel = reel; StateHasChanged(); }
+    public static bool CanRegenerate(AssetReferenceReel reel) => reel.Refinement is null && reel.Generation is { } generation && !ReferenceReels.NeedsEnvironmentReplacement(generation.Recipe);
+    public void Regenerate(AssetReferenceReel reel) { if (_busy || !CanRegenerate(reel)) return; _prepareRefinement = false; _regenerateReel = reel; StateHasChanged(); }
     public Task ManageKeyframes(AssetReferenceReel reel) { _keyframeReel = reel; StateHasChanged(); return Task.CompletedTask; }
     private AssetReferenceReel? _replaceReel;
     public bool CanReplace(AssetReferenceReel reel) => Library.Reels.Any(r => r.AssetId == reel.AssetId && r.Media.Id != reel.Media.Id);

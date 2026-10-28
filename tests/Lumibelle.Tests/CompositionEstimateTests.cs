@@ -1,7 +1,9 @@
+using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
+using lumibelle.Services.Story;
 
 namespace Lumibelle.Tests;
 
@@ -26,14 +28,43 @@ public sealed partial class ShotTests
         var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
         var production = new FileProductionStore(f.Files, f.Shots, assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "estimate-jobs"), _clock));
         var composition = (await production.InitializeAsync(f.Project.Id, _ct)).Compositions.Single(c => c.ShotId == shot.Id);
-        composition.Shot.Images = [binding];
+        composition.Shot.Images = [binding]; composition.Prompt = new string('x', 800);
         await production.SaveAsync(f.Project.Id, composition, composition.Version, _ct);
         var capture = new AiTextJobCapture(new FakeAiSettingsStore(), projects, assets, null!, null!, production: production, shots: f.Shots);
         var estimate = await capture.CompositionContextAsync(f.Project.Id, composition.Id, _ct);
         Assert.Equal(new ImageSize(320, 360), Assert.Single(estimate.ReferenceImages));
         Assert.Equal(1, estimate.NearbyShots);
         Assert.True(estimate.NearbyShotsTokens > 0);
+        Assert.Equal(ComfyTextCapacity.TextTokens(composition.Prompt), estimate.CurrentPromptTokens);
         Assert.Equal(0, assets.ImageOpenCalls);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CompositionCapturesTheExplicitDraftChoiceWithoutClearingTheSavedPrompt(bool include)
+    {
+        var f = Fixture(); var shot = Ready() with { ApprovedScriptId = null, SceneId = null };
+        await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
+        var production = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "draft-choice-jobs"), _clock));
+        var composition = (await production.InitializeAsync(f.Project.Id, _ct)).Compositions.Single();
+        const string oldPrompt = "An earlier draft with a stale <Audio 1> reference.";
+        composition.Prompt = oldPrompt;
+        await production.SaveAsync(f.Project.Id, composition, composition.Version, _ct);
+        composition = (await production.LoadAsync(f.Project.Id, _ct)).Compositions.Single();
+        var capture = new AiTextJobCapture(new FakeAiSettingsStore(), projects, f.Assets, null!, null!, production: production, shots: f.Shots);
+        var submission = await capture.ComposeAsync(Guid.NewGuid(), Guid.NewGuid(), f.Project.Id, composition.Id, composition.Version,
+            new(AiBackend.OpenRouter, "mock", "Mock"), false, _ct, includeCurrentPrompt: include);
+        var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
+        var request = snapshot.Payload<PromptCompositionRequest>();
+        // The model can start fresh while the unchanged original still guards later review/apply.
+        Assert.Equal(oldPrompt, request.CurrentPrompt);
+        Assert.Equal("Revision", request.Intent);
+        Assert.Equal(!include, request.OmitCurrentPrompt);
+        using var data = System.Text.Json.JsonDocument.Parse(snapshot.Messages[1].Parts[0].Text!);
+        Assert.Equal(include ? oldPrompt : "", data.RootElement.GetProperty("currentPrompt").GetString());
+        Assert.Equal(oldPrompt, (await production.LoadAsync(f.Project.Id, _ct)).Compositions.Single().Prompt);
+        Assert.Equal(include, string.Join("\n", snapshot.Messages.SelectMany(m => m.Parts).Select(p => p.Text)).Contains("An earlier draft with a stale"));
     }
 }
 

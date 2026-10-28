@@ -45,6 +45,15 @@ public sealed partial class ComfyQwenImage21
             required["ImageToMask"] = ["image", "channel"];
             required["JoinImageWithAlpha"] = ["image", "alpha"];
         }
+        if (qwen.Variant == QwenImage21Variant.Turbo)
+        {
+            required.Remove("KSampler");
+            required["ManualSigmas"] = ["sigmas"];
+            required["KSamplerSelect"] = ["sampler_name"];
+            required["RandomNoise"] = ["noise_seed"];
+            required["CFGGuider"] = ["model", "positive", "negative", "cfg"];
+            required["SamplerCustomAdvanced"] = ["noise", "guider", "sampler", "sigmas", "latent_image"];
+        }
         required["EmptyLatentImage"] = ["width", "height", "batch_size"];
         var missing = required.SelectMany(pair => pair.Value.Where(input => !Input(catalog, pair.Key, input, out _))
             .Select(input => pair.Key + "." + input)).ToList();
@@ -55,8 +64,8 @@ public sealed partial class ComfyQwenImage21
             !Output(catalog, "TextEncodeQwenImage21", 1, "CONDITIONING") || !Output(catalog, "TextEncodeQwenImage21", 2, "LATENT"))
             missing.Add("TextEncodeQwenImage21 positive/negative/latent outputs");
         if (!Choices(catalog, "CLIPLoader", "type").Contains("qwen_image")) missing.Add("CLIPLoader qwen_image type");
-        if (!Choices(catalog, "KSampler", "sampler_name").Contains("euler")) missing.Add("KSampler euler");
-        if (!Choices(catalog, "KSampler", "scheduler").Contains("simple")) missing.Add("KSampler simple scheduler");
+        if (!Choices(catalog, qwen.Variant == QwenImage21Variant.Turbo ? "KSamplerSelect" : "KSampler", "sampler_name").Contains("euler")) missing.Add("Euler sampler");
+        if (qwen.Variant == QwenImage21Variant.Base && !Choices(catalog, "KSampler", "scheduler").Contains("simple")) missing.Add("KSampler simple scheduler");
         if (editing && !Choices(catalog, "QwenImage21Cache", "device").Contains(qwen.CacheDevice)) missing.Add("QwenImage21Cache device " + qwen.CacheDevice);
         if (editing && !Choices(catalog, "QwenImage21Cache", "dtype").Contains(qwen.CacheDtype)) missing.Add("QwenImage21Cache dtype " + qwen.CacheDtype);
         if (missing.Count > 0) return new(false,

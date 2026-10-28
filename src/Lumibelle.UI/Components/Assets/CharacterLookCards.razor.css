@@ -1,0 +1,11 @@
+.character-look-overview { container-type:inline-size; margin-bottom:20px; }
+.character-look-overview > details > summary { color:var(--ink); font-weight:650; font-size:var(--lumi-font-size-meta); cursor:pointer; }
+summary span { color:var(--muted); font-weight:400; margin-left:6px; }
+.look-overview-hint { color:var(--muted); font-size:var(--lumi-font-size-small); line-height:1.5; margin:8px 0 12px; }
+.look-cards { display:flex; flex-direction:column; gap:12px; }
+.look-card { display:flex; flex-direction:column; gap:8px; padding:16px; border:1px solid var(--line); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface); min-width:0; }
+.look-card.selected { border-color:var(--plum); background:var(--lumi-surface-selected); }
+.look-card-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; }
+.look-card-heading h3 { margin:0; font-size:var(--lumi-font-size-meta); font-weight:650; overflow-wrap:anywhere; }
+.look-card-heading span { color:var(--muted); font-size:var(--lumi-font-size-small); }
+summary:focus-visible { outline:2px solid var(--plum); outline-offset:3px; }

@@ -105,6 +105,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
                     Width = info.Width, Height = info.Height,
                     Tags = NormalizeTags(input.Tags),
                     Origin = input.Origin,
+                    PendingReview = input.PendingReview,
                     Generation = input.Generation,
                     CreatedUtc = clock.GetUtcNow()
                 };
@@ -143,7 +144,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
         if (images.Length != ids.Count) throw new WorkspaceStoreException("A selected image is no longer available. Reload before retrying.");
         if (takesOnly && images.Any(i => i.IsReference || i.IsCover || i.Origin == AssetImageOrigin.Imported))
             throw new WorkspaceStoreException("Only unapproved generated takes can be discarded here. Manage other images from the library.");
-        var trashed = images.Select(i => TrashEntry(asset, i)).ToArray();
+        var trashed = images.Select(i => TrashEntry(current, asset, i)).ToArray();
         var next = current with
         {
             Assets = current.Assets.Select(a => a.Id == assetId ? a with
@@ -173,7 +174,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             Assets = current.Assets.Where(a => !ids.Contains(a.Id)).ToList(),
             Reels = current.Reels.Where(r => !ids.Contains(r.AssetId)).ToList(),
             ReelTrash = [.. current.ReelTrash, .. current.Reels.Where(r => ids.Contains(r.AssetId)).Select(r => TrashedReferenceReel.Removed(r, selected.Single(a => a.Id == r.AssetId) with { Images = [], DefaultVoiceId = null }, clock.GetUtcNow()))],
-            Trash = [.. current.Trash, .. selected.SelectMany(asset => asset.Images.Select(i => TrashEntry(asset, i)))],
+            Trash = [.. current.Trash, .. selected.SelectMany(asset => asset.Images.Select(i => TrashEntry(current, asset, i)))],
             Voices = current.Voices.Where(v => !ids.Contains(v.AssetId)).ToList(),
             VoiceTrash = [.. current.VoiceTrash, .. current.Voices.Where(v => ids.Contains(v.AssetId)).Select(v => TrashVoice(current, v))]
         }, current.Revision, cancellationToken);
@@ -233,6 +234,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             library.Assets.Select(asset => asset.Id).Distinct().Count() != library.Assets.Count ||
             library.Trash is null || library.Trash.Any(t => t is null || t.Id == Guid.Empty || t.Image is null ||
                 t.Asset is null || t.Asset.Images is null || t.Asset.Images.Count != 0 || InvalidAsset(t.Asset with { Images = [t.Image] }) ||
+                !TrashRestoreOrder.Valid(t.AssetOrder, t.Asset.Id) || !TrashRestoreOrder.Valid(t.ImageOrder, t.Image.Id) ||
                 t.DeletedUtc == default || t.ExpiresUtc - t.DeletedUtc != TimeSpan.FromDays(30) || !Enum.IsDefined(t.State)) ||
             library.Trash.Select(t => t.Id).Distinct().Count() != library.Trash.Count ||
             library.Trash.Select(t => (t.Asset.Id, t.Image.Id)).Distinct().Count() != library.Trash.Count ||
@@ -249,6 +251,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
 
     private static bool InvalidAsset(ReferenceAsset asset)
     {
+        if (asset is not null && !VisualStyles.Valid(asset.VisualStyle)) return true;
         if (asset is not null && (asset.Loras is null || asset.Loras.Any(pair => (!Enum.IsDefined(pair.Key) || pair.Key == ImageWorkflow.CodexImages) ||
             LoraPolicy.InvalidSelections(pair.Value) || pair.Value.Any(s => s.Reference.Workflow != pair.Key.LoraWorkflow())))) return true;
         if (asset is null || LookPolicy.Invalid(asset) || asset.Id == Guid.Empty || string.IsNullOrWhiteSpace(asset.Name) || asset.Name != asset.Name.Trim() ||
@@ -260,14 +263,16 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
         return asset.Images.Any(image => image is null || image.Id == Guid.Empty || string.IsNullOrWhiteSpace(image.FileName) ||
             image.StorageAssetId == Guid.Empty || image.PreviousAssetIds is null || image.PreviousAssetIds.Contains(Guid.Empty) ||
             image.PreviousAssetIds.Distinct().Count() != image.PreviousAssetIds.Count ||
-            image.Name?.Length > 240 || InvalidImageSource(image) || InvalidRegionalImage(image) ||
+            image.Name?.Length > 240 || !VisualStyles.Valid(image.Generation?.VisualStyle) || InvalidImageSource(image) || InvalidRegionalImage(image) ||
             QwenImage21Policy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
-            image.Generation is { } resolutionMetadata && (!ImageAspectPolicy.IsResolutionSupported(resolutionMetadata.Resolution) ||
-                resolutionMetadata.Workflow is ImageWorkflow.CodexImages or ImageWorkflow.QwenImage21 && resolutionMetadata.Resolution != 1024) ||
+            MossImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
+            Flux3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
+            CaptionImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
+            image.Generation is { } resolutionMetadata && !ImageWorkflowLimits.SupportsResolution(resolutionMetadata.Workflow, resolutionMetadata.Resolution) ||
             image.LookId is not null && LookPolicy.Find(asset, image.LookId) is null ||
             Path.GetFileName(image.FileName) != image.FileName || image.Width <= 0 || image.Height <= 0 ||
             image.ContentType is not ("image/png" or "image/jpeg" or "image/webp") || image.Tags is null || image.PreservationGuidance is null || image.PreservationGuidance.Length > 12000 ||
-            image.Tags.Any(tag => string.IsNullOrWhiteSpace(tag)) || image.IsCover && !image.IsReference ||
+            image.Tags.Any(tag => string.IsNullOrWhiteSpace(tag)) || image.IsCover && !image.IsReference || image.PendingReview == true && image.IsReference ||
             !Enum.IsDefined(image.Origin) || image.Origin is AssetImageOrigin.Generated or AssetImageOrigin.Edited && image.Generation is null ||
             image.Generation is { } generation && (!Enum.IsDefined(generation.Workflow) || generation.Workflow == ImageWorkflow.CodexImages && (generation.Codex is null || generation.Edit?.Regional is null && (generation.Codex.Width != image.Width || generation.Codex.Height != image.Height)) || LoraPolicy.InvalidApplied(generation.Loras, generation.Workflow) ||
                 (generation.AiJobId is not null || generation.BatchId is not null || generation.CandidateNumber is not null) &&
@@ -311,6 +316,20 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
                 !edit.References.Skip(1).Contains(c.Reference)) ||
             edit.ReferenceCrops.DistinctBy(c => c.Reference).Count() != edit.ReferenceCrops.Count) return true;
         if (generation!.Workflow == ImageWorkflow.QwenImage21) return QwenImage21Policy.InvalidEdit(edit);
+        if (generation.Workflow == ImageWorkflow.Fibo2)
+            return edit.References.Count is < 1 or > CaptionImagePolicy.MaximumFiboReferences ||
+                edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
+                edit.FitMode != "fibo2-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null ||
+                edit.Lora != "" || edit.LoraStrength != 0;
+        if (generation!.Workflow == ImageWorkflow.MossImage)
+            return edit.References.Count is < 1 or > MossImagePolicy.MaximumReferences ||
+                edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
+                edit.FitMode != "moss-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null;
+        if (generation.Workflow == ImageWorkflow.Flux3ImageKlein)
+            return edit.References.Count is < 1 or > Flux3ImagePolicy.MaximumReferences ||
+                edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
+                edit.FitMode != "flux3-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null ||
+                edit.Lora != "" || edit.LoraStrength != 0;
         if (generation!.Workflow == ImageWorkflow.CodexImages)
             return generation.Codex is null || edit.References.Count is < 1 or > 8 || edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) || edit.FitMode != "requested-aspect";
         if (generation!.Workflow == ImageWorkflow.Flux2Klein9bKv)
@@ -334,7 +353,8 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
     {
         Name = asset.Name.Trim(),
         SuggestedImageTags = NormalizeTags(asset.SuggestedImageTags),
-        Images = asset.Images.Select(image => image with { Tags = NormalizeTags(image.Tags), IsReference = image.IsReference || image.IsCover }).ToList()
+        Images = asset.Images.Select(image => image with { Tags = NormalizeTags(image.Tags), IsReference = image.IsReference || image.IsCover,
+            PendingReview = (image.IsReference || image.IsCover) && image.PendingReview == true ? false : image.PendingReview }).ToList()
     }).ToList() };
 
     private static List<string> NormalizeTags(IEnumerable<string> tags) => tags.Select(tag => tag.Trim()).Where(tag => tag.Length > 0)

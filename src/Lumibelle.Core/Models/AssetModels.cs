@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace lumibelle.Models;
 
-public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21 }
+public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage }
 
 public static class ImageWorkflowNames
 {
@@ -10,6 +10,10 @@ public static class ImageWorkflowNames
     {
         ImageWorkflow.Krea2 => "Krea 2",
         ImageWorkflow.QwenImage21 => "Qwen Image 2.1",
+        ImageWorkflow.MossImage => "MOSS-Image",
+        ImageWorkflow.Flux3ImageKlein => "FLUX 3 Image Klein",
+        ImageWorkflow.Fibo2 => "Fibo 2.0",
+        ImageWorkflow.ZImage => "Z-Image",
         ImageWorkflow.CodexImages => "Codex Images",
         ImageWorkflow.Flux2Klein9bKv => "FLUX.2 Klein 9B KV",
         _ => "Unknown image workflow"
@@ -57,9 +61,19 @@ public sealed record AssetSourceEvidence(string Label, Guid? SceneId, string Exc
 
 public sealed record AssetGenerationMetadata
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AuthorPrompt { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; init; }
     public int Resolution { get; init; } = 1024;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public QwenImage21Output? QwenImage21 { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MossImageOutput? MossImage { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Flux3ImageOutput? Flux3Image { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CaptionImageOutput? CaptionImage { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CodexImageDetails? Codex { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -111,6 +125,8 @@ public sealed record ImageCropRegion
 
 public sealed record AssetImage
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PendingReview { get; init; }
     // Organization can change without moving/re-encoding the original file.
     public Guid? StorageAssetId { get; init; }
     public IReadOnlyList<Guid> PreviousAssetIds { get; init; } = [];
@@ -137,6 +153,8 @@ public sealed record AssetImage
 
 public sealed record ReferenceAsset
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? DefaultVoiceId { get; init; }
     // A starting choice for new reel bindings, never a live override of saved shots.
@@ -220,7 +238,8 @@ public sealed record AssetImageInput(
     IReadOnlyList<string> Tags,
     AssetImageOrigin Origin,
     AssetGenerationMetadata? Generation = null,
-    Guid? LookId = null);
+    Guid? LookId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? PendingReview = null);
 
 public sealed record AssetMedia(Stream Content, string ContentType, DateTimeOffset LastModified) : IAsyncDisposable
 {
@@ -265,6 +284,10 @@ public sealed record AssetExtractionUpdate(
 
 public sealed record ReferenceGenerationRequest
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool PendingReview { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; init; }
     public int Resolution { get; init; } = 1024;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public QwenImage21Options? QwenImage21 { get; init; }
@@ -281,6 +304,10 @@ public sealed record ReferenceGenerationRequest
 
 public sealed record ReferenceEditRequest
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool PendingReview { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VisualStyle? VisualStyle { get; init; }
     public int Resolution { get; init; } = 1024;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public QwenImage21Options? QwenImage21 { get; init; }

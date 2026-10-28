@@ -9,6 +9,13 @@ internal sealed class FakeProjectAiPreferencesStore : IProjectAiPreferencesStore
     public Dictionary<Guid, ProjectAiPreferences> Values { get; } = [];
     public Exception? SaveError { get; set; }
     public Exception? LoadError { get; set; }
+    public async Task<ProjectAiPreferences> SetVisualStyleAsync(Guid projectId, VisualStyle style, long expectedRevision, CancellationToken cancellationToken = default)
+    {
+        if (SaveError is not null) throw SaveError;
+        var current = await LoadAsync(projectId, cancellationToken);
+        if (current.VisualStyleRevision != expectedRevision) throw new WorkspaceConflictException();
+        return Values[projectId] = current with { VisualStyle = VisualStyles.Normalize(style), VisualStyleRevision = expectedRevision + 1 };
+    }
     public async Task<ProjectAiPreferences> SetImageDefaultAsync(Guid projectId, ImageWorkflow? workflow, long expectedRevision, CancellationToken cancellationToken = default)
     {
         if (SaveError is not null) throw SaveError;

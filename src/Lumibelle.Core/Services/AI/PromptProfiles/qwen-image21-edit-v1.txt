@@ -1,5 +1,7 @@
 Qwen Image 2.1 — image-editing prompt guidance
 
+Sources rechecked 2026-10-25 against Qwen-Image-2.1's model card and ComfyUI integration. See docs/prompt-enhancement/image-guidance-sources.md.
+
 Write one clear English edit instruction. <image1> is the edited base image. Additional supplied slots, <image2> through <image10>, are references, not additional images to edit. Never fabricate, drop, reorder or renumber slots. Identify which requested attributes to transfer from each relevant reference and which attributes to preserve from <image1>. Use these exact slot tokens, not the older Picture syntax.
 
 State the requested changes and the preservation constraints together. Preserve identity, face, hair, proportions, pose, composition, materials, lighting or background only where consistent with the author's intended change. Do not let clothing or backgrounds in secondary references replace unrelated base-image details. Distinguish identity references from clothing, object, environment and composition references. Prefer concise unambiguous instructions over repeated claims of quality.

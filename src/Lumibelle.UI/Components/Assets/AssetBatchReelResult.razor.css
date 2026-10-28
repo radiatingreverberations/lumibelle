@@ -1,0 +1,11 @@
+.bulk-reel-candidate { min-width: 0; padding-top: 16px; border-top: 1px solid var(--lumi-border); }
+.bulk-reel-candidate video { width: 100%; max-height: 440px; display: block; border-radius: 8px; background: var(--lumi-surface-subtle); }
+.bulk-suggested-frames { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.bulk-suggested-frames label { border: 1px solid var(--lumi-border); border-radius: 8px; padding: 10px; display: grid; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.bulk-suggested-frames img { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: var(--lumi-surface-subtle); }
+.bulk-suggested-frames small { color: var(--lumi-text-muted); font-weight: 400; }
+.bulk-reel-candidate button { border: 1px solid var(--lumi-control-border); border-radius: 7px; background: var(--lumi-surface); padding: 9px 12px; margin: 8px 12px 8px 0; color: var(--lumi-text); }
+.bulk-reel-candidate button:disabled { opacity: .55; }
+.bulk-approved { color: var(--lumi-accent); font-weight: 600; }
+.bulk-reel-candidate dl { margin: 10px 0; } .bulk-reel-candidate dt { font-weight: 600; } .bulk-reel-candidate dd { margin: 4px 0 12px; }
+@media(max-width:700px) { .bulk-suggested-frames { grid-template-columns: repeat(2,minmax(0,1fr)); } }

@@ -39,7 +39,9 @@ public sealed class ReelVideoPublication(IAssetStore assets, IAssetReelStore ree
         if (output.HasLosslessFrames) await media.PublishArchiveAsync(s.ProjectId, stored, output, directory, ct);
         var reel = new AssetReferenceReel { Id = output.Id, AssetId = recipe.AssetId, LookId = recipe.LookId, Name = recipe.Name,
             UseGuidance = recipe.UseGuidance, Media = stored, CreatedUtc = output.CreatedUtc,
-            Generation = new(recipe.Copy(), output.RunId, output.AiJobId!.Value, output.Candidate, output.Seed, ShotCopy.Of(s)) };
+            Generation = new(recipe.Copy(), output.RunId, output.AiJobId!.Value, output.Candidate, output.Seed, ShotCopy.Of(s)),
+            RefinementPackage = output.RefinementPackage, Refinement = ShotCopy.Of(output.Refinement) };
+        await reels.RetainRefinementPackageAsync(s.ProjectId, reel, directory, ct);
         await reels.PublishReelAsync(s.ProjectId, reel, ct);
     }
 }

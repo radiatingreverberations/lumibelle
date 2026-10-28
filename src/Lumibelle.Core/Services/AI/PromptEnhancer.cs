@@ -66,7 +66,7 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         }
         timeout.Stop();
         var result = truncated || (finishReason is not null && finishReason != ChatFinishReason.Stop)
-            ? null : Parse(output.ToString(), allowPlainText: finishReason == ChatFinishReason.Stop);
+            ? null : ParseForContext(output.ToString(), context, allowPlainText: finishReason == ChatFinishReason.Stop);
         var error = truncated ? "The response reached the output limit and cannot be applied. " + TextGenerationOptions.OutputLimitAdvice(request.Model.Backend)
             : result is null ? "The response could not be read as a complete prompt. Inspect it and retry; your prompt is unchanged."
             : result.Kind == PromptEnhancementKind.Prompt && context.ProtectedTriggers.Any(t => !result.Text.Contains(t, StringComparison.Ordinal))
@@ -81,6 +81,7 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         var changes = new List<string>();
         if (now.Prompt != was.Prompt) changes.Add(PromptEdited);
         if (now.Workflow != was.Workflow || now.IsEdit != was.IsEdit) changes.Add("the image workflow or mode changed");
+        if (VisualStyles.Context(now.VisualStyle) != VisualStyles.Context(was.VisualStyle)) changes.Add("the visual style changed");
         if (now.AspectRatio != was.AspectRatio || now.Resolution != was.Resolution || now.QwenImage21 != was.QwenImage21 || now.MaximumReferences != was.MaximumReferences)
             changes.Add("the aspect ratio, resolution or workflow options changed");
         if (Json(now.References) != Json(was.References)) changes.Add("the references, crops or their notes changed");
@@ -99,11 +100,12 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
     private static string Json<T>(T value) => JsonSerializer.Serialize(value);
     public async Task ValidateInputsAsync(PromptEnhancementContext context, CancellationToken cancellationToken = default)
     {
+        VisualStyles.Validate(context.VisualStyle);
         if (!Enum.IsDefined(context.Workflow) || context.ProjectId == Guid.Empty || context.AssetId == Guid.Empty)
             throw new AiGenerationException("Select an asset and image workflow before enhancing.");
         var limit = ImageWorkflowLimits.MaximumReferences(context.Workflow);
         if (context.Workflow == ImageWorkflow.QwenImage21) QwenImage21Policy.ValidateOptions(context.QwenImage21 ?? new(), context.IsEdit);
-        if (!ImageAspectPolicy.IsResolutionSupported(context.Resolution)) throw new AiGenerationException("Choose a supported image resolution.");
+        if (!ImageWorkflowLimits.SupportsResolution(context.Workflow, context.Resolution)) throw new AiGenerationException("Choose a supported image resolution.");
         if (context.IsEdit ? context.References.Count < 1 || context.References.Count > Math.Min(limit, context.MaximumReferences) : context.References.Count != 0)
             throw new AiGenerationException("The selected references do not match this image workflow. Adjust them before enhancing.");
         if (context.References.Select(r => r.Image).Distinct().Count() != context.References.Count)
@@ -140,10 +142,11 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         if (images.Count != (request.InspectImages ? c.References.Count : 0)) throw new AiGenerationException("Inspection images do not match the captured reference slots.");
         // ComfyUI's TextGenerate preview has no finish reason. Keep its explicit JSON envelope
         // so a normally completed job with cut-off text cannot masquerade as a complete paragraph.
-        var structured = request.Model.Backend == AiBackend.ComfyUI;
+        var structured = request.Model.Backend == AiBackend.ComfyUI || c.Workflow == ImageWorkflow.Fibo2;
         var outputContract = structured
             ? "Return exactly one complete JSON object with string fields kind and text, and no other output. " +
-              "kind must be Prompt, NeedsInput, or NeedsSetup. For Prompt, text is the finished English paragraph. " +
+              "kind must be Prompt, NeedsInput, or NeedsSetup. " +
+              (c.Workflow == ImageWorkflow.Fibo2 ? "For Prompt, text is a JSON string containing the complete VGL JSON object. " : "For Prompt, text is the finished English paragraph. ") +
               "For NeedsInput or NeedsSetup, text is one concise question or requirement without the NEEDS_INPUT/NEEDS_SETUP prefix. "
             : "For a normal rewrite, return only the finished English prompt as one paragraph, with no heading, explanation, JSON, or code fence. " +
               "If essential information is missing, return NEEDS_INPUT: followed by one concise question. " +
@@ -172,6 +175,10 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
                 r.Label, backgroundNotes = r.Notes, sourceLookContext = r.Look, submittedCrop = r.Crop })
         };
         var payload = JsonSerializer.SerializeToNode(data)!.AsObject();
+        if (VisualStyles.Brief(c.VisualStyle) is { Length: > 0 } style) {
+            payload["visualStyleDirection"] = style;
+            system += " Apply visualStyleDirection to the rendering medium, palette and lighting while preserving the requested identity, content and framing. An explicit style conversion can change the reference's rendering medium without changing its subject.";
+        }
         if (!string.IsNullOrWhiteSpace(request.Direction)) payload["authorDirection"] = request.Direction.Trim();
         var user = new ChatMessage(ChatRole.User, payload.ToJsonString());
         foreach (var image in images) user.Contents.Add(new DataContent(image, "image/png"));
@@ -183,6 +190,22 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
     {
         var messages = BuildMessages(request with { InspectImages = false }, PromptProfiles.Read(request.Context.Workflow, request.Context.IsEdit), []);
         return messages.Sum(m => ComfyTextCapacity.TextTokens(m.Text));
+    }
+
+    public static PromptEnhancementResult? ParseForContext(string raw, PromptEnhancementContext context, bool allowPlainText = false)
+    {
+        var result = Parse(raw, allowPlainText);
+        if (context.Workflow != ImageWorkflow.Fibo2 || result?.Kind != PromptEnhancementKind.Prompt) return result;
+        try
+        {
+            using var json = JsonDocument.Parse(result.Text);
+            var root = json.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("short_description", out var description) ||
+                description.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(description.GetString())) return null;
+            if (context.IsEdit && (!root.TryGetProperty("edit_instruction", out var edit) || edit.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(edit.GetString()))) return null;
+            return result;
+        }
+        catch (JsonException) { return null; }
     }
 
     public static PromptEnhancementResult? Parse(string raw, bool allowPlainText = false)
@@ -259,6 +282,11 @@ public static class PromptProfiles
         ImageWorkflow.CodexImages => edit ? "codex-edit-v1" : "codex-create-v1",
         ImageWorkflow.Krea2 => edit ? "krea-edit-v1" : "krea-create-v1",
         ImageWorkflow.QwenImage21 => edit ? "qwen-image21-edit-v1" : "qwen-image21-create-v1",
+        ImageWorkflow.MossImage => edit ? "moss-image-edit-v1" : "moss-image-create-v1",
+        ImageWorkflow.Flux3ImageKlein => edit ? "flux3-klein-edit-v1" : "flux3-klein-create-v1",
+        ImageWorkflow.Fibo2 => edit ? "fibo2-edit-v1" : "fibo2-create-v1",
+        ImageWorkflow.ZImage when !edit => "z-image-create-v1",
+        ImageWorkflow.ZImage => throw new AiGenerationException("Z-Image Base and Turbo support creation here. Choose an editing workflow to use references."),
         ImageWorkflow.Flux2Klein9bKv => edit ? "klein-edit-v1" : "klein-create-v1",
         _ => throw new AiGenerationException("No enhancement guide is available for this workflow.")
     };

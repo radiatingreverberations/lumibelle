@@ -118,6 +118,7 @@ else
                             {
                                 <dt>Workflow</dt><dd>@generation.Workflow.Label()</dd>
                                 <dt>Prompt</dt><dd>@generation.Prompt</dd>
+                                @if (VisualStyles.Brief(generation.VisualStyle) is { Length: > 0 } style) { <dt>Captured visual style · @VisualStyles.Label(generation.VisualStyle!.Preset)</dt><dd>@style</dd> }
                                 @if (generation.Codex is { } codex)
                                 {
                                     <dt>Provider</dt><dd>Codex · CLI @codex.Version</dd><dt>Agent model</dt><dd>@codex.Model · @codex.Effort</dd><dt>Image model</dt><dd>Not reported by Codex</dd>
@@ -134,6 +135,11 @@ else
                                 }
                                 @if (generation.Codex is null) { <dt>Diffusion model</dt><dd>@generation.DiffusionModel</dd><dt>Text encoder</dt><dd>@generation.TextEncoder</dd><dt>VAE</dt><dd>@generation.Vae</dd> }
                                 @foreach (var lora in generation.Loras) { <dt>LoRA · @lora.Reference.Name</dt><dd>@lora.Reference.FileName · strength @lora.Strength</dd> }
+                                @if (generation.QwenImage21 is { } qwen) { <dt>Checkpoint variant</dt><dd>@qwen.Variant@(qwen.Variant == QwenImage21Variant.Turbo ? " · fixed 8-step schedule" : "")</dd> }
+                                @if (generation.CaptionImage is { } caption) {
+                                    <dt>Checkpoint variant</dt><dd>@caption.Settings.Variant</dd>
+                                    <dt>Sampling</dt><dd>@caption.Sampler · CFG @caption.Guidance · shift @caption.Shift</dd>
+                                }
                                 @if (generation.Edit is { } edit)
                                 {
                                     @if (edit.Regional is { } regional) { <dt>Regional edit</dt><dd>@regional.Selection.Mode · @regional.Selection.Width × @regional.Selection.Height original pixels · @regional.EdgeBlend px edge blend</dd> }
@@ -211,7 +217,7 @@ else
         @if (OneMore.HasDelegate && OneMoreUnavailable is not null) { <span role="status">@OneMoreUnavailable</span> }
         </Status><Tools>
         @if (_afterDetails is null) {
-        @if (Primary is { } selected && Resolution(selected).State == ReviewImageState.Active && Image(selected) is not null && selected.Reference.AssetId == Session.AssetId)
+        @if (EditRequested.HasDelegate && Primary is { } selected && Resolution(selected).State == ReviewImageState.Active && Image(selected) is not null && selected.Reference.AssetId == Session.AssetId)
         { <MudButton OnClick="() => LeaveDetails(() => EditRequested.InvokeAsync(selected.Reference.ImageId))" Disabled="@(_busy || Generating)">Edit image</MudButton> }
         @if (CreateReelRequested.HasDelegate && Primary is { } reelImage && Resolution(reelImage).State == ReviewImageState.Active && Image(reelImage) is not null && reelImage.Reference.AssetId == Session.AssetId && Library.Assets.FirstOrDefault(a => a.Id == reelImage.Reference.AssetId) is { } reelOwner && ReferenceReels.Supports(reelOwner.Category))
         { <MudButton OnClick="() => LeaveDetails(() => CreateReelRequested.InvokeAsync(reelImage.Reference.ImageId))" Disabled="@(_busy || !CanCreateReel)">Create reel from this image</MudButton> }
@@ -241,6 +247,7 @@ else
     [Parameter] public bool Visible { get; set; }
     [Parameter] public AssetImageReference? InitialSelection { get; set; }
     [Parameter] public bool Generating { get; set; }
+    [Parameter] public bool AllowDiscard { get; set; } = true;
     [Parameter] public EventCallback Closed { get; set; }
     [Parameter] public EventCallback CancelRequested { get; set; }
     [Parameter] public EventCallback RetryOutput { get; set; }
@@ -274,7 +281,7 @@ else
     private ImageReviewEntry? Secondary => VisibleEntries.FirstOrDefault(e => e.Reference == _secondary);
     private ReviewImageResolution Resolution(ImageReviewEntry entry) => ReviewImageResolution.Resolve(Library, entry);
     private AssetImage? Image(ImageReviewEntry entry) => _unavailable.Contains(entry.Reference) ? null : Resolution(entry).Image;
-    private bool CanDiscard(ImageReviewEntry entry) => entry.IsTake && Image(entry) is { IsReference: false, IsCover: false, Origin: not AssetImageOrigin.Imported };
+    private bool CanDiscard(ImageReviewEntry entry) => AllowDiscard && entry.IsTake && Image(entry) is { IsReference: false, IsCover: false, Origin: not AssetImageOrigin.Imported };
     protected override void OnParametersSet()
     {
         if (Session.IsRegional) return;

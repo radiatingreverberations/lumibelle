@@ -66,6 +66,10 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             VllmUrl = VllmConnection.NormalizeUrl(settings.VllmUrl), HasVllmKey = vllmSecret is not null,
             OpenAiConnections = connections.Select(c => c with { HasApiKey = connectionKeys.ContainsKey(c.Url) }).ToArray(),
             QwenImage21 = settings.QwenImage21 is { } qwen ? QwenImage21Policy.Normalize(qwen) : null,
+            MossImage = settings.MossImage is { } moss ? MossImagePolicy.Normalize(moss) : null,
+            Flux3Image = settings.Flux3Image is { } flux3 ? Flux3ImagePolicy.Normalize(flux3) : null,
+            Fibo2 = settings.Fibo2 is { } fibo ? CaptionImagePolicy.Normalize(fibo) : null,
+            ZImage = settings.ZImage is { } zimage ? CaptionImagePolicy.Normalize(zimage) : null,
             LoraLibrary = settings.LoraLibrary.Select(d => d with { Reference = d.Reference with
             { ComfyUrl = AiProviderRegistry.NormalizeComfyUrl(d.Reference.ComfyUrl), Name = d.Reference.Name.Trim() }, TriggerText = d.TriggerText.Trim(), Tags = LoraPolicy.NormalizeTags(d.Tags) }).ToArray(),
             ComfyUrl = settings.ComfyUrl.Trim().TrimEnd('/'), OpenRouterModel = settings.OpenRouterModel.Trim(),
@@ -158,6 +162,10 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         OpenAiConnections.Validate(settings);
         if (settings.VllmConcurrency is < 1 or > 8) throw new WorkspaceStoreException("Choose vLLM concurrency between 1 and 8.");
         QwenImage21Policy.ValidateSettings(settings.QwenImage21);
+        MossImagePolicy.ValidateSettings(settings.MossImage);
+        Flux3ImagePolicy.ValidateSettings(settings.Flux3Image);
+        CaptionImagePolicy.ValidateSettings(settings.Fibo2, ImageWorkflow.Fibo2);
+        CaptionImagePolicy.ValidateSettings(settings.ZImage, ImageWorkflow.ZImage);
         ComfyTextSettings.Validate(settings);
         VllmTextSettings.Validate(settings);
         TextModelProfiles.ValidateSettings(settings);
@@ -165,6 +173,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             throw new WorkspaceStoreException("A saved OpenRouter model test is invalid. Run the test again.");
         if (settings.VllmTextModelBenchmarks is null || settings.VllmTextModelBenchmarks.Any(b => b is null ||
             InvalidBenchmark(b.Measurement, AiModelTestJobHandler.VllmAdvancedMaxTokens) ||
+            b.ImageInput is { } images && (images.TestedUtc == default || images.Detail is null || images.Detail.Length > 2000 || images.MultipleImages && images.Supported != true) ||
+            b.StructuredOutput is { } schema && (schema.TestedUtc == default || schema.Detail is null || schema.Detail.Length > 2000) ||
             b.Temperature is { } temperature && (!float.IsFinite(temperature) || temperature is < 0 or > 2)))
             throw new WorkspaceStoreException("A saved vLLM model test is invalid. Run the test again.");
         foreach (var benchmark in settings.VllmTextModelBenchmarks)

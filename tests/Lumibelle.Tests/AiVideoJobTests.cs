@@ -471,7 +471,7 @@ public sealed partial class ShotTests
         }
         public ReelTestMedia ReelMedia { get; } = new();
         public async Task<AiJobSubmission> CaptureReel(IReadOnlyList<LoraSelection>? loras = null, bool environment = false, bool? keepFrames = null, bool existingRecording = false,
-            VideoResolution? resolution = null)
+            VideoResolution? resolution = null, bool keepLatents = false, string? preset = null)
         {
             var ct = _owner._ct;
             var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = environment ? "Study" : "Riley", Category = environment ? AssetCategory.Environment : AssetCategory.Character };
@@ -484,6 +484,8 @@ public sealed partial class ShotTests
             var draft = environment ? ReferenceReels.NewDraft(asset) : ReferenceReelTests.Recipe(ReelFraming.ThreeAngles);
             if (keepFrames is { } keep) draft.SaveLosslessFrames = keep;
             if (resolution is { } selectedResolution) VideoResolutions.Select(draft, selectedResolution);
+            if (keepLatents) draft.SaveLatents = true;
+            if (preset is not null) draft.GenerationPreset = preset;
             draft.Loras = loras;
             draft.AssetId = asset.Id; draft.Images = [new() { AssetId = asset.Id, MediaId = library.Assets.Single().Images.Single().Id, InferUsage = true }];
             if (existingRecording) { draft.VoiceMode = ReelVoiceMode.ExistingRecording; draft.Voice = new() { AssetId = asset.Id, VoiceId = Guid.NewGuid(), Speaker = draft.Speaker, Start = 1, Duration = 4 }; }
@@ -492,7 +494,12 @@ public sealed partial class ShotTests
             Worker = new(Shots, Generator, Adapter, new TestHttpFactory(_http), new(TestComfy.Monitor()), TimeProvider.System,
                 new ReelVideoPublication(Assets, Assets, ReelMedia));
             var capture = new AiReelCapture(Assets, Assets, Settings, Generator, new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(Project) }, Preferences);
-            return await capture.CaptureAsync(Guid.NewGuid(), Guid.NewGuid(), Project.Id, draft.Id, draft.Revision, 1, ct);
+            var submission = await capture.CaptureAsync(Guid.NewGuid(), Guid.NewGuid(), Project.Id, draft.Id, draft.Revision, 1, ct);
+            if (keepLatents) {
+                var snapshot = submission.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!.Snapshot;
+                ReelMedia.Metadata = (snapshot.Width, snapshot.Height, snapshot.FrameCount);
+            }
+            return submission;
         }
         public async Task<AiJobSubmission> Capture(int count = 1, IReadOnlyList<ShotReferenceGuidance>? guidance = null, IReadOnlyList<ShotAppearanceContext>? appearances = null) => await CaptureService.CaptureAsync(Guid.NewGuid(), Guid.NewGuid(), Project.Id, Shot,
             (await Shots.LoadAsync(Project.Id, _owner._ct)).Revision, count, 52, guidance, appearances, _owner._ct);
@@ -504,12 +511,13 @@ public sealed partial class ShotTests
     }
     private sealed class ReelTestMedia : lumibelle.Services.Production.IReferenceVideoStore
     {
+        public (int Width, int Height, int Frames)? Metadata;
         public int Imports;
         public int ArchiveAttempts; public bool FailArchive;
         public Task PublishArchiveAsync(Guid project, ReferenceVideoMedia media, ShotTake take, string sourceDirectory, CancellationToken ct = default)
         { ArchiveAttempts++; return FailArchive ? Task.FromException(new IOException("Interrupted archive publication")) : Task.CompletedTask; }
         public Task<ReferenceVideoMedia> ImportAsync(Guid project, Stream content, string name, H3Settings settings, CancellationToken ct = default)
-        { Imports++; return Task.FromResult(new ReferenceVideoMedia(Guid.NewGuid(), new('A', 64), 3, 640, 640, 124, 24, 124 / 24d, true)); }
+        { Imports++; var (w, h, frames) = Metadata ?? (640, 640, 124); return Task.FromResult(new ReferenceVideoMedia(Guid.NewGuid(), new('A', 64), 3, w, h, frames, 24, frames / 24d, true)); }
         public Task<ReferenceVideoMedia> CopyTakeAsync(Guid p, Guid t, H3Settings s, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<AssetMedia?> OpenAsync(Guid p, Guid m, CancellationToken ct = default) => throw new NotSupportedException();
         public Task ValidateAsync(Guid p, IEnumerable<ShotVideoBinding> b, CancellationToken ct = default) => Task.CompletedTask;

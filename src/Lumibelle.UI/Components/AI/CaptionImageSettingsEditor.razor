@@ -1,0 +1,35 @@
+@using lumibelle.Services.Assets
+
+<fieldset disabled="@Disabled" class="caption-image-settings" aria-label="@($"{Workflow.Label()} sampling settings")">
+    <legend>Checkpoint and sampling</legend>
+    <label for="caption-image-variant">Checkpoint variant</label>
+    <select id="caption-image-variant" @bind:get="Value.Variant" @bind:set="ChangeVariant">
+        <option value="@CaptionImageVariant.Base">@(Fibo ? "Dev · creation and editing" : "Base · creation")</option>
+        <option value="@CaptionImageVariant.Turbo">@(Fibo ? "Edit Turbo · editing only" : "Turbo · fast creation")</option>
+    </select>
+    <p class="field-hint">Choose the variant matching your diffusion file. @(Fibo ? "Dev defaults to 50 steps and CFG 5. Edit Turbo defaults to 4 steps and CFG 1, with up to four ordered references and no edit LoRA." : "Base defaults to 25 steps and CFG 4. Turbo defaults to 8 steps and CFG 1. These checkpoints support creation; reference editing and ControlNet are not enabled in this workflow.")</p>
+    <label for="caption-image-steps">Sampling steps</label>
+    <input id="caption-image-steps" type="number" min="1" max="150" @bind:get="CaptionImagePolicy.Steps(Value, Workflow)" @bind:set="(int v) => Update(Value with { Steps = v })" />
+    @if (Value.Variant == CaptionImageVariant.Base) {
+        <label for="caption-image-guidance">Guidance (CFG)</label>
+        <input id="caption-image-guidance" type="number" min="1" max="20" step="0.1" @bind:get="CaptionImagePolicy.Guidance(Value, Workflow)" @bind:set="(double v) => Update(Value with { Guidance = v })" />
+        <label for="caption-image-negative">Negative caption @(Fibo ? "(creation only)" : "")</label>
+        <textarea id="caption-image-negative" rows="3" @bind:get="Value.NegativePrompt" @bind:set="(string v) => Update(Value with { NegativePrompt = v })"></textarea>
+    }
+    @if (!Fibo) {
+        <label for="caption-image-shift">Sampling shift</label>
+        <input id="caption-image-shift" type="number" min="0.1" max="20" step="0.1" @bind:get="CaptionImagePolicy.Shift(Value, Workflow)" @bind:set="(double v) => Update(Value with { Shift = v })" />
+    }
+    <p class="field-hint">@(Fibo ? "Use Enhance to review a structured VGL caption, or supply your own caption or edit instruction. Single-reference edits fit the submitted crop to the chosen output canvas. Multiple references keep their own proportions." : "Use a clear scene description and optional Z-Image-assigned LoRAs. The selected aspect and resolution determine the output canvas.")</p>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public CaptionImageSettings Value { get; set; } = new();
+    [Parameter, EditorRequired] public ImageWorkflow Workflow { get; set; }
+    [Parameter] public EventCallback<CaptionImageSettings> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private bool Fibo => Workflow == ImageWorkflow.Fibo2;
+    private Task Update(CaptionImageSettings value) => ValueChanged.InvokeAsync(value);
+    private Task ChangeVariant(CaptionImageVariant variant) => Update(Value with { Variant = variant, Steps = null, Guidance = null,
+        NegativePrompt = variant == CaptionImageVariant.Turbo ? "" : Value.NegativePrompt });
+}

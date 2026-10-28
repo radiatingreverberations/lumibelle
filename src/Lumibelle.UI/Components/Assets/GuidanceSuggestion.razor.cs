@@ -50,7 +50,7 @@ public partial class GuidanceSuggestion
     private static string Key(Guid asset, Guid image) => $"{asset}/{image}";
     private AssetImageReference? InspectionImage => Library.Assets.SelectMany(a => a.Images.Select(i => new AssetImageReference(a.Id, i.Id))).FirstOrDefault(i => Key(i.AssetId, i.ImageId) == _imageKey);
     private string? VisionIssue => !_inspect ? null
-        : _model is not { SupportsImages: true } || !TextVisionPolicy.SupportsBackend(_model.Model.Backend) ? TextVisionPolicy.SetupHint
+        : TextVisionPolicy.ImageIssue(_model) is { } issue ? issue
         : InspectionImage is null ? "Choose an active image to inspect." : null;
     private bool CanStart => !Disabled && !_busy && !_applying && _savedChanges.Count == 0 && _pending is null && Context is not null && _model?.Ready == true && VisionIssue is null;
     // Changes since the request, compared with the target as edited here and, once Apply has

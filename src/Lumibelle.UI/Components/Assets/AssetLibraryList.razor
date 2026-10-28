@@ -2,13 +2,14 @@
 @inject IJSRuntime JS
 <div class="asset-list" @ref="_element">
 @foreach (var asset in Items) {
-    var cover = asset.Images.FirstOrDefault(i => i.IsCover) ?? asset.Images.FirstOrDefault();
+    var kept = asset.Images.Where(i => i.PendingReview != true).ToArray();
+    var cover = kept.FirstOrDefault(i => i.IsCover) ?? kept.FirstOrDefault();
     <div class="asset-list-row @(asset.Id == SelectedId ? "selected" : "")" @key="asset.Id" data-asset-id="@asset.Id">
         <button class="asset-drag" data-asset-drag disabled="@(Disabled || !_orderReady)" aria-label="Move @asset.Name" title="Drag to reorder; click for Move to…" @onclick="() => MoveRequested.InvokeAsync(asset.Id)">⠿</button>
         <button class="asset-choice" aria-pressed="@(asset.Id == SelectedId ? "true" : "false")" @onclick="() => Selected.InvokeAsync(asset.Id)">
             @if (cover is not null) { <img src="@($"/media/projects/{ProjectId}/assets/{asset.Id}/images/{cover.Id}")" alt="" loading="lazy" /> }
             else { <span class="asset-choice-placeholder" aria-hidden="true">◇</span> }
-            <span><strong>@asset.Name</strong><small>@asset.Category · @asset.Images.Count @(asset.Images.Count == 1 ? "image" : "images")</small></span>
+            <span><strong>@asset.Name</strong><small>@asset.Category · @kept.Length @(kept.Length == 1 ? "image" : "images")</small>@if (asset.Images.Count - kept.Length > 0) { <small>@(asset.Images.Count - kept.Length) pending review</small> }</span>
         </button>
         <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {asset.Name}")" Size="Size.Small" Dense="true">
             <MudMenuItem role="menuitem" OnClick="() => Rename.InvokeAsync(asset.Id)">Rename</MudMenuItem>

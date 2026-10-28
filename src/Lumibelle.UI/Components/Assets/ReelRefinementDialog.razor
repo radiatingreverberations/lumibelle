@@ -1,0 +1,94 @@
+@implements IAsyncDisposable
+@inject AiReelCapture Requests
+@inject AiJobCoordinator Jobs
+@inject IAiReviewGate Reviews
+@inject IAiSettingsStore Settings
+@inject IVideoGenerator Generator
+
+<InlineDialog Visible="@(Reel is not null)" VisibleChanged="async visible => { if (!visible) await Close(); }" Options="Options"
+              Class="reel-refinement-dialog" Title="Refine reel" Context="@Reel?.Name" CloseLabel="Close refine reel" CloseDisabled="_busy">
+    <DialogContent>
+        @if (Reel is { Generation: not null } reel) {
+            <DialogEscape Pressed="Close" />
+            <p class="field-hint">Saves a separate reel version. The original reel and references in existing shots stay unchanged.</p>
+            @if (reel.RefinementPackage is null) {
+                <p role="status">@ReferenceReels.NoRefinementLatents</p>
+                <p class="field-hint">The next dialog starts with this reel's original seed and resolution and Save latents enabled. Review those choices before generating.</p>
+                <MudButton OnClick="() => PrepareWithLatents.InvokeAsync(reel)" Variant="Variant.Filled" Color="Color.Primary">Regenerate with latents…</MudButton>
+            }
+            else {
+                <TakeRefinementForm @key="reel.Id" Source="@ReferenceReels.RefinementSource(reel)" Kind="reel" Busy="@(_busy || _submission is not null)"
+                    Issue="@_issue" Cancel="Close" Refresh="CheckSetup" Queue="Queue" />
+            }
+            @if (_error is not null) { <p role="alert">@_error</p> }
+            @if (_submission is not null) {
+                <p role="status">The refinement request is captured. Retry submits this same request without adding another version.</p>
+                <MudButton OnClick="Retry" Disabled="_busy" Variant="Variant.Filled" Color="Color.Primary">Retry submission</MudButton>
+            }
+        }
+    </DialogContent>
+    <DialogActions><MudButton OnClick="Close" Disabled="_busy">Close</MudButton></DialogActions>
+</InlineDialog>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public AssetReferenceReel? Reel { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    [Parameter] public EventCallback<AssetReferenceReel> PrepareWithLatents { get; set; }
+    [Parameter] public EventCallback<AiJobSubmission> Submitted { get; set; }
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
+    private readonly CancellationTokenSource _lifetime = new();
+    private Guid? _source;
+    private bool _busy;
+    private string? _issue, _error;
+    private AiJobSubmission? _submission;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_source == Reel?.Id) return;
+        _source = Reel?.Id; _submission = null; _issue = null; _error = null;
+        if (Reel?.RefinementPackage is not null) await CheckSetup();
+    }
+    private Task Close() => _busy ? Task.CompletedTask : Closed.InvokeAsync();
+    private async Task CheckSetup()
+    {
+        if (Reel?.Generation is not { } generation) return;
+        _busy = true; _issue = "Checking refinement setup…";
+        try {
+            var configured = await Settings.LoadAsync(_lifetime.Token);
+            var check = await Generator.CheckAsync(new() { ComfyUrl = generation.Snapshot.ExecutionComfyUrl,
+                H3 = generation.Snapshot.Settings with { LatentUpscaler = configured.H3.LatentUpscaler } }, _lifetime.Token);
+            _issue = check.RefinementIssue;
+        }
+        catch (Exception e) { _issue = e.Message; }
+        finally { _busy = false; }
+    }
+    private async Task Queue((TakeRefinementMode Mode, int Width, int Height) options)
+    {
+        if (_busy || _submission is not null || Reel is null) return;
+        _busy = true; _error = null;
+        try {
+            _submission = await Requests.CaptureRefinementAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), ProjectId, Reel.Id,
+                options.Mode, options.Width, options.Height, _lifetime.Token);
+            await Enqueue();
+        }
+        catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; }
+    }
+    private async Task Retry()
+    {
+        if (_busy || _submission is null) return;
+        _busy = true; _error = null;
+        try { await Enqueue(); }
+        catch (Exception e) { _error = e.Message; }
+        finally { _busy = false; }
+    }
+    private async Task Enqueue()
+    {
+        var captured = _submission!;
+        await Jobs.EnqueueAsync(captured, _lifetime.Token);
+        _submission = null;
+        await Submitted.InvokeAsync(captured);
+        await Closed.InvokeAsync();
+    }
+    public ValueTask DisposeAsync() { _lifetime.Cancel(); _lifetime.Dispose(); return ValueTask.CompletedTask; }
+}

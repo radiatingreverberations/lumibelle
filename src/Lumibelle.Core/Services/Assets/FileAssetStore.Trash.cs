@@ -5,10 +5,11 @@ namespace lumibelle.Services.Assets;
 
 public sealed partial class FileAssetStore
 {
-    private TrashedImage TrashEntry(ReferenceAsset asset, AssetImage image)
+    private TrashedImage TrashEntry(AssetLibrary library, ReferenceAsset asset, AssetImage image)
     {
         var now = clock.GetUtcNow();
-        return new() { Image = image, Asset = asset with { Images = [], DefaultVoiceId = null }, DeletedUtc = now, ExpiresUtc = now.AddDays(30) };
+        return new() { Image = image, Asset = asset with { Images = [], DefaultVoiceId = null }, DeletedUtc = now, ExpiresUtc = now.AddDays(30),
+            AssetOrder = library.Assets.Select(a => a.Id).ToArray(), ImageOrder = asset.Images.Select(i => i.Id).ToArray() };
     }
 
     private static HashSet<Guid> DistinctIds(IReadOnlyCollection<Guid> values)
@@ -74,14 +75,23 @@ public sealed partial class FileAssetStore
             { throw new WorkspaceStoreException("An image file is missing or unreadable. Nothing was restored; the Trash selection is intact.", e); }
         }
         var assets = current.Assets.ToList();
+        var legacyAssetOrder = current.Trash.Select(t => t.Asset.Id).Distinct().ToArray();
+        // Trash is stored in deletion/input order; its newest-first display order
+        // must not determine the asset library's manual order.
+        foreach (var group in current.Trash.Where(t => ids.Contains(t.Id)).GroupBy(t => t.Asset.Id)) {
+            if (assets.Any(a => a.Id == group.Key)) continue;
+            var latest = entries.First(t => t.Asset.Id == group.Key);
+            TrashRestoreOrder.Insert(assets, latest.Asset with { Images = [], DefaultVoiceId = null }, latest.AssetOrder ?? legacyAssetOrder, a => a.Id);
+        }
         foreach (var item in entries)
         {
             var index = assets.FindIndex(a => a.Id == item.Asset.Id);
-            if (index < 0) { index = assets.Count; assets.Add(item.Asset with { Images = [], DefaultVoiceId = null }); }
             var asset = assets[index];
             if (asset.Images.Any(i => i.Id == item.Image.Id)) throw new WorkspaceStoreException("An image with this identity already exists.");
             var restored = item.Image with { IsCover = item.Image.IsCover && !asset.Images.Any(i => i.IsCover) };
-            assets[index] = asset with { Looks = LookPolicy.RestoreLooks(asset, item.Asset, restored.LookId), Images = [.. asset.Images, restored], UpdatedUtc = clock.GetUtcNow() };
+            var images = asset.Images.ToList();
+            TrashRestoreOrder.Insert(images, restored, item.ImageOrder ?? current.Trash.Where(t => t.Asset.Id == item.Asset.Id).Select(t => t.Image.Id).Distinct().ToArray(), i => i.Id);
+            assets[index] = asset with { Looks = LookPolicy.RestoreLooks(asset, item.Asset, restored.LookId), Images = images, UpdatedUtc = clock.GetUtcNow() };
         }
         return await PublishAsync(directory, current with { Assets = assets, Trash = current.Trash.Where(t => !ids.Contains(t.Id)).ToList() },
             current.Revision, cancellationToken);

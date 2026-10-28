@@ -9,6 +9,10 @@ internal static class AiImageJobPolicy
     {
         (ImageWorkflow.Krea2, false) => "krea-create-v1", (ImageWorkflow.Krea2, true) => "krea-edit-v1",
         (ImageWorkflow.QwenImage21, false) => "qwen-image21-create-v1", (ImageWorkflow.QwenImage21, true) => "qwen-image21-edit-v1",
+        (ImageWorkflow.MossImage, false) => "moss-image-create-v1", (ImageWorkflow.MossImage, true) => "moss-image-edit-v2",
+        (ImageWorkflow.Flux3ImageKlein, false) => "flux3-klein-create-v1", (ImageWorkflow.Flux3ImageKlein, true) => "flux3-klein-edit-v1",
+        (ImageWorkflow.Fibo2, false) => "fibo2-create-v1", (ImageWorkflow.Fibo2, true) => "fibo2-edit-v1",
+        (ImageWorkflow.ZImage, false) => "z-image-create-v1",
         (ImageWorkflow.Flux2Klein9bKv, false) => "klein-create-v1", (ImageWorkflow.Flux2Klein9bKv, true) => "klein-edit-v1",
         (ImageWorkflow.CodexImages, false) => "codex-create-v1", (ImageWorkflow.CodexImages, true) => "codex-edit-v1",
         _ => throw new AiGenerationException("This image workflow is unavailable.")
@@ -19,6 +23,7 @@ internal static class AiImageJobPolicy
             request.SourceRevision < 0 || request.Settings is null || (request.Create is null) == (request.Edit is null) || request.Inputs is null ||
             request.Inputs.Any(i => i is null || i.Reference is null || i.Context is null || i.Png is null || i.Png.Length == 0 || i.Png.Length > ImageWorkflowLimits.MaximumPreparedImageBytes(request.Workflow)))
             throw new AiGenerationException("The captured image request is incomplete.");
+        VisualStyles.Validate(request.Create?.VisualStyle ?? request.Edit?.VisualStyle);
         if (request.Regional is { } regional)
         {
             RegionalImageEdits.Validate(regional.Selection);
@@ -31,12 +36,19 @@ internal static class AiImageJobPolicy
             throw new AiGenerationException("The restoration original is missing.");
         FileAiSettingsStore.Validate(request.Settings);
         QwenImage21Policy.ValidateRequest(request);
+        CaptionImagePolicy.ValidateRequest(request);
+        if (request.Workflow == ImageWorkflow.MossImage && (request.Settings.MossImage is null ||
+            request.Edit is not null && string.IsNullOrWhiteSpace(request.Settings.MossImage.EditLora)))
+            throw new AiGenerationException("Capture the MOSS-Image settings and choose an edit LoRA before editing.");
         var resolution = request.Create?.Resolution ?? request.Edit!.Resolution;
-        if (!ImageAspectPolicy.IsResolutionSupported(resolution) || request.Workflow is ImageWorkflow.CodexImages or ImageWorkflow.QwenImage21 && resolution != 1024)
+        if (request.Workflow == ImageWorkflow.Flux3ImageKlein && request.Settings.Flux3Image is null)
+            throw new AiGenerationException("Capture the FLUX 3 model files and variant before queueing.");
+        if (!ImageWorkflowLimits.SupportsResolution(request.Workflow, resolution))
             throw new AiGenerationException("This workflow does not support the selected image resolution.");
         if (request.Workflow == ImageWorkflow.CodexImages && (request.Codex is not { AccountId.Length: > 0, Version.Length: > 0, Model.Length: > 0, Effort.Length: > 0 } || request.Loras.Count != 0 || request.AppliedLoras.Count != 0 || request.Create?.Seed is not null || request.Edit?.Seed is not null))
             throw new AiGenerationException("The Codex image capture is incomplete or contains unsupported settings.");
-        if (request.Profile != Profile(request.Workflow, request.Edit is not null) || string.IsNullOrWhiteSpace(request.Prompt) ||
+        var legacyMossEdit = request.Workflow == ImageWorkflow.MossImage && request.Edit is not null && request.Profile == "moss-image-edit-v1";
+        if (request.Profile != Profile(request.Workflow, request.Edit is not null) && !legacyMossEdit || string.IsNullOrWhiteSpace(request.Prompt) ||
             !ImageAspectPolicy.IsSupported(request.AspectRatio, request.Edit is not null) || request.Tags is null || request.Tags.Any(t => t is null) ||
             (request.Create?.ProjectId ?? request.Edit?.ProjectId) != request.ProjectId ||
             (request.Create?.Workflow ?? request.Edit?.Workflow) != request.Workflow ||
@@ -71,8 +83,13 @@ internal static class AiImageJobPolicy
             QwenImage21Policy.OutputSize(request);
     }
     public static AssetGenerationMetadata Metadata(AiImageJobRequest request, Guid jobId, AiBatchCandidate candidate)
+        => MetadataCore(request, jobId, candidate) with { VisualStyle = request.Create?.VisualStyle ?? request.Edit?.VisualStyle, AuthorPrompt = request.OriginalPrompt };
+    private static AssetGenerationMetadata MetadataCore(AiImageJobRequest request, Guid jobId, AiBatchCandidate candidate)
     {
         if (request.Workflow == ImageWorkflow.QwenImage21) return QwenImage21Policy.Metadata(request, jobId, candidate);
+        if (request.Workflow == ImageWorkflow.MossImage) return MossImagePolicy.Metadata(request, jobId, candidate);
+        if (request.Workflow == ImageWorkflow.Flux3ImageKlein) return Flux3ImagePolicy.Metadata(request, jobId, candidate);
+        if (CaptionImagePolicy.Supports(request.Workflow)) return CaptionImagePolicy.Metadata(request, jobId, candidate);
         var klein = request.Workflow == ImageWorkflow.Flux2Klein9bKv; var settings = request.Settings;
         return new()
         {

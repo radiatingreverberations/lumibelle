@@ -34,7 +34,7 @@ public partial class AssetsStudio
     private AiImageJobRequest? _confirmImageAppend;
     private string? _imageAppendError;
     private ElementReference _imageOriginElement;
-    private string? _imageNavigationError, _imageReviewError;
+    private string? _imageNavigationError, _imageReviewError, _imageHistoryStatus;
     // Each submitted batch runs on its own; the composer is only busy while a request is being captured.
     private AiJobHeader[] ActiveImageJobs => AiJobs.View.Jobs.Where(j => j.Target.ProjectId == Id && j.Target.AssetId == _selectedAssetId &&
         AiJobLocks.IsImage(j.Kind) && j.LocksTarget).OrderBy(j => j.CreatedUtc).ToArray();
@@ -150,7 +150,9 @@ public partial class AssetsStudio
                 var latest = jobs.Where(j => j.Id == j.Batch!.RootId && j.Target.AssetId == selected).MaxBy(j => j.CreatedUtc);
                 _latestEditBatch = latest is null ? null : _imageSessions.GetValueOrDefault(latest.Id);
                 foreach (var key in _pendingImages.Where(p => jobs.Any(j => j.Id == p.Value.Id)).Select(p => p.Key).ToArray()) _pendingImages.Remove(key);
-                if (ActiveImageJobs.Length == 0 && _latestEditBatch?.Job is not null) _generationError = _latestEditBatch.Status;
+                if (ActiveImageJobs.Length == 0 && _latestEditBatch?.Job is not null &&
+                    (_generationError is null || _generationError == _imageHistoryStatus))
+                    _generationError = _imageHistoryStatus = _latestEditBatch.Status;
                 if (_imageOriginJob is { } origin && jobs.FirstOrDefault(j => j.Id == origin) is { } originating &&
                     _imageSessions.GetValueOrDefault(originating.Batch!.RootId) is { ReviewOffered: false } batch && batch.CompletedCandidates.Count > 0)
                 {
@@ -172,22 +174,24 @@ public partial class AssetsStudio
     private async Task GenerateAsync()
     {
         if (_library is null || _selectedAssetId is not { } assetId || !CanRunImageOperation || PendingImage is not null) return;
-        var project = Id; var id = Guid.NewGuid(); var tags = ParseTags(_imageTags);
-        var configured = _settings is null ? null : JsonSerializer.Deserialize<AiSettings>(JsonSerializer.SerializeToUtf8Bytes(_settings, AtomicJsonFile.Options), AtomicJsonFile.Options);
-        if (!IsCodex && !string.IsNullOrWhiteSpace(_fixedSeed) && (!long.TryParse(_fixedSeed, out var parsed) || parsed < 0 || parsed > long.MaxValue - _candidateCount + 1))
-        { _generationError = "Seed must be nonnegative with room for each candidate."; return; }
-        var seed = !IsCodex && long.TryParse(_fixedSeed, out var chosen) ? (long?)chosen : null;
-        var create = IsEditMode ? null : new ReferenceGenerationRequest { Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, Prompt = _imagePrompt,
-            Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed, Loras = LoraPolicy.Capture(SelectedLoras) };
-        var edit = !IsEditMode ? null : new ReferenceEditRequest { Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, SourceAssetId = BaseReference!.AssetId,
-            SourceImageId = _editSourceImageId!.Value, Prompt = _imagePrompt, Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed,
-            ReferenceBoost = _referenceBoost, BaseReferenceBoost = _baseReferenceBoost, GroundingPixels = _groundingPixels, SourceCrop = SourceCrop,
-            Regions = CurrentRegions, ReferenceCrops = CaptureReferenceCrops(), ReferenceLooks = CaptureReferenceLooks(), Loras = LoraPolicy.Capture(SelectedLoras) };
-        var references = BaseReference is { } source ? new[] { source }.Concat(_additionalReferences).ToArray() : [];
-        _imageSubmittingAsset = assetId; _generationError = null; RememberImageComposer(); var submitted = _imageDrafts[assetId];
-        if (create is not null) _submittedImageCreates[id] = _imageDrafts[assetId];
+        var project = Id;
+        _imageSubmittingAsset = assetId; _generationError = null;
         try
         {
+            var id = Guid.NewGuid(); var tags = ParseTags(_imageTags);
+            var configured = _settings is null ? null : JsonSerializer.Deserialize<AiSettings>(JsonSerializer.SerializeToUtf8Bytes(_settings, AtomicJsonFile.Options), AtomicJsonFile.Options);
+            if (!IsCodex && !string.IsNullOrWhiteSpace(_fixedSeed) && (!long.TryParse(_fixedSeed, out var parsed) || parsed < 0 || parsed > long.MaxValue - _candidateCount + 1))
+            { _generationError = "Seed must be nonnegative with room for each candidate."; return; }
+            var seed = !IsCodex && long.TryParse(_fixedSeed, out var chosen) ? (long?)chosen : null;
+            var create = IsEditMode ? null : new ReferenceGenerationRequest { VisualStyle = EffectiveImageStyle, Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, Prompt = _imagePrompt,
+                Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed, Loras = LoraPolicy.Capture(SelectedLoras) };
+            var edit = !IsEditMode ? null : new ReferenceEditRequest { VisualStyle = EffectiveImageStyle, Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, SourceAssetId = BaseReference!.AssetId,
+                SourceImageId = _editSourceImageId!.Value, Prompt = _imagePrompt, Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed,
+                ReferenceBoost = _referenceBoost, BaseReferenceBoost = _baseReferenceBoost, GroundingPixels = _groundingPixels, SourceCrop = SourceCrop,
+                Regions = CurrentRegions, ReferenceCrops = CaptureReferenceCrops(), ReferenceLooks = CaptureReferenceLooks(), Loras = LoraPolicy.Capture(SelectedLoras) };
+            var references = BaseReference is { } source ? new[] { source }.Concat(_additionalReferences).ToArray() : [];
+            RememberImageComposer(); var submitted = _imageDrafts[assetId];
+            if (create is not null) _submittedImageCreates[id] = _imageDrafts[assetId];
             if (!await SaveNowAsync() || _disposed || Id != project) return;
             var tab = await AiReviews.TabIdAsync();
             var request = create is not null ? await ImageRequests.CreateAsync(id, tab, assetId, create, _extractionLifetime.Token, configured)
@@ -198,7 +202,16 @@ public partial class AssetsStudio
             if (!_disposed && Id == project) ClearSubmittedImageComposer(assetId, submitted);
         }
         catch (OperationCanceledException) when (_disposed) { }
-        catch (Exception e) when (e is AiGenerationException or WorkspaceStoreException or ProjectStoreException) { _generationError = e.Message; }
+        catch (Exception e) when (e is AiGenerationException or WorkspaceStoreException or ProjectStoreException)
+        {
+            Logger.LogWarning(e, "Could not submit image request for asset {AssetId}", assetId);
+            _generationError = e.Message;
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unexpected error preparing image request for asset {AssetId}", assetId);
+            _generationError = "The image request could not be prepared. Your draft is still here. " + e.Message;
+        }
         finally { if (_imageSubmittingAsset == assetId) _imageSubmittingAsset = null; if (!_disposed) await RefreshImageJobsAsync(); }
     }
     private async Task RetryImageEnqueueAsync()
@@ -285,13 +298,13 @@ public partial class AssetsStudio
 
     private sealed record ImageComposerDraft(ImageWorkflow Workflow, string Prompt, string Tags, string Aspect, string Seed, int Count, Guid? Source, Guid? Look,
         IReadOnlyList<AssetImageReference> References, IReadOnlyList<AssetReferenceCrop> Crops, float ReferenceBoost, float BaseBoost, int Grounding, IReadOnlyList<RegionalImageSelection>? Regions = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] QwenImage21Options? QwenImage21 = null,
-        bool CreateFromRecipe = false, Guid? SourceAsset = null, IReadOnlyList<LoraSelection>? Loras = null, int Resolution = 1024)
+        bool CreateFromRecipe = false, Guid? SourceAsset = null, IReadOnlyList<LoraSelection>? Loras = null, int Resolution = 1024, VisualStyle? VisualStyle = null)
     {
-        public static ImageComposerDraft From(AiImageJobRequest request) => new(request.Workflow, request.Prompt, string.Join(", ", request.Tags), request.AspectRatio,
+        public static ImageComposerDraft From(AiImageJobRequest request) => new(request.Workflow, request.OriginalPrompt ?? request.Prompt, string.Join(", ", request.Tags), request.AspectRatio,
             (request.Create?.Seed ?? request.Edit?.Seed)?.ToString() ?? "", request.Create?.Count ?? request.Edit!.Count, request.Edit?.SourceImageId, request.Look?.LookId,
             request.Inputs.Skip(1).Select(i => i.Reference).ToArray(), request.Inputs.Where(i => i.Crop is not null).Select(i => new AssetReferenceCrop(i.Reference, i.Crop!)).ToArray(),
             request.Edit?.ReferenceBoost ?? 4, request.Edit?.BaseReferenceBoost ?? 1, request.Edit?.GroundingPixels ?? 768, request.Edit?.Regions,
-            request.Workflow == ImageWorkflow.QwenImage21 ? QwenImage21Policy.Options(request) : null, Resolution: request.Create?.Resolution ?? request.Edit!.Resolution);
+            request.Workflow == ImageWorkflow.QwenImage21 ? QwenImage21Policy.Options(request) : null, Resolution: request.Create?.Resolution ?? request.Edit!.Resolution, VisualStyle: request.Create?.VisualStyle ?? request.Edit?.VisualStyle);
     }
     private void RememberImageComposer()
     {
@@ -303,7 +316,7 @@ public partial class AssetsStudio
         var crops = BaseReference is { } source && SourceCrop is { } crop ? new[] { new AssetReferenceCrop(source, crop) }.Concat(CaptureReferenceCrops()).ToArray() : CaptureReferenceCrops();
         return new(_imageWorkflow, _imagePrompt, _imageTags, ImageAspect, _fixedSeed, _candidateCount, _editSourceImageId, _targetLookId,
             _additionalReferences.ToArray(), crops, _referenceBoost, _baseReferenceBoost, _groundingPixels, CurrentRegions, CaptureQwenOptions(),
-            _imageRecipeCreation, _imageRecipeSourceAsset, _imageRecipeLoras, CapturedImageResolution);
+            _imageRecipeCreation, _imageRecipeSourceAsset, _imageRecipeLoras, CapturedImageResolution, _imageVisualStyle);
     }
     private void ClearSuccessfulImageCreate(AiJobHeader job, AiImageJobRequest request)
     {
@@ -333,7 +346,10 @@ public partial class AssetsStudio
         var cleared = Cleared(submitted);
         if (_selectedAssetId == assetId && Same(CaptureImageComposer(), submitted))
         {
-            ApplyImageComposer(cleared); _lookPromptDrafts[(assetId, cleared.Look)] = ""; RestoreLookPrompt(); RememberMediaDraft();
+            ApplyImageComposer(cleared);
+            if (submitted.Look is { } look && cleared.Look != look) _lookPromptDrafts.Remove((assetId, look));
+            else _lookPromptDrafts[(assetId, cleared.Look)] = "";
+            RestoreLookPrompt(); RememberMediaDraft();
             _focusPromptAfterSubmit = true;
             return;
         }
@@ -345,14 +361,19 @@ public partial class AssetsStudio
     {
         _imageRecipeCreation = draft.CreateFromRecipe; _imageRecipeSourceAsset = draft.SourceAsset; _imageRecipeLoras = draft.Loras;
         _qwenOptions = draft.QwenImage21 ?? new();
-        _imageResolution = draft.Resolution;
+        _imageVisualStyle = draft.VisualStyle;
+        RestoreImageResolution(draft.Resolution, draft.Workflow);
         _regions.Clear(); foreach (var region in draft.Regions ?? []) _regions[region.Source] = region;
         _resolveImageDefault = false;
         _imageWorkflow = draft.Workflow; _imagePrompt = draft.Prompt; _imageTags = draft.Tags; _aspect = draft.Aspect; _fixedSeed = draft.Seed;
         _candidateCount = draft.Count; _editSourceImageId = draft.Source; _targetLookId = draft.Look;
         _additionalReferences.Clear(); _additionalReferences.AddRange(draft.References); ResetSourceCrop(); _referenceCropSelections.Clear(); _restoredCrops.Clear();
         foreach (var crop in draft.Crops) _restoredCrops[crop.Reference] = crop.Crop;
-        _referenceBoost = draft.ReferenceBoost; _baseReferenceBoost = draft.BaseBoost; _groundingPixels = draft.Grounding;
+        // Native edit recipes record zero grounding as "not applicable". It is not a valid Krea setting.
+        var nativeEditRecipe = draft.Workflow != ImageWorkflow.Krea2 && draft.Grounding == 0;
+        _referenceBoost = nativeEditRecipe ? 4 : draft.ReferenceBoost;
+        _baseReferenceBoost = nativeEditRecipe ? 1 : draft.BaseBoost;
+        _groundingPixels = nativeEditRecipe ? 768 : draft.Grounding;
         _freshComposer = null; _freshImageComposer = null;
     }
 }

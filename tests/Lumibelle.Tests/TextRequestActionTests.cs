@@ -8,6 +8,26 @@ namespace Lumibelle.Tests;
 public sealed partial class AssetComponentTests
 {
     [Fact]
+    public async Task BatchActionHighlightsPendingReviewsAndOpensProgressWithoutStartingAgain()
+    {
+        var starts = 0; var reviews = 0;
+        var ui = Render<TextRequestAction>(p => p.Add(c => c.Label, "Bulk assets").Add(c => c.ButtonClass, "bulk-assets-launch")
+            .Add(c => c.OnStart, () => starts++).Add(c => c.OnReview, () => reviews++));
+        Assert.Single(ui.FindAll(".bulk-assets-launch .ai-assist-icon"));
+        await ui.ClickCurrent(() => ui.Find("button"));
+        Assert.Equal(1, starts);
+        ui.Render(p => p.Add(c => c.Working, true).Add(c => c.Label, "Bulk assets · 1/2 finished"));
+        Assert.Single(ui.FindAll(".request-spinner"));
+        await ui.ClickCurrent(() => ui.Find("button"));
+        Assert.Equal(1, reviews); Assert.Equal(1, starts);
+        ui.Render(p => p.Add(c => c.Working, false).Add(c => c.ReviewReady, true).Add(c => c.Label, "Review bulk assets · 2"));
+        Assert.Single(ui.FindAll(".request-ready .ai-assist-icon"));
+        Assert.Contains("Review bulk assets · 2", ui.Find("button").GetAttribute("aria-label"));
+        await ui.ClickCurrent(() => ui.Find("button"));
+        Assert.Equal(2, reviews); Assert.Equal(1, starts);
+    }
+
+    [Fact]
     public void CodexDisclosureFollowsActivityAndKeepsExpansionOnlyForTheSameRequest()
     {
         var now = DateTimeOffset.UtcNow;

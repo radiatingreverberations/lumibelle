@@ -36,7 +36,13 @@
 .asset-group-toggle { padding:5px 8px; min-height:32px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--muted); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; }
 .asset-group-toggle[aria-pressed=true] { background:var(--lumi-surface-selected); color:var(--plum); border-color:var(--lumi-accent); }
 .asset-gallery-groups { display:flex; flex-direction:column; gap:16px; }
-.asset-gallery-group.grouped { border:1px solid var(--line); border-radius:var(--lumi-radius-surface); }
+.asset-gallery-group.grouped { container-type:inline-size; border:1px solid var(--line); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface); min-width:0; }
+.asset-gallery-group.look-card.selected { border-color:var(--plum); }
+.asset-gallery-group.look-card.selected > summary { background:var(--lumi-surface-selected); border-radius:var(--lumi-radius-surface); }
+.asset-gallery-group.look-card > summary { padding:14px 16px 10px; font-size:var(--lumi-font-size-meta); }
+.asset-look-info { padding:0 16px 16px; }
+.asset-look-empty { margin:0; padding:0 16px 16px; color:var(--muted); font-size:var(--lumi-font-size-small); }
+.asset-gallery-group.look-card > .asset-media-gallery:empty { display:none; }
 .asset-gallery-group > summary { padding:12px; cursor:pointer; color:var(--plum); font-size:var(--lumi-font-size-small); }
 .asset-gallery-group > summary[hidden] { display:none; }
 .asset-look-heading { display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:5px 10px; max-width:calc(100% - 20px); vertical-align:top; color:var(--ink); }
@@ -46,6 +52,7 @@
 .asset-look-archived { color:var(--muted); font-size:var(--lumi-font-size-small); }
 .studio-workspace[data-studio=Assets] .asset-media-gallery { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
 .studio-workspace[data-studio=Assets] .asset-gallery-group.grouped > .asset-media-gallery { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:150px; justify-content:start; overflow-x:auto; padding:0 12px 12px; }
+.studio-workspace[data-studio=Assets] .asset-gallery-group.look-card > .asset-media-gallery { padding:0 16px 16px; }
 .studio-workspace[data-studio=Assets] .asset-media-card .media-name { font-size:var(--lumi-font-size-small); }
 .studio-workspace[data-studio=Assets] .asset-media-card .media-preview { aspect-ratio:1; }
 .studio-workspace[data-studio=Assets] .asset-media-card .media-resolution-badge { max-width:calc(100% - 68px); }
@@ -54,6 +61,12 @@
 .studio-workspace[data-studio=Assets] .asset-reuse-tools summary { font-weight:500; color:var(--muted); }
 .asset-tool-context { display:grid; gap:3px; padding:6px 0; }
 .asset-tool-context strong { font-size:var(--lumi-font-size-meta); }
+.image-look-context { margin:0 0 16px; padding:12px; border:1px solid var(--line); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface-subtle); min-width:0; }
+.image-look-context > div { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; }
+.image-look-context p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; margin:8px 0; }
+.image-look-context small { color:var(--muted); }
+.image-look-context summary { cursor:pointer; color:var(--plum); font-size:var(--lumi-font-size-small); }
+.image-look-context button { border:0; background:transparent; color:var(--plum); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; padding:0; }
 .asset-tool-context > span { color:var(--muted); font-size:var(--lumi-font-size-small); }
 .selection-context strong { overflow-wrap:anywhere; }
 .reveal-selection { margin-top:4px; }
@@ -237,5 +250,6 @@
 @media(max-width:700px) { .asset-list-row { grid-template-columns:24px minmax(0,1fr) 36px; } .asset-list-row .mud-icon-button { min-height:44px; } }
 
 fieldset.asset-tool-content { border: 0; padding: 0; margin: 0; min-width: 0; }
+.asset-media-card .asset-refinement-status { display:block; margin-top:6px; color:var(--muted); font-size:var(--lumi-font-size-small); }
 
 @media(pointer:coarse) { .asset-media-card .reference-actions .mud-icon-button { min-width:40px; min-height:40px; } }

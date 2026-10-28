@@ -166,6 +166,8 @@
 /* Prompt assistance top-aligns its check rows for wrapped labels; these are one line, with a count beside them. */
 .ai-assist-dialog .composition-context .check-row { display:flex; align-items:center; gap:8px; margin:6px 0; padding:0; line-height:1.4; }
 .composition-context .composition-context-fixed { color: var(--lumi-text-muted); }
+.composition-context .composition-context-disabled { color: var(--lumi-text-muted); opacity:.65; }
+.composition-context .composition-context-choice { display:inline-flex; align-items:center; gap:8px; margin:0; }
 .composition-context .check-row input { flex:none; width:auto; margin:0; }
 .composition-context-tokens { margin-left:auto; padding-left:12px; color: var(--lumi-text-muted); font-weight:400; font-variant-numeric: tabular-nums; white-space:nowrap; display:inline-flex; align-items:center; height:1.4em; }
 /* A text-sized spinner, so rows are as tall while estimating as after. */

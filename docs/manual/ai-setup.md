@@ -14,6 +14,10 @@ All text assistance uses one model default per project, set in **Project setting
 
 Text-assistance composers share a compact dialog that becomes a full-width sheet on phones. Closing keeps draft instructions and model overrides.
 
+### Project visual style
+
+Set **Project settings → Visual style** to keep new asset images and reference reels in a shared medium and visual treatment. Assets and individual runs can override it. Prompt enhancement and optional vision review use the same captured direction; queued requests retain it if you change the default. See [visual style](assets.md#visual-style) for inheritance and overrides.
+
 ## ComfyUI
 
 ComfyUI provides local text generation, reference images, image editing and video takes. [Install ComfyUI](comfyui.md) shows how to run it with the Windows portable build or Docker, where to download the node packs and model files below, and how to set up [video models](comfyui.md#video-models).
@@ -36,6 +40,8 @@ Reference images count as prompt tokens: with several references, each costs up 
 
 Reference generation follows the [official Krea 2 Turbo workflow](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_krea2_turbo_t2i.json) with the exact prompt you entered. Lumibelle copies each completed image into the project.
 
+Under **Image models**, each local workflow has expandable **Download one of these** or **Download link** sections beneath its model, text encoder, VAE and, where required, edit-LoRA selectors. They show publisher links, approximate download sizes, precision formats and the destination ComfyUI folder. The current filename is marked **Selected**; this does not mean the file has been discovered on the server. Base, Turbo and Distilled model alternatives follow the chosen **Checkpoint variant**. Download a compatible file yourself, refresh installed models, and select the exact filename. The links also lead to the publisher's model card, license and setup instructions.
+
 ### Progress and cancellation
 
 ComfyUI queues Lumibelle's work alongside other jobs. Lumibelle shows the current workflow stage, elapsed time, generated tokens or sampling steps, and an approximate time remaining when ComfyUI supplies measurable progress. The timeout includes time spent queued. **Cancel** targets only that job; Lumibelle never sends a global interrupt or clears the queue.
@@ -51,6 +57,58 @@ Install these files in the corresponding ComfyUI model directories (subfolders a
 - VAE: `flux2-vae.safetensors` in `models/vae`, from [Comfy-Org's FLUX.2 files](https://huggingface.co/Comfy-Org/flux2-dev/tree/main/split_files/vae).
 
 Use a current ComfyUI with `FluxKVCache`, `Flux2Scheduler`, `EmptyFlux2LatentImage`, `ReferenceLatent` and the custom sampler nodes. Editing also uses `ETN_LoadImageBase64` from the tooling node pack. A missing KV model does not fall back to standard Klein, a base checkpoint, 4B or Krea.
+
+### MOSS-Image
+
+In **Image models → MOSS-Image**, refresh the installed files and select a MOSS-Image **Base or SFT** diffusion model, its **Qwen3.5 9B** text encoder and the **FLUX.2 VAE**. Comfy-Org provides [compatible model files](https://huggingface.co/Comfy-Org/MOSS-Image); follow the [native ComfyUI setup](https://github.com/OpenMOSS/MOSS-Image/blob/main/comfyui/README.md). Lumibelle keeps these choices separate from other workflows and preserves a missing saved choice until you replace it explicitly. Catalog checks establish installed nodes and filenames; they do not execute the model or test its architectural compatibility.
+
+Creation defaults to 50 Euler/simple steps, CFG 3, shift 5 and negative-branch layer-22 skipping. Plain prose, tags and authored layout JSON pass through as the prompt. Configure the sampling values and optional negative prompt in the MOSS settings. The normal Assets aspect/resolution controls, optional MOSS-assigned LoRAs, background queue, candidate review and cancellation apply.
+
+For editing, select the exact installed **Edit LoRA** and its training format. The [chinoll adapter](https://huggingface.co/chinoll/Moss-Image-Edit) uses **Moss-Image-Edit**; AI Toolkit adapters use their corresponding **ai-toolkit** format, with or without its training KV cache. Use a ComfyUI build containing the native [`TextEncodeMOSSImageEdit` node](https://github.com/Comfy-Org/ComfyUI/pull/17296), plus the existing comfyui-tooling-nodes image loader. Editing defaults to 30 steps, CFG 4 and adapter strength 1. It accepts up to four ordered references. New edits resize each captured crop to the output's pixel budget while retaining its own proportions, rather than capping every reference at 512 pixels. Describe each reference's role in the instruction. Creation remains available when the edit adapter or edit node is missing.
+
+MOSS image-edit execution profile `moss-image-edit-v2` records this sizing policy. Saved `moss-image-edit-v1` requests remain valid and retain their earlier 512-pixel cap when resumed or retried; start a new request to use the new sizing. This execution version is separate from the prompt-enhancement guide's version. SFT is the starting point for the chinoll adapter, which was trained on it; Base is not an identity-preservation upgrade. A portrait-to-full-body restage asks for more than a local edit, so state that the same person, face and hair should be retained and specify the intended outfit and framing.
+
+New settings apply to future runs. Queued requests retain their captured model files, sampling values, negative prompt, edit adapter/format and ordered references. Generated image metadata records the actual settings and canvas. Lumibelle does not download model files or install/update ComfyUI for you.
+
+### FLUX 3 Image Klein
+
+Select **Image models → FLUX 3 Image Klein** for native creation and editing in ComfyUI. This is separate from FLUX.2 Klein KV. Install a checkpoint, its encoder and VAE from the [official ComfyUI model repository](https://huggingface.co/black-forest-labs/flux-3-image-klein-comfy), accepting its access conditions first:
+
+- `flux3-image-klein-int8-convrot.safetensors` in `models/diffusion_models` for **Distilled**, or `flux3-image-klein-base-int8-convrot.safetensors` for **Base**. The BF16 and NVFP4 files are alternatives when supported by your hardware.
+- `qwen3vl_4b_int8_convrot.safetensors` in `models/text_encoders`.
+- `flux2-vae.safetensors` in `models/vae`.
+
+Refresh and select your exact filenames, then choose their **Checkpoint variant**. Distilled defaults to 16 Euler/simple steps without CFG; Base defaults to 50 steps and CFG 3.5. Steps, Base guidance and reference megapixels are editable. Missing saved filenames remain selected until you replace them. Settings and optional FLUX 3-assigned LoRAs stay separate from other workflows.
+
+Use a current ComfyUI with `CLIPLoader` type `flux3`, `EmptyFlux2LatentImage` and, for editing, `ReferenceMultiLatent`. Reference loading uses the existing comfyui-tooling-nodes package. Editing accepts ten ordered images without an edit LoRA. Each reference keeps its crop and aspect before native resizing; **Reference size** defaults to 1 megapixel per image. Larger references, more images and the optional **4K** output canvas require more memory. The output canvas is independent of reference sizes.
+
+Write a full scene caption even for edits. In Assets, **Enhance** can expand your instruction into a complete caption through your chosen text model; review and apply it before generating. A short instruction such as “make it blue” can change the framing. Lumibelle sends and saves the exact submitted caption without an automatic hidden rewrite. Authored layout JSON and reference markers pass through unchanged; model boxes guide placement rather than enforcing hard pixel masks.
+
+Catalog checks verify installed nodes and filenames without executing the model. New settings affect future requests; queued requests retain their captured variant, sampling values, ordered references and canvas. Model downloads and ComfyUI updates remain separate setup actions.
+
+### Fibo 2.0
+
+In **Image models → Fibo 2.0**, choose **Dev** for creation and editing or **Edit Turbo** for editing only. Both use the [native ComfyUI files](https://huggingface.co/Comfy-Org/Fibo-2.0): `fibo2_dev_int8_convrot.safetensors` or `fibo2_edit_turbo_int8_convrot.safetensors` under `models/diffusion_models`, `qwen3vl_4b_int8_convrot.safetensors` under `models/text_encoders`, and `flux2-vae.safetensors` under `models/vae`. Matching BF16 files are alternatives.
+
+Select the exact filenames and matching variant. Dev defaults to 50 Euler/simple steps and CFG 5; Edit Turbo defaults to four steps and CFG 1. The model keeps its native shift of 1.15. Negative captions apply to Dev creation; edits use the trained empty negative caption. Editing supports up to four ordered references without an edit LoRA. A single reference is fitted and center-cropped to the output canvas; multiple references are conditioned at their own trained proportions. Use Lumibelle's input crops to control the submitted framing.
+
+Update ComfyUI for `CLIPLoader` type `fibo2` and `TextEncodeFibo2`; reference loading uses comfyui-tooling-nodes. **Enhance** proposes a structured VGL caption for review, including `edit_instruction` for edits. Incomplete VGL suggestions cannot be applied. Plain authored captions or edit instructions can also be sent directly. This workflow does not call BRIA's hosted API or the Gemini-backed VGL package.
+
+The published weights are licensed for non-commercial use; commercial use requires a separate BRIA agreement. See the linked model repository for the current license.
+
+### Qwen Image 2.1 Turbo
+
+In the existing **Qwen Image 2.1** settings, select **Turbo** and its matching diffusion file, such as `qwen_image_2.1_turbo_int8_convrot.safetensors`. Use the same Qwen3-VL 8B encoder and Qwen Image 2.1 VAE as Base. [Official workflows](https://docs.comfy.org/tutorials/image/qwen/qwen-image-2-1) describe both variants.
+
+Turbo supports creation and the same ten-reference editing, crops and output options as Base. It uses the published fixed eight-step sigma schedule with Euler and CFG 1. The step control in Assets is fixed at eight for Turbo. Merely selecting eight steps on a Base checkpoint does not select Turbo. ComfyUI must provide `ManualSigmas`, `KSamplerSelect`, `RandomNoise`, `CFGGuider` and `SamplerCustomAdvanced` in addition to the existing Qwen nodes. Queued jobs and take metadata retain the captured variant and step count.
+
+### Z-Image
+
+Choose **Image models → Z-Image** and select **Base** or **Turbo** with the matching `z_image_bf16.safetensors` or `z_image_turbo_bf16.safetensors` diffusion file. Both use `qwen_3_4b.safetensors` and `ae.safetensors`. Follow the official [Base setup](https://docs.comfy.org/tutorials/image/z-image/z-image) or [Turbo setup](https://docs.comfy.org/tutorials/image/z-image/z-image-turbo).
+
+Base defaults to 25 `res_multistep`/simple steps, CFG 4 and shift 3. Turbo defaults to eight steps, CFG 1 and shift 3, without a negative prompt. Steps and shift are editable; Base also exposes CFG and a negative caption. Use ComfyUI's `lumina2` text-encoder type, `EmptySD3LatentImage` and `ModelSamplingAuraFlow`. This integration supports creation with the normal aspect, resolution, LoRA, queue and review tools. Reference editing and ControlNet are not enabled here; choose another workflow for editing.
+
+Each family saves its own files and sampling settings. Refresh never substitutes a missing file, availability checks do not execute models, and settings changes affect future requests only.
 
 ### LoRAs
 
@@ -80,7 +138,13 @@ Saved choices and queued requests retain their server address. Changing an addre
 
 **Compatibility & capabilities** normally uses automatic detection. Lumibelle recognizes vLLM and Strata metadata; **Standard OpenAI-compatible** uses ordinary chat requests. Select the runtime explicitly if a proxy hides its metadata. vLLM sequence drafting uses constrained JSON generation. Strata streams normally using the JSON format instructions in the prompt; Lumibelle validates the completed brief, screenplay and review locally. Existing captured requests keep their original format, including server validation and buffering when a JSON schema was captured.
 
-Context windows and image support come from the served model's metadata. Context is a runtime setting: refresh the catalog after changing it. When metadata is missing or inaccurate, set an explicit capability override on the connection. A context override applies to all models on that connection; leave it empty to follow the server. Reference images require image support. Configure model-specific reasoning on the server.
+Context windows come from the served model's metadata. Context is a runtime setting: refresh the catalog after changing it. Image support uses saved model tests and server metadata; absent metadata means **Image input unverified**. **Test model** and advanced tests check single and multiple images after a successful text response, using the same random-number and color challenges as ComfyUI. Probe time is separate from text throughput. Results belong to the exact server and model, and interrupted tests are never automatically repeated. An inconclusive image check leaves the text benchmark available; only an explicit image rejection marks input unsupported. Refresh the model picker after testing.
+
+Compatible-server image checks allow at least 2,048 output tokens so reasoning can finish before the answer. A higher test reply limit also applies to these checks, up to 8,192 tokens. If a check exhausts its budget without an answer, its result explains the limit rather than reporting an image-reading failure. Native vLLM checks disable thinking and keep their shorter probe budget.
+
+JSON-schema output is discovered per server and model from advertised `structured_outputs` capabilities or a successful **Test model** check. A catalog that advertises only `response_format` may support JSON-object mode without schemas, so it is not treated as proof. Compatible-server tests send a small synthetic schema and verify its exact constrained answer. Unknown or explicitly unsupported models retain prompt-based JSON and local validation. New supported requests use standard `response_format: json_schema`; native vLLM retains its own structured-output API. Captured requests keep their original schema and protocol settings during recovery.
+
+When metadata is missing or inaccurate, set an explicit capability override on the connection. Overrides take priority over model tests. A context override applies to all models on that connection; leave it empty to follow the server. Reference images require image support. Configure model-specific reasoning on the server.
 
 ## OpenRouter
 

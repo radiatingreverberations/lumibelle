@@ -42,4 +42,23 @@ public sealed class ScriptSequenceReviewComponentTests : BunitContext
         Assert.Contains("without another AI call", alert);
         Assert.False(frame.Find(".sequence-quality-review details").HasAttribute("open"));
     }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void ProviderFailuresAreVisibleInTheMainBannerAndHistoricalLabelsAreCorrected(bool planning)
+    {
+        const string original = "OpenRouter reports insufficient credits for this request.";
+        var run = new AssistantRun { Status = AssistantRunStatus.Failed, Error = original,
+            Target = ScriptStructure.Capture(ScriptFixtures.Document(), ScriptScope.Document, null), Output = "" };
+        var frame = Render<SequenceReviewFrame>(p => p.Add(c => c.Run, run).Add(c => c.Planning, planning).Add(c => c.ProviderName, "Studio AI"));
+        var banner = frame.Find(".planning-stopped[role=alert]");
+        Assert.Contains("Studio AI", banner.TextContent);
+        Assert.Contains("HTTP 402", banner.TextContent);
+        Assert.DoesNotContain("OpenRouter", banner.TextContent);
+        Assert.Contains("No response text was received.", banner.TextContent);
+        var detail = banner.QuerySelector(".planning-error-detail")!;
+        Assert.Null(detail.Closest("details"));
+        Assert.Equal(original, run.Error);
+        Assert.DoesNotContain("OpenRouter", frame.Find(".planning-response-details").TextContent);
+    }
 }

@@ -13,7 +13,7 @@ public static class ReelGenerationSetups
         Seed = draft.GenerationSetup?.Settings.Seed, TakeCount = TakeCount(draft),
         Resolution = draft.Resolution, NativeResolution = draft.NativeResolution, UpscalePreview = UpscalePreview(draft),
         GenerationPreset = draft.GenerationPreset, Turbo = draft.Turbo, TurboSteps = draft.TurboSteps,
-        SaveLosslessFrames = draft.SaveLosslessFrames ?? true, Loras = draft.Loras
+        SaveLosslessFrames = draft.SaveLosslessFrames ?? true, SaveLatents = draft.SaveLatents ?? false, Loras = draft.Loras
     });
 
     public static void Apply(ReferenceReelDraft draft, GenerationSetup preset)
@@ -24,6 +24,7 @@ public static class ReelGenerationSetups
         draft.GenerationPreset = settings.GenerationPreset;
         draft.Turbo = settings.Turbo; draft.TurboSteps = settings.TurboSteps;
         draft.SaveLosslessFrames = settings.SaveLosslessFrames;
+        draft.SaveLatents = settings.SaveLatents;
         draft.Loras = ShotCopy.Of(settings.Loras);
         VideoResolutions.Select(draft, draft.OutputOverrides?.Resolution ?? settings.Resolution ??
             (settings.NativeResolution ? VideoResolution.Native : VideoResolution.Preview));

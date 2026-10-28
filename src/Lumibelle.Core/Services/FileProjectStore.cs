@@ -112,6 +112,11 @@ public sealed class FileProjectStore : IProjectStore
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ValidationException("Give your project a name.");
 
+        VisualStyle? visualStyle = null;
+        if (request.VisualStyle is not null) {
+            try { visualStyle = Assets.VisualStyles.Normalize(request.VisualStyle); }
+            catch (WorkspaceStoreException exception) { throw new ValidationException(exception.Message, exception); }
+        }
         cancellationToken.ThrowIfCancellationRequested();
         var project = new ProjectInfo
         {
@@ -133,11 +138,18 @@ public sealed class FileProjectStore : IProjectStore
                 await stream.FlushAsync(cancellationToken);
             }
 
+            if (visualStyle is not null) await AtomicJsonFile.WriteAsync(Path.Combine(staging, "ai-preferences.json"),
+                new ProjectAiPreferences { ProjectId = project.Id, VisualStyle = visualStyle }, cancellationToken);
+
             cancellationToken.ThrowIfCancellationRequested();
             // Rename within the same parent: readers see either no project or a complete manifest.
             DurableFile.FlushDirectory(staging);
             await DurableFile.MoveDirectoryAsync(staging, ProjectDirectory(project.Id), cancellationToken);
             return project;
+        }
+        catch (WorkspaceStoreException exception)
+        {
+            throw StorageError(exception.Message, exception);
         }
         catch (Exception exception) when (IsStorageError(exception))
         {
@@ -151,6 +163,7 @@ public sealed class FileProjectStore : IProjectStore
                 if (Directory.Exists(staging))
                 {
                     File.Delete(Path.Combine(staging, "project.json"));
+                    File.Delete(Path.Combine(staging, "ai-preferences.json"));
                     Directory.Delete(staging);
                 }
             }

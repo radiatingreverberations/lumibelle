@@ -9,6 +9,38 @@ namespace Lumibelle.Tests;
 public sealed partial class AssetComponentTests
 {
     [Fact]
+    public async Task SubmissionFailureAfterCompletedEditKeepsItsErrorAndDraftUntilRetry()
+    {
+        var ct = Xunit.TestContext.Current.CancellationToken;
+        var (page, _) = await PrepareEdit(1);
+        await Generate(page);
+        await _queue.Until(() => Assert.Contains(_queue.View.Jobs, job => job.State == AiJobState.Completed));
+        page.WaitForAssertion(() => Assert.Contains(page.FindAll("button"), button => button.TextContent.Trim() == "Review latest edit"));
+        if (_dialogs.FindAll("[aria-label='Close image review']").Count > 0)
+            await ClickReviewSelector("[aria-label='Close image review']");
+
+        const string prompt = "Keep the same person and show a full-body studio view.";
+        await page.InvokeAsync(() => page.Find("#image-prompt").Input(prompt));
+        _assets.ImageOpenError = new WorkspaceStoreException("The source image could not be read.");
+        await Generate(page);
+        page.WaitForAssertion(() => Assert.Contains("The source image could not be read.", page.Find(".generation-error[role='alert']").TextContent));
+        Assert.Single(_queue.View.Jobs);
+        // An unrelated queue refresh must not replace the current error with the older completed batch's status.
+        await _queue.SetPausedAsync(AiBackend.ComfyUI, true, ct);
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("The source image could not be read.", page.Find(".generation-error[role='alert']").TextContent);
+            Assert.Equal(prompt, page.Find("#image-prompt").GetAttribute("value"));
+            Assert.False(RunButton(page).HasAttribute("disabled"));
+        });
+
+        _assets.ImageOpenError = null;
+        await Generate(page);
+        await _queue.Until(() => Assert.Equal(2, _queue.View.Jobs.Count));
+        page.WaitForAssertion(() => Assert.DoesNotContain(page.FindAll(".generation-error[role='alert']"), element => element.TextContent.Contains("could not be read")));
+    }
+
+    [Fact]
     public async Task QueuedImageLeavesItsComposerClearAndItsRequestListedAfterNavigation()
     {
         var ct = Xunit.TestContext.Current.CancellationToken;

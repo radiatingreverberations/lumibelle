@@ -67,12 +67,17 @@ public partial class AssetsStudio
     private bool ShowReelTools => !_presentation.Edit && _presentation.Creation == AssetCreationKind.Reel && SelectedAsset is { } a && ReferenceReels.Supports(a.Category);
     private IEnumerable<AssetGalleryItem> AllGalleryItems => SelectedAsset is { } a && _library is not null ? AssetGalleryItem.For(a, _library) : [];
     private IEnumerable<AssetGalleryItem> GalleryItems => AllGalleryItems.Where(i =>
-        (_presentation.Filter == "All" || _presentation.Filter == i.Key.Kind + "s") &&
+        (_presentation.Filter == "Pending review" ? i.Image?.PendingReview == true : i.Image?.PendingReview != true && (_presentation.Filter == "All" || _presentation.Filter == i.Key.Kind + "s")) &&
         (string.IsNullOrWhiteSpace(_presentation.Search) || i.Name.Contains(_presentation.Search, StringComparison.OrdinalIgnoreCase)) &&
         (i.Key.Kind == AssetMediaKind.Voice || _lookFilter == "all" || _lookFilter == "general" && i.LookId is null || i.LookId?.ToString() == _lookFilter));
     private string SelectedMediaName => AllGalleryItems.FirstOrDefault(i => i.Key == _presentation.Selection)?.Name ?? "Reference unavailable";
     private bool GalleryGrouped => SelectedAsset?.Category == AssetCategory.Character && _presentation.GroupByLook;
-    private IEnumerable<AssetGalleryGroup> GalleryGroups => SelectedAsset is { } asset ? AssetGalleryGroup.For(asset, GalleryItems, GalleryGrouped) : [];
+    private IEnumerable<AssetGalleryGroup> GalleryGroups => SelectedAsset is { } asset ? AssetGalleryGroup.For(asset, GalleryItems, GalleryGrouped,
+        GalleryGrouped && (_presentation.Filter is "All" or "Images") && string.IsNullOrWhiteSpace(_presentation.Search)
+            ? asset.Looks.Where(l => !l.Archived && (_lookFilter == "all" || _lookFilter == l.Id.ToString())).Select(l => l.Id).ToHashSet() : null) : [];
+    private static string GalleryGroupCount(AssetGalleryGroup group) => MediaCount(group.Items.Count,
+        group.Items.Count == 0 ? "image" : group.Items.Select(i => i.Key.Kind).Distinct().Count() == 1
+            ? group.Items[0].Key.Kind.ToString().ToLowerInvariant() : "reference");
     private string SelectedMediaLook => AllGalleryItems.FirstOrDefault(i => i.Key == _presentation.Selection) is { } item
         ? item.Key.Kind == AssetMediaKind.Voice ? "Voice reference" : item.LookId is null ? "General" : SelectedAsset?.Looks.FirstOrDefault(l => l.Id == item.LookId)?.Name ?? "Unavailable look"
         : "General";
@@ -249,7 +254,7 @@ public partial class AssetsStudio
         }
         return Task.CompletedTask;
     });
-    private void RevealSelectedMedia() { _presentation.Filter = "All"; _presentation.Search = ""; _lookFilter = "all"; _revealMedia = _presentation.Selection?.Id; }
+    private void RevealSelectedMedia() { _presentation.Filter = SelectedAsset?.Images.Any(i => i.Id == _presentation.Selection?.Id && i.PendingReview == true) == true ? "Pending review" : "All"; _presentation.Search = ""; _lookFilter = "all"; _revealMedia = _presentation.Selection?.Id; }
     private Guid? _revealMedia;
     private void ToggleMultiple() { _presentation.Multiple = !_presentation.Multiple; _lookImageSelection.Clear(); }
     private async Task ImportReel() { if (_reels is not null && await FlushSelectedTools()) await _reels.OpenImport(); }

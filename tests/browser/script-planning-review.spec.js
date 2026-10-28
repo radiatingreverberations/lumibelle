@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures.js';
 
-for (const viewport of [{ name: 'desktop', width: 1280, height: 900 }, { name: 'mobile', width: 390, height: 844 }]) {
+const viewports = [{ name: 'desktop', width: 1280, height: 900 }, { name: 'mobile', width: 390, height: 844 }];
+for (const viewport of viewports) {
   test(`screenplay review keeps both steps clear while writing and after completion on ${viewport.name}`, async ({ page, request }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const { id } = await (await request.get('/fixtures/new')).json();
@@ -78,20 +79,27 @@ for (const viewport of [{ name: 'desktop', width: 1280, height: 900 }, { name: '
   });
 }
 
-test('interrupted screenplay keeps the brief available and exposes the failure without applying', async ({ page, request }) => {
+for (const viewport of viewports) test(`interrupted screenplay keeps the brief available and exposes the failure without applying on ${viewport.name}`, async ({ page, request }) => {
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
   const { id } = await (await request.get('/fixtures/new')).json();
   const response = await request.post(`/fixtures/${id}/planning-review?stage=failed`);
   expect(response.ok()).toBeTruthy();
   const job = await response.json();
   await page.goto(`/projects/${id}/script?jobId=${job.id}`);
   const review = page.getByRole('dialog');
-  await expect(review.getByRole('alert')).toContainText('Screenplay drafting stopped');
+  const banner = review.getByRole('alert');
+  const responseDetails = review.locator('.planning-response-details');
+  await expect(banner).toContainText('Screenplay drafting stopped');
+  await expect(banner.locator('.planning-error-detail')).toBeVisible();
+  await expect(banner.locator('.planning-error-detail')).toContainText('interrupted');
+  await expect(responseDetails.locator('.planning-error-detail')).not.toBeVisible();
   await expect(review.locator('.planning-stages .is-complete')).toContainText('Brief saved');
   await expect(review.locator('.planning-stages [aria-current=step]')).toContainText('Stopped');
   await expect(review.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
   await review.locator('.sequence-saved-brief > summary').click();
   await expect(review.locator('.brief-beats li')).toHaveCount(6);
-  await review.locator('.planning-response-details > summary').click();
-  await expect(review.locator('.planning-error-detail')).toContainText('interrupted');
+  await responseDetails.locator('summary').click();
+  await expect(responseDetails.locator('.planning-error-detail')).toBeVisible();
+  await expect(responseDetails.locator('.planning-error-detail')).toContainText('interrupted');
   expect((await (await request.get(`/fixtures/${id}`)).json()).script.blocks.every(b => b.spans.every(s => !s.text))).toBe(true);
 });

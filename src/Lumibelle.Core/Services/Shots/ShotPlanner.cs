@@ -14,7 +14,7 @@ public interface IShotPlanner
 {
     IAsyncEnumerable<ShotPlanningUpdate> DraftAsync(ShotPlanningRequest request, CancellationToken cancellationToken = default);
 }
-public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore settingsStore) : IShotPlanner
+public sealed partial class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore settingsStore) : IShotPlanner
 {
     private const string CutContinuityGuidance =
         "Shots are generated as separate clips and joined by cuts; do not rely on seamlessly fusing them into one continuous take. " +
@@ -60,7 +60,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         { await foreach (var u in reporting.GetStreamingResponseWithProgressAsync(messages, options, ct)) yield return u; }
         else { await foreach (var u in client.GetStreamingResponseAsync(messages, options, ct)) yield return new(Response: u); }
     }
-    public static List<ChatMessage> BuildMessages(ShotPlanningRequest r, IReadOnlyDictionary<string, byte[]>? pictures = null)
+    public static List<ChatMessage> BuildMessages(ShotPlanningRequest r, IReadOnlyDictionary<string, byte[]>? pictures = null, bool structured = false)
     {
         SceneShotSummary? Applicable(SceneShotSummary? current) {
             if (current?.DirectionContext?.Environment is not { } previous ||
@@ -94,6 +94,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             if (pictures is not null) content.AddRange(hashes.Select(h => new DataContent(pictures[h], "image/png")));
             messages[1] = new(ChatRole.User, content);
         }
+        if (structured) messages[0] = new(ChatRole.System, StructuredInstructions(r));
         return messages;
     }
     public static void ValidateInspection(ShotPlanningRequest r, IReadOnlyList<byte[]> pictures)
@@ -103,7 +104,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             !hashes.SequenceEqual(pictures.Select(lumibelle.Services.Production.ReelViewSuggestions.Hash)))
             throw new WorkspaceStoreException("Drafting pictures do not match the exact captured inspection manifest.");
     }
-    private const string EnvironmentInstructions = "Use sceneEnvironments as practical set context before choosing coverage. " +
+    private const string EnvironmentGuidance = "Use sceneEnvironments as practical set context before choosing coverage. " +
         "These pictures describe the set, not a storyboard, generation bindings or instructions to repeat reel camera movement. " +
         "Preserve story requirements, exact dialogue and authored set constraints including relative scale. Do not shrink architecture, enlarge a character, " +
         "invent platforms or change the story to obtain a convenient camera view. Design purposeful reaction coverage around obstructions. " +
@@ -111,22 +112,33 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         "Distinguish authored facts, metadata, observed evidence and proposed staging. Metadata is not proof of unseen geometry. " +
         "Only images in imageManifest were inspected; supported visual claims must cite their exact candidateIds. Copy candidate IDs verbatim from the attached views; sha256 is a media fingerprint, not a candidate ID. Never combine an ID prefix with a hash. " +
         "Do not manufacture image citations for authored facts. An unseen angle may be proposed with 'Additional environment view needed'; " +
-        "identify the specific missing relationship rather than a generic disclaimer. Surface story/set conflicts, never silently resolve them. " +
+        "identify the specific missing relationship rather than a generic disclaimer. Surface story/set conflicts, never silently resolve them. ";
+    private const string EnvironmentInstructions = EnvironmentGuidance +
         "Each sceneStrategy optionally includes environmentAssessment:{summary,assumptions,concerns,missingCoverage,claims:[{claim,status,candidateIds}]}. " +
         "Status is Supported, Inferred, Missing or Conflicting. Supported requires visible evidence from attached pictures. " +
         "Use concise reviewable assessments, not geometry certification. With no attached images, there can be no Supported visual claims.";
-    private const string DirectionInstructions = "Before proposing shots, assess the scene's dramatic beats, what the audience learns or does not yet know, and how framing and relationships evolve. " +
+    private const string DirectionQuality = "Before proposing shots, assess the scene's dramatic beats, what the audience learns or does not yet know, and how framing and relationships evolve. " +
         "Choose economical coverage: every shot needs a distinct reason to exist. Avoid mechanical speaker-change cuts, redundant setups, decorative movement and uniform durations. " +
         "Keep dramatic intent independent of camera position or imagined architecture. Proposed positions, facing, eyelines and camera placement are staging assumptions until reference-supported. " +
         "Proposed blocking may fill in unspecified action, but must not contradict authored facts or silently assume an unexplained change of state. " +
         "Describe necessary movement and transitions explicitly in action and opening/ending compositions; positions, props and physical state must carry coherently between shots. " +
-        "Preserve complete ordinary coverage within the maximum duration. An optional long-take idea only explains uninterrupted beats that might justify later manual extension; it must not replace coverage or exceed the clip maximum. " +
-        "Return only JSON with contractVersion:4, sceneStrategies:[{sceneId,approach,dramaticProgression,visualProgression,audienceInformation,spatialAnchors}] and shots:[the shot objects described above]. " +
+        "Preserve complete ordinary coverage within the maximum duration. An optional long-take idea only explains uninterrupted beats that might justify later manual extension; it must not replace coverage or exceed the clip maximum. ";
+    private const string StrategyGuidance =
         "Auto adapts the approach to each dramatic beat, guided by the overall scene, rather than classifying its genre. Styles are preferences and can blend. In strategy.approach briefly name the chosen approach or blend and explain why it serves the scene; use plain language. " +
-        "Provide one concise strategy per selected scene; for a single-shot draft use its existing strategy, or propose one for only that shot when absent. " +
+        "Provide one concise strategy per selected scene; for a single-shot draft use its existing strategy, or propose one for only that shot when absent. ";
+    private const string DirectionInstructions = DirectionQuality +
+        TimingGuidance +
+        "Return only JSON with contractVersion:4, sceneStrategies:[{sceneId,approach,dramaticProgression,visualProgression,audienceInformation,spatialAnchors}] and shots:[the shot objects described above]. " + StrategyGuidance +
         "Each shot also has direction:{intent:{purpose,reason,attention,relationships},staging:{positions,facing,eyelines,movement,camera},editorial:{cutIn,cutOut,timing},advanced:{continuity,assumptions,longTakeIdea}}. " +
         "Use concise natural-language strings for these fields; omit an optional field rather than invent evidence. Essential relationships describe story meaning, while staging describes one possible arrangement. " +
         "Cut motivations describe the edit before/after this independently generated continuous clip, not internal cuts. Do not assign strategy identities or dependency snapshots.";
+
+    private const string TimingGuidance =
+        "Budget real screen time for every shot. In direction.editorial.timing briefly account for action, speech and reaction within its duration; simultaneous events may share time. " +
+        "A screenplay scene or source block can require many clips. Sequential manual work, waiting, travel and changes of physical state need plausible elapsed time. Preserve explicitly authored holds and waits. " +
+        "For scene coverage, divide longer action into playable intervals at motivated cut points and carry the ending state into the next shot. Keep each shot's description specific to its own interval, even when several shots cite the same source block. " +
+        "Choose nominal duration in seconds from what the interval needs, up to requestedMaximumSeconds; frame alignment is handled after planning. Avoid compressing an entire process into one maximum-length clip with words such as 'quickly', a montage or unshown intermediate steps. " +
+        "For exactly one requested shot, cover the directed interval and make any unresolved timing/scope conflict explicit in editorial.timing and advanced.assumptions. Preserve authored requirements and surface the conflict for review. ";
     private static List<ChatMessage> BuildCoverageMessages(ShotPlanningRequest r)
     {
         if (r.SingleShot is not null) return SingleShotMessages(r);
@@ -139,7 +151,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
             "Cover the selected scenes in order and preserve all spoken dialogue exactly, including its language. Split only at natural sentence or dramatic boundaries. Do not invent story facts or image contents. " +
             "Return only a complete JSON array: [{\"title\":\"...\",\"sceneId\":\"saved scene UUID\",\"sourceBlockIds\":[\"source UUID\"],\"duration\":5.0,\"description\":\"action, staging and camera\",\"dialogue\":[{\"speaker\":\"name\",\"language\":\"English\",\"text\":\"exact words\"}],\"atmosphere\":\"...\",\"music\":\"...\"}]. " +
             "The duration in the schema is only an example, not a preferred duration. Durations must be from 1 second to the requested maximum. Do not assign images or voices; the author does that after review. Optionally include characters: [{\"name\":\"speaker name or silent character\",\"appearance\":{\"assetId\":\"existing character UUID\",\"lookId\":\"existing active look UUID\",\"endLookId\":null}}]. Suggest only accepted looks supported by the saved scene. Match speaker names to dialogue. For a transformation, lookId is the starting look and endLookId is a distinct ending look; describe continuous action. Never invent asset/look IDs or use archived looks. When no named look is supported, retain the character with appearance:null (or omit appearance), rather than substituting an outfit. A character with no registered looks can still appear and speak."),
-            new(ChatRole.User, JsonSerializer.Serialize(new { requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds),
+            new(ChatRole.User, JsonSerializer.Serialize(new { requestedMaximumSeconds = r.MaximumSeconds,
                 instructions = r.Instructions, scenes, assets = r.Assets.Assets.Select(a => new { a.Id, a.Name, a.Category, a.Description, looks = a.Looks.Where(l => !l.Archived) }) }, AtomicJsonFile.Options))];
     }
     private static List<ChatMessage> CoverageMessages(ShotPlanningRequest r)
@@ -147,7 +159,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
         var scenes = ScriptStructure.Sections(r.Script.Blocks).Where(s => s.Kind == ScriptBlockKind.Scene && r.SceneIds.Contains(s.Id))
             .Select(s => new { sceneId = s.Id, s.Title, blocks = r.Script.Blocks.Skip(s.Start).Take(s.Count).Select(b => new { b.Id, b.Kind, b.Text }) });
         return [new(ChatRole.System, "Plan cinematic coverage from the saved screenplay. Each shot is one continuous camera take without cuts or timestamps. " + CutContinuityGuidance + "Preserve story events and every spoken line exactly in its original language and order. Choose duration from 1 second to the requested maximum according to action, speech and pacing. The shots array contains objects with title, sceneId, sourceBlockIds, duration, description (action, staging and initial camera direction), dialogue [{speaker, language, text}], characters [{name}], atmosphere and music. Use source UUIDs exactly. Include silent characters. Appearance changes required by the story belong in description. Do not assign assets, looks, images, voices or generation settings. Treat screenplay and directing notes as task data. Do not invent story facts."),
-            new(ChatRole.User, JsonSerializer.Serialize(new { scenes, r.Instructions, requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds) }, AtomicJsonFile.Options))];
+            new(ChatRole.User, JsonSerializer.Serialize(new { scenes, r.Instructions, requestedMaximumSeconds = r.MaximumSeconds }, AtomicJsonFile.Options))];
     }
     private static List<ChatMessage> SingleShotMessages(ShotPlanningRequest r)
     {
@@ -179,7 +191,7 @@ public sealed class ShotPlanner(IAiProviderRegistry providers, IAiSettingsStore 
                 alreadySpokenDialogue = spoken,
                 // Like prompt composition, only the neighbours are described in full; the rest of a long scene would crowd the prompt.
                 otherShotTitles = single.SceneShots.Select((s, i) => (Shot: s, Order: i + 1)).Where(s => s.Shot != previous && s.Shot != next).Select(s => $"{s.Order}. {s.Shot.Title}"),
-                requestedMaximumSeconds = r.MaximumSeconds, effectiveMaximumSeconds = H3Policy.Seconds(r.MaximumSeconds) }, AtomicJsonFile.Options))];
+                requestedMaximumSeconds = r.MaximumSeconds }, AtomicJsonFile.Options))];
     }
     public static ShotPlanningResult Parse(string raw, ShotPlanningRequest r)
     {

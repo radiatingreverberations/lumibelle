@@ -40,6 +40,8 @@ public partial class AiSettingsPage
         {
             var known = _settings!.VllmTextModelBenchmarks.Any(b => b.Measurement.TestId == benchmark.Measurement.TestId);
             _settings = await Settings.LoadAsync(_token); if (!known) _saveMessage = "Model test saved.";
+            var catalog = await Providers.CheckAsync(AiBackend.Vllm, _settings, cancellationToken: _token);
+            _checks[AiBackend.Vllm] = catalog; _textCatalogs[AiBackend.Vllm].Catalog = catalog;
         }
         catch (WorkspaceStoreException e) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }

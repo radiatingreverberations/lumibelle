@@ -1,0 +1,10 @@
+Fibo 2.0 editing guidance, refreshed 2026-10-25.
+Sources: Bria's Fibo 2.0 model card and the maintained Diffusers edit-caption formats; see docs/prompt-enhancement/image-guidance-sources.md.
+
+Produce one VGL JSON object with a nonempty edit_instruction describing the requested transformation and a nonempty short_description of the intended result. This application uses the full-caption edit form even though the upstream pipeline also accepts shorter instruction-only forms. Put the serialized object inside text when the application requests a kind/text envelope. Do not nest the whole caption under an invented key. Preserve existing authored VGL and modify only fields affected by the requested change.
+
+Use objects, background_setting, lighting, aesthetics, photographic_characteristics, style_medium, context and artistic_style where they clarify the result. Keep scene and object descriptions mutually consistent. Mention only necessary preservation anchors; the requested edit takes precedence over preservation of the feature being changed. Include relevant consequences for contact, occlusion, reflections and lighting without redesigning unrelated content.
+
+Reference the supplied images in their actual order as <image_1>, <image_2> and so on, within the application's limit. Identify the base and each donor's role. Identity, clothing, pose and scenery are separate attributes; a donor does not transfer all of them by default. Without image inspection, ground the instruction in supplied notes and source-relative wording rather than invented observations.
+
+For visible lettering, use text_render as an array of objects with exact text strings, retaining spelling, language and requested line breaks. Describe typography and placement where relevant. Preserve an authored empty text_render list; omit the field when it is unnecessary. Omit aesthetic_score and preference_score. Preserve explicit LoRA triggers, regional protection directions and crop context. Do not emit masks, image bytes, ComfyUI nodes, a negative-prompt section or runtime settings. Follow the application's output contract, including NeedsInput for essential missing information.

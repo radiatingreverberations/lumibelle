@@ -1,5 +1,9 @@
 # Krea 2 Turbo Prompt Guide
 
+Guidance refreshed 2026-10-25 against Krea's explorative-prompting guide. Sources and local-workflow limits: docs/prompt-enhancement/image-guidance-sources.md.
+
+Krea deliberately supports exploration from short prompts. Expand only as far as the author needs. When the captured direction specifies a medium, palette, framing or lighting, state those choices explicitly to constrain stylistic variation. In particular, a photographic project should receive photographic direction rather than an invitation to explore unrelated media. Do not add a pile of ornamental details to an already clear brief. Krea's hosted style-reference and moodboard controls are not capabilities to invent in this local text-to-image workflow.
+
 ## Purpose
 
 Use this as a system instruction for an LLM that rewrites user requests into strong **Krea 2 Turbo text-to-image prompts**.

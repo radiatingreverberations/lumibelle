@@ -185,7 +185,7 @@ public static class AiVideoJobPolicy
     public static string Extension(VideoInputKind kind) => kind == VideoInputKind.Video ? ".mp4" : kind is VideoInputKind.Image or VideoInputKind.StartFrame ? ".png" : ".wav";
     public static void Validate(AiVideoJobRequest r)
     {
-        if (r.Version is not (1 or 2 or 3) || r.BatchId == Guid.Empty || r.Snapshot is null || r.Inputs is null || r.Inputs.Any(i => i is null) ||
+        if (r.Version is not (1 or 2 or 3 or 4) || r.BatchId == Guid.Empty || r.Snapshot is null || r.Inputs is null || r.Inputs.Any(i => i is null) ||
             r.Snapshot.ProjectId == Guid.Empty || r.Snapshot.Shot is null || r.Snapshot.Settings is null)
             throw new WorkspaceStoreException("Invalid queued video request.");
         var s = r.Snapshot;
@@ -199,7 +199,8 @@ public static class AiVideoJobPolicy
         ShotDubbing.ValidateSnapshot(s);
         if (s.RegenerationSource is { } origin && (origin.TakeId == Guid.Empty || origin.Seed < 0 || origin.Width < 1 || origin.Height < 1 || s.Reel is not null || r.Refinement is not null))
             throw new WorkspaceStoreException("Invalid source take for regeneration.");
-        if ((s.Reel is not null) != (r.Version == 3) || s.Reel is not null && r.Refinement is not null) throw new WorkspaceStoreException("Invalid reel request version.");
+        if ((s.Reel is not null) != (r.Version is 3 or 4) || r.Version == 3 && r.Refinement is not null || r.Version == 4 && r.Refinement is null)
+            throw new WorkspaceStoreException("Invalid reel request version.");
         H3Policy.Validate(s.Shot, true, requireScene: false, motionContext: s.Motion is not null); H3Policy.ValidateSettings(s.Settings);
         if (s.Motion is { } capturedMotion) H3Motion.Validate(capturedMotion, s);
         if (r.Extension is { } extension) {
@@ -260,7 +261,7 @@ public static class AiVideoJobPolicy
         {
             ReferenceReels.Validate(reel.Recipe, true);
             if (reel.Owner is { } owner) ReferenceReels.ValidateOwner(reel.Recipe, owner);
-            return s.Production is null && s.Profile == reel.Recipe.PresetVersion && s.Prompt == reel.Recipe.Prompt &&
+            return s.Production is null && s.Profile == reel.Recipe.PresetVersion && s.Prompt == VisualStyles.Apply(reel.Recipe.Prompt, reel.Recipe.CapturedVisualStyle) &&
                 H3Policy.Fingerprint(s.Shot) == H3Policy.Fingerprint(ReferenceReels.Inputs(reel.Recipe)) && reel.Character.AssetId == reel.Recipe.AssetId;
         }
         if (s.Profile == H3Motion.Profile && s.Motion is not null) { ProductionPolicy.ValidateGenerationPrompt(s.Prompt); return s.Production is null; }

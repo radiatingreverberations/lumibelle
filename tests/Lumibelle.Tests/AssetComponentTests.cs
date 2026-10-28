@@ -35,6 +35,7 @@ public sealed partial class AssetComponentTests : BunitContext
     public AssetComponentTests()
     {
         ComponentFactories.AddStub<lumibelle.Components.Assets.ReferenceReelsPanel>();
+        ComponentFactories.AddStub<lumibelle.Components.Assets.AssetBatchPanel>();
         _assets = new(_projectId);
         var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == _projectId ? FakeProjectStore.Project("Asset test") with { Id = id } : null) };
         Services.AddMudServices(); Services.AddSingleton<IProjectStore>(projects); Services.AddSingleton<lumibelle.Services.Projects.IProjectFolders>(new FakeProjectFolders()); Services.AddSingleton<lumibelle.Services.Projects.IProjectCompaction>(new FakeProjectCompaction()); Services.AddSingleton<IAssetStore>(_assets); Services.AddSingleton<IImageTrashStore>(_assets); Services.AddSingleton(TimeProvider.System);
@@ -750,10 +751,12 @@ internal sealed class FakeAssetStore(Guid projectId) : IAssetStore, IImageTrashS
     public Task<AssetMedia?> OpenImageAsync(Guid id, Guid assetId, Guid imageId, CancellationToken cancellationToken = default)
     {
         ImageOpenCalls++;
+        if (ImageOpenError is not null) throw ImageOpenError;
         var image = Library.Assets.SingleOrDefault(asset => asset.Id == assetId)?.Images.SingleOrDefault(value => value.Id == imageId);
         return Task.FromResult(image is null ? null : new AssetMedia(
             new MemoryStream(AssetStoreTests.Png(image.Width, image.Height)), image.ContentType, image.CreatedUtc));
     }
+    public Exception? ImageOpenError { get; set; }
 }
 
 internal sealed class FakeAssetExtractor : IAssetExtractor, IAiJobHandler

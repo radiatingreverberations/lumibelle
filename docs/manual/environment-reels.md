@@ -6,6 +6,14 @@ Use **Scenes** to save a reviewed inspection set and authored staging constraint
 
 Open a location image’s review/details dialog and choose **Create reel from this image** in its footer. This opens a fresh reel recipe with that image selected and preserves any earlier recipe. The same action is available for character and prop images. You can also choose **Reference reel** from the Assets tools’ **Create** selector.
 
+In **Reel prompt**, expand **Coverage and route** to choose the camera preset and direction alongside its illustrated preview, then add Instructions. **Run visual style** sits in its own section below; it inherits the asset or project style unless you choose an override for this reel.
+
+## Refine a preview reel
+
+Enable **Storage options → Save latents for refinement** before generating previews. From a generated reel's actions or details, choose **Refine…**. The shared shot controls offer a larger output size and either **Refine** (lightly re-noise while keeping the source audio) or **Rework** (allow more change and regenerate audio). Refinement uses the saved prompt, model and prepared references and saves a separate reel with its own latents. The original and references already attached to shots stay unchanged. Review keyframes for the new version before using it.
+
+If an older reel has no latents, **Refine… → Regenerate with latents…** opens a reviewed regeneration with its original seed and resolution selected and **Save latents** enabled. Generate that replacement candidate first, then refine it. A same-seed regeneration is a fresh run; it cannot recover latents from the existing MP4. **Preview → Native** does not retain refinement latents; use a fixed resolution when keeping them.
+
 ## Choose useful coverage
 
 These top-down diagrams illustrate movement, not a reconstructed floor plan. Lines and arrows show camera travel; shaded cones show viewing direction; numbered circles mark held views. Circuit view 4 returns to the starting position. Clockwise and counterclockwise are measured from above.

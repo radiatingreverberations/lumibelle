@@ -140,6 +140,9 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public bool OmitSceneText { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool OmitNearbyShots { get; init; }
+    // CurrentPrompt remains the target baseline for apply/conflict checks; only the model-facing text is omitted.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitCurrentPrompt { get; init; }
     [JsonIgnore] public bool SceneTextLeftOut => ReducedScriptContext || OmitSceneText;
     [JsonIgnore] public bool NearbyShotsLeftOut => ReducedScriptContext || OmitNearbyShots;
     // The take frame the shot starts from (BindingId is the take), attached after the references.
@@ -149,10 +152,12 @@ public sealed record PromptCompositionRequest(Guid ProjectId, Guid CompositionId
     public string? FollowingAction { get; init; }
     public IReadOnlyList<CompositionInput>? MotionStills { get; init; }
 }
-/// <summary>Estimated tokens of the two parts of a composition's script context that can be left out.</summary>
+/// <summary>Dimensions used to estimate a reference image's token cost.</summary>
 public sealed record ImageSize(int Width, int Height);
+/// <summary>Estimated sizes of optional composition context and always-included reference images.</summary>
 public sealed record CompositionContextSize(int SceneTextTokens, int NearbyShotsTokens, int NearbyShots)
 {
+    public int CurrentPromptTokens { get; init; }
     /// <summary>
     /// The sizes of the images always sent with the references (pictures, RefMod previews and any opening frame). Their tokens depend on
     /// the model, so they are estimated from these sizes for whichever model is chosen, without capturing the images again.

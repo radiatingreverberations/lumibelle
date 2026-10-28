@@ -46,6 +46,22 @@ public sealed class AssetGalleryGroupTests
         Assert.Equal(items, Assert.Single(AssetGalleryGroup.For(owner, items, grouped)).Items);
     }
 
+    [Fact]
+    public void RequestedEmptyLooksJoinTheSameGroupsWithoutEmptyArchivedLooks()
+    {
+        var first = new CharacterLook { Name = "Raincoat" };
+        var empty = new CharacterLook { Name = "Evening" };
+        var archived = new CharacterLook { Name = "Retired", Archived = true };
+        var owner = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Mira", Category = AssetCategory.Character, Looks = [first, empty, archived] };
+        var general = Item(AssetMediaKind.Image);
+        var image = Item(AssetMediaKind.Image, first.Id);
+        var groups = AssetGalleryGroup.For(owner, [image, general], true, new HashSet<Guid> { first.Id, empty.Id, archived.Id }).ToArray();
+        Assert.Equal(new[] { "General", "Raincoat", "Evening" }, groups.Select(g => g.Name));
+        Assert.Equal(image, Assert.Single(groups[1].Items)); Assert.Empty(groups[2].Items);
+        Assert.Empty(AssetGalleryGroup.For(owner, [], true));
+        Assert.Equal("Evening", Assert.Single(AssetGalleryGroup.For(owner, [], true, new HashSet<Guid> { empty.Id })).Name);
+    }
+
     private static AssetGalleryItem Item(AssetMediaKind kind, Guid? look = null) =>
         new(new(kind, Guid.NewGuid()), kind.ToString(), DateTimeOffset.UtcNow, look);
 }

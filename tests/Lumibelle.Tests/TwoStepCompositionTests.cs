@@ -100,10 +100,12 @@ public sealed class TwoStepCompositionTests : IDisposable
     }
 
     [Fact]
-    public void RevisionsNameTheValidReferenceLabels()
+    public void InitialAndRevisedCompositionsNameTheValidReferenceLabels()
     {
         var (composition, images) = Composition();
-        Assert.DoesNotContain("selected references are", PromptComposer.BuildMessages(composition, images)[0].Text);
+        var initial = PromptComposer.BuildMessages(composition, images)[0].Text;
+        Assert.Contains("selected references are <Picture 1>", initial);
+        Assert.DoesNotContain("currentPrompt may name removed", initial);
         // A revision's current prompt may still cite a reference that was removed from the shot.
         var revision = PromptComposer.BuildMessages(composition with { CurrentPrompt = "Uses <Picture 3> for the face." }, [], [], visualBrief: true)[0].Text;
         Assert.Contains("selected references are <Picture 1>", revision);

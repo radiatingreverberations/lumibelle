@@ -11,7 +11,8 @@ public partial class AssetsStudio
     private bool IsQwen => _imageWorkflow == ImageWorkflow.QwenImage21;
     private QwenImage21Options _qwenOptions = new();
     private int QwenResolution => !IsEditMode && _qwenOptions.Resolution == 0 ? 1024 : _qwenOptions.Resolution;
-    private QwenImage21Options? CaptureQwenOptions() => IsQwen ? _qwenOptions with { Resolution = QwenResolution } : null;
+    private bool IsQwenTurbo => IsQwen && QwenImage21Policy.Settings(_settings ?? new()).Variant == QwenImage21Variant.Turbo;
+    private QwenImage21Options? CaptureQwenOptions() => IsQwen ? QwenImage21Policy.CaptureOptions(_settings ?? new(), _qwenOptions with { Resolution = QwenResolution }) : null;
 
     private void ChangeQwenResolution(ChangeEventArgs e)
     {

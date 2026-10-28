@@ -1,4 +1,4 @@
-FLUX.2 Klein 9B KV Create prompt profile, version 1, 2026-09-05.
+FLUX.2 Klein 9B KV Create prompt profile, version 1, sources rechecked 2026-10-25.
 Derived from BFL's FLUX.2 model-family guidance:
 https://github.com/black-forest-labs/skills/blob/master/skills/flux-image-best-practices/rules/flux2-models.md
 

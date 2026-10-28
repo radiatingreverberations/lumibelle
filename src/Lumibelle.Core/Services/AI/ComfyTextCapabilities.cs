@@ -98,21 +98,31 @@ public static class ComfyTextCapabilities
     {
         foreach (var colors in new[] { false, true })
         {
-            var codes = new List<string>();
-            while (codes.Count < count)
-                if ((colors ? ColorCode() : Code(4)) is var code && !codes.Contains(code)) codes.Add(code);
+            var probe = CreateImageProbe(count, colors);
             var seed = Seed();
             var mode = count == 1 ? ComfyVisionInput.SingleImage : ComfyVisionInput.ImageBatch;
-            var uploaded = await ComfyTextVision.UploadAsync(http, model, mode, [.. codes.Select(c => colors ? ColorImage(c) : DigitImage(c))], ct);
-            var question = (colors, count) switch
-            {
-                (false, 1) => ImageQuestion, (false, _) => BatchQuestion,
-                (true, 1) => ColorQuestion, (true, _) => ColorBatchQuestion
-            };
-            var answer = await run(colors ? name + "-colors" : name, client => ComfyTextVision.BuildWorkflow(model, question, ProbeTokens, ProbeTemperature, seed, client, uploaded), ct);
-            if (Repeats(colors ? ColorDigits(answer) : answer, [.. codes])) return true;
+            var uploaded = await ComfyTextVision.UploadAsync(http, model, mode, probe.Images, ct);
+            var answer = await run(colors ? name + "-colors" : name, client => ComfyTextVision.BuildWorkflow(model, probe.Question, ProbeTokens, ProbeTemperature, seed, client, uploaded), ct);
+            if (probe.Matches(answer)) return true;
         }
         return false;
+    }
+
+    internal sealed record ImageProbe(byte[][] Images, string Question, string[] Codes, bool Colors)
+    {
+        public bool Matches(string? answer) => Repeats(Colors ? ColorDigits(answer) : answer, Codes);
+    }
+
+    internal static ImageProbe CreateImageProbe(int count, bool colors)
+    {
+        var codes = new List<string>();
+        while (codes.Count < count)
+            if ((colors ? ColorCode() : Code(4)) is var code && !codes.Contains(code)) codes.Add(code);
+        var question = (colors, count) switch {
+            (false, 1) => ImageQuestion, (false, _) => BatchQuestion,
+            (true, 1) => ColorQuestion, (true, _) => ColorBatchQuestion
+        };
+        return new([.. codes.Select(c => colors ? ColorImage(c) : DigitImage(c))], question, [.. codes], colors);
     }
 
     /// <summary>

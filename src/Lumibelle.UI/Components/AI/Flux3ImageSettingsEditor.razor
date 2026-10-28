@@ -1,0 +1,29 @@
+@using lumibelle.Services.Assets
+
+<fieldset disabled="@Disabled" class="flux3-settings" aria-label="FLUX 3 image settings">
+    <legend>Checkpoint and sampling</legend>
+    <label for="flux3-variant">Checkpoint variant</label>
+    <select id="flux3-variant" @bind:get="Value.Variant" @bind:set="ChangeVariant">
+        <option value="@Flux3ImageVariant.Distilled">Distilled · 16 steps, no CFG</option>
+        <option value="@Flux3ImageVariant.Base">Base · 50 steps, CFG 3.5</option>
+    </select>
+    <p class="field-hint">Choose the variant matching your diffusion file. FLUX 3 uses its Qwen3-VL 4B encoder with the flux3 loader type and FLUX.2 VAE. FLUX.2 Klein KV files use a separate workflow.</p>
+    <label for="flux3-steps">Sampling steps</label>
+    <input id="flux3-steps" type="number" min="1" max="150" @bind:get="Flux3ImagePolicy.Steps(Value)" @bind:set="(int v) => Update(Value with { Steps = v })" />
+    @if (Value.Variant == Flux3ImageVariant.Base) {
+        <label for="flux3-guidance">Guidance (CFG)</label>
+        <input id="flux3-guidance" type="number" min="1" max="20" step="0.1" @bind:get="Flux3ImagePolicy.Guidance(Value)" @bind:set="(double v) => Update(Value with { Guidance = v })" />
+    }
+    <label for="flux3-reference-size">Reference size (megapixels per image)</label>
+    <input id="flux3-reference-size" type="number" min="0.01" max="4" step="0.01" @bind:get="Value.ReferenceMegapixels" @bind:set="(double v) => Update(Value with { ReferenceMegapixels = v })" />
+    <p class="field-hint">Editing accepts up to ten ordered references without an edit LoRA. Each retains its crop and aspect. More references and larger reference sizes use more memory. The selected output canvas remains independent of reference sizes.</p>
+    <p class="field-hint">FLUX 3 needs a full scene caption, including for edits. Use Enhance in Assets to describe the complete result, then review and apply that caption before generating. You can also write the full caption yourself. The exact submitted caption is saved with each take.</p>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public Flux3ImageSettings Value { get; set; } = new();
+    [Parameter] public EventCallback<Flux3ImageSettings> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private Task Update(Flux3ImageSettings value) => ValueChanged.InvokeAsync(value);
+    private Task ChangeVariant(Flux3ImageVariant variant) => Update(Value with { Variant = variant, Steps = null, Guidance = null });
+}
