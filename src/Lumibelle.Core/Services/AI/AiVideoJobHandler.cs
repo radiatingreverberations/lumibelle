@@ -249,7 +249,7 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
     private Task<string> RunDirectory(VideoSnapshot s, Guid batch, CancellationToken ct) => s.Reel is not null
         ? ReelStore.DirectoryAsync(s, batch, ct) : shots.RunDirectoryAsync(s.ProjectId, batch, ct);
     public static AiJobTarget Target(VideoSnapshot s, TakeRefinement? refinement = null) => s.Reel is { } reel
-        ? new(s.ProjectId, reel.Recipe.AssetId, ReelId: reel.Recipe.Id)
+        ? new(s.ProjectId, reel.Recipe.AssetId, ReelId: refinement?.ParentTakeId ?? reel.Recipe.Id)
         : new(s.ProjectId, ShotId: s.Shot.Id, TakeId: refinement?.ParentTakeId, CompositionId: s.Production?.CompositionId);
     public static AiJobTarget Target(AiVideoJobRequest request) => request.Snapshot.Reel is not null ? Target(request.Snapshot, request.Refinement) : Target(request.Snapshot, request.Refinement) with {
         ShotId = request.DestinationShotId ?? request.Snapshot.Shot.Id,

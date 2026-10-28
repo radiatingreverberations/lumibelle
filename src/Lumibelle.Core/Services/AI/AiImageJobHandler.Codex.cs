@@ -132,7 +132,8 @@ public sealed partial class AiImageJobHandler
                 await context.ReportAsync(new(new(GenerationPhase.Saving, "Saving Codex image to Assets…"), candidate.Number, total, CodexTiming: staged.Metadata.Codex?.Timing), true);
                 using var content = new MemoryStream(staged.Bytes, writable: false);
                 await assets.PublishGeneratedImageAsync(request.ProjectId, new(context.Job.Id, candidate.Id, request.AssetId,
-                    new(staged.FileName, request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, staged.Metadata, request.Look?.LookId)), content, token);
+                    new(staged.FileName, request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, staged.Metadata, request.Look?.LookId,
+                        (request.Create?.PendingReview ?? request.Edit?.PendingReview) == true ? true : null)), content, token);
                 completed.Add(new(candidate.Id, candidate.Number, candidate.Id, staged.Metadata));
                 await SaveResultAsync(context, completed, token); await context.MarkReviewableAsync(token);
             }

@@ -14,6 +14,10 @@ The shot list groups shots by script scene. Each thumbnail shows its selected ta
 
 The right panel lists the references first. Its footer then has the output settings, **Prompt** with the prompt's status (highlighted while a missing or unreviewable prompt is what keeps the shot from generating), and **Generate takes**; the footer also contains the preset dropdown, and the pencil beside it opens **Generation settings** to edit the one in use. A shot that [continues from a frame](#continue-from-a-frame) shows **Starts from** with that frame above its references. Named generation presets are shared across shots and projects; the prompt and references belong to the shot.
 
+**Draft shots** and **Draft shot** use a constrained structured response on native vLLM and compatible connections whose selected model advertises or passes a test for JSON-schema output. Required shot and direction fields, duration bounds, saved scene/source identifiers and inspected-view citation choices are captured with the request. The instructions focus on directing choices and continuity. Coverage, staging and dramatic quality still need review; older captured requests and connections without confirmed schema support retain their original response format.
+
+The drafter budgets real screen time in **Timing** for action, speech and reactions. A source paragraph can span several clips: longer processes are divided into playable intervals while preserving authored waits and the physical state between shots. The maximum duration is a ceiling. A single-shot request surfaces unresolved timing conflicts for review. These instructions also apply to Codex and Claude Code's plain-JSON responses; a schema constrains structure, not physical plausibility.
+
 ## Reviewable direction
 
 ### Inspect an environment before drafting

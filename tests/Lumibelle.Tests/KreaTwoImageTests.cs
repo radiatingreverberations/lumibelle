@@ -47,6 +47,39 @@ public sealed class KreaTwoImageTests
     }
 
     [Theory]
+    [InlineData("model")]
+    [InlineData("text encoder")]
+    [InlineData("VAE")]
+    [InlineData("identity-edit LoRA")]
+    public async Task DiscoveryNamesOnlyTheUnavailableFile(string field)
+    {
+        var handler = Handler();
+        var settings = new FakeAiSettingsStore();
+        var initial = settings.Value;
+        var files = new Dictionary<string, string>
+        {
+            ["model"] = initial.ComfyImageModel, ["text encoder"] = initial.ComfyImageTextEncoder,
+            ["VAE"] = initial.ComfyImageVae, ["identity-edit LoRA"] = initial.ComfyImageEditLora
+        };
+        var missing = "missing/" + files[field];
+        settings.Value = field switch
+        {
+            "model" => initial with { ComfyImageModel = missing },
+            "text encoder" => initial with { ComfyImageTextEncoder = missing },
+            "VAE" => initial with { ComfyImageVae = missing },
+            _ => initial with { ComfyImageEditLora = missing }
+        };
+        var editor = new ComfyReferenceImageEditor(new TestHttpFactory(handler), settings, TimeProvider.System, TestComfy.Monitor());
+        var result = await editor.CheckAsync(cancellationToken: Ct);
+        Assert.False(result.Success);
+        Assert.Contains("unavailable", result.Message);
+        Assert.Contains($"{field} '{missing}'", result.Message);
+        foreach (var other in files.Keys.Where(key => key != field))
+            Assert.DoesNotContain($"{other} '{files[other]}'", result.Message);
+        Assert.All(handler.Requests, request => Assert.Equal("/object_info", request.Path));
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(2)]
     public void GraphGroundsBothEncodersAndUsesDistinctFidelityInputs(int count)

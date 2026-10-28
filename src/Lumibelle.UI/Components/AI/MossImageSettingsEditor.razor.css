@@ -1,0 +1,6 @@
+.moss-settings { display: grid; gap: 10px; min-width: 0; margin: 18px 0; padding: 18px; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface-subtle); }
+.moss-settings legend { padding: 0 8px; font-weight: 600; }
+.moss-settings label { font-size: var(--lumi-font-size-small); font-weight: 600; }
+.moss-settings input:not([type="checkbox"]), .moss-settings select, .moss-settings textarea { box-sizing: border-box; width: 100%; min-width: 0; }
+.moss-settings .field-hint { margin: 0 0 8px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .moss-settings { padding: 12px; } }

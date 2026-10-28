@@ -5,6 +5,45 @@ namespace Lumibelle.Tests;
 
 public sealed partial class AssetComponentTests
 {
+    [Theory]
+    [InlineData(ImageWorkflow.MossImage)]
+    [InlineData(ImageWorkflow.Flux2Klein9bKv)]
+    [InlineData(ImageWorkflow.Flux3ImageKlein)]
+    [InlineData(ImageWorkflow.Fibo2)]
+    [InlineData(ImageWorkflow.QwenImage21)]
+    [InlineData(ImageWorkflow.Krea2)]
+    public async Task SwitchingAnEditedRecipeToKreaUsesApplicableControls(ImageWorkflow originalWorkflow)
+    {
+        var source = new AssetImage { Id = Guid.NewGuid(), FileName = "portrait.png", ContentType = "image/png", Width = 12, Height = 12 };
+        var asset = Asset("Mira");
+        var isKrea = originalWorkflow == ImageWorkflow.Krea2;
+        var edited = source with { Id = Guid.NewGuid(), FileName = "full-body.png", Generation = new()
+        {
+            Workflow = originalWorkflow, Prompt = "A full-body studio reference of the same person.", Seed = 24,
+            Edit = new() { SourceAssetId = asset.Id, SourceImageId = source.Id, ReferenceBoost = isKrea ? 2.5f : 0,
+                BaseReferenceBoost = isKrea ? 1.75f : null, GroundingPixels = isKrea ? 512 : 0 }
+        } };
+        _assets.Library = _assets.Library with { Assets = [asset with { Images = [edited, source] }] };
+        _editor.WaitUntilCancelled = true;
+        var page = Page(); page.WaitForElement(".media-select");
+        await ImageActionAsync(page, "Create similar", edited.Id);
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".compact-image-input")));
+        await page.InvokeAsync(() => page.Find("#asset-image-workflow").Change("Krea2"));
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(isKrea ? "2.5" : "4", page.Find("#reference-boost").GetAttribute("value"));
+            Assert.Equal(isKrea ? "512" : "768", page.Find("#grounding-pixels").GetAttribute("value"));
+            Assert.False(page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images").HasAttribute("disabled"));
+        });
+        await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Generate images"));
+        await _editor.Called();
+        Assert.Equal(ImageWorkflow.Krea2, _editor.LastRequest!.Workflow);
+        Assert.Equal(source.Id, _editor.LastRequest.SourceImageId);
+        Assert.Equal(isKrea ? 2.5f : 4, _editor.LastRequest.ReferenceBoost);
+        Assert.Equal(isKrea ? 1.75f : 1, _editor.LastRequest.BaseReferenceBoost);
+        Assert.Equal(isKrea ? 512 : 768, _editor.LastRequest.GroundingPixels);
+    }
+
     [Fact]
     public async Task CreateSimilarIsDisabledWithoutARecipe()
     {

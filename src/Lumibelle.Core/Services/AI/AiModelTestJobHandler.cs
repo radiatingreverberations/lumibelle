@@ -34,7 +34,8 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         var vllm = model.Backend == AiBackend.Vllm;
         var request = new AiModelTestJobRequest(vllm ? 3 : hosted ? 2 : 1, model, settings, advanced is null
             ? new(hosted || vllm ? OpenRouterBenchmarkPrompt : AiProviderRegistry.StandardBenchmarkPrompt,
-                vllm ? model.MaxOutputTokens ?? OpenRouterBenchmarkTokens : hosted ? OpenRouterBenchmarkTokens : settings.MaxOutputTokens) : advanced with { }, advanced is not null, Random.Shared.NextInt64(1, long.MaxValue));
+                vllm ? model.MaxOutputTokens ?? OpenRouterBenchmarkTokens : hosted ? OpenRouterBenchmarkTokens : settings.MaxOutputTokens) : advanced with { }, advanced is not null, Random.Shared.NextInt64(1, long.MaxValue), TestImageInput: vllm,
+            TestStructuredOutput: vllm && OpenAiConnections.Find(settings, model.VllmUrl) is { } connection && OpenAiConnections.Kind(connection) == OpenAiServerKind.Standard);
         Validate(request);
         return AiJobSubmission.Create(id, advanced is null ? AiJobKind.TextBenchmark : AiJobKind.TextAdvancedTest, model.Backend,
             new(ModelKey: TextModelPolicy.Key(model)), "AI settings", model.Name + (advanced is null ? " · Benchmark" : " · Advanced test"), tab, request);
@@ -54,7 +55,7 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         var vllm = request.Version == 3 && request.Model?.Backend == AiBackend.Vllm;
         var maxTokens = vllm ? VllmAdvancedMaxTokens : request.Model?.Backend == AiBackend.ComfyUI ? ComfyAdvancedMaxTokens : hostedV2 ? OpenRouterAdvancedMaxTokens : 2048;
         if (request.Version != 1 && !hostedV2 && !vllm || request.Model is null || request.Settings is null || request.Test is null || request.Model.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter or AiBackend.Vllm) || request.Model.Backend == AiBackend.Vllm && !vllm ||
-            string.IsNullOrWhiteSpace(request.Test.Prompt) || request.Test.Prompt.Length > 12000 || request.Test.MaxOutputTokens < 1 || request.Test.MaxOutputTokens > maxTokens || request.Seed < 0)
+            string.IsNullOrWhiteSpace(request.Test.Prompt) || request.Test.Prompt.Length > 12000 || request.Test.MaxOutputTokens < 1 || request.Test.MaxOutputTokens > maxTokens || request.Seed < 0 || (request.TestImageInput || request.TestStructuredOutput) && !vllm)
             throw new WorkspaceStoreException($"Choose a ComfyUI, vLLM or OpenRouter text model, a nonempty test message, and a token limit between 1 and {maxTokens:N0}.");
         TextModelPolicy.Validate(request.Model); FileAiSettingsStore.Validate(request.Settings);
         if (vllm)
@@ -73,6 +74,10 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
     private async Task<AiJobOutcome> RunAsync(AiJobContext context, AiModelTestJobRequest request, CancellationToken ct)
     {
         var result = await context.ReadOperationAsync<AiModelTestJobResult>("model-test", AiOperationArtifact.TestResult, ct);
+        if (result is null && request.Model.Backend == AiBackend.Vllm && request.TestImageInput)
+            result = await context.ReadOperationAsync<AiModelTestJobResult>("model-test/image-capabilities", AiOperationArtifact.Output, ct);
+        if (result is null && request.Model.Backend == AiBackend.Vllm && request.TestStructuredOutput)
+            result = await context.ReadOperationAsync<AiModelTestJobResult>("model-test/schema-capabilities", AiOperationArtifact.Output, ct);
         if (result is null && request.Model.Backend is AiBackend.OpenRouter or AiBackend.Vllm)
             result = await context.ReadOperationAsync<AiModelTestJobResult>("model-test", AiOperationArtifact.Output, ct);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);

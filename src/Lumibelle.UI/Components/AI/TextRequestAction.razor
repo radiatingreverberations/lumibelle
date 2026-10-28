@@ -3,7 +3,7 @@
 @implements IAsyncDisposable
 
 <div class="text-request-action @(Primary ? "primary-request-action" : "") @(Ready ? "request-ready" : "")">
-    <button type="button" class="assist-trigger request-action-button" @ref="_button" disabled="@ButtonDisabled" @onclick="Activate" @onmousedown:preventDefault="true"
+    <button type="button" class="assist-trigger request-action-button @ButtonClass" @ref="_button" disabled="@ButtonDisabled" @onclick="Activate" @onmousedown:preventDefault="true"
             aria-label="@AccessibleLabel" aria-describedby="@(Notice is null ? null : _noticeId)" aria-haspopup="@(Primary && !Inspecting ? null : "dialog")">
         @if (Spinning) { <span aria-hidden="true" class="request-spinner"></span> }
         else if (StatusIcon is { } statusIcon) { <span aria-hidden="true" class="request-icon">@statusIcon</span> }
@@ -20,6 +20,9 @@
     [Parameter] public string? Notice { get; set; }
     [Parameter] public TextRequestPresentation? Request { get; set; }
     [Parameter] public bool Preparing { get; set; }
+    [Parameter] public bool Working { get; set; }
+    [Parameter] public bool ReviewReady { get; set; }
+    [Parameter] public string? ButtonClass { get; set; }
     [Parameter] public bool HasError { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public bool Primary { get; set; }
@@ -32,9 +35,9 @@
     private Task? _ticks;
     private bool _disposed;
     private bool Inspecting => !HasError && Request?.Inspectable == true && (!Primary || _freshFor != Request.Job.Id || Request.Active);
-    private bool Spinning => Preparing || Inspecting && Request!.Active && Request.Job.State != AiJobState.Waiting;
+    private bool Spinning => Working || Preparing || Inspecting && Request!.Active && Request.Job.State != AiJobState.Waiting;
     // A finished result waits for the person to look at it, so the button stands out until it is applied or dismissed.
-    private bool Ready => Inspecting && !Request!.Active && Request.Job.State == AiJobState.Completed && Request.Outcome is TextRequestOutcome.Proposal or TextRequestOutcome.Response;
+    private bool Ready => ReviewReady || Inspecting && !Request!.Active && Request.Job.State == AiJobState.Completed && Request.Outcome is TextRequestOutcome.Proposal or TextRequestOutcome.Response;
     private bool ButtonDisabled => Preparing || !Inspecting && !HasError && Disabled;
     private string VisibleLabel => Preparing ? "Preparing request…" : Inspecting ? Request!.Label : HasError ? "Needs attention" : Label;
     private string AccessibleLabel => Inspecting ? VisibleLabel + (Request!.Active ? " · View request" : "") : HasError || Preparing ? VisibleLabel : Title ?? Label;
@@ -44,7 +47,7 @@
     private async Task Activate()
     {
         if (Preparing) return;
-        if (Inspecting) { await FocusAsync(); await OnReview.InvokeAsync(); }
+        if (Inspecting || ReviewReady || Working) { await FocusAsync(); await OnReview.InvokeAsync(); }
         else await OnStart.InvokeAsync();
     }
     /// <summary>For a primary action, shows its start label again so a new request can begin while an earlier result waits.</summary>

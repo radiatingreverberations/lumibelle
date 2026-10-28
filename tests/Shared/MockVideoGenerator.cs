@@ -16,6 +16,7 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
     public ConcurrentQueue<VideoSnapshot> Submitted { get; } = new();
     public int SubmitCount, DownloadCount;
     public bool FailTransfer, MissingJob, UncertainSubmission;
+    public bool PatternedFrames;
     public int DelayMilliseconds = 500;
     public Func<Task>? OnSubmit;
     public Func<CancellationToken, Task>? OnObserve;
@@ -110,8 +111,9 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
         await Task.Delay(DelayMilliseconds,ct);
         if (run.Snapshot.PreviewUpscale is not null) { yield return new(new(GenerationPhase.Finalizing,"Upscaling video…")); await Task.Delay(250, ct); }
         if (run.Snapshot.Shot.Description.Contains("MOCK_COMFY_CRASH")) throw new HttpRequestException("ComfyUI connection failed.");
-        // Large refinements run out of GPU memory, as they can on a real card.
-        if (run.Refinement is { Height: >= 1000 }) throw new WorkspaceStoreException("ComfyUI failed at SamplerCustomAdvanced (node 10): RuntimeError: mock out of GPU memory");
+        // Simulate memory pressure by pixel count so native-size square and portrait outputs remain valid.
+        if (run.Refinement is { } refinement && (long)refinement.Width * refinement.Height > 1_100_000)
+            throw new WorkspaceStoreException("ComfyUI failed at SamplerCustomAdvanced (node 10): RuntimeError: mock out of GPU memory");
         yield return new(new(GenerationPhase.Finalizing,"Mock frames ready"),c.PromptId,JsonSerializer.SerializeToElement(new { outputs = new { } }),true);
     }
     public Task<bool> ExistsAsync(VideoRun r,VideoCandidate c,CancellationToken ct) => Task.FromResult(!MissingJob);
@@ -124,11 +126,11 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
         var s=r.Snapshot;
         var size=RefinementPolicy.OutputSize(r);
         using var image=new Image<Rgb24>(size.Width,size.Height,new Rgb24((byte)(50+c.Number*30),70,100));
-        if (s.Shot.Description.Contains("KEYFRAME_FIXTURE"))
+        if (PatternedFrames || s.Shot.Description.Contains("KEYFRAME_FIXTURE"))
             for (var y = 0; y < size.Height; y++) for (var x = 0; x < size.Width; x++)
                 image[x, y] = (x / 12 + y / 12) % 2 == 0 ? new Rgb24(220, 160, 90) : new Rgb24(30, 70, 120);
         using var buffer=new MemoryStream(); await image.SaveAsPngAsync(buffer,ct);var bytes=buffer.ToArray();
-        var frames = r.Refinement is not null || s.OutputPolicy?.SaveLosslessFrames != false ? await MockFrameArchive.WriteAsync(dir,s.FrameCount,size.Width,size.Height,ct) : new List<ShotFrame>();
+        var frames = r.Refinement is not null || s.OutputPolicy?.SaveLosslessFrames != false ? await MockFrameArchive.WriteAsync(dir,s.FrameCount,size.Width,size.Height,ct,PatternedFrames) : new List<ShotFrame>();
         await progress("Mock lossless WebP archive saved");
         var video=Path.Combine(dir,"video.mp4");
         if(!File.Exists(video))

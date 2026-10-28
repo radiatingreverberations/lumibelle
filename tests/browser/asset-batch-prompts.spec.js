@@ -1,0 +1,54 @@
+import { test, expect } from './fixtures.js';
+
+for (const width of [1280, 390]) test(`bulk enhances each prompt before generation and survives closing at ${width}px`, async ({ page, request }, testInfo) => {
+  test.setTimeout(100000);
+  await page.setViewportSize({ width, height: 960 });
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/bulk-types`);
+  await request.post('/fixtures/bulk-assets/vision');
+  await page.goto(`/projects/${id}/assets`);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  const toggle = page.locator('[data-toggle-pane=left]');
+  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await page.locator('.bulk-assets-launch').click();
+  const dialog = page.locator('.asset-batch-dialog');
+  await dialog.getByLabel('Candidates per item').selectOption('1');
+  await dialog.getByLabel('Aspect', { exact: true }).selectOption('9:16');
+  await dialog.getByRole('checkbox', { name: 'Enhance prompts with AI', exact: true }).check();
+  await expect(dialog.getByRole('checkbox', { name: /Evaluate candidates/ })).not.toBeChecked();
+  await dialog.locator('.bulk-instructions summary').click();
+  await dialog.getByLabel('Instructions for this batch').fill('Keep the entire subject visible.');
+  await dialog.getByRole('button', { name: 'Select all ready items', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Review generation plan', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Start batch', exact: true })).toBeEnabled();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await dialog.screenshot({ path: testInfo.outputPath(`bulk-prompt-option-${width}.png`) });
+  await dialog.getByRole('button', { name: 'Start batch', exact: true }).click();
+  await expect(dialog.locator('.bulk-run-status')).toContainText('Prompt enhancement');
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await page.locator('.bulk-assets-launch').click();
+  await expect(dialog.locator('.bulk-run-status')).toContainText('Batch complete', { timeout: 60000 });
+  await expect(dialog.locator('.bulk-run-status')).toContainText('3 / 3 prompts enhanced');
+  const [run] = await (await request.get(`/fixtures/${id}/asset-batches`)).json();
+  expect(run.items).toHaveLength(3);
+  for (const item of run.items) {
+    expect(item.promptAttempts).toBe(1);
+    expect(item.promptJobs).toHaveLength(1);
+    expect(item.generationJobs).toHaveLength(1);
+    expect(item.enhancedPrompt).toContain('Keep the entire subject visible.');
+    expect(item.enhancedPrompt).not.toBe(item.prompt);
+  }
+  const captures = await (await request.get(`/fixtures/${id}/visual-style`)).json();
+  expect(captures.reviews).toHaveLength(0);
+  expect(captures.generation.map(g => g.originalPrompt ?? g.prompt)).toEqual(run.items.map(i => i.enhancedPrompt));
+  await expect(dialog.getByText('Original prompt & instructions', { exact: true })).toHaveCount(3);
+  const responseLink = dialog.getByRole('link', { name: 'Saved prompt response', exact: true }).first();
+  const reviewUrl = await responseLink.getAttribute('href');
+  await page.goto(reviewUrl);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.bulk-raw-review')).toBeVisible();
+  await dialog.screenshot({ path: testInfo.outputPath(`bulk-prompts-complete-${width}.png`) });
+});

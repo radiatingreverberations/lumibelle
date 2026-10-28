@@ -263,6 +263,13 @@ for (const narrow of [false, true]) test(`image details starts a fresh environme
   const previous = await (await request.post(`/fixtures/${id}/removed-environment-draft`)).json();
   const owner = (await library(request, id)).assets[0], image = owner.images[0];
   await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
+  // A long inherited style must not take the route preview's grid cell.
+  await page.goto(`/projects/${id}/settings`);
+  const style = page.locator('.project-visual-style');
+  await style.getByRole('combobox', { name: 'Project visual style', exact: true }).selectOption('Photographic');
+  await style.getByLabel('Project visual style direction', { exact: true }).fill('Natural photographic detail, cool muted tones, soft practical lighting and subtle film grain. Preserve the materials, architectural details and arrangement of the original room across all camera views.');
+  await style.getByRole('button', { name: 'Save visual style', exact: true }).click();
+  await expect(style).toContainText('Visual style saved.');
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}`);
   await page.locator(`[data-media-id="${image.id}"]`).getByRole('button', { name: /^Preview image/ }).click();
   const review = page.locator('.image-review-dialog');
@@ -285,7 +292,21 @@ for (const narrow of [false, true]) test(`image details starts a fresh environme
   const setup = reelSetup(page);
   await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentFullSet');
   await setup.getByLabel('Instructions', { exact: true }).fill('Keep the doorway and brickwork fixed while travelling around the acting area.');
+  await setup.locator('.reel-direction-options > summary').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `artifacts/environment-from-image-${narrow ? 'narrow' : 'desktop'}.png` });
+  const coverage = setup.locator('.environment-coverage');
+  const caption = await coverage.locator('figcaption').boundingBox();
+  const camera = await setup.locator('.reel-camera-settings').boundingBox();
+  const preview = await coverage.boundingBox();
+  const visualStyle = await setup.locator('.visual-style-editor').boundingBox();
+  expect(caption.width).toBeGreaterThan(220);
+  expect(visualStyle.width).toBeGreaterThanOrEqual(preview.width - 1);
+  expect(visualStyle.y).toBeGreaterThan(preview.y + preview.height);
+  if (!narrow) {
+    expect(preview.x).toBeGreaterThanOrEqual(camera.x + camera.width);
+    expect(Math.abs(preview.y - camera.y)).toBeLessThan(32);
+  }
+  expect(await setup.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   const document = setup.locator('.prompt-document');
   const prompt = setup.getByRole('textbox', { name: 'H3 prompt', exact: true });
   await expect(prompt).toHaveText('');

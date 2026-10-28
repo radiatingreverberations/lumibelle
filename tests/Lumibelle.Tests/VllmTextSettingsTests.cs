@@ -76,15 +76,17 @@ public sealed partial class AiSettingsStoreTests
         var ct = Xunit.TestContext.Current.CancellationToken;
         var measured = new TextModelBenchmark(Guid.NewGuid(), "test/model", DateTimeOffset.UtcNow, 2048, false, 2, .2,
             12, 42, null, null, null, "test/model", null, "test-generation", "stop", true);
-        var sample = new VllmTextModelBenchmark("http://llm-server:8000/v1", .7f, measured);
+        var sample = new VllmTextModelBenchmark("http://llm-server:8000/v1", .7f, measured) { ImageInput = new(DateTimeOffset.UtcNow, true, true, "Both images were identified.") };
         var list = Enumerable.Range(0, 7).Select(i => sample with { Measurement = measured with { TestId = Guid.NewGuid(), MeasuredUtc = measured.MeasuredUtc.AddMinutes(i) } }).ToList();
         list.Add(sample with { Server = "http://other:8000/v1" });
         var saved = await Store.SaveAsync(new() { VllmTextModelBenchmarks = list }, cancellationToken: ct);
         var loaded = await Store.LoadAsync(ct);
         Assert.Equal(6, loaded.VllmTextModelBenchmarks.Count); Assert.Empty(loaded.OpenRouterTextModelBenchmarks);
         Assert.Single(loaded.VllmTextModelBenchmarks, b => b.Server == "http://other:8000/v1");
+        Assert.All(loaded.VllmTextModelBenchmarks, b => Assert.Equal(sample.ImageInput, b.ImageInput));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.SaveAsync(saved with { VllmTextModelBenchmarks = [sample with { Server = "file:///private" }] }, cancellationToken: ct));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.SaveAsync(saved with { VllmTextModelBenchmarks = [sample with { Temperature = float.NaN }] }, cancellationToken: ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.SaveAsync(saved with { VllmTextModelBenchmarks = [sample with { ImageInput = sample.ImageInput with { Supported = null } }] }, cancellationToken: ct));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Store.SaveAsync(saved with { VllmTextModelBenchmarks = [sample with { Measurement = measured with { OutputTokens = -1 } }] }, cancellationToken: ct));
     }
 

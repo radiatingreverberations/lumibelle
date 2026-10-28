@@ -1,3 +1,4 @@
+using System.Text.Json;
 using lumibelle.Models;
 using Microsoft.Extensions.AI;
 using OpenAI.Chat;
@@ -68,7 +69,38 @@ internal static class TextGenerationOptions
         if (request.ResponseGrammar is { } grammar)
             options.RawRepresentationFactory = _ => VllmGrammarOptions(grammar);
         else if (request.ResponseSchema is { } schema)
-            options.ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema(schema, "lumibelle_response");
+        {
+            var standard = request.Model.Backend == AiBackend.Vllm && OpenAiConnections.Find(request.Settings, request.Model.VllmUrl) is { } connection &&
+                OpenAiConnections.Kind(connection) == OpenAiServerKind.Standard;
+            if (standard)
+                options.RawRepresentationFactory = _ => OpenAiSchemaOptions(schema);
+            else if (request.Kind is AiJobKind.PromptComposition or AiJobKind.ShotPlanning && request.Model.Backend == AiBackend.Vllm)
+                options.RawRepresentationFactory = _ => VllmSchemaOptions(schema);
+            else options.ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema(schema, "lumibelle_response");
+        }
+        return options;
+    }
+
+    private static ChatCompletionOptions OpenAiSchemaOptions(JsonElement schema)
+    {
+        var options = new ChatCompletionOptions();
+#pragma warning disable SCME0001
+        // Preserve bounds, enums and required fields instead of letting the adapter simplify the captured schema.
+        options.Patch.Set("$.response_format"u8, BinaryData.FromString(JsonSerializer.Serialize(new {
+            type = "json_schema", json_schema = new { name = "lumibelle_response", strict = true, schema }
+        })));
+#pragma warning restore SCME0001
+        return options;
+    }
+
+    private static ChatCompletionOptions VllmSchemaOptions(JsonElement schema)
+    {
+        var options = new ChatCompletionOptions();
+#pragma warning disable SCME0001
+        // The generic OpenAI adapter rewrites minItems/maxItems/minLength into descriptions.
+        // vLLM supports these constraints; preserve the captured bounds and required fields.
+        options.Patch.Set("$.structured_outputs.json"u8, BinaryData.FromString(schema.GetRawText()));
+#pragma warning restore SCME0001
         return options;
     }
 

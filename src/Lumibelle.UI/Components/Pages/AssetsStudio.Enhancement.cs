@@ -39,8 +39,8 @@ public partial class AssetsStudio
         // still participate in the stale-result check and are never rewritten by review.
         RememberLookPrompt();
         _resolveImageDefault = false;
-        _imageWorkflow = captured.Workflow; _imagePrompt = captured.Prompt; _aspect = captured.AspectRatio;
-        _imageResolution = captured.Resolution; _qwenOptions = captured.QwenImage21 ?? new();
+        _imageWorkflow = captured.Workflow; _imagePrompt = captured.Prompt; _aspect = captured.AspectRatio; _imageVisualStyle = captured.VisualStyle ?? new();
+        RestoreImageResolution(captured.Resolution, captured.Workflow); _qwenOptions = captured.QwenImage21 ?? new();
         _targetLookId = captured.TargetLook?.LookId;
         _regions.Clear(); foreach (var reference in captured.References) if (reference.Region is { } region) _regions[reference.Image] = region;
         _editSourceImageId = captured.IsEdit ? captured.References[0].Image.ImageId : null;

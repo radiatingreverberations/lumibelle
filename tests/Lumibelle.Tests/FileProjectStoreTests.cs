@@ -65,6 +65,34 @@ public sealed class FileProjectStoreTests : IDisposable
         Assert.Equal(new[] { second, first }, (await Store().ListAsync(TestContext.Current.CancellationToken)).Projects);
     }
 
+    [Theory]
+    [InlineData(VisualStylePreset.Photographic)]
+    [InlineData(VisualStylePreset.Anime)]
+    [InlineData(VisualStylePreset.Custom)]
+    public async Task CreationPublishesVisualStyleWithTheProjectAndDetailEditsPreserveIt(VisualStylePreset preset)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var store = Store();
+        var project = await store.CreateAsync(new("A consistent look") { VisualStyle = new() { Preset = preset, Direction = "  Soft morning light.  " } }, ct);
+        var files = new lumibelle.Services.Story.ProjectFiles(Options.Create(new ProjectStorageOptions { RootDirectory = "projects" }), new TestEnvironment { ContentRootPath = _directory }, Store());
+        var preferences = new lumibelle.Services.AI.FileProjectAiPreferencesStore(files);
+        var initial = await preferences.LoadAsync(project.Id, ct);
+        Assert.Equal(preset, initial.VisualStyle.Preset); Assert.Equal("Soft morning light.", initial.VisualStyle.Direction);
+        Assert.Equal(0, initial.VisualStyleRevision);
+        await store.UpdateAsync(project, new("Updated title", "New notes"), ct);
+        Assert.Equal(JsonSerializer.Serialize(initial), JsonSerializer.Serialize(await preferences.LoadAsync(project.Id, ct)));
+        Assert.DoesNotContain(Directory.GetDirectories(Path.Combine(_directory, "projects")), p => Path.GetFileName(p).StartsWith(".creating-", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task InvalidCreationStyleIsRejectedBeforePublishingAnyProject()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        foreach (var style in new[] { new VisualStyle { Preset = (VisualStylePreset)999 }, new VisualStyle { Preset = VisualStylePreset.Custom, Direction = new('x', 4001) } })
+            await Assert.ThrowsAsync<ValidationException>(() => Store().CreateAsync(new("Invalid style") { VisualStyle = style }, ct));
+        Assert.False(Directory.Exists(_directory));
+    }
+
     [Fact]
     public async Task UnknownProjectIsMissing()
     {

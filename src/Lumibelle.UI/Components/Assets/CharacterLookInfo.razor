@@ -1,0 +1,24 @@
+<div class="look-info">
+    <div class="look-info-copy">
+        @if (!string.IsNullOrWhiteSpace(Look.Description)) { <p class="look-description">@Look.Description</p> }
+        else { <p class="look-info-hint">No look description yet.</p> }
+        @if (!string.IsNullOrWhiteSpace(Look.PreservationGuidance) || Look.Evidence.Count > 0)
+        {
+            <details class="look-notes"><summary>Consistency &amp; script evidence</summary>
+                @if (!string.IsNullOrWhiteSpace(Look.PreservationGuidance)) { <p>@Look.PreservationGuidance</p> }
+                @foreach (var evidence in Look.Evidence) { <blockquote><strong>@evidence.Label</strong><p>@evidence.Excerpt</p></blockquote> }
+            </details>
+        }
+    </div>
+    <div class="look-info-actions">
+        @if (!Look.Archived) { <button type="button" class="look-create" disabled="@Disabled" aria-label="@($"Create images for {Look.Name}")" @onclick="() => Create.InvokeAsync(Look.Id)">Create images for this look</button> }
+        <button type="button" class="look-manage" disabled="@Disabled" aria-label="@($"Manage {Look.Name} look")" @onclick="() => Manage.InvokeAsync(Look.Id)">Manage look</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CharacterLook Look { get; set; } = default!;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<Guid> Create { get; set; }
+    [Parameter] public EventCallback<Guid> Manage { get; set; }
+}

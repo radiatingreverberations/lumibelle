@@ -55,11 +55,12 @@ app.MapReferencePickerFixtures();
 app.MapShotCopyFixtures();
 app.MapCompositionRecoveryFixtures();
 app.MapScriptPlanningFixtures();
+app.MapBulkAssetFixtures();
 app.MapPost("/fixtures/shutdown", (HttpContext http, IHostApplicationLifetime lifetime) => {
     http.Response.OnCompleted(() => { lifetime.StopApplication(); return Task.CompletedTask; });
     return Results.Ok();
 });
-app.MapGet("/fixtures/ai-jobs", async (IAiJobStore jobs) => (await jobs.ReadAsync()).Jobs.Select(j => new { j.Id, j.Target, Kind = j.Kind.ToString(), State = j.State.ToString(), j.Unread, j.CancelRequested, j.ActivityClearedUtc }));
+app.MapGet("/fixtures/ai-jobs", async (IAiJobStore jobs) => (await jobs.ReadAsync()).Jobs.Select(j => new { j.Id, j.Target, Kind = j.Kind.ToString(), State = j.State.ToString(), j.Error, j.Unread, j.CancelRequested, j.ActivityClearedUtc }));
 app.MapGet("/fixtures/ai-jobs/{id:guid}/review", async (Guid id, IAiJobReviewStore reviews) => await reviews.LoadAsync(id));
 app.MapPost("/fixtures/ai-jobs/{id:guid}/unread", async (Guid id, IAiJobStore jobs, AiJobCoordinator coordinator) => {
     await jobs.UpdateAsync(id, j => j with { Unread = true }); await coordinator.RefreshAsync(); return Results.Ok();
@@ -76,9 +77,10 @@ app.MapGet("/fixtures/guidance", () => MockChat.Guidance.ToArray());
 app.MapGet("/fixtures/compositions", () => MockChat.Compositions.ToArray());
 app.MapGet("/fixtures/reel-compositions", () => MockChat.ReelCompositions.ToArray());
 app.MapGet("/fixtures/environment-view-requests", () => MockChat.EnvironmentViews.ToArray());
-app.MapPost("/fixtures/{id:guid}/regeneration-source", async (Guid id, IAssetStore assets, IAssetReelStore reels, AiReelCapture capture, AiJobCoordinator jobs) => {
+app.MapPost("/fixtures/{id:guid}/regeneration-source", async (Guid id, bool? quick, IAssetStore assets, IAssetReelStore reels, AiReelCapture capture, AiJobCoordinator jobs) => {
     var owner = (await assets.LoadAsync(id)).Assets.First();
     var draft = ReferenceReels.NewDraft(owner); draft.Duration = 5; draft.NativeResolution = false;
+    if (quick == true) { VideoResolutions.Select(draft, VideoResolution.Quick); draft.GenerationPreset = H3Presets.Beta; }
     draft.Images = [new() { AssetId = owner.Id, MediaId = owner.Images.First().Id, InferUsage = true }];
     var pair = ReferenceReels.Preset(draft); draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance;
     draft = await reels.SaveDraftAsync(id, draft, 0);
@@ -157,6 +159,10 @@ app.MapPost("/fixtures/{id:guid}/rename-project", async (Guid id, string name, I
 });
 app.MapGet("/fixtures/{id:guid}/project-route", async (Guid id, IProjectRoutes routes) => await routes.ResolveAsync(id.ToString()));
 app.MapGet("/fixtures/new", async (IProjectStore projects) => await projects.CreateAsync(new("Juniper finds a key", "Mocked script walkthrough")));
+app.MapPost("/fixtures/bulk-assets/vision", async (IAiSettingsStore settings) => {
+    var current = await settings.LoadAsync();
+    await settings.SaveAsync(current with { DefaultBackend = AiBackend.OpenRouter, OpenRouterModel = "mock/alternate" }); return Results.Ok();
+});
 app.MapGet("/fixtures/{id:guid}/script-source", async (Guid id, IScriptStore scripts) => await scripts.CaptureSourceAsync(id));
 app.MapPost("/fixtures/{id:guid}/approved", async (Guid id, IScriptStore scripts) =>
 {
@@ -364,6 +370,18 @@ app.MapPost("/fixtures/{id:guid}/images", async (Guid id, IAssetStore store, boo
     }
     return library;
 });
+app.MapPost("/fixtures/{id:guid}/look-creation", async (Guid id, IAssetStore store) =>
+{
+    var library = await store.LoadAsync(id);
+    var owner = library.Assets[0];
+    var looks = new[] {
+        new CharacterLook { Name = "Raincoat", Description = "A navy raincoat with silver buttons, dark trousers and sturdy boots.", PreservationGuidance = "Keep the coat navy and its buttons silver." },
+        new CharacterLook { Name = "Evening jacket", Description = "A tailored green jacket over a cream shirt, with dark trousers." }
+    };
+    owner = owner with { Description = "Auburn hair, grey eyes and a calm expression.", Looks = looks,
+        Images = owner.Images.Select((image, index) => image with { IsReference = index == 0, IsCover = index == 0 }).ToList() };
+    return await store.SaveAsync(library with { Assets = library.Assets.Select(asset => asset.Id == owner.Id ? owner : asset).ToList() }, library.Revision);
+});
 app.MapPost("/fixtures/{id:guid}/ux-images", async (Guid id, IAssetStore store, int count = 100) =>
 {
     var library = await store.LoadAsync(id); var asset = library.Assets[0];
@@ -497,7 +515,20 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var list = messages.ToList(); var last = list[^1].Text ?? ""; string output;
-        if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true || m.Text?.Contains("Redraft ONLY the selected outline sequence") == true)) {
+        if (list.Any(m => m.Text?.StartsWith("Review a generated visual reference reel") == true)) {
+            using var captured = JsonDocument.Parse(last);
+            var frames = captured.RootElement.GetProperty("tiles").EnumerateArray().Where(t => t.GetProperty("candidate").ValueKind == JsonValueKind.Number).Take(2).Select(t => t.GetProperty("candidate").GetInt32()).ToArray();
+            output = JsonSerializer.Serialize(new { verdict = "Pass", summary = "The sampled views provide complementary reference coverage", checks =
+                lumibelle.Services.Assets.AssetReelEvaluator.CheckNames.Select(name => new { name, verdict = name == "coverage" ? "CannotJudge" : "Pass", reason = name == "coverage" ? "Other angles are not established by these samples" : "Visible features are consistent in the samples" }),
+                views = frames.Select(n => new { candidate = n, name = $"Reference view {n}", notes = "Clear visible outline and useful reference framing" }), warnings = new[] { "Watch the video to assess motion" } });
+        }
+        else if (list.Any(m => m.Text?.StartsWith("You review generated reference images") == true)) {
+            using var captured = JsonDocument.Parse(last);
+            var ids = captured.RootElement.GetProperty("CandidateIds").EnumerateArray().Select(v => v.GetGuid()).ToArray();
+            output = JsonSerializer.Serialize(new { candidates = ids.Select((id, index) => new { imageId = id, rank = index + 1, verdict = "Pass", summary = "Clear framing and readable silhouette", checks =
+                lumibelle.Services.Assets.AssetImageEvaluator.CheckNames.Select(name => new { name, verdict = name == "reference" ? "CannotJudge" : "Pass", reason = name == "reference" ? "No supplied reference" : "The visible result supports the direction" }) }), recommendedImageId = ids[0] });
+        }
+        else if (list.Any(m => m.Text?.Contains("Draft ONLY the selected outline sequence") == true || m.Text?.Contains("Redraft ONLY the selected outline sequence") == true)) {
             var evidence = list.Single(m => m.Text?.StartsWith("ACCEPTED SOURCE OUTLINE AND LINKED EVIDENCE\n") == true).Text!;
             var context = JsonSerializer.Deserialize<ScriptAdaptationContext>(evidence[(evidence.IndexOf('\n') + 1)..], AtomicJsonFile.Options)!;
             var scene = context.Outline.Acts[context.Selection.Act!.Value].Scenes[context.Selection.Scene!.Value];
@@ -630,7 +661,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
             Enhancements.Enqueue(new { model, context = context.RootElement.Clone(), images });
             output = prompt.Contains("NEEDS_INPUT") ? "NEEDS_INPUT: What exact text should the sign display?"
                 : prompt.Contains("NEEDS_SETUP") ? "NEEDS_SETUP: Expand the canvas first."
-                : "A carefully composed illustration. " + prompt;
+                : "A carefully composed illustration. " + prompt.Replace("\r", " ").Replace("\n", " ");
         }
         else if ((list[0].Text ?? "").Contains("Plan ONE new shot", StringComparison.Ordinal))
         {
@@ -748,12 +779,46 @@ sealed class MockImages : IReferenceImageGenerator, IReferenceImageEditor
     public Task<ComfyImageConfiguration> CheckAsync(AiSettings? settings = null, CancellationToken cancellationToken = default)
     {
         settings ??= new(); var klein = settings.DefaultImageWorkflow == ImageWorkflow.Flux2Klein9bKv;
+        if (CaptionImagePolicy.Supports(settings.DefaultImageWorkflow))
+        {
+            var workflow = settings.DefaultImageWorkflow; var value = CaptionImagePolicy.Settings(settings, workflow); var fibo = workflow == ImageWorkflow.Fibo2;
+            return Task.FromResult(new ComfyImageConfiguration(!fibo || value.Variant == CaptionImageVariant.Base, "Mock caption model check.",
+                fibo ? [new("fibo2_dev_int8_convrot.safetensors", "Fibo Dev"), new("fibo2_edit_turbo_int8_convrot.safetensors", "Fibo Edit Turbo")]
+                    : [new("z_image_bf16.safetensors", "Z-Image Base"), new("z_image_turbo_bf16.safetensors", "Z-Image Turbo")],
+                [new(value.TextEncoder, "Text encoder")], [new(value.Vae, "VAE")]));
+        }
+        if (settings.DefaultImageWorkflow == ImageWorkflow.QwenImage21)
+        {
+            var value = QwenImage21Policy.Settings(settings);
+            return Task.FromResult(new ComfyImageConfiguration(true, "Mock Qwen image ready.",
+                [new("qwen_image_2.1_int8_convrot.safetensors", "Qwen Base"), new("qwen_image_2.1_turbo_int8_convrot.safetensors", "Qwen Turbo")],
+                [new(value.TextEncoder, "Qwen3-VL 8B")], [new(value.Vae, "Qwen VAE")]));
+        }
+        if (settings.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein)
+        {
+            var flux3 = Flux3ImagePolicy.Settings(settings);
+            return Task.FromResult(new ComfyImageConfiguration(true, "Mock FLUX 3 creation ready.",
+                [new("flux3-image-klein-int8-convrot.safetensors", "FLUX 3 Distilled"), new("flux3-image-klein-base-int8-convrot.safetensors", "FLUX 3 Base")],
+                [new(flux3.TextEncoder, "Qwen3-VL 4B")], [new(flux3.Vae, "FLUX.2 VAE")]));
+        }
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MossImage)
+        {
+            var moss = MossImagePolicy.Settings(settings);
+            return Task.FromResult(new ComfyImageConfiguration(true, "Mock MOSS creation ready.",
+                [new(moss.Model, "MOSS Base"), new("moss_image_sft_bf16.safetensors", "MOSS SFT")],
+                [new(moss.TextEncoder, "Qwen3.5 9B")], [new(moss.Vae, "FLUX.2 VAE")]));
+        }
         return Task.FromResult(new ComfyImageConfiguration(true, "Mock image workflow ready.",
             [new(klein ? settings.FluxKleinModel : settings.ComfyImageModel, "Mock diffusion model")],
             [new(klein ? settings.FluxKleinTextEncoder : settings.ComfyImageTextEncoder, "Mock text encoder")],
             [new(klein ? settings.FluxKleinVae : settings.ComfyImageVae, "Mock VAE")]));
     }
-    Task<ComfyImageEditConfiguration> IReferenceImageEditor.CheckAsync(AiSettings? settings, CancellationToken cancellationToken) => Task.FromResult(new ComfyImageEditConfiguration(true, "Mock editing ready.", [], settings?.DefaultImageWorkflow is ImageWorkflow.Flux2Klein9bKv or ImageWorkflow.CodexImages ? 8 : 2));
+    Task<ComfyImageEditConfiguration> IReferenceImageEditor.CheckAsync(AiSettings? settings, CancellationToken cancellationToken) => Task.FromResult(settings?.DefaultImageWorkflow == ImageWorkflow.ZImage
+        ? new ComfyImageEditConfiguration(false, "Z-Image Base and Turbo support creation here. Choose an editing workflow to use references.", [], 0)
+        : settings?.DefaultImageWorkflow == ImageWorkflow.Fibo2 ? new ComfyImageEditConfiguration(true, "Mock Fibo editing ready.", [], 4)
+        : settings?.DefaultImageWorkflow == ImageWorkflow.MossImage
+        ? new ComfyImageEditConfiguration(!string.IsNullOrWhiteSpace(settings.MossImage?.EditLora), "Mock MOSS edit adapter check.", [new("moss-edit/adapter_model.safetensors", "MOSS Edit")], 4)
+        : new ComfyImageEditConfiguration(true, "Mock editing ready.", [], settings?.DefaultImageWorkflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.QwenImage21 ? 10 : settings?.DefaultImageWorkflow is ImageWorkflow.Flux2Klein9bKv or ImageWorkflow.CodexImages ? 8 : 2));
     public async IAsyncEnumerable<ReferenceGenerationUpdate> GenerateAsync(ReferenceGenerationRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         yield return new("Generating mock image", 1, 1, Progress: new(GenerationPhase.Generating, "Generating mock image"));

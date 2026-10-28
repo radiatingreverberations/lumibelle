@@ -15,6 +15,8 @@ public static class QwenImage21Policy
     public const long MaximumNativePixels = 4_325_376;
     public const long MaximumPreparedBytes = 250L * 1024 * 1024;
     public static QwenImage21Settings Settings(AiSettings settings) => settings.QwenImage21 ?? new();
+    public static QwenImage21Options CaptureOptions(AiSettings settings, QwenImage21Options? options) =>
+        Settings(settings).Variant == QwenImage21Variant.Turbo ? (options ?? new()) with { Steps = 8 } : options ?? new();
     public static QwenImage21Options Options(AiImageJobRequest request) => request.Create?.QwenImage21 ?? request.Edit?.QwenImage21 ?? new();
 
     public static void ValidateSettings(QwenImage21Settings? settings)
@@ -22,9 +24,13 @@ public static class QwenImage21Policy
         if (settings is null) return; // Old settings retain their exact serialized representation.
         static bool InvalidName(string? name) => string.IsNullOrWhiteSpace(name) || name.Length > 2000 ||
             name.IndexOfAny(['\0', '\r', '\n']) >= 0;
-        if (InvalidName(settings.Model) || InvalidName(settings.TextEncoder) || InvalidName(settings.Vae) ||
+        if (!Enum.IsDefined(settings.Variant) || InvalidName(settings.Model) || InvalidName(settings.TextEncoder) || InvalidName(settings.Vae) ||
             settings.CacheDevice is not ("auto" or "gpu" or "cpu" or "off") || settings.CacheDtype is not ("default" or "int8" or "int4"))
             throw new WorkspaceStoreException("Choose the Qwen Image 2.1 model, Qwen3-VL 8B encoder, its own VAE, and valid cache settings.");
+        var file = Path.GetFileName(settings.Model.Replace('\\', '/'));
+        if (file.StartsWith("qwen_image_2.1_", StringComparison.OrdinalIgnoreCase) &&
+            file.Contains("_turbo_", StringComparison.OrdinalIgnoreCase) != (settings.Variant == QwenImage21Variant.Turbo))
+            throw new WorkspaceStoreException("Choose the Qwen Base or Turbo variant matching the selected checkpoint file.");
     }
 
     public static QwenImage21Settings Normalize(QwenImage21Settings settings) => settings with
@@ -110,6 +116,8 @@ public static class QwenImage21Policy
             throw new AiGenerationException("The captured Qwen Image 2.1 model settings and output options are missing. Capture a new request; defaults are not substituted during recovery.");
         ValidateSettings(request.Settings.QwenImage21);
         ValidateOptions(Options(request), request.Edit is not null);
+        if (request.Settings.QwenImage21.Variant == QwenImage21Variant.Turbo && Options(request).Steps != 8)
+            throw new AiGenerationException("Qwen Image 2.1 Turbo requires its fixed eight-step schedule.");
         if (request.Edit?.Regions is { Count: > 0 } && request.Regional is null)
             throw new AiGenerationException("Regional Qwen edits require the captured original and canvas for review.");
         if (request.Regional is { } regional && (regional.Canvas != RegionalImageEdits.Canvas(regional.Selection, request.AspectRatio, qwen: Options(request)) ||
@@ -144,7 +152,7 @@ public static class QwenImage21Policy
         {
             Workflow = ImageWorkflow.QwenImage21, Prompt = prompt.Trim(), Seed = seed, AspectRatio = aspect,
             DiffusionModel = qwen.Model, TextEncoder = qwen.TextEncoder, Vae = qwen.Vae, Steps = options.Steps, Loras = loras,
-            QwenImage21 = new(options, size.Width, size.Height, edit is null ? "off" : qwen.CacheDevice, edit is null ? "default" : qwen.CacheDtype),
+            QwenImage21 = new(options, size.Width, size.Height, edit is null ? "off" : qwen.CacheDevice, edit is null ? "default" : qwen.CacheDtype) { Variant = qwen.Variant },
             Edit = edit is null ? null : new()
             {
                 SourceAssetId = edit.SourceAssetId, SourceImageId = edit.SourceImageId, SourceCrop = edit.SourceCrop,
@@ -161,6 +169,7 @@ public static class QwenImage21Policy
         if (generation.QwenImage21 is not { Options: { } options } saved ||
             generation.Edit?.Regional is null && (saved.Width != width || saved.Height != height) ||
             saved.Width < 32 || saved.Height < 32 || saved.Width > 16384 || saved.Height > 16384 || saved.Width % 32 != 0 || saved.Height % 32 != 0 || (long)saved.Width * saved.Height > MaximumNativePixels ||
+            !Enum.IsDefined(saved.Variant) || saved.Variant == QwenImage21Variant.Turbo && options.Steps != 8 ||
             generation.Steps != options.Steps || saved.CacheDevice is not ("auto" or "gpu" or "cpu" or "off") ||
             saved.CacheDtype is not ("default" or "int8" or "int4")) return true;
         try

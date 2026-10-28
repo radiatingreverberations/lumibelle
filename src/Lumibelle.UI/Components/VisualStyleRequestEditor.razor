@@ -1,0 +1,29 @@
+@inject IProjectAiPreferencesStore Preferences
+<VisualStyleEditor Label="@Label" Value="Value" ValueChanged="Changed" Inherited="@(Asset?.VisualStyle ?? _projectStyle)" Disabled="@(Disabled || _loading || _error is not null)" />
+@if (_error is not null) { <p role="alert">@_error</p><button @onclick="Load">Reload visual style</button> }
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public ReferenceAsset? Asset { get; set; }
+    [Parameter] public VisualStyle? Value { get; set; }
+    [Parameter] public EventCallback<VisualStyle?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<VisualStyle> Resolved { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string Label { get; set; } = "Run visual style";
+    private Guid _loaded;
+    private VisualStyle _projectStyle = new();
+    private VisualStyle? _resolved;
+    private bool _loading;
+    private string? _error;
+    protected override async Task OnParametersSetAsync() {
+        if (_loaded != ProjectId) { _loaded = ProjectId; await Load(); }
+        else await Publish(VisualStyles.Resolve(_projectStyle, Asset?.VisualStyle, Value));
+    }
+    private async Task Load() {
+        _loading = true; _error = null;
+        try { _projectStyle = (await Preferences.LoadAsync(ProjectId)).VisualStyle; await Publish(VisualStyles.Resolve(_projectStyle, Asset?.VisualStyle, Value)); }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+        finally { _loading = false; }
+    }
+    private async Task Publish(VisualStyle style) { if (_resolved == style) return; _resolved = style; await Resolved.InvokeAsync(style); }
+    private async Task Changed(VisualStyle? value) { await ValueChanged.InvokeAsync(value); await Publish(VisualStyles.Resolve(_projectStyle, Asset?.VisualStyle, value)); }
+}

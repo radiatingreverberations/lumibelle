@@ -25,6 +25,7 @@
 .text-assist-status:empty { display:none; }
 .text-assist-status .ai-job-progress { margin:4px 0; }
 .ai-assist-dialog.mud-dialog { width:min(520px, calc(100vw - 32px)); max-width:520px; max-height:85dvh; }
+.ai-assist-dialog.asset-batch-dialog.mud-dialog { width:min(1120px, calc(100vw - 32px)); max-width:1120px; max-height:92dvh; }
 .ai-assist-dialog .mud-dialog-content { overflow:auto; display:flex; flex-direction:column; gap:12px; }
 .ai-assist-dialog .mud-dialog-content > div { min-width:0; }
 /* The empty read marker would add a gap above the progress. */

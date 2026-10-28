@@ -1,0 +1,13 @@
+.image-model-downloads { margin: 8px 0 20px; padding: 12px 14px; border: 1px solid var(--lumi-border); border-radius: 8px; background: var(--lumi-surface-subtle); min-width: 0; }
+.image-model-downloads summary { cursor: pointer; color: var(--lumi-accent); font-weight: 600; font-size: var(--lumi-font-size-meta); }
+.image-model-downloads summary:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 4px; }
+.image-model-downloads p { font-size: var(--lumi-font-size-meta); line-height: 1.5; }
+.image-download-location { color: var(--lumi-text-muted); margin: 12px 0; }
+.image-model-downloads code, .image-model-downloads a { overflow-wrap: anywhere; }
+.image-model-downloads ul { display: grid; gap: 14px; margin: 12px 0; padding-left: 20px; }
+.image-model-downloads li { min-width: 0; font-size: var(--lumi-font-size-meta); }
+.image-download-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.image-download-badge { display: inline-block; border: 1px solid var(--lumi-border); border-radius: 12px; padding: 2px 8px; font-size: var(--lumi-font-size-small); color: var(--lumi-text-muted); background: var(--lumi-surface); }
+.image-download-selected { color: var(--lumi-accent); border-color: var(--lumi-accent); }
+.image-download-note { margin: 6px 0 0; color: var(--lumi-text-muted); }
+.image-download-guides { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0 0; }

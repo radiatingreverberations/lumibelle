@@ -94,14 +94,15 @@ test('Shots restores a trashed picture from Manage references and applies it', a
   expect((await images()).map(i => i.mediaId)).toEqual([picture.id]);
 });
 
-for (const [width, height] of [[1150, 745], [1400, 1000]]) test(`Manage references keeps its header compact in a short window (${width}x${height})`, async ({ page, request }) => {
+for (const [width, height] of [[1150, 745], [1400, 1000], [390, 844]]) test(`Manage references keeps its header compact and expanded Assist footer visible (${width}x${height})`, async ({ page, request }, testInfo) => {
   // Measure the final layout, not MudBlazor's opening scale animation.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const { id } = await (await request.get('/fixtures/new')).json();
   await request.post(`/fixtures/${id}/images`); await request.post(`/fixtures/${id}/prop-reel-owner`); // A prop needs no voice choice.
   const owner = (await (await request.get(`/fixtures/${id}`)).json()).assets.assets[0];
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`); await request.post(`/fixtures/${id}/production-shot`);
-  await page.setViewportSize({ width, height });
+  // Prepare both shots before narrowing the dialog, without navigating between phone drawers.
+  await page.setViewportSize({ width: Math.max(width, 1150), height });
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
@@ -110,15 +111,32 @@ for (const [width, height] of [[1150, 745], [1400, 1000]]) test(`Manage referenc
   await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(picker).toBeHidden();
-  await page.locator('[data-shot-id]').nth(1).click();
+  const nextShot = page.locator('[data-shot-id]').nth(1);
+  await nextShot.click();
+  await expect(nextShot).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
   await expect(picker.getByLabel('Copy references from')).toHaveCount(0);
+  await page.setViewportSize({ width, height });
   const box = async selector => picker.locator(selector).first().boundingBox();
   const assist = await box('.asset-pick-assistant'), columns = await box('.manual-reference-columns');
   expect(assist.y).toBeLessThan(columns.y);
   expect((await box('.mud-dialog-title')).height).toBeLessThan(height <= 800 ? 60 : 100);
-  expect(columns.height).toBeGreaterThan(height <= 800 ? 440 : 600);
+  expect(columns.height).toBeGreaterThan(width < 650 ? 250 : height <= 800 ? 440 : 600);
   expect((await box('.reference-editor-footer')).y + (await box('.reference-editor-footer')).height).toBeLessThanOrEqual(height);
   await picker.locator('.asset-pick-assistant > summary').click();
   expect((await box('.asset-pick-assistant')).width).toBeGreaterThan(columns.width * .9); // An opened Assist takes the full width.
+  const apply = picker.getByRole('button', { name: 'Apply changes', exact: true });
+  const cancel = picker.getByRole('button', { name: 'Cancel', exact: true });
+  await expect(apply).toBeInViewport({ ratio: .99 });
+  await expect(cancel).toBeInViewport({ ratio: .99 });
+  const body = picker.locator('.reference-picker-body');
+  expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  await picker.screenshot({ path: testInfo.outputPath('expanded-assist-footer.png') });
+  await picker.locator('.reference-browser').scrollIntoViewIfNeeded();
+  await expect(apply).toBeInViewport({ ratio: .99 });
+  await expect(cancel).toBeInViewport({ ratio: .99 });
+  await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await expect(picker).not.toBeVisible();
 });

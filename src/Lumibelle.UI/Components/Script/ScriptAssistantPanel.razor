@@ -147,7 +147,7 @@
             var historical = run.Applied || Document.AppliedProposalIds.Contains(run.Id);
             var proposal = run.SourceScene is not null ? run.Proposal?.Where(b => b.Kind != ScriptBlockKind.Act).ToList() : run.Proposal;
             var hasOriginal = target.OriginalBlocks.Any(b => !string.IsNullOrWhiteSpace(b.Text));
-            <SequenceReviewFrame Enabled="@(_twoStepSequence || _scenePlanning)" Run="@(_scenePlanning ? PlanningViewRun(run) : run)" Planning="_scenePlanning" ApprovalPending="CanApprovePlanning" Applied="historical" Brief="@(_scenePlanning ? _planningPreview : _scenePlan)" ReviewedSequence="_reviewedSequence" Review="_sequenceReview" ModelName="@_requestModelName" RequestDetails="@_requestDetails">
+            <SequenceReviewFrame Enabled="@(_twoStepSequence || _scenePlanning)" Run="@(_scenePlanning ? PlanningViewRun(run) : run)" Planning="_scenePlanning" ApprovalPending="CanApprovePlanning" Applied="historical" Brief="@(_scenePlanning ? _planningPreview : _scenePlan)" ReviewedSequence="_reviewedSequence" Review="_sequenceReview" ModelName="@_requestModelName" ProviderName="@_requestProviderName" RequestDetails="@_requestDetails">
                 <Progress>@if (_twoStepSequence && _activeJob is { } draftJob && draftJob.Id == run.JobId) { <lumibelle.Components.AI.AiJobProgressView Job="draftJob" Queue="Jobs.View" Progress="Jobs.Progress(draftJob.Id)" /> }</Progress>
                 <ChildContent>
             @if (_scenePlanning && _planningActionError is { } planningError) { <p class="generation-error" role="alert">@planningError</p> }
@@ -185,7 +185,7 @@
                     <section class="script-response-working" aria-label="Assistant response"><h3>Draft saved for review</h3><p>The current script is unchanged. Recheck the saved automatic review, or open the draft for manual review before applying it.</p></section>
                     @if (UnapprovedSequenceBlocks is { } savedBlocks) { <div class="script-review-pages"><section class="review-page proposed-page" aria-label="Unapproved draft"><h3>Saved draft</h3><ScriptPreview Blocks="savedBlocks" /></section></div> }
                 }
-                else if (_twoStepSequence) { <section class="script-response-working" aria-label="Assistant response"><h3>No screenplay ready to apply</h3><p>The saved brief is still available. Inspect the response details or start another request.</p></section> }
+                else if (_twoStepSequence) { <section class="script-response-working" aria-label="Assistant response"><h3>No screenplay ready to apply</h3><p>The saved brief is still available.</p></section> }
                 else {
                 <section aria-label="Assistant response"><h3>@RunAction(run) · @RunStatus(run)</h3><p>@run.Target.Name · @ResponseSource(run)</p>
                     @if (run.Error is not null) { <p role="alert">@run.Error</p> }

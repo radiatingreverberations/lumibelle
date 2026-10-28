@@ -9,6 +9,12 @@
     <MudTextField @bind-Value="_model.Description" Label="Description (optional)"
                   Variant="Variant.Outlined" Immediate="true" Disabled="_saving" Lines="4"
                   Placeholder="A premise, a mood, a small spark of inspiration…" />
+    @if (Project is null) {
+        <div class="project-create-style mt-4">
+            <VisualStyleEditor Label="Project visual style" Value="_model.VisualStyle" ValueChanged="value => _model.VisualStyle = value ?? new()" AllowInherit="false" Disabled="_saving" />
+            <p class="field-hint">The shared visual treatment for asset images and reference reels. You can edit it later in Project settings.</p>
+        </div>
+    }
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-4" role="alert">@_error</MudAlert> }
     @* A containing dialog shows the actions in its footer; the submit button reaches the form through its form attribute. *@
     @if (ActionsSection is { } section) { <SectionContent SectionId="section">@FormActions</SectionContent> }
@@ -48,7 +54,7 @@
         try
         {
             project = Project is null
-                ? await ProjectStore.CreateAsync(new(_model.Name, _model.Description))
+                ? await ProjectStore.CreateAsync(new(_model.Name, _model.Description) { VisualStyle = _model.VisualStyle.Preset == VisualStylePreset.Unspecified ? null : _model.VisualStyle })
                 : await ProjectStore.UpdateAsync(Project, new(_model.Name, _model.Description));
         }
         catch (Exception exception) when (exception is ProjectStoreException or ValidationException)
@@ -67,5 +73,6 @@
         [Required(ErrorMessage = "Give your project a name.")]
         public string Name { get; set; } = "";
         public string? Description { get; set; }
+        public VisualStyle VisualStyle { get; set; } = new();
     }
 }

@@ -5,7 +5,7 @@
 @inject IAiReviewGate Reviews
 @using lumibelle.Components.Assets
 
-<RepeatGenerationDialog Visible="@(Reel is not null)" Title="Regenerate reel" Kind="reel" SourceSeed="@(Reel?.Generation?.Seed)"
+<RepeatGenerationDialog Visible="@(Reel is not null)" Title="Regenerate reel" Kind="reel" SourceSeed="@(Reel?.Generation?.Seed)" InitialKeepSeed="PrepareRefinement"
     Description="Create new reels using the saved prompt, references, duration, model and sampling settings."
     Destination="@Destination" Summary="@(Snapshot is { } saved ? $"{H3Policy.QualityLabel(saved.Shot)} · {saved.Shot.Duration:0.###} s · {saved.Shot.Aspect}" : "")"
     Prompt="@(Snapshot?.Prompt ?? "")" Busy="_busy" Locked="Locked" Error="@_error" Confirmed="RepeatReels" Closed="Close"
@@ -22,6 +22,8 @@
             <p class="field-hint">Keeping the seed lets you try the same take at another resolution. Motion and details may still change.</p>
             <label class="video-regeneration-check"><input type="checkbox" @bind="_keepFrames" disabled="@(Locked || reelSnapshot.OutputPolicy is null)" />Keep lossless frames</label>
             <p class="field-hint">@(reelSnapshot.OutputPolicy is null ? "This reel's saved request always keeps lossless frames." : "Keeps a lossless archive of every frame beside the MP4, so keyframes come from the original frames rather than the compressed video. Uses more storage.")</p>
+            <label class="video-regeneration-check"><input type="checkbox" @bind="_saveLatents" disabled="@Locked" />Save latents</label>
+            <p class="field-hint">Keeps each new reel's latents for Refine/Rework. To prepare this reel for refinement, keep its source seed and resolution (@Width × @Height).</p>
         }
     </ChildContent>
 </RepeatGenerationDialog>
@@ -71,6 +73,7 @@
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public AssetReferenceReel? Reel { get; set; }
     [Parameter] public ShotTake? Take { get; set; }
+    [Parameter] public bool PrepareRefinement { get; set; }
     [Parameter] public string Destination { get; set; } = "";
     [Parameter] public EventCallback Closed { get; set; }
     [Parameter] public EventCallback<AiJobSubmission> Submitted { get; set; }
@@ -96,8 +99,8 @@
     {
         if (_sourceId == SourceId) return;
         _sourceId = SourceId; _resolution = Reel?.Generation is { } generation ? VideoResolutions.Key(VideoResolutions.Selected(generation.Recipe)) : "native";
-        _keepFrames = Snapshot?.OutputPolicy?.SaveLosslessFrames ?? true; _saveLatents = Take?.Snapshot.CaptureRefinementData ?? false;
-        _seedMode = Reel is null ? "same" : "random"; _seedText = SourceSeed.ToString(System.Globalization.CultureInfo.InvariantCulture); _submission = null; _error = null;
+        _keepFrames = Snapshot?.OutputPolicy?.SaveLosslessFrames ?? true; _saveLatents = PrepareRefinement || (Snapshot?.CaptureRefinementData ?? false);
+        _seedMode = Reel is null || PrepareRefinement ? "same" : "random"; _seedText = SourceSeed.ToString(System.Globalization.CultureInfo.InvariantCulture); _submission = null; _error = null;
     }
     private Task Close() => _busy ? Task.CompletedTask : Closed.InvokeAsync();
     private int _count = 1;
@@ -116,7 +119,7 @@
             if (_submission is null) {
                 var id = Guid.NewGuid(); var tab = await Reviews.TabIdAsync();
                 _submission = Reel is not null
-                    ? await Reels.CaptureRegenerationAsync(id, tab, ProjectId, Reel.Id, resolution, _seedMode == "same", seed, _count, _keepFrames, _lifetime.Token)
+                    ? await Reels.CaptureRegenerationAsync(id, tab, ProjectId, Reel.Id, resolution, _seedMode == "same", seed, _count, _keepFrames, _saveLatents, _lifetime.Token)
                     : await Takes.CaptureRegenerationAsync(id, tab, ProjectId, Take!.Id, resolution, seed, _keepFrames, _saveLatents, _lifetime.Token);
             }
             await Jobs.EnqueueAsync(_submission, _lifetime.Token);

@@ -1,0 +1,27 @@
+<fieldset class="visual-style-editor" disabled="@Disabled">
+    <legend>@Label</legend>
+    <label for="@_id">Style</label>
+    <select id="@_id" aria-label="@Label" value="@Choice" @onchange="Choose">
+        @if (AllowInherit) { <option value="inherit">Inherit · @VisualStyles.Label((Inherited ?? new()).Preset)</option> }
+        @foreach (var preset in Enum.GetValues<VisualStylePreset>()) { <option value="@preset">@VisualStyles.Label(preset)</option> }
+    </select>
+    @if (Value is not null && Value.Preset != VisualStylePreset.Unspecified) {
+        <label for="@(_id + "-direction")">Visual direction</label>
+        <textarea id="@(_id + "-direction")" aria-label="@(Label + " direction")" rows="3" maxlength="4000" value="@Value.Direction" @oninput="Direction" placeholder="Palette, lighting, textures, linework and rendering finish…"></textarea>
+    }
+    @if (Value is null && AllowInherit && VisualStyles.Brief(Inherited) is { Length: > 0 } brief) { <p class="field-hint visual-style-brief">@brief</p> }
+    @if (Value?.Preset == VisualStylePreset.Unspecified || Value is null && (Inherited?.Preset ?? VisualStylePreset.Unspecified) == VisualStylePreset.Unspecified) { <p class="field-hint">No shared style direction will be added.</p> }
+</fieldset>
+@code {
+    [Parameter] public VisualStyle? Value { get; set; }
+    [Parameter] public EventCallback<VisualStyle?> ValueChanged { get; set; }
+    [Parameter] public VisualStyle? Inherited { get; set; }
+    [Parameter] public bool AllowInherit { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string Label { get; set; } = "Visual style";
+    private readonly string _id = "visual-style-" + Guid.NewGuid().ToString("N");
+    private string Choice => Value?.Preset.ToString() ?? (AllowInherit ? "inherit" : VisualStylePreset.Unspecified.ToString());
+    private Task Choose(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() == "inherit" ? null :
+        VisualStyles.Normalize(new VisualStyle { Preset = Enum.Parse<VisualStylePreset>(e.Value!.ToString()!), Direction = Value?.Direction ?? "" }));
+    private Task Direction(ChangeEventArgs e) => ValueChanged.InvokeAsync((Value ?? new()) with { Direction = e.Value?.ToString() ?? "" });
+}

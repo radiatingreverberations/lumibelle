@@ -44,6 +44,7 @@ else
         <StudioPane Class="asset-library" Label="Asset library"><Header>
             <div class="asset-library-heading"><h2>Assets <small>@_library.Assets.Count</small></h2><div class="asset-library-actions"><button @onclick="() => _createOpen = true" aria-label="Create asset" title="Create asset">+</button><MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Asset library options" Size="Size.Small" Dense="true"><MudMenuItem role="menuitem" OnClick="OpenAllAssetDeletionAsync" Disabled="@(_library.Assets.Count == 0 || _saving || _deletingAllAssets)" Class="danger-link">Delete all assets…</MudMenuItem></MudMenu></div></div>
             <div class="asset-library-extraction" @ref="_extractionOriginElement"><TextAssistance @ref="_extractionAssist" ProjectId="Id" Studio="TextAssistantStudio.AssetExtraction" ExternalComposer="true" Request="ExtractionPresentation" Preparing="_extractionSubmitting" HasError="@(_pendingExtraction is not null)" ReviewRequested="InspectExtraction" CancelRequested="CancelExtraction" Label="Extract from script" Title="Extract assets from script" Notice="@ExtractionCoverageNotice" Disabled="@(_saving || _finishingReview || _deletingAllAssets)" ModelLocked="_extracting" Opened="PrepareExtractionComposerAsync" SelectionChanged="ExtractionModelChanged" /></div>
+            <AssetBatchPanel ProjectId="Id" Disabled="@(_dirty || _saving || _loading || _deletingAllAssets)" RequestedReviewJobId="RequestedAssetBatchReview" LibraryChanged="BulkLibraryChanged" />
             <div class="asset-library-search" data-workspace-menu-open="@(_assetCategoryMenuOpen ? "true" : "false")" @onkeydown="AssetCategoryMenuKeyDown">
                 <label class="sr-only" for="asset-search">Search assets</label><input id="asset-search" type="search" placeholder="Search assets…" @bind="_search" @bind:event="oninput" @bind:after="RememberAssetPosition" />
                 <MudMenu @ref="_assetCategoryMenu" @bind-Open="_assetCategoryMenuOpen" Icon="@(_categoryFilter is null ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt)" AriaLabel="@AssetCategoryFilterLabel" title="@AssetCategoryFilterLabel" Class="@($"asset-category-filter {(_categoryFilter is null ? "" : "active")}")" PopoverClass="asset-category-menu" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
@@ -71,13 +72,13 @@ else
                     <span class="asset-category-badge">@headerAsset.Category</span>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(headerAsset.Description)) { <p class="asset-description-preview" title="@headerAsset.Description">@headerAsset.Description</p> }
-                    <div class="asset-media-counts"><span>@MediaCount(headerAsset.Images.Count, "image")</span>@if (ReferenceReels.Supports(headerAsset.Category)) { <span>@MediaCount(_library!.Reels.Count(r => r.AssetId == headerAsset.Id), "reel")</span> }@if (headerAsset.Category == AssetCategory.Character) { <span>@MediaCount(headerAsset.Looks.Count(l => !l.Archived), "look")</span><span>@MediaCount(_library!.Voices.Count(v => v.AssetId == headerAsset.Id), "voice")</span> }</div>
+                    <div class="asset-media-counts"><span>@MediaCount(headerAsset.Images.Count(i => i.PendingReview != true), "image")</span>@if (ReferenceReels.Supports(headerAsset.Category)) { <span>@MediaCount(_library!.Reels.Count(r => r.AssetId == headerAsset.Id), "reel")</span> }@if (headerAsset.Category == AssetCategory.Character) { <span>@MediaCount(headerAsset.Looks.Count(l => !l.Archived), "look")</span><span>@MediaCount(_library!.Voices.Count(v => v.AssetId == headerAsset.Id), "voice")</span> }</div>
                     </div>
                 </div>
-                <div class="asset-reference-heading"><h2>References <small>@AllGalleryItems.Count()</small></h2><div class="asset-gallery-actions">@if (headerAsset.Category == AssetCategory.Character) { <button class="asset-group-toggle" aria-pressed="@(GalleryGrouped ? "true" : "false")" @onclick="ToggleGalleryGrouping">Group by look</button> }<MudButton OnClick="OpenAssetDetails" Size="Size.Small" aria-label="Edit asset details">Edit details</MudButton>
+                <div class="asset-reference-heading"><h2>References <small>@AllGalleryItems.Count(i => i.Image?.PendingReview != true)</small></h2><div class="asset-gallery-actions">@if (headerAsset.Category == AssetCategory.Character) { <button class="asset-group-toggle" aria-pressed="@(GalleryGrouped ? "true" : "false")" @onclick="ToggleGalleryGrouping">Group by look</button> }<MudButton OnClick="OpenAssetDetails" Size="Size.Small" aria-label="Edit asset details">Edit details</MudButton>
                 </div></div>
                 <div class="asset-gallery-toolbar">
-                    <label>Show<select aria-label="Filter media" @bind="_presentation.Filter" @bind:after="RememberAssetPosition"><option>All</option><option>Images</option>@if (ReferenceReels.Supports(headerAsset.Category)) { <option>Reels</option> }@if (headerAsset.Category == AssetCategory.Character) { <option>Voices</option> }</select></label>
+                    <label>Show<select aria-label="Filter media" @bind="_presentation.Filter" @bind:after="RememberAssetPosition"><option>All</option><option>Images</option><option>Pending review</option>@if (ReferenceReels.Supports(headerAsset.Category)) { <option>Reels</option> }@if (headerAsset.Category == AssetCategory.Character) { <option>Voices</option> }</select></label>
                     <input type="search" aria-label="Search references" placeholder="Search references…" @bind="_presentation.Search" @bind:event="oninput" @bind:after="RememberAssetPosition" />
                     @if (headerAsset.Category == AssetCategory.Character) { <label>Look<select @ref="_galleryLookFilter" aria-label="Gallery look" @bind="_lookFilter" @bind:after="RememberAssetPosition"><option value="all">All looks</option><option value="general">General / unassigned</option>@foreach (var look in headerAsset.Looks) { <option value="@look.Id">@look.Name @(look.Archived ? "· Archived" : "")</option> }</select></label> }
                     <details class="asset-import-menu"><summary>Import…</summary><div><label class="import-button">Import image<InputFile OnChange="ImportAsync" accept="image/png,image/jpeg,image/webp" /></label>@if (ReferenceReels.Supports(headerAsset.Category)) { <button @onclick="ImportReel">Import reel</button> }@if (headerAsset.Category == AssetCategory.Character) { <button @onclick="ImportVoice">Import voice</button> }</div></details>
@@ -88,6 +89,12 @@ else
             @if (_loading) { <p class="field-hint" role="status">Loading assets…</p> }
             else if (SelectedAsset is not { } asset) { <section class="asset-empty"><h2>Build a visual vocabulary.</h2><p>Create a character, environment, or prop, then collect the views that define it.</p><MudButton OnClick="() => _createOpen = true">Create your first asset</MudButton></section> }
             else {
+                @if (!GalleryGrouped && asset.Category == AssetCategory.Character && asset.Looks.Any(l => !l.Archived)) {
+                    <CharacterLookCards Asset="asset" Selected="_targetLookId" Disabled="@(!CanPrepareLookImages)" Create="CreateLookImages" Manage="ManageLook" />
+                }
+                @if (asset.Images.Count(i => i.PendingReview == true) is > 0 and var pendingCount) {
+                    <div class="asset-pending-review"><span>@pendingCount candidates awaiting your decision. Pending candidates are separate from kept images.</span><button @onclick='async () => { _presentation.Filter = "Pending review"; await RememberAssetPosition(); }'>Show pending candidates (@pendingCount)</button></div>
+                }
                 @if (_presentation.Multiple && _lookImageSelection.Count > 0) {
                             <div class="look-bulk" role="group" aria-label="Assign selected images"><span>@_lookImageSelection.Count selected</span>
                                 <button disabled="@_composerLocked" @onclick="() => OpenImageMove(_lookImageSelection)">Move selected to asset…</button>
@@ -97,8 +104,13 @@ else
                 <span class="sr-only" role="status">@_lookNotice</span>
                 <div class="asset-gallery-groups" aria-label="Asset references">
                 @foreach (var group in GalleryGroups) {
-                <details class="asset-gallery-group @(GalleryGrouped ? "grouped" : "flat")" open @key="group.Key">
-                    <summary hidden="@(!GalleryGrouped)"><span class="asset-look-heading"><strong>@group.Name <small>@group.Items.Count</small></strong>@if (group.Archived) { <span class="asset-look-archived">Archived</span> }@if (!string.IsNullOrWhiteSpace(group.Description)) { <span class="asset-look-description" title="@group.Description">@group.Description</span> }</span></summary>
+                var groupLook = GalleryGrouped && Guid.TryParse(group.Key, out var groupLookId) ? asset.Looks.FirstOrDefault(l => l.Id == groupLookId) : null;
+                <details class="asset-gallery-group @(GalleryGrouped ? "grouped" : "flat") @(groupLook is not null ? "look-card" : "") @(_targetLookId == groupLook?.Id && groupLook is not null ? "selected" : "")" data-look-id="@groupLook?.Id" open @key="group.Key">
+                    <summary hidden="@(!GalleryGrouped)"><span class="asset-look-heading"><strong>@group.Name <small>@GalleryGroupCount(group)</small></strong>@if (group.Archived) { <span class="asset-look-archived">Archived</span> }@if (groupLook is null && !string.IsNullOrWhiteSpace(group.Description)) { <span class="asset-look-description" title="@group.Description">@group.Description</span> }</span></summary>
+                    @if (groupLook is not null) {
+                        <div class="asset-look-info"><CharacterLookInfo Look="groupLook" Disabled="@(!CanPrepareLookImages)" Create="CreateLookImages" Manage="ManageLook" /></div>
+                        @if (group.Items.Count == 0) { <p class="asset-look-empty">No images for this look yet.</p> }
+                    }
                 <div class="reference-grid asset-media-gallery" data-scroll-region="@($"gallery:{group.Key}")">
                 @foreach (var item in group.Items) {
                     var selected = _presentation.Selection == item.Key;
@@ -135,7 +147,7 @@ else
                                     <ReferenceImageMenu Image="image" Rename="() => RenameMedia(item.Key)" EditDetails="() => OpenDetails(image.Id)" Crop="() => OpenImageCopy(image)" Move="() => OpenImageMove([image.Id])"
                                         CreateSimilar="() => CreateSimilarFromGallery(image.Id)" CreateSimilarDisabled="@(!CanCreateSimilar(image))"
                                         ChangeLook="@(asset.Category == AssetCategory.Character ? EventCallback.Factory.Create(this, () => OpenGalleryLook(asset.Id, item)) : default(EventCallback))" ChangeLookDisabled="@(_saving || _selectionChanging || _imageDetailsDirty)"
-                                        ToggleReference="() => ToggleReference(image.Id)" MakeCover="() => MakeCover(image.Id)" Trash="() => DeleteImageAsync(image.Id)"
+                                        ToggleReference="() => ToggleReference(image.Id)" KeepAsTake="() => EditImage(image.Id, i => i with { PendingReview = false })" MakeCover="() => MakeCover(image.Id)" Trash="() => DeleteImageAsync(image.Id)"
                                         CropDisabled="@(_generating || _enhancing)" MoveDisabled="_composerLocked" DeleteDisabled="_saving" />
                                 } else {
                                     <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {item.Name}")" Size="Size.Small" Dense="true">
@@ -146,7 +158,7 @@ else
                                         @if (asset.Category == AssetCategory.Character && item.Reel is not null) { <MudMenuItem role="menuitem" OnClick="() => OpenGalleryLook(asset.Id, item)" Disabled="@(_saving || _selectionChanging || _imageDetailsDirty)">Change look…</MudMenuItem> }
                                         @if (asset.Category == AssetCategory.Character && item.Reel is { Media.HasAudio: true } audioReel) { <MudMenuItem role="menuitem" OnClick="() => SaveReelVoice(audioReel)">Save voice…</MudMenuItem> }
                                         @if (item.Voice is { } voiceItem) { <MudMenuItem role="menuitem" OnClick="() => _voices!.ToggleDefault(voiceItem)">@(asset.DefaultVoiceId == voiceItem.Id ? "Clear default voice" : "Make default voice")</MudMenuItem> }
-                                        @if (item.Reel is { Generation: not null } reel) { <MudMenuItem role="menuitem" Disabled="@(_reels?.CanVary(reel) != true)" OnClick="() => VaryReel(reel)">Create similar</MudMenuItem>@if (ReferenceReelsPanel.CanRegenerate(reel)) { <MudMenuItem role="menuitem" OnClick="() => _reels!.Regenerate(reel)">Regenerate…</MudMenuItem> } }
+                                        @if (item.Reel is { Generation: not null } reel) { <MudMenuItem role="menuitem" Disabled="@(_reels?.CanVary(reel) != true)" OnClick="() => VaryReel(reel)">Create similar</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => _reels!.Refine(reel)">Refine…</MudMenuItem>@if (ReferenceReelsPanel.CanRegenerate(reel)) { <MudMenuItem role="menuitem" OnClick="() => _reels!.Regenerate(reel)">Regenerate…</MudMenuItem> } }
                                         @if (item.Reel is { } replacing && _reels?.CanReplace(replacing) == true) { <MudMenuItem role="menuitem" OnClick="() => _reels!.ReplaceInShots(replacing)">Replace in shots…</MudMenuItem> }
                                         <MudDivider />
                                         <MudMenuItem role="menuitem" Class="danger-link" OnClick="() => TrashMedia(item)">Move to Trash</MudMenuItem>
@@ -154,14 +166,18 @@ else
                                 }
                                 </div>
                             </div>
-                            @if (item.Reel is { } statusReel) { <ReelKeyframeStatus Keyframes="statusReel.Keyframes" Disabled="@(_reels is null)" Open="() => _reels!.ManageKeyframes(statusReel)" /> }
+                            @if (item.Reel is { } statusReel) {
+                                <ReelKeyframeStatus Keyframes="statusReel.Keyframes" Disabled="@(_reels is null)" Open="() => _reels!.ManageKeyframes(statusReel)" />
+                                @if (statusReel.Refinement is { } refined) { <small class="asset-refinement-status">@refined.Mode version</small> }
+                                else if (statusReel.RefinementPackage is not null) { <small class="asset-refinement-status">Ready to refine</small> }
+                            }
                         </div>
                     </article>
                 }
                 </div></details>
                 }
                 </div>
-                @if (!GalleryItems.Any()) {
+                @if (!GalleryItems.Any() && !(GalleryGrouped && GalleryGroups.Any())) {
                     <div class="reference-empty">@if (AllGalleryItems.Any()) { <strong>No references match this view.</strong><p>Try another search or look.</p><button @onclick="ResetGalleryFilters">Clear filters</button> } else { <strong>No references yet.</strong><p>Import media or create the first reference for @asset.Name.</p><button @onclick="EnterCreate">Create reference</button> }</div>
                 }
                 @if (ReferenceReels.Supports(asset.Category)) { <ReferenceReelsPanel RegisterPanel="RegisterReelPanel" ClearCreationAvailabilityChanged="_ => StateHasChanged()" SaveVoiceRequested="SaveReelVoice" Embedded="true" RegisterFlush="RegisterReelFlush" ToolsSection="_reelToolsSection" DetailsSection="_reelDetailsSection" SelectedReelId="@(_presentation.Selection is { Kind: AssetMediaKind.Reel } reelSelection ? reelSelection.Id : null)" RevealTools="RevealReelTools" RevealPrompts="RevealReelPrompts" @key="(asset.Id, AssetMediaKind.Reel)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" RequestedJobId="RequestedJobId" /> }
@@ -194,7 +210,7 @@ else
                 @if (SelectedAsset is null) { <p class="field-hint">Choose or create an asset before generating.</p> }
                 else
                 {
-                    @if (_targetLookId is not null) { <p class="field-hint image-destination">Saved draft destination: @(TargetLook?.Name ?? "Unavailable look") <button @onclick="() => _targetLookId = null">Use unassigned</button></p> }
+                    @if (_targetLookId is not null && TargetLook is null) { <p class="field-hint image-destination">The target look is unavailable. <button @onclick="UseGeneralImageDestination">Use unassigned</button></p> }
                     <section class="image-prompt-fields">                <label for="asset-image-workflow">Image workflow</label>
                 <div class="image-workflow-select">
                 <span class="connection-indicator @(_checkingImages ? "checking" : CurrentImageConfigurationReady ? "ready" : "")" title="@CurrentImageConfigurationLabel" aria-hidden="true"></span>
@@ -204,7 +220,19 @@ else
                 <span id="image-workflow-status" class="visually-hidden" role="status">@CurrentImageConfigurationLabel</span>
                 </div>
                 @if (!_checkingImages && !CurrentImageConfigurationReady) { <p class="field-hint image-workflow-issue">@CurrentImageConfigurationMessage <a href="@(AiSettingsNavigation.Link(Navigation, projectId: Id, returnTo: "assets"))">AI settings</a></p> }
+                <VisualStyleEditor Label="Run visual style" Value="_imageVisualStyle" ValueChanged="ImageStyleChanged" Inherited="@(SelectedAsset.VisualStyle ?? _projectVisualStyle)" Disabled="_composerLocked" />
+                @if (TargetLook is { } promptLook) {
+                    <section class="image-look-context" aria-label="Selected look notes">
+                        <div><strong>@promptLook.Name</strong><button type="button" @onclick="() => ManageLook(promptLook.Id)" disabled="@_composerLocked">Manage look</button></div>
+                        @if (!string.IsNullOrWhiteSpace(promptLook.Description)) { <p>@promptLook.Description</p> }
+                        @if (!string.IsNullOrWhiteSpace(promptLook.PreservationGuidance)) { <details><summary>Keep consistent</summary><p>@promptLook.PreservationGuidance</p></details> }
+                        @if (LookIssue is { } lookIssue) { <p class="field-error" role="alert">@lookIssue</p> }
+                        <div class="image-look-destination"><small>Images will be added to this look.</small><button type="button" @onclick="UseGeneralImageDestination" disabled="@_composerLocked">Use unassigned</button></div>
+                        @if (!IsEditMode) { <p class="field-hint">This draft starts from character notes. Add an approved reference to preserve the same identity.</p> }
+                    </section>
+                }
                 <label for="image-prompt">@(_presentation.Edit ? "Edit instruction" : "Image prompt")</label><textarea id="image-prompt" disabled="@_generating" rows="8" @bind="_imagePrompt" @bind:event="oninput" placeholder="@(IsEditMode ? "Describe what should change while preserving the source…" : "Describe one clear reference view…")"></textarea>
+                @if (IsFlux3) { <p class="field-hint flux3-caption-hint">Describe the complete resulting picture, including for edits. Use Enhance to expand an instruction while keeping the requested framing and appearance.</p> }
                 <PromptEnhancementPanel @key="SelectedAsset.Id" RequestedJobId="RequestedEnhancementJobId" RequestedJobHandled="HandleEnhancementNavigation" Restore="RestoreEnhancementSetup" Context="EnhancementContext()" Disabled="@(_generating || _checkingImages)"
                     BusyChanged="value => { if (!_disposed) _enhancing = value; }" Apply="ApplyEnhancedPrompt" FindImage="FindImage" />
 </section>
@@ -227,7 +255,8 @@ else
                     @if (IsQwen) {
                         <fieldset class="qwen-image-options" disabled="@_composerLocked" aria-label="Qwen image settings">
                             <label for="qwen-image-steps">Steps</label>
-                            <input id="qwen-image-steps" type="number" min="1" max="100" value="@_qwenOptions.Steps" @onchange="ChangeQwenSteps" />
+                            <input id="qwen-image-steps" type="number" min="1" max="100" value="@(CaptureQwenOptions()!.Steps)" @onchange="ChangeQwenSteps" disabled="@IsQwenTurbo" />
+                            @if (IsQwenTurbo) { <p class="field-hint">Turbo uses its fixed eight-step sampling schedule.</p> }
                         </fieldset>
                     }
                     @if (!IsCodex)
@@ -235,7 +264,7 @@ else
                         <div class="generation-advanced">
                             <label for="fixed-seed">Seed <span>(blank for fresh)</span></label>
                             <input id="fixed-seed" disabled="@_composerLocked" inputmode="numeric" @bind="_fixedSeed" @bind:event="oninput" />
-                            @if (IsEditMode && !IsKlein && !IsQwen)
+                            @if (IsEditMode && !IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption)
                             {
                                 @if (_additionalReferences.Count > 0)
                                 {
@@ -255,6 +284,17 @@ else
                             <label for="image-tags">Tags for these takes</label><input id="image-tags" disabled="@_composerLocked" @bind="_imageTags" @bind:event="oninput" placeholder="face, neutral expression" />
                             <div class="tag-shortcuts">@foreach (var tag in SuggestedTags(SelectedAsset!.Category)) { <button disabled="@_composerLocked" @onclick="() => AddGenerationTag(tag)">+ @tag</button> }</div>
                         </div>
+                        @if (IsFlux3) {
+                            <details class="image-workflow-help"><summary>Workflow notes</summary>
+                                <p class="field-hint">FLUX 3 edits with up to ten ordered references. Use Enhance to turn your instruction into a full caption of the desired result, or write that caption directly. Reference images anchor appearance; describe the composition and what should stay consistent.</p>
+                                <p class="field-hint">The selected Base or Distilled variant and sampling defaults come from AI settings. Crop and Edit/Protect remain available for the captured inputs.</p>
+                            </details>
+                        }
+                        @if (IsMoss) {
+                            <details class="image-workflow-help"><summary>Workflow notes</summary>
+                                <p class="field-hint">MOSS-Image uses the sampling defaults in AI settings. Editing applies the configured LoRA with up to four ordered references; describe the role of each image. References are conditioned within 512 pixels; the output canvas follows the selected aspect and resolution.</p>
+                            </details>
+                        }
                         @if (IsQwen) {
                             <details class="image-workflow-help"><summary>Workflow notes</summary>
                                 @if (IsEditMode) { <p class="field-hint">From Image 1 follows its crop. An explicit aspect changes the output canvas. Use &lt;image1&gt; for the source and &lt;image2&gt; … &lt;image10&gt; for references. Edit/Protect keeps fixed placement and restores protected pixels when you save the reviewed result.</p> }
@@ -287,9 +327,11 @@ else
                                 <option value="1024">1K · ~1 MP</option>
                                 <option value="1440">1440 · ~2 MP</option>
                                 <option value="2048">2K · ~4 MP</option>
+                                @if (IsFlux3) { <option value="4096">4K · ~16 MP</option> }
                                 @if (IsQwen && IsEditMode) { <option value="0">Original input sizes</option> }
                             </select>
                             <span class="field-hint image-output-size">@ImageOutputLabel</span>
+                            @if (IsFlux3 && ImageResolution == 4096) { <p class="field-hint image-resolution-hint">4K uses more memory and time. Reference detail is set separately in AI settings.</p> }
                         </div>
                     }
                 </div>
@@ -360,6 +402,7 @@ else
         @if (SelectedAsset is { } detailsAsset && _library is not null) {
             <div class="asset-editor">
                     <label for="asset-details-name">Asset name</label><input id="asset-details-name" maxlength="200" @bind:get="detailsAsset.Name" @bind:set="value => NameChanged(new ChangeEventArgs { Value = value })" @bind:event="oninput" />
+                    <VisualStyleEditor Label="Asset visual style" Value="detailsAsset.VisualStyle" ValueChanged="value => EditSelected(asset => asset with { VisualStyle = value })" Inherited="_projectVisualStyle" Disabled="_saving" />
                     <label for="asset-description">@(detailsAsset.Category == AssetCategory.Character ? "Character identity notes" : "Visual notes")</label><textarea id="asset-description" rows="5" @bind:get="detailsAsset.Description" @bind:set="value => DescriptionChanged(new ChangeEventArgs { Value = value })" @bind:event="oninput" placeholder="Describe the asset's appearance and visual context."></textarea>
                     @if (detailsAsset.Category == AssetCategory.Character) { <label for="default-character-voice">Default voice</label><select id="default-character-voice" value="@detailsAsset.DefaultVoiceId" @onchange="DefaultVoiceChanged"><option value="">No default voice</option>@foreach (var voice in _library.Voices.Where(v => v.AssetId == detailsAsset.Id)) { <option value="@voice.Id">@voice.Name</option> }</select><p class="field-hint">Shared across looks. Used in new speaking setups and fresh reel recipes.</p> }
                     @if (ReferenceReels.Supports(detailsAsset.Category)) {
@@ -648,7 +691,7 @@ else
     private PromptEnhancementContext EnhancementContext() => new()
     {
         ProjectId = Id, AssetId = _selectedAssetId ?? Guid.Empty, Prompt = _imagePrompt,
-        TargetLook = CaptureLook(), AssetName = SelectedAsset?.Name ?? "", Category = SelectedAsset?.Category ?? AssetCategory.Character,
+        TargetLook = CaptureLook(), AssetName = SelectedAsset?.Name ?? "", Category = SelectedAsset?.Category ?? AssetCategory.Character, VisualStyle = EffectiveImageStyle,
         VisualNotes = SelectedAsset?.Description ?? "", Workflow = _imageWorkflow, IsEdit = _editSourceImageId is not null,
         AspectRatio = ImageAspect, MaximumReferences = Math.Min(ReferenceLimit, _editConfiguration?.MaximumReferences ?? ReferenceLimit),
         Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(),
@@ -733,6 +776,9 @@ else
     private bool _resolveImageDefault;
     private bool IsCodex => _imageWorkflow == ImageWorkflow.CodexImages;
     private bool IsKlein => _imageWorkflow == ImageWorkflow.Flux2Klein9bKv;
+    private bool IsMoss => _imageWorkflow == ImageWorkflow.MossImage;
+    private bool IsFlux3 => _imageWorkflow == ImageWorkflow.Flux3ImageKlein;
+    private bool IsCaption => CaptionImagePolicy.Supports(_imageWorkflow);
     private readonly List<AssetImageReference> _additionalReferences = [];
     private sealed record CropSelection(string Aspect = "Original", double Zoom = 1, double X = 50, double Y = 50);
     private readonly Dictionary<AssetImageReference, CropSelection> _referenceCropSelections = [];
@@ -809,6 +855,7 @@ else
                 LoraPolicy.ValidateVisibility(preferences.LoraVisibility);
                 visibility = preferences.LoraVisibility;
                 if (!IsCurrent()) return;
+                _projectVisualStyle = preferences.VisualStyle;
                 if (_resolveImageDefault)
                 {
                     _imageWorkflow = workflow = preferences.ImageDefault ?? settings.DefaultImageWorkflow;
@@ -855,12 +902,13 @@ else
     private ImageCropRegion? SourceCrop => EditSource is null ? null : BaseReference is { } key && _restoredCrops.TryGetValue(key, out var restored) ? restored : CropRegion(EditSource, _cropAspect,
         _cropZoom, _cropFocusX, _cropFocusY);
     private string SourceCropLabel => SourceCrop is null ? "Full image" : BaseReference is { } key && _restoredCrops.ContainsKey(key) ? "Captured crop" : $"{(_cropAspect == "Original" ? "Original ratio" : _cropAspect)} · {_cropZoom:0.##}× crop";
+    private bool IsFiboEditTurbo => _imageWorkflow == ImageWorkflow.Fibo2 && CaptionImagePolicy.Settings(_settings ?? new(), _imageWorkflow).Variant == CaptionImageVariant.Turbo;
     private bool CurrentImageConfigurationReady => IsEditMode
-        ? _imageConfiguration?.Success == true && _editConfiguration?.Success == true
+        ? (_imageConfiguration?.Success == true || IsFiboEditTurbo) && _editConfiguration?.Success == true
         : _imageConfiguration?.Success == true;
     private string CurrentImageConfigurationLabel => _checkingImages ? "Checking workflow…" :
         CurrentImageConfigurationReady ? "Ready" : "Needs attention";
-    private string? CurrentImageConfigurationMessage => IsEditMode && _imageConfiguration?.Success == true
+    private string? CurrentImageConfigurationMessage => IsEditMode && (_imageConfiguration?.Success == true || IsFiboEditTurbo)
         ? _editConfiguration?.Message
         : _imageConfiguration?.Message;
     private bool CanRunImageOperation => QwenOptionsIssue is null && LookIssue is null && !_composerLocked && PendingImage is null && !ImageQueueFull && !_checkingImages && !_refreshingLoras && (IsCodex || (_visibilityReady && LoraError is null)) && (!IsEditMode || ReferenceInputError is null) && !string.IsNullOrWhiteSpace(_imagePrompt) &&

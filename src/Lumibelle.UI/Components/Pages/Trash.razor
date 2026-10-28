@@ -18,9 +18,12 @@ else
     <label>Project <select value="@_project" @onchange="FilterChanged"><option value="">All projects</option>@foreach (var project in _library.Items.DistinctBy(r => r.ProjectId)) { <option value="@project.ProjectId">@project.ProjectName</option> }</select></label>
     <button @ref="_refreshButton" disabled="@_busy" @onclick="RefreshAsync">Refresh</button>
     <span>@Filtered.Count item@(Filtered.Count == 1 ? "" : "s") · @StorageSize.Format(Filtered.Sum(r => r.Bytes)) in this scope</span>
+    <button disabled="@(_busy || _loading || Filtered.Count == 0 || Filtered.All(r => _selected.Contains(r.Id)))" @onclick="SelectAllInScope">@(_project.Length == 0 ? "Select all projects" : "Select all in this project")</button>
+    <button disabled="@(_busy || _loading || _selected.Count == 0)" @onclick="() => _selected.Clear()">Clear selection</button>
     <MudButton Disabled="@(_busy || _selected.Count == 0)" OnClick="() => RestoreAsync(SelectedRows)">Restore selected (@_selected.Count)</MudButton>
     <MudButton Disabled="@(_busy || _selected.Count == 0)" Color="Color.Error" OnClick="() => Confirm(SelectedRows, false)">Delete selected permanently</MudButton>
     <MudButton Disabled="@(_busy || Filtered.Count == 0)" Color="Color.Error" Variant="Variant.Outlined" OnClick="() => Confirm(Filtered, true)">Empty Trash</MudButton>
+    <span class="trash-selection-count" role="status">@_selected.Count selected · selection spans all pages @(_project.Length == 0 ? "across all projects" : "in this project")</span>
 </div>
 @if (_loading) { <p role="status">Opening Trash…</p> }
 @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
@@ -124,6 +127,7 @@ else
         finally { _loading = false; }
     }
     private void FilterChanged(ChangeEventArgs args) { _project = args.Value?.ToString() ?? ""; _page = 0; _selected.Clear(); }
+    private void SelectAllInScope() { if (!_busy && !_loading) _selected = Filtered.Select(r => r.Id).ToHashSet(); }
     private void Select(Guid id, bool selected) { if (selected) _selected.Add(id); else _selected.Remove(id); }
     private void Preview(MediaTrashRow row) { _preview = row; _previewMissing = false; _previewOpen = true; }
     private static string Url(MediaTrashRow row) => row.Url;

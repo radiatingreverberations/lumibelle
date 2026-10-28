@@ -45,6 +45,9 @@ public static class LumibelleServices
         services.AddSingleton<ComfyReferenceImageEditor>();
         services.AddSingleton<ComfyFluxKleinImages>();
         services.AddSingleton<ComfyQwenImage21>();
+        services.AddSingleton<ComfyMossImages>();
+        services.AddSingleton<ComfyFlux3Images>();
+        services.AddSingleton<ComfyCaptionImages>();
         services.AddSingleton<ComfyImageService>();
         services.AddSingleton<IComfyLoraCatalog, ComfyLoraCatalog>();
         services.AddSingleton<IReferenceImageGenerator>(services => services.GetRequiredService<ComfyImageService>());

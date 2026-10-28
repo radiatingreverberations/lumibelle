@@ -35,6 +35,11 @@ internal sealed class ReferenceTestProductionStore(FileProductionStore inner) : 
 // Holds Start fresh open so a test can act while the panel replaces its recipe.
 internal sealed class ReferenceTestReelStore(FileAssetStore inner) : IAssetReelStore
 {
+    public Task RetainRefinementPackageAsync(Guid p, AssetReferenceReel reel, string directory, CancellationToken ct = default)
+        => inner.RetainRefinementPackageAsync(p, reel, directory, ct);
+    public Task<TakeRefinement> CaptureRefinementAsync(Guid p, Guid reel, Guid run, TakeRefinementMode mode, int w, int h, string upscaler,
+        H3UpscalerImplementation implementation, CancellationToken ct = default)
+        => inner.CaptureRefinementAsync(p, reel, run, mode, w, h, upscaler, implementation, ct);
     public int FreshDelay { get; set; }
     public async Task<ReferenceReelDraft?> StartFreshAfterSuccessAsync(AiJobHeader j, ReferenceReelDraft s, CancellationToken ct = default)
     { var fresh = await inner.StartFreshAfterSuccessAsync(j, s, ct); await Task.Delay(FreshDelay, ct); return fresh; }

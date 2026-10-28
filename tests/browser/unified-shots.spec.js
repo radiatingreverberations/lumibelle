@@ -96,6 +96,7 @@ test('literal document editing, exact view, clear and undo, revisions and shared
   await promptAssist(page);
   await page.getByLabel('Direction for AI').fill('Move the camera closer.');
   await promptAssist(page);
+  await page.getByRole('checkbox', { name: 'Include current prompt' }).check();
   await page.getByRole('button', { name: 'Revise with AI', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Review changes', exact: true })).toBeVisible();
   expect((await setups(request, id))[0].prompt).toBe(initial);
@@ -175,6 +176,7 @@ test('navigation and concurrent browser drafts cannot overwrite a completed comp
   await promptAssist(page);
   await page.getByLabel('Direction for AI').fill('INVALID_COMPOSITION');
   await promptAssist(page);
+  await page.getByRole('checkbox', { name: 'Include current prompt' }).check();
   await page.getByRole('button', { name: 'Revise with AI', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText(/complete composition/);
   expect((await setups(request, id))[0].prompt).toBe(setup.prompt);
@@ -325,6 +327,7 @@ test('prompt diff modal: review, close, discard and apply on desktop and narrow 
   await promptAssist(page);
   await page.getByLabel('Direction for AI').fill('Move the camera closer.');
   await promptAssist(page);
+  await page.getByRole('checkbox', { name: 'Include current prompt' }).check();
   await page.getByRole('button', { name: 'Revise with AI', exact: true }).click();
   await expect(review).toBeVisible();
   await expect(page.locator('.composition-proposal pre')).toHaveCount(0);
@@ -357,6 +360,7 @@ test('prompt diff modal: review, close, discard and apply on desktop and narrow 
   await expect(dialog).toBeHidden(); await expect(review).toHaveCount(0);
   expect((await setups(request, id))[0].prompt).toBe(initial);
   await promptAssist(page);
+  await page.getByRole('checkbox', { name: 'Include current prompt' }).check();
   await page.getByRole('button', { name: 'Revise with AI', exact: true }).click();
   await review.click();
   const proposed = await dialog.locator('.after pre').textContent();

@@ -48,7 +48,7 @@ public sealed partial class FileAssetStore
             throw new WorkspaceStoreException("The destination look does not match the captured candidate.");
         var image = new AssetImage { Id = input.ImageId, FileName = input.ImageId.ToString("N") + info.Extension,
             ContentType = info.ContentType, Width = info.Width, Height = info.Height, Tags = NormalizeTags(input.Image.Tags),
-            LookId = input.Image.LookId, Origin = input.Image.Origin, Generation = generation, CreatedUtc = clock.GetUtcNow() };
+            LookId = input.Image.LookId, Origin = input.Image.Origin, PendingReview = input.Image.PendingReview, Generation = generation, CreatedUtc = clock.GetUtcNow() };
         var next = current with { Assets = current.Assets.Select(a => a.Id == asset.Id ? a with { Images = [.. a.Images, image], UpdatedUtc = clock.GetUtcNow() } : a).ToList(),
             ImagePublications = [.. current.ImagePublications, new(input.JobId, image.Id, asset.Id, fingerprint)] };
         Validate(Normalize(next), projectId);

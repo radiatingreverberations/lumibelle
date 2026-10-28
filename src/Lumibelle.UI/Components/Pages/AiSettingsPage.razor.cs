@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Assets;
 using lumibelle.Services.AI;
 using lumibelle.Services.Story;
 using Microsoft.AspNetCore.Components;
@@ -53,7 +54,7 @@ public partial class AiSettingsPage
     private string _search { get => TextState.Search; set => TextState.Search = value; }
     private bool _starredOnly { get => TextState.StarredOnly; set => TextState.StarredOnly = value; }
     private bool _loading = true, _saving, _checking, _dialogOpen, _conflict;
-    private string? _error, _saveMessage, _comfyCheck, _openRouterCheck, _imageEditCheck;
+    private string? _error, _saveMessage, _comfyCheck, _openRouterCheck, _imageCreateCheck, _imageEditCheck;
     private string _comfyUrl = "", _replacementKey = "";
     private bool _removeKey;
     private string _comfyImageModel = "", _comfyImageEncoder = "", _comfyImageVae = "", _comfyImageEditLora = "";
@@ -62,7 +63,7 @@ public partial class AiSettingsPage
     private bool _imageDefaultsSelected, _imageEntryChosen;
     private string _videoSection = lumibelle.Components.Shots.VideoSettingsPanel.H3Section;
     private static readonly (string Key, string Label, string Kind)[] ImageEntries =
-        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.QwenImage21, ImageWorkflow.CodexImages }
+        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.Flux3ImageKlein, ImageWorkflow.QwenImage21, ImageWorkflow.MossImage, ImageWorkflow.Fibo2, ImageWorkflow.ZImage, ImageWorkflow.CodexImages }
         .Select(w => (w.ToString(), w.Label(), w == ImageWorkflow.CodexImages ? "Local CLI" : "ComfyUI")).ToArray();
     private string ImageEntry => _imageDefaultsSelected ? AiProviderSidebar.DefaultsKey : _imageWorkflow.ToString();
     private void SelectImageEntry(string key)
@@ -96,10 +97,45 @@ public partial class AiSettingsPage
     private bool IsKlein => _imageWorkflow == ImageWorkflow.Flux2Klein9bKv;
     private bool IsQwen => _imageWorkflow == ImageWorkflow.QwenImage21;
     private QwenImage21Settings _qwen = new();
-    private string ImageModel { get => IsQwen ? _qwen.Model : IsKlein ? _fluxModel : _comfyImageModel; set { if (IsQwen) _qwen = _qwen with { Model = value }; else if (IsKlein) _fluxModel = value; else _comfyImageModel = value; } }
-    private string ImageEncoder { get => IsQwen ? _qwen.TextEncoder : IsKlein ? _fluxEncoder : _comfyImageEncoder; set { if (IsQwen) _qwen = _qwen with { TextEncoder = value }; else if (IsKlein) _fluxEncoder = value; else _comfyImageEncoder = value; } }
-    private string ImageVae { get => IsQwen ? _qwen.Vae : IsKlein ? _fluxVae : _comfyImageVae; set { if (IsQwen) _qwen = _qwen with { Vae = value }; else if (IsKlein) _fluxVae = value; else _comfyImageVae = value; } }
-    private void ImageWorkflowChanged() { _imageModels = []; _imageEncoders = []; _imageVaes = []; _imageEditLoras = []; _imageEditCheck = null; }
+    private bool IsMoss => _imageWorkflow == ImageWorkflow.MossImage;
+    private MossImageSettings _moss = new();
+    private bool IsFlux3 => _imageWorkflow == ImageWorkflow.Flux3ImageKlein;
+    private Flux3ImageSettings _flux3 = new();
+    private bool IsCaption => CaptionImagePolicy.Supports(_imageWorkflow);
+    private string ImageDownloadVariant => IsFlux3 ? _flux3.Variant.ToString() : IsQwen ? _qwen.Variant.ToString() : IsCaption ? CaptionSettings.Variant.ToString() : "Base";
+    private string CaptionWorkflowDescription => _imageWorkflow == ImageWorkflow.Fibo2
+        ? "Fibo 2.0 Dev creates and edits; Edit Turbo edits in four steps. Uses Qwen3-VL 4B and the FLUX.2 VAE, with up to four ordered references."
+        : "Z-Image Base and Turbo create images using Qwen3 4B and the ae VAE. Base defaults to 25 steps; Turbo to 8 steps. Reference editing and ControlNet are not enabled here.";
+    private CaptionImageSettings _fibo = CaptionImagePolicy.Defaults(ImageWorkflow.Fibo2), _zimage = CaptionImagePolicy.Defaults(ImageWorkflow.ZImage);
+    private CaptionImageSettings CaptionSettings
+    {
+        get => _imageWorkflow == ImageWorkflow.Fibo2 ? _fibo : _zimage;
+        set { if (_imageWorkflow == ImageWorkflow.Fibo2) _fibo = value; else _zimage = value; }
+    }
+    private string ImageModel
+    {
+        get => IsCaption ? CaptionSettings.Model : IsFlux3 ? _flux3.Model : IsMoss ? _moss.Model : IsQwen ? _qwen.Model : IsKlein ? _fluxModel : _comfyImageModel;
+        set { if (IsCaption) CaptionSettings = CaptionSettings with { Model = value }; else if (IsFlux3) _flux3 = _flux3 with { Model = value }; else if (IsMoss) _moss = _moss with { Model = value }; else if (IsQwen) _qwen = _qwen with { Model = value }; else if (IsKlein) _fluxModel = value; else _comfyImageModel = value; }
+    }
+    private string ImageEncoder
+    {
+        get => IsCaption ? CaptionSettings.TextEncoder : IsFlux3 ? _flux3.TextEncoder : IsMoss ? _moss.TextEncoder : IsQwen ? _qwen.TextEncoder : IsKlein ? _fluxEncoder : _comfyImageEncoder;
+        set { if (IsCaption) CaptionSettings = CaptionSettings with { TextEncoder = value }; else if (IsFlux3) _flux3 = _flux3 with { TextEncoder = value }; else if (IsMoss) _moss = _moss with { TextEncoder = value }; else if (IsQwen) _qwen = _qwen with { TextEncoder = value }; else if (IsKlein) _fluxEncoder = value; else _comfyImageEncoder = value; }
+    }
+    private string ImageVae
+    {
+        get => IsCaption ? CaptionSettings.Vae : IsFlux3 ? _flux3.Vae : IsMoss ? _moss.Vae : IsQwen ? _qwen.Vae : IsKlein ? _fluxVae : _comfyImageVae;
+        set { if (IsCaption) CaptionSettings = CaptionSettings with { Vae = value }; else if (IsFlux3) _flux3 = _flux3 with { Vae = value }; else if (IsMoss) _moss = _moss with { Vae = value }; else if (IsQwen) _qwen = _qwen with { Vae = value }; else if (IsKlein) _fluxVae = value; else _comfyImageVae = value; }
+    }
+    private bool _imageCatalogRefreshed;
+    private string SavedImageFileLabel(string value) => string.IsNullOrEmpty(value) ? "Choose a file…" :
+        $"{value} · {(_imageCatalogRefreshed ? "not confirmed available" : "saved selection")}";
+    private void ImageSelectionChanged()
+    {
+        _imageCreateCheck = null;
+        _imageEditCheck = "Selection changed. Refresh image models to check availability.";
+    }
+    private void ImageWorkflowChanged() { _imageModels = []; _imageEncoders = []; _imageVaes = []; _imageEditLoras = []; _imageCreateCheck = null; _imageEditCheck = null; _imageCatalogRefreshed = false; }
     private float _temperature;
     private int _maxTokens, _timeout, _imageTimeout, _openRouterConcurrency;
     private IReadOnlyList<AiModel> _imageModels = [], _imageEncoders = [], _imageVaes = [], _imageEditLoras = [];
@@ -350,12 +386,16 @@ public partial class AiSettingsPage
         foreach (var workflow in Enum.GetValues<ImageWorkflow>()) CancelImageWorkflow(workflow);
         CancelImageDefaults(); ImageWorkflowChanged();
     }
-    private void CancelImageWorkflow() { CancelImageWorkflow(_imageWorkflow); _imageEditCheck = null; }
+    private void CancelImageWorkflow() { CancelImageWorkflow(_imageWorkflow); _imageCreateCheck = null; _imageEditCheck = null; }
     private void CancelImageWorkflow(ImageWorkflow workflow)
     {
         switch (workflow)
         {
             case ImageWorkflow.QwenImage21: _qwen = _settings!.QwenImage21 ?? new(); break;
+            case ImageWorkflow.MossImage: _moss = _settings!.MossImage ?? new(); break;
+            case ImageWorkflow.Flux3ImageKlein: _flux3 = _settings!.Flux3Image ?? new(); break;
+            case ImageWorkflow.Fibo2: _fibo = CaptionImagePolicy.Settings(_settings!, workflow); break;
+            case ImageWorkflow.ZImage: _zimage = CaptionImagePolicy.Settings(_settings!, workflow); break;
             case ImageWorkflow.CodexImages: _codexImageModel = _settings!.Codex.ImageModel; _codexImageEffort = _settings.Codex.ImageEffort ?? ""; break;
             case ImageWorkflow.Flux2Klein9bKv: _fluxModel = _settings!.FluxKleinModel; _fluxEncoder = _settings.FluxKleinTextEncoder; _fluxVae = _settings.FluxKleinVae; break;
             default:
@@ -369,7 +409,7 @@ public partial class AiSettingsPage
     private async Task SaveComfyAsync()
     {
         if (await SaveChangeAsync(settings => settings with { ComfyUrl = _comfyUrl }, "ComfyUI connection saved. Refresh models to check availability."))
-        { CancelComfy(); InvalidateTextCatalog(AiBackend.ComfyUI); _imageModels = []; _imageEncoders = []; _imageVaes = []; _imageEditLoras = []; _imageEditCheck = null; }
+        { CancelComfy(); InvalidateTextCatalog(AiBackend.ComfyUI); ImageWorkflowChanged(); }
     }
     private async Task SaveOpenRouterAsync()
     {
@@ -400,6 +440,10 @@ public partial class AiSettingsPage
     {
         ImageWorkflow.CodexImages => settings with { Codex = settings.Codex with { ImageModel = _codexImageModel, ImageEffort = string.IsNullOrEmpty(_codexImageEffort) ? null : _codexImageEffort } },
         ImageWorkflow.QwenImage21 => settings with { QwenImage21 = _qwen },
+        ImageWorkflow.MossImage => settings with { MossImage = _moss },
+        ImageWorkflow.Flux3ImageKlein => settings with { Flux3Image = _flux3 },
+        ImageWorkflow.Fibo2 => settings with { Fibo2 = _fibo },
+        ImageWorkflow.ZImage => settings with { ZImage = _zimage },
         ImageWorkflow.Flux2Klein9bKv => settings with { FluxKleinModel = _fluxModel, FluxKleinTextEncoder = _fluxEncoder, FluxKleinVae = _fluxVae },
         _ => settings with { ComfyImageModel = _comfyImageModel, ComfyImageTextEncoder = _comfyImageEncoder, ComfyImageVae = _comfyImageVae, ComfyImageEditLora = _comfyImageEditLora }
     };
@@ -420,7 +464,7 @@ public partial class AiSettingsPage
     private async Task RefreshImagesAsync()
     {
         if (Busy) return;
-        _checking = true; _error = null;
+        _checking = true; _error = null; _imageCreateCheck = null; _imageEditCheck = null; _imageCatalogRefreshed = false;
         try
         {
             if (IsCodex)
@@ -431,14 +475,16 @@ public partial class AiSettingsPage
             var images = await ImageGenerator.CheckAsync(ImageDraft, _token);
             var edits = await ImageEditor.CheckAsync(ImageDraft, _token);
             _imageModels = images.DiffusionModels; _imageEncoders = images.TextEncoders; _imageVaes = images.Vaes; _imageEditLoras = edits.Loras;
-            if (!IsQwen && _imageModels.Count > 0 && _imageModels.All(model => model.Id != ImageModel)) ImageModel = _imageModels[0].Id;
-            if (!IsQwen && _imageEncoders.Count > 0 && _imageEncoders.All(model => model.Id != ImageEncoder)) ImageEncoder = _imageEncoders[0].Id;
-            if (!IsQwen && _imageVaes.Count > 0 && _imageVaes.All(model => model.Id != ImageVae)) ImageVae = _imageVaes[0].Id;
-            if (_imageEditLoras.Count > 0 && _imageEditLoras.All(model => model.Id != _comfyImageEditLora))
+            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageModels.Count > 0 && _imageModels.All(model => model.Id != ImageModel)) ImageModel = _imageModels[0].Id;
+            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageEncoders.Count > 0 && _imageEncoders.All(model => model.Id != ImageEncoder)) ImageEncoder = _imageEncoders[0].Id;
+            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageVaes.Count > 0 && _imageVaes.All(model => model.Id != ImageVae)) ImageVae = _imageVaes[0].Id;
+            if (_imageWorkflow == ImageWorkflow.Krea2 && _imageEditLoras.Count > 0 && _imageEditLoras.All(model => model.Id != _comfyImageEditLora))
                 _comfyImageEditLora = _imageEditLoras.FirstOrDefault(model => Path.GetFileName(model.Id).Equals("krea2_identity_edit_v1_2.safetensors", StringComparison.OrdinalIgnoreCase))?.Id ?? _imageEditLoras[0].Id;
             images = await ImageGenerator.CheckAsync(ImageDraft, _token);
             edits = await ImageEditor.CheckAsync(ImageDraft, _token);
-            _imageEditCheck = $"{images.Message} {edits.Message} {edits.ReferenceCapabilityMessage}";
+            _imageCatalogRefreshed = true;
+            _imageCreateCheck = images.Message;
+            _imageEditCheck = $"{edits.Message} {edits.ReferenceCapabilityMessage}".Trim();
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException) { _error = e.Message; }
         catch (OperationCanceledException) when (_token.IsCancellationRequested) { }

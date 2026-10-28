@@ -6,9 +6,9 @@
 .asset-library { padding: 13px 0; }
 .asset-library-heading { display: flex; align-items: center; justify-content: space-between; color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); font-weight: 700; letter-spacing: 1.6px; margin: 0 8px 13px; }
 .asset-library-heading button { border: 1px solid var(--line); background: var(--lumi-surface); color: var(--plum); width: 28px; height: 28px; border-radius: var(--lumi-radius-control); font-size: 18px; cursor: pointer; }
-.asset-library-extraction { margin-bottom:12px; }
-.asset-library-extraction .text-request-action { width:100%; }
-.asset-library-extraction .request-action-button { flex:1; justify-content:center; }
+.asset-library-extraction, .asset-library-bulk { margin-bottom:12px; }
+.asset-library-extraction .text-request-action, .asset-library-bulk .text-request-action { width:100%; }
+.asset-library-extraction .request-action-button, .asset-library-bulk .request-action-button { flex:1; justify-content:center; }
 .extraction-coverage-status { padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--line); }
 .extraction-coverage-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; margin-bottom:12px; }
 .extraction-coverage-status .coverage-summary { color:var(--muted); font-size:var(--lumi-font-size-meta); }
@@ -282,6 +282,9 @@
 .trash-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; font-size:var(--lumi-font-size-compact); }
 .trash-toolbar label { display:flex; align-items:center; gap:8px; }
 .trash-toolbar select { max-width:240px; }
+.trash-selection-count { flex-basis:100%; color:var(--muted); }
+.asset-pending-review { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:0 0 16px; padding:12px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--muted); font-size:var(--lumi-font-size-meta); }
+.asset-pending-review button { border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--ink); padding:8px 12px; font:inherit; }
 .trash-toolbar select, .trash-toolbar > button, .trash-card-actions button, .trash-pagination button, .review-undo button { padding:7px 10px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--ink); font:inherit; cursor:pointer; }
 .trash-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
 .trash-card { min-width:0; border: 1px solid var(--line); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface); overflow:hidden; }

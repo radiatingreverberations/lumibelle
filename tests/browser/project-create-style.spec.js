@@ -1,0 +1,34 @@
+import { test, expect } from './fixtures.js';
+
+for (const width of [1280, 390]) test(`a new project starts with its selected visual style at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Your projects', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  const create = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'New project', exact: true }) });
+  await expect(create).toBeVisible();
+  await create.getByLabel('Project name', { exact: true }).fill(`Photographic story ${width}`);
+  await create.getByRole('combobox', { name: 'Project visual style', exact: true }).selectOption('Photographic');
+  await create.getByLabel('Project visual style direction', { exact: true }).fill('Natural daylight and a muted palette.');
+  await expect(create.getByRole('button', { name: 'Create project', exact: true })).toBeEnabled();
+  expect(await create.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await create.screenshot({ path: testInfo.outputPath(`create-style-${width}.png`) });
+  await create.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect(create).not.toBeVisible();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  const style = page.locator('.project-visual-style');
+  await expect(style.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveValue('Photographic');
+  await expect(style.getByLabel('Project visual style direction', { exact: true })).toHaveValue('Natural daylight and a muted palette.');
+  await expect(page.locator('.project-settings-grid > *').nth(1)).toHaveClass(/project-visual-style/);
+  await page.reload();
+  await expect(style.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveValue('Photographic');
+  await page.getByRole('button', { name: 'Edit project', exact: true }).click();
+  const edit = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Save changes', exact: true }) });
+  await expect(edit.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveCount(0);
+  await edit.getByLabel('Project name', { exact: true }).fill(`Renamed photographic story ${width}`);
+  await edit.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(edit).not.toBeVisible();
+  await expect(style.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveValue('Photographic');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await style.screenshot({ path: testInfo.outputPath(`settings-style-${width}.png`) });
+});

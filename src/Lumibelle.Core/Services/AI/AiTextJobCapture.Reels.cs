@@ -19,6 +19,7 @@ public sealed partial class AiTextJobCapture
         if (!TextVisionPolicy.SupportsBackend(model.Backend)) throw new WorkspaceStoreException(TextVisionPolicy.SetupHint);
         var owner = library.Assets.SingleOrDefault(a => a.Id == draft.AssetId) ?? throw new WorkspaceStoreException("Asset unavailable.");
         ReferenceReels.ValidateOwner(draft, owner);
+        draft.CapturedVisualStyle = await VisualStyles.CaptureAsync(project, owner, draft.VisualStyle, preferences, ct);
         var character = LookPolicy.Capture(owner, draft.LookId); LookPolicy.ValidateTarget(library, character);
         var inputs = ReferenceReels.Inputs(draft);
         if (inputs.Videos.Count > 0)

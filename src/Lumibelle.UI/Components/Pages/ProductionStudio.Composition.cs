@@ -30,8 +30,9 @@ public partial class ProductionStudio
     private lumibelle.Components.AI.TextAssistance? _compositionAssist;
     private TextModelSelectionState? _compositionModel;
     private bool _compositionBusy;
-    // Request-local: scene text and neighbouring shots are the parts of the prompt that can be dropped safely. A queued request freezes them.
+    // Request-local context choices. A queued request freezes them; reuse of the current draft is opt-in.
     private bool _includeSceneText = true, _includeNearbyShots = true;
+    private bool _includeCurrentPrompt;
     // How much each of them adds, estimated when Prompt assistance opens.
     private CompositionContextSize? _contextSize;
     private AiSettings? _contextSettings;
@@ -40,7 +41,7 @@ public partial class ProductionStudio
         ? TextImageTokens.Estimate(model.Model, settings, size.ReferenceImages) : null;
     private bool _contextSizeBusy;
     // Prompt assistance opens only once this callback returns, so the estimate runs on its own and fills in when ready.
-    private Task StartContextEstimate() { _ = EstimateContextSize(); return Task.CompletedTask; }
+    private Task StartContextEstimate() { _includeCurrentPrompt = false; _ = EstimateContextSize(); return Task.CompletedTask; }
     private async Task EstimateContextSize()
     {
         if (Current is not { } c || _contextSizeBusy) return;
@@ -74,7 +75,7 @@ public partial class ProductionStudio
         try
         {
             var submission = await TextRequests.ComposeAsync(Guid.NewGuid(), await AiReviews.TabIdAsync(), Id, c.Id, c.Version, selection.Model, selection.FollowsDefault,
-                _lifetime.Token, _includeSceneText, _includeNearbyShots);
+                _lifetime.Token, _includeSceneText, _includeNearbyShots, _includeCurrentPrompt);
             ShowCompositionSize(submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!);
         }
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException or lumibelle.Services.ProjectStoreException)
@@ -163,6 +164,7 @@ public partial class ProductionStudio
     private void ClearPrompt()
     {
         if (!CanClearPrompt) return;
+        _includeCurrentPrompt = false;
         EditComposition(c => { c.Prompt = ""; c.ReferenceUsage = ""; c.ReviewJobId = null; });
         _compositionReviewId = null; _compositionResult = null; _compositionRaw = ""; _compositionError = null; _compositionRecovery = null;
         Notify("Prompt cleared. Choose Compose prompt to start from the current shot and references. You can undo this.");
@@ -178,7 +180,7 @@ public partial class ProductionStudio
             if (!await Save()) return;
             var c = Current!; var id = Guid.NewGuid();
             var submission = await TextRequests.ComposeAsync(id, await AiReviews.TabIdAsync(), Id, c.Id, c.Version, model.Model, model.FollowsDefault, _lifetime.Token,
-                _includeSceneText, _includeNearbyShots);
+                _includeSceneText, _includeNearbyShots, _includeCurrentPrompt);
             if (!_composeOversized && OversizedComposition(submission)) return;
             _compositionStages = null;
             _compositionEnqueue = _compositionAssist.Attribute(submission);

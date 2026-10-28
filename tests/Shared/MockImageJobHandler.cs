@@ -54,13 +54,14 @@ public sealed class MockImageJobHandler(IAssetStore assets, IReferenceImageGener
                     await context.ReportAsync(new(update.Progress ?? new(GenerationPhase.Generating, update.Status), candidate.Number, job.Batch.Candidates[^1].Number));
                     if (update.Image is null || update.Metadata is null) continue;
                     var metadata = update.Metadata with { AiJobId = job.Id, BatchId = request.BatchId, CandidateNumber = candidate.Number, Seed = candidate.Seed,
-                        Look = request.Look, Loras = request.AppliedLoras.ToArray(),
+                        Look = request.Look, Loras = request.AppliedLoras.ToArray(), VisualStyle = request.Create?.VisualStyle ?? request.Edit?.VisualStyle, AuthorPrompt = request.OriginalPrompt,
                         Edit = update.Metadata.Edit is { } edit ? edit with { ReferenceLooks = request.Edit!.ReferenceLooks.ToArray() } : null };
                     await using var content = new MemoryStream(update.Image);
                     if (request.Regional is not null)
                         await context.SaveOperationAsync("candidate/" + candidate.Id.ToString("D"), AiOperationArtifact.Image, new AiImageStaging(candidate.Id, "regional.png", update.Image, metadata), ct);
                     else await assets.PublishGeneratedImageAsync(request.ProjectId, new(job.Id, candidate.Id, request.AssetId,
-                        new(update.FileName ?? "candidate.png", request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, metadata, request.Look?.LookId)), content, ct);
+                        new(update.FileName ?? "candidate.png", request.Tags, request.Edit is null ? AssetImageOrigin.Generated : AssetImageOrigin.Edited, metadata, request.Look?.LookId,
+                            (request.Create?.PendingReview ?? request.Edit?.PendingReview) == true ? true : null)), content, ct);
                     results.Add(new(candidate.Id, candidate.Number, candidate.Id, metadata));
                     await context.SaveResultAsync(new AiImageJobResult(results.ToArray()));
                     await context.MarkReviewableAsync(ct); completed++;

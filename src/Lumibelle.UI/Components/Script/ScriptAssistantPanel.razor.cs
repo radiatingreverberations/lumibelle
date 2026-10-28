@@ -372,7 +372,7 @@ public partial class ScriptAssistantPanel
         if (_disposed) { await Reviews.CloseAsync(run.Id); return; }
         _reviewId = run.Id; _reviewTarget = run.AppliedTarget; _compare = run.Operation is WritingOperation.Revise or WritingOperation.Rewrite; _reviewProgress = null;
         _editingJson = false; _pendingJsonProposal = null; _jsonError = null;
-        _requestDetails = _requestModelName = null; _scenePlan = _planningPreview = null; _scenePlanning = _twoStepSequence = _reviewedSequence = false; _sequenceReview = null; _planningPreviewRaw = _planningActionError = _reviewActionError = null; _completeSequenceDraft = false;
+        _requestDetails = _requestModelName = _requestProviderName = null; _scenePlan = _planningPreview = null; _scenePlanning = _twoStepSequence = _reviewedSequence = false; _sequenceReview = null; _planningPreviewRaw = _planningActionError = _reviewActionError = null; _completeSequenceDraft = false;
         if (run.JobId is { } jobId && Jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId) is { } header)
         {
             await LoadRequestDetailsAsync(header);

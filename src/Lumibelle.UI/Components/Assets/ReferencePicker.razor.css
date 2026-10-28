@@ -1,4 +1,8 @@
 .reference-picker { display:flex; flex-direction:column; width:100%; height:min(76dvh,850px); min-height:0; gap:12px; }
+.reference-picker-body { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; gap:12px; overflow:hidden; }
+/* A long AI review scrolls with the browser/selection area, never with the action footer. */
+.reference-picker-body:has(.asset-pick-assistant[open]) { overflow:auto; scrollbar-gutter:stable; }
+.reference-picker-body:has(.asset-pick-assistant[open]) .manual-reference-columns { flex:0 0 min(50dvh,500px); }
 /* Assist and Copy references share one row above the columns, so a short window keeps room for the
    gallery; an opened Assist takes the full width. These outrank the Shots dialog's label and details rules. */
 .reference-picker-toolbar { --reference-toolbar-height:40px; display:flex; flex-wrap:wrap; align-items:start; gap:8px 24px; flex-shrink:0; }

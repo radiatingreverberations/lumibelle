@@ -1,0 +1,6 @@
+.flux3-settings { display: grid; gap: 10px; min-width: 0; margin: 18px 0; padding: 18px; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface-subtle); }
+.flux3-settings legend { padding: 0 8px; font-weight: 600; }
+.flux3-settings label { font-size: var(--lumi-font-size-small); font-weight: 600; }
+.flux3-settings input, .flux3-settings select { box-sizing: border-box; width: 100%; min-width: 0; }
+.flux3-settings .field-hint { margin: 0 0 8px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .flux3-settings { padding: 12px; } }

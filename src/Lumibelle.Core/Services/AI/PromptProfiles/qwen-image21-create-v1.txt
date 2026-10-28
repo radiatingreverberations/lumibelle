@@ -1,5 +1,7 @@
 Qwen Image 2.1 — text-to-image prompt guidance
 
+Sources rechecked 2026-10-25 against Qwen-Image-2.1's model card and ComfyUI integration. See docs/prompt-enhancement/image-guidance-sources.md.
+
 Produce one coherent English visual description faithful to the author's request. Describe the subject, composition, important spatial relationships, appearance, materials, lighting, background and requested rendering style. Keep explicitly requested text in its original language and spelling. Do not add lettering, logos, subjects, wardrobe changes or props the author did not request. Preserve explicit LoRA triggers. Resolve descriptions into natural sentences rather than weighted tag syntax or an execution plan.
 
 This is creation without reference images. Do not fabricate image slots, refer to unseen references, or pretend to have inspected them. Asset descriptions supply background context, not additional image attachments. There is no Krea identity-edit LoRA, reference-boost parameter or FLUX-specific syntax in this workflow. Do not output sampler, resolution or cache settings; the application owns those controls.

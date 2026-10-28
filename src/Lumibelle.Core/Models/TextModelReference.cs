@@ -28,6 +28,8 @@ public sealed record ProjectAiPreferences
     public long TextDefaultRevision { get; init; }
     public ImageWorkflow? ImageDefault { get; init; }
     public long ImageDefaultRevision { get; init; }
+    public VisualStyle VisualStyle { get; init; } = new();
+    public long VisualStyleRevision { get; init; }
     public TextModelReference? Production { get; init; }
     public TextModelReference? Shots { get; init; }
     public TextModelReference? Story { get; init; }
@@ -47,4 +49,7 @@ public sealed record ProjectAiPreferences
 }
 
 public sealed record TextModelSelectionState(TextModelReference Model, bool Ready, bool SupportsImages = false, bool FollowsDefault = false,
-    TextModelSelectionSource Source = TextModelSelectionSource.RequestOverride, string? UnavailableReason = null);
+    TextModelSelectionSource Source = TextModelSelectionSource.RequestOverride, string? UnavailableReason = null)
+{
+    public bool ImageInputKnown { get; init; } = true;
+}

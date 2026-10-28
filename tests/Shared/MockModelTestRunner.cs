@@ -16,7 +16,9 @@ public sealed class MockModelTestRunner(IAiProviderRegistry providers) : IModelT
             var measured = new TextModelBenchmark(context.Job.Id, request.Model.Model, DateTimeOffset.UtcNow, request.Test.MaxOutputTokens, request.Advanced,
                 2, .25, 30, 64, 0, 0, vllm ? null : .000001m, request.Model.Model, "Mock provider", "mock-" + context.Job.Id, "stop", true);
             return new(null, request.Advanced ? "Mock reply to: " + request.Test.Prompt : "A quiet forest at dawn.",
-                OpenRouter: vllm ? null : measured, Vllm: vllm ? new(request.Model.VllmUrl!, request.Model.Temperature, measured) : null);
+                OpenRouter: vllm ? null : measured, Vllm: vllm ? new(request.Model.VllmUrl!, request.Model.Temperature, measured) {
+                    ImageInput = request.TestImageInput ? new(DateTimeOffset.UtcNow, true, true, "Mock image input confirmed.") : null
+                } : null);
         }
         ComfyTextModelVerification? verification = null; string? response = null;
         var updates = request.Advanced

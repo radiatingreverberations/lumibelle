@@ -122,6 +122,8 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   await form.getByLabel('Mode', { exact: true }).selectOption('Rework');
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Rework', exact: true }).click();
+  // Wait for the captured request to be enqueued before navigation disposes the editor.
+  await expect(form).not.toBeVisible();
   await review(page).getByRole('button', { name: 'Close', exact: true }).click();
   await page.goto(`/projects/${id}/assets`);
   await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 30000 }).toBe(4);

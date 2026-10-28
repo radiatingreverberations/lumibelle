@@ -29,6 +29,10 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
             create?.Workflow ?? edit?.Workflow ?? (capturedSettings is not null ? configured.DefaultImageWorkflow : null), configured, preferences, ct) };
         var library = await assets.LoadAsync(projectId, ct);
         var asset = library.Assets.SingleOrDefault(a => a.Id == assetId) ?? throw new AiGenerationException("The destination asset is unavailable.");
+        var style = await VisualStyles.CaptureAsync(projectId, asset, create?.VisualStyle ?? edit?.VisualStyle, preferences, ct);
+        var originalPrompt = create?.Prompt ?? edit!.Prompt;
+        if (create is not null) create = create with { VisualStyle = style, Prompt = VisualStyles.ApplyImage(create.Prompt, style, configured.DefaultImageWorkflow) };
+        if (edit is not null) edit = edit with { VisualStyle = style, Prompt = VisualStyles.ApplyImage(edit.Prompt, style, configured.DefaultImageWorkflow) };
         var look = create?.Look ?? edit?.Look ?? LookPolicy.Capture(asset, null);
         if (look.AssetId != asset.Id) throw new AiGenerationException("The target look belongs to a different asset.");
         LookPolicy.ValidateTarget(library, look, requireCurrent: true);
@@ -73,10 +77,15 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
         if (configured.DefaultImageWorkflow == ImageWorkflow.QwenImage21)
         {
             configured = configured with { QwenImage21 = QwenImage21Policy.Settings(configured) };
-            if (create is not null) create = create with { QwenImage21 = create.QwenImage21 ?? new() };
-            if (edit is not null) edit = edit with { QwenImage21 = edit.QwenImage21 ?? new() };
+            if (create is not null) create = create with { QwenImage21 = QwenImage21Policy.CaptureOptions(configured, create.QwenImage21) };
+            if (edit is not null) edit = edit with { QwenImage21 = QwenImage21Policy.CaptureOptions(configured, edit.QwenImage21) };
         }
         var inputs = new List<AiImageInput>();
+        configured = CaptionImagePolicy.Capture(configured, configured.DefaultImageWorkflow);
+        if (configured.DefaultImageWorkflow == ImageWorkflow.MossImage)
+            configured = configured with { MossImage = MossImagePolicy.Settings(configured) };
+        if (configured.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein)
+            configured = configured with { Flux3Image = Flux3ImagePolicy.Settings(configured) };
         RegionalImageCapture? regional = null;
         foreach (var reference in sourceContexts)
         {
@@ -101,12 +110,14 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
             }
             else png = configured.DefaultImageWorkflow == ImageWorkflow.QwenImage21
                 ? await QwenImage21Inputs.PrepareAsync(media.Content, crop, ct)
+                : configured.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein || CaptionImagePolicy.Supports(configured.DefaultImageWorkflow)
+                ? await NativeImageInputs.PrepareAsync(media.Content, crop, ct, configured.DefaultImageWorkflow.Label())
                 : await ComfyReferenceImageEditor.PrepareSourcePngAsync(media.Content, crop, ct);
             inputs.Add(new(reference.Reference, crop, reference.Context, png));
         }
         var kind = edit is null ? AiJobKind.ImageCreate : AiJobKind.ImageEdit;
         var request = new AiImageJobRequest(1, id, projectId, assetId, library.Revision, configured,
-            AiImageJobPolicy.Profile(configured.DefaultImageWorkflow, edit is not null), create, edit, inputs, applied) { Codex = codexCapture, Regional = regional };
+            AiImageJobPolicy.Profile(configured.DefaultImageWorkflow, edit is not null), create, edit, inputs, applied) { Codex = codexCapture, Regional = regional, OriginalPrompt = VisualStyles.Brief(style).Length > 0 ? originalPrompt : null };
         AiImageJobPolicy.Validate(request);
         var project = await projects.GetAsync(projectId, ct) ?? throw new AiGenerationException("The project is unavailable.");
         return AiJobSubmission.Create(id, kind, codexCapture is null ? AiBackend.ComfyUI : AiBackend.Codex, new(projectId, assetId), project.Name,

@@ -151,6 +151,23 @@ public sealed class ProjectComponentTests : BunitContext
     }
 
     [Fact]
+    public async Task ProjectCreationCapturesStyleAndRetainsItIfSavingFails()
+    {
+        _store.Create = _ => throw new ProjectStoreException("Disk unavailable.");
+        var form = Render<ProjectForm>();
+        form.Find("input").Input("A photographic film");
+        form.Find(".visual-style-editor select").Change("Photographic");
+        form.Find("textarea[aria-label='Project visual style direction']").Input("Soft daylight.");
+        await form.Find("form").SubmitAsync();
+        form.WaitForAssertion(() => Assert.Contains("Disk unavailable.", form.Find("[role=alert]").TextContent));
+        Assert.Equal(VisualStylePreset.Photographic, Assert.Single(_store.CreateCalls).VisualStyle!.Preset);
+        Assert.Equal("Soft daylight.", _store.CreateCalls[0].VisualStyle!.Direction);
+        Assert.Equal("Photographic", form.Find(".visual-style-editor select").GetAttribute("value"));
+        Assert.Equal("Soft daylight.", form.Find("textarea[aria-label='Project visual style direction']").GetAttribute("value"));
+        Assert.False(form.Find("fieldset").HasAttribute("disabled"));
+    }
+
+    [Fact]
     public void FailedSaveRetainsInputAndAllowsRetry()
     {
         _store.Create = _ => throw new ProjectStoreException("Disk is full.");

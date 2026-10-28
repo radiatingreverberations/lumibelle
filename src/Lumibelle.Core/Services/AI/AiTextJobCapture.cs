@@ -12,7 +12,7 @@ namespace lumibelle.Services.AI;
 public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProjectStore projects, IAssetStore assets,
     IPromptEnhancer enhancer, IGuidanceAssistant guidance, ICodexClient? codex = null,
     IProductionStore? production = null, IShotStore? shots = null, IScriptStore? scripts = null, IReferenceVideoStore? referenceVideos = null, ReelRefModStore? refmods = null, IProjectDubbingStore? dubbing = null,
-    VisualBriefCache? briefs = null, IAiProviderRegistry? providers = null, FileSourceStore? sources = null)
+    VisualBriefCache? briefs = null, IAiProviderRegistry? providers = null, FileSourceStore? sources = null, IProjectAiPreferencesStore? preferences = null)
 {
     public static AiJobSubmission Reissue(AiJobHeader job, AiTextJobRequest captured, Guid tab)
     {
@@ -23,7 +23,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
     }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
     public async Task<AiJobSubmission> ComposeAsync(Guid id, Guid tab, Guid projectId, Guid compositionId, long version,
-        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool includeSceneText = true, bool includeNearbyShots = true)
+        TextModelReference model, bool followsDefault, CancellationToken ct = default, bool includeSceneText = true, bool includeNearbyShots = true, bool includeCurrentPrompt = false)
     {
         var document = await (production ?? throw new WorkspaceStoreException("Production storage is unavailable.")).LoadAsync(projectId, ct);
         var c = document.Compositions.SingleOrDefault(c => c.Id == compositionId && !c.Archived) ?? throw new WorkspaceStoreException("Choose an active composition.");
@@ -42,27 +42,28 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(projectId, effective, ct)
             : Array.Empty<RefModInspectionFrame>();
         var context = await ScriptContextAsync(projectId, document, source, shot, ct);
-        // Either part can be left out to shorten the prompt; the shot itself is always sent.
+        // Optional context is frozen with the request; the saved draft is never cleared to start fresh.
         var request = new PromptCompositionRequest(projectId, c.Id, c.Version, ProductionPolicy.ContextFingerprint(c, library, source, project), c.SourceFingerprint,
             effective, includeSceneText ? context.SceneText : "", includeNearbyShots ? context.NearbyShots : [],
             ShotReferences.Resolve(effective, library, source), [], images.Select(i => i.Identity).ToArray(),
             c.DirectingNotes, c.Prompt, c.RevisionNotes, model, followsDefault)
         {
             DirectionContext = await CaptureDirectionContextAsync(source, effective, ct),
-            OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OpeningFrame = opening?.Identity
+            OmitSceneText = !includeSceneText, OmitNearbyShots = !includeNearbyShots, OmitCurrentPrompt = !includeCurrentPrompt, OpeningFrame = opening?.Identity
         };
         var configured = Copy(await settings.LoadAsync(ct));
         var attached = images.Select(i => i.Bytes).ToArray();
         var target = new AiJobTarget(projectId, ShotId: shot.Id, CompositionId: c.Id);
         var label = shot.Title + " · " + c.Name + " · Compose prompt";
         var openingFrame = opening?.Bytes;
-        var direct = PromptComposer.BuildMessages(request, attached, modFrames, openingFrame: openingFrame);
+        var structured = await SupportsStructuredResponseAsync(model, configured, ct);
+        var direct = PromptComposer.BuildMessages(request, attached, modFrames, openingFrame: openingFrame, structured: structured);
         var captured = ComfyTextSettings.Capture(model, configured);
         // A ComfyUI model composes while seeing the images when they, the composition guide and the shot fit in GPU memory together.
         if (model.Backend != AiBackend.ComfyUI || attached.Length == 0 && modFrames.Count == 0 && openingFrame is null ||
             ComfyTextCapacity.FitsInOneRequest(model, captured, direct.Select(AiTextMessage.Capture).ToArray(), model.MaxOutputTokens ?? captured.MaxOutputTokens))
             return await BuildAsync(id, tab, AiJobKind.PromptComposition, target, label, request, model, followsDefault, configured, ProductionPolicy.Profile,
-                direct, 0.7f, null, ct);
+                direct, 0.7f, null, ct, responseSchema: structured ? PromptComposer.ResponseSchemaFor(request.Shot) : null);
         // Otherwise it composes in two steps, so the images and the long composition guide never share one prompt:
         // a visual brief from the images, then a text-only composition from that brief. A cached brief skips step one.
         var briefMessages = PromptComposer.BuildBriefMessages(request, attached, modFrames, openingFrame).Select(AiTextMessage.Capture).ToArray();
@@ -75,7 +76,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
             PromptComposer.BuildMessages(request, [], [], visualBrief: true), 0.7f, null, ct, (cached is null ? briefMessages : null, cached, key, briefTokens));
     }
     /// <summary>
-    /// The size of the scene text and neighbouring shots a composition would include, so each can be weighed before composing.
+    /// The size of the scene text, neighbouring shots and current prompt, so each can be weighed before composing.
     /// Estimated at four characters per token, as for the rest of the prompt.
     /// </summary>
     public async Task<CompositionContextSize> CompositionContextAsync(Guid projectId, Guid compositionId, CancellationToken ct = default)
@@ -85,7 +86,9 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var source = await shots!.LoadAsync(projectId, ct); var shot = source.Shots.SingleOrDefault(s => s.Id == c.ShotId) ?? throw new WorkspaceStoreException("The source shot was removed.");
         var library = await assets.LoadAsync(projectId, ct);
         var context = await ScriptContextAsync(projectId, document, source, shot, ct, estimateLibrary: library);
-        var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count);
+        var size = new CompositionContextSize(ComfyTextCapacity.TextTokens(context.SceneText), ComfyTextCapacity.TextTokens(string.Join("\n", context.NearbyShots)), context.NearbyShots.Count) {
+            CurrentPromptTokens = ComfyTextCapacity.TextTokens(c.Prompt)
+        };
         // The references are always sent; their images are what they cost. A missing one is reported when composing, not here.
         try
         {
@@ -184,17 +187,16 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         var images = await ScriptReferences.CaptureAsync(assets, request.Script.ProjectId, request.Images, ct);
         var planScene = sourceScene is not null && model.Backend == AiBackend.Vllm;
         var serverKind = model.Backend == AiBackend.Vllm ? OpenAiConnections.Kind(OpenAiConnections.Find(configured, model.VllmUrl)!) : OpenAiServerKind.Standard;
+        var structured = planScene && await SupportsStructuredResponseAsync(model, configured, ct);
         return await BuildAsync(id, tab, AiJobKind.ScriptAssistant, new(request.Script.ProjectId), sourceScene is not null
                 ? $"{(redraft ? "Redraft" : "Draft")} sequence · {sourceScene.Act + 1}.{sourceScene.Scene + 1}" : $"{request.Run.Operation} · {request.Run.Target.Name}",
             request, model, followsDefault, configured, planScene ? ScriptSequenceDrafting.Profile : request.Run.EditFormat == 1 ? ScriptEdits.Profile : "script-writing-v2",
             planScene ? ScriptSequenceDrafting.Messages(request, images) : ScriptAssistant.BuildMessages(request, images), configured.Temperature, null, ct,
             scenePlan: planScene ? ScriptSequenceDrafting.PlanningMessages(request).Select(AiTextMessage.Capture).ToArray() : null, selectedModel: selectedModel,
             scenePlanReplyTokens: planScene ? ScriptScenePlanning.PlanningReplyBudget(adaptation!, model.MaxOutputTokens!.Value) : null,
-            // Strata prompts and validates after generation, buffering its schema responses.
-            // Stream normally and use our brief, screenplay and review validators instead.
-            responseSchema: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptSequenceDrafting.DraftSchema : null,
+            responseSchema: structured ? ScriptSequenceDrafting.DraftSchema : null,
             responseGrammar: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptSequenceDrafting.DraftGrammar : null,
-            scenePlanResponseSchema: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptScenePlanning.PlanningSchemaFor(adaptation!.Passages.SelectMany(p => p.Sources)) : null,
+            scenePlanResponseSchema: structured ? ScriptScenePlanning.PlanningSchemaFor(adaptation!.Passages.SelectMany(p => p.Sources)) : null,
             scenePlanResponseGrammar: planScene && serverKind == OpenAiServerKind.Vllm ? ScriptScenePlanning.PlanningGrammarFor(adaptation!.Passages.SelectMany(p => p.Sources)) : null);
     }
     public async Task<AiJobSubmission> ExtractAsync(Guid id, Guid tab, AssetExtractionRequest request, bool followsDefault, CancellationToken ct = default)
@@ -218,7 +220,8 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         ShotDirections.ValidateStrategies(request.Strategies);
         if (request.SingleShot is { } single && (request.SceneIds.Count != 1 || single.ShotId == Guid.Empty || single.Position < 0 || single.Position > single.SceneShots.Count))
             throw new AiGenerationException("Draft a single shot from exactly one saved scene.");
-        var messages = await DraftingMessagesAsync(request, ct);
+        var structured = await SupportsStructuredResponseAsync(request.Selection, configured, ct);
+        var messages = await DraftingMessagesAsync(request, ct, structured);
         AiModel? catalogModel = null;
         if (request.Environments.Count > 0 && providers is not null) {
             var check = await providers.CheckAsync(request.Selection.Backend, configured, cancellationToken: ct);
@@ -228,16 +231,29 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         }
         var submission = await BuildAsync(id, tab, AiJobKind.ShotPlanning, new(request.Script.ProjectId, ShotId: request.SingleShot?.ShotId),
             request.SingleShot is null ? "Draft shots" : "Draft shot", request, request.Selection,
-            followsDefault, configured, ShotPlanner.Profile(request), messages, configured.Temperature, null, ct);
+            followsDefault, configured, ShotPlanner.Profile(request), messages, configured.Temperature, null, ct,
+            responseSchema: structured ? ShotPlanner.ResponseSchemaFor(request) : null);
         var snapshot = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
         if (ComfyTextCapacity.Assess(snapshot)?.Any(s => s.TooLarge) == true)
             throw new WorkspaceStoreException("The complete drafting request exceeds this model's capacity. Reduce scenes or inspection views, or choose another model.");
         DraftingEnvironments.ValidateCapacity(snapshot, catalogModel?.Catalog?.ContextLength);
         return submission;
     }
-    public async Task<AiJobSubmission> EnhanceAsync(Guid id, Guid tab, PromptEnhancementRequest request, CancellationToken ct = default)
+    public Task<AiJobSubmission> EnhanceAsync(Guid id, Guid tab, PromptEnhancementRequest request, CancellationToken ct = default) =>
+        CaptureEnhancementAsync(id, tab, request, AiJobKind.PromptEnhancement, null, ct);
+
+    public Task<AiJobSubmission> EnhanceAssetBatchAsync(Guid id, Guid tab, PromptEnhancementRequest request, AiSettings configured, CancellationToken ct = default) =>
+        CaptureEnhancementAsync(id, tab, request, AiJobKind.AssetPromptEnhancement, configured, ct);
+
+    private async Task<AiJobSubmission> CaptureEnhancementAsync(Guid id, Guid tab, PromptEnhancementRequest request, AiJobKind kind, AiSettings? capturedSettings, CancellationToken ct)
     {
-        request = Copy(request); var configured = Copy(await settings.LoadAsync(ct));
+        request = Copy(request); var configured = Copy(capturedSettings ?? await settings.LoadAsync(ct));
+        if (request.Context.VisualStyle is null) {
+            var library = await assets.LoadAsync(request.Context.ProjectId, ct);
+            var owner = library.Assets.SingleOrDefault(a => a.Id == request.Context.AssetId) ?? throw new AiGenerationException("The asset is unavailable.");
+            var style = await VisualStyles.CaptureAsync(request.Context.ProjectId, owner, null, preferences, ct);
+            request = request with { Context = request.Context with { VisualStyle = style } };
+        }
         if (string.IsNullOrWhiteSpace(request.Context.Prompt)) throw new AiGenerationException("Write a prompt before enhancing it.");
         await enhancer.ValidateInputsAsync(request.Context, ct);
         var images = new List<byte[]>();
@@ -254,7 +270,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
                 }
         }
         var profile = PromptProfiles.Id(request.Context.Workflow, request.Context.IsEdit);
-        return await BuildAsync(id, tab, AiJobKind.PromptEnhancement, new(request.Context.ProjectId, request.Context.AssetId), request.Context.AssetName + " · Enhance prompt",
+        return await BuildAsync(id, tab, kind, new(request.Context.ProjectId, request.Context.AssetId), request.Context.AssetName + " · Enhance prompt",
             request, request.Model, request.FollowsDefault, configured, profile,
             PromptEnhancer.BuildMessages(request, PromptProfiles.Read(request.Context.Workflow, request.Context.IsEdit), images), configured.Temperature, null, ct);
     }
@@ -294,7 +310,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         if (kind != AiJobKind.AssetExtraction) temperature = configured.Temperature;
         temperature = model.Temperature ?? temperature;
         var project = await projects.GetAsync(target.ProjectId!.Value, ct) ?? throw new ProjectStoreException("This project no longer exists.");
-        var version = TextModelProfiles.RequiresSnapshotVersion3(model) ? 3 : 2;
+        var version = responseSchema is not null || TextModelProfiles.RequiresSnapshotVersion3(model) ? 3 : 2;
         var snapshot = new AiTextJobRequest(version, kind, model, followsDefault, configured, profile, temperature, Random.Shared.NextInt64(1, long.MaxValue),
             JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), messages.Select(AiTextMessage.Capture).ToArray(), baseline)
         { BriefMessages = brief?.Messages, VisualBrief = brief?.Brief, BriefKey = brief?.Key, BriefTokens = brief?.Tokens, ScenePlanMessages = scenePlan, ScenePlanReplyTokens = scenePlanReplyTokens,

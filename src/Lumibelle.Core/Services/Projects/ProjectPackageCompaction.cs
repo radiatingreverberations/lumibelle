@@ -81,7 +81,7 @@ internal static class ProjectPackageCompaction
     }
     private static bool FixedSize(AssetImage image, HashSet<Guid> sources) =>
         image.Source is not null || image.Origin is not (AssetImageOrigin.Imported or AssetImageOrigin.Generated or AssetImageOrigin.Edited) ||
-        image.Generation is { } g && (g.Workflow is ImageWorkflow.CodexImages or ImageWorkflow.QwenImage21 || g.Codex is not null || g.QwenImage21 is not null || g.Edit?.Regional is not null) ||
+        image.Generation is { } g && (g.Workflow is ImageWorkflow.CodexImages or ImageWorkflow.QwenImage21 or ImageWorkflow.MossImage or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2 or ImageWorkflow.ZImage || g.Codex is not null || g.QwenImage21 is not null || g.MossImage is not null || g.Flux3Image is not null || g.CaptionImage is not null || g.Edit?.Regional is not null) ||
         sources.Contains(image.Id);
     private static async Task<(byte[] Bytes, PictureInfo Info)?> EncodeAsync(string path, AssetImage image, int? limit, CancellationToken ct)
     {

@@ -120,6 +120,7 @@ test('vLLM model buttons run standard and advanced tests and reopen saved detail
   await expect(dialog.getByText('Test result saved.', { exact: true })).toBeVisible();
   await expect(dialog.locator('.advanced-model-test-result pre')).toHaveText('A quiet forest at dawn.');
   await expect(dialog.getByLabel('Latest OpenAI-compatible model test')).toContainText('32.0 output tokens/s');
+  await expect(dialog.getByLabel('Detected capabilities')).toContainText('Working · multiple images');
   await dialog.getByText('Token usage & test details', { exact: true }).click();
   await expect(dialog.getByLabel('Latest OpenAI-compatible model test')).toContainText('64 total output tokens');
   await expect(dialog.getByLabel('Latest OpenAI-compatible model test')).not.toContainText('reported cost');

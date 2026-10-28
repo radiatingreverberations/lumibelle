@@ -17,7 +17,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
     private const string Operation = "text";
     // First step of a two-step composition; its ComfyUI output is the visual brief.
     private const string BriefOperation = "brief";
-    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.SourceAnalysis, AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection, AiJobKind.SceneEnvironmentSelection];
+    public IReadOnlyCollection<AiJobKind> Kinds => [AiJobKind.SourceAnalysis, AiJobKind.ScriptAssistant, AiJobKind.AssetExtraction, AiJobKind.ShotPlanning, AiJobKind.PromptEnhancement, AiJobKind.AssetPromptEnhancement, AiJobKind.Guidance, AiJobKind.PromptComposition, AiJobKind.ReelComposition, AiJobKind.AssetPicking, AiJobKind.ShotTranslation, AiJobKind.ReelViewSuggestion, AiJobKind.EnvironmentViewSelection, AiJobKind.SceneEnvironmentSelection, AiJobKind.AssetImageEvaluation, AiJobKind.AssetReelEvaluation];
 
     public async Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct)
     {
@@ -115,7 +115,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
                 await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct);
             if (request.Repair is null && request.Kind == AiJobKind.ReelComposition && reels is not null && complete.Error is null)
                 await ApplyReel(context, request, complete, ct);
-            return Outcome(complete);
+            return Outcome(complete, request.Kind);
         }
         if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm)
         {
@@ -248,7 +248,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         // A repair sends captured text only. Current media/target checks still run
         // when the resulting suggestion is explicitly applied in its studio.
         if (request.Repair is not null) return;
-        if (request.Kind == AiJobKind.PromptEnhancement) await enhancer.ValidateInputsAsync(request.Payload<PromptEnhancementRequest>().Context, ct);
+        if (request.Kind is AiJobKind.PromptEnhancement or AiJobKind.AssetPromptEnhancement) await enhancer.ValidateInputsAsync(request.Payload<PromptEnhancementRequest>().Context, ct);
         if (request.Kind == AiJobKind.Guidance)
         {
             var payload = request.Payload<GuidanceRequest>();
@@ -269,7 +269,9 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
                 m.Parts.Any(p => p is null || (p.Text is not null) == (p.Image is not null) || p.Image is { Length: 0 } || p.Image is not null && p.MediaType != "image/png")))
             throw new WorkspaceStoreException("The saved text request contains invalid settings or messages.");
         TextModelPolicy.Validate(request.Model); TextModelPolicy.CheckRequestServer(request.Model, request.Settings); FileAiSettingsStore.Validate(request.Settings);
-        if (request.ResponseSchema is { } schema && (request.Version < 3 || request.Kind != AiJobKind.ScriptAssistant ||
+        if (request.ResponseSchema is { } schema && (request.Version < 3 || request.Kind is not (AiJobKind.ScriptAssistant or AiJobKind.PromptComposition or AiJobKind.ShotPlanning) ||
+            request.Kind == AiJobKind.PromptComposition && request.Profile != ProductionPolicy.Profile ||
+            request.Kind == AiJobKind.ShotPlanning && request.Profile != ShotPlanner.Profile(request.Payload<ShotPlanningRequest>()) ||
             request.Model.Backend != AiBackend.Vllm || schema.ValueKind != JsonValueKind.Object))
             throw new WorkspaceStoreException("The saved structured response format is invalid.");
         if (request.ResponseGrammar is { } grammar && (request.ResponseSchema is null || string.IsNullOrWhiteSpace(grammar) || grammar.Length > 16384 || grammar.Contains('\0')))
@@ -286,10 +288,14 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             sceneMessages.Count is not (3 or 5) || sceneMessages.Any(m => m is null || m.Parts is not { Count: > 0 } || m.Parts.Any(p => p is null || string.IsNullOrWhiteSpace(p.Text) || p.Image is not null)) ||
             sceneMessages.Where((m, index) => m.Role != (index == 0 ? "system" : sceneMessages.Count == 5 && index == 2 ? "assistant" : "user")).Any()))
             throw new WorkspaceStoreException("The saved scene planning request is incomplete.");
+        if (request.Kind == AiJobKind.AssetImageEvaluation) AssetImageEvaluator.Validate(request.Payload<AssetImageEvaluationRequest>());
+        if (request.Kind == AiJobKind.AssetReelEvaluation) AssetReelEvaluator.Validate(request.Payload<AssetReelEvaluationRequest>());
         var expected = request.Kind switch
         {
             AiJobKind.ScriptAssistant => new AiJobTarget(request.Payload<ScriptAssistantRequest>().Script.ProjectId),
             AiJobKind.SourceAnalysis => new AiJobTarget(request.Payload<SourceAnalysisRequest>().ProjectId),
+            AiJobKind.AssetReelEvaluation => new AiJobTarget(request.Payload<AssetReelEvaluationRequest>().Views.ProjectId, request.Payload<AssetReelEvaluationRequest>().Views.AssetId, ReelId: request.Payload<AssetReelEvaluationRequest>().Views.ReelId),
+            AiJobKind.AssetImageEvaluation => new AiJobTarget(request.Payload<AssetImageEvaluationRequest>().ProjectId, request.Payload<AssetImageEvaluationRequest>().Context.AssetId),
             AiJobKind.AssetExtraction => new AiJobTarget(request.Payload<AssetExtractionRequest>().Script.ProjectId),
             AiJobKind.ShotPlanning => new AiJobTarget(request.Payload<ShotPlanningRequest>().Script.ProjectId, ShotId: request.Payload<ShotPlanningRequest>().SingleShot?.ShotId),
             AiJobKind.ShotTranslation => new AiJobTarget(request.Payload<ShotDubRequest>().ProjectId,
@@ -300,11 +306,23 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             AiJobKind.ReelComposition => new AiJobTarget(request.Payload<ReelCompositionRequest>().ProjectId, request.Payload<ReelCompositionRequest>().Draft.AssetId, ReelId: request.Payload<ReelCompositionRequest>().Draft.Id),
             AiJobKind.ReelViewSuggestion => new AiJobTarget(request.Payload<ReelViewSuggestionRequest>().ProjectId, request.Payload<ReelViewSuggestionRequest>().AssetId, ReelId: request.Payload<ReelViewSuggestionRequest>().ReelId),
             AiJobKind.PromptComposition => new AiJobTarget(request.Payload<PromptCompositionRequest>().ProjectId, ShotId: request.Payload<PromptCompositionRequest>().Shot.Id, CompositionId: request.Payload<PromptCompositionRequest>().CompositionId),
-            AiJobKind.PromptEnhancement => new AiJobTarget(request.Payload<PromptEnhancementRequest>().Context.ProjectId, request.Payload<PromptEnhancementRequest>().Context.AssetId),
+            AiJobKind.PromptEnhancement or AiJobKind.AssetPromptEnhancement => new AiJobTarget(request.Payload<PromptEnhancementRequest>().Context.ProjectId, request.Payload<PromptEnhancementRequest>().Context.AssetId),
             AiJobKind.Guidance => GuidanceTarget(request.Payload<GuidanceRequest>().Context.Target),
             _ => throw new WorkspaceStoreException("Unknown text operation.")
         };
         if (expected != job.Target) throw new WorkspaceStoreException("The text request belongs to a different target.");
+        if (request.Kind == AiJobKind.AssetImageEvaluation) {
+            var evaluation = request.Payload<AssetImageEvaluationRequest>(); AssetImageEvaluator.Validate(evaluation);
+            var sheets = request.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).ToArray();
+            if (request.Profile != AssetImageEvaluator.Profile || sheets.Length != 1 || AssetImageEvaluator.Hash(sheets[0].Image!) != evaluation.ContactSheetHash)
+                throw new WorkspaceStoreException("The saved evaluation does not match its captured sheet.");
+        }
+        if (request.Kind == AiJobKind.AssetReelEvaluation) {
+            var evaluation = request.Payload<AssetReelEvaluationRequest>();
+            var sheets = request.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).ToArray();
+            if (request.Profile != AssetReelEvaluator.Profile || sheets.Length != 1 || AssetImageEvaluator.Hash(sheets[0].Image!) != evaluation.ContactSheetHash)
+                throw new WorkspaceStoreException("The saved reel evaluation does not match its captured sheet.");
+        }
         if (request.Kind == AiJobKind.SourceAnalysis) {
             var source = request.Payload<SourceAnalysisRequest>();
             if (request.Profile is not (SourceAnalysis.Profile or "source-analysis-v1" or "source-analysis-v2") || source.RunId == Guid.Empty || !Enum.IsDefined(source.Stage) ||
@@ -347,8 +365,9 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
         var imageCount = request.Messages.Concat(request.BriefMessages ?? []).Sum(m => m.Parts.Count(p => p.Image is not null));
         var expectedImages = request.Repair is not null || request.VisualBrief is not null ? 0 : request.Kind switch
         {
+            AiJobKind.AssetImageEvaluation or AiJobKind.AssetReelEvaluation => 1,
             AiJobKind.ScriptAssistant => request.Payload<ScriptAssistantRequest>().Images.Count,
-            AiJobKind.PromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
+            AiJobKind.PromptEnhancement or AiJobKind.AssetPromptEnhancement => request.Payload<PromptEnhancementRequest>() is { InspectImages: true } p ? p.Context.References.Count : 0,
             AiJobKind.Guidance => request.Payload<GuidanceRequest>().InspectionImage is null ? 0 : 1,
             AiJobKind.PromptComposition => request.Payload<PromptCompositionRequest>().InspectReferenceImages == false
                 ? 0 : request.Payload<PromptCompositionRequest>() is var composition ? composition.Images.Count + RefModFrameCount(request) + (composition.OpeningFrame is null ? 0 : 1) + (composition.MotionStills?.Count ?? 0) : 0,
@@ -393,7 +412,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             await PersistAsync(context, async () => { await production.ApplyResultAsync(context.Job.Target.ProjectId!.Value, context.Job.Id, true, ct); }, ct);
         if (request.Repair is null && request.Kind == AiJobKind.ReelComposition && reels is not null && parsed.Error is null)
             await PersistAsync(context, () => ApplyReel(context, request, parsed, ct), ct);
-        return Outcome(parsed);
+        return Outcome(parsed, request.Kind);
     }
     private async Task ApplyReel(AiJobContext context, AiTextJobRequest request, AiTextJobResult result, CancellationToken ct)
     {
@@ -414,7 +433,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
             }
         }
     }
-    private static AiJobOutcome Outcome(AiTextJobResult result) => result.Error is null ? AiJobOutcome.Complete()
+    private static AiJobOutcome Outcome(AiTextJobResult result, AiJobKind? kind = null) => result.Error is null ? AiJobOutcome.Complete(kind != AiJobKind.AssetPromptEnhancement)
         : AiJobOutcome.Attention(result.Error, AiJobRecovery.GenerateAgain);
     private HttpClient ComfyClient(string server)
     { var http = clients.CreateClient("ComfyUI"); http.BaseAddress = new(AiProviderRegistry.NormalizeComfyUrl(server) + "/"); return http; }

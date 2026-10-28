@@ -1,0 +1,5 @@
+.visual-style-editor { border:1px solid var(--lumi-border); border-radius:10px; padding:14px; min-width:0; margin:12px 0; }
+.visual-style-editor legend { padding:0 6px; font-weight:650; }
+.visual-style-editor label { display:block; margin:8px 0 5px; font-size:var(--lumi-font-size-meta); color:var(--lumi-text-muted); }
+.visual-style-editor select,.visual-style-editor textarea { box-sizing:border-box; width:100%; min-width:0; border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--lumi-text); padding:9px 11px; font:inherit; }
+.visual-style-brief { white-space:pre-wrap; overflow-wrap:anywhere; }

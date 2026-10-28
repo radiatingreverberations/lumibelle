@@ -4,6 +4,10 @@ namespace lumibelle.Services.Assets;
 
 public interface IAssetStore
 {
+    Task<AssetLibrary> MarkImagesPendingReviewAsync(Guid projectId, IReadOnlyCollection<AssetImageReference> images, long expectedRevision,
+        CancellationToken ct = default) => throw new NotSupportedException("Candidate review migration is unavailable.");
+    Task<ImageTrashResult> DiscardPendingImagesAsync(Guid projectId, Guid operationId, IReadOnlyCollection<AssetImageReference> images, long expectedRevision,
+        CancellationToken ct = default) => throw new NotSupportedException("Candidate review discard is unavailable.");
     Task<AssetLibrary> LoadAsync(Guid projectId, CancellationToken cancellationToken = default);
     Task<AssetLibrary> SaveAsync(AssetLibrary library, long expectedRevision, CancellationToken cancellationToken = default);
     Task<AssetLibrary> ReorderAssetsAsync(Guid projectId, IReadOnlyList<Guid> order, long expectedRevision,

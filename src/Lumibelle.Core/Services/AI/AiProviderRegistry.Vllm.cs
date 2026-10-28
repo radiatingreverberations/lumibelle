@@ -12,7 +12,7 @@ public sealed partial class AiProviderRegistry
         if (connections.Length == 0) return new(false, "Add or enable an OpenAI-compatible connection in Connections.", []);
         if (replacementKey is not null && connections.Length != 1)
             throw new AiGenerationException("Choose one connection before checking a replacement API key.");
-        var results = await Task.WhenAll(connections.Select(c => CheckOpenAiConnectionAsync(c, replacementKey, ct)));
+        var results = await Task.WhenAll(connections.Select(c => CheckOpenAiConnectionAsync(c, settings, replacementKey, ct)));
         var models = results.SelectMany(r => r.Models).OrderBy(m => m.Name, StringComparer.Ordinal)
             .ThenBy(m => m.ServerUrl, StringComparer.Ordinal).ToArray();
         var statuses = results.SelectMany(r => r.Connections ?? []).ToArray();
@@ -21,7 +21,7 @@ public sealed partial class AiProviderRegistry
             { Connections = statuses };
     }
 
-    private async Task<AiConnectionCheck> CheckOpenAiConnectionAsync(OpenAiConnectionSettings connection, string? replacementKey, CancellationToken ct)
+    private async Task<AiConnectionCheck> CheckOpenAiConnectionAsync(OpenAiConnectionSettings connection, AiSettings settings, string? replacementKey, CancellationToken ct)
     {
         var server = VllmConnection.NormalizeUrl(connection.Url);
         var kind = OpenAiConnections.Kind(connection);
@@ -36,7 +36,7 @@ public sealed partial class AiProviderRegistry
             var key = replacementKey is null ? await settingsStore.ReadVllmKeyAsync(server, timeout.Token) : replacementKey.Trim();
             if (!string.IsNullOrWhiteSpace(key)) http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
             using var response = await http.GetAsync("models", timeout.Token);
-            if (!response.IsSuccessStatusCode) return Result(false, AiErrors.HttpStatus((int)response.StatusCode));
+            if (!response.IsSuccessStatusCode) return Result(false, AiErrors.HttpStatus((int)response.StatusCode, connection.Name));
             using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(timeout.Token), cancellationToken: timeout.Token);
             var models = json.RootElement.GetProperty("data").EnumerateArray().Select(item =>
             {
@@ -44,11 +44,16 @@ public sealed partial class AiProviderRegistry
                 if (string.IsNullOrWhiteSpace(id)) throw new JsonException("Missing model ID.");
                 long? context = PositiveInteger(item, "max_model_len") ?? PositiveInteger(item, "context_length");
                 if (item.TryGetProperty("meta", out var meta)) context ??= PositiveInteger(meta, "n_ctx");
-                var images = item.TryGetProperty("architecture", out var architecture) && architecture.ValueKind == JsonValueKind.Object &&
-                    architecture.TryGetProperty("input_modalities", out var inputs) && inputs.ValueKind == JsonValueKind.Array &&
-                    inputs.EnumerateArray().Any(v => v.ValueKind == JsonValueKind.String && v.GetString() == "image");
-                return new AiModel(id, id, SupportsImages: connection.SupportsImages ?? images,
-                    Catalog: new(ContextLength: connection.ContextLength ?? context)) { ServerUrl = server };
+                bool? advertised = item.TryGetProperty("architecture", out var architecture) && architecture.ValueKind == JsonValueKind.Object &&
+                    architecture.TryGetProperty("input_modalities", out var inputs) && inputs.ValueKind == JsonValueKind.Array
+                    ? inputs.EnumerateArray().Any(v => v.ValueKind == JsonValueKind.String && v.GetString() == "image") : null;
+                var tested = OpenAiImageInput.Latest(settings, server, id)?.Supported;
+                var images = connection.SupportsImages ?? tested ?? advertised;
+                return new AiModel(id, id, SupportsImages: images == true,
+                    Catalog: new(ContextLength: connection.ContextLength ?? context) { SupportedParameters = OpenAiStructuredOutput.Parameters(item) }) {
+                        ServerUrl = server, ImageInputKnown = images is not null,
+                        SupportsJsonSchema = OpenAiStructuredOutput.Latest(settings, server, id)?.Supported ?? OpenAiStructuredOutput.Advertised(item)
+                    };
             }).DistinctBy(model => model.Id).OrderBy(model => model.Name, StringComparer.Ordinal).ToArray();
             if (connection.Kind == OpenAiServerKind.Auto) kind = await DetectOpenAiKindAsync(http, ct);
             return Result(models.Length > 0, models.Length > 0

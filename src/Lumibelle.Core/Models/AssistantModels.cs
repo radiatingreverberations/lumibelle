@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace lumibelle.Models;
 
 public enum WritingOperation { Discuss, Outline, Draft, Revise, Continue, Rewrite }
@@ -89,6 +91,14 @@ public sealed record AiSettings
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public QwenImage21Settings? QwenImage21 { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public MossImageSettings? MossImage { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Flux3ImageSettings? Flux3Image { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CaptionImageSettings? Fibo2 { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CaptionImageSettings? ZImage { get; init; }
     public CodexSettings Codex { get; init; } = new();
     public ClaudeCodeSettings ClaudeCode { get; init; } = new();
     public H3Settings H3 { get; init; } = new();
@@ -178,6 +188,8 @@ public sealed record VllmTextModelSettings(float? Temperature = null, int? MaxOu
 public sealed record AiModel(string Id, string Name, AiModelVerificationState Verification = AiModelVerificationState.NotApplicable, bool SupportsImages = false, IReadOnlyList<string>? ReasoningEfforts = null, string? DefaultEffort = null, AiModelCatalogInfo? Catalog = null)
 {
     public string? ServerUrl { get; init; }
+    public bool ImageInputKnown { get; init; } = true;
+    public bool? SupportsJsonSchema { get; init; }
 }
 public sealed record AiModelCatalogInfo(string? Description = null, long? ContextLength = null, long? MaxOutputTokens = null,
     bool SupportsReasoning = false, AiModelPricing? Pricing = null, DateTimeOffset? AddedUtc = null, int? PopularityOrder = null)

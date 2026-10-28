@@ -63,7 +63,7 @@ public sealed partial class AiTextJobCapture
         }
         return result;
     }
-    private async Task<List<ChatMessage>> DraftingMessagesAsync(ShotPlanningRequest request, CancellationToken ct)
+    private async Task<List<ChatMessage>> DraftingMessagesAsync(ShotPlanningRequest request, CancellationToken ct, bool structured = false)
     {
         var pictures = new Dictionary<string, byte[]>();
         foreach (var environment in request.Environments) {
@@ -79,6 +79,6 @@ public sealed partial class AiTextJobCapture
                 pictures.TryAdd(view.Sha256, current.Pictures[view.Id]);
             }
         }
-        return ShotPlanner.BuildMessages(request, pictures);
+        return ShotPlanner.BuildMessages(request, pictures, structured);
     }
 }

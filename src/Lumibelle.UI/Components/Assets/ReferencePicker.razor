@@ -1,24 +1,26 @@
 <div class="reference-picker">
-    @if (Toolbar is not null) { <div class="reference-picker-toolbar">@Toolbar</div> }
-    <div class="reference-mobile-tabs" role="tablist" aria-label="Reference editor">
-        <button @ref="_browseTab" role="tab" id="@(_id + "-browse-tab")" aria-controls="@(_id + "-browse")" aria-selected="@(!SelectedTab ? "true" : "false")" tabindex="@(!SelectedTab ? 0 : -1)" @onclick="() => SelectTab(false)" @onkeydown="TabKey">@(BrowseLabel ?? (IncludeReels ? "Browse" : "Browse images"))</button>
-        <button @ref="_selectionTab" role="tab" id="@(_id + "-selected-tab")" aria-controls="@(_id + "-selected")" aria-selected="@(SelectedTab ? "true" : "false")" tabindex="@(SelectedTab ? 0 : -1)" @onclick="() => SelectTab(true)" @onkeydown="TabKey">Selected references (@SelectedCount)</button>
-    </div>
-    <div class="manual-reference-columns @(SelectedTab ? "show-selected" : "show-browse")">
-        <section id="@(_id + "-browse")" class="reference-browser" aria-label="Browse references">
-            <h3>@(BrowserTitle ?? (IncludeReels ? "Add from Assets" : "Add images from Assets"))</h3>
-            @BrowserSources
-            @BrowserNotice
-            @if (UseCustomBrowser) { @BrowserContent } else {
-            <ProjectImagePicker Library="Library" BrowseOnly="true" IncludeReels="IncludeReels" OnlyKind="@OnlyKind"
-                Maximum="@(Disabled ? 0 : Maximum)" Excluded="Excluded" ImagePicked="ImagePicked"
-                MaximumReels="@(Disabled ? 0 : MaximumReels)" ExcludedVideoMedia="ExcludedVideoMedia" ReferencePicked="ReferencePicked" ReelAction="@ReelAction" ImageAction="@ImageAction" />
-            }
-        </section>
-        <section id="@(_id + "-selected")" class="reference-selection" aria-label="Selected references">
-            @if (SelectionToolbar is not null) { <div class="reference-selection-toolbar">@SelectionToolbar</div> }
-            <div class="reference-selection-content">@Selection</div>
-        </section>
+    <div class="reference-picker-body">
+        @if (Toolbar is not null) { <div class="reference-picker-toolbar">@Toolbar</div> }
+        <div class="reference-mobile-tabs" role="tablist" aria-label="Reference editor">
+            <button @ref="_browseTab" role="tab" id="@(_id + "-browse-tab")" aria-controls="@(_id + "-browse")" aria-selected="@(!SelectedTab ? "true" : "false")" tabindex="@(!SelectedTab ? 0 : -1)" @onclick="() => SelectTab(false)" @onkeydown="TabKey">@(BrowseLabel ?? (IncludeReels ? "Browse" : "Browse images"))</button>
+            <button @ref="_selectionTab" role="tab" id="@(_id + "-selected-tab")" aria-controls="@(_id + "-selected")" aria-selected="@(SelectedTab ? "true" : "false")" tabindex="@(SelectedTab ? 0 : -1)" @onclick="() => SelectTab(true)" @onkeydown="TabKey">Selected references (@SelectedCount)</button>
+        </div>
+        <div class="manual-reference-columns @(SelectedTab ? "show-selected" : "show-browse")">
+            <section id="@(_id + "-browse")" class="reference-browser" aria-label="Browse references">
+                <h3>@(BrowserTitle ?? (IncludeReels ? "Add from Assets" : "Add images from Assets"))</h3>
+                @BrowserSources
+                @BrowserNotice
+                @if (UseCustomBrowser) { @BrowserContent } else {
+                <ProjectImagePicker Library="Library" BrowseOnly="true" IncludeReels="IncludeReels" OnlyKind="@OnlyKind"
+                    Maximum="@(Disabled ? 0 : Maximum)" Excluded="Excluded" ImagePicked="ImagePicked"
+                    MaximumReels="@(Disabled ? 0 : MaximumReels)" ExcludedVideoMedia="ExcludedVideoMedia" ReferencePicked="ReferencePicked" ReelAction="@ReelAction" ImageAction="@ImageAction" />
+                }
+            </section>
+            <section id="@(_id + "-selected")" class="reference-selection" aria-label="Selected references">
+                @if (SelectionToolbar is not null) { <div class="reference-selection-toolbar">@SelectionToolbar</div> }
+                <div class="reference-selection-content">@Selection</div>
+            </section>
+        </div>
     </div>
     <footer class="manual-reference-footer reference-editor-footer">@Footer</footer>
 </div>

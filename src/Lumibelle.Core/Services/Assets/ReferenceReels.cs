@@ -35,7 +35,7 @@ public static partial class ReferenceReels
     };
     public static string Fingerprint(ReferenceReelDraft draft)
     {
-        var copy = draft.Copy(); copy.Revision = 0; copy.PendingJobId = null; copy.ResolvedJobs = [];
+        var copy = draft.Copy(); copy.Revision = 0; copy.PendingJobId = null; copy.ResolvedJobs = []; copy.CapturedVisualStyle = null;
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(copy, AtomicJsonFile.Options)));
     }
     public static string InputsFingerprint(ReferenceReelDraft draft)
@@ -53,7 +53,7 @@ public static partial class ReferenceReels
         Id = d.Id, Title = d.Name, Description = IsEnvironment(d) ? "Environment reference reel" : IsProp(d) ? "Prop reference reel" : "Character reference reel", Duration = d.Duration, Aspect = d.Aspect,
         GenerationPreset = d.GenerationPreset, NativeResolution = VideoResolutions.Selected(d) == VideoResolution.Native, Turbo = d.Turbo, TurboSteps = d.TurboSteps,
         Images = ShotCopy.Of(d.Images), Videos = ShotCopy.Of(d.KeyframeReels ?? []), Loras = d.Loras?.ToArray(), ShotLoras = d.ReelLoras?.ToArray(), SaveLosslessFrames = d.SaveLosslessFrames ?? false,
-        UpscalePreview = ReelGenerationSetups.UpscalePreview(d),
+        UpscalePreview = ReelGenerationSetups.UpscalePreview(d), SaveLatents = d.SaveLatents ?? false,
         Dialogue = IsCameraReel(d) || d.VoiceMode == ReelVoiceMode.Silent ? [] : [new() { Id = d.Id, Speaker = d.Speaker, Language = d.Language, Text = d.Line }],
         Voices = !IsCameraReel(d) && d.VoiceMode == ReelVoiceMode.ExistingRecording && d.Voice is not null ? [d.Voice with { Speaker = d.Speaker }] : []
     };
@@ -70,6 +70,7 @@ public static partial class ReferenceReels
     };
     public static void Validate(ReferenceReelDraft d, bool ready = false)
     {
+        VisualStyles.Validate(d.VisualStyle); VisualStyles.Validate(d.CapturedVisualStyle);
         ValidateProfile(d);
         if (ready && NeedsEnvironmentReplacement(d)) throw new WorkspaceStoreException(EnvironmentReplacementRequired);
         if (ReelGenerationSetups.TakeCount(d) is < 1 or > 4 || d.GenerationSetup is { Settings.Seed: < 0 } ||
@@ -160,6 +161,8 @@ public static partial class ReferenceReels
         if (IsVoiceReference(request.Draft))
             rules += "\n\n" + CharacterReferenceInstructions + VoiceReferenceInstructions;
         rules += "\n\n" + ReelSpeech.CompositionInstructions(request.Draft);
+        if (VisualStyles.Brief(request.Draft.CapturedVisualStyle ?? request.Draft.VisualStyle) is { Length: > 0 } style)
+            rules += "\n\nUse this captured visual treatment consistently, even when source references use another rendering medium. Preserve identity and content while translating the style:\n" + style;
         var context = request.Draft.VoiceMode == ReelVoiceMode.Silent
             ? request with { Draft = request.Draft with { VoiceDescription = null, Speech = null } } : request;
         List<AIContent> content = [new TextContent(JsonSerializer.Serialize(new { request = context, pictures = PictureGuidance(request.Draft, null),

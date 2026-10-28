@@ -3,7 +3,7 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Models;
 
-public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection, SourceAnalysis }
+public enum AiJobKind { ScriptAssistant, AssetExtraction, ShotPlanning, PromptEnhancement, Guidance, ImageCreate, ImageEdit, Video, TextBenchmark, TextAdvancedTest, PromptComposition, ReelComposition, ReelVideo, RefModBuild, ContentProbe, AssetPicking, ShotTranslation, ReelViewSuggestion, EnvironmentViewSelection, SceneEnvironmentSelection, SourceAnalysis, AssetImageEvaluation, AssetReelEvaluation, AssetPromptEnhancement }
 public enum AiJobState { Waiting, Running, NeedsAttention, Completed, Cancelled }
 // ContinueRequest is explicitly requeued execution from a saved checkpoint. Unlike
 // CheckStatus/RetryOutput, it may run an unfinished model step after the user retries.
@@ -28,6 +28,9 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         AiJobKind.RefModBuild => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/refmod",
         AiJobKind.ScriptAssistant => $"{ProjectId}/script",
         AiJobKind.SourceAnalysis => $"{ProjectId}/source",
+        AiJobKind.AssetPromptEnhancement => $"{ProjectId}/assets/{AssetId}/bulk-prompt",
+        AiJobKind.AssetImageEvaluation => $"{ProjectId}/assets/{AssetId}/image-evaluation",
+        AiJobKind.AssetReelEvaluation => $"{ProjectId}/assets/{AssetId}/reels/{ReelId}/evaluation",
         AiJobKind.AssetExtraction => $"{ProjectId}/extraction",
         // A scene breakdown locks the project's planning; drafting one shot in place locks only that shot.
         AiJobKind.ShotPlanning => ShotId is { } drafted ? $"{ProjectId}/shots/{drafted}/draft" : $"{ProjectId}/planning",
@@ -45,9 +48,9 @@ public sealed record AiJobTarget(Guid? ProjectId = null, Guid? AssetId = null, G
         if (kind == AiJobKind.ShotTranslation && TakeId is null) throw new WorkspaceStoreException("Choose an exact master take for translation.");
         if ((SceneId is not null) != (kind == AiJobKind.SceneEnvironmentSelection)) throw new WorkspaceStoreException("Choose an exact scene for environment inspection.");
         var test = kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest or AiJobKind.ContentProbe;
-        var reel = kind is AiJobKind.ReelComposition or AiJobKind.ReelVideo or AiJobKind.RefModBuild or AiJobKind.ReelViewSuggestion;
+        var reel = kind is AiJobKind.ReelComposition or AiJobKind.ReelVideo or AiJobKind.RefModBuild or AiJobKind.ReelViewSuggestion or AiJobKind.AssetReelEvaluation;
         if ((ReelId is not null) != reel) throw new WorkspaceStoreException("Choose an exact reel target.");
-        var asset = reel || kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit or AiJobKind.PromptEnhancement or AiJobKind.Guidance;
+        var asset = reel || kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit or AiJobKind.PromptEnhancement or AiJobKind.Guidance or AiJobKind.AssetImageEvaluation or AiJobKind.AssetPromptEnhancement;
         if (test ? ProjectId is not null || string.IsNullOrWhiteSpace(ModelKey) || ModelKey.Length > 2048 : ProjectId is null || ModelKey is not null)
             throw new WorkspaceStoreException("The AI request needs an exact project or model-test target.");
         // Shot planning targets the project, or one shot when drafting that shot in place.
@@ -125,6 +128,7 @@ public sealed record AiJobHeader
         AiJobKind.ReelViewSuggestion => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.ScriptAssistant => $"/projects/{project}/script?jobId={Id}",
         AiJobKind.SourceAnalysis => $"/projects/{project}/source?jobId={Id}",
+        AiJobKind.AssetPromptEnhancement or AiJobKind.AssetImageEvaluation or AiJobKind.AssetReelEvaluation => $"/projects/{project}/assets?assetBatchReview={Id}",
         AiJobKind.ReelComposition or AiJobKind.ReelVideo => $"/projects/{project}/assets?assetId={Target.AssetId}&view=reels&jobId={Id}",
         AiJobKind.Video or AiJobKind.PromptComposition => $"/projects/{project}/shots?jobId={Id}&shotId={Target.ShotId}" + (Target.CompositionId is { } composition ? $"&setupId={composition}" : "") + (Kind == AiJobKind.Video ? "&view=Takes" : "&view=Prompt"),
         AiJobKind.ShotPlanning => $"/projects/{project}/shots?jobId={Id}" + (Target.ShotId is { } shot ? $"&shotId={shot}" : ""),

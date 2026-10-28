@@ -61,6 +61,7 @@ public partial class ScriptAssistantPanel
         catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException) { _error = e.Message; }
     }
     private string? _requestModelName;
+    private string? _requestProviderName;
     private lumibelle.Services.AI.ScriptScenePlan? _planningPreview;
     private string? _planningPreviewRaw;
     private string? _planningFinishReason;
@@ -106,6 +107,7 @@ public partial class ScriptAssistantPanel
         _twoStepSequence = request.ScenePlanMessages is not null || _scenePlan is not null;
         _scenePlanning = result?.ScenePlanning == true || _twoStepSequence && _scenePlan is null;
         _requestModelName = request.SelectedModel?.Name ?? request.Model.Name;
+        _requestProviderName = AiErrors.ProviderName(request.Model.Backend, request.Settings, request.Model.VllmUrl);
         _planningPreviewRaw = _scenePlanning ? result?.Raw : null;
         _planningFinishReason = result?.FinishReason;
         _planningCorrection = _scenePlanning ? (await ScriptScenePlanApproval.ReadAsync(JobStore, header.Id, _lifetime.Token))?.Correction : null;

@@ -76,13 +76,17 @@ public sealed class ComfyReferenceImageEditor(
             var vaes = Options(root, "VAELoader", "vae_name").Where(IsKreaVae).ToHashSet(StringComparer.Ordinal);
             var loras = Options(root, "LoraLoaderModelOnly", "lora_name")
                 .Where(IsIdentityEditLora).Select(name => new AiModel(name, name)).ToArray();
-            var configured = models.Contains(settings.ComfyImageModel) && encoders.Contains(settings.ComfyImageTextEncoder) &&
-                vaes.Contains(settings.ComfyImageVae) && loras.Any(model => model.Id == settings.ComfyImageEditLora);
+            var missing = new List<string>();
+            if (!models.Contains(settings.ComfyImageModel)) missing.Add($"model '{settings.ComfyImageModel}'");
+            if (!encoders.Contains(settings.ComfyImageTextEncoder)) missing.Add($"text encoder '{settings.ComfyImageTextEncoder}'");
+            if (!vaes.Contains(settings.ComfyImageVae)) missing.Add($"VAE '{settings.ComfyImageVae}'");
+            if (loras.All(model => model.Id != settings.ComfyImageEditLora)) missing.Add($"identity-edit LoRA '{settings.ComfyImageEditLora}'");
+            var configured = missing.Count == 0;
             var twoImages = new[] { "source_latent_b", "source_image_b", "ref_boost_a" }
                 .All(input => HasInput(root, "Krea2EditModelPatch", input)) && HasInput(root, "Krea2EditGroundedEncode", "image_b");
             return new(configured,
                 configured ? "Connected. Krea 2 image editing is ready." :
-                    "Connected, but the configured Krea 2 models or identity-edit LoRA are unavailable.", loras,
+                    $"Connected, but these Krea 2 editing files are unavailable: {string.Join("; ", missing)}. Install them in ComfyUI, then refresh image models.", loras,
                 twoImages ? MaximumReferences : 1, twoImages ? "Krea 2 supports a base image and one additional reference." :
                 "Update comfyui-krea2edit and restart ComfyUI to enable two-image edits. Single-image editing is available.");
         }

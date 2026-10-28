@@ -21,8 +21,12 @@ public sealed partial class AiReelCapture
         => CaptureRegenerationAsync(id, tab, project, reelId, resolution, keepSeed, seed, count, null, ct);
 
     // saveLosslessFrames null keeps the source reel's choice.
-    public async Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid project, Guid reelId,
+    public Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid project, Guid reelId,
         VideoResolution resolution, bool keepSeed, long? seed, int count, bool? saveLosslessFrames, CancellationToken ct = default)
+        => CaptureRegenerationAsync(id, tab, project, reelId, resolution, keepSeed, seed, count, saveLosslessFrames, null, ct);
+
+    public async Task<AiJobSubmission> CaptureRegenerationAsync(Guid id, Guid tab, Guid project, Guid reelId,
+        VideoResolution resolution, bool keepSeed, long? seed, int count, bool? saveLosslessFrames, bool? saveLatents, CancellationToken ct = default)
     {
         if (keepSeed && count != 1) throw new WorkspaceStoreException("Using the original seed requires exactly one take.");
         var store = jobs ?? throw new WorkspaceStoreException("Saved reel requests are unavailable.");
@@ -48,6 +52,7 @@ public sealed partial class AiReelCapture
             AssetId = reel.AssetId, LookId = reel.LookId, Name = reel.Name
         };
         VideoResolutions.Select(recipe, resolution);
+        if (saveLatents is { } keepLatents) recipe.SaveLatents = keepLatents;
         if (recipe.GenerationSetup is not null || recipe.OutputOverrides is not null)
             recipe.OutputOverrides = new() { TakeCount = count, Resolution = resolution };
         if (saveLosslessFrames is { } keepFrames && keepFrames != (source.Snapshot.OutputPolicy?.SaveLosslessFrames ?? true))
@@ -64,6 +69,7 @@ public sealed partial class AiReelCapture
         var snapshot = ShotCopy.Of(source.Snapshot) with {
             SourceRevision = 0, Shot = shot, Width = size.Width, Height = size.Height, Fingerprint = VideoResolutions.Fingerprint(recipe), PreviewUpscale = null,
             OutputPolicy = source.Snapshot.OutputPolicy is null ? null : new(shot.SaveLosslessFrames),
+            CaptureRefinementData = shot.SaveLatents && !shot.UpscalePreview,
             Reel = new(recipe, character) { Owner = owner with { Images = [] },
                 RegenerationSource = new(reel.Id, generation.Seed, source.Snapshot.Width, source.Snapshot.Height) }
         };

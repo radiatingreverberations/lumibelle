@@ -35,6 +35,12 @@ public static class AiTextResults
     {
         switch (request.Kind)
         {
+            case AiJobKind.AssetReelEvaluation:
+                try { return Value(result, AssetReelEvaluator.Parse(raw, request.Payload<AssetReelEvaluationRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+            case AiJobKind.AssetImageEvaluation:
+                try { return Value(result, AssetImageEvaluator.Parse(raw, request.Payload<AssetImageEvaluationRequest>())); }
+                catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
             case AiJobKind.ScriptAssistant:
                 var script = request.Payload<ScriptAssistantRequest>();
                 if (script.Run.EditFormat == 1)
@@ -62,9 +68,10 @@ public static class AiTextResults
             case AiJobKind.ShotPlanning:
                 var shots = ShotPlanner.Parse(raw, request.Payload<ShotPlanningRequest>());
                 return Value(result, shots, shots.Error);
+            case AiJobKind.AssetPromptEnhancement:
             case AiJobKind.PromptEnhancement:
                 var enhancement = request.Payload<PromptEnhancementRequest>();
-                var prompt = PromptEnhancer.Parse(raw, allowPlainText: finishReason == ChatFinishReason.Stop.ToString());
+                var prompt = PromptEnhancer.ParseForContext(raw, enhancement.Context, allowPlainText: finishReason == ChatFinishReason.Stop.ToString());
                 if (prompt is null) return result with { Error = "The response could not be read as a complete prompt. Inspect it and retry; your prompt is unchanged." };
                 if (prompt.Kind == PromptEnhancementKind.Prompt && enhancement.Context.ProtectedTriggers.Any(t => !prompt.Text.Contains(t, StringComparison.Ordinal)))
                     return result with { Error = "The suggestion removed an explicit LoRA trigger. Retry; your original prompt is unchanged." };

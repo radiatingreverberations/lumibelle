@@ -1,0 +1,204 @@
+@implements IAsyncDisposable
+@using lumibelle.Services.Production
+@inject AssetBatchWorkflow Workflow
+@inject IAssetStore AssetStore
+@inject IAiSettingsStore Settings
+@inject IProjectAiPreferencesStore Preferences
+
+<div class="asset-library-bulk"><TextRequestAction Label="@LaunchLabel" Disabled="Disabled" Working="@(LaunchRun is { State: AssetBatchState.Running, Pending: not null })" ReviewReady="LaunchReviewReady" Notice="@LaunchNotice" ButtonClass="bulk-assets-launch" OnStart="OpenAsync" OnReview="OpenAsync" /></div>
+@if (Disabled) { <span class="bulk-save-hint">Save asset changes before planning a batch.</span> }
+
+<AiAssistDialog Visible="_open" VisibleChanged="value => _open = value" Title="Bulk assets" Class="asset-batch-dialog">
+    <ChildContent>
+        <ol class="bulk-steps" aria-label="Bulk asset steps">
+            <li class="@(_run is null && !_planReady ? "active" : "")">1 · Choose assets</li>
+            <li class="@(_run is null && _planReady ? "active" : "")">2 · Review plan</li>
+            <li class="@(_run is not null ? "active" : "")">3 · Generate &amp; review</li>
+        </ol>
+        @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
+        @if (_document?.Runs.Count > 0) {
+            <label>Saved batches<select value="@_run?.Id" @onchange="SelectRun" disabled="@_busy"><option value="">Choose a saved batch</option>@foreach (var saved in _document.Runs.Reverse()) { <option value="@saved.Id">@saved.CreatedUtc.ToLocalTime().ToString("g") · @saved.State · @saved.Items.Count items</option> }</select></label>
+        }
+        @if (_loading) { <p role="status">Loading the saved asset library…</p> }
+        else if (_run is null) {
+            <label>Output type<select @bind="_kind" @bind:after="ChangeKind" disabled="@_busy">@foreach (var kind in Enum.GetValues<AssetBatchKind>()) { <option value="@kind">@AssetBatchPlan.Label(kind)</option> }</select></label>
+            <p class="field-hint">@(_kind == AssetBatchKind.Images ? "Generate candidates across selected assets and character looks. Images stay in Pending review until you keep them or use them as references. Existing references stay selected." : "Create visual reference reels from approved images, or review saved coverage that still needs keyframes. New reels keep existing recipes and keyframe choices available.")</p>
+            @if (_kind == AssetBatchKind.Images && !_planReady) { <p class="field-hint">Characters and props start with neutral studio presentation; environments start with an establishing view. Your directions take priority. Review and edit the prompts in the next step.</p> }
+            @if (!_planReady && _kind == AssetBatchKind.Images) {
+                <div class="bulk-type-filters" role="group" aria-label="Asset type">
+                    <button type="button" aria-pressed="@(_categoryFilter is null ? "true" : "false")" @onclick="() => _categoryFilter = null" disabled="@_busy">All <span>@_rows.Count</span></button>
+                    @foreach (var category in Enum.GetValues<AssetCategory>().Where(c => _rows.Any(r => r.Item.Category == c))) {
+                        <button type="button" aria-pressed="@(_categoryFilter == category ? "true" : "false")" @onclick="() => _categoryFilter = category" disabled="@_busy">@CategoryLabel(category) <span>@_rows.Count(r => r.Item.Category == category)</span></button>
+                    }
+                </div>
+                <p class="field-hint">Only selected items in the shown type are included in this batch. Selection shortcuts below apply to that type.</p>
+            }
+            @if (_kind == AssetBatchKind.Images) {
+            <div class="bulk-settings">
+                <label>Image workflow<select @bind="_workflow" @bind:after="RebuildPlan" disabled="@_busy">@foreach (var model in Enum.GetValues<ImageWorkflow>()) { <option value="@model">@model.Label()</option> }</select></label>
+                <label>Candidates per item<select @bind="_count" disabled="@_busy">@for (var n = 1; n <= 4; n++) { <option value="@n">@n</option> }</select></label>
+                <label>Aspect<select aria-label="Aspect" @bind="_aspect" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "2:3", "3:2", "4:3", "3:4", "16:9", "9:16" }) { <option>@aspect</option> }</select></label>
+                <label>Resolution<select @bind="_resolution" disabled="@(_busy || _workflow == ImageWorkflow.CodexImages)"><option value="1024">1K · ~1 MP</option><option value="1440">1440 · ~2 MP</option><option value="2048">2K · ~4 MP</option></select></label>
+            </div>
+            } else {
+                <div class="bulk-settings bulk-reel-settings">
+                    <label>Coverage purpose<select @bind="_framing" @bind:after="RebuildPlan" disabled="@_busy">
+                    @if (_kind == AssetBatchKind.CharacterReels) { @foreach (var preset in ReferenceReels.CharacterCapturePresets) { <option value="@preset.Framing">@preset.Label</option> } }
+                    else { @foreach (var preset in ReferenceReels.EnvironmentPresets) { <option value="@preset.Framing">@preset.Label</option> } }
+                    </select></label>
+                    <label>Generation preset<select @bind="_presetId" @bind:after="RebuildPlan" disabled="@_busy"><option value="">Custom defaults</option>@foreach (var preset in _presets.Setups.Where(s => !s.Archived)) { <option value="@preset.Id">@preset.Name</option> }</select></label>
+                </div>
+                <p class="field-hint">One candidate per recipe. Visual character reels are silent; environment reels are silent camera studies. Review duration, route and prompts in the next step.</p>
+            }
+            @if (_kind == AssetBatchKind.Images) {
+                <label class="bulk-review-toggle"><input type="checkbox" @bind="_enhance" disabled="@_busy" /> Enhance prompts with AI</label>
+                @if (_enhance) {
+                    <div class="bulk-vision-choice"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.PromptEnhancement" Disabled="_busy" SelectionChanged="state => _promptModel = state" />
+                    <p class="field-hint">Before generating each item, AI rewrites its prompt using the selected image model's guide, asset direction, visual style, framing and batch instructions. Both prompts are saved. No image inspection is required.</p></div>
+                }
+            }
+            <label class="bulk-review-toggle"><input type="checkbox" @bind="_evaluate" disabled="@_busy" /> Evaluate candidates with a vision model (optional)</label>
+            @if (!_planReady) { <VisualStyleEditor Label="Batch visual style" Value="_runStyle" ValueChanged="value => { _runStyle = value; RebuildPlan(); }" Inherited="_projectStyle" Disabled="_busy" /><p class="field-hint">Inherit uses each asset's override where set, otherwise the project style. A batch override applies to every selected item.</p> }
+            @if (_evaluate) {
+                <div class="bulk-vision-choice"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.AssetExtraction" Disabled="_busy" SelectionChanged="ReviewerChanged" />
+                <p class="field-hint">@(_kind == AssetBatchKind.Images ? "The selected provider receives a contact sheet and captured direction. Evaluation recommends a take and explains concerns; approval remains yours." : "The selected provider receives sampled frames, original reference pictures and the captured coverage plan. It can flag concerns and suggest keyframes. You review the video and explicitly save the views.")</p>
+                @if (_reviewer is { SupportsImages: false }) { <p class="field-error" role="status">@(_reviewer.ImageInputKnown ? "Choose a model with verified image input." : TextVisionPolicy.ImageIssue(_reviewer))</p> }
+                </div>
+            }
+            @if (_kind == AssetBatchKind.Images && !_planReady) {
+                <details class="bulk-instructions">
+                    <summary>Additional instructions (optional)@(!string.IsNullOrWhiteSpace(_additionalInstructions) ? " · Added" : "")</summary>
+                    <label for="bulk-additional-instructions">Instructions for this batch</label>
+                    <textarea id="bulk-additional-instructions" rows="3" maxlength="@AssetBatchPlan.MaximumAdditionalInstructions" @bind="_additionalInstructions" @bind:event="oninput" disabled="@_busy" placeholder="For example: full-body characters, entire figure visible, with space around the subject."></textarea>
+                    <p class="field-hint">Applies to every selected item alongside its asset direction and visual style. The AI reviewer uses these instructions too.</p>
+                </details>
+            }
+            @if (!_planReady) {
+            <div class="bulk-select-actions"><button type="button" @onclick="SelectMissing">@(_kind == AssetBatchKind.Images ? "Select missing references" : "Select missing coverage")</button><button type="button" @onclick="SelectAll">Select all ready items</button><button type="button" @onclick="ClearSelection">Clear</button>
+                <span>@SelectedCount items · @(_kind == AssetBatchKind.Images ? (SelectedCount * _count) + " candidates" : "one candidate per new recipe")</span></div>
+            } else {
+                <p class="bulk-plan-summary">@(_categoryFilter is { } filter ? CategoryLabel(filter) : "All asset types") · @SelectedCount items@(_kind == AssetBatchKind.Images ? $" · {_aspect} · {_count} candidates per item" : "")</p>
+            }
+            @if (_rows.Count == 0) { <p>Create or extract some assets before planning a batch.</p> }
+            <div class="bulk-plan-list">
+            @foreach (var row in _planReady ? SelectedRows : SelectionRows) {
+                var item = _drafts[row.Item.Id]; var blocked = ItemBlocked(item);
+                <article class="bulk-plan-card" data-bulk-item="@item.Id" @key="item.Id">
+                    <header><label><input type="checkbox" @bind:get="_selected.Contains(item.Id)" @bind:set="value => Toggle(item.Id, value)" disabled="@(blocked || _busy)" /><strong>@item.Context.AssetName</strong><span>@item.Context.LookName</span></label><span class="bulk-badge">@(_kind == AssetBatchKind.Images ? row.MissingReference ? "Missing reference" : "Has reference" : row.MissingReference ? "Needs coverage / review" : "Has saved coverage")</span></header>
+                    <p class="field-hint">@item.Category · @(_kind == AssetBatchKind.Images ? item.References.Count == 0 ? "Create from direction" : $"Edit with {item.References.Count} approved reference(s)" : $"{item.References.Count} approved reference(s) · {ReferenceReels.Label(item.Recipe!.Framing)}")</p>
+                    @if (_planReady && _kind == AssetBatchKind.Images) {
+                        <p class="field-hint bulk-item-aspect">Image aspect · @_aspect</p>
+                        @if (!string.IsNullOrWhiteSpace(_additionalInstructions)) { <details class="bulk-item-instructions" open><summary>Additional batch instructions</summary><p class="bulk-captured-prompt">@_additionalInstructions.Trim()</p></details> }
+                    }
+                    @if (row.Issue is { } issue) { <p class="field-hint">@issue</p> }
+                    @if (item.References.Count > 0) { <div class="bulk-inputs">@foreach (var source in item.References) { <img src="@ImageUrl(source.Reference)" alt="Approved input for @item.Context.AssetName" loading="lazy" /> }</div> }
+                    @if (_kind != AssetBatchKind.Images && row.Item.ExistingReelId is { } existing) { <label class="bulk-reuse-reel"><input type="checkbox" @bind:get="item.ExistingReelId is not null" @bind:set="value => UseExisting(item.Id, existing, value)" disabled="@_busy" /> Review the saved coverage reel instead of generating again</label> }
+                    @if (_planReady && _selected.Contains(item.Id) && item.Recipe is { } recipe && item.ExistingReelId is null) {
+                        <div class="bulk-settings bulk-reel-settings">
+                            <label>Duration (seconds)<input type="number" min="1" step="0.1" value="@recipe.Duration.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => RecipeDuration(item.Id, e.Value?.ToString())" disabled="@_busy" /></label>
+                            <label>Reel aspect<select value="@recipe.Aspect" @onchange="e => EditRecipe(item.Id, r => r.Aspect = e.Value?.ToString() ?? string.Empty)" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "16:9", "9:16", "4:3", "3:4" }) { <option>@aspect</option> }</select></label>
+                        </div>
+                        <label>Coverage / route instructions<textarea rows="3" value="@recipe.Instructions" @oninput="e => EditRecipe(item.Id, r => r.Instructions = e.Value?.ToString() ?? string.Empty)" disabled="@_busy"></textarea></label>
+                        <button type="button" class="bulk-build-recipe" @onclick="() => UpdateRecipePrompt(item.Id)" disabled="@_busy">Update prompt from recipe</button>
+                        @if (string.IsNullOrWhiteSpace(item.Prompt)) { <p class="field-hint">Update the prompt after changing the recipe.</p> }
+                    }
+                    @if (_planReady && _selected.Contains(item.Id) && item.ExistingReelId is null) {
+                        @if (VisualStyles.Brief(item.VisualStyle) is { Length: > 0 } style) { <details class="bulk-style-direction"><summary>Visual style · @VisualStyles.Label(item.VisualStyle!.Preset)</summary><p class="bulk-captured-prompt">@style</p></details> }
+                        <label for="@($"bulk-prompt-{item.Id}")">Generation prompt</label>
+                        <textarea id="@($"bulk-prompt-{item.Id}")" rows="5" value="@item.Prompt" @oninput="e => ChangePrompt(item.Id, e.Value?.ToString() ?? string.Empty)" disabled="@_busy"></textarea>
+                    }
+                </article>
+            }
+            </div>
+        }
+        else {
+            <section class="bulk-run-status" role="status">
+                <div><strong>@RunLabel</strong><span>@_run.Items.Count(i => i.State is AssetBatchItemState.Ready or AssetBatchItemState.NeedsAttention or AssetBatchItemState.Skipped) / @_run.Items.Count items finished</span></div>
+                <progress max="@_run.Items.Count" value="@_run.Items.Count(i => i.State is AssetBatchItemState.Ready or AssetBatchItemState.NeedsAttention or AssetBatchItemState.Skipped)"></progress>
+                <p>@(_run.Kind == AssetBatchKind.Images ? _run.Settings.DefaultImageWorkflow.Label() : AssetBatchPlan.Label(_run.Kind)) · @_run.CandidateCount candidates per item · @(_run.Reviewer is null ? "Manual review" : "Vision evaluation enabled")</p>
+                @if (_run.PromptModel is { } promptModel) { <p>Prompt enhancement · @promptModel.Name · @_run.Items.Count(i => i.EnhancedPrompt is not null) / @_run.Items.Count prompts enhanced</p> }
+                <p class="field-hint">You can close this window or leave Assets. The batch and its checkpoints remain saved.</p>
+                @if (_run.Error is { } error) { <p class="field-error">@error</p> }
+                @if (_run.Pending is { } pending && _queue.Jobs.SingleOrDefault(j => j.Id == pending.Id) is { } job) {
+                    <AiJobProgressView @key="job.Id" Job="job" Queue="_queue" Progress="_progress" />
+                }
+                <div class="bulk-controls">
+                    @if (_run.State == AssetBatchState.Running) { <button @onclick='() => Command("pause")' disabled="@_busy">Pause after current request</button> }
+                    @if (_run.State == AssetBatchState.Paused) { <button @onclick='() => Command("resume")' disabled="@_busy">Resume batch</button> }
+                    @if (_run.Active) { <button @onclick='() => Command("stop")' disabled="@_busy">Stop batch</button> }
+                </div>
+            </section>
+            @if (_run.Kind == AssetBatchKind.Images) {
+                <div class="bulk-review-toolbar">
+                    <label>Show candidates<select aria-label="Candidate review filter" value="@(_showDecided ? "all" : "pending")" @onchange='e => _showDecided = e.Value?.ToString() == "all"'><option value="pending">Pending review</option><option value="all">All candidates</option></select></label>
+                    <span role="status">@RemainingCandidates.Length candidate@(RemainingCandidates.Length == 1 ? "" : "s") awaiting your decision</span>
+                    <button disabled="@(_busy || _run.Active || _run.Pending is not null || RemainingCandidates.Length == 0)" @onclick="() => Discard(RemainingCandidates)">Discard all remaining candidates (@RemainingCandidates.Length)</button>
+                </div>
+                @if (LastDiscard is { Key: { } operation } discarded) { <div class="bulk-discard-undo" role="status">@discarded.Count() candidate@(discarded.Count() == 1 ? "" : "s") moved to Trash. <button disabled="@_busy" @onclick="() => UndoDiscard(operation)">Undo discard</button><a href="/trash">Open Trash</a></div> }
+                @if (!_run.Active && _run.Pending is null && !_showDecided && RemainingCandidates.Length == 0 && AttentionCount(_run) == 0) { <p class="bulk-review-complete" role="status">Review complete. No candidates are awaiting your decision. Kept images are in Assets; discarded images remain in Trash.</p> }
+            }
+            <div class="bulk-result-list">
+            @foreach (var item in _run.Items) {
+                var candidates = _run.Kind == AssetBatchKind.Images ? ReviewCandidates(item) : VisibleCandidates(item);
+                if (_run.Kind == AssetBatchKind.Images && !_showDecided && candidates.Count == 0 && item.State is AssetBatchItemState.Ready or AssetBatchItemState.Skipped) { continue; }
+                <article class="bulk-result-card" data-bulk-state="@item.State" data-bulk-item="@item.Id">
+                    <header><div><h3>@item.Context.AssetName</h3><p>@item.Context.LookName</p></div><span class="bulk-badge">@ItemLabel(item)</span></header>
+                    @if (item.Error is { } itemError) { <p class="field-error">@itemError</p> }
+                    <details><summary>Captured direction</summary><p class="bulk-captured-prompt">@(_run.Kind == AssetBatchKind.Images ? AssetBatchPlan.ImagePrompt(item) : item.Prompt)</p></details>
+                    @if (item.EnhancedPrompt is not null) { <details><summary>Original prompt &amp; instructions</summary><p class="bulk-captured-prompt">@AssetBatchPlan.ImagePrompt(item with { EnhancedPrompt = null })</p></details> }
+                    @if (_run.Kind == AssetBatchKind.Images) { <p class="field-hint">Image aspect · @_run.AspectRatio</p> }
+                    @if (_run.Kind == AssetBatchKind.Images && VisualStyles.Brief(item.VisualStyle) is { Length: > 0 } capturedStyle) { <details><summary>Captured visual style · @VisualStyles.Label(item.VisualStyle!.Preset)</summary><p class="bulk-captured-prompt">@capturedStyle</p></details> }
+                    @if (item.ApprovedImageId is not null) { <p class="bulk-approved">Reference approved</p> }
+                    <div class="bulk-candidates">
+                    @if (_run.Kind != AssetBatchKind.Images) {
+                        @foreach (var reel in VisibleReels(item)) { <AssetBatchReelResult @key="reel.Id" ProjectId="ProjectId" Reel="reel" Review="item.ReelReviews.SingleOrDefault(r => r.Request.Views.ReelId == reel.Id)" Reviewed="item.ReviewedReels.Contains(reel.Id)" Busy="_busy" Open="() => ReviewKeyframes(item.Id, reel)" Approve="selected => ApproveViews(item.Id, reel.Id, selected)" /> }
+                    } else {
+                    @foreach (var id in candidates) {
+                        var evaluation = item.Evaluation?.Candidates.SingleOrDefault(c => c.ImageId == id);
+                        var reference = new AssetImageReference(item.Context.AssetId, id);
+                        var candidateImage = CandidateImage(item, id);
+                        var discardedImage = CandidateTrash(item, id);
+                        <section class="bulk-candidate">
+                            <button type="button" class="bulk-image-preview" disabled="@(discardedImage is not null)" @onclick="() => View(item, id)" aria-label="@($"Review candidate {candidates.IndexOf(id) + 1} for {item.Context.AssetName}")"><img src="@(discardedImage is null ? ImageUrl(reference) : $"/media/trash/{ProjectId}/{discardedImage.Id}")" alt="Candidate for @item.Context.AssetName" loading="lazy" /></button>
+                            <div class="bulk-candidate-copy">
+                                <strong>@(item.Evaluation?.RecommendedImageId == id ? $"AI recommendation · Candidate {CandidateNumber(item, id)}" : $"Candidate {CandidateNumber(item, id)}")</strong>
+                                <span class="bulk-candidate-decision">@(discardedImage is not null ? "Discarded · In Trash" : candidateImage?.PendingReview == true ? "Pending review" : candidateImage?.IsReference == true ? "Reference approved" : "Kept as take")</span>
+                                @if (evaluation is not null) {
+                                    <span class="bulk-verdict">@VerdictLabel(evaluation.Verdict) · rank @evaluation.Rank</span><p>@evaluation.Summary</p>
+                                    <details><summary>Review checks</summary><dl>@foreach (var check in evaluation.Checks) { <dt>@check.Name · @VerdictLabel(check.Verdict)</dt><dd>@check.Reason</dd> }</dl></details>
+                                } else { <p class="field-hint">@(item.State == AssetBatchItemState.Evaluating ? "Waiting for evaluation" : "Available for manual review")</p> }
+                                @if (discardedImage is null) { <div class="bulk-candidate-actions"><button @onclick="() => View(item, id)">Compare &amp; details</button><button @onclick="() => Approve(item.Id, id)" disabled="@(_busy || IsApproved(reference))">@(IsApproved(reference) ? "Approved" : "Use as reference")</button>
+                                    @if (candidateImage?.PendingReview == true) { <button @onclick="() => Keep(item.Id, id)" disabled="@_busy">Keep as take</button><button class="bulk-discard" @onclick="() => Discard([reference])" disabled="@DecisionBusy(item)">Discard</button> }
+                                </div> }
+                            </div>
+                        </section>
+                    }
+                    }
+                    </div>
+                    @if (_run.Kind == AssetBatchKind.Images ? candidates.Count == 0 : !VisibleReels(item).Any()) { <p class="field-hint">@(item.State is AssetBatchItemState.Generating ? "Waiting for the first saved candidate…" : item.OutputCount > 0 ? "These candidates are no longer in the active library. Restore them from Trash to review them." : "No saved candidates yet.")</p> }
+                    <div class="bulk-item-actions">
+                        @if (item.State == AssetBatchItemState.Ready && item.Attempts < 2 && _run.Pending is null) { <button @onclick="() => GenerateAgain(item.Id)" disabled="@_busy">Generate again</button> }
+                        @if (item.State == AssetBatchItemState.NeedsAttention && _run.Pending is null && (_run.Kind != AssetBatchKind.Images || item.OutputCount == 0 || PendingCandidates(item).Count > 0)) { <button @onclick="() => Retry(item.Id)" disabled="@(_busy || !CanRetry(item))">@RetryLabel(item)</button> }
+                        @if ((_run.Kind != AssetBatchKind.Images || item.OutputCount == 0) && item.State is AssetBatchItemState.Pending or AssetBatchItemState.NeedsAttention or AssetBatchItemState.Ready && _run.PendingItemId != item.Id) { <button @onclick="() => Skip(item.Id)" disabled="@_busy">Skip item</button> }
+                        @if (item.ReviewJobId is { } review) { <a href="@($"/projects/{ProjectId}/assets?assetBatchReview={review}")" @onclick="() => InspectReview(review)" @onclick:preventDefault>Saved review response</a> }
+                        @if (item.PromptJobs.LastOrDefault() is var promptJob && promptJob != Guid.Empty) { <a href="@($"/projects/{ProjectId}/assets?assetBatchReview={promptJob}")" @onclick="() => InspectReview(promptJob)" @onclick:preventDefault>Saved prompt response</a> }
+                    </div>
+                </article>
+            }
+            </div>
+            @if (_rawReview is not null) { <details open class="bulk-raw-review"><summary>Saved review response</summary><pre>@_rawReview</pre></details> }
+        }
+    </ChildContent>
+    <Actions>
+        @if (_run is null) {
+            @if (!_planReady) { <MudButton OnClick="() => _planReady = true" Disabled="@(_busy || SelectedCount == 0)" Variant="Variant.Filled" Color="Color.Primary">Review generation plan</MudButton> }
+            else { <MudButton OnClick="() => _planReady = false" Disabled="_busy">Back to selection</MudButton><MudButton OnClick="StartAsync" Disabled="@(!CanStart)" Variant="Variant.Filled" Color="Color.Primary">@(_busy ? "Preparing batch…" : "Start batch")</MudButton> }
+        } else if (!_run.Active && _run.Pending is null) { <MudButton OnClick="NewPlan" Disabled="_busy" Variant="Variant.Outlined">New batch</MudButton> }
+    </Actions>
+</AiAssistDialog>
+@if (_viewer is not null && _library is not null) {
+    <ImageReviewDialog Session="_viewer" Library="_library" Visible="true" InitialSelection="_viewInitial" Closed="CloseViewer" AllowDiscard="false" />
+}
+<InlineDialog Visible="@(_keyframeReel is not null)" VisibleChanged="value => value ? Task.CompletedTask : CloseKeyframes()" Title="Review reel keyframes" Class="bulk-reel-keyframe-dialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false })">
+    <DialogContent>@if (_keyframeReel is { } edited) { @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }<ReelKeyframeEditor ProjectId="ProjectId" Media="edited.Media" Initial="edited.Keyframes" Applied="SaveKeyframes" Cancelled="CloseKeyframes" /> }</DialogContent>
+</InlineDialog>

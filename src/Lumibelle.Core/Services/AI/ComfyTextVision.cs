@@ -12,7 +12,10 @@ public static class TextVisionPolicy
     public static bool SupportsBackend(AiBackend backend) =>
         backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.ComfyUI or AiBackend.Vllm;
 
-    public const string SetupHint = "Choose a vision model. For ComfyUI, enable image input in this model's AI settings and refresh the model picker.";
+    public const string SetupHint = "Choose a vision model. Test image input in AI settings, then refresh the model picker. Connection capability overrides are available under Compatibility & capabilities.";
+
+    public static string? ImageIssue(TextModelSelectionState? selection) => selection is { SupportsImages: true } && SupportsBackend(selection.Model.Backend) ? null
+        : selection is { ImageInputKnown: false } ? "Image input is unverified. Test this model in AI settings, then refresh the model picker." : SetupHint;
 }
 
 public sealed record ComfyVisionCapabilities(bool SingleImage, bool ImageBatch)

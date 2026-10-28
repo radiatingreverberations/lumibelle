@@ -16,7 +16,7 @@
             }
             else if (IsVllm)
             {
-                <p class="field-hint">Tests use this model's saved temperature and reply limit. Advanced tests can use a different reply limit.</p>
+                <p class="field-hint">Tests use this model's saved temperature and reply limit, then check JSON-schema output on compatible servers and image input with synthetic images. Advanced tests can use a different reply limit. Capability checks are measured separately.</p>
                 @if (!AdvancedMode) { @VllmMeasurements }
             }
             else if (!AdvancedMode && LatestBenchmark is { } benchmark)
@@ -84,6 +84,12 @@
         @if (LatestVllmBenchmark is { } local)
         {
             <TextModelBenchmarkDetails Benchmark="local.Measurement" Provider="OpenAI-compatible" OutputThroughput="true" />
+            <dl class="model-capabilities" aria-label="Detected capabilities"><dt>Image input</dt><dd>@OpenAiImageInput.TestLabel(local.ImageInput)</dd></dl>
+            @if (local.ImageInput is { } images) { <p class="field-hint">@images.Detail</p> }
+            @if (local.StructuredOutput is { } schema) {
+                <dl class="model-capabilities"><dt>JSON schema</dt><dd>@OpenAiStructuredOutput.Label(schema)</dd></dl>
+                <p class="field-hint">@schema.Detail</p>
+            }
             <p class="field-hint">Server: @local.Server · Temperature: @(local.Temperature?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "server default")</p>
         }
     </text>;

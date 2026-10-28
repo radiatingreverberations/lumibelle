@@ -1,6 +1,6 @@
 # FLUX.2 Klein 9B edit-prompt rewriter
 
-Scope: FLUX.2 Klein 9B and 9B-KV, ordinary distilled image-editing workflows. Version 1.0; sources checked 2026-09-05. KV changes reference processing, not this prompting contract. This is an upstream LLM instruction, not text to send wholesale to the image model. Task recipes express editing goals, not guaranteed capabilities.
+Scope: FLUX.2 Klein 9B and 9B-KV, ordinary distilled image-editing workflows. Version 1.0; sources rechecked 2026-10-25. KV changes reference processing, not this prompting contract. This is an upstream LLM instruction, not text to send wholesale to the image model. Task recipes express editing goals, not guaranteed capabilities. See docs/prompt-enhancement/image-guidance-sources.md.
 
 ## Role and output
 

@@ -11,6 +11,51 @@ async function openAssets(page, project) {
 }
 const state = async (request, project) => (await (await request.get(`/fixtures/${project.id}`)).json()).assets;
 
+for (const width of [1440, 390]) test(`Trash bulk selection covers every page and keeps the chosen project scope at ${width}px`, async ({ page, request }, testInfo) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width, height: 1000 });
+  const first = await fixture(request); const second = await fixture(request);
+  await request.post(`/fixtures/${first.project.id}/trash-many`);
+  await request.post(`/fixtures/${second.project.id}/trash/${second.library.assets[0].images[0].id}`);
+  await page.goto('/trash');
+  await expect(page.locator('.trash-toolbar')).toHaveAttribute('data-interactive', 'true');
+  const scope = page.locator('.trash-toolbar select');
+  const selection = page.locator('.trash-selection-count');
+  await scope.selectOption(first.project.id);
+  await expect(page.locator('.trash-card')).toHaveCount(24);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Select all in this project', exact: true }).click();
+  await expect(selection).toContainText('55 selected');
+  await expect(page.getByRole('button', { name: 'Restore selected (55)', exact: true })).toBeEnabled();
+  await expect(page.locator('.trash-card input:checked')).toHaveCount(24);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.locator('.trash-card input:checked')).toHaveCount(7);
+  await scope.selectOption(second.project.id);
+  await expect(selection).toContainText('0 selected');
+  await page.getByRole('button', { name: 'Select all in this project', exact: true }).click();
+  await expect(selection).toContainText('1 selected');
+  await scope.selectOption('');
+  await page.getByRole('button', { name: 'Select all projects', exact: true }).click();
+  await expect(selection).toContainText('56 selected');
+  await page.getByRole('button', { name: 'Clear selection', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Restore selected (0)', exact: true })).toBeDisabled();
+  await scope.selectOption(first.project.id);
+  await page.getByRole('button', { name: 'Select all in this project', exact: true }).click();
+  // New discards are excluded until the user explicitly selects them.
+  await request.post(`/fixtures/${first.project.id}/trash/${first.library.assets[0].images[0].id}`);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(selection).toContainText('55 selected');
+  await expect(page.getByRole('button', { name: 'Select all in this project', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.locator('.trash-toolbar').screenshot({ path: testInfo.outputPath(`trash-bulk-${width}.png`) });
+  await page.getByRole('button', { name: 'Restore selected (55)', exact: true }).click();
+  await expect(page.locator('.trash-notice')).toContainText('55 media item(s) restored.');
+  await expect(page.locator('.trash-card')).toHaveCount(1);
+  expect((await state(request, first.project)).assets[0].images).toHaveLength(first.library.assets[0].images.length + 54);
+  expect((await state(request, first.project)).trash).toHaveLength(1);
+  expect((await state(request, second.project)).trash).toHaveLength(1);
+});
+
 test('discard and Undo work during generation; a trashed source remains comparable and restores in place', async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { project, library } = await fixture(request); const sourceId = library.assets[0].images[0].id;

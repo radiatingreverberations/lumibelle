@@ -15,8 +15,9 @@ else {
         <section class="planning-stopped" role="alert">
             <span class="planning-stopped-icon" aria-hidden="true">!</span>
             <div><strong>@(Run.Status == AssistantRunStatus.Cancelled ? "Request cancelled" : ApprovalPending ? "Brief ready for your approval" : Planning ? "Planning stopped before screenplay drafting" : ReviewValidationError is not null ? "Automatic review could not be verified" : Review is not null ? "Automatic review needs attention" : "Screenplay drafting stopped")</strong>
+                @if (!ApprovalPending && ReviewValidationError is null && !string.IsNullOrWhiteSpace(DisplayError)) { <p class="planning-error-detail">@DisplayError</p> }
                 @if (ReviewValidationError is not null) { <p>@ReviewFailureDetail</p><p>This is a problem with the reviewer's response; it does not confirm a screenplay error. <strong>Recheck saved review</strong> validates the saved output without another AI call.</p> }
-                else { <p>@(ApprovalPending ? "Review the saved brief, then use it as it is or edit the JSON. Screenplay drafting has not started." : Planning && Brief is not null ? "The saved brief is available below." : Review is not null ? "The draft and review findings are saved below." : "The saved output is available in response details.")</p> }
+                else { <p>@(ApprovalPending ? "Review the saved brief, then use it as it is or edit the JSON. Screenplay drafting has not started." : Planning && Brief is not null ? "The saved brief is available below." : Review is not null ? "The draft and review findings are saved below." : Run.Output.Length == 0 ? Brief is not null ? "No screenplay text was received. The saved sequence brief is available below." : "No response text was received." : "The saved output is available in response details.")</p> }
             </div>
         </section>
     }
@@ -62,7 +63,7 @@ else {
     }
     <div class="planning-diagnostics">
         <details class="planning-response-details"><summary>Response details <span>@Run.Output.Length.ToString("N0") characters</span></summary>
-            @if (Run.Error is not null) { <p class="planning-error-detail">@Run.Error</p> }
+            @if (DisplayError is not null) { <p class="planning-error-detail">@DisplayError</p> }
             <pre class="raw-response">@Run.Output</pre>
         </details>
         <details class="request-details"><summary>Request details</summary><p>Saved revision @Run.SourceRevision · @Run.Target.Name · @Run.Backend · @Run.Model</p><pre class="submitted-input">@(RequestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
@@ -80,17 +81,19 @@ else {
     [Parameter, EditorRequired] public AssistantRun Run { get; set; } = null!;
     [Parameter] public ScriptScenePlan? Brief { get; set; }
     [Parameter] public string? ModelName { get; set; }
+    [Parameter] public string? ProviderName { get; set; }
     [Parameter] public string? RequestDetails { get; set; }
     [Parameter] public RenderFragment? Progress { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     private bool Working => Run.Status == AssistantRunStatus.Running;
+    private string? DisplayError => AiErrors.Display(Run.Error, ProviderName);
     private static string FindingCategory(string category) => category switch {
         "coverage" => "Beat coverage", "ending" => "Ending", "source_facts" => "Source details",
         "knowledge" => "Character knowledge", "continuity" => "Continuity", "duplication" => "Repetition",
         "screenplay" => "Screenplay form", "scope" => "Sequence scope", _ => "Draft"
     };
     private string? ReviewValidationError => Review is { State: ScriptSequenceReviewState.NeedsAttention } review
-        ? review.ValidationError ?? (!review.Findings.Any(f => f.Severity == "repair") ? Run.Error : null) : null;
+        ? AiErrors.Display(review.ValidationError, ProviderName) ?? (!review.Findings.Any(f => f.Severity == "repair") ? DisplayError : null) : null;
     private string? ReviewFailureDetail {
         get {
             if (ReviewValidationError?.StartsWith("Beat check ", StringComparison.Ordinal) == true && Review?.RawResponse is { Length: > 0 } raw) {

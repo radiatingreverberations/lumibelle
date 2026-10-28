@@ -196,6 +196,7 @@ else
                                     <div class="text-model-info"><div class="text-model-title"><button type="button" class="text-model-expand" aria-expanded="@(expanded ? "true" : "false")" aria-controls="@domId" @onclick="() => ExpandModel(model)">@name</button>@if (TextModelPolicy.Same(model, TextModelPolicy.Default(_settings))) { <span class="model-default-tag">Default</span> }</div>
                                         @if (model.Backend == AiBackend.Vllm) { <p class="text-model-status">@OpenAiConnections.Name(_settings, model.VllmUrl) · @model.VllmUrl</p> }
                                         @if (ModelStatus(model) is { } status) { <p class="text-model-status">@status</p> }
+                                        @if (model.Backend == AiBackend.Vllm && catalog is not null) { <p class="field-hint">@OpenAiImageInput.Label(catalog)</p> }
                                         @if (testStatus is not null) { <p class="text-model-test-status" title="@testStatus.Detail">@testStatus.Label</p> }
                                         @if (TextBackend == AiBackend.OpenRouter)
                                         {
@@ -381,29 +382,49 @@ else
                 }
                 else
                 {
-                <p class="field-hint">@(IsQwen ? "Qwen Image 2.1 creates and edits with up to ten ordered references. Use the Qwen3-VL 8B encoder and the separate Qwen Image 2.1 VAE. Default: 25 Euler/simple steps, CFG 1, about 1 MP; up to 2K (~4 MP)." : IsKlein ? "Klein KV creates images and combines up to eight references for edits. Uses Qwen3 8B and the FLUX.2 VAE, with four Euler steps." : "Krea 2 creates images and edits one source using the identity-edit LoRA.") You can switch workflows for each run in Assets.</p>
-                @if (IsKlein) { <a href="https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_flux2_klein_9b_kv_image_edit.json" target="_blank" rel="noopener noreferrer">Official ComfyUI Klein KV workflow</a> }
+                <p class="field-hint">@(IsCaption ? CaptionWorkflowDescription : IsFlux3 ? "FLUX 3 Image Klein creates and edits with up to ten ordered references. Choose the Base or Distilled checkpoint, Qwen3-VL 4B encoder and FLUX.2 VAE. Output supports up to 4K (~16 MP)." : IsMoss ? "MOSS-Image Base and SFT create images using Qwen3.5 9B and the FLUX.2 VAE. A compatible edit LoRA and the native Text Encode MOSS-Image Edit node enable up to four ordered references." : IsQwen ? "Qwen Image 2.1 creates and edits with up to ten ordered references. Use the Qwen3-VL 8B encoder and the separate Qwen Image 2.1 VAE. Base defaults to 25 Euler/simple steps; Turbo uses its fixed 8-step schedule. CFG 1, about 1 MP; up to 2K (~4 MP)." : IsKlein ? "Klein KV creates images and combines up to eight references for edits. Uses Qwen3 8B and the FLUX.2 VAE, with four Euler steps." : "Krea 2 creates images and edits one source using the identity-edit LoRA.") You can switch workflows for each run in Assets.</p>
                 <MudButton OnClick="RefreshImagesAsync" Disabled="Busy" Variant="Variant.Outlined">Refresh image models</MudButton>
-                            <label for="comfy-image-model">@(IsQwen ? "Qwen Image 2.1 model" : IsKlein ? "Klein 9B KV model" : "Krea 2 model")</label><select id="comfy-image-model" @bind="ImageModel" disabled="@Busy">
-                                @if (_imageModels.All(model => model.Id != ImageModel)) { <option value="@ImageModel">@ImageModel</option> }
+                <p class="field-hint" id="image-file-availability-help">Refresh checks files reported by your ComfyUI server. Saved selections stay visible even when their availability cannot be confirmed.</p>
+                            <label for="comfy-image-model">@(IsCaption ? _imageWorkflow.Label() + " model" : IsFlux3 ? "FLUX 3 Image Klein model" : IsMoss ? "MOSS-Image Base or SFT model" : IsQwen ? "Qwen Image 2.1 model" : IsKlein ? "Klein 9B KV model" : "Krea 2 model")</label><select id="comfy-image-model" @bind="ImageModel" @bind:after="ImageSelectionChanged" aria-describedby="image-file-availability-help" disabled="@Busy">
+                                @if (_imageModels.All(model => model.Id != ImageModel)) { <option value="@ImageModel">@SavedImageFileLabel(ImageModel)</option> }
                                 @foreach (var model in _imageModels) { <option value="@model.Id">@model.Name</option> }
                             </select>
-                            <label for="comfy-image-encoder">Image text encoder</label><select id="comfy-image-encoder" @bind="ImageEncoder" disabled="@Busy">
-                                @if (_imageEncoders.All(model => model.Id != ImageEncoder)) { <option value="@ImageEncoder">@ImageEncoder</option> }
+                            <ImageModelDownloads Workflow="_imageWorkflow" Kind="ImageFileKind.Model" Variant="@ImageDownloadVariant" Selected="@ImageModel" />
+                            <label for="comfy-image-encoder">Image text encoder</label><select id="comfy-image-encoder" @bind="ImageEncoder" @bind:after="ImageSelectionChanged" aria-describedby="image-file-availability-help" disabled="@Busy">
+                                @if (_imageEncoders.All(model => model.Id != ImageEncoder)) { <option value="@ImageEncoder">@SavedImageFileLabel(ImageEncoder)</option> }
                                 @foreach (var model in _imageEncoders) { <option value="@model.Id">@model.Name</option> }
                             </select>
-                            <label for="comfy-image-vae">Image VAE</label><select id="comfy-image-vae" @bind="ImageVae" disabled="@Busy">
-                                @if (_imageVaes.All(model => model.Id != ImageVae)) { <option value="@ImageVae">@ImageVae</option> }
+                            <ImageModelDownloads Workflow="_imageWorkflow" Kind="ImageFileKind.TextEncoder" Selected="@ImageEncoder" />
+                            <label for="comfy-image-vae">Image VAE</label><select id="comfy-image-vae" @bind="ImageVae" @bind:after="ImageSelectionChanged" aria-describedby="image-file-availability-help" disabled="@Busy">
+                                @if (_imageVaes.All(model => model.Id != ImageVae)) { <option value="@ImageVae">@SavedImageFileLabel(ImageVae)</option> }
                                 @foreach (var model in _imageVaes) { <option value="@model.Id">@model.Name</option> }
                             </select>
-                            @if (!IsKlein && !IsQwen)
+                            <ImageModelDownloads Workflow="_imageWorkflow" Kind="ImageFileKind.Vae" Selected="@ImageVae" />
+                            @if (!IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption)
                             {
-                            <label for="comfy-image-edit-lora">Krea 2 Edit LoRA</label><select id="comfy-image-edit-lora" @bind="_comfyImageEditLora" disabled="@Busy">
-                                @if (_imageEditLoras.All(model => model.Id != _comfyImageEditLora)) { <option value="@_comfyImageEditLora">@_comfyImageEditLora</option> }
+                            <label for="comfy-image-edit-lora">Krea 2 Edit LoRA</label><select id="comfy-image-edit-lora" @bind="_comfyImageEditLora" @bind:after="ImageSelectionChanged" aria-describedby="image-file-availability-help" disabled="@Busy">
+                                @if (_imageEditLoras.All(model => model.Id != _comfyImageEditLora)) { <option value="@_comfyImageEditLora">@SavedImageFileLabel(_comfyImageEditLora)</option> }
                                 @foreach (var model in _imageEditLoras) { <option value="@model.Id">@model.Name</option> }
                             </select>
+                            <ImageModelDownloads Workflow="_imageWorkflow" Kind="ImageFileKind.EditLora" Selected="@_comfyImageEditLora" />
+                            }
+                            @if (IsMoss) {
+                                <MossImageSettingsEditor @bind-Value="_moss" Loras="_imageEditLoras" Disabled="Busy" />
+                            }
+                            @if (IsFlux3) {
+                                <Flux3ImageSettingsEditor @bind-Value="_flux3" Disabled="Busy" />
+                                <p class="field-hint">Refresh lists installed files without changing your saved choices. File discovery does not test architectural compatibility or run the model.</p>
+                            }
+                            @if (IsCaption) {
+                                <CaptionImageSettingsEditor @key="_imageWorkflow" Workflow="_imageWorkflow" @bind-Value="CaptionSettings" Disabled="Busy" />
+                                <p class="field-hint">Refresh lists installed files without changing saved choices. Availability checks do not execute the model.</p>
                             }
                             @if (IsQwen) {
+                                <label for="qwen-image-variant">Checkpoint variant</label>
+                                <select id="qwen-image-variant" @bind:get="_qwen.Variant" @bind:set="(QwenImage21Variant v) => _qwen = _qwen with { Variant = v }" disabled="@Busy">
+                                    <option value="@QwenImage21Variant.Base">Base · adjustable steps</option><option value="@QwenImage21Variant.Turbo">Turbo · fixed 8 steps</option>
+                                </select>
+                                <p class="field-hint">Choose the matching Base or Turbo diffusion file. Turbo uses its published eight-step schedule for both creation and editing.</p>
                                 <p class="field-hint">The file lists show installed files, not tested architectural compatibility. Refresh does not substitute different Qwen model files automatically. Editing uses comfyui-tooling-nodes, as the existing local edit workflows do.</p>
                                 <label for="qwen-cache-device">Edit prefix cache device</label>
                                 <select id="qwen-cache-device" value="@_qwen.CacheDevice" @onchange='e => _qwen = _qwen with { CacheDevice = e.Value?.ToString() ?? "auto" }' disabled="@Busy">
@@ -415,7 +436,13 @@ else
                                 </select>
                                 <p class="field-hint">Auto/default follows the supplied edit workflow. Quantized caches trade accuracy for lower memory use. These settings affect new requests only.</p>
                             }
-                            @if (_imageEditCheck is not null) { <p class="field-hint">@_imageEditCheck</p> }
+                            @if (_imageCreateCheck is not null || _imageEditCheck is not null)
+                            {
+                                <div class="field-hint" role="status" id="image-availability-status">
+                                    @if (_imageCreateCheck is not null) { <p><strong>Create images:</strong> @_imageCreateCheck</p> }
+                                    @if (_imageEditCheck is not null) { <p><strong>Edit images:</strong> @_imageEditCheck</p> }
+                                </div>
+                            }
 
                 }
                 <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save @_imageWorkflow.Label()</MudButton><MudButton OnClick="CancelImageWorkflow" Disabled="Busy">Cancel</MudButton></div>

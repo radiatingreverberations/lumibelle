@@ -10,6 +10,11 @@ namespace lumibelle.Services.Assets;
 
 public interface IAssetReelStore
 {
+    Task RetainRefinementPackageAsync(Guid project, AssetReferenceReel reel, string directory, CancellationToken ct = default)
+        => reel.RefinementPackage is null ? Task.CompletedTask : throw new WorkspaceStoreException("Reel refinement storage is unavailable.");
+    Task<TakeRefinement> CaptureRefinementAsync(Guid project, Guid reel, Guid run, TakeRefinementMode mode, int width, int height,
+        string upscaler, H3UpscalerImplementation implementation, CancellationToken ct = default)
+        => throw new WorkspaceStoreException("Reel refinement storage is unavailable.");
     Task<ReferenceReelDraft?> StartFreshAfterSuccessAsync(AiJobHeader job, ReferenceReelDraft submitted, CancellationToken ct = default)
         => Task.FromResult<ReferenceReelDraft?>(null);
     Task<AssetLibrary> SaveKeyframesAsync(Guid project, AssetReferenceReel baseline, ReelKeyframeSet frames, long expectedRevision, CancellationToken ct = default)

@@ -10,7 +10,7 @@ namespace lumibelle.Services.Production;
 
 public sealed record PromptDraftRecovery(PromptCompositionResult Result, IReadOnlyList<string> Sections, string AddedText);
 
-public static class PromptComposer
+public static partial class PromptComposer
 {
     // Task data is read by the model, not by people: indentation only costs prompt tokens. Nulls stay, since some
     // carry meaning (a video without an Audio input).
@@ -37,7 +37,7 @@ public static class PromptComposer
     /// inspected the reference images, and its brief is appended with <see cref="WithBrief"/>.
     /// </summary>
     public static List<ChatMessage> BuildMessages(PromptCompositionRequest r, IReadOnlyList<byte[]> images, IReadOnlyList<RefModInspectionFrame>? modFrames = null,
-        bool visualBrief = false, byte[]? openingFrame = null, IReadOnlyList<byte[]>? motionStills = null)
+        bool visualBrief = false, byte[]? openingFrame = null, IReadOnlyList<byte[]>? motionStills = null, bool structured = false)
     {
         var attach = !visualBrief;
         modFrames ??= [];
@@ -63,7 +63,7 @@ public static class PromptComposer
                 previousShotProvided = r.NearbyShots.Any(s => s.StartsWith("Previous shot", StringComparison.OrdinalIgnoreCase)),
                 nextShotProvided = r.NearbyShots.Any(s => s.StartsWith("Next shot", StringComparison.OrdinalIgnoreCase)),
                 mustOpenDifferentlyFromPrevious = r.OpeningFrame is null && r.MotionStills is null },
-            r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.Appearances,
+            r.DirectingNotes, currentPrompt = r.OmitCurrentPrompt ? "" : r.CurrentPrompt, r.RevisionNotes, r.Appearances,
             DirectionContext = Shots.ShotDirections.PromptContext(r.DirectionContext),
             environmentStaging = EnvironmentViews.CompositionStaging(r.Shot, r.DirectingNotes, r.RevisionNotes, r.DirectionContext),
             referenceImagesAttached = images.Count > 0 || modFrames.Count > 0,
@@ -80,10 +80,11 @@ public static class PromptComposer
                 duration = v.Reel.Media.Duration, effectiveDuration = ReferenceVideos.EffectiveSeconds(v.Reel.Media, r.Shot),
                 v.Reel.UseSoundtrack, audio = ReferenceVideos.SoundtrackNumber(r.Shot, v.BindingIndex), speaker = v.Reel.UseSoundtrack ? v.Reel.Speaker : null }),
             reelAudio = ResolvedReferences.For(r.Shot).Audio.Where(a => a.Reel is not null && a.Reel.EffectiveVisuals != ReelVisuals.FullReel).Select(a => new { audio = a.Number, reel = a.Reel!.Name, authorProvidedUseGuidance = a.Reel.Description, a.Speaker, excerpt = ResolvedReferences.Excerpt(a.Reel) }),
-            characterVoices = r.Shot.CharacterVoices?.Select(c => new { c.CharacterName, c.Source, c.SourceName, c.Speaker, c.FromDefault,
+            characterVoices = r.Shot.CharacterVoices?.Where(c => c.Source is CharacterVoiceSource.Recording or CharacterVoiceSource.Reel).Select(c => new { c.CharacterName, c.Source, c.SourceName, c.Speaker, c.FromDefault,
                 audio = ResolvedReferences.For(r.Shot).Audio.FirstOrDefault(a => a.CharacterAssetId == c.AssetId)?.Number }),
             voices = ResolvedReferences.For(r.Shot).Audio.Where(a => a.Voice is not null).Select(a => new { audio = a.Number, a.SourceName, a.Speaker, a.Voice!.Start, a.Voice.Duration })
         }));
+        if (structured) message.Contents.Add(new TextContent(DialogueInsertionPlan(r.Shot)));
         foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
         foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
         if (openingFrame is not null) message.Contents.Add(new DataContent(openingFrame, "image/png"));
@@ -102,14 +103,15 @@ public static class PromptComposer
         if (ContinuityPicture(r.Shot) is { } continuity) instructions += $"\n<Picture {continuity.Number}> is a continuity frame, described by continuityPicture: a still from the end of the previous shot's chosen take. " +
             "Use it to keep wardrobe, hair, props, set dressing, lighting and where people are consistent across the cut, and name it in retention_analysis like any reference. " +
             "Its framing and pose are where the previous shot ended, not a composition to copy, unless the directions say this shot continues from there.";
-        if (r.Shot.CharacterVoices is not null) instructions += "\nCharacter voice choices are independent of appearance references. Only the enabled, numbered Audio inputs supply voice identity; disabled reel soundtracks do not. Use the supplied character/source names and explicit speaker mappings. A vocalizations-only voice supplies no dialogue. Never copy the reference recording's sample words or infer target dialogue from it.";
-        if (attach && r.Shot.Videos.Any(v => v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.None)) instructions += "\nReels in keyframe mode are supplied as the numbered Picture images, not videos. Inspect these images directly. Their grouped use guidance describes intended uses; only the selected frames establish visible information. Character frames supply appearance; environment frames supply layout and setting. Audio-only reels provide voice references without visual information. Source actions, camera movements and sample dialogue are not target-shot instructions. Never invent Video identifiers for keyframe or audio-only reels.";
+        if (ReferenceVideos.AudioMappings(r.Shot).Any()) instructions += AudioReferenceInstructions;
+        if (attach && r.Shot.Videos.Any(v => v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.None)) instructions += "\nReels in keyframe mode are supplied as the numbered Picture images, not videos. Inspect these images directly. Their grouped use guidance describes intended uses; only the selected frames establish visible information. Character frames supply appearance; environment frames supply layout and setting. Source actions, camera movements and sample dialogue are not target-shot instructions. Never invent Video identifiers for keyframe or audio-only reels.";
         if (attach && selectedMods.Length > 0) instructions += "\nThe sparseVisualReferences are visual-only RefMods addressed by their numbered Video labels, not Picture labels. " +
             "The extra attached stills are inspection previews of those RefMods, mapped by sparseInspectionAttachments. Inspect them, but never create Picture identifiers for them. " +
             "They show selected views, not an actual motion sequence or its timing. Keep each reference's intended identity, outfit or setting without copying source poses, actions, cuts or camera travel. " +
             "Audio remains an independent numbered input. Do not infer voice or target dialogue from these silent previews. State only observed visual detail, not a claim to have watched a video. " +
             "The padded canvas previews are the original build inputs, not a fresh inspection of the remote latent. Do not describe the padding as part of the retained appearance.";
-        if (!string.IsNullOrWhiteSpace(r.CurrentPrompt)) instructions += ValidLabels(r.Shot);
+        instructions += ValidLabels(r.Shot, !r.OmitCurrentPrompt && !string.IsNullOrWhiteSpace(r.CurrentPrompt));
+        if (r.OmitCurrentPrompt) instructions += "\nCompose a fresh prompt from the current shot, selected references and supplied directing/revision notes. The existing draft is intentionally excluded.";
         if (r.DirectionContext is not null) instructions += "\nPreserve the reviewed dramatic intent and essential relationships in directionContext. Proposed staging is adaptable, not measured geometry. Use only applicable groups; limitations identify stale prescriptions that must not be reused. Do not silently change the story to fit a picture. Surface conflicts with intent in review notes, and qualify inferred or missing geometry. A long-take idea is informational, never an instruction to extend this clip.";
         if (r.DirectionContext?.Environment is not null) instructions += "\nThe accepted drafting environment snapshot records the views and authored constraints behind this direction, separately from current generation references. Preserve authored constraints and qualified supported relationships. Its assessment is reviewable reference support, not verified geometry; inferred, missing and conflicting relationships remain qualified. Do not invent a convenient platform or change scale to hide an obstruction. Inspection camera movements are not shot instructions.";
         if (r.Shot.EnvironmentStaging is not null) instructions += "\nThe environmentStaging is a reviewed shot-specific interpretation, not a claim of measured geometry. " +
@@ -132,7 +134,7 @@ public static class PromptComposer
             "Work from the shot, the neighbouring shots, its references and the directing notes; do not invent surrounding scene events.";
         else if (r.NearbyShotsLeftOut) instructions += "\nThe neighbouring shots were left out to keep this request small. " +
             "Work from the shot, the scene text, its references and the directing notes; do not claim continuity with shots you cannot see.";
-        return [new(ChatRole.System, instructions), message];
+        return [new(ChatRole.System, structured ? StructuredInstructions(instructions, r.Shot) : instructions), message];
     }
 
     private static ResolvedPicture? ContinuityPicture(Shot shot) => ResolvedReferences.For(shot).Pictures.FirstOrDefault(p => p.Continuity is not null);
@@ -168,15 +170,24 @@ public static class PromptComposer
     /// A revision's current prompt may name references that were removed since it was written; weaker models copy those
     /// labels (a stale &lt;Picture 3&gt; in a live Qwen3.8 test), so the valid set is stated explicitly.
     /// </summary>
-    private static string ValidLabels(Shot shot)
+    private static string ValidLabels(Shot shot, bool revision)
     {
         var resolved = ResolvedReferences.For(shot);
         var labels = Enumerable.Range(1, resolved.Pictures.Count).Select(n => $"<Picture {n}>")
             .Concat(Enumerable.Range(1, resolved.Videos.Count).Select(n => $"<Video {n}>"))
             .Concat(Enumerable.Range(1, ReferenceVideos.AudioMappings(shot).Count()).Select(n => $"<Audio {n}>")).ToArray();
-        return "\nThis shot's selected references are " + (labels.Length == 0 ? "none" : string.Join(", ", labels)) + ". " +
-            "The currentPrompt may name references that have since been removed; never carry over any other Picture, Video or Audio label.";
+        return "\nThis shot's selected references are " + (labels.Length == 0 ? "none" : string.Join(", ", labels)) + ". Use only these reference labels. " +
+            (resolved.Audio.Count == 0 ? "No reference recordings are selected. Generate speech and sound from the shot directions; speaker numbers do not identify attached recordings. " : "") +
+            (revision ? "The currentPrompt may name removed references; never carry over any other reference label." : "");
     }
+
+    private const string AudioReferenceInstructions = "\nOnly the selected numbered Audio inputs supply voice identity or an explicitly enabled soundtrack. " +
+        "Character voice choices are independent of appearance references; disabled reel soundtracks and choices set to None are not inputs. " +
+        "Use the supplied Audio numbers exactly; never derive them from Video numbers or speaker numbers. " +
+        "On each mapped Audio definition line, include its assigned authored name or defined subject and stable (S1), (S2) speaker label. " +
+        "An unmapped soundtrack retains its supplied role without an invented speaker. Audio-only reels supply voice references without visual information. " +
+        "Do not claim to have heard recordings; only their supplied roles and speaker mappings are available. " +
+        "Voice references supply identity, never their source words. A vocalizations-only voice supplies no dialogue. Include the enabled Audio references in referenceUsage.";
 
     /// <summary>RefMod videos, after checking the attached preview frames against the captured recipes.</summary>
     private static ResolvedVideo[] RefModVideos(PromptCompositionRequest r, bool attach, IReadOnlyList<RefModInspectionFrame> modFrames)
@@ -263,7 +274,7 @@ public static class PromptComposer
         .Replace(line.Trim(), @"^(?:[-*•]\s*)?(?:frame|image|view|shot)?\s*\d+\s*[:.)-]\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).ToLowerInvariant();
     public static PromptCompositionResult Parse(string raw, PromptCompositionRequest request)
     {
-        var result = ReadResponse(raw);
+        var result = ReadResponse(raw, request);
         ProductionPolicy.ValidateGenerationPrompt(result.Prompt);
         return ProductionPolicy.PromptWarning(result.Prompt, request.Shot) is { } note ? result with { Notes = [note] } : result;
     }
@@ -278,7 +289,7 @@ public static class PromptComposer
     // Explicit local recovery only. Never modify the stored AI output or automatically apply it.
     public static PromptDraftRecovery RecoverSoundSections(string raw, PromptCompositionRequest request)
     {
-        var result = ReadResponse(raw);
+        var result = ReadResponse(raw, request);
         var names = ProductionPolicy.SectionNames(result.Prompt);
         if (names.Length is not (4 or 5) || !names.SequenceEqual(ProductionPolicy.Sections.Take(names.Length)))
             throw new WorkspaceStoreException("Only missing final sound sections can be recovered from the saved shot settings.");
@@ -294,22 +305,22 @@ public static class PromptComposer
         return new(result with { Prompt = prompt }, missing, prompt[result.Prompt.Length..].Trim());
     }
 
-    private static PromptCompositionResult ReadResponse(string raw)
+    private static PromptCompositionResult ReadResponse(string raw, PromptCompositionRequest request)
     {
         var text = raw.Trim();
         if (text.StartsWith("```json") && text.EndsWith("```")) text = text[7..^3].Trim();
-        try { return ReadComposition(text); }
+        try { return ReadComposition(text, request); }
         // The latest complete composition after reasoning aloud is the answer; the raw reply is still kept for review.
-        catch (WorkspaceStoreException) when (AiJsonReply.Latest(text, TryReadComposition) is { } answer) { return answer; }
+        catch (WorkspaceStoreException) when (AiJsonReply.Latest(text, json => TryReadComposition(json, request)) is { } answer) { return answer; }
     }
 
-    private static PromptCompositionResult? TryReadComposition(string json)
+    private static PromptCompositionResult? TryReadComposition(string json, PromptCompositionRequest request)
     {
-        try { return ReadComposition(json); }
+        try { return ReadComposition(json, request); }
         catch (WorkspaceStoreException) { return null; }
     }
 
-    private static PromptCompositionResult ReadComposition(string text)
+    private static PromptCompositionResult ReadComposition(string text, PromptCompositionRequest request)
     {
         try
         {
@@ -318,6 +329,8 @@ public static class PromptComposer
             // complete prompt; only a non-blank question should stop the response from being usable.
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("needsInput", out var needs) && needs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(needs.GetString()))
                 throw new WorkspaceStoreException("Composition needs your input: " + needs.GetString());
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("sections", out var sections))
+                return ReadSectionedComposition(root, sections, request.Shot);
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("prompt", out var prompt) || !root.TryGetProperty("referenceUsage", out var usage) ||
                 prompt.ValueKind != JsonValueKind.String || usage.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(usage.GetString()))
                 throw new JsonException();

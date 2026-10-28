@@ -1,5 +1,7 @@
 # Projects and storage
 
+When creating a project, choose its **Visual style** and optional visual direction alongside the name and description. New asset images and reference reels inherit that style. You can change it later in **Project settings**, directly below **Project details**. **Not specified** leaves the visual treatment open.
+
 ## Project library
 
 When run from source, the Development profile uses the repository's `App_Data/Projects` library. Installed editions default to `Lumibelle/Projects` under the current user's local application-data directory. `App_Data` is ignored by Git. No data is moved automatically.

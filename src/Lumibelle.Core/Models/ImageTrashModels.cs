@@ -4,6 +4,12 @@ public enum ImageTrashState { Recoverable, Purging }
 
 public sealed record TrashedImage
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<Guid>? AssetOrder { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<Guid>? ImageOrder { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DiscardOperationId { get; init; }
     [System.Text.Json.Serialization.JsonRequired]
     public Guid Id { get; init; } = Guid.NewGuid();
     public required AssetImage Image { get; init; }

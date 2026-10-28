@@ -1,0 +1,39 @@
+@using lumibelle.Services.Production
+<section class="bulk-reel-candidate" data-reel-id="@Reel.Id">
+    <h4>@Reel.Name</h4>
+    <video controls preload="metadata" src="@ReferenceVideos.Url(ProjectId, Reel.Media.Id)" aria-label="Reference reel preview"></video>
+    <p class="field-hint">@Reel.Media.Duration.ToString("0.##") s · @Reel.Media.Width × @Reel.Media.Height · @(Reel.Generation?.Recipe is { } recipe ? ReferenceReels.Label(recipe.Framing) : "Saved reel")</p>
+    @{ var capturedStyle = Reel.Generation?.Recipe.CapturedVisualStyle ?? Reel.Generation?.Recipe.VisualStyle; }
+    <details><summary>Captured visual style · @VisualStyles.Label(capturedStyle?.Preset ?? VisualStylePreset.Unspecified)</summary><p>@(VisualStyles.Brief(capturedStyle) is { Length: > 0 } direction ? direction : "No visual style was recorded for this reel.")</p></details>
+    @if (Reviewed) { <p class="bulk-approved">Keyframes reviewed and saved</p> }
+    @if (Review is { } review) {
+        <strong>@Verdict(review.Result.Verdict) · sampled frames</strong>
+        <p>@review.Result.Selection.Summary</p>
+        <p class="field-hint">This review uses sampled stills. Watch the video to assess motion and transitions.</p>
+        <details><summary>Review checks</summary><dl>@foreach (var check in review.Result.Checks) { <dt>@check.Name · @Verdict(check.Verdict)</dt><dd>@check.Reason</dd> }</dl></details>
+        @if (review.Result.Selection.Warnings.Count > 0) { <ul>@foreach (var warning in review.Result.Selection.Warnings) { <li>@warning</li> }</ul> }
+        <div class="bulk-suggested-frames">
+        @foreach (var view in review.Result.Selection.Views) {
+            var frame = review.Request.Views.Candidates.Single(c => c.Number == view.Candidate).Keyframe.Frame;
+            <label><img src="@ReferenceVideos.FrameUrl(ProjectId, frame)" alt="Suggested @view.Name at @frame.Seconds.ToString("0.##") seconds" loading="lazy" />
+                <span><input type="checkbox" @bind:get="_selected.Contains(view.Candidate)" @bind:set="value => Toggle(view.Candidate, value)" disabled="@(Busy || Reviewed)" /> @view.Name · @frame.Seconds.ToString("0.##") s</span><small>@view.Notes</small></label>
+        }
+        </div>
+        @if (review.Result.Selection.Views.Count > 0) { <button type="button" class="bulk-approve-views" disabled="@(Busy || Reviewed || _selected.Count == 0)" @onclick="() => Approve.InvokeAsync(_selected.Order().ToArray())">Save selected keyframes</button> }
+    } else { <p class="field-hint">@((Reel.Keyframes?.Frames.Count ?? 0) > 0 ? $"{Reel.Keyframes!.Frames.Count} keyframes saved" : "Needs keyframe review")</p> }
+    <button type="button" class="bulk-keyframe-review" disabled="@Busy" @onclick="() => Open.InvokeAsync()">Review video &amp; keyframes</button>
+</section>
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public AssetReferenceReel Reel { get; set; } = null!;
+    [Parameter] public AssetReelReview? Review { get; set; }
+    [Parameter] public bool Reviewed { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<int[]> Approve { get; set; }
+    [Parameter] public EventCallback Open { get; set; }
+    private Guid? _loaded;
+    private readonly HashSet<int> _selected = [];
+    protected override void OnParametersSet() { if (_loaded != Review?.JobId) { _loaded = Review?.JobId; _selected.Clear(); foreach (var view in Review?.Result.Selection.Views ?? []) _selected.Add(view.Candidate); } }
+    private void Toggle(int number, bool selected) { if (selected) _selected.Add(number); else _selected.Remove(number); }
+    private static string Verdict(AssetImageVerdict value) => value == AssetImageVerdict.CannotJudge ? "Cannot judge" : value.ToString();
+}

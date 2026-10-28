@@ -1,0 +1,42 @@
+@using lumibelle.Services.Assets
+
+@if (ImageModelFiles.For(Workflow, Variant) is { } package) {
+    var files = package.Files.Where(f => f.Kind == Kind && (f.Variant is null || f.Variant == Variant)).ToArray();
+    @if (files.Length > 0) {
+        <details class="image-model-downloads" data-image-file="@Kind" aria-label="@(ImageModelFiles.Label(Kind) + " downloads")" @key="(Workflow, Kind)">
+            <summary>@(files.Length > 1 ? $"Download one of these ({files.Length})" : "Download link")</summary>
+            <p class="image-download-location">Put one file in <code>@ImageModelFiles.Folder(Kind)</code>, refresh the installed files, then select its filename above.</p>
+            <ul>
+                @foreach (var file in files) {
+                    <li>
+                        <a href="@file.Url" target="_blank" rel="noopener noreferrer">@file.Name</a>
+                        <div class="image-download-badges">
+                            <span class="image-download-badge" title="Published by @file.Publisher on Hugging Face.">@file.Publisher</span>
+                            <span class="image-download-badge" title="Approximate download size, not a GPU-memory requirement.">@file.Size</span>
+                            <span class="image-download-badge" title="@FormatHint(file.Format)">@file.Format</span>
+                            @if (System.IO.Path.GetFileName(Selected.Replace('\\', '/')) == file.Name) { <span class="image-download-badge image-download-selected">Selected</span> }
+                        </div>
+                        @if (file.Note is { } note) { <p class="image-download-note">@note</p> }
+                    </li>
+                }
+            </ul>
+            @if (Kind == ImageFileKind.Model) {
+                <p class="image-download-guides"><a href="@package.ModelCard" target="_blank" rel="noopener noreferrer">Model card &amp; license</a>@if (package.Guide != package.ModelCard) { <a href="@package.Guide" target="_blank" rel="noopener noreferrer">ComfyUI setup</a> }</p>
+                @if (files.Any(f => f.Variant is not null)) { <p class="image-download-note">These files match the selected checkpoint variant. Change the variant below to see its alternatives.</p> }
+                <p class="image-download-note">Choose a format supported by your ComfyUI version and hardware.</p>
+            }
+        </details>
+    }
+}
+
+@code {
+    [Parameter] public ImageWorkflow Workflow { get; set; }
+    [Parameter] public ImageFileKind Kind { get; set; }
+    [Parameter] public string Variant { get; set; } = "Base";
+    [Parameter] public string Selected { get; set; } = "";
+    private static string FormatHint(string format) => format switch {
+        "BF16" => "16-bit weights; larger download than quantized alternatives.",
+        "INT8" => "8-bit weights.", "FP8" => "8-bit floating-point weights.",
+        "W4A8" => "4-bit weights with 8-bit activations.", "NVFP4" => "NVIDIA 4-bit format for supported Blackwell GPUs.", _ => format
+    };
+}

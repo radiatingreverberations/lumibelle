@@ -47,7 +47,8 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             NetworkTimeout = TimeSpan.FromSeconds(settings.TimeoutSeconds)
         });
         return new OwnedChatClient(client.AsIChatClient(), transportClient, backend == AiBackend.OpenRouter,
-            backend == AiBackend.Vllm && OpenAiConnections.Find(settings, settings.VllmUrl) is { } connection && OpenAiConnections.Kind(connection) == OpenAiServerKind.Strata);
+            backend == AiBackend.Vllm && OpenAiConnections.Find(settings, settings.VllmUrl) is { } connection && OpenAiConnections.Kind(connection) == OpenAiServerKind.Strata,
+            AiErrors.ProviderName(backend, settings));
     }
 
     public async Task<AiConnectionCheck> CheckAsync(AiBackend backend, AiSettings settings, string? replacementKey = null, CancellationToken cancellationToken = default)
@@ -97,7 +98,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             http.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
             using var check = await http.GetAsync("key", timeout.Token);
-            if (!check.IsSuccessStatusCode) return new(false, AiErrors.HttpStatus((int)check.StatusCode), []);
+            if (!check.IsSuccessStatusCode) return new(false, AiErrors.HttpStatus((int)check.StatusCode, "OpenRouter"), []);
             using var catalog = await http.GetAsync("models?sort=most-popular", timeout.Token);
             catalog.EnsureSuccessStatusCode();
             using var json = await JsonDocument.ParseAsync(await catalog.Content.ReadAsStreamAsync(timeout.Token), cancellationToken: timeout.Token);
@@ -466,7 +467,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         }
     }
 
-    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport, bool openRouter, bool bufferedJson) : DelegatingChatClient(inner), IProgressReportingChatClient
+    private sealed class OwnedChatClient(IChatClient inner, HttpClient transport, bool openRouter, bool bufferedJson, string providerName) : DelegatingChatClient(inner), IProgressReportingChatClient
     {
         public async IAsyncEnumerable<ProgressingChatUpdate> GetStreamingResponseWithProgressAsync(
             IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null,
@@ -474,8 +475,16 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
         {
             if (bufferedJson && options?.ResponseFormat is not null)
                 yield return new(Progress: new(GenerationPhase.Preparing, "Waiting for the server to finish and validate its JSON response…", LiveUpdatesAvailable: false));
-            await foreach (var update in InnerClient.GetStreamingResponseAsync(messages, options, cancellationToken))
+            await using var updates = InnerClient.GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            while (await MoveNextAsync(updates)) {
+                var update = updates.Current;
                 yield return new(update, Activity: TextStreamActivity.Reasoning(update), OpenRouterUsage: openRouter ? OpenRouterUsageParser.Read(update) : null);
+            }
+        }
+        private async Task<bool> MoveNextAsync(IAsyncEnumerator<ChatResponseUpdate> updates)
+        {
+            try { return await updates.MoveNextAsync(); }
+            catch (ClientResultException e) { throw new AiGenerationException(AiErrors.HttpStatus(e.Status, providerName)); }
         }
         protected override void Dispose(bool disposing)
         {
@@ -487,10 +496,17 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
 
 public static class AiErrors
 {
-    public static string HttpStatus(int status) => status switch
+    private const string LegacyCreditError = "OpenRouter reports insufficient credits for this request.";
+    public static string ProviderName(AiBackend backend, AiSettings settings, string? server = null) => backend == AiBackend.Vllm
+        ? OpenAiConnections.Name(settings, server ?? settings.VllmUrl) : TextModelPolicy.ProviderName(backend);
+
+    // Historical errors keep their original saved text; only presentation corrects the old provider-specific wording.
+    public static string? Display(string? error, string? providerName = null) => error == LegacyCreditError ? HttpStatus(402, providerName) : error;
+
+    public static string HttpStatus(int status, string? providerName = null) => status switch
     {
         401 => "The API key was rejected. Replace it in AI settings.",
-        402 => "OpenRouter reports insufficient credits for this request.",
+        402 => $"{(string.IsNullOrWhiteSpace(providerName) ? "The AI provider" : providerName)} reports a payment or credit issue (HTTP 402). Check your balance and billing limits.",
         403 => "The provider refused this request (HTTP 403). Check model access, content restrictions, or account limits.",
         404 => "The selected model or endpoint is unavailable. Refresh the model list.",
         400 or 413 or 422 => "The model rejected the request. Check the model, output limit, and context size; try including fewer scenes.",
