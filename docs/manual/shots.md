@@ -126,12 +126,16 @@ notice after queueing, lists each batch with completed, failed, waiting and revi
 Clips move through **Preparing media**, **Ready**, **Waiting**, **Generating** and
 **Completed**. Media preparation runs on the CPU beside the GPU queue, and
 survives restarts. A batch submits one render at a time to the ComfyUI queue,
-where the usual priority and ordering controls apply.
+in batch order, where the usual priority and ordering controls apply. A clip
+that is still preparing holds back the clips after it, except when it is waiting
+for another clip's refined take.
 
 - **Start batch** or **Resume batch** submits prepared clips.
 - **Pause after current clip** lets the running render finish.
 - **Cancel waiting clips** stops clips that have not been submitted.
 - **Cancel current render** stops the clip that is rendering now.
+- **Retry failed clips** retries every failed clip together, so they keep their
+  batch order. Cancelled clips stay cancelled.
 
 For each result, **Compare** plays the final beside its source: play or seek
 the final and the source follows. **Use this take** selects the result in its

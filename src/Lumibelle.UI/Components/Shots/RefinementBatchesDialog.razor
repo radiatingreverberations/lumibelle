@@ -30,6 +30,9 @@
                         @if (run.State == RefinementBatchState.Running && !run.PauseRequested) { <button disabled="@_busy" @onclick="() => Command(() => Batches.PauseAsync(ProjectId, run.Id, _lifetime.Token))">Pause after current clip</button> }
                         @if (run.Items.Any(i => i.State is RefinementItemState.Preparing or RefinementItemState.Ready)) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelWaitingAsync(ProjectId, run.Id, _lifetime.Token))">Cancel waiting clips</button> }
                         @if (current is not null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelCurrentAsync(ProjectId, run.Id, _lifetime.Token))">Cancel current render</button> }
+                        @if (views.Count(v => v.Stage is RefinementItemStage.Failed or RefinementItemStage.NeedsAttention && v.Job?.RemoteUnconfirmed != true) is > 0 and var failed) {
+                            <button disabled="@_busy" title="Retries them together, so they render in batch order." @onclick="() => Command(() => Batches.RetryFailedAsync(ProjectId, run.Id, _lifetime.Token))">@(failed == 1 ? "Retry failed clip" : $"Retry {failed} failed clips")</button>
+                        }
                     </div>
                     @if (run.PauseRequested) { <p class="field-hint" role="status">Pausing after the current clip.</p> }
                     @if (current?.Job is { } job) {

@@ -36,14 +36,18 @@ submitted twice: its job ID is fixed when it is queued, and enqueueing is
 idempotent by ID and fingerprint. Preparation uses the guidance reviewed at
 queue time, so later library or source edits do not change queued inputs.
 
-A started batch submits one ready clip at a time as an ordinary generation job;
-**Waiting**, **Generating** and **Completed** come from that job. The existing
+A started batch submits one ready clip at a time as an ordinary generation job,
+in batch order: a clip still in preparation holds back later ready clips, unless
+it is waiting for another clip's refined take. **Waiting**, **Generating** and
+**Completed** come from that job. The existing
 multi-take batch still describes variations of one request; a refinement batch
 only groups separate requests. If another request already holds the same shot
 or reel, the clip waits instead of failing. Uncertain ComfyUI submissions keep
 their existing recovery handling. **Retry** requeues a job that needs attention
 with its saved request and seed. A cancelled clip is prepared again from its
-frozen settings and seed under a new job ID. Changing resolution, prompt or seed
+frozen settings and seed under a new job ID. **Retry failed clips** applies the
+same retry to every failed clip in one saved update, so they keep their batch
+order. Changing resolution, prompt or seed
 always creates a new request.
 
 With **Use refined frames from earlier clips**, each earlier clip's request lists
