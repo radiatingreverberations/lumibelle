@@ -104,7 +104,7 @@ else
                 @if (_presentation.Multiple && SelectedReels.Count > 0) {
                     <div class="look-bulk" role="group" aria-label="Selected reels"><span>@SelectedReels.Count @(SelectedReels.Count == 1 ? "reel" : "reels") selected</span>
                         <button disabled="@(_reels is null || _selectionChanging)" @onclick="() => _reels!.RefineReels(SelectedReels)">Refine selected reels…</button>
-                        <a href="@ProjectLink(Id, "/refinements")">Refinement batches</a><button @onclick="() => _reelSelection.Clear()">Clear selection</button></div>
+                        <button @onclick="() => OpenRefinementBatches(null)">Refinement batches</button><button @onclick="() => _reelSelection.Clear()">Clear selection</button></div>
                 }
                 <span class="sr-only" role="status">@_lookNotice</span>
                 <div class="asset-gallery-groups" aria-label="Asset references">
@@ -187,7 +187,7 @@ else
                 @if (!GalleryItems.Any() && !(GalleryGrouped && GalleryGroups.Any())) {
                     <div class="reference-empty">@if (AllGalleryItems.Any()) { <strong>No references match this view.</strong><p>Try another search or look.</p><button @onclick="ResetGalleryFilters">Clear filters</button> } else { <strong>No references yet.</strong><p>Import media or create the first reference for @asset.Name.</p><button @onclick="EnterCreate">Create reference</button> }</div>
                 }
-                @if (ReferenceReels.Supports(asset.Category)) { <ReferenceReelsPanel RegisterPanel="RegisterReelPanel" ClearCreationAvailabilityChanged="_ => StateHasChanged()" SaveVoiceRequested="SaveReelVoice" Embedded="true" RegisterFlush="RegisterReelFlush" ToolsSection="_reelToolsSection" DetailsSection="_reelDetailsSection" SelectedReelId="@(_presentation.Selection is { Kind: AssetMediaKind.Reel } reelSelection ? reelSelection.Id : null)" RevealTools="RevealReelTools" RevealPrompts="RevealReelPrompts" @key="(asset.Id, AssetMediaKind.Reel)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" RequestedJobId="RequestedJobId" /> }
+                @if (ReferenceReels.Supports(asset.Category)) { <ReferenceReelsPanel RegisterPanel="RegisterReelPanel" ClearCreationAvailabilityChanged="_ => StateHasChanged()" SaveVoiceRequested="SaveReelVoice" Embedded="true" RegisterFlush="RegisterReelFlush" ToolsSection="_reelToolsSection" DetailsSection="_reelDetailsSection" SelectedReelId="@(_presentation.Selection is { Kind: AssetMediaKind.Reel } reelSelection ? reelSelection.Id : null)" RevealTools="RevealReelTools" RevealPrompts="RevealReelPrompts" @key="(asset.Id, AssetMediaKind.Reel)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" RequestedJobId="RequestedJobId" ViewRefinementBatch="id => OpenRefinementBatches(id)" /> }
                 @if (asset.Category == AssetCategory.Character) { <VoiceReferencesPanel RegisterPanel="RegisterVoicePanel" Embedded="true" ToolsSection="_voiceToolsSection" SelectedVoiceId="@(_presentation.Selection is { Kind: AssetMediaKind.Voice } voiceSelection ? voiceSelection.Id : null)" @key="(asset.Id, AssetMediaKind.Voice)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" /> }
             }
         </ChildContent><Footer>@if (!_loading && _library is not null && AssetStore is IAssetReuseStore) {
@@ -505,6 +505,7 @@ else
     </DialogContent>
     <DialogActions><MudButton OnClick="() => CloseAllAssetDeletion(false)" Disabled="_deletingAllAssets">Cancel</MudButton><MudButton OnClick="ConfirmAllAssetDeletionAsync" Disabled="@(_deletingAllAssets || _deleteAssetsSnapshot?.Assets.Count is not > 0 || AssetDeletionActivityIssue is not null || _deleteAssetsConflict)" Color="Color.Error" Variant="Variant.Filled">Delete all assets</MudButton></DialogActions>
 </InlineDialog>
+@if (_refinementBatchesOpen) { <lumibelle.Components.Shots.RefinementBatchesDialog ProjectId="Id" Visible="true" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
 @if (_review is not null && _library is not null)
 {
     <ImageReviewDialog @key="_review.Id" Session="_review" Library="_library" RegionalSaved="RegionalImageSaved" InitialSelection="_reviewInitial" Visible="_reviewOpen" OpenDetails="_openImageDetails" ApplyDetails="ApplyImageDetails" DetailsDirtyChanged="v => _imageDetailsDirty = v" RequestedGuidanceId="_requestedGuidanceId"

@@ -35,7 +35,7 @@ else
     <StudioWorkspace @ref="_workspace" Studio="Shots" ProjectId="Id" LeftLabel="Shots" RightLabel="Shot tools" SelectionKey="@_selected?.ToString()" Busy="@(!_planningInitialized)">
         <Left><StudioPane Class="shots-outline" Label="Shots"><Header>
             <div class="shots-library-heading"><h2>Shots <small>@_doc.Shots.Count</small></h2><button @ref="_addShotButton" @onclick="AddShot" disabled="@(!_planningInitialized || ShotListLocked)" title="@(!_planningInitialized ? "Loading shots…" : SourceShot is { } beside ? $"Add a blank shot after {beside.Title}, in the same scene" : "Add a blank shot")">+ Shot</button></div>
-            <div class="shots-library-tools" @ref="_planningOriginElement"><a class="scene-planning-link" href="@SceneUrl(SourceShot?.SceneId)">Plan scenes</a><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Size="Size.Small" Color="Color.Primary" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotProjectCopy()">Copy to project…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
+            <div class="shots-library-tools" @ref="_planningOriginElement"><div class="shots-library-options" @ref="_bulkDeleteButton"><MudMenu Label="Bulk operations" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" EndIcon="@Icons.Material.Filled.ArrowDropDown" Dense="true" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"><MudMenuItem role="menuitem" OnClick="OpenBulkGenerate">Generate takes…</MudMenuItem><MudMenuItem role="menuitem" Disabled="@(SelectedTakes.Count == 0 || _mediaBusy || _starting)" OnClick="RefineSelectedTakesOfShots">Refine selected takes…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotProjectCopy()">Copy to project…</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => OpenShotDeletion()">Delete shots…</MudMenuItem></MudMenu></div></div><input type="search" aria-label="Search shots" placeholder="Search shots…" @bind="_filter" @bind:event="oninput" />
             <label class="shots-status-filter"><span class="visually-hidden">Prompt status</span><select aria-label="Filter shots by prompt status" @bind="_promptStatusFilter">
                 <option value="all">All shots</option><option value="attention">Needs prompt attention</option>
                 <option value="missing">Prompt missing</option><option value="changed">References changed</option><option value="review">Review prompt</option>
@@ -166,8 +166,7 @@ else
                     @if (ShotTakes.Count > 0) {
                         <div class="take-selection-toolbar">
                             <button disabled="@_mediaBusy" @onclick="ToggleTakeSelection">@(SelectingTakes ? "Cancel selection" : "Select multiple")</button>
-                            @if (!SelectingTakes && SceneSelectedTakes.Count > 0) { <button disabled="@(_mediaBusy || _starting)" title="Refine each shot's selected take in this scene" @onclick="RefineSceneTakes">Refine selected takes in this scene…</button> }
-                            <a class="take-refinement-link" href="@ProjectLink(Id, "/refinements")">Refinement batches</a>
+                            <button @onclick="() => OpenRefinementBatches()">Refinement batches</button>
                             @if (SelectingTakes) {
                                 <span role="status">@_moveTakeIds.Count selected</span>
                                 <button disabled="@(_mediaBusy || _moveTakeIds.Count == 0 || _doc.Shots.Count < 2)" @onclick="OpenMoveTakes">Move to shot…</button>
@@ -811,6 +810,7 @@ else
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />
 <RefineFromVideoDialog ProjectId="Id" Sources="_refineSources" Closed="() => _refineSources = []" Queued="RefinementQueued" />
+@if (_refinementBatchesOpen) { <RefinementBatchesDialog ProjectId="Id" Visible="true" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
 
 
 <InlineDialog Visible="_planningOpen" VisibleChanged="PlanningVisibility" Options="@(LargeDialog with { CloseOnNavigation = false })" Class="shot-planning-dialog" DefaultFocus="DefaultFocus.FirstChild" OnKeyDown="PlanningKeyDown">

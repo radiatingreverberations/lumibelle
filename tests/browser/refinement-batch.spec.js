@@ -38,22 +38,27 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await dialog.getByRole('radio', { name: 'Hold until started', exact: true }).check();
   await dialog.getByRole('button', { name: 'Queue 2 refinements', exact: true }).click();
   await expect(dialog).not.toBeVisible();
+  // The batches open over Shots rather than replacing it.
   await page.getByRole('button', { name: 'View batch', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Refinement batches' })).toBeVisible();
-  const batch = page.locator('.refinement-batch').first();
+  const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  const batch = batches.locator('.refinement-batch').first();
   await expect(batch).toContainText('Held');
+  await expect(batch).toHaveClass(/is-requested/);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-studio', 'Shots');
   // Preparation continues without the page: close it and return in a new tab.
-  const url = page.url();
   await page.close();
   const returned = await context.newPage();
   await returned.setViewportSize({ width: 1173, height: 1000 });
-  await returned.goto(url);
-  const items = returned.locator('.refinement-batch').first().locator('.refinement-item');
+  await returned.goto(`/projects/${id}/shots?view=Takes`);
+  await expect(returned.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  await returned.locator('.take-selection-toolbar').getByRole('button', { name: 'Refinement batches', exact: true }).click();
+  const reopened = returned.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  const items = reopened.locator('.refinement-batch').first().locator('.refinement-item');
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Ready', { timeout: 30000 });
   await expect(items.nth(1)).toHaveAttribute('data-stage', 'Ready', { timeout: 30000 });
   expect((await state()).takes).toHaveLength(2);
 
-  await returned.getByRole('button', { name: 'Start batch', exact: true }).click();
+  await reopened.getByRole('button', { name: 'Start batch', exact: true }).click();
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
   await expect(items.nth(1)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
   await expect(returned.locator('.refinement-counts')).toContainText('Completed2');

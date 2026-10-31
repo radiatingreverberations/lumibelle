@@ -4,8 +4,11 @@ export const extractionComposer = page => page.locator('.extraction-dialog');
 
 export async function openPlanning(page) {
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  if (await page.locator('.scene-planning-link').count()) {
-    await page.goto(await page.locator('.scene-planning-link').getAttribute('href'));
+  const scenes = page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Scenes', exact: true });
+  if (await scenes.getAttribute('aria-current') !== 'page') {
+    // On narrow screens an open drawer covers the navigation; follow its link instead of clicking it.
+    await page.goto(await scenes.getAttribute('href'));
+    await expect(scenes).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   }
   const actions = page.locator('.scene-drafting-tools');

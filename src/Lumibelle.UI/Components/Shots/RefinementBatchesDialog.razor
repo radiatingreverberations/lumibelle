@@ -2,19 +2,14 @@
 @using lumibelle.Services.Production
 @using lumibelle.Services.Shots
 @using lumibelle.Components.AI
-@using lumibelle.Components.Shots
-@inject IProjectStore Projects
 @inject RefinementBatchWorkflow Batches
 @inject AiJobCoordinator Jobs
 @inject IShotStore Shots
 @inject IAssetStore AssetStore
 @implements IAsyncDisposable
 
-<PageTitle>Refinement batches · Lumibelle</PageTitle>
-@if (_project is not null)
-{
-    <ProjectNavigation Project="_project" CurrentStudio="shots" />
-    <StudioPageHeader Title="Refinement batches"><a href="@ProjectLink(Id, "/shots?view=Takes")">Back to Shots</a><a href="@ProjectLink(Id, "/assets")">Assets</a></StudioPageHeader>
+<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="DialogOptions" Class="refinement-batches-dialog"
+              Title="Refinement batches" CloseLabel="Close refinement batches"><DialogContent>
     <div class="refinement-studio">
         <p class="refinement-intro">Each clip is a separate generation. Media is prepared in the background, then clips render one at a time in the ComfyUI queue. Originals stay selected until you accept a final.</p>
         @if (_error is not null) { <p role="alert">@_error</p> }
@@ -25,16 +20,16 @@
             var current = views.FirstOrDefault(v => v.Item.State == RefinementItemState.Submitted && v.Stage is RefinementItemStage.Waiting or RefinementItemStage.Generating);
             <section @key="run.Id" class="refinement-batch @(run.Id == RequestedBatchId ? "is-requested" : null)" data-batch-id="@run.Id" aria-labelledby="batch-@run.Id">
                 <header class="refinement-batch-heading">
-                    <div><h2 id="batch-@run.Id">@run.Name</h2><span class="refinement-state">@StateLabel(run)</span><time>@run.CreatedUtc.ToLocalTime().ToString("g")</time></div>
+                    <div><h3 id="batch-@run.Id">@run.Name</h3><span class="refinement-state">@StateLabel(run)</span><time>@run.CreatedUtc.ToLocalTime().ToString("g")</time></div>
                     <dl class="refinement-counts" aria-label="Batch progress">
                         <div><dt>Completed</dt><dd>@counts.Completed</dd></div><div><dt>Failed</dt><dd>@counts.Failed</dd></div>
                         <div><dt>Waiting</dt><dd>@counts.Waiting</dd></div><div><dt>Reviewed</dt><dd>@counts.Reviewed / @counts.Total</dd></div>
                     </dl>
                     <div class="refinement-controls" role="group" aria-label="Batch controls">
-                        @if (run.State is RefinementBatchState.Held or RefinementBatchState.Paused || run.PauseRequested) { <button disabled="@_busy" @onclick="() => Command(() => Batches.StartAsync(Id, run.Id, _lifetime.Token))">@(run.State == RefinementBatchState.Held ? "Start batch" : "Resume batch")</button> }
-                        @if (run.State == RefinementBatchState.Running && !run.PauseRequested) { <button disabled="@_busy" @onclick="() => Command(() => Batches.PauseAsync(Id, run.Id, _lifetime.Token))">Pause after current clip</button> }
-                        @if (run.Items.Any(i => i.State is RefinementItemState.Preparing or RefinementItemState.Ready)) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelWaitingAsync(Id, run.Id, _lifetime.Token))">Cancel waiting clips</button> }
-                        @if (current is not null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelCurrentAsync(Id, run.Id, _lifetime.Token))">Cancel current render</button> }
+                        @if (run.State is RefinementBatchState.Held or RefinementBatchState.Paused || run.PauseRequested) { <button disabled="@_busy" @onclick="() => Command(() => Batches.StartAsync(ProjectId, run.Id, _lifetime.Token))">@(run.State == RefinementBatchState.Held ? "Start batch" : "Resume batch")</button> }
+                        @if (run.State == RefinementBatchState.Running && !run.PauseRequested) { <button disabled="@_busy" @onclick="() => Command(() => Batches.PauseAsync(ProjectId, run.Id, _lifetime.Token))">Pause after current clip</button> }
+                        @if (run.Items.Any(i => i.State is RefinementItemState.Preparing or RefinementItemState.Ready)) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelWaitingAsync(ProjectId, run.Id, _lifetime.Token))">Cancel waiting clips</button> }
+                        @if (current is not null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.CancelCurrentAsync(ProjectId, run.Id, _lifetime.Token))">Cancel current render</button> }
                     </div>
                     @if (run.PauseRequested) { <p class="field-hint" role="status">Pausing after the current clip.</p> }
                     @if (current?.Job is { } job) {
@@ -48,7 +43,7 @@
                         var item = view.Item; var final = FinalUrl(item);
                         <li @key="item.Id" class="refinement-item" data-item-id="@item.Id" data-stage="@view.Stage">
                             <div class="refinement-item-summary">
-                                <img src="@ReferenceVideos.ThumbnailUrl(Id, item.Options.Draft.Source.Media.Id)" alt="" loading="lazy" />
+                                <img src="@ReferenceVideos.ThumbnailUrl(ProjectId, item.Options.Draft.Source.Media.Id)" alt="" loading="lazy" />
                                 <div class="refinement-item-text">
                                     <strong>@item.Name</strong>
                                     <span class="refinement-stage stage-@view.Stage.ToString().ToLowerInvariant()">@StageLabel(view.Stage)</span>
@@ -60,32 +55,36 @@
                                 <div class="refinement-item-actions">
                                     @if (final is not null) {
                                         <button aria-expanded="@(_comparing.Contains(item.Id) ? "true" : "false")" @onclick="() => ToggleCompare(item.Id)">@(_comparing.Contains(item.Id) ? "Hide comparison" : "Compare")</button>
-                                        <a href="@ResultLink(item)">@(item.Kind == RefinementSourceKind.Take ? "Open take" : "Open reel")</a>
-                                        @if (item.Kind == RefinementSourceKind.Reel && ResultReel(item) is { } reel) { <a href="@ProjectLink(Id, $"/assets?assetId={reel.AssetId}&reelId={reel.Id}")">Choose keyframes</a> }
-                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.AcceptAsync(Id, run.Id, item.Id, _lifetime.Token))">@(item.Kind == RefinementSourceKind.Take ? "Use this take" : "Prefer this reel")</button> }
-                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" aria-pressed="@(item.ReviewedUtc is not null ? "true" : "false")" @onclick="() => Command(() => Batches.MarkReviewedAsync(Id, run.Id, item.Id, item.ReviewedUtc is null, _lifetime.Token))">@(item.ReviewedUtc is null ? "Mark reviewed" : "Reviewed")</button> }
+                                        @* Opening a result leaves this dialog for the take or reel. *@
+                                        <a href="@ResultLink(item)" @onclick="Close">@(item.Kind == RefinementSourceKind.Take ? "Open take" : "Open reel")</a>
+                                        @if (item.Kind == RefinementSourceKind.Reel && ResultReel(item) is { } reel) { <a href="@ProjectLink(ProjectId, $"/assets?assetId={reel.AssetId}&reelId={reel.Id}")" @onclick="Close">Choose keyframes</a> }
+                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.AcceptAsync(ProjectId, run.Id, item.Id, _lifetime.Token))">@(item.Kind == RefinementSourceKind.Take ? "Use this take" : "Prefer this reel")</button> }
+                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" aria-pressed="@(item.ReviewedUtc is not null ? "true" : "false")" @onclick="() => Command(() => Batches.MarkReviewedAsync(ProjectId, run.Id, item.Id, item.ReviewedUtc is null, _lifetime.Token))">@(item.ReviewedUtc is null ? "Mark reviewed" : "Reviewed")</button> }
                                     }
-                                    @if (view.Stage is RefinementItemStage.Failed or RefinementItemStage.Cancelled or RefinementItemStage.NeedsAttention && view.Job?.RemoteUnconfirmed != true) { <button disabled="@_busy" @onclick="() => Command(() => Batches.RetryAsync(Id, run.Id, item.Id, _lifetime.Token))">Retry</button> }
+                                    @if (view.Stage is RefinementItemStage.Failed or RefinementItemStage.Cancelled or RefinementItemStage.NeedsAttention && view.Job?.RemoteUnconfirmed != true) { <button disabled="@_busy" @onclick="() => Command(() => Batches.RetryAsync(ProjectId, run.Id, item.Id, _lifetime.Token))">Retry</button> }
                                     @if (view.Stage is not (RefinementItemStage.Preparing or RefinementItemStage.Generating)) { <button disabled="@_busy" title="Change resolution, prompt or instructions. Creates a new request with a new seed." @onclick="() => _revise = item">New request…</button> }
                                 </div>
                             </div>
                             @if (item.AcceptedUtc is not null && item.Kind == RefinementSourceKind.Reel) { <p class="field-hint">Preferred for new use. Shots keep the source reel until you use Replace in shots… on it.</p> }
-                            @if (final is not null && _comparing.Contains(item.Id)) { <RefinementComparison Name="@item.Name" SourceUrl="@ReferenceVideos.Url(Id, item.Options.Draft.Source.Media.Id)" FinalUrl="@final" /> }
+                            @if (final is not null && _comparing.Contains(item.Id)) { <RefinementComparison Name="@item.Name" SourceUrl="@ReferenceVideos.Url(ProjectId, item.Options.Draft.Source.Media.Id)" FinalUrl="@final" /> }
                         </li>
                     }
                 </ul>
             </section>
         }
     </div>
-    <RefineFromVideoDialog ProjectId="Id" Revise="_revise" Closed="() => _revise = null" Queued="Queued" />
-}
+</DialogContent></InlineDialog>
+<RefineFromVideoDialog ProjectId="ProjectId" Revise="_revise" Closed="() => _revise = null" Queued="Queued" />
 
 @code {
-    [Parameter] public Guid Id { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    // Highlighted when opened from a batch's "View batch" notice.
     [Parameter] public Guid? RequestedBatchId { get; set; }
+    private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private readonly CancellationTokenSource _lifetime = new();
     private readonly HashSet<Guid> _comparing = [];
-    private ProjectInfo? _project;
     private RefinementBatches? _doc;
     private ShotDocument? _shots;
     private AssetLibrary? _library;
@@ -95,10 +94,11 @@
     private int _loads;
     private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs.OrderByDescending(r => r.CreatedUtc);
 
-    protected override void OnInitialized() { Batches.Changed += BatchesChanged; Jobs.Changed += Refresh; }
-    protected override async Task OnParametersSetAsync()
+    // Rendered only while open, so it loads and follows progress only then.
+    protected override async Task OnInitializedAsync()
     {
-        try { _project = await Projects.GetAsync(Id, _lifetime.Token); await Load(); }
+        Batches.Changed += BatchesChanged; Jobs.Changed += Refresh;
+        try { await Load(); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception e) { _error = e.Message; }
     }
@@ -106,14 +106,14 @@
     {
         // Only the newest load is shown; an older one that finishes later must not undo a command's result.
         var load = ++_loads;
-        var doc = await Batches.LoadAsync(Id, _lifetime.Token);
+        var doc = await Batches.LoadAsync(ProjectId, _lifetime.Token);
         var items = doc.Runs.SelectMany(r => r.Items).ToArray();
-        var shots = items.Any(i => i.Kind == RefinementSourceKind.Take && i.ResultId is not null) ? await Shots.LoadAsync(Id, _lifetime.Token) : null;
-        var library = items.Any(i => i.Kind == RefinementSourceKind.Reel && i.ResultId is not null) ? await AssetStore.LoadAsync(Id, _lifetime.Token) : null;
+        var shots = items.Any(i => i.Kind == RefinementSourceKind.Take && i.ResultId is not null) ? await Shots.LoadAsync(ProjectId, _lifetime.Token) : null;
+        var library = items.Any(i => i.Kind == RefinementSourceKind.Reel && i.ResultId is not null) ? await AssetStore.LoadAsync(ProjectId, _lifetime.Token) : null;
         if (_disposed || load != _loads) return;
         _doc = doc; _shots = shots; _library = library;
     }
-    private void BatchesChanged(Guid project) { if (project == Id) Refresh(); }
+    private void BatchesChanged(Guid project) { if (project == ProjectId) Refresh(); }
     private void Refresh()
     {
         if (_disposed) return;
@@ -140,14 +140,15 @@
         catch (Exception e) { _error = e.Message; }
         finally { _busy = false; }
     }
+    private Task Close() => VisibleChanged.InvokeAsync(false);
     private Task Queued(RefinementBatch batch) { _revise = null; return Load(); }
     private void ToggleCompare(Guid item) { if (!_comparing.Remove(item)) _comparing.Add(item); }
     private ShotTake? ResultTake(RefinementBatchItem item) => item.Kind == RefinementSourceKind.Take ? _shots?.Takes.FirstOrDefault(t => t.Id == item.ResultId) : null;
     private AssetReferenceReel? ResultReel(RefinementBatchItem item) => item.Kind == RefinementSourceKind.Reel ? _library?.Reels.FirstOrDefault(r => r.Id == item.ResultId) : null;
-    private string? FinalUrl(RefinementBatchItem item) => ResultTake(item) is { } take ? $"/media/projects/{Id}/takes/{take.Id}"
-        : ResultReel(item) is { } reel ? ReferenceVideos.Url(Id, reel.Media.Id) : null;
-    private string ResultLink(RefinementBatchItem item) => ResultTake(item) is { } take ? ProjectLink(Id, $"/shots?shotId={take.ShotId}&view=Takes")
-        : ResultReel(item) is { } reel ? ProjectLink(Id, $"/assets?assetId={reel.AssetId}&view=reels") : ProjectLink(Id, "/shots");
+    private string? FinalUrl(RefinementBatchItem item) => ResultTake(item) is { } take ? $"/media/projects/{ProjectId}/takes/{take.Id}"
+        : ResultReel(item) is { } reel ? ReferenceVideos.Url(ProjectId, reel.Media.Id) : null;
+    private string ResultLink(RefinementBatchItem item) => ResultTake(item) is { } take ? ProjectLink(ProjectId, $"/shots?shotId={take.ShotId}&view=Takes")
+        : ResultReel(item) is { } reel ? ProjectLink(ProjectId, $"/assets?assetId={reel.AssetId}&view=reels") : ProjectLink(ProjectId, "/shots");
     private static string StateLabel(RefinementBatch run) => run.State switch {
         RefinementBatchState.Held => "Held · start when convenient",
         RefinementBatchState.Running => run.PauseRequested ? "Pausing" : "Running",

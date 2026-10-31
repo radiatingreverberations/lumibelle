@@ -9,6 +9,8 @@ namespace lumibelle.Components.Assets;
 public partial class ReferenceReelsPanel
 {
     [Inject] public ISnackbar Snackbar { get; set; } = null!;
+    // Opens Refinement batches at a queued batch.
+    [Parameter] public EventCallback<Guid> ViewRefinementBatch { get; set; }
     private IReadOnlyList<RefineSource> _refineSources = [];
     public void RefineFromVideo(AssetReferenceReel reel)
     {
@@ -25,8 +27,7 @@ public partial class ReferenceReelsPanel
     private void RefinementQueued(RefinementBatch batch)
     {
         _refineSources = [];
-        var url = ProjectLink(ProjectId, $"/refinements?batchId={batch.Id}");
         Snackbar.Add($"{batch.Name} queued{(batch.State == RefinementBatchState.Held ? " and held" : "")}. Media is prepared in the background; source reels are unchanged.",
-            Severity.Success, config => { config.Action = "View batch"; config.OnClick = _ => { Navigation.NavigateTo(url); return Task.CompletedTask; }; });
+            Severity.Success, config => { config.Action = "View batch"; config.OnClick = _ => InvokeAsync(() => ViewRefinementBatch.InvokeAsync(batch.Id)); });
     }
 }

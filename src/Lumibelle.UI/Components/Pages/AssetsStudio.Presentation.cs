@@ -264,6 +264,9 @@ public partial class AssetsStudio
     private readonly HashSet<Guid> _reelSelection = [];
     private void SelectReel(Guid id, bool selected) { if (selected) _reelSelection.Add(id); else _reelSelection.Remove(id); }
     private IReadOnlyList<AssetReferenceReel> SelectedReels => _library?.Reels.Where(r => _reelSelection.Contains(r.Id) && r.AssetId == _selectedAssetId).ToArray() ?? [];
+    private bool _refinementBatchesOpen;
+    private Guid? _requestedRefinementBatch;
+    private void OpenRefinementBatches(Guid? batch) { _requestedRefinementBatch = batch; _refinementBatchesOpen = true; }
     private async Task ImportReel() { if (_reels is not null && await FlushSelectedTools()) await _reels.OpenImport(); }
     private async Task ImportVoice() { if (_voices is not null && await FlushSelectedTools()) { await EnterCreate(); _voices.OpenImport(); } }
     private async Task VaryReel(AssetReferenceReel reel) { if (_reels is not null && await FlushSelectedTools()) await _reels.Variation(reel); }

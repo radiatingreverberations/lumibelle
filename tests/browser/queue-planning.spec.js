@@ -148,7 +148,7 @@ test('deleted shots can be drafted from the latest saved script despite an older
   const latest = await (await request.get(`/fixtures/${id}/script-source`)).json();
   await page.reload();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.locator('.scene-planning-link').click();
+  await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Scenes', exact: true }).click();
   await chooseCurrentScene(page);
   await openPlanning(page);
   await expect(dialog(page)).not.toBeVisible();

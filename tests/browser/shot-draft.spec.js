@@ -30,7 +30,7 @@ test('an added shot is drafted from its scene with directions, reviewed, applied
   await expect.poll(async () => (await shots()).find(s => s.title === 'The missing reaction')?.description ?? '', { timeout: 30000 }).toContain('Hold on the key');
   const added = (await shots()).find(s => s.title === 'The missing reaction').id;
   // The breakdown control in the sidebar is not taken over by a single-shot draft.
-  await expect(page.locator('.shots-library-tools').getByRole('link', { name: 'Plan scenes', exact: true })).toBeVisible();
+  await expect(page.locator('.shots-library-tools').getByRole('button', { name: 'Bulk operations', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByLabel('Shot title', { exact: true })).toHaveValue('Untitled shot');
