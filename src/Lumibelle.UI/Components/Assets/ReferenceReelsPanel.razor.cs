@@ -153,6 +153,11 @@ public partial class ReferenceReelsPanel
     // Starts over in the composer; the reviewed pair stays to apply or discard later.
     private async Task NewPairFromReview() { _reviewOpen = false; if (_assist is not null) await _assist.NewRequestAsync(); }
     private Task InspectComposition() => CompositionJob is { } job ? ViewJob(job) : Task.CompletedTask;
+    // The composition's saved result grows while it streams; shown until the pair is checked.
+    private string? _reelArriving;
+    private bool ReelCompositionArriving => CompositionJob is { State: AiJobState.Waiting or AiJobState.Running, CancelRequested: false };
+    private async Task RefreshArrivingPair() =>
+        _reelArriving = ReelCompositionArriving && CompositionJob is { } job ? (await JobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result, _lifetime.Token))?.Raw : null;
     private Task CancelComposition() => CompositionJob is { } job ? Jobs.CancelAsync(job.Id) : Task.CompletedTask;
     private AiJobHeader? ActiveComposition => RelevantJobs.FirstOrDefault(j => j.Kind == AiJobKind.ReelComposition && j.Target.ReelId == _draft?.Id && j.LocksTarget);
     private AiJobHeader? LatestVideo => RelevantJobs.FirstOrDefault(j => j.Kind == AiJobKind.ReelVideo && j.Target.ReelId == _draft?.Id);
@@ -231,6 +236,9 @@ public partial class ReferenceReelsPanel
     private string FramingPlan { get { try { return _draft is null ? "" : ReferenceReels.Views(_draft); } catch (WorkspaceStoreException e) { return e.Message; } } }
     private bool HasPromptPair => _draft is not null && !string.IsNullOrWhiteSpace(_draft.Prompt) && !string.IsNullOrWhiteSpace(_draft.UseGuidance);
     private string? ValidationIssue { get { if (_draft is null || _draft.Prompt.Length == 0) return null; try { ReferenceReels.Validate(_draft, true); return null; } catch (WorkspaceStoreException e) { return e.Message; } } }
+    private string? DraftPromptWarning => _draft is null ? null : ReferenceReels.PromptWarning(new(_draft.Prompt, _draft.UseGuidance), _draft);
+    private string? _reviewWarning;
+    private ReelPromptPair? ReviewPair => _pair ?? _unappliedPair;
     protected override void OnInitialized() { _toolsContent = ReelTools; RegisterPanel?.Invoke(this); RegisterFlush?.Invoke(FlushForNavigation); Jobs.Changed += JobsChanged; }
     protected override async Task OnParametersSetAsync()
     {
@@ -259,6 +267,7 @@ public partial class ReferenceReelsPanel
         if (!_disposed) _ = InvokeAsync(async () => {
             try {
                 await Mutate(_ => AssetStore.LoadAsync(ProjectId, _lifetime.Token));
+                await RefreshArrivingPair();
                 if (_videoJob is not null) _videoJob = RelevantJobs.FirstOrDefault(j => j.Id == _videoJob.Id) ?? _videoJob;
                 if (_reviewOpen && _reviewJob is not null && RelevantJobs.FirstOrDefault(j => j.Id == _reviewJob.Id) is { } updated &&
                     (updated.State != _reviewJob.State || updated.CancelRequested != _reviewJob.CancelRequested))
@@ -374,8 +383,9 @@ public partial class ReferenceReelsPanel
     private async Task ChangeVoiceDescription(ChangeEventArgs e)
     { var text = e.Value?.ToString(); _draft!.VoiceDescription = string.IsNullOrWhiteSpace(text) ? null : text; await Changed(); }
     private Task ChangeQuality(ChangeEventArgs e) => EditPreset(p => {
-        var key = e.Value?.ToString() ?? "standard"; p.Settings.GenerationPreset = key;
-        p.Settings.Turbo = key is "turbo4" or "turbo8"; p.Settings.TurboSteps = key == "turbo8" ? 8 : 4;
+        var key = e.Value?.ToString() ?? "standard"; if (!H3Presets.Offered.Contains(key)) return;
+        p.Settings.GenerationPreset = key; p.Settings.GenerationPresetMigration = null;
+        p.Settings.Turbo = key == "turbo4"; p.Settings.TurboSteps = 4;
     });
     private async Task UseDefaultVoice() {
         if (_draft is null || CharacterVoices.Default(Owner, Library) is not { } voice) return;
@@ -442,15 +452,25 @@ public partial class ReferenceReelsPanel
             var request = _reviewRequest.Payload<ReelCompositionRequest>();
             if (_draft?.Id != request.Draft.Id) { _draft = Library.ReelDrafts.FirstOrDefault(d => d.Id == request.Draft.Id)?.Copy() ?? request.Draft.Copy(); _saved = _draft.Copy(); }
             var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result);
-            _pair = job.State == AiJobState.Completed && !job.CancelRequested && result?.Error is null && !_draft.ResolvedJobs.Contains(job.Id) ? result?.Read<ReelPromptPair>() : null;
             _raw = result?.Raw ?? ""; _reviewError = result?.Error ?? job.Error;
-            _unappliedPair = null; _responseDraft = null; _copyNotice = null; _pairChanged = null;
-            if (_pair is null && result?.Complete == true && result.Error is not null)
+            _pair = null; _unappliedPair = null; _responseDraft = null; _copyNotice = null; _pairChanged = null; _reviewWarning = null;
+            if (!job.CancelRequested && !job.RemoteUnconfirmed && !_draft.ResolvedJobs.Contains(job.Id) && result?.Complete == true &&
+                (job.State == AiJobState.Completed || job.State == AiJobState.NeedsAttention && job.Recovery == AiJobRecovery.GenerateAgain))
             {
-                // Older results saved only raw JSON on validation failure. Decode for
-                // inspection without changing their status or bypassing application checks.
-                try { _unappliedPair = ReferenceReels.ParsePair(result.Raw); }
-                catch (WorkspaceStoreException) { }
+                // Recheck old saved failures against today's warning policy. Keep the
+                // saved response and job untouched; accepting it is an explicit action.
+                var checkedResult = AiTextResults.Parse(_reviewRequest, result.Raw, result.FinishReason);
+                _reviewError = checkedResult.Error;
+                if (checkedResult.Error is null && checkedResult.Read<ReelPromptPair>() is { } pair)
+                {
+                    _pair = pair;
+                    _reviewWarning = ReferenceReels.PromptWarning(pair, request.Draft);
+                }
+                else
+                {
+                    try { _unappliedPair = ReferenceReels.ParsePair(result.Raw, request.Draft); }
+                    catch (WorkspaceStoreException) { }
+                }
             }
             if (_draft.ResolvedJobs.Contains(job.Id)) _reviewError = "This response has already been applied or discarded.";
             _reviewOpen = true; _closeReviewWhenIdle = false;
@@ -466,7 +486,7 @@ public partial class ReferenceReelsPanel
     {
         var edited = false;
         await Run(async () => {
-            if (_unappliedPair is not { } pair || _reviewRequest is null) return;
+            if (ReviewPair is not { } pair || _reviewRequest is null) return;
             try {
                 await Flush();
                 _responseDraft ??= _reviewRequest.Payload<ReelCompositionRequest>().Draft.Copy() with {

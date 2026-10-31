@@ -55,11 +55,42 @@ public sealed partial class ShotTests
         Assert.Empty(paired.Notes); Assert.Equal(2, Regex.Matches(paired.Prompt, "<d>").Count);
     }
 
+    [Fact]
+    public void MismatchedPassagesKeepTheDialogueInOrderWithAReviewNote()
+    {
+        // Silent shots: extra or empty passages join without loss, so nothing needs review.
+        foreach (var passages in new[] { new[] { "The mouse looks up.", "", " " }, new[] { "", "The mouse looks up." } })
+        {
+            var silent = PromptComposer.Parse(SectionedReply(passages).ToJsonString(), SoundRequest(Ready()));
+            Assert.Contains("The mouse looks up.", silent.Prompt); Assert.DoesNotContain("<d>", silent.Prompt); Assert.Empty(silent.Notes);
+        }
+        var single = SectionedReply(); single["sections"]!["detailed_description"] = "The mouse looks up and waits.";
+        var parsed = PromptComposer.Parse(single.ToJsonString(), SoundRequest(Ready()));
+        Assert.Contains("The mouse looks up and waits.", parsed.Prompt); Assert.Empty(parsed.Notes);
+
+        var shot = Ready(); shot.Dialogue = [new() { Speaker = "Mira", Language = "English", Text = "Ready?" }];
+        var spoken = PromptComposer.Parse(SectionedReply("Mira turns.", "She waits.", "").ToJsonString(), SoundRequest(shot));
+        Assert.True(spoken.Prompt.IndexOf("<d>", StringComparison.Ordinal) < spoken.Prompt.IndexOf("She waits.", StringComparison.Ordinal)); Assert.Empty(spoken.Notes);
+
+        // Extra passages join the last one, after the line.
+        var extra = PromptComposer.Parse(SectionedReply("Mira turns.", "She waits.", "She leaves.").ToJsonString(), SoundRequest(shot));
+        Assert.True(extra.Prompt.IndexOf("<d>", StringComparison.Ordinal) < extra.Prompt.IndexOf("She leaves.", StringComparison.Ordinal));
+        Assert.Contains("joined into the last passage", Assert.Single(extra.Notes));
+
+        // One block of action for a dialogue shot: the saved line follows it, and review is suggested.
+        single["sections"]!["detailed_description"] = "Mira turns and waits.";
+        var block = PromptComposer.Parse(single.ToJsonString(), SoundRequest(shot));
+        Assert.True(block.Prompt.IndexOf("Mira turns and waits.", StringComparison.Ordinal) < block.Prompt.IndexOf("<d>[English] Ready?</d>", StringComparison.Ordinal));
+        Assert.Contains("one block of action", Assert.Single(block.Notes));
+    }
+
     [Theory]
-    [InlineData("missing-section")] [InlineData("unknown-section")] [InlineData("empty-section")]
-    [InlineData("too-many-passages")] [InlineData("too-few-passages")] [InlineData("wrong-type")]
-    [InlineData("missing-usage")] [InlineData("duplicate-section")]
-    public void MalformedSectionedRepliesCannotBeApplied(string defect)
+    [InlineData("missing-section", "left out summary")] [InlineData("unknown-section", "Ignored an unexpected response field, extra.")]
+    [InlineData("empty-section", "left out summary")] [InlineData("no-passages", "left out detailed_description")]
+    [InlineData("wrong-type", "not a list of passages")] [InlineData("missing-usage", null)]
+    [InlineData("duplicate-section", "repeated summary")] [InlineData("missing-sound", "the shot's own sound direction was used")]
+    [InlineData("renamed-field", null)] [InlineData("camel-case", null)]
+    public void UsableRepliesWithShapeProblemsAreAcceptedWithNotes(string defect, string? note)
     {
         var reply = SectionedReply("The mouse waits."); var sections = reply["sections"]!.AsObject();
         switch (defect)
@@ -67,15 +98,40 @@ public sealed partial class ShotTests
             case "missing-section": sections.Remove("summary"); break;
             case "unknown-section": sections["extra"] = "Unexpected"; break;
             case "empty-section": sections["summary"] = " "; break;
-            case "too-many-passages": sections["detailed_description"] = new JsonArray("One", "Two"); break;
-            case "too-few-passages": sections["detailed_description"] = new JsonArray(); break;
-            case "wrong-type": sections["detailed_description"] = "Flat prose"; break;
+            case "no-passages": sections["detailed_description"] = new JsonArray(); break;
+            case "wrong-type": sections["detailed_description"] = new JsonObject { ["text"] = "The mouse waits." }; break;
             case "missing-usage": reply.Remove("referenceUsage"); break;
+            case "missing-sound": sections.Remove("overall_soundscape"); break;
+            case "renamed-field": sections["Non-Diegetic Music"] = sections["non_diegetic_music"]!.DeepClone(); sections.Remove("non_diegetic_music"); break;
+            case "camel-case":
+                foreach (var name in ProductionPolicy.Sections)
+                {
+                    var camel = string.Concat(name.Split('_').Select((part, i) => i == 0 ? part : char.ToUpperInvariant(part[0]) + part[1..]));
+                    if (camel != name) { sections[camel] = sections[name]!.DeepClone(); sections.Remove(name); }
+                }
+                reply["Sections"] = reply["sections"]!.DeepClone(); reply.Remove("sections");
+                reply["ReferenceUsage"] = reply["referenceUsage"]!.DeepClone(); reply.Remove("referenceUsage");
+                break;
         }
         var raw = reply.ToJsonString();
         if (defect == "duplicate-section") raw = raw.Replace("\"summary\":", "\"summary\":\"Duplicate\",\"summary\":", StringComparison.Ordinal);
-        Assert.Throws<WorkspaceStoreException>(() => PromptComposer.Parse(raw, SoundRequest(Ready())));
+        var request = SoundRequest(defect == "missing-sound" ? Ready() with { Atmosphere = "Quiet kitchen hum." } : Ready());
+        var parsed = PromptComposer.Parse(raw, request);
+        Assert.Contains("[Shot 1]", parsed.Prompt);
+        if (note is null) Assert.DoesNotContain(parsed.Notes, n => n.Contains("response", StringComparison.OrdinalIgnoreCase));
+        else Assert.Contains(parsed.Notes, n => n.Contains(note, StringComparison.Ordinal));
+        if (defect == "missing-sound") Assert.Contains("overall_soundscape:\n" + request.Shot.Atmosphere.Trim(), parsed.Prompt);
+        if (defect == "renamed-field") Assert.Contains("non_diegetic_music:", parsed.Prompt);
+        if (defect == "camel-case") { Assert.Equal(ProductionPolicy.Sections, ProductionPolicy.SectionNames(parsed.Prompt)); Assert.Equal("No reference media supplied.", parsed.ReferenceUsage); }
+        if (defect == "wrong-type") Assert.Contains("The mouse waits.", parsed.Prompt);
     }
+
+    [Theory]
+    [InlineData("""not json""")]
+    [InlineData("""{"sections":"none","referenceUsage":"Nothing usable."}""")]
+    [InlineData("""{"sections":{"summary":" ","detailed_description":[]},"referenceUsage":"Empty."}""")]
+    public void RepliesWithNoUsablePromptTextAreStillRejected(string raw) =>
+        Assert.Throws<WorkspaceStoreException>(() => PromptComposer.Parse(raw, SoundRequest(Ready())));
 
     [Fact]
     public void ReferenceQualityFindingsRemainAdvisoryInAWellFormedSectionedReply()
@@ -90,6 +146,11 @@ public sealed partial class ShotTests
         var shot = Ready(); shot.Dialogue = [new() { Speaker = "Mira", Language = "English", Text = "Wait here." }];
         var messages = PromptComposer.BuildMessages(SoundRequest(shot), [], structured: true);
         Assert.Contains("exactly 2 action passages", messages[0].Text);
+        Assert.Contains("never a single string", messages[0].Text);
+        Assert.Contains("\"detailed_description\": [\"action before line 1 (Mira)\",\"action after line 1 (Mira), to the end of the shot\"]", messages[0].Text);
+        // The closing reminder is the request's last text, after the dialogue insertion plan.
+        Assert.EndsWith("Return detailed_description as a JSON array of exactly 2 strings, never one string: [\"action before line 1 (Mira)\",\"action after line 1 (Mira), to the end of the shot\"]",
+            messages[1].Contents.OfType<TextContent>().Last().Text);
         Assert.DoesNotContain("Use exactly NAME", messages[0].Text);
         Assert.DoesNotContain("<d>[Language]", messages[0].Text);
         Assert.DoesNotContain("exactly two string fields", messages[0].Text);

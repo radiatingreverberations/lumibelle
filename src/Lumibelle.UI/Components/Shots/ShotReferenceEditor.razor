@@ -50,7 +50,7 @@
         </section>
     }
             else if (_sourceBrowser == "Shot frames") {
-                <ShotFramePicker ProjectId="Library.ProjectId" CurrentShot="Shot" Shots="FrameShots" Takes="FrameTakes" Value="_draft.ContinuityFrame"
+                <ShotFramePicker @key="_replacingFrame" ProjectId="Library.ProjectId" CurrentShot="Shot" Shots="FrameShots" Takes="FrameTakes" Value="ReplacingFrame" Attached="_draft.ShotFrames"
                     PictureCount="ResolvedReferences.For(_draft).Pictures.Count" Disabled="_busy" Picked="PickShotFrame" />
             }
         </BrowserContent>
@@ -100,7 +100,7 @@
         <Selection>
             <h3 @ref="_imagesHeading" tabindex="-1">Pictures · @ResolvedReferences.For(_draft).Pictures.Count/9</h3>
             <p class="reference-browser-hint">@PictureBreakdown. Picture numbers follow this order.</p>
-            @if (_draft.Images.Count == 0 && _draft.ContinuityFrame is null) { <p>Choose images from the library. Their order becomes the Picture numbering in your prompt.</p> }
+            @if (_draft.Images.Count == 0 && _draft.ShotFrames.Count == 0) { <p>Choose images from the library. Their order becomes the Picture numbering in your prompt.</p> }
             <ol class="manual-reference-list">
                 @foreach (var binding in _draft.Images)
                 {
@@ -157,19 +157,24 @@
                 }
             </ol>
             @* Numbered right after the images, so it is listed there. *@
-            @if (_draft.ContinuityFrame is { } continuity)
+            @if (_draft.ShotFrames.Count > 0)
             {
-                var continuityNumber = ResolvedReferences.For(_draft).Pictures.Single(p => p.Continuity is not null).Number;
                 <ol class="manual-reference-list shot-frame-reference-list">
-                    <ReferenceSelectionRow Label="@($"Picture {continuityNumber}")" Title="@ShotFrameTitle(continuity)" Name="@($"Picture {continuityNumber}")"
-                        Status="@ShotFramePicker.Label(continuity, FrameShots, FrameTakes)" CanReorder="false" Disabled="_busy" Remove="() => _draft.ContinuityFrame = null">
+                @foreach (var continuity in _draft.ShotFrames)
+                {
+                    var continuityNumber = ResolvedReferences.For(_draft).Pictures.Single(p => p.Continuity?.Id == continuity.Id).Number;
+                    var position = _draft.ShotFrames.IndexOf(continuity);
+                    <ReferenceSelectionRow @key="continuity.Id" data-shot-frame-id="@continuity.Id" Label="@($"Picture {continuityNumber}")" Title="@ShotFrameTitle(continuity)" Name="@($"Picture {continuityNumber}")"
+                        Status="@ShotFramePicker.Label(continuity, FrameShots, FrameTakes)" Disabled="_busy" First="@(position == 0)" Last="@(position == _draft.ShotFrames.Count - 1)"
+                        MoveUp="() => MoveShotFrame(continuity, -1)" MoveDown="() => MoveShotFrame(continuity, 1)" Remove="() => RemoveShotFrame(continuity)">
                         <Thumbnail><img class="shot-frame-reference-thumbnail" src="@($"/media/projects/{Library.ProjectId}/takes/{continuity.TakeId}/frames/{continuity.Frame}")" alt="@($"Picture {continuityNumber}")" loading="lazy" /></Thumbnail>
-                        <QuickActions>@if (FrameShots.Count > 0) { <button type="button" aria-label="@($"Picture {continuityNumber}: Change shot frame")" disabled="@_busy" @onclick="ChooseShotFrames">Change</button> }</QuickActions>
+                        <QuickActions>@if (FrameShots.Count > 0) { <button type="button" aria-label="@($"Picture {continuityNumber}: Change shot frame")" disabled="@_busy" @onclick="() => ChangeShotFrame(continuity)">Change</button> }</QuickActions>
                         <ChildContent>@if (ShotFrameTakeChanged(continuity)) { <p class="field-hint">The source shot has a different selected take. Change this picture to review it.</p> }</ChildContent>
                     </ReferenceSelectionRow>
+                }
                 </ol>
             }
-            else if (FrameShots.Count == 0 && PreviousCopySource is { } previousShot && ContinuityFrameOf is not null)
+            @if (FrameShots.Count == 0 && PreviousCopySource is { } previousShot && ContinuityFrameOf is not null && !HasPreviousLastFrame(previousShot))
             {
                 var available = ContinuityFrameOf(previousShot) is not null; var full = ResolvedReferences.For(_draft).Pictures.Count >= 9;
                 <button type="button" class="add-continuity-frame" disabled="@(_busy || !available || full)" @onclick="AddContinuityFrame">Add the last frame of @previousShot.Title</button>
@@ -191,7 +196,7 @@
                             @if (v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.RefMod) { <button type="button" aria-label="@($"Video {index + 1}: Manage keyframes")" title="Manage keyframes and crops" aria-haspopup="dialog" disabled="@_busy" @onclick="() => _keyframeBinding = v"><MudIcon Icon="@Icons.Material.Outlined.Crop" Size="Size.Small" aria-hidden="true" /></button> }
                         </Actions>
                         <QuickActions>
-                            <button type="button" class="@(_swapVideo == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Replace reel")" aria-expanded="@(_swapVideo == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => ToggleSwap(v)">Replace</button>
+                            <button type="button" class="@(_swapVideo == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Replace reel")" aria-expanded="@(_swapVideo == v.Id ? "true" : "false")" disabled="@(_busy || v.Id == VideoOnlyReferenceId)" @onclick="() => ToggleSwap(v)">Replace</button>
                             <button type="button" class="reference-settings-button @(_expanded == v.Id ? "is-active" : "")" aria-label="@($"Video {index + 1}: Reference settings")" aria-expanded="@(_expanded == v.Id ? "true" : "false")" disabled="@_busy" @onclick="() => _expanded = _expanded == v.Id ? null : v.Id">Settings</button>
                         </QuickActions>
                         <ChildContent>
@@ -226,7 +231,7 @@
                                 <video controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(Library.ProjectId, v.Media.Id)" src="@ReferenceVideos.Url(Library.ProjectId, v.Media.Id)" aria-label="Preview Video @(index + 1)"></video>
                                 @if (!v.Media.HasAudio) { <p>Silent clip</p> }
                                 @if (ReelAuthoring) { <p class="field-hint">Choose how this reel supplies visual references. Audio is chosen separately in the reel recipe.</p> }
-                                <label>Visuals<select aria-label="Visuals" value="@v.EffectiveVisuals" @onchange="e => ChangeVisuals(v, e)"><option value="Keyframes">Keyframes</option><option value="FullReel">Full reel</option><option value="RefMod">Selected-keyframe RefMod · Experimental</option>@if (!ReelAuthoring) { <option value="None">None</option> }</select></label>
+                                <label>Visuals<select aria-label="Visuals" value="@v.EffectiveVisuals" disabled="@(v.Id == VideoOnlyReferenceId)" @onchange="e => ChangeVisuals(v, e)"><option value="Keyframes">Keyframes</option><option value="FullReel">Full reel</option><option value="RefMod">Selected-keyframe RefMod · Experimental</option>@if (!ReelAuthoring) { <option value="None">None</option> }</select></label>
                                 @if (Library.Assets.FirstOrDefault(a => a.Id == CharacterVoices.Owner(v, Library)) is { } reelOwner) {
                                     <p class="field-hint">Asset default: @ReelUsageDefaults.Label(ReelUsageDefaults.Initial(reelOwner)). Visuals above applies only to this reference.</p>
                                     <button type="button" @onclick="() => ChangeVisuals(v, new ChangeEventArgs { Value = ReelUsageDefaults.Initial(reelOwner).ToString() })">Use asset default</button>
@@ -251,7 +256,8 @@
                                 <label>Use guidance<textarea @bind="v.Description" @bind:event="oninput" maxlength="20000" rows="4"></textarea></label>
                                 <p class="field-hint">Compose inspects selected keyframes and RefMod source stills. For full reels it uses this guidance without inspecting video or audio.</p>
                                 @if (!ReelAuthoring && !ManagedVoice(v)) {
-                                <label class="soundtrack-choice"><input type="checkbox" @bind="v.UseSoundtrack" disabled="@(!v.Media.HasAudio)" />Use audio</label>
+                                <label class="soundtrack-choice"><input type="checkbox" @bind="v.UseSoundtrack" disabled="@(!v.Media.HasAudio || v.Id == VideoOnlyReferenceId)" />Use audio</label>
+                                @if (v.Id == VideoOnlyReferenceId) { <small>Motion reference · video only</small> }
                                 @if (v.UseSoundtrack && v.EffectiveVisuals != ReelVisuals.FullReel) {
                                     <div class="reel-audio-excerpt"><label>Audio start (seconds)<input type="number" min="0" step="0.01" value="@N(ResolvedReferences.Excerpt(v).Start)" @onchange="e => AudioChanged(v, e, true)" /></label><label>Audio duration (seconds)<input type="number" min="1" max="15" step="0.01" value="@N(ResolvedReferences.Excerpt(v).Duration)" @onchange="e => AudioChanged(v, e, false)" /></label></div>
                                     <ReelAudioPreview ProjectId="Library.ProjectId" Reel="v" />

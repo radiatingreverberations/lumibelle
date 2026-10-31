@@ -10,9 +10,11 @@ In **Reel prompt**, expand **Coverage and route** to choose the camera preset an
 
 ## Refine a preview reel
 
-Enable **Storage options → Save latents for refinement** before generating previews. From a generated reel's actions or details, choose **Refine…**. The shared shot controls offer a larger output size and either **Refine** (lightly re-noise while keeping the source audio) or **Rework** (allow more change and regenerate audio). Refinement uses the saved prompt, model and prepared references and saves a separate reel with its own latents. The original and references already attached to shots stay unchanged. Review keyframes for the new version before using it.
+The recommended path is **Refine from video…** (see [Assets](assets.md)). Pick keyframes on a quick draft reel first: refining it keeps exactly those frames losslessly and adds them as keyframes to the new reel.
 
-If an older reel has no latents, **Refine… → Regenerate with latents…** opens a reviewed regeneration with its original seed and resolution selected and **Save latents** enabled. Generate that replacement candidate first, then refine it. A same-seed regeneration is a fresh run; it cannot recover latents from the existing MP4. **Preview → Native** does not retain refinement latents; use a fixed resolution when keeping them.
+Latent upscaling is the alternative. Enable **Storage options → Save latents for refinement** before generating previews. From a generated reel's actions or details, choose **Upscale latents…**. The shared shot controls offer a larger output size and either **Refine** (lightly re-noise while keeping the source audio) or **Rework** (allow more change and regenerate audio). Refinement uses the saved prompt, model and prepared references and saves a separate reel with its own latents. The original and references already attached to shots stay unchanged. Review keyframes for the new version before using it.
+
+If an older reel has no latents, **Upscale latents… → Regenerate with latents…** opens a reviewed regeneration with its original seed and resolution selected and **Save latents** enabled. Generate that replacement candidate first, then refine it. A same-seed regeneration is a fresh run; it cannot recover latents from the existing MP4. **Preview → Native** does not retain refinement latents; use a fixed resolution when keeping them.
 
 ## Choose useful coverage
 

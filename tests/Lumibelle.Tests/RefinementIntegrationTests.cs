@@ -46,7 +46,7 @@ public sealed partial class ShotTests
     }
 
     [Theory]
-    [InlineData(20)] [InlineData(4)] [InlineData(8)]
+    [InlineData(20)] [InlineData(4)]
     public async Task OlderComfyAcceptsNormalBatchesButRejectsMissingPromisedCapture(int steps)
     {
         var f = Fixture(); var shot = Ready(); shot.Turbo = steps != 20; shot.TurboSteps = steps == 8 ? 8 : 4;
@@ -107,7 +107,7 @@ public sealed partial class ShotTests
     [Fact]
     public async Task RefinementLocksEachParentWhileOriginalBatchCanKeepRunning()
     {
-        using var f = await QueuedVideoFixture.Create(this, 8);
+        using var f = await QueuedVideoFixture.Create(this, 4);
         var original = await f.Capture(); var running = await f.Claim(original);
         await f.Worker.ExecuteAsync(running, original.Snapshot, _ct); // Keep its job lease active.
         var source = Assert.Single((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes);

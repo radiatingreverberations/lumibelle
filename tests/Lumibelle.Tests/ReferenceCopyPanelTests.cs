@@ -29,7 +29,7 @@ public sealed class ReferenceCopyPanelTests : BunitContext
         panel.Find("select[aria-label='Continuity frame']").Change("first");
         Assert.Contains("/frames/0", panel.Find("img").GetAttribute("src"));
         panel.Find("input[aria-label='Include continuity picture']").Change(false);
-        Assert.Empty(panel.FindAll("img")); Assert.Null(target.ContinuityFrame);
+        Assert.Empty(panel.FindAll("img")); Assert.Empty(target.ShotFrames);
         await panel.FindAll("button").Single(b => b.TextContent == "Cancel").ClickAsync(new());
         Assert.True(cancelled); Assert.Null(applied); Assert.Null(target.EnvironmentAssetId);
         panel.Find("select[aria-label='Copy from shot']").Change(later.Id.ToString());
@@ -38,7 +38,7 @@ public sealed class ReferenceCopyPanelTests : BunitContext
         panel.Find("select[aria-label='Copy from shot']").Change(previous.Id.ToString());
         await panel.FindAll("button").Single(b => b.TextContent == "Copy and edit references").ClickAsync(new());
         Assert.NotNull(applied); Assert.Equal(environment.Id, applied.Inputs.EnvironmentAssetId);
-        Assert.Equal(48, applied.Inputs.ContinuityFrame!.Frame); Assert.Null(target.ContinuityFrame);
+        Assert.Equal(48, Assert.Single(applied.Inputs.ShotFrames).Frame); Assert.Empty(target.ShotFrames);
     }
     [Fact] public async Task LibraryCanBeChosenExplicitlyWhenTheSourceHasOnlyManualReferences()
     {

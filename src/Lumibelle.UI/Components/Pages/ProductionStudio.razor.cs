@@ -211,6 +211,16 @@ public partial class ProductionStudio
     }
     private void ValidateTakeFilter() { if (!TakeSetupOptions.Any(s => s.Id == _takeSetupFilter)) _takeSetupFilter = ""; }
     private bool _selectingShot;
+    // Moving to another shot in the list: an empty Takes view is no use, so a shot without takes opens on Shot.
+    // Shots with takes keep the view, and links that open a shot keep the remembered view.
+    private async Task SelectFromList(Guid id)
+    {
+        // Switch before the shot changes, not after its saves or on a later render, so the switch always reaches
+        // the browser before the new shot shows as selected and never undoes a following click on Takes.
+        if (_selected != id && !_doc.Takes.Any(t => t.ShotId == id))
+        { if (_workspace is not null) await _workspace.ShowCenterAsync("Shot"); else _openShotView = true; }
+        await Select(id);
+    }
     private async Task Select(Guid id)
     {
         if (_selectingShot) return;
@@ -230,7 +240,7 @@ public partial class ProductionStudio
     private async Task BeforeNavigation(LocationChangingContext e) { if (!await SaveForCloseAsync()) e.PreventNavigation(); }
     private async Task DownloadDraft() => await JS.InvokeVoidAsync("lumibelleShots.download", "unsaved-composition.json", Json(Current));
     private async Task CopyPrompt() { try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", PromptPreview); Notify("Prompt copied."); } catch (JSException) { _error = "Select and copy the prompt text."; } }
-    private void ChangeQuality(ChangeEventArgs e) { var key = Text(e); if (H3Presets.Keys.Contains(key)) Edit(s => { s.GenerationPreset = key; s.Turbo = key is "turbo4" or "turbo8"; s.TurboSteps = key == "turbo8" ? 8 : 4; }); }
+    private void ChangeQuality(ChangeEventArgs e) { var key = Text(e); if (H3Presets.Offered.Contains(key)) Edit(s => { s.GenerationPreset = key; s.GenerationPresetMigration = null; s.Turbo = key == "turbo4"; s.TurboSteps = 4; }); }
     private static string Invariant(double? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "";
     private static string Text(ChangeEventArgs e) => e.Value?.ToString() ?? "";
     private static string DurationLabel(Shot s) => s.Duration is >= 1 and <= 15 ? $"{H3Policy.Seconds(s.Duration.Value):0.###} s" : "Set duration in Shots";

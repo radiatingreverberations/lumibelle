@@ -87,6 +87,21 @@ public static class TextModelPolicy
 
     public static string? Issue(TextModelReference model, AiSettings settings, AiConnectionCheck? check, bool requireTest = true)
     {
+        if (ConfigurationIssue(model, settings) is { } issue) return issue;
+        if (model.Backend == AiBackend.Vllm && check?.Connections?.FirstOrDefault(c => SameVllmServer(c.Server, model.VllmUrl)) is { Success: false } failed) return failed.Message;
+        if (check is null) return "Refresh this provider to check availability.";
+        if (!check.Success) return check.Message;
+        if (CatalogModel(model, check) is not { } catalogModel) return "This model is no longer available. Choose another model.";
+        if (UsesNamedEffort(model.Backend) && model.ReasoningEffort is { } effort && catalogModel.ReasoningEfforts?.Contains(effort) != true) return "Choose a supported reasoning effort for this model.";
+        if (TextModelProfiles.CatalogIssue(model, catalogModel) is { } profileIssue) return profileIssue;
+        if (requireTest && model.Backend == AiBackend.ComfyUI &&
+            (check.BackendVersion is null || Verification(model, settings, check.BackendVersion) is null))
+            return "Test this model with the current ComfyUI version before selecting it.";
+        return null;
+    }
+    // Saved choices can be shown and selected before their provider has been contacted.
+    public static string? ConfigurationIssue(TextModelReference model, AiSettings settings)
+    {
         if (string.IsNullOrWhiteSpace(model.Model)) return "Choose a model in AI settings.";
         try { Validate(model); }
         catch (WorkspaceStoreException e) { return e.Message; }
@@ -97,18 +112,9 @@ public static class TextModelPolicy
             var connection = OpenAiConnections.Find(settings, model.VllmUrl);
             if (connection is null) return "This model belongs to a removed or different OpenAI-compatible connection.";
             if (!connection.Enabled) return $"Enable {connection.Name} in Connections.";
-            if (check?.Connections?.FirstOrDefault(c => SameVllmServer(c.Server, model.VllmUrl)) is { Success: false } failed) return failed.Message;
         }
         if (model.Backend == AiBackend.Codex && !settings.Codex.Enabled) return "Enable Codex in Connections.";
         if (model.Backend == AiBackend.ClaudeCode && !settings.ClaudeCode.Enabled) return "Enable Claude Code in Connections.";
-        if (check is null) return "Refresh this provider to check availability.";
-        if (!check.Success) return check.Message;
-        if (CatalogModel(model, check) is not { } catalogModel) return "This model is no longer available. Choose another model.";
-        if (UsesNamedEffort(model.Backend) && model.ReasoningEffort is { } effort && catalogModel.ReasoningEfforts?.Contains(effort) != true) return "Choose a supported reasoning effort for this model.";
-        if (TextModelProfiles.CatalogIssue(model, catalogModel) is { } profileIssue) return profileIssue;
-        if (requireTest && model.Backend == AiBackend.ComfyUI &&
-            (check.BackendVersion is null || Verification(model, settings, check.BackendVersion) is null))
-            return "Test this model with the current ComfyUI version before selecting it.";
         return null;
     }
 }

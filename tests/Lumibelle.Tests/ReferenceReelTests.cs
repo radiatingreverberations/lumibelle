@@ -95,7 +95,7 @@ public sealed class ReferenceReelTests
     }
 
     [Fact]
-    public void CompleteJsonRetainsBothTextsWhenDurationValidationFails()
+    public void CompleteJsonRetainsBothTextsAndTreatsDurationAsAReviewNote()
     {
         var draft = Recipe();
         var pair = ReferenceReels.Preset(draft);
@@ -106,11 +106,12 @@ public sealed class ReferenceReelTests
         var request = new AiTextJobRequest(2, AiJobKind.ReelComposition, new(AiBackend.OpenRouter, "mock", "Mock"),
             true, new(), ReferenceReels.Profile, .5f, 1, JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), []);
         var result = AiTextResults.Parse(request, raw, "stop");
-        Assert.Contains("5.167 seconds", result.Error);
+        Assert.Null(result.Error);
+        Assert.Contains("5.167 seconds", ReferenceReels.PromptWarning(pair, draft));
         Assert.Equal(pair, result.Read<ReelPromptPair>());
         Assert.Equal(raw, result.Raw);
         Assert.Equal(pair, ReferenceReels.ParsePair(raw));
-        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.Parse(raw, draft));
+        Assert.Equal(pair, ReferenceReels.Parse(raw, draft));
         Assert.Equal("", draft.Prompt);
         Assert.Null(AiTextResults.Parse(request, raw, "length").Value);
         Assert.Null(AiTextResults.Parse(request, "{\"prompt\":\"incomplete\"}", "stop").Value);
@@ -189,18 +190,19 @@ public sealed class ReferenceReelTests
     }
     [Theory]
     [InlineData("heading")] [InlineData("duration")] [InlineData("reference")] [InlineData("dialogue")] [InlineData("speaker")] [InlineData("order")]
-    public void InvalidPairsAreRejectedWithoutRelaxingProductionRules(string defect)
+    public void ReelTemplateFindingsAreAdvisory(string defect)
     {
         var draft = Recipe(ReelFraming.ThreeAngles); var pair = ReferenceReels.Preset(draft);
         pair = pair with { Prompt = defect switch {
             "heading" => pair.Prompt.Replace("summary:", "summary"), "duration" => pair.Prompt.Replace("5.167", "5.5"),
             "reference" => pair.Prompt.Replace("<Picture 1>", "<Picture 2>"), "dialogue" => pair.Prompt.Replace(draft.Line, "Invented words."),
             "speaker" => pair.Prompt.Replace("Riley (S1)", "Other (S1)"), _ => pair.Prompt.Replace("[Shot 2]", "[Shot 4]") } };
-        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.ValidatePair(pair, draft));
+        ReferenceReels.ValidatePair(pair, draft);
+        Assert.NotNull(ReferenceReels.PromptWarning(pair, draft));
     }
     [Theory]
-    [InlineData("standard")] [InlineData("turbo4")] [InlineData("turbo8")]
-    [InlineData("larry")] [InlineData("pdd")] [InlineData("spectrum")]
+    [InlineData("standard")] [InlineData("turbo4")]
+    [InlineData("larry")] [InlineData("pdd")]
     public void CutsReachTheRealWorkflowWithoutHiddenCoverage(string preset)
     {
         var draft = Recipe(ReelFraming.ThreeAngles); var pair = ReferenceReels.Preset(draft); draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance;
@@ -269,7 +271,7 @@ public sealed partial class AssetStoreTests
         await store.SaveAsync(new() { ProjectId = project.Id, Assets = [owner] }, 0, ct);
         var draft = ReferenceReels.NewDraft(owner) with {
             VoiceMode = voice, Name = "Authored reel", Instructions = "Keep the silhouette", Prompt = "Authored prompt", UseGuidance = "Authored guidance",
-            Duration = 8, Aspect = "16:9", GenerationPreset = "turbo8", PendingJobId = Guid.NewGuid(), ResolvedJobs = [Guid.NewGuid()]
+            Duration = 8, Aspect = "16:9", GenerationPreset = "turbo4", PendingJobId = Guid.NewGuid(), ResolvedJobs = [Guid.NewGuid()]
         };
         draft = await store.SaveDraftAsync(project.Id, draft, 0, ct);
         var original = ReferenceReels.Fingerprint(draft);
@@ -281,7 +283,7 @@ public sealed partial class AssetStoreTests
         Assert.Equal("", blank.Name); Assert.Equal("", blank.Prompt); Assert.Equal("", blank.UseGuidance); Assert.Equal("", blank.Instructions);
         Assert.Equal("", blank.Line); Assert.Equal("", blank.Speaker); Assert.Null(blank.Voice); Assert.Empty(blank.Images);
         Assert.Null(blank.KeyframeReels); Assert.Null(blank.PendingJobId); Assert.Empty(blank.ResolvedJobs);
-        Assert.Equal(8, blank.Duration); Assert.Equal("16:9", blank.Aspect); Assert.Equal("turbo8", blank.GenerationPreset);
+        Assert.Equal(8, blank.Duration); Assert.Equal("16:9", blank.Aspect); Assert.Equal("turbo4", blank.GenerationPreset);
     }
 
 
@@ -398,6 +400,8 @@ public sealed partial class AssetStoreTests
     [InlineData("image", false)] [InlineData("image", true)]
     [InlineData("guidance", false)] [InlineData("guidance", true)]
     [InlineData("render", false)] [InlineData("render", true)]
+    [InlineData("warning", false)] [InlineData("warning", true)]
+    [InlineData("historical", false)] [InlineData("historical", true)]
     public async Task ReelPairApplicationChecksCapturedTargetAndIsIdempotent(string scenario, bool environment)
     {
         var ct = TestContext.Current.CancellationToken; var (project, store) = CreateStore(); var owner = Asset("Riley") with { Category = environment ? AssetCategory.Environment : AssetCategory.Character };
@@ -407,6 +411,7 @@ public sealed partial class AssetStoreTests
         var draft = environment ? ReferenceReels.NewDraft(owner) : ReferenceReelTests.Recipe(); var jobId = Guid.NewGuid(); draft.AssetId = owner.Id; draft.PendingJobId = jobId;
         draft.Images = [new() { AssetId = owner.Id, MediaId = library.Assets.Single().Images.Single().Id, InferUsage = true }];
         var pair = ReferenceReels.Preset(draft);
+        if (scenario is "warning" or "historical") pair = pair with { Prompt = pair.Prompt.Replace("<Picture 1>", "Picture 1") };
         if (scenario == "revision") { draft.Prompt = pair.Prompt; draft.UseGuidance = pair.UseGuidance; }
         draft = await store.SaveDraftAsync(project.Id, draft, 0, ct);
         var inputs = await ProductionInputs.CaptureAsync(project.Id, ReferenceReels.Inputs(draft), store, ct);
@@ -417,6 +422,7 @@ public sealed partial class AssetStoreTests
         if (scenario == "manual") { draft.UseGuidance = "My manual writing 👋"; await store.SaveDraftAsync(project.Id, draft, draft.Revision, ct); }
         if (scenario == "replaced") { draft.PendingJobId = Guid.NewGuid(); await store.SaveDraftAsync(project.Id, draft, draft.Revision, ct); }
         if (scenario == "cancel") job = job with { CancelRequested = true };
+        if (scenario == "historical") job = job with { State = AiJobState.NeedsAttention, Recovery = AiJobRecovery.GenerateAgain };
         // Render settings do not shape the composed text, so changing them never blocks the pair.
         if (scenario == "render") { draft.GenerationPreset = "hyperflow"; draft.Resolution = VideoResolution.Quick; draft.SaveLosslessFrames = false; await store.SaveDraftAsync(project.Id, draft, draft.Revision, ct); }
         if (scenario is "image" or "guidance") {
@@ -427,6 +433,13 @@ public sealed partial class AssetStoreTests
         if (scenario == "image") await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.ApplyPairAsync(job, request, pair, true, ct));
         else Assert.Equal(scenario is "initial" or "render", await store.ApplyPairAsync(job, request, pair, true, ct));
         if (scenario == "revision") Assert.True(await store.ApplyPairAsync(job, request, pair, false, ct));
+        if (scenario is "warning" or "historical") {
+            Assert.Empty((await store.LoadAsync(project.Id, ct)).ReelDrafts.Single().Prompt);
+            Assert.True(await store.ApplyPairAsync(job, request, pair, false, ct));
+            var accepted = (await store.LoadAsync(project.Id, ct)).ReelDrafts.Single();
+            Assert.Equal(pair.Prompt, accepted.Prompt); ReferenceReels.Validate(accepted, true);
+            Assert.False(await store.ApplyPairAsync(job, request, pair, false, ct));
+        }
         if (scenario == "manual") Assert.Equal("My manual writing 👋", (await store.LoadAsync(project.Id, ct)).ReelDrafts.Single().UseGuidance);
         if (scenario is "manual" or "guidance") {
             // Changes are named for the author, and the pair can then be applied anyway.

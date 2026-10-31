@@ -41,7 +41,7 @@ test('lead-in prepends new footage, preserves the source and reviews its first s
   expect(after.shots[0].selectedTakeId).toBeNull(); expect(after.shots[0].duration).toBe(before.shots[0].duration);
   await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${take.id}`);
   await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   const refine = review(page).getByRole('region', { name: 'Refine take', exact: true });
   await expect(refine).toContainText('lead-in segment');
   await refine.getByRole('button', { name: 'Back to review', exact: true }).click();

@@ -30,7 +30,7 @@ public sealed class EnvironmentReelTests
     }
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public void SilentReelInstructionsRequireExplicitSoundSectionsAndRetainInvalidResponses(bool environment)
+    public void SilentReelInstructionsRequestExplicitSoundSectionsAndRetainReviewNotes(bool environment)
     {
         var owner = Owner() with { Category = environment ? AssetCategory.Environment : AssetCategory.Character };
         var draft = ReferenceReels.NewDraft(owner); draft.VoiceMode = ReelVoiceMode.Silent;
@@ -45,7 +45,8 @@ public sealed class EnvironmentReelTests
             true, new(), draft.PresetVersion, .5f, 1, JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options), []);
         var raw = JsonSerializer.Serialize(broken, AtomicJsonFile.Options);
         var result = AiTextResults.Parse(request, raw, "stop");
-        Assert.Equal("Complete the non_diegetic_music section.", result.Error);
+        Assert.Null(result.Error);
+        Assert.Equal("Complete the non_diegetic_music section.", ReferenceReels.PromptWarning(broken, draft));
         Assert.Equal(broken, result.Read<ReelPromptPair>()); Assert.Equal(raw, result.Raw);
         Assert.Null(AiTextResults.Parse(request, JsonSerializer.Serialize(pair, AtomicJsonFile.Options), "stop").Error);
     }
@@ -86,7 +87,8 @@ public sealed class EnvironmentReelTests
         var graph = JsonSerializer.Serialize(ComfyH3Video.BuildWorkflow(snapshot, 42, "client", captured.Inputs.Select(i => new PreparedVideoInput(i.FileName, false)).ToArray()));
         Assert.Contains("environment reference reel", graph); Assert.DoesNotContain("LoadAudio", graph);
         var bad = pair with { Prompt = pair.Prompt.Replace("15.083 seconds", "15 seconds") };
-        Assert.Throws<WorkspaceStoreException>(() => ReferenceReels.ValidatePair(bad, draft));
+        ReferenceReels.ValidatePair(bad, draft);
+        Assert.Contains("15.083 seconds", ReferenceReels.PromptWarning(bad, draft));
     }
     [Fact]
     public void PathRequiresCompositionInstructionsButManualGenerationIsIndependent()

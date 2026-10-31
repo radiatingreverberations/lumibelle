@@ -119,7 +119,8 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
         }
         if (composed is not null && !composed.Images.Select(i => i.Sha256).SequenceEqual(inputs.Where(i => i.EffectiveKind == VideoInputKind.Image).Select(i => i.Sha256)))
             throw new WorkspaceStoreException("Reference files changed while preparing the video. Review the composition again.");
-        var request = new AiVideoJobRequest(shot.Videos.Count > 0 ? 2 : 1, id, snapshot, inputs); AiVideoJobPolicy.Validate(request);
+        var request = await H3GenerationRecipes.StampAsync(new AiVideoJobRequest(2, id, snapshot, inputs), generator, ct);
+        AiVideoJobPolicy.Validate(request);
         CapturedInputStore.Share(directory, inputs);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: shot.Id, CompositionId: composition?.Id),
             project.Name, shot.Title + " · Video takes", tab, request) with { Batch = batch };
@@ -168,6 +169,7 @@ public sealed partial class AiVideoJobCapture(IShotStore shots, IScriptStore scr
             await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await shots.RunDirectoryAsync(projectId, source.BatchId, ct), request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
         else await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("The project is unavailable.");
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request),
             project.Name, take.Snapshot.Shot.Title + " · " + mode + " · " + width + " × " + height, tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
     }
@@ -188,6 +190,7 @@ public static class AiVideoJobPolicy
         if (r.Version is not (1 or 2 or 3 or 4) || r.BatchId == Guid.Empty || r.Snapshot is null || r.Inputs is null || r.Inputs.Any(i => i is null) ||
             r.Snapshot.ProjectId == Guid.Empty || r.Snapshot.Shot is null || r.Snapshot.Settings is null)
             throw new WorkspaceStoreException("Invalid queued video request.");
+        H3GenerationRecipes.Validate(r);
         var s = r.Snapshot;
         if (r.OutputTrim is { } trim) {
             if (r.Refinement is null && r.Extension is null || s.Reel is not null) throw new WorkspaceStoreException("An output trim requires a shot refinement or extension.");
@@ -197,6 +200,7 @@ public static class AiVideoJobPolicy
             r.Refinement is null && r.Extension is null && s.RegenerationSource is null && s.Dub is null))
             throw new WorkspaceStoreException("Invalid destination for the captured take request.");
         ShotDubbing.ValidateSnapshot(s);
+        MotionReferencePolicy.Validate(s);
         if (s.RegenerationSource is { } origin && (origin.TakeId == Guid.Empty || origin.Seed < 0 || origin.Width < 1 || origin.Height < 1 || s.Reel is not null || r.Refinement is not null))
             throw new WorkspaceStoreException("Invalid source take for regeneration.");
         if ((s.Reel is not null) != (r.Version is 3 or 4) || r.Version == 3 && r.Refinement is not null || r.Version == 4 && r.Refinement is null)
@@ -257,11 +261,15 @@ public static class AiVideoJobPolicy
     }
     private static bool ValidPrompt(VideoSnapshot s)
     {
+        if (s.Profile == MotionReferencePolicy.Profile && s.MotionReference is not null) {
+            MotionReferencePolicy.Validate(s);
+            if (s.Reel is null) return s.Production is null;
+        }
         if (s.Reel is { } reel)
         {
             ReferenceReels.Validate(reel.Recipe, true);
             if (reel.Owner is { } owner) ReferenceReels.ValidateOwner(reel.Recipe, owner);
-            return s.Production is null && s.Profile == reel.Recipe.PresetVersion && s.Prompt == VisualStyles.Apply(reel.Recipe.Prompt, reel.Recipe.CapturedVisualStyle) &&
+            return s.Production is null && (s.Profile == reel.Recipe.PresetVersion || s.Profile == MotionReferencePolicy.Profile && s.MotionReference?.ReelId is not null) && s.Prompt == VisualStyles.Apply(reel.Recipe.Prompt, reel.Recipe.CapturedVisualStyle) &&
                 H3Policy.Fingerprint(s.Shot) == H3Policy.Fingerprint(ReferenceReels.Inputs(reel.Recipe)) && reel.Character.AssetId == reel.Recipe.AssetId;
         }
         if (s.Profile == H3Motion.Profile && s.Motion is not null) { ProductionPolicy.ValidateGenerationPrompt(s.Prompt); return s.Production is null; }

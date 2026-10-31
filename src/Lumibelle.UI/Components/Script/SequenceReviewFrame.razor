@@ -66,7 +66,7 @@ else {
             @if (DisplayError is not null) { <p class="planning-error-detail">@DisplayError</p> }
             <pre class="raw-response">@Run.Output</pre>
         </details>
-        <details class="request-details"><summary>Request details</summary><p>Saved revision @Run.SourceRevision · @Run.Target.Name · @Run.Backend · @Run.Model</p><pre class="submitted-input">@(RequestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
+        <details class="request-details"><summary>Request details</summary><p>Saved revision @Run.SourceRevision · @Run.Target.Name · @TextModelPolicy.ProviderName(Run.Backend) · @Run.Model</p><pre class="submitted-input">@(RequestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
     </div>
 </div>
 }

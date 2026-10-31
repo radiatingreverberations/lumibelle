@@ -1,0 +1,6 @@
+.text-validation-repair { display: grid; gap: .75rem; min-width: 0; }
+.repair-ready { display: flex; align-items: center; gap: .4rem; margin: 0; padding: .6rem .8rem; border-radius: var(--lumi-radius-control); background: var(--lumi-success-surface, #e5f3ea); color: var(--lumi-success, #1e6b3a); font-weight: 600; }
+.repair-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.repair-raw { min-width: 0; }
+.repair-raw summary { cursor: pointer; color: var(--plum); font-weight: 600; }
+.repair-raw pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow-y: auto; margin: .5rem 0 0; font-size: var(--lumi-font-size-small); }

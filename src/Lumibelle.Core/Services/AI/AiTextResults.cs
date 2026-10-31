@@ -16,10 +16,19 @@ public static class AiTextResults
         if (string.IsNullOrWhiteSpace(raw)) return result with { Error = "The model returned an empty response. Inspect and retry; nothing has been applied." };
         if (finishReason is not null && finishReason != ChatFinishReason.Stop.ToString() || request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm && finishReason is null)
             return result with { Error = "The response did not finish normally. Inspect it and retry; incomplete output cannot be applied." };
-        var parsed = Content(request, result, raw, finishReason);
+        var parsed = Checked(request, result, raw, finishReason);
         if (parsed.Error is null || WholeJson(raw)) return parsed;
         // Local models sometimes reason aloud around a complete JSON answer. The saved raw reply is unchanged for review.
-        return AiJsonReply.Latest(raw, json => Content(request, result, json, finishReason) is { Error: null } answer ? answer : null) ?? parsed;
+        return AiJsonReply.Latest(raw, json => Checked(request, result, json, finishReason) is { Error: null } answer ? answer : null) ?? parsed;
+    }
+
+    // A parser defect on unusual model output must surface as a reviewable error, not end the job without a result.
+    private static AiTextJobResult Checked(AiTextJobRequest request, AiTextJobResult result, string raw, string? finishReason)
+    {
+        try { return Content(request, result, raw, finishReason); }
+        catch (WorkspaceStoreException e) { return result with { Error = e.Message }; }
+        catch (Exception e) when (e is not OperationCanceledException)
+        { return result with { Error = $"The response could not be checked ({e.Message}). Inspect it and retry; nothing has been applied." }; }
     }
 
     private static bool WholeJson(string raw)
@@ -78,7 +87,7 @@ public static class AiTextResults
                 return Value(result, prompt);
             case AiJobKind.ReelComposition:
                 try {
-                    var pair = ReferenceReels.ParsePair(raw);
+                    var pair = ReferenceReels.ParsePair(raw, request.Payload<ReelCompositionRequest>().Draft);
                     try { ReferenceReels.ValidatePair(pair, request.Payload<ReelCompositionRequest>().Draft); }
                     catch (WorkspaceStoreException e) { return Value(result, pair, e.Message); }
                     return Value(result, pair);

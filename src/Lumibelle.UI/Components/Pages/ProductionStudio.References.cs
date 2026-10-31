@@ -9,7 +9,7 @@ namespace lumibelle.Components.Pages;
 
 public partial class ProductionStudio
 {
-    private static bool HasAttachedReferences(Shot shot) => shot.Images.Count + shot.Videos.Count + shot.Voices.Count + (shot.CharacterVoices?.Count ?? 0) > 0 || shot.ContinuityFrame is not null || shot.StartFrame is not null;
+    private static bool HasAttachedReferences(Shot shot) => shot.Images.Count + shot.Videos.Count + shot.Voices.Count + (shot.CharacterVoices?.Count ?? 0) > 0 || shot.ShotFrames.Count > 0 || shot.StartFrame is not null;
     private (Shot Shot, ProductionComposition Composition)? SuggestedReferenceCopy =>
         SourceShot?.SceneId is { } scene && PreviousReferenceSource is { } previous && previous.Shot.SceneId == scene &&
         (HasAttachedReferences(previous.Composition.Shot) || previous.Composition.Shot.EnvironmentAssetId is not null || previous.Shot.SelectedTakeId is not null) ? previous : null;
@@ -67,7 +67,7 @@ public partial class ProductionStudio
         _doc.Shots.FirstOrDefault(s => s.Id == source.Id)?.SelectedTakeId is { } id && _doc.Takes.FirstOrDefault(t => t.Id == id) is { } take
             ? new(Guid.NewGuid(), take.Id, first ? 0 : take.FrameCount - 1, $"{source.Title} · {(first ? "first" : "last")} frame") : null;
     private string GuidanceSummary(ShotImageBinding b) => Guidance(b).Override is not null ? "Customized for this composition" : "Using shared reference guidance";
-    private static string ReferenceBaseline(Shot shot) => Json(new { shot.EnvironmentAssetId, shot.EnvironmentInspectionDisabled, shot.EnvironmentInspection, shot.EnvironmentStaging, shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, shot.ContinuityFrame, shot.Dialogue, shot.Characters, shot.Duration });
+    private static string ReferenceBaseline(Shot shot) => Json(new { shot.EnvironmentAssetId, shot.EnvironmentInspectionDisabled, shot.EnvironmentInspection, shot.EnvironmentStaging, shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, ContinuityFrame = shot.ShotFrameFingerprint, shot.Dialogue, shot.Characters, shot.Duration });
     private void CheckReferenceBaseline()
     {
         if (Current?.Id != _referenceComposition || _imageEditorShot is not { } original || Selected is not { } shot || ReferenceBaseline(shot) != ReferenceBaseline(original))
@@ -87,7 +87,7 @@ public partial class ProductionStudio
         catch (WorkspaceStoreException) { return false; }
         // RefMod builds are captured again by the replacement.
         static string References(Shot s) => Json(new { s.Images, Videos = s.Videos.Select(v => v with { RefMod = null }), s.Voices, s.CharacterVoices,
-            s.ContinuityFrame, s.EnvironmentAssetId, s.EnvironmentInspectionDisabled, s.EnvironmentInspection });
+            ContinuityFrame = s.ShotFrameFingerprint, s.EnvironmentAssetId, s.EnvironmentInspectionDisabled, s.EnvironmentInspection });
         return References(expected) == References(draft);
     }
     // Other shots changed on disk; show them as saved unless this shot has unsaved edits.
@@ -110,9 +110,9 @@ public partial class ProductionStudio
                 var library = await AssetStore.LoadAsync(Id, _lifetime.Token);
                 CheckAssistedReferenceContext(selection, library);
                 var draft = selection.Inputs;
-                if (draft.ContinuityFrame is { } frame) {
-                    var sources = await Store.LoadAsync(Id, _lifetime.Token);
-                    var take = sources.Takes.FirstOrDefault(t => t.Id == frame.TakeId);
+                var frameSources = draft.ShotFrames.Count > 0 ? await Store.LoadAsync(Id, _lifetime.Token) : null;
+                foreach (var frame in draft.ShotFrames) {
+                    var take = frameSources!.Takes.FirstOrDefault(t => t.Id == frame.TakeId);
                     if (take is null || frame.Frame < 0 || frame.Frame >= take.FrameCount)
                         throw new WorkspaceStoreException("The selected shot frame is no longer available. Choose another take or frame in Shot frames.");
                     await using var media = await Store.OpenAsync(Id, take.Id, ShotTrashKind.Take, frame.Frame, ct: _lifetime.Token);
@@ -167,10 +167,10 @@ public partial class ProductionStudio
                     Notify(others == 0 ? "Reel replaced." : $"Reel replaced in this shot and {(others == 1 ? "1 other shot" : $"{others} other shots")}.");
                     return;
                 }
-                if (Selected!.EnvironmentInspectionDisabled != draft.EnvironmentInspectionDisabled || Json(Selected.EnvironmentInspection) != Json(draft.EnvironmentInspection) || Selected.EnvironmentAssetId != draft.EnvironmentAssetId || Json(Selected.EnvironmentStaging) != Json(draft.EnvironmentStaging) || Json(Selected.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices) || Json(Selected.ContinuityFrame) != Json(draft.ContinuityFrame)) {
+                if (Selected!.EnvironmentInspectionDisabled != draft.EnvironmentInspectionDisabled || Json(Selected.EnvironmentInspection) != Json(draft.EnvironmentInspection) || Selected.EnvironmentAssetId != draft.EnvironmentAssetId || Json(Selected.EnvironmentStaging) != Json(draft.EnvironmentStaging) || Json(Selected.Images) != Json(draft.Images) || Json(Selected.Videos) != Json(draft.Videos) || Json(Selected.Voices) != Json(draft.Voices) || Json(Selected.CharacterVoices) != Json(draft.CharacterVoices) || Json(Selected.ShotFrames) != Json(draft.ShotFrames)) {
                     if (!_referenceUndoRecorded) { Remember(); _referenceUndoRecorded = true; }
                     Current!.Shot.Images = ShotCopy.Of(draft.Images); Current.Shot.Videos = ShotCopy.Of(draft.Videos); Current.Shot.Voices = ShotCopy.Of(draft.Voices); Current.Shot.CharacterVoices = draft.CharacterVoices is null ? null : ShotCopy.Of(draft.CharacterVoices);
-                    Current.Shot.ContinuityFrame = draft.ContinuityFrame; Current.Shot.EnvironmentAssetId = draft.EnvironmentAssetId; Current.Shot.EnvironmentInspectionDisabled = draft.EnvironmentInspectionDisabled; Current.Shot.EnvironmentInspection = ShotCopy.Of(draft.EnvironmentInspection); Current.Shot.EnvironmentStaging = draft.EnvironmentStaging; Changed();
+                    Current.Shot.ShotFrames = ShotCopy.Of(draft.ShotFrames); Current.Shot.EnvironmentAssetId = draft.EnvironmentAssetId; Current.Shot.EnvironmentInspectionDisabled = draft.EnvironmentInspectionDisabled; Current.Shot.EnvironmentInspection = ShotCopy.Of(draft.EnvironmentInspection); Current.Shot.EnvironmentStaging = draft.EnvironmentStaging; Changed();
                     _imageEditorShot = Selected.Copy(); // Retrying a failed save does not add another Undo entry.
                 }
                 if (!await SaveLocked()) throw new WorkspaceStoreException(_error ?? "Could not save references.");
@@ -179,8 +179,11 @@ public partial class ProductionStudio
                     elsewhere += (await Replacements.ApplyAsync(Id, swap.From, swap.To, _lifetime.Token)).Ready;
                 if (elsewhere > 0) await ReloadProduction();
                 _assets = library; _referenceOpen = false; ConsumeAssetPickRequest();
-                if (_referenceUndoRecorded) Warn("Check prompt · References changed. Check the Picture, Video and Audio labels before generating." +
-                    (elsewhere > 0 ? $" The reel was also replaced in {(elsewhere == 1 ? "1 other shot" : $"{elsewhere} other shots")}." : ""));
+                var replacedElsewhere = elsewhere > 0 ? $" The reel was also replaced in {(elsewhere == 1 ? "1 other shot" : $"{elsewhere} other shots")}." : "";
+                // Labels can only be wrong in an existing prompt; with none yet, composing numbers the new references.
+                if (_referenceUndoRecorded && !string.IsNullOrWhiteSpace(Current?.Prompt))
+                    Warn("Check prompt · References changed. Check the Picture, Video and Audio labels before generating." + replacedElsewhere);
+                else if (_referenceUndoRecorded) Notify("References saved." + replacedElsewhere);
             }
             finally { _saveGate.Release(); }
         }

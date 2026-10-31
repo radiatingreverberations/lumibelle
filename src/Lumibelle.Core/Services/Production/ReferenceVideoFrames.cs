@@ -62,6 +62,27 @@ public sealed partial class FileReferenceVideoStore
         }
         if (prior is null) await AtomicJsonFile.WriteAsync(path, manifest, ct);
     }
+    public async Task PublishKeptFramesAsync(Guid project, ReferenceVideoMedia media, ShotTake take, string sourceDirectory, H3Settings settings, CancellationToken ct = default)
+    {
+        if (take.KeptFrames is not { Count: > 0 } kept) return;
+        if (take.HasLosslessFrames || take.FrameCount != media.Frames || take.Width != media.Width || take.Height != media.Height)
+            throw new WorkspaceStoreException("The kept reel frames do not match the video.");
+        // Kept frames exist only without an archive, so the reel's frames are identified by its MP4.
+        var catalog = await VideoCatalog(project, media, settings, ct);
+        var directory = await DirectoryAsync(project, media.Id, ct);
+        using var gate = await ProjectFiles.LockAsync(Path.Combine(directory, "frame-extraction"), ct);
+        foreach (var frame in kept)
+        {
+            var target = FramePath(directory, new(media.Id, catalog.Source, frame.Frame, catalog.Timestamps[frame.Frame]));
+            if (File.Exists(target)) continue;
+            var source = Path.Combine(sourceDirectory, frame.FileName);
+            var image = await SixLabors.ImageSharp.Image.IdentifyAsync(source, ct);
+            if (image.Width != media.Width || image.Height != media.Height) throw new WorkspaceStoreException("A kept reel frame does not match the video size.");
+            var temp = target + ".tmp";
+            try { File.Copy(source, temp, true); DurableFile.Flush(temp); File.Move(temp, target); }
+            finally { File.Delete(temp); }
+        }
+    }
     public async Task<ReelFrameCatalog> FrameCatalogAsync(Guid project, ReferenceVideoMedia media, H3Settings settings, CancellationToken ct = default)
     {
         if (await Record(project, media.Id, ct) != media) throw new WorkspaceStoreException("The reel media changed.");

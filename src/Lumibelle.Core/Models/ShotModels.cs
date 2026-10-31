@@ -3,7 +3,7 @@ using lumibelle.Services.Story;
 
 namespace lumibelle.Models;
 
-public enum VideoResolution { Quick, Preview, Detail, Native }
+public enum VideoResolution { Quick, Preview, Detail, Native, FullHd, Qhd }
 
 public static class ShotCopy
 {
@@ -25,6 +25,18 @@ public sealed record H3Settings
     public string? PddCheckpoint { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? HyperFlowLora { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? TenErosCompactModel { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SmdBaseModel { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SmdLora { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FastH3Model { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PtdBaseModel { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PtdAdapter { get; set; }
     public string TurboLora { get; set; } = "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors";
     public string Turbo8StepLora { get; set; } = "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors";
     public int TimeoutSeconds { get; set; } = 7200;
@@ -136,6 +148,8 @@ public sealed record Shot
     public bool UpscalePreview { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? GenerationPreset { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? GenerationPresetMigration { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SaveLosslessFrames { get; set; }
     // Keeps each take's audio/video latents so it can be refined at a larger size later.
@@ -147,13 +161,39 @@ public sealed record Shot
     // Takes of this shot open exactly on this frame of an earlier take, for a continuous cut.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ShotStartFrame? StartFrame { get; set; }
-    // A take frame used as a reference picture, numbered after the shot's images: usually the previous shot's last frame.
+    // Take frames used as reference pictures, numbered after the shot's images in this order, such as the
+    // previous shot's last frame or several earlier shots that must stay consistent.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<ShotContinuityFrame> ShotFrames { get; set; } = [];
+    // Zero or one frame saves exactly as the single continuityFrame did, so saved shots, takes and their
+    // fingerprints are unchanged; only two or more frames use shotFrames.
+    [System.Text.Json.Serialization.JsonPropertyName("continuityFrame"), System.Text.Json.Serialization.JsonInclude]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public ShotContinuityFrame? ContinuityFrame { get; set; }
+    public ShotContinuityFrame? SingleShotFrame { get => ShotFrameMigration.Single(ShotFrames); set => ShotFrameMigration.Add(ShotFrames, value); }
+    [System.Text.Json.Serialization.JsonPropertyName("shotFrames"), System.Text.Json.Serialization.JsonInclude]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<ShotContinuityFrame>? SeveralShotFrames { get => ShotFrameMigration.Several(ShotFrames); set => ShotFrames = value ?? []; }
+    // Fingerprints keep the single-frame shape for zero or one frame, so earlier takes do not appear changed.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public object? ShotFrameFingerprint => ShotFrameMigration.Fingerprint(ShotFrames);
     public Shot Copy() => ShotCopy.Of(this);
+}
+public sealed record TakeKeptFrame(int Frame, string FileName, long Bytes)
+{
+    public static string File(int frame) => $"kept-frame-{frame:D4}.png";
 }
 /// <summary>A frame of a saved take used as a Picture reference, read from the take rather than saved to Assets. Id identifies the picture binding.</summary>
 public sealed record ShotContinuityFrame(Guid Id, Guid TakeId, int Frame, string Name);
+public static class ShotFrameMigration
+{
+    public static void Add(List<ShotContinuityFrame> frames, ShotContinuityFrame? single)
+    {
+        if (single is not null && frames.All(f => f.Id != single.Id)) frames.Insert(0, single);
+    }
+    public static ShotContinuityFrame? Single(List<ShotContinuityFrame> frames) => frames.Count == 1 ? frames[0] : null;
+    public static List<ShotContinuityFrame>? Several(List<ShotContinuityFrame> frames) => frames.Count > 1 ? frames : null;
+    public static object? Fingerprint(IReadOnlyList<ShotContinuityFrame> frames) => frames.Count switch { 0 => null, 1 => frames[0], _ => frames };
+}
 /// <summary>A frame of a saved take, by zero-based index. Take frames never change, so the take and index identify the image.</summary>
 public sealed record ShotStartFrame(Guid TakeId, int Frame);
 public sealed record ShotRecovery(Guid Id, DateTimeOffset CreatedUtc, string Reason, List<Shot> Shots)
@@ -167,6 +207,10 @@ public sealed record ShotFrame(int Index, string FileName, long Bytes)
 }
 public sealed record ShotTake
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public H3GenerationRecipe? GenerationRecipe { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public H3ExecutionReceipt? ExecutionReceipt { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ShotTakeCopySource? CopySource { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -216,6 +260,9 @@ public sealed record ShotTake
     public long Bytes { get; set; }
     public string Directory { get; set; } = "";
     public List<ShotFrame> Frames { get; set; } = [];
+    // Single frames saved losslessly by request (H3OutputPolicy.KeptFrames) when the take has no full archive.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<TakeKeptFrame>? KeptFrames { get; set; }
     public required VideoSnapshot Snapshot { get; set; }
 }
 public enum ShotTrashKind { Take }
@@ -278,6 +325,8 @@ public sealed record TrashedVoice(Guid Id, VoiceReference Voice, ReferenceAsset 
 public sealed record VideoSnapshot(Guid ProjectId, long SourceRevision, Shot Shot, string Prompt, string Fingerprint,
     string ComfyUrl, H3Settings Settings, int Width, int Height, int FrameCount, string Profile = "h3-single-take-v1")
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public MotionReferenceSource? MotionReference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public TakeMotionContext? Motion { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -433,4 +482,7 @@ public sealed record H3Configuration(bool StandardReady, bool TurboReady, string
     public IReadOnlyList<string> InstalledLoras { get; init; } = Loras;
     // Every node class ComfyUI reported, so the settings page can tell which node packs are installed.
     public IReadOnlyCollection<string> Nodes { get; init; } = [];
+    // Stock nodes that pick single frames from the decoded batch and save them as PNGs.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool KeptFramesReady => Nodes.Contains("ImageFromBatch") && Nodes.Contains("SaveImage");
 }

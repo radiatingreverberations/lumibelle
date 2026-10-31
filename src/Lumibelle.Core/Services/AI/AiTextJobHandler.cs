@@ -269,7 +269,7 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
                 m.Parts.Any(p => p is null || (p.Text is not null) == (p.Image is not null) || p.Image is { Length: 0 } || p.Image is not null && p.MediaType != "image/png")))
             throw new WorkspaceStoreException("The saved text request contains invalid settings or messages.");
         TextModelPolicy.Validate(request.Model); TextModelPolicy.CheckRequestServer(request.Model, request.Settings); FileAiSettingsStore.Validate(request.Settings);
-        if (request.ResponseSchema is { } schema && (request.Version < 3 || request.Kind is not (AiJobKind.ScriptAssistant or AiJobKind.PromptComposition or AiJobKind.ShotPlanning) ||
+        if (request.ResponseSchema is { } schema && (request.Version < 3 || request.Kind is not (AiJobKind.ScriptAssistant or AiJobKind.PromptComposition or AiJobKind.ShotPlanning or AiJobKind.ReelComposition) ||
             request.Kind == AiJobKind.PromptComposition && request.Profile != ProductionPolicy.Profile ||
             request.Kind == AiJobKind.ShotPlanning && request.Profile != ShotPlanner.Profile(request.Payload<ShotPlanningRequest>()) ||
             request.Model.Backend != AiBackend.Vllm || schema.ValueKind != JsonValueKind.Object))

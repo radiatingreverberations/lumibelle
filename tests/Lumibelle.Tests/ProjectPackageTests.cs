@@ -102,7 +102,8 @@ public sealed partial class ProjectPackageTests
         source.LarryLora = key == "larry" ? "used.safetensors" : Secret;
         source.PddCheckpoint = key == "pdd" ? "used.safetensors" : Secret;
         source.HyperFlowLora = key == "hyperflow" ? H3HyperFlow.DefaultCheckpoint : Secret;
-        snapshot = snapshot with { Preset = H3Presets.Capture(snapshot.Shot, source), Sampling = H3Policy.Sampling(snapshot.Shot, source) };
+        // Retired presets stay in older takes, so packages must still clean them.
+        snapshot = snapshot with { Preset = H3Presets.Capture(snapshot.Shot, source, historical: H3Presets.Retired(key)), Sampling = H3Policy.Sampling(snapshot.Shot, source) };
         var cleaned = new ProjectPackagePrivacy().Clean(snapshot);
         Assert.DoesNotContain(Secret, JsonSerializer.Serialize(cleaned, AtomicJsonFile.Options));
         Assert.Equal(snapshot.Preset!.Checkpoint, cleaned.Preset!.Checkpoint);
@@ -464,7 +465,7 @@ public sealed partial class ProjectPackageTests
     {
         var shot = Ready(); shot.GenerationPreset = key; shot.SaveLosslessFrames = lossless; var settings = new H3Settings(); var size = VideoResolutions.Size(shot);
         return new(project, 1, shot, H3Policy.Compile(shot), H3Policy.Fingerprint(shot), "http://localhost:8188", settings, size.Width, size.Height, H3Policy.Frames(1), H3Policy.Profile) {
-            Preset = H3Presets.Capture(shot, settings), Sampling = H3Policy.Sampling(shot, settings), OutputPolicy = new(lossless),
+            Preset = H3Presets.Capture(shot, settings, historical: H3Presets.Retired(key)), Sampling = H3Policy.Sampling(shot, settings), OutputPolicy = new(lossless),
             Performance = H3Performance.Capture(H3Presets.NewPerformance(settings)) };
     }
     private static async Task<byte[]> TensorPackage(VideoSnapshot snapshot)

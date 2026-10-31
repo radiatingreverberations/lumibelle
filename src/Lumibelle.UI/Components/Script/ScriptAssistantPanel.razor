@@ -139,7 +139,7 @@
             @if (!_scenePlanning && !_twoStepSequence) {
             @if (_activeJob is { } active && active.Id == run.JobId)
             { <lumibelle.Components.AI.AiJobProgressView Job="active" Queue="Jobs.View" Progress="Jobs.Progress(active.Id)" /> }
-            <details class="request-details"><summary>Request details</summary><p>Saved revision @run.SourceRevision · @run.Target.Name · @run.Backend · @run.Model</p><pre class="submitted-input">@(_requestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
+            <details class="request-details"><summary>Request details</summary><p>Saved revision @run.SourceRevision · @run.Target.Name · @TextModelPolicy.ProviderName(run.Backend) · @run.Model</p><pre class="submitted-input">@(_requestDetails ?? "The exact input is unavailable for this historical local proposal.")</pre></details>
             @if (_scenePlan is not null) { <details class="scene-planning-brief"><summary>Sequence brief</summary><MarkdownView Text="@ScriptScenePlanning.Markdown(_scenePlan)" /></details> }
             }
             var target = _reviewTarget ?? run.Target;
@@ -169,7 +169,7 @@
                 <section class="script-response-working" aria-label="Response in progress">
                     @if (_sequenceReview is not null) { <h3>@(_sequenceReview.State == ScriptSequenceReviewState.Repairing ? "Repairing the cited findings" : "Checking the screenplay")</h3><p>The draft is saved. Automatic review checks the required beats, source facts, continuity and ending before it is ready to apply.</p> }
                     else if (_twoStepSequence) { <h3>Writing the screenplay</h3><p>Using the saved sequence brief and source passages. The screenplay will be ready to review when writing finishes.</p> }
-                    else { <h3>@RunAction(run) · @RunStatus(run)</h3><p>@run.Target.Name · @run.Backend · @run.Model</p> }
+                    else { <h3>@RunAction(run) · @RunStatus(run)</h3><p>@run.Target.Name · @TextModelPolicy.ProviderName(run.Backend) · @run.Model</p> }
                     <StreamingResponsePreview @key="(run.Id, _sequenceReview?.State, _sequenceReview?.Repairs)" Raw="@(_sequenceReview?.State == ScriptSequenceReviewState.Checking ? _sequenceReview.RawResponse : run.Output)" Title="@(_sequenceReview?.State == ScriptSequenceReviewState.Checking ? "Review arriving" : "Screenplay arriving")" />
                     @if (!_twoStepSequence) {
                     @if (string.IsNullOrEmpty(run.Output))

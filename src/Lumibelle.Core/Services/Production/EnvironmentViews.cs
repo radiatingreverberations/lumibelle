@@ -46,7 +46,7 @@ public static class EnvironmentViews
             r.Shot.Dialogue, DirectionContext = ShotDirections.PromptContext(r.DirectionContext), r.Shot.Atmosphere, r.DirectingNotes, r.CurrentPrompt, r.RevisionNotes, r.SceneContext, r.NearbyShots, maximumViews = r.MaximumViews,
             remainingReelBindings = 3 - ReferenceVideos.ReelSlotCount(retained), existingImages = retained.Images.Select(i => new { i.Name, i.Notes, i.Role }),
             existingReels = retained.Videos.Select(v => new { v.Name, v.Description, v.Keyframes }),
-            continuityFrame = retained.ContinuityFrame, r.Warnings,
+            shotFrames = retained.ShotFrames, r.Warnings,
             candidates = r.Candidates.Select(id => r.Pool.Single(c => c.Id == id)).Select(c => new {
                 candidateId = c.Id, c.Name, c.Approved, c.Notes, reelId = c.Reel?.Id, reelName = c.Reel?.Name,
                 timestamp = c.Keyframe?.Frame.Seconds, savedRecipeIntent = c.Reel?.Generation?.Recipe.Instructions })

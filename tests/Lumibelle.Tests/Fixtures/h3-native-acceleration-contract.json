@@ -1,0 +1,428 @@
+{
+  "BlockSparseAttention": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL",
+          {
+            "tooltip": "The model to patch."
+          }
+        ],
+        "selection": [
+          "COMFY_DYNAMICCOMBO_V3",
+          {
+            "display_name": "method",
+            "tooltip": "Method used to choose key blocks for full token-level attention. sol-attn: Sparsifying Online Attention uses a training-free adaptive threshold for each attention head and query block. sla: Sparse-Linear Attention keeps a fixed percentage of the highest-scoring key blocks; use only with model weights trained for this pattern. vsa: Video Sparse Attention (FastVideo) uses 3D video-cube tiling and a learned coarse attention branch; requires FastH3 model weights.",
+            "options": [
+              {
+                "key": "sol-attn",
+                "inputs": {
+                  "required": {
+                    "tau": [
+                      "FLOAT",
+                      {
+                        "tooltip": "Threshold in score-distribution sigmas. Higher is sparser: 1.0 keeps ~16% of key blocks exact, 1.5 ~7%, 2.0 ~2.7%.",
+                        "default": 1.3,
+                        "min": 0.0,
+                        "max": 4.0,
+                        "step": 0.05
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "sla",
+                "inputs": {
+                  "required": {
+                    "keep_percent": [
+                      "FLOAT",
+                      {
+                        "tooltip": "Percent of key blocks each query block keeps exactly (sinks and the diagonal ride on top). The selection SLA-style LoRAs are distilled against; without such a LoRA higher is closer to dense.",
+                        "default": 10.0,
+                        "min": 0.5,
+                        "max": 95.0,
+                        "step": 0.5
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "vsa",
+                "inputs": {
+                  "required": {
+                    "keep_percent": [
+                      "FLOAT",
+                      {
+                        "tooltip": "Percent of video cubes each query cube keeps; FastH3-VSA checkpoints are trained at 10. Uses the model's to_gate_compress layers for the coarse branch when present.",
+                        "default": 10.0,
+                        "min": 0.5,
+                        "max": 95.0,
+                        "step": 0.5
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "start_percent": [
+          "FLOAT",
+          {
+            "tooltip": "Percentage point when sparse attention begins. Before this point, attention stays dense.",
+            "default": 0.2,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "end_percent": [
+          "FLOAT",
+          {
+            "tooltip": "Percentage point when sparse attention ends. After this point, attention returns to dense.",
+            "default": 1.0,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "dense_blocks": [
+          "STRING",
+          {
+            "tooltip": "Transformer blocks that always run dense, e.g. '0, 1, 47-49'.",
+            "advanced": true,
+            "default": "",
+            "multiline": false
+          }
+        ],
+        "min_tokens": [
+          "INT",
+          {
+            "tooltip": "Sequences shorter than this stay dense.",
+            "advanced": true,
+            "default": 12288,
+            "min": 0,
+            "max": 1048576,
+            "step": 512
+          }
+        ],
+        "extra_tokens": [
+          "INT",
+          {
+            "tooltip": "Extra top-scoring tokens each query block attends beyond its selected blocks. Closer to dense for more attention time; 256 recommended, 0 disables. Ignored for VSA.",
+            "advanced": true,
+            "default": 256,
+            "min": 0,
+            "max": 256,
+            "step": 64
+          }
+        ],
+        "sink_conditioning": [
+          "COMBO",
+          {
+            "tooltip": "MiniMax-H3 only. exact_kv: every query attends the packed text/audio/reference rows exactly (~3% cost). exact_kv_and_rows: additionally runs the target-audio query rows dense (keeps generated audio intact).",
+            "advanced": true,
+            "default": "exact_kv_and_rows",
+            "multiselect": false,
+            "options": [
+              "exact_kv",
+              "exact_kv_and_rows",
+              "off"
+            ]
+          }
+        ],
+        "verbose": [
+          "BOOLEAN",
+          {
+            "tooltip": "Logs whether each attention shape used sparse attention or why it stayed dense.",
+            "advanced": true,
+            "default": false
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "selection",
+        "start_percent",
+        "end_percent",
+        "dense_blocks",
+        "min_tokens",
+        "extra_tokens",
+        "sink_conditioning",
+        "verbose"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "model"
+    ],
+    "output_tooltips": [
+      "The model with block-sparse attention applied."
+    ],
+    "output_matchtypes": null,
+    "name": "BlockSparseAttention",
+    "display_name": "Model Sparse Attention",
+    "description": "Applies block-sparse attention to eligible model attention layers, reducing compute for long sequences. The speed gain grows with sequence length since short sequences are usually faster dense. Outside the start/end_percent, dense_blocks and under min_tokens, the model uses the dense model attention backend. Use the node Model Attention Backend to select that fallback.",
+    "python_module": "comfy_extras.nodes_sparse_attention",
+    "category": "model/patch",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": true,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "Block Sparse Attention"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "ModelAttentionBackend": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL",
+          {
+            "tooltip": "The model to patch."
+          }
+        ],
+        "attention": [
+          "COMBO",
+          {
+            "display_name": "backend",
+            "tooltip": "The dense attention backend. Comfy Kitchen attention uses quantized INT8 attention and is available only on Nvidia and AMD GPUs.",
+            "default": "pytorch attention",
+            "multiselect": false,
+            "options": [
+              "pytorch attention",
+              "comfy kitchen attention"
+            ]
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "attention"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "model"
+    ],
+    "output_tooltips": [
+      "The model with the selected attention backend."
+    ],
+    "output_matchtypes": null,
+    "name": "ModelAttentionBackend",
+    "display_name": "Model Attention Backend",
+    "description": "Selects the dense attention implementation for the model. When used with Block Sparse Attention, this backend is used whenever sparse attention is inactive or unsupported.",
+    "python_module": "comfy_extras.nodes_model_advanced",
+    "category": "model/patch",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": true,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "comfy kitchen",
+      "attention",
+      "pytorch",
+      "kitchen attention"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "MiniMaxH3SigmaShift": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL",
+          {}
+        ],
+        "shift_video": [
+          "FLOAT",
+          {
+            "default": 12.0,
+            "min": 0.01,
+            "max": 100.0,
+            "step": 0.01
+          }
+        ],
+        "shift_audio": [
+          "FLOAT",
+          {
+            "default": 3.0,
+            "min": 0.01,
+            "max": 100.0,
+            "step": 0.01
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "shift_video",
+        "shift_audio"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "MiniMaxH3SigmaShift",
+    "display_name": "ModelSamplingMiniMaxH3",
+    "description": "Set the video/audio flow shifts.",
+    "python_module": "comfy_extras.nodes_minimax_h3",
+    "category": "model/patch/minimax",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "sigma shift",
+      "minimax shift"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "ManualSigmas": {
+    "input": {
+      "required": {
+        "sigmas": [
+          "STRING",
+          {
+            "default": "1, 0.5",
+            "multiline": false
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "sigmas"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "SIGMAS"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "SIGMAS"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "ManualSigmas",
+    "display_name": null,
+    "description": "",
+    "python_module": "comfy_extras.nodes_custom_sampler",
+    "category": "model/sampling/sigmas",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": true,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "custom noise schedule",
+      "define sigmas"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "LoraLoaderModelOnly": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ],
+        "lora_name": [
+          [
+            "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
+          ]
+        ],
+        "strength_model": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": -100.0,
+            "max": 100.0,
+            "step": 0.01
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "lora_name",
+        "strength_model"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL"
+    ],
+    "name": "LoraLoaderModelOnly",
+    "display_name": "Load LoRA",
+    "description": "This LoRAs loader is used to modify the diffusion model, altering the way in which latents are denoised such as applying styles. Multiple LoRA nodes can be linked together.",
+    "python_module": "nodes",
+    "category": "model/loaders",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "output_tooltips": [
+      "The modified diffusion model.",
+      "The modified CLIP model."
+    ],
+    "search_aliases": [
+      "lora",
+      "load lora",
+      "apply lora",
+      "lora loader",
+      "lora model"
+    ],
+    "essentials_category": "Image Generation"
+  }
+}

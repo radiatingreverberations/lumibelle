@@ -74,7 +74,7 @@ internal static class TextGenerationOptions
                 OpenAiConnections.Kind(connection) == OpenAiServerKind.Standard;
             if (standard)
                 options.RawRepresentationFactory = _ => OpenAiSchemaOptions(schema);
-            else if (request.Kind is AiJobKind.PromptComposition or AiJobKind.ShotPlanning && request.Model.Backend == AiBackend.Vllm)
+            else if (request.Kind is AiJobKind.PromptComposition or AiJobKind.ShotPlanning or AiJobKind.ReelComposition && request.Model.Backend == AiBackend.Vllm)
                 options.RawRepresentationFactory = _ => VllmSchemaOptions(schema);
             else options.ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema(schema, "lumibelle_response");
         }

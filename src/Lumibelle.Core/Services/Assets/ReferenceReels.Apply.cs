@@ -31,7 +31,7 @@ public static partial class ReferenceReels
     private static ReferenceReelDraft Composed(ReferenceReelDraft draft)
     {
         var copy = draft.Copy(); copy.CheckedInputs = null;
-        copy.GenerationPreset = null; copy.Turbo = false; copy.TurboSteps = 0; copy.NativeResolution = false;
+        copy.GenerationPreset = null; copy.GenerationPresetMigration = null; copy.Turbo = false; copy.TurboSteps = 0; copy.NativeResolution = false;
         copy.Resolution = null; copy.SaveLosslessFrames = null; copy.Loras = null; copy.ReelLoras = null;
         return copy;
     }

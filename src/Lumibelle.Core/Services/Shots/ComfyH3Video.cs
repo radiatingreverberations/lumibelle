@@ -11,8 +11,12 @@ namespace lumibelle.Services.Shots;
 
 public interface IVideoGenerator
 {
+    Task<H3GenerationRecipe> CaptureRecipeAsync(AiVideoJobRequest request, CancellationToken ct)
+        => Task.FromResult(H3GenerationRecipes.Capture(request));
     Task<H3Configuration> CheckAsync(AiSettings settings, CancellationToken ct = default);
     Task PrepareAsync(VideoRun run, string directory, CancellationToken ct);
+    Task PrepareAsync(VideoRun run, string directory, CancellationToken ct, IProgress<VideoPreparationProgress>? progress)
+        => PrepareAsync(run, directory, ct);
     Task ValidateInputsAsync(VideoSnapshot snapshot, CancellationToken ct);
     Task<string> SubmitAsync(VideoRun run, VideoCandidate candidate, CancellationToken ct);
     IAsyncEnumerable<ComfyExecutionUpdate> ObserveAsync(VideoRun run, VideoCandidate candidate, CancellationToken ct);
@@ -153,32 +157,29 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         }
         // Filenames suggest choices, but community exports may use different names. Submission
         // checks exact catalog identities and node contracts without claiming to inspect weights.
-        var incompatible = IsFl2VaOnly(s.Model) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
-            : Path.GetFileName(s.Encoder).Contains("generation_tail", StringComparison.OrdinalIgnoreCase) ? "Choose an H3 conditioning encoder. A generation tail is not a standalone encoder." : null;
-        var baseIssue = missing.Count > 0 ? "Update ComfyUI: missing " + string.Join(", ", missing) : incompatible ??
-            (!installedModels.Contains(s.Model) || !installedEncoders.Contains(s.Encoder) || !installedVaes.Contains(s.VideoVae) || !installedVaes.Contains(s.AudioVae)
-                ? "Select installed H3 Ref2VA model, encoder, video VAE, and audio VAE files." : null);
+        var sharedIssue = missing.Count > 0 ? "Update ComfyUI: missing " + string.Join(", ", missing)
+            : Path.GetFileName(s.Encoder).Contains("generation_tail", StringComparison.OrdinalIgnoreCase) ? "Choose an H3 conditioning encoder. A generation tail is not a standalone encoder."
+            : !installedEncoders.Contains(s.Encoder) || !installedVaes.Contains(s.VideoVae) || !installedVaes.Contains(s.AudioVae)
+                ? "Select installed H3 encoder, video VAE, and audio VAE files." : null;
+        var ordinaryModelIssue = IsFl2VaOnly(s.Model) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
+            : H3AcceleratedCheckpoints.IsBakedFile(s.Model) ? "Select ordinary H3 weights for Standard, or choose this checkpoint's dedicated preset."
+            : !installedModels.Contains(s.Model) ? "Select an installed H3 Ref2VA model." : null;
+        var baseIssue = sharedIssue ?? ordinaryModelIssue;
         var standardIssue = baseIssue ?? (!Options(root, "KSamplerSelect", "sampler_name").Contains("res_multistep") ? "Update ComfyUI: missing res_multistep sampler." : null);
         string? LoraIssue(string file, int steps) => H3Policy.TurboFileIssue(file, steps) ??
             (!installedLoras.Contains(file) ? $"Select an installed Ref2V {steps}-step Turbo LoRA in Video models." :
                 new[] { "model", "lora_name", "strength_model" }.Any(f => Input(root, "LoraLoaderModelOnly", f).ValueKind != JsonValueKind.Array) ? "Update ComfyUI: missing model-only LoRA loader inputs." : null);
         var turboIssue = standardIssue ?? LoraIssue(s.TurboLora, 4);
-        var turbo8Issue = baseIssue ?? LoraIssue(s.Turbo8StepLora, 8) ??
-            (!Options(root, "KSamplerSelect", "sampler_name").Contains("euler") ? "Update ComfyUI: missing Euler sampler for 8-step Turbo." : null);
-        if (turbo8Issue is null && (Input(root, "MiniMaxH3SigmaShift", "model").ValueKind != JsonValueKind.Array ||
-            !SupportsShift(root, "shift_video", 12) || !SupportsShift(root, "shift_audio", 3)))
-            turbo8Issue = "Update ComfyUI: 8-step Turbo requires MiniMaxH3SigmaShift with video shift 12 and audio shift 3.";
+        var turbo8Issue = H3Presets.RemovedIssue("turbo8");
         var message = baseIssue ?? string.Join(" ", new[] {
             standardIssue is null ? "Standard ready." : standardIssue,
-            turboIssue is null ? "4-step Turbo ready." : "4-step Turbo: " + turboIssue,
-            turbo8Issue is null ? "8-step Turbo ready." : "8-step Turbo: " + turbo8Issue,
-            "Model compatibility has not been tested." });
+            turboIssue is null ? "4-step Turbo ready." : "4-step Turbo: " + turboIssue });
         var archiveIssue = archiveMissing.Count > 0 ? "Update ComfyUI: missing " + string.Join(", ", archiveMissing) : null;
         var previewUpscaling = H3PreviewUpscaling.Inspect(root, s);
         var refinement = InspectRefinement(root, standardIssue ?? archiveIssue, previewUpscaling);
         var performance = H3Performance.Inspect(root);
         return new(standardIssue is null, turboIssue is null, message, models, encoders, vaes, loras)
-        { DiscoverySucceeded = true, Presets = H3Presets.Inspect(root, s, baseIssue, standardIssue, turboIssue, turbo8Issue),
+        { DiscoverySucceeded = true, Presets = H3Presets.Inspect(root, s, baseIssue, standardIssue, turboIssue, turbo8Issue, sharedIssue),
             VideoReferenceIssue = SupportsVideoReferences(root)
                 ? null : "Update ComfyUI to enable LoadVideo, GetVideoComponents, and H3 reference video/audio inputs, then refresh Video models.",
             RefModIssue = ComfyRefModClient.Inspect(root),
@@ -244,9 +245,10 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (voice is null || content is null || v.Start + v.Duration > voice.Duration + .01) throw new WorkspaceStoreException("A voice reference is missing, in Trash, or has an invalid excerpt.");
         }
         if (s.Shot.StartFrame is not null) await StartTakeAsync(s, ct);
-        if (s.Shot.ContinuityFrame is { } continuity)
+        var takes = s.Shot.ShotFrames.Count > 0 ? (await shots.LoadAsync(s.ProjectId, ct)).Takes : [];
+        foreach (var continuity in s.Shot.ShotFrames)
         {
-            var source = (await shots.LoadAsync(s.ProjectId, ct)).Takes.FirstOrDefault(t => t.Id == continuity.TakeId);
+            var source = takes.FirstOrDefault(t => t.Id == continuity.TakeId);
             if (source is null || continuity.Frame >= source.FrameCount)
                 throw new WorkspaceStoreException($"The take of the continuity picture “{continuity.Name}” is in Trash or was deleted. Restore it, or remove the picture.");
         }
@@ -262,29 +264,39 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             throw new WorkspaceStoreException($"The starting frame is {take.Width} × {take.Height}, a different shape from this shot's {s.Width} × {s.Height}. Use the same aspect ratio as the take, or remove the starting frame.");
         return take;
     }
-    public async Task PrepareAsync(VideoRun run, string directory, CancellationToken ct)
+    public Task PrepareAsync(VideoRun run, string directory, CancellationToken ct) => PrepareAsync(run, directory, ct, null);
+    public async Task PrepareAsync(VideoRun run, string directory, CancellationToken ct, IProgress<VideoPreparationProgress>? progress)
     {
+        var total = ReferenceVideos.InputOrder(run.Snapshot.Shot).Count();
+        void Report(string message, string? detail = null) => progress?.Report(new(VideoPreparationStage.References, message, run.Inputs.Count, total, detail));
+        Report("Checking reference media");
         await ValidateInputsAsync(run.Snapshot, ct);
         var folder = Path.Combine(directory, "inputs"); Directory.CreateDirectory(folder); run.Inputs.Clear();
         foreach (var b in run.Snapshot.Shot.Images)
         {
+            Report("Preparing picture references");
             await using var source = b.Kind == ShotImageKind.AssetImage ? await assets.OpenImageAsync(run.Snapshot.ProjectId, b.AssetId, b.MediaId, ct) : throw new WorkspaceStoreException("The standalone frame was removed. Replace it with an asset image.");
             if (source is null) throw new WorkspaceStoreException("An image disappeared before it could be captured.");
             var file = $"image-{run.Inputs.Count:D2}.png";
             await File.WriteAllBytesAsync(Path.Combine(folder, file), await ComfyReferenceImageEditor.PrepareSourcePngAsync(source.Content, b.Crop, ct), ct);
             run.Inputs.Add(new(file, false));
+            Report("Picture reference ready");
         }
-        if (run.Snapshot.Shot.ContinuityFrame is { } continuity)
+        foreach (var continuity in run.Snapshot.Shot.ShotFrames)
         {
             var file = $"image-{run.Inputs.Count:D2}.png";
             await File.WriteAllBytesAsync(Path.Combine(folder, file), await ProductionInputs.ContinuityPngAsync(run.Snapshot.ProjectId, continuity, shots, ct), ct);
             run.Inputs.Add(new(file, false));
         }
-        if (run.Snapshot.Shot.Videos.Count > 0)
+        if (run.Snapshot.Shot.Videos.Count > 0) {
+            Report("Preparing video references", "Preparing the video guide without its soundtrack");
             await referenceVideos!.PrepareAsync(run.Snapshot.ProjectId, run.Snapshot.Shot, folder, run.Inputs, run.Snapshot.Settings, ct);
+            Report("Video references ready");
+        }
         var library = await assets.LoadAsync(run.Snapshot.ProjectId, ct);
         foreach (var v in run.Snapshot.Shot.Voices)
         {
+            Report("Preparing voice references", v.Speaker);
             var info = library.Voices.Single(x => x.Matches(v));
             await using var content = await voices.OpenVoiceAsync(run.Snapshot.ProjectId, v.VoiceId, ct: ct) ?? throw new WorkspaceStoreException("A voice disappeared before capture.");
             var original = Path.Combine(folder, "original-" + v.VoiceId.ToString("N") + Path.GetExtension(info.FileName));
@@ -292,6 +304,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             var file = $"voice-{run.Inputs.Count:D2}.wav";
             await mediaTools.PrepareVoiceAsync(original, Path.Combine(folder, file), v.Start, v.Duration, run.Snapshot.Settings, ct);
             File.Delete(original); run.Inputs.Add(new(file, true));
+            Report("Voice reference ready", v.Speaker);
         }
         if (run.Snapshot.Shot.StartFrame is { } start)
         {
@@ -303,6 +316,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             run.Inputs.Add(new(file, false) { Kind = VideoInputKind.StartFrame });
         }
         run.InputsPrepared = true;
+        Report("Reference inputs ready");
     }
     public async Task<string> SubmitAsync(VideoRun run, VideoCandidate candidate, CancellationToken ct)
     {
@@ -367,13 +381,16 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     // new size. The prompt and references are encoded again at that size.
     public sealed record RefineSource(TakeRefinement Refinement, string VideoLatent, string AudioLatent);
     public static object BuildWorkflow(VideoSnapshot s, long seed, string clientId, IReadOnlyList<PreparedVideoInput> inputs,
-        IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null, RefineSource? refine = null, MotionSource? motion = null)
+        IReadOnlyDictionary<Guid, ReelRefModReference>? preparedRefMods = null, RefineSource? refine = null, MotionSource? motion = null,
+        H3GenerationRecipe? recipe = null)
     {
         H3Policy.Validate(s.Shot, true, requireScene: false, motionContext: s.Motion is not null);
         H3Policy.ValidateSettings(s.Settings);
         H3Performance.Validate(s.Performance);
         H3Presets.Validate(s);
         H3Loras.ValidateSnapshot(s);
+        MotionReferencePolicy.Validate(s);
+        if (refine is not null && H3AcceleratedCheckpoints.Baked(s)) throw new WorkspaceStoreException(H3AcceleratedCheckpoints.RefinementIssue);
         var performance = s.Performance ?? H3Performance.Legacy;
         var sampling = H3Policy.Sampling(s.Shot, s.Settings);
         if (s.Sampling is not null && s.Sampling != sampling) throw new WorkspaceStoreException("The captured sampling profile does not match this shot. Start a new batch.");
@@ -428,34 +445,37 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         // A refinement pass always uses Standard sampling, whatever preset made the take.
         var key = refine is null ? H3Presets.Key(s.Shot) : "standard";
         var model = "1";
-        if (H3Presets.UsesTurboLora(key) || key == H3HyperFlow.Key) { Node("16", "LoraLoaderModelOnly", new { model = Link("1"), lora_name = sampling.Lora, strength_model = sampling.LoraStrength }); model = "16"; }
+        if (H3Presets.Retired(key)) throw new WorkspaceStoreException(H3Presets.RemovedIssue(key));
+        if (key == "turbo4") { Node("16", "LoraLoaderModelOnly", new { model = Link("1"), lora_name = sampling.Lora, strength_model = sampling.LoraStrength }); model = "16"; }
+        if (key == H3SmdRecipe.Key) {
+            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture SMD's selected pruned INT8 base before submission.");
+            model = H3SmdRecipe.Apply(model, s.Settings, Node);
+        }
+        if (key == H3PtdRecipe.Key) {
+            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture PTD's selected pruned INT8 base before submission.");
+            model = H3PtdRecipe.Apply(model, s.Settings, Node);
+        }
         if (key is "larry" or "pdd")
         {
             if (key == "pdd") { Node("50", "MiniMaxH3SigmaShift", new { model = Link(model), shift_video = 12.0, shift_audio = 3.0 }); model = "50"; }
-            var recipe = H3Presets.Inputs(key, s.Settings); recipe["model"] = Link(model);
-            Node("51", H3Presets.Node(key), recipe); model = "51";
+            var presetInputs = H3Presets.Inputs(key, s.Settings); presetInputs["model"] = Link(model);
+            Node("51", H3Presets.Node(key), presetInputs); model = "51";
         }
         model = LoraPolicy.AddNodes(nodes, model, H3Loras.Applied(s));
-        if (key is "turbo8" or H3HyperFlow.Key)
-        {
-            Node("18", "MiniMaxH3SigmaShift", new { model = Link(model), shift_video = sampling.VideoShift, shift_audio = sampling.AudioShift }); model = "18";
-        }
-        var scheduleModel = key == "turbo8" ? model : "1";
-        model = H3Performance.Apply(performance, model, Node, refine is null ? "" : "refine-attention-");
-        if (key == "spectrum")
-        {
-            var recipe = H3Presets.Inputs(key, s.Settings); recipe["model"] = Link(model);
-            Node("51", H3Presets.Node(key), recipe); model = "51";
-        }
-        if (key is "larry" or "spectrum") scheduleModel = model;
+        var scheduleModel = "1";
+        if (H3AcceleratedCheckpoints.Full(key)) {
+            if (s.Settings.Model != H3AcceleratedCheckpoints.Model(s.Settings, key)) throw new WorkspaceStoreException("Capture this preset's selected checkpoint before submission.");
+            model = H3AcceleratedCheckpoints.Apply(model, Node, key); scheduleModel = "18";
+        } else model = H3Performance.Apply(performance, model, Node, refine is null ? "" : "refine-attention-");
+        if (key == "larry") scheduleModel = model;
         Node("6", "BasicGuider", new { model = Link(model), conditioning = Link(guided) });
         Node("7", "RandomNoise", new { noise_seed = seed });
         if (key == "larry") Node("8", "MiniMaxH3TurboSampler", new { });
+        else if (key == H3PtdRecipe.Key) Node("8", H3PtdRecipe.Sampler, new { model = Link(model) });
         else Node("8", "KSamplerSelect", new { sampler_name = refine is null ? sampling.Sampler : "res_multistep" });
-        // H3Presets.Validate above verifies the saved v1 grid. ManualSigmas takes
-        // video-shifted sigmas directly, so do not pass these through BasicScheduler.
-        if (key == H3HyperFlow.Key) Node("9", "ManualSigmas", new { sigmas = s.Preset!.Inputs.GetProperty("sigmas").GetString()! });
-        else if (refine is not null) Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = "simple", steps = refine.Refinement.Steps, denoise = refine.Refinement.Denoise });
+        if (refine is not null) Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = "simple", steps = refine.Refinement.Steps, denoise = refine.Refinement.Denoise });
+        else if (key == H3SmdRecipe.Key) Node("9", "ManualSigmas", new { sigmas = H3SmdRecipe.Sigmas });
+        else if (key == H3PtdRecipe.Key) Node("9", H3PtdRecipe.Sigmas, new { model = Link(model) });
         else if (key != "pdd") Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = sampling.Scheduler, steps = sampling.Steps, denoise = 1.0 });
         var source = motionLatent ?? Link("5", latent);
         if (refine is { Refinement: var r })
@@ -470,7 +490,9 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             } else Node("33", "LTXVConcatAVLatent", new { video_latent = Link("32"), audio_latent = Link("31") });
             source = Link("33");
         }
-        Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas = key == "pdd" ? Link("51", 1) : Link("9"), latent_image = source });
+        var sigmas = key == "pdd" ? Link("51", 1) : Link("9");
+        H3GenerationRecipes.CheckNativeRequest(recipe);
+        Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas, latent_image = source });
         var output = H3PreviewUpscaling.Apply(s, Node);
         // Refine keeps the take's audio exactly: decode the saved audio latent beside the new video.
         var keepAudio = refine?.Refinement.Mode == TakeRefinementMode.Refine;
@@ -496,6 +518,13 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             Node("17", "RebatchImages", new { images = Link("11"), batch_size = LosslessFrameArchive.SegmentFrames });
             Node("15", "SaveAnimatedWEBP", new { images = Link("17"), filename_prefix = "lumibelle/" + clientId + "/frames", fps = 24, lossless = true, quality = performance.ArchiveQuality, method = performance.ArchiveMethod });
         }
+        // Single frames kept as PNGs with stock nodes, picked from the same decoded images as the MP4.
+        else if (s.OutputPolicy?.KeptFrames is { } kept)
+            foreach (var (frame, index) in kept.Select((f, i) => (f, i)))
+            {
+                Node(KeptPickNode(index), "ImageFromBatch", new { image = Link("11"), batch_index = frame, length = 1 });
+                Node(KeptSaveNode(index), "SaveImage", new { images = Link(KeptPickNode(index)), filename_prefix = $"lumibelle/{clientId}/kept-frame-{frame:D4}" });
+            }
         return new { client_id = clientId, prompt = nodes };
     }
     public async IAsyncEnumerable<ComfyExecutionUpdate> ObserveAsync(VideoRun run, VideoCandidate candidate, [EnumeratorCancellation] CancellationToken ct)
@@ -551,13 +580,42 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         catch (Exception e) when (e is WorkspaceStoreException or JsonException or FormatException or KeyNotFoundException)
         { File.Delete(videoPath); throw new WorkspaceStoreException("The downloaded MP4 could not be validated. Retry its transfer without regenerating.", e); }
         var archive = await DownloadWebpFramesAsync(http, frames, directory, info, progress, ct);
+        var kept = saveFrames ? null : await DownloadKeptFramesAsync(http, outputs, run.Snapshot.OutputPolicy?.KeptFrames, directory, info, progress, ct);
         H3RefinementPackage? package = null;
         if (run.Snapshot.CaptureRefinementData || run.Refinement is not null)
             package = await DownloadPackageAsync(http, outputs, run, c.TakeId, directory, progress, ct);
         return new() { Id = c.TakeId, ShotId = run.Snapshot.Shot.Id, RunId = run.Id, Candidate = c.Number, Seed = c.Seed,
             RefinementPackage = package, Refinement = ShotCopy.Of(run.Refinement),
-            CreatedUtc = DateTimeOffset.UtcNow, Width = info.Width, Height = info.Height, Fps = 24, Directory = c.TakeId.ToString("D"), Frames = archive,
-            Bytes = new FileInfo(videoPath).Length + archive.DistinctBy(f => f.FileName).Sum(f => f.Bytes) + (package?.Bytes ?? 0), Snapshot = ShotCopy.Of(run.Snapshot) };
+            CreatedUtc = DateTimeOffset.UtcNow, Width = info.Width, Height = info.Height, Fps = 24, Directory = c.TakeId.ToString("D"), Frames = archive, KeptFrames = kept,
+            Bytes = new FileInfo(videoPath).Length + archive.DistinctBy(f => f.FileName).Sum(f => f.Bytes) + (kept?.Sum(f => f.Bytes) ?? 0) + (package?.Bytes ?? 0), Snapshot = ShotCopy.Of(run.Snapshot) };
+    }
+
+    internal static string KeptPickNode(int index) => $"kept-{index}";
+    internal static string KeptSaveNode(int index) => $"kept-{index}-save";
+    private static async Task<IReadOnlyList<TakeKeptFrame>?> DownloadKeptFramesAsync(HttpClient http, JsonElement outputs, IReadOnlyList<int>? requested, string directory,
+        VideoFileInfo info, Func<string, Task> progress, CancellationToken ct)
+    {
+        if (requested is not { Count: > 0 }) return null;
+        List<TakeKeptFrame> kept = [];
+        foreach (var (frame, index) in requested.Select((f, i) => (f, i)))
+        {
+            if (!outputs.TryGetProperty(KeptSaveNode(index), out var node) || !node.TryGetProperty("images", out var images) || images.GetArrayLength() != 1)
+                throw new WorkspaceStoreException("A kept lossless frame was not returned. Retry its transfer without regenerating.");
+            var file = TakeKeptFrame.File(frame); var path = Path.Combine(directory, file);
+            await progress($"Saving kept frame {index + 1}/{requested.Count}");
+            if (!File.Exists(path))
+            {
+                using var response = await http.GetAsync(ViewUrl(images[0]), HttpCompletionOption.ResponseHeadersRead, ct); response.EnsureSuccessStatusCode();
+                await using (var output = File.Create(path + ".tmp")) await response.Content.CopyToAsync(output, ct);
+                DurableFile.Flush(path + ".tmp");
+                File.Move(path + ".tmp", path, true);
+            }
+            var image = await SixLabors.ImageSharp.Image.IdentifyAsync(path, ct);
+            if (image.Width != info.Width || image.Height != info.Height)
+            { File.Delete(path); throw new WorkspaceStoreException("A kept lossless frame does not match the take size. Retry its transfer without regenerating."); }
+            kept.Add(new(frame, file, new FileInfo(path).Length));
+        }
+        return kept;
     }
 
     private static async Task<List<ShotFrame>> DownloadWebpFramesAsync(HttpClient http, JsonElement[] outputs, string directory, VideoFileInfo info, Func<string, Task> progress, CancellationToken ct)

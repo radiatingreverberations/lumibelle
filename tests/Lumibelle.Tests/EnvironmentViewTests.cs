@@ -237,7 +237,7 @@ public sealed class EnvironmentViewTests
     {
         var (r, library) = Fixture(3);
         r.Shot.Images[1].Role = "Prop";
-        r.Shot.ContinuityFrame = new(Guid.NewGuid(), Guid.NewGuid(), 0, "Previous shot");
+        r.Shot.ShotFrames = [new(Guid.NewGuid(), Guid.NewGuid(), 0, "Previous shot")];
         Assert.Equal(5, EnvironmentViews.Available(r.Shot, []));
         r.Shot.Videos = Enumerable.Range(0, 3).Select(_ => new ShotVideoBinding {
             Media = r.Pool[0].Reel!.Media with { Id = Guid.NewGuid() }, Name = "Retained prop reel", Visuals = ReelVisuals.FullReel

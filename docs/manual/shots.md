@@ -60,7 +60,7 @@ Applying a redraft changes existing shots only after review. Undo, recovery, sho
 
 **Edit references** keeps three sources together: **Assets**, **Environment** and **Shot frames**. The selected pictures, reels and voices stay alongside the browser (under **Selected references** on narrow screens). Add only the sources this shot needs, adjust crops and guidance, then choose **Apply changes**. Cancel leaves the saved references unchanged.
 
-To reuse a picture from another shot, choose **Shot frames**, select the shot and take, and preview **Last frame**, **First frame** or **Choose frame**. Shots in the same scene are grouped first; the source's selected take is the default. **Add picture** attaches the exact frame as one numbered picture without saving an asset or replacing the other references. It does not set a generation start frame. A setup has one such shot-frame picture; **Replace shot frame** explicitly replaces it. **Change** on the attached picture reopens the picker. Its label identifies the source shot, take and frame. Choosing another take on the source shot never updates the attached picture automatically.
+To reuse a picture from another shot, choose **Shot frames**, select the shot and take, and preview **Last frame**, **First frame** or **Choose frame**. Shots in the same scene are grouped first; the source's selected take is the default. **Add picture** attaches the exact frame as one numbered picture without saving an asset or replacing the other references. It does not set a generation start frame. Add as many shot frames as the shot needs to stay consistent, for example the previous shot's last frame and an earlier shot of the same room, within the nine-picture limit. They are numbered after the library images in the order listed; reorder them with the arrows. **Change** on an attached frame reopens the picker to replace just that frame with **Replace shot frame**; a frame that is already attached cannot be added twice. Its label identifies the source shot, take and frame. Choosing another take on the source shot never updates the attached picture automatically.
 
 **Copy…** opens a source-shot preview. **Copy and edit references** opens **Manage references** with the copied selection as a draft, so you can remove pictures or shorten voice excerpts to fit the limits. Nothing changes until **Apply changes**; Cancel discards the copy. Copying can include the first or last frame of the source shot's selected take as the same pinned shot-frame picture. Voice recordings keep excerpt controls and speaker mappings. Character reference reels saved in [Assets](assets.md#character-reference-reels) can be reused here with their own guidance and optional soundtrack.
 
@@ -86,9 +86,67 @@ The dedicated **Takes** view shows large previews, newest first, with a selected
 
 Click a take to review it. The player steps through single frames with **‹ ›** or the `[` and `]` keys. Below it, **Save frame to Assets** saves the paused frame as an image, and **Continue from this frame** makes a shot start from it. Under the player are the take's settings and any changes since it was made, and its details: the file and **Download MP4**, the generation details, timings, LoRAs and the references it was submitted with. The takes of the same batch are listed beside the player, each with **Use this take** and **Discard**.
 
-### Refine a take at a larger size
+### Refine from video
 
-To refine a take, it needs its latents. Turn on **Save latents** in the shot's generation options before generating; it adds a few MB per take at Quick size, and ComfyUI also keeps a copy in its output folder. To try many ideas cheaply, generate several takes at **Quick** size with **Save latents** on, then choose **Refine…** on the best one, in the Takes view or at the bottom of the review. Pick an output size and a mode:
+Choose **Refine from video…** on a take card or in review. For several takes, use
+**Select multiple**, tick them and choose **Refine selected…**, or choose
+**Refine selected takes in this scene…** to use each shot's selected take. All
+three open the same dialog.
+
+Each clip becomes a separate Standard generation from its take's captured
+prompt, references, dialogue, aspect and visible duration. The copied clip
+guides blocking, action order, timing and camera movement. Its soundtrack is
+excluded; the authored dialogue and other enabled voice references remain
+active, so the result has fresh audio and can reinterpret the action or lip
+movements. It does not rescale saved latents: **Upscale latents…** remains the separate,
+optional saved-latent path.
+
+The dialog lists each clip with its duration, source size and the effective
+output size. **Shared settings** set the output resolution, motion instructions
+and storage options for every clip. The default is **Native**, or the first
+larger size for a bigger source. Choose **Edit** on a row to override them, or
+to change its base prompt and references and inspect **Submitted prompt
+preview**. A row is flagged when a setting cannot apply to it, for example a
+size smaller than its source. Fix it or untick the row. Takes shorter than two
+seconds or longer than 15 seconds are flagged; trim them first.
+
+When one selected take uses a shot frame or start frame from another selected take, for example a scene's takes refined together, **Use refined frames from earlier clips** is offered and on by default. That clip waits for the earlier clip's refined take, then uses the same moment from it instead of the draft frame. If the earlier clip fails or is cancelled, the draft frame is kept and the batch continues. The batch page lists each frame that was swapped or kept. When the earlier clip saves no full lossless archive, its render still keeps the frames later clips use as lossless PNGs, so those clips get exact frames rather than MP4 stills. This lets you queue a scene of curated Quick drafts overnight and get consistent finals.
+
+Choose **Start now** or **Hold until started**, then **Queue refinements**.
+Lumibelle freezes the reviewed settings, prompts and seeds and prepares media in
+the background, so you can close the dialog or leave the page. Results appear as
+new takes in their shots; the originals stay selected. Review them under
+[Refinement batches](#refinement-batches).
+
+### Refinement batches
+
+**Refinement batches**, linked from the Takes toolbar and the notice after
+queueing, lists each batch with completed, failed, waiting and reviewed counts.
+Clips move through **Preparing media**, **Ready**, **Waiting**, **Generating** and
+**Completed**. Media preparation runs on the CPU beside the GPU queue, and
+survives restarts. A batch submits one render at a time to the ComfyUI queue,
+where the usual priority and ordering controls apply.
+
+- **Start batch** or **Resume batch** submits prepared clips.
+- **Pause after current clip** lets the running render finish.
+- **Cancel waiting clips** stops clips that have not been submitted.
+- **Cancel current render** stops the clip that is rendering now.
+
+For each result, **Compare** plays the final beside its source: play or seek
+the final and the source follows. **Use this take** selects the result in its
+shot. **Mark reviewed** records that you have looked at it. **Retry** reuses the
+clip's saved request and seed, even after its source take was deleted. A failed
+clip does not hold up the others. **New request…** reopens the clip's settings
+to change its resolution, prompt or instructions, and queues a new request with
+a new seed.
+
+10Eros Compact, SMD Ref2VA, FastH3 Omni and PTD + RefAsymOPD are available in
+[Video models](comfyui.md#presets). See the [Refine from video guide](../h3/motion-reference-promotion.md)
+for captured inputs, retries and native ComfyUI execution.
+
+### Upscale latents (alternative)
+
+**Refine from video** is the recommended way to make a final from a draft. **Upscale latents…** is an alternative that enlarges a take from its saved latents; it needs the learned 3D latent upscaler node pack and its model. Turn on **Save latents** in the shot's generation options before generating; it is off by default, adds a few MB per take at Quick size, and ComfyUI also keeps a copy in its output folder. Then choose **Upscale latents…** on the take, in the Takes view or at the bottom of the review. Pick an output size and a mode:
 
 - **Refine** enlarges the take and re-noises it lightly, so its motion and composition carry over. Its audio stays exactly as it was.
 - **Rework** re-noises more of the take, so more can change, and generates new audio.

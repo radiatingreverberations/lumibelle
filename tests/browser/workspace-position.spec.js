@@ -125,6 +125,9 @@ test('Global setup follows shots and tabs while shot browsing stays independent'
   await page.locator('.takes-heading').getByRole('combobox', { name: 'Filter takes by setup', exact: true }).selectOption(setup);
   await page.locator('.shot-list-row').nth(1).click();
   await expect(page.locator('.shot-list-row').nth(1)).toHaveAttribute('aria-pressed', 'true');
+  // A shot without takes opens on Shot; the setup filter still applies when its Takes view is opened.
+  await expect(page.locator('[data-workspace-group=center]').getByRole('tab', { name: 'Shot', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.locator('[data-workspace-group=center]').getByRole('tab', { name: 'Takes', exact: true }).click();
   await expect(page.locator('.takes-heading').getByRole('combobox', { name: 'Filter takes by setup', exact: true })).toHaveValue(setup);
   await page.locator('.shot-list-row').first().click();
   await openShotSetup(page, 'Generation settings');

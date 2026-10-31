@@ -33,10 +33,10 @@ public sealed partial class ShotTests
             new MockVideoGenerator(f.Assets, f.Shots), projects, new FakeProjectAiPreferencesStore(), store);
 
         var submission = await capture.CaptureCompositionWithPresetAsync(Guid.NewGuid(), Guid.NewGuid(), f.Project.Id,
-            c.Id, c.Version, 3, 123, "turbo8", upscale ? null : VideoResolution.Native, upscale, _ct, c.GenerationSetupVersion);
+            c.Id, c.Version, 3, 123, "turbo4", upscale ? null : VideoResolution.Native, upscale, _ct, c.GenerationSetupVersion);
         var request = submission.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
         AiVideoJobPolicy.Validate(request);
-        Assert.Equal("turbo8", request.Snapshot.Preset!.Key);
+        Assert.Equal("turbo4", request.Snapshot.Preset!.Key);
         Assert.Equal(upscale, request.Snapshot.Shot.UpscalePreview);
         Assert.Equal(upscale ? VideoResolution.Preview : VideoResolution.Native, VideoResolutions.Selected(request.Snapshot.Shot));
         Assert.Equal(c.Prompt, request.Snapshot.Prompt);

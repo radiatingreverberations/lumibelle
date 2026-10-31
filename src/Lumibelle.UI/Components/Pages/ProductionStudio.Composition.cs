@@ -106,6 +106,14 @@ public partial class ProductionStudio
     private string? _compositionApplyError;
     private string _compositionRaw = "";
     private PromptCompositionResult? _compositionResult;
+    // Review notes of the applied composition, such as dialogue placed after one block of action. A first composition
+    // applies itself as reviewed, so the notes stay until dismissed; the dismissal is remembered per composition.
+    private IReadOnlyList<string> _appliedCompositionNotes = [];
+    private Guid? _appliedNotesJob;
+    private IEnumerable<string> AppliedCompositionNotes => Current?.AppliedJobId is { } applied && applied == _appliedNotesJob && !Place(Id, "shots", NotesKey(applied), false)
+        ? _appliedCompositionNotes.Where(n => n != CompositionPromptWarning) : [];
+    private static string NotesKey(Guid job) => $"composition-notes-dismissed:{job}";
+    private Task DismissCompositionNotes() => _appliedNotesJob is { } job ? Remember(Id, "shots", NotesKey(job), true) : Task.CompletedTask;
     private Guid? _compositionReviewId;
     private Guid? _compositionDialogJob;
     private Microsoft.AspNetCore.Components.ElementReference _compositionReviewOrigin;
@@ -130,6 +138,7 @@ public partial class ProductionStudio
         _compositionDialogJob = null;
     }
     private AiJobHeader? CompositionJob => AiJobs.View.Jobs.FirstOrDefault(j => j.Id == _compositionReviewId);
+    private bool CompositionStreaming => CompositionJob is { State: AiJobState.Waiting or AiJobState.Running, CancelRequested: false };
     private TextRequestPresentation? CompositionPresentation => CompositionJob is { } job ? new(job, "Writing prompt…",
         Current?.AppliedJobId == job.Id ? TextRequestOutcome.Resolved : _compositionError is not null ? TextRequestOutcome.Invalid : TextRequestOutcome.Proposal, "Write prompt") : null;
     private Task InspectComposition() => _compositionResult is not null ? OpenCompositionReview() : _compositionAssist?.OpenRequestAsync() ?? Task.CompletedTask;
@@ -213,6 +222,13 @@ public partial class ProductionStudio
             }
         }
         var composition = Current?.Id; var id = explicitId ?? Current?.ReviewJobId;
+        // An applied composition no longer has a review job, so its notes are read from the job it came from.
+        if (Current?.AppliedJobId != _appliedNotesJob)
+        {
+            var applied = _appliedNotesJob = Current?.AppliedJobId; _appliedCompositionNotes = [];
+            var saved = applied is { } appliedId ? await AiJobStore.ReadArtifactAsync<AiTextJobResult>(appliedId, AiJobArtifact.Result, _lifetime.Token) : null;
+            if (_appliedNotesJob == applied && saved is { Complete: true, Error: null }) _appliedCompositionNotes = saved.Read<PromptCompositionResult>()?.Notes ?? [];
+        }
         if (_compositionReviewId != id) { await ReleaseCompositionReview(); _compositionReviewId = id; _compositionRaw = ""; _compositionResult = null; _compositionError = null; _compositionApplyError = null; _compositionChanged = null; _compositionRecovery = null; _recoveryJob = null; _recoveryRaw = null; }
         if (id is null) return;
         var job = AiJobs.View.Jobs.FirstOrDefault(j => j.Id == id && j.Kind == AiJobKind.PromptComposition && j.Target.ProjectId == Id && j.Target.ShotId == Current?.ShotId);

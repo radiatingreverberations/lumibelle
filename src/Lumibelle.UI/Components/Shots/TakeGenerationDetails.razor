@@ -1,6 +1,15 @@
 @using lumibelle.Services.Production
 <div class="take-generation-details">
     <p>@H3Policy.QualityLabel(Take.Snapshot.Shot) · <span class="take-seed">Seed @Take.Seed</span></p>
+    @if (Take.Snapshot.MotionReference is { } motion) {
+        <p>Motion reference · @motion.TakeId · draft soundtrack excluded</p>
+    }
+    @if (Take.GenerationRecipe is { } recipe) {
+        <details><summary>Generation settings</summary>
+            <pre tabindex="0">@System.Text.Json.JsonSerializer.Serialize(recipe, AtomicJsonFile.Options)</pre>
+            @if (Take.ExecutionReceipt is { } execution) { <details><summary>Historical execution receipt</summary><pre tabindex="0">@System.Text.Json.JsonSerializer.Serialize(execution, AtomicJsonFile.Options)</pre></details> }
+        </details>
+    }
     @if (Take.Snapshot.AppliedLoras is { Count: > 0 } loras) {
         <p>LoRA@(loras.Count == 1 ? "" : "s") · @string.Join(", ", loras.Select(l => $"{l.Reference.Name} ({l.Strength:0.##})"))</p>
     }

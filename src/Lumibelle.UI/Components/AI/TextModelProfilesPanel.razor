@@ -19,7 +19,7 @@
                 @foreach (var profile in SettingsSnapshot.TextModelProfiles.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     <li @key="profile.ProfileId" data-profile-id="@profile.ProfileId">
-                        <div><strong>@profile.Name</strong><span>@profile.Backend · @profile.Model</span><small>@TextModelProfiles.Describe(profile)</small></div>
+                        <div><strong>@profile.Name</strong><span>@TextModelPolicy.ProviderName(profile.Backend) · @profile.Model</span><small>@TextModelProfiles.Describe(profile)</small></div>
                         <div class="profile-actions">
                             <button type="button" data-action="edit" aria-label="@($"Edit profile {profile.Name}")" disabled="@(Disabled || _editing || _deleteTarget is not null)" @onclick="() => Edit(profile)">Edit</button>
                             <button type="button" data-action="duplicate" aria-label="@($"Duplicate profile {profile.Name}")" disabled="@(Disabled || _editing || _deleteTarget is not null)" @onclick="() => Duplicate(profile)">Duplicate</button>

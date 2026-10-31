@@ -68,6 +68,11 @@ public static class TakeInputChanges
         });
         // Joined only when set, so takes from before starting frames keep their comparison.
         if (shot.StartFrame is not null) references = ReferenceSetups.Hash(new { References = references, shot.StartFrame });
-        return shot.ContinuityFrame is null ? references : ReferenceSetups.Hash(new { References = references, Continuity = new { shot.ContinuityFrame.TakeId, shot.ContinuityFrame.Frame } });
+        // One frame keeps its earlier hash shape, so takes made before several frames were allowed compare unchanged.
+        return shot.ShotFrames switch {
+            [] => references,
+            [var frame] => ReferenceSetups.Hash(new { References = references, Continuity = new { frame.TakeId, frame.Frame } }),
+            var frames => ReferenceSetups.Hash(new { References = references, Continuity = frames.Select(f => new { f.TakeId, f.Frame }) })
+        };
     }
 }

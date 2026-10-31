@@ -40,7 +40,8 @@ public sealed partial class FileShotStore
             var offset = source.Trim?.SourceStartFrame ?? 0;
             result.Trim = new(source.Id, source.FrameCount, request.StartFrame, request.EndFrameExclusive,
                 offset + request.StartFrame, offset + request.EndFrameExclusive, source.HasLosslessFrames);
-            result.Frames = [];
+            // Kept frames belong to the untrimmed output; trimmed frames are read from the MP4.
+            result.Frames = []; result.KeptFrames = null;
             var count = request.EndFrameExclusive - request.StartFrame;
             var pngFolder = Path.Combine(stage, "frames");
             if (source.HasLosslessFrames) {

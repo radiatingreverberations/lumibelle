@@ -43,6 +43,8 @@ public sealed record ReferenceReelDraft
     public double Duration { get; set; } = 5;
     public string Aspect { get; set; } = "1:1";
     public string? GenerationPreset { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? GenerationPresetMigration { get; set; }
     public bool Turbo { get; set; }
     public int TurboSteps { get; set; } = 4;
     public bool NativeResolution { get; set; }
@@ -77,7 +79,12 @@ public sealed record ReferenceReelDraft
     public ReferenceReelDraft Copy() => ShotCopy.Of(this);
 }
 
-public sealed record ReelPromptPair(string Prompt, string UseGuidance);
+public sealed record ReelPromptPair(string Prompt, string UseGuidance)
+{
+    // What the lenient reader adjusted in the response. Any note makes the pair wait for review.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Notes { get; init; }
+}
 public sealed record ReelCompositionRequest(Guid ProjectId, ReferenceReelDraft Draft, string Baseline,
     AssetLookContext Character, IReadOnlyList<CompositionInput> Images)
 {
@@ -104,6 +111,9 @@ public sealed record AssetReferenceReel
     public Guid? SourceTakeId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ReelKeyframeSet? Keyframes { get; init; }
+    // An accepted refinement of this reel, preferred for new use. Shots keep their current reel until replaced.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? ReplacedByReelId { get; init; }
 }
 public sealed record TrashedReferenceReel(AssetReferenceReel Reel, ReferenceAsset Owner, DateTimeOffset DeletedUtc)
 {

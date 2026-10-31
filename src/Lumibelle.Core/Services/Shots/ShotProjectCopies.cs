@@ -116,7 +116,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         var ids = source.Shots.Takes.Where(t => selected.Any(s => s.Id == t.ShotId)).Select(t => t.Id).ToHashSet();
         foreach (var shot in Inputs(source, selected)) {
             if (shot.StartFrame is { } start) ids.Add(start.TakeId);
-            if (shot.ContinuityFrame is { } continuity) ids.Add(continuity.TakeId);
+            foreach (var continuity in shot.ShotFrames) ids.Add(continuity.TakeId);
         }
         var result = source.Shots.Takes.Where(t => ids.Contains(t.Id)).ToArray();
         if (result.Length != ids.Count) throw new WorkspaceStoreException("A starting or continuity frame's saved take is missing. Restore it before copying.");
@@ -284,7 +284,10 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
                 var accepted = obj["refMod"] is not null && obj.ContainsKey("keyframes") && obj.ContainsKey("media")
                     ? obj.Deserialize<ShotVideoBinding>(AtomicJsonFile.Options) : null;
                 if (accepted is not null && !ReelRefMods.Matches(accepted, accepted.RefMod)) accepted = null;
-                foreach (var key in obj.Select(p => p.Key).Where(k => k is not ("draftingEnvironment" or "copySource" or "refinementPackage" or "sourcePackage" or "refinementInput" or "key")).ToArray()) Replace(obj[key], v => obj[key] = v);
+                // Execution evidence describes the original generation, including its original IDs.
+                // A copied request is recaptured before new inference; do not forge a remapped receipt.
+                if (obj.ContainsKey("batchId") && obj.ContainsKey("snapshot")) obj.Remove("recipe");
+                foreach (var key in obj.Select(p => p.Key).Where(k => k is not ("draftingEnvironment" or "copySource" or "refinementPackage" or "sourcePackage" or "refinementInput" or "key" or "generationRecipe" or "executionReceipt")).ToArray()) Replace(obj[key], v => obj[key] = v);
                 if (obj["draftingEnvironment"] is { } historyNode) {
                     var history = historyNode.Deserialize<AcceptedDraftingEnvironment>(AtomicJsonFile.Options)!;
                     foreach (var key in history.Resources.Keys.ToArray()) history.Resources[key] = map.GetValueOrDefault(history.Resources[key], history.Resources[key]);

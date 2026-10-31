@@ -68,6 +68,7 @@ public sealed class MockVideoJobHandler(IShotStore shots, IVideoGenerator genera
             var saved = await generator.DownloadAsync(run, take, stage, async message => await context.ReportAsync(new(new(GenerationPhase.Downloading, message), take.Number,
                 (await context.CurrentAsync(ct)).Batch!.Candidates[^1].Number)), ct);
             saved.AiJobId = context.Job.Id;
+            saved.GenerationRecipe = ShotCopy.Of(request.Recipe);
             saved.ShotId = request.OutputShotId;
             if (run.Snapshot.Reel is not null) await reels!.PublishAsync(saved, stage, ct);
             else await shots.PublishTakeAsync(run.Snapshot.ProjectId, saved, stage, ct);

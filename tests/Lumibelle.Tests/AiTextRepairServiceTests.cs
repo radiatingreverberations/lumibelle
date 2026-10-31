@@ -63,7 +63,7 @@ public sealed class AiTextRepairServiceTests
             var original = AiTextRepairTests.ShotRequest(Project) with { Kind = AiJobKind.ReelComposition, Profile = ReferenceReels.Profile,
                 Task = JsonSerializer.SerializeToElement(new ReelCompositionRequest(Project, draft, ReferenceReels.Fingerprint(draft),
                     new(asset, "Clara", "", "", null, "", "", ""), [new(draft.Images[0].Id, AiTextRepairTests.Hash)]), AtomicJsonFile.Options) };
-            const string raw = "{\"prompt\":\"Incomplete\",\"useGuidance\":\"Keep face\"}";
+            const string raw = "{\"prompt\":\"Incomplete\",\"useGuidance\":\"\"}";
             var root = Add(original, raw);
             var repaired = AiTextRepairTests.Repaired(original, root, raw);
             var child = Add(repaired, raw, AiTextRepairTests.Header(repaired) with { State = AiJobState.Waiting });

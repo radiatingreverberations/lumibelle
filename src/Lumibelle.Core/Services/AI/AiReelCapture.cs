@@ -54,7 +54,8 @@ public sealed partial class AiReelCapture(IAssetStore assets, IAssetReelStore re
         await ValidateGenerationSetup(draft, ct);
         LookPolicy.ValidateTarget(current, character, requireCurrent: true);
         ReferenceReels.ValidateOwner(draft, current.Assets.Single(a => a.Id == draft.AssetId));
-        var request = new AiVideoJobRequest(3, id, snapshot, captured); AiVideoJobPolicy.Validate(request);
+        var request = await H3GenerationRecipes.StampAsync(new AiVideoJobRequest(3, id, snapshot, captured), generator, ct);
+        AiVideoJobPolicy.Validate(request);
         CapturedInputStore.Share(directory, captured);
         var name = (await projects.GetAsync(project, ct))?.Name ?? throw new WorkspaceStoreException("Project unavailable.");
         return AiJobSubmission.Create(id, AiJobKind.ReelVideo, AiBackend.ComfyUI, new(project, draft.AssetId, ReelId: draft.Id),

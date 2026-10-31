@@ -63,10 +63,10 @@ public sealed partial class ShotTests
         source = await AddTake(f.Project.Id, f.Shots, previous);
         var originalTake = Assert.Single(source.Takes);
         next.StartFrame = new(originalTake.Id, 1);
-        next.ContinuityFrame = new(Guid.NewGuid(), originalTake.Id, 2, "Previous view");
+        next.ShotFrames = [new(Guid.NewGuid(), originalTake.Id, 2, "Previous view")];
         await f.Shots.SaveAsync(f.Project.Id, [previous, next], source.Revision, ct: _ct);
         var setup = (await production.LoadAsync(f.Project.Id, _ct)).Compositions.Single(c => c.ShotId == next.Id);
-        setup.Shot.StartFrame = next.StartFrame; setup.Shot.ContinuityFrame = next.ContinuityFrame;
+        setup.Shot.StartFrame = next.StartFrame; setup.Shot.ShotFrames = [.. next.ShotFrames];
         await production.SaveAsync(f.Project.Id, setup, setup.Version, _ct);
         var copier = new ShotProjectCopyStore(f.Files, f.Shots, production, scripts, f.Assets, f.Assets, _clock);
         var preview = await copier.PreviewAsync(f.Project.Id, [next.Id], _ct);
@@ -75,9 +75,9 @@ public sealed partial class ShotTests
         var copied = await f.Shots.LoadAsync(target.Project.Id, _ct);
         var shot = Assert.Single(copied.Shots); var take = Assert.Single(copied.Takes);
         Assert.Equal(shot.Id, take.ShotId); Assert.Equal(take.Id, shot.StartFrame!.TakeId);
-        Assert.Equal(take.Id, shot.ContinuityFrame!.TakeId); Assert.NotEqual(originalTake.Id, take.Id);
+        Assert.Equal(take.Id, Assert.Single(shot.ShotFrames).TakeId); Assert.NotEqual(originalTake.Id, take.Id);
         var copiedSetup = (await production.LoadAsync(target.Project.Id, _ct)).Compositions.Single().Shot;
-        Assert.Equal(shot.StartFrame, copiedSetup.StartFrame); Assert.Equal(shot.ContinuityFrame, copiedSetup.ContinuityFrame);
+        Assert.Equal(shot.StartFrame, copiedSetup.StartFrame); Assert.Equal(shot.ShotFrames, copiedSetup.ShotFrames);
         await using var originalFrame = (await f.Shots.OpenAsync(f.Project.Id, originalTake.Id, ShotTrashKind.Take, 1, ct: _ct))!;
         await using var copiedFrame = (await f.Shots.OpenAsync(target.Project.Id, take.Id, ShotTrashKind.Take, 1, ct: _ct))!;
         using var originalBytes = new MemoryStream(); using var copiedBytes = new MemoryStream();
@@ -127,7 +127,8 @@ public sealed partial class ShotTests
             var snapshot = captured.Snapshot with { Shot = capturedShot, Fingerprint = H3Policy.Fingerprint(capturedShot),
                 Prompt = captured.Snapshot.Production is null ? H3Policy.Compile(capturedShot, captured.Snapshot.ReferenceGuidance, captured.Snapshot.Appearances) : captured.Snapshot.Prompt };
             stored.CopySource = new(f.Project.Id, stored.Id, stored.Snapshot);
-            stored.Snapshot = snapshot; stored.CopyRequest = captured with { Version = 2, Snapshot = snapshot };
+            stored.Snapshot = snapshot; stored.CopyRequest = captured with { Version = 2, Snapshot = snapshot, Recipe = null };
+            stored.CopyRequest = stored.CopyRequest with { Recipe = H3GenerationRecipes.Capture(stored.CopyRequest) };
             AiVideoJobPolicy.Validate(stored.CopyRequest);
             source.Shots[0].Videos = [binding];
             await AtomicJsonFile.WriteAsync(Path.Combine(f.ProjectDirectory, "shots.json"), source, _ct);

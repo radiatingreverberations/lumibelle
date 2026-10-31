@@ -23,20 +23,20 @@ public sealed partial class ShotTests
         var settings = new H3Settings { LatentUpscaler = "upscaler.safetensors", Performance = new() { Attention = attention, SolAttention = true, ArchiveCompression = H3ArchiveCompression.Compact } };
         var size = H3Policy.Size(aspect, shot.NativeResolution);
         return new(Guid.NewGuid(), 1, shot, H3Policy.Compile(shot), H3Policy.Fingerprint(shot), "http://localhost:8188", settings, size.Width, size.Height, H3Policy.Frames(shot.Duration!.Value), H3Policy.Profile)
-        { Preset = H3Presets.Capture(shot, settings), OutputPolicy = new(archive), Sampling = H3Policy.Sampling(shot, settings),
+        { Preset = H3Presets.Capture(shot, settings, historical: true), OutputPolicy = new(archive), Sampling = H3Policy.Sampling(shot, settings),
             Performance = H3Performance.Capture(H3Presets.NewPerformance(settings)),
             PreviewUpscale = shot.UpscalePreview ? H3PreviewUpscaling.Capture(H3UpscalerImplementation.Plus, settings.LatentUpscaler, aspect) : null };
     }
     [Fact]
-    public void RetiredPresetsAreOnlyListedForShotsThatAlreadyUseThem()
+    public void RemovedPresetsAreNeverListedForEditableSetups()
     {
-        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", "hyperflow"], H3Presets.Offered);
+        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", H3AcceleratedCheckpoints.Compact, H3SmdRecipe.Key, H3AcceleratedCheckpoints.Fast, H3PtdRecipe.Key], H3Presets.Offered);
         Assert.Equal(H3Presets.Offered, H3Presets.Choices("larry"));
-        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", "turbo8", "hyperflow"], H3Presets.Choices("turbo8"));
+        Assert.Equal(H3Presets.Offered, H3Presets.Choices("turbo8"));
         Assert.Equal("Turbo · 8 steps · Retired", H3Presets.ChoiceLabel("turbo8"));
         Assert.Equal("Larry · 6 steps", H3Presets.ChoiceLabel("larry"));
         Assert.Equal("Standard · 20 steps", H3Presets.ChoiceLabel("standard"));
-        // Retired keys stay valid, so existing shots and captured requests keep working.
+        // Historical keys remain readable as data; new capture is covered by removal tests.
         foreach (var key in new[] { "spectrum", "turbo8", "turbo4-075" })
         {
             Assert.Contains(key, H3Presets.Keys);
@@ -45,7 +45,7 @@ public sealed partial class ShotTests
         }
     }
     [Theory]
-    [InlineData("standard")][InlineData("beta")][InlineData("euler-beta")][InlineData("larry")][InlineData("pdd")][InlineData("spectrum")][InlineData("turbo4")][InlineData("turbo4-075")][InlineData("turbo8")]
+    [InlineData("standard")][InlineData("beta")][InlineData("euler-beta")][InlineData("larry")][InlineData("pdd")][InlineData("turbo4")]
     public void PresetsPreserveResolutionAudioAndArchiveChoices(string key)
     {
         foreach (var aspect in new[] { "16:9", "9:16", "1:1" })
@@ -71,7 +71,7 @@ public sealed partial class ShotTests
         }
     }
     [Theory]
-    [InlineData("standard")][InlineData("beta")][InlineData("euler-beta")][InlineData("larry")][InlineData("pdd")][InlineData("spectrum")][InlineData("turbo4")][InlineData("turbo4-075")][InlineData("turbo8")]
+    [InlineData("standard")][InlineData("beta")][InlineData("euler-beta")][InlineData("larry")][InlineData("pdd")][InlineData("turbo4")]
     public void PresetsKeepOptionalLoraOrderAndAttentionWithoutStackingAccelerators(string key)
     {
         var snapshot = WithLoras(PresetSnapshot(key, attention: H3AttentionBackend.Sage));
@@ -87,7 +87,7 @@ public sealed partial class ShotTests
         Assert.False(graph.TryGetProperty("31", out _));
     }
     [Theory]
-    [InlineData("larry")][InlineData("pdd")][InlineData("spectrum")]
+    [InlineData("larry")][InlineData("pdd")]
     public void PresetContractsValidateInstalledFilesAndFailIndependently(string key)
     {
         var root = PresetCatalog(); var settings = new H3Settings(); var shot = Ready(); shot.GenerationPreset = key;
@@ -116,7 +116,7 @@ public sealed partial class ShotTests
         Assert.Equal(problem == "file-subfolder", c.Ready(shot)); Assert.True(c.Ready(Ready()));
     }
     [Theory]
-    [InlineData("beta", "res_multistep", "beta", 20, null)][InlineData("euler-beta", "euler", "beta", 20, null)][InlineData("turbo4-075", "res_multistep", "simple", 4, .75)]
+    [InlineData("beta", "res_multistep", "beta", 20, null)][InlineData("euler-beta", "euler", "beta", 20, null)]
     public void SchedulerAndStrengthVariantsUseNativeNodes(string key, string sampler, string scheduler, int steps, double? strength)
     {
         var snapshot = PresetSnapshot(key);
@@ -127,13 +127,13 @@ public sealed partial class ShotTests
         Assert.Equal("1", Input("9", "model")[0].GetString());
         Assert.Equal(strength is not null, graph.TryGetProperty("16", out _));
         if (strength is { } s) { Assert.Equal(s, Input("16", "strength_model").GetDouble()); Assert.Equal(new H3Settings().TurboLora, Input("16", "lora_name").GetString()); }
-        Assert.True(H3Presets.Experimental(key));
+        Assert.True(H3Presets.RequiresPresetProfile(key));
         // A queued request keeps its captured recipe; a tampered one is rejected.
         Assert.Throws<WorkspaceStoreException>(() => ComfyH3Video.BuildWorkflow(snapshot with { Sampling = snapshot.Sampling! with { Scheduler = "normal" } }, 42, "test", []));
         Assert.Throws<WorkspaceStoreException>(() => H3Presets.Validate(snapshot with { Preset = snapshot.Preset! with { Key = "standard" } }));
     }
     [Theory]
-    [InlineData("beta")][InlineData("euler-beta")][InlineData("turbo4-075")]
+    [InlineData("beta")][InlineData("euler-beta")]
     public void SchedulerAndStrengthVariantsReportMissingNativeSupport(string key)
     {
         var root = PresetCatalog(); var settings = new H3Settings(); var shot = Ready(); shot.GenerationPreset = key;
@@ -165,7 +165,7 @@ public sealed partial class ShotTests
         Assert.True(new ShotTake { Snapshot = old }.HasLosslessFrames);
     }
     [Theory]
-    [InlineData("larry", false)][InlineData("pdd", false)][InlineData("spectrum", false)][InlineData("standard", true)]
+    [InlineData("larry", false)][InlineData("pdd", false)][InlineData("standard", true)]
     public async Task PresetAndOutputSurviveQueueRecoveryAndAdditionalCandidates(string key, bool archive)
     {
         using var f = await QueuedVideoFixture.Create(this);

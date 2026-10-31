@@ -51,7 +51,7 @@ public sealed partial class FileShotStore
         var originalGenerated = H3Motion.GeneratedSegment(source);
         var last = ranges.FirstOrDefault(s => s.Source.Id == originalGenerated.Source.Id) ?? ranges.OrderBy(s => s.GenerationOrder).Last(); var result = ShotCopy.Of(last.Source);
         result.Id = request.ResultId; result.Directory = result.Id.ToString("D"); result.ShotId = source.ShotId; result.CreatedUtc = clock.GetUtcNow();
-        result.Frames = []; result.FrameArchiveRemoval = null; result.Extension = null; result.Timings = null;
+        result.Frames = []; result.KeptFrames = null; result.FrameArchiveRemoval = null; result.Extension = null; result.Timings = null;
         result.Composition = new(ranges, Math.Max(0, Math.Min(source.Composition!.JoinFrame - request.StartFrame, request.EndFrameExclusive - request.StartFrame - 1))) { GeneratedSegmentKey = last.Key };
         result.Trim = new(source.Id, source.FrameCount, request.StartFrame, request.EndFrameExclusive, request.StartFrame, request.EndFrameExclusive, source.HasLosslessFrames);
         var lastFolder = Path.Combine(stage, "segments", last.Key.ToString("D"));
@@ -94,7 +94,7 @@ public sealed partial class FileShotStore
         Directory.CreateDirectory(stage);
         try {
             var result = ShotCopy.Of(full); result.Id = resultId; result.Directory = resultId.ToString("D");
-            result.Frames = []; result.FrameArchiveRemoval = null; result.Trim = null; result.Timings = null; result.Extension = ShotCopy.Of(intent);
+            result.Frames = []; result.KeptFrames = null; result.FrameArchiveRemoval = null; result.Trim = null; result.Timings = null; result.Extension = ShotCopy.Of(intent);
             await TakeBundles.CopyCapturedAsync(intent.SourceFiles, sourceFolder, Path.Combine(stage, H3Motion.SourceFolder), ct);
             var segments = new List<TakeSegment>(); int? replacementIndex = null;
             if (intent.Combine) {

@@ -65,7 +65,7 @@ public sealed partial class ShotTests
     }
 
     [Theory]
-    [InlineData(20)] [InlineData(4)] [InlineData(8)]
+    [InlineData(20)] [InlineData(4)]
     public async Task QueuedVideoKeepsCapturedShotAndSamplingAcrossCandidatesAndExtensions(int steps)
     {
         using var f = await QueuedVideoFixture.Create(this, steps);
@@ -195,7 +195,7 @@ public sealed partial class ShotTests
     }
 
     [Fact]
-    public async Task QueuedVideoCapturesOrderedCropsAndBlocksModifiedOrTrashedInputs()
+    public async Task QueuedVideoCapturesOrderedCropsAndRejectsModifiedCaptureButOwnsTrashedInputs()
     {
         using var f = await QueuedVideoFixture.Create(this);
         var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Two views" };
@@ -228,8 +228,8 @@ public sealed partial class ShotTests
         Assert.Empty(f.Graphs);
         await File.WriteAllBytesAsync(path, original, _ct);
         await f.Assets.DeleteImageAsync(f.Project.Id, asset.Id, f.Shot.Images[1].MediaId, library.Revision, _ct);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Worker.ExecuteAsync(context, submission.Snapshot, _ct));
-        Assert.Empty(f.Graphs);
+        await f.Worker.ExecuteAsync(context, submission.Snapshot, _ct);
+        Assert.Single(f.Graphs);
         Assert.Throws<WorkspaceStoreException>(() => AiVideoJobPolicy.Validate(request with { Inputs = request.Inputs.Select(i => i with { FileName = "../" + i.FileName }).ToArray() }));
         Assert.Throws<WorkspaceStoreException>(() => AiVideoJobPolicy.Validate(request with { Inputs = [request.Inputs[0], request.Inputs[1] with { Audio = true }] }));
     }
@@ -519,9 +519,18 @@ public sealed partial class ShotTests
         public Task<ReferenceVideoMedia> ImportAsync(Guid project, Stream content, string name, H3Settings settings, CancellationToken ct = default)
         { Imports++; var (w, h, frames) = Metadata ?? (640, 640, 124); return Task.FromResult(new ReferenceVideoMedia(Guid.NewGuid(), new('A', 64), 3, w, h, frames, 24, frames / 24d, true)); }
         public Task<ReferenceVideoMedia> CopyTakeAsync(Guid p, Guid t, H3Settings s, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<AssetMedia?> OpenAsync(Guid p, Guid m, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ReelFrameCatalog> FrameCatalogAsync(Guid project, ReferenceVideoMedia media, H3Settings settings, CancellationToken ct = default) =>
+            Task.FromResult(new ReelFrameCatalog(media.Sha256, false, Enumerable.Range(0, media.Frames).Select(i => i / 24d).ToArray()));
+        public Task<AssetMedia?> OpenAsync(Guid p, Guid m, CancellationToken ct = default) => Task.FromResult<AssetMedia?>(new(new MemoryStream([1, 2, 3]), "video/mp4", DateTimeOffset.UtcNow));
         public Task ValidateAsync(Guid p, IEnumerable<ShotVideoBinding> b, CancellationToken ct = default) => Task.CompletedTask;
-        public Task PrepareAsync(Guid p, Shot s, string d, List<PreparedVideoInput> i, H3Settings h, CancellationToken ct = default) => throw new NotSupportedException();
+        public async Task PrepareAsync(Guid p, Shot s, string d, List<PreparedVideoInput> i, H3Settings h, CancellationToken ct = default)
+        {
+            for (var index = 0; index < s.Videos.Count; index++) {
+                var file = $"video-{index:D2}.mp4";
+                await File.WriteAllBytesAsync(Path.Combine(d, file), [1, 2, 3], ct);
+                i.Add(new(file, false) { Kind = VideoInputKind.Video, VideoIndex = index });
+            }
+        }
     }
     private sealed class VideoAdapter : IComfyVideoJobAdapter
     {

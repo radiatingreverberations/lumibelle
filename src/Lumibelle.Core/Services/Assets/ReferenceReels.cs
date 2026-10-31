@@ -102,11 +102,26 @@ public static partial class ReferenceReels
         ValidateProfile(d);
         if (string.IsNullOrWhiteSpace(pair.UseGuidance) || pair.UseGuidance.Length > 20000)
             throw new WorkspaceStoreException("Add guidance explaining how to use this reel.");
-        ProductionPolicy.ValidatePrompt(pair.Prompt, Inputs(d), allowCuts: true);
+        ProductionPolicy.ValidateGenerationPrompt(pair.Prompt);
+    }
+    // H3 consumes authored prose. Template and reference-label findings are review
+    // notes, just as for shots; media, recipe and response structure remain strict.
+    public static string? PromptWarning(ReelPromptPair pair, ReferenceReelDraft d)
+    {
+        var finding = PromptFinding(pair, d);
+        return pair.Notes is { Count: > 0 } notes ? string.Join(" ", notes.Append(finding ?? "Review the prompt, or keep it as written.")) : finding;
+    }
+    private static string? PromptFinding(ReelPromptPair pair, ReferenceReelDraft d)
+    {
+        if (string.IsNullOrWhiteSpace(pair.Prompt)) return null;
+        var warning = ProductionPolicy.PromptWarning(pair.Prompt, Inputs(d), allowCuts: true);
+        var missing = Regex.Match(warning ?? "", @"^The prompt omits (Picture|Video|Audio) (\d+)\.$");
+        if (missing.Success) return $"The prompt does not use the exact <{missing.Groups[1].Value} {missing.Groups[2].Value}> reference marker. Review the wording or keep it as written.";
+        if (warning is not null) return warning;
         var detailed = pair.Prompt.Split("detailed_description:")[1].Split("overall_soundscape:")[0];
-        var views = Regex.Matches(detailed, @"\[Shot (\d+)\]").Select(m => int.Parse(m.Groups[1].Value)).ToArray();
-        if (views.Length == 0 || !views.SequenceEqual(Enumerable.Range(1, views.Length)))
-            throw new WorkspaceStoreException("Number the reel's views consecutively from [Shot 1] in detailed_description.");
+        var views = Regex.Matches(detailed, @"\[Shot (\d+)\]").Select(m => m.Groups[1].Value).ToArray();
+        return views.Length == 0 || !views.SequenceEqual(Enumerable.Range(1, views.Length).Select(n => n.ToString(CultureInfo.InvariantCulture)))
+            ? "Number the reel's views consecutively from [Shot 1] in detailed_description." : null;
     }
     private static ReelPromptPair PresetCore(ReferenceReelDraft d, AssetLibrary? library)
     {
@@ -172,17 +187,21 @@ public static partial class ReferenceReels
     }
     public static ReelPromptPair Parse(string raw, ReferenceReelDraft draft)
     {
-        var pair = ParsePair(raw);
+        var pair = ParsePair(raw, draft);
         ValidatePair(pair, draft);
         return pair;
     }
     // Keep readable text available for inspection even when production validation fails.
-    public static ReelPromptPair ParsePair(string raw)
+    public static ReelPromptPair ParsePair(string raw, ReferenceReelDraft? draft = null)
     {
         try
         {
             var text = raw.Trim(); if (text.StartsWith("```")) text = text[(text.IndexOf('\n') + 1)..text.LastIndexOf("```")];
-            var pair = JsonSerializer.Deserialize<ReelPromptPair>(text, AtomicJsonFile.Options) ?? throw new JsonException();
+            using var json = JsonDocument.Parse(text);
+            if (json.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException();
+            var pair = PromptComposer.Field(json.RootElement, "sections") is { } sections
+                ? ReadSectionedPair(json.RootElement, sections, draft ?? throw new JsonException())
+                : JsonSerializer.Deserialize<ReelPromptPair>(text, AtomicJsonFile.Options) ?? throw new JsonException();
             if (pair.Prompt is null || pair.UseGuidance is null || pair.Prompt.Length > 100000 || pair.UseGuidance.Length > 20000)
                 throw new JsonException();
             return pair;

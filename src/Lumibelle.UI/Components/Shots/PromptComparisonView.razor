@@ -1,14 +1,15 @@
-<div class="prompt-comparison" aria-label="@Label">
-    @foreach (var side in new[] { (Name: BeforeLabel, Blocks: _changes.Before, Removed: true), (Name: AfterLabel, Blocks: _changes.After, Removed: false) })
+@{ var hasPrevious = !string.IsNullOrWhiteSpace(Before); }
+<div class="prompt-comparison @(hasPrevious ? null : "prompt-preview")" aria-label="@Label">
+    @foreach (var side in new[] { (Name: BeforeLabel, Blocks: _changes.Before, Removed: true), (Name: AfterLabel, Blocks: _changes.After, Removed: false) }.Where(side => hasPrevious || !side.Removed))
     {
         <section class="prompt-comparison-side @(side.Removed ? "before" : "after")" aria-label="@side.Name">
-            <h3>@side.Name <small>@(side.Removed ? "− Removed text" : "+ Added text")</small></h3>
+            <h3>@side.Name @if (hasPrevious) { <small>@(side.Removed ? "− Removed text" : "+ Added text")</small> }</h3>
             @if (side.Blocks.Count == 0) { <p class="field-hint">@EmptyLabel</p> }
-            <pre class="prompt-comparison-text" tabindex="0" aria-label="@side.Name text">@foreach (var line in side.Blocks) { <span class="@(IsHeading(line.Text) ? "prompt-comparison-heading" : null)">@foreach (var span in line.Spans) { if (!span.Changed) { @span.Text } else if (side.Removed) { <del>@span.Text</del> } else { <ins>@span.Text</ins> } }</span> }</pre>
+            <pre class="prompt-comparison-text" tabindex="0" aria-label="@side.Name text">@foreach (var line in side.Blocks) { <span class="@(IsHeading(line.Text) ? "prompt-comparison-heading" : null)">@foreach (var span in line.Spans) { if (!hasPrevious || !span.Changed) { @span.Text } else if (side.Removed) { <del>@span.Text</del> } else { <ins>@span.Text</ins> } }</span> }</pre>
         </section>
     }
 </div>
-@if (_changes.Simplified) { <p class="field-hint">Large changes are highlighted by line. Both complete versions are shown.</p> }
+@if (hasPrevious && _changes.Simplified) { <p class="field-hint">Large changes are highlighted by line. Both complete versions are shown.</p> }
 
 @code {
     [Parameter] public string Before { get; set; } = "";

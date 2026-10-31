@@ -122,7 +122,7 @@ public sealed partial class ShotTests : IDisposable
         Assert.DoesNotContain(settings.Model,checkedFiles.Models);Assert.Contains(settings.Model,checkedFiles.InstalledModels);
         Assert.DoesNotContain(settings.Encoder,checkedFiles.Encoders);Assert.Contains(settings.Encoder,checkedFiles.InstalledEncoders);
         Assert.Contains(settings.VideoVae,checkedFiles.InstalledVaes);Assert.Contains(settings.TurboLora,checkedFiles.InstalledLoras);
-        Assert.Contains("compatibility has not been tested",checkedFiles.Message);
+        Assert.DoesNotContain("compatibility has not been tested",checkedFiles.Message);
         var wrong="minimax_h3_fl2va_pruned.safetensors";Install("UNETLoader","unet_name",wrong);
         Assert.False(Check(settings with { Model=wrong }).StandardReady);
         Assert.False(Check(settings with { Encoder="missing.safetensors" }).StandardReady);
@@ -151,6 +151,8 @@ public sealed partial class ShotTests : IDisposable
         shot.Duration=7.9;shot.Description=null!;
         var invalid=ShotPlanner.Parse(Raw(),request);Assert.NotNull(invalid.Error);Assert.Empty(invalid.Shots);Assert.Equal(Raw(),invalid.Raw);
         Assert.NotNull(ShotPlanner.Parse("[{",request).Error);
+        var repeated=Raw().Replace("\"duration\":","\"music\":\"Low drone\",\"music\":\"Drone\",\"duration\":",StringComparison.Ordinal);
+        var duplicate=ShotPlanner.Parse(repeated,request);Assert.Contains("repeats the \"music\" field",duplicate.Error);Assert.Empty(duplicate.Shots);Assert.Equal(repeated,duplicate.Raw);
         Assert.Contains("NO preferred length",ShotPlanner.BuildMessages(request)[0].Text);
     }
     [Fact]

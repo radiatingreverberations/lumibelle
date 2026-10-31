@@ -17,15 +17,27 @@ public partial class ShotReferenceEditor
     [Parameter] public IReadOnlyList<ShotTake> FrameTakes { get; set; } = [];
     private string _sourceBrowser = "Assets";
     private void ChooseSource(string source) {
-        _sourceBrowser = source; _selectedTab = false; _selectionNotice = null;
+        _sourceBrowser = source; _selectedTab = false; _selectionNotice = null; _replacingFrame = null;
         _replacing = _replacingVideo = _swapVideo = null;
     }
+    // Shot frames are ordinary pictures: any number fit within the picture limit, each pinned to its take and frame.
+    private Guid? _replacingFrame;
+    private ShotContinuityFrame? ReplacingFrame => _draft.ShotFrames.FirstOrDefault(f => f.Id == _replacingFrame);
     private void PickShotFrame(ShotContinuityFrame frame) {
-        if (_busy || _draft.ContinuityFrame is null && ResolvedReferences.For(_draft).Pictures.Count >= 9) return;
-        var replaced = _draft.ContinuityFrame is not null;
-        _draft.ContinuityFrame = frame;
-        _selectionNotice = $"{(replaced ? "Replaced" : "Added")} shot frame. Apply changes to save.";
+        var index = _draft.ShotFrames.FindIndex(f => f.Id == frame.Id);
+        if (_busy || index < 0 && ResolvedReferences.For(_draft).Pictures.Count >= 9) return;
+        if (index >= 0) _draft.ShotFrames[index] = frame; else _draft.ShotFrames.Add(frame);
+        _replacingFrame = null;
+        _selectionNotice = $"{(index >= 0 ? "Replaced" : "Added")} shot frame. Apply changes to save.";
     }
+    private void ChangeShotFrame(ShotContinuityFrame frame) { ChooseShotFrames(); _replacingFrame = frame.Id; }
+    private void RemoveShotFrame(ShotContinuityFrame frame) { _draft.ShotFrames.RemoveAll(f => f.Id == frame.Id); if (_replacingFrame == frame.Id) _replacingFrame = null; }
+    private void MoveShotFrame(ShotContinuityFrame frame, int offset) {
+        var index = _draft.ShotFrames.FindIndex(f => f.Id == frame.Id); var target = index + offset;
+        if (_busy || index < 0 || target < 0 || target >= _draft.ShotFrames.Count) return;
+        (_draft.ShotFrames[index], _draft.ShotFrames[target]) = (_draft.ShotFrames[target], _draft.ShotFrames[index]);
+    }
+    private bool HasPreviousLastFrame(Shot previous) => ContinuityFrameOf?.Invoke(previous) is { } last && _draft.ShotFrames.Any(f => f.TakeId == last.TakeId && f.Frame == last.Frame);
     private string ShotFrameTitle(ShotContinuityFrame frame) => FrameShots.FirstOrDefault(s => s.Id == FrameTakes.FirstOrDefault(t => t.Id == frame.TakeId)?.ShotId)?.Title ?? frame.Name;
     private bool ShotFrameTakeChanged(ShotContinuityFrame frame) => FrameTakes.FirstOrDefault(t => t.Id == frame.TakeId) is { } take &&
         FrameShots.FirstOrDefault(s => s.Id == take.ShotId)?.SelectedTakeId is { } selected && selected != frame.TakeId;
@@ -84,13 +96,14 @@ public partial class ShotReferenceEditor
     // Adds the previous shot's last production frame without replacing this shot's references.
     private void AddContinuityFrame()
     {
-        if (PreviousCopySource is { } previous && ContinuityFrameOf?.Invoke(previous) is { } frame && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = frame;
+        if (PreviousCopySource is { } previous && ContinuityFrameOf?.Invoke(previous) is { } frame && !HasPreviousLastFrame(previous) && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ShotFrames.Add(frame);
     }
     private IEnumerable<Shot> OtherCopySources => CopySources.Where(s => PreviousCopySource is null || s.Id != PreviousCopySource.Id);
     private string CopyLabel(Shot source) => CopySourceNumber is null ? source.Title : $"{CopySourceNumber(source):00} · {source.Title}";
     /// <summary>The previous shot's last production frame, added as a continuity picture when its references are copied.</summary>
     [Parameter] public Func<Shot, ShotContinuityFrame?>? ContinuityFrameOf { get; set; }
     [Parameter] public bool AllowReels { get; set; }
+    [Parameter] public Guid? VideoOnlyReferenceId { get; set; }
     [Parameter] public bool ReelAuthoring { get; set; }
     [Parameter] public bool AllowOtherShotSwaps { get; set; } = true;
     [Parameter] public Func<DerivedImageRequest, Task<SavedAssetImage>>? SaveImage { get; set; }
@@ -124,8 +137,8 @@ public partial class ShotReferenceEditor
     private string PictureBreakdown {
         get {
             var parts = new List<string> { $"{_draft.Images.Count} library images" };
-            if (_draft.ContinuityFrame is not null) parts.Add("1 shot frame");
-            var frames = ResolvedReferences.For(_draft).Pictures.Count - _draft.Images.Count - (_draft.ContinuityFrame is null ? 0 : 1);
+            if (_draft.ShotFrames.Count > 0) parts.Add(_draft.ShotFrames.Count == 1 ? "1 shot frame" : $"{_draft.ShotFrames.Count} shot frames");
+            var frames = ResolvedReferences.For(_draft).Pictures.Count - _draft.Images.Count - _draft.ShotFrames.Count;
             if (frames > 0) parts.Add($"{frames} reel keyframes");
             return string.Join(" · ", parts);
         }
@@ -150,7 +163,7 @@ public partial class ShotReferenceEditor
             var continuityNotice = continuity is null ? null : ResolvedReferences.For(_draft).Pictures.Count >= 9
                 ? "Its last frame was not added: this shot already has 9 pictures."
                 : "Its production take's last frame is added as a continuity picture; remove it if you don't need it.";
-            if (continuity is not null && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ContinuityFrame = continuity;
+            if (continuity is not null && ResolvedReferences.For(_draft).Pictures.Count < 9) _draft.ShotFrames.Add(continuity);
             _reelVoiceNotice = null;
             // Copied references retain the source setup's captured guidance; they
             // are not new selections of the current asset-library reel defaults.

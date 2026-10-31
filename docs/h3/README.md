@@ -1,5 +1,7 @@
 # H3 adapter evidence
 
+Current guidance: [generation presets](generation-presets.md), [draft promotion](motion-reference-promotion.md), [captured recipes](generation-recipes.md), and the [30 October trial](promotion-feasibility-2026-10-30.md).
+
 [Upscaled preview](preview-upscaling.md) adds optional preview-size sampling with
 native-size output in one job. It needs a supported learned upscaler and checkpoint.
 

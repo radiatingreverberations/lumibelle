@@ -42,9 +42,9 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct, prepared);
         if (candidates.Count == 1)
-            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared, refine, motion);
+            return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidates[0].Seed, clientId, uploaded, prepared, refine, motion, request.Recipe);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared, refine, motion), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, prepared, refine, motion, request.Recipe), clientId);
     }
     // Uploads a refinement's saved latents; null for normal generation.
     private async Task<ComfyH3Video.RefineSource?> RefineSourceAsync(AiVideoJobRequest request, string directory, CancellationToken ct)
@@ -60,6 +60,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
                 .RecoverAsync(context, request.Snapshot, ct);
     public async Task ValidateAsync(AiVideoJobRequest request, CancellationToken ct)
     {
+        await video.ValidateRecipeAsync(request, ct);
         var s = request.Snapshot;
         var configuration = await video.CheckAsync(new() { ComfyUrl = s.ExecutionComfyUrl, H3 = s.Settings with {
             Performance = H3Performance.Preferences(s.Performance), LatentUpscaler = request.Refinement?.Upscaler ?? s.Settings.LatentUpscaler } }, ct);
@@ -87,7 +88,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var refine = await RefineSourceAsync(request, directory, ct);
         var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
-        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded, refine: refine, motion: motion);
+        return clientId => ComfyH3Video.BuildWorkflow(request.Snapshot, candidate.Seed, clientId, uploaded, refine: refine, motion: motion, recipe: request.Recipe);
     }
     public async Task<Func<string, object>> PrepareBatchWorkflowAsync(AiVideoJobRequest request, IReadOnlyList<AiBatchCandidate> candidates, string directory, CancellationToken ct)
     {
@@ -96,7 +97,7 @@ public sealed class ComfyVideoJobAdapter(ComfyH3Video video, ComfyRefModCache? r
         var motion = await video.UploadMotionAsync(request.Snapshot, directory, ct);
         var uploaded = await video.UploadAsync(AiVideoJobPolicy.Run(request), directory, ct);
         return clientId => ComfyMultiTakeWorkflow.Build(candidates,
-            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, refine: refine, motion: motion), clientId);
+            c => ComfyH3Video.BuildWorkflow(request.Snapshot, c.Seed, c.Id.ToString("D"), uploaded, refine: refine, motion: motion, recipe: request.Recipe), clientId);
     }
     public Task<ShotTake> DownloadAsync(AiVideoJobRequest request, VideoCandidate candidate, string directory, Func<string, Task> progress, CancellationToken ct) =>
         video.DownloadAsync(AiVideoJobPolicy.Run(request), candidate, directory, progress, ct);

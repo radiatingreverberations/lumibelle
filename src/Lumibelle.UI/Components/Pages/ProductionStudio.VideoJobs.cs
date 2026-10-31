@@ -59,6 +59,7 @@ public partial class ProductionStudio
         _videoOriginJob = _requestedVideoJob = null; _reviewRun = null; _reviewOpen = false;
         _refiningTake = _refinementJob = null; _refinementEnqueue = null;
         _regenerationTake = null;
+        _refineSources = [];
         _selectingTakes = _moveTakesOpen = false; _moveTakeIds.Clear(); _takeSelectionShot = _moveDestination = null;
     }
     private IReadOnlyList<AiJobHeader> _observedVideoJobs = [];

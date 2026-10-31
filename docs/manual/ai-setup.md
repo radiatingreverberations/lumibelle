@@ -12,6 +12,8 @@ Star models to build a shortlist shared by every project. ComfyUI models must pa
 
 All text assistance uses one model default per project, set in **Project settings → Text assistance** or through **Set as project default** in any model menu. New projects start with **Use global default**. The model chip inside assistance opens configured choices and reasoning options. A temporary override applies to one successfully queued request, and retries keep their captured inputs. Missing or incompatible models never trigger substitution.
 
+The model menu opens from saved choices without refreshing providers. Picking a model checks its availability when needed; other choices remain usable while that check runs. **Refresh availability** checks the selected provider, and only the selected connection for OpenAI-compatible models. Opening assistance, returning to the tab and submitting reuse the current availability result while still checking for saved configuration or default changes.
+
 Text-assistance composers share a compact dialog that becomes a full-width sheet on phones. Closing keeps draft instructions and model overrides.
 
 ### Project visual style

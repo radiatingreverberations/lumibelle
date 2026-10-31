@@ -56,7 +56,7 @@ public sealed class AiModelTestJobHandler(IModelTestRunner runner, IAiSettingsSt
         var maxTokens = vllm ? VllmAdvancedMaxTokens : request.Model?.Backend == AiBackend.ComfyUI ? ComfyAdvancedMaxTokens : hostedV2 ? OpenRouterAdvancedMaxTokens : 2048;
         if (request.Version != 1 && !hostedV2 && !vllm || request.Model is null || request.Settings is null || request.Test is null || request.Model.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter or AiBackend.Vllm) || request.Model.Backend == AiBackend.Vllm && !vllm ||
             string.IsNullOrWhiteSpace(request.Test.Prompt) || request.Test.Prompt.Length > 12000 || request.Test.MaxOutputTokens < 1 || request.Test.MaxOutputTokens > maxTokens || request.Seed < 0 || (request.TestImageInput || request.TestStructuredOutput) && !vllm)
-            throw new WorkspaceStoreException($"Choose a ComfyUI, vLLM or OpenRouter text model, a nonempty test message, and a token limit between 1 and {maxTokens:N0}.");
+            throw new WorkspaceStoreException($"Choose a ComfyUI, OpenAI-compatible or OpenRouter text model, a nonempty test message, and a token limit between 1 and {maxTokens:N0}.");
         TextModelPolicy.Validate(request.Model); FileAiSettingsStore.Validate(request.Settings);
         if (vllm)
         {

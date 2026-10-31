@@ -19,7 +19,7 @@ public sealed partial class AiVideoJobCapture
         var source = AiVideoJobHandler.Read(job, await store.ReadSnapshotAsync(job.Id, ct));
         if (source.Refinement is null || source.Snapshot.ProjectId != projectId)
             throw new WorkspaceStoreException("The full refinement request is unavailable.");
-        var request = source with { BatchId = id, OutputTrim = new(trim.SourceStartFrame, trim.SourceEndFrameExclusive),
+        var request = source with { BatchId = id, Recipe = null, OutputTrim = new(trim.SourceStartFrame, trim.SourceEndFrameExclusive),
             Refinement = source.Refinement with { ParentTakeId = take.Id },
             DestinationShotId = take.ShotId == source.Snapshot.Shot.Id ? null : take.ShotId };
         AiVideoJobPolicy.Validate(request);
@@ -41,6 +41,7 @@ public sealed partial class AiVideoJobCapture
         await AiVideoJobPolicy.CopyPreparedInputsAsync(source, sourceDir, request, destination, ct);
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, destination, ct);
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("The project is unavailable.");
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request), project.Name,
             take.Snapshot.Shot.Title + " · " + take.Refinement.Mode + " · trimmed version", tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
     }

@@ -89,7 +89,7 @@ public static class TextModelProfiles
         if (model.Backend == AiBackend.ComfyUI && !string.IsNullOrEmpty(model.ReasoningEffort))
             throw new WorkspaceStoreException("The ComfyUI text workflow does not support reasoning effort.");
         if (model.Backend == AiBackend.Vllm && model.ReasoningEffort is not null)
-            throw new WorkspaceStoreException("vLLM profiles currently support temperature and output limits. Configure reasoning on the server.");
+            throw new WorkspaceStoreException("OpenAI-compatible profiles currently support temperature and output limits. Configure reasoning on the server.");
         if (model.Backend == AiBackend.OpenRouter && model.ReasoningEffort is { } effort && !OpenRouterEfforts.Contains(effort))
             throw new WorkspaceStoreException("Choose a supported OpenRouter reasoning effort or leave it at the provider default.");
     }

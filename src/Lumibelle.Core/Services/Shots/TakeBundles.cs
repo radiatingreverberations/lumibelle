@@ -30,6 +30,7 @@ public static class TakeBundles
         yield return prefix + "video.mp4";
         if (take.Composition?.HasJoinPreview == true) yield return prefix + "join-preview.mp4";
         foreach (var frame in take.Frames.DistinctBy(f => f.FileName)) yield return prefix + frame.FileName;
+        foreach (var kept in take.KeptFrames ?? []) yield return prefix + kept.FileName;
         if (take.RefinementPackage is not null) yield return prefix + H3RefinementPackage.FileName;
         if (take.RetainedSource?.RefinementInput is not null) yield return prefix + TakeTrimming.InputsFolder + "/" + TakeTrimming.RefinementInputFile;
         foreach (var input in take.RetainedSource?.Inputs ?? []) yield return prefix + TakeTrimming.InputsFolder + "/" + input.FileName;

@@ -27,10 +27,10 @@ export async function expand(details) {
   if (!await details.evaluate(d => d.open)) await details.locator(':scope > summary').click();
   await expect(details).toHaveAttribute('open');
 }
-// Opens the Prompt dialog with its framing section (preset, direction, timing and Instructions) expanded.
+// Opens the Prompt dialog with its framing section (preset and direction) visible.
 export async function reelFraming(page) {
   const dialog = await openReelSetup(page);
-  await expand(dialog.locator('.reel-direction-options'));
+  await expect(dialog.locator('.reel-direction-options')).toBeVisible();
   return dialog;
 }
 export async function requestSeconds(page, value) {

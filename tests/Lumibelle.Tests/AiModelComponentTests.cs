@@ -53,7 +53,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         _providers.Models = [new(Cloud.Model, Cloud.Name), new(Local.Model, Local.Name), new(_settings.Value.ComfyModel, "Default")];
     }
     [Fact]
-    public async Task OpeningModelOptionsDuringInitialLoadStillChecksEveryConfiguredProvider()
+    public async Task OpeningModelOptionsDuringSlowInitialCheckAllowsChoosingAnotherProvider()
     {
         AvailableModels();
         var initial = new TaskCompletionSource<AiConnectionCheck>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -63,14 +63,39 @@ public sealed partial class AiModelComponentTests : BunitContext
         var picker = Picker(Guid.NewGuid(), TextAssistantStudio.Story);
         await _providers.Checked();
         var opening = picker.InvokeAsync(picker.Instance.OpenAsync);
-        initial.SetResult(available);
         await opening;
         _pickerDialogs.WaitForAssertion(() =>
         {
-            Assert.Contains(AiBackend.OpenRouter, _providers.CheckedBackends);
+            Assert.Equal(1, _providers.CheckCalls);
             var option = _pickerDialogs.FindAll("option").Single(o => o.TextContent.Contains("Cloud model"));
             Assert.False(option.HasAttribute("disabled"));
+            Assert.False(_pickerDialogs.Find("select[id^=text-model-]").HasAttribute("disabled"));
         });
+        await _pickerDialogs.Find("select[id^=text-model-]").ChangeAsync(new ChangeEventArgs { Value = TextModelPolicy.Key(Cloud) });
+        Assert.Equal(new[] { AiBackend.ComfyUI, AiBackend.OpenRouter }, _providers.CheckedBackends);
+        // An abandoned slow response must not overwrite the newly selected provider.
+        initial.SetResult(available);
+        Assert.True(await picker.InvokeAsync(picker.Instance.PrepareSubmitAsync));
+        Assert.Equal(2, _providers.CheckCalls);
+    }
+    [Fact]
+    public async Task OpeningFocusAndSubmissionReuseAvailabilityWithoutProviderRefresh()
+    {
+        AvailableModels();
+        var states = new List<TextModelSelectionState>();
+        var picker = Picker(Guid.NewGuid(), TextAssistantStudio.Story, states);
+        picker.WaitForAssertion(() => Assert.True(states.Last().Ready));
+        var calls = _providers.CheckCalls;
+        var dialog = PickerDialog(picker);
+        await picker.InvokeAsync(picker.Instance.RefreshModel);
+        Assert.True(await picker.InvokeAsync(picker.Instance.PrepareSubmitAsync));
+        Assert.Equal(calls, _providers.CheckCalls);
+        await dialog.Find("select[id^=text-model-]").ChangeAsync(new ChangeEventArgs { Value = TextModelPolicy.Key(Cloud) });
+        Assert.Equal(calls + 1, _providers.CheckCalls);
+        Assert.Equal(AiBackend.OpenRouter, _providers.CheckedBackends.Last());
+        await picker.InvokeAsync(picker.Instance.OpenAsync);
+        Assert.True(await picker.InvokeAsync(picker.Instance.PrepareSubmitAsync));
+        Assert.Equal(calls + 1, _providers.CheckCalls);
     }
     [Fact]
     public async Task ChangedDefaultIsDisplayedAndStopsSubmissionUntilTheAuthorRetries()
@@ -128,7 +153,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         const string attention="select[aria-label='H3 dense attention']";
         // The page checks ComfyUI as soon as it opens.
         page.WaitForAssertion(()=>Assert.Equal(1,generator.CheckCalls));
-        Assert.Equal(lumibelle.Services.Shots.H3Presets.Keys.Length, page.FindAll(".video-preset-setup").Count);
+        Assert.Equal(lumibelle.Services.Shots.H3Presets.Offered.Count(), page.FindAll(".video-preset-setup").Count);
         Assert.Equal("Installed",page.Find(row+" .video-status").TextContent);
         Assert.Contains("models/text_encoders",page.Find(row).TextContent);
         page.Find(attention).Change("Sage");

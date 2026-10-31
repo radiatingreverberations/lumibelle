@@ -32,7 +32,7 @@ test('Save latents is optional; a take without them is regenerated with its seed
   const original = (await state(request, id)).takes[0];
   expect(original.snapshot.captureRefinementData).toBe(false);
   expect(original.refinementPackage).toBeNull();
-  const refine = review(page).getByRole('button', { name: 'Refine…', exact: true });
+  const refine = review(page).getByRole('button', { name: 'Upscale latents…', exact: true });
   await expect(refine).toBeDisabled();
   await expect(refine).toHaveAttribute('title', /^This take has no saved latents\. To refine it, regenerate it with the same seed and resolution/);
   await review(page).getByRole('button', { name: 'Close', exact: true }).click();
@@ -59,8 +59,8 @@ test('Save latents is optional; a take without them is regenerated with its seed
   await expect(review(page)).toBeVisible();
   await review(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(review(page)).toBeHidden();
-  await expect(page.locator(`[data-take-id='${original.id}']`).getByRole('button', { name: 'Refine…', exact: true })).toBeDisabled();
-  await page.locator(`[data-take-id='${again.id}']`).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await expect(page.locator(`[data-take-id='${original.id}']`).getByRole('button', { name: 'Upscale latents…', exact: true })).toBeDisabled();
+  await page.locator(`[data-take-id='${again.id}']`).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   await expect(review(page).getByRole('region', { name: 'Refine take' })).toBeVisible();
   await expect(review(page).locator('video')).toHaveAttribute('src', `/media/projects/${id}/takes/${again.id}`);
 });
@@ -89,7 +89,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   // The companion nodes are gone: refinement uses stock ComfyUI nodes.
   expect((await request.get('/downloads/lumibelle-h3-companion.zip')).status()).toBe(404);
   const original = (await state(request, id)).takes[0];
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form).toBeVisible();
   await expect(form.getByLabel('Mode', { exact: true })).toHaveValue('Refine');
@@ -118,7 +118,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
   await closeSetup(page);
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
   await review(page).locator(`[data-shot-take="${refined.id}"]`).click();
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   await form.getByLabel('Mode', { exact: true }).selectOption('Rework');
   await form.getByLabel('Output size').selectOption('0');
   await form.getByRole('button', { name: 'Queue Rework', exact: true }).click();
@@ -148,7 +148,7 @@ test('saved take -> Refine -> Another version -> Rework stays in one review and 
 test('a refinement that fails shows its error and can be removed', async ({ page, request }) => {
   test.setTimeout(90000);
   const id = await setup(page, request);
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await form.getByLabel('Output size').selectOption('2');
   await form.getByRole('button', { name: 'Queue Refine', exact: true }).click();
@@ -160,14 +160,14 @@ test('a refinement that fails shows its error and can be removed', async ({ page
   await remove.click();
   await expect(failed).toHaveCount(0);
   expect((await state(request, id)).takes).toHaveLength(1);
-  await expect(review(page).getByRole('button', { name: 'Refine…', exact: true })).toBeEnabled();
+  await expect(review(page).getByRole('button', { name: 'Upscale latents…', exact: true })).toBeEnabled();
 });
 
 test('refinement options remain keyboard accessible and fit a narrow review', async ({ page, request }) => {
   test.setTimeout(90000);
   await setup(page, request);
   await page.setViewportSize({ width: 390, height: 844 });
-  const improve = review(page).getByRole('button', { name: 'Refine…', exact: true });
+  const improve = review(page).getByRole('button', { name: 'Upscale latents…', exact: true });
   await improve.focus(); await page.keyboard.press('Enter');
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form.getByRole('button', { name: 'Queue Refine', exact: true })).toBeEnabled();

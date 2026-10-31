@@ -3,3 +3,8 @@
 .visual-style-editor label { display:block; margin:8px 0 5px; font-size:var(--lumi-font-size-meta); color:var(--lumi-text-muted); }
 .visual-style-editor select,.visual-style-editor textarea { box-sizing:border-box; width:100%; min-width:0; border:1px solid var(--lumi-control-border); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--lumi-text); padding:9px 11px; font:inherit; }
 .visual-style-brief { white-space:pre-wrap; overflow-wrap:anywhere; }
+.visual-style-editor.compact { border:0; padding:0; margin:0; }
+.visual-style-editor.compact legend { padding:0; margin-bottom:5px; font-size:var(--lumi-font-size-meta); font-weight:600; color:var(--lumi-text-muted); }
+.visual-style-editor.compact select { margin-top:0; }
+.visual-style-editor.compact .visual-style-inherited { border:0; padding:0; margin-top:8px; }
+.visual-style-inherited summary { cursor:pointer; font-size:var(--lumi-font-size-meta); color:var(--muted); }

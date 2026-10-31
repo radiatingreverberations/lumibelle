@@ -26,6 +26,7 @@ public sealed class FileGenerationSetupStore(ApplicationPaths paths) : IGenerati
             d.Imports.Any(i => i is null || i.SourceName is null || !d.Setups.Any(s => s.Id == i.SetupId)) ||
             d.Imports.Select(i => (i.ProjectId, i.CompositionId)).Distinct().Count() != d.Imports.Count)
             throw new WorkspaceStoreException("The global generation setup library is invalid. It has not been replaced.");
+        foreach (var setup in d.Setups) lumibelle.Services.Shots.H3PresetMigrations.Apply(setup.Settings);
         return d;
     }
 
@@ -40,6 +41,7 @@ public sealed class FileGenerationSetupStore(ApplicationPaths paths) : IGenerati
             if (c.GenerationSetupId is null && d.Imports.Any(i => i.ProjectId == document.ProjectId && i.CompositionId == c.Id)) continue;
             var name = c.Name.Trim();
             var settings = GenerationSettings.From(c);
+            lumibelle.Services.Shots.H3PresetMigrations.Apply(settings);
             if (string.IsNullOrWhiteSpace(name) || name.Length > 200 || settings.TakeCount is < 1 or > 4 || settings.Seed < 0)
                 throw new WorkspaceStoreException("The project's captured generation setup is invalid. No presets were imported.");
             var setup = d.Setups.FirstOrDefault(s => (s.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
@@ -59,6 +61,7 @@ public sealed class FileGenerationSetupStore(ApplicationPaths paths) : IGenerati
     public async Task<GenerationSetupLibrary> SaveAsync(GenerationSetup setup, long expectedVersion, CancellationToken ct = default)
     {
         var s = ShotCopy.Of(setup); s.Name = s.Name.Trim();
+        if (s.Settings is not null) lumibelle.Services.Shots.H3PresetMigrations.Apply(s.Settings);
         if (s.Id == Guid.Empty || string.IsNullOrWhiteSpace(s.Name) || s.Name.Length > 200 ||
             s.Settings is null || s.Settings.TakeCount is < 1 or > 4 || s.Settings.Seed < 0)
             throw new WorkspaceStoreException("Give the global setup a name and valid generation settings.");

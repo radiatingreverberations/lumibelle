@@ -44,9 +44,12 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await editor.getByLabel('Reel name', { exact: true }).fill('Consistent reel');
   await editor.locator('.reel-voice-options > summary').click();
   await editor.getByLabel('Voice mode', { exact: true }).selectOption('Silent');
-  await editor.locator('.reel-direction-options > summary').click();
+  await expect(editor.getByRole('heading', { name: 'Framing and direction', exact: true })).toBeVisible();
   await editor.getByLabel('Framing preset', { exact: true }).selectOption('Custom');
   await editor.getByLabel('Instructions', { exact: true }).fill('Show the same outfit from both sides.');
+  const assistSetup = editor.getByRole('region', { name: 'AI assist', exact: true });
+  await assistSetup.getByLabel('Visual style', { exact: true }).selectOption('Illustration');
+  await assistSetup.getByLabel('Visual style direction', { exact: true }).fill('Ink outlines and muted shadows.');
   const prompt = editor.getByRole('textbox', { name: 'H3 prompt', exact: true });
   await expect(editor.locator('[data-prompt-ready]')).toHaveAttribute('data-prompt-ready', 'true');
   await prompt.fill('Manually authored prompt — café 👋');
@@ -68,6 +71,8 @@ for (const narrow of [false, true]) test(`reel tools share the compact shot layo
   await expect(tools.getByRole('button', { name: 'Edit reel preset', exact: true })).toBeFocused();
   await tools.getByRole('button', { name: 'Prompt', exact: true }).click();
   await expect(prompt).toHaveText('Manually authored prompt — café 👋');
+  await expect(assistSetup.getByLabel('Visual style', { exact: true })).toHaveValue('Illustration');
+  await expect(assistSetup.getByLabel('Visual style direction', { exact: true })).toHaveValue('Ink outlines and muted shadows.');
   await expect(editor.getByRole('button', { name: 'Undo prompt edit', exact: true })).toBeEnabled();
   await editor.getByRole('button', { name: 'Undo prompt edit', exact: true }).click();
   await expect(prompt).toBeEmpty();

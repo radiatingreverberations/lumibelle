@@ -36,7 +36,7 @@
         @if (_request is { } request)
         {
             @if (_job is { } capturedJob) { <AiTextRequestDetails JobId="capturedJob.Id" /> }
-            <p class="enhancement-attribution">@request.Context.Workflow.Label() · @(request.Context.IsEdit ? "Edit" : "Create") · @request.Model.Backend · @request.Model.Name</p>
+            <p class="enhancement-attribution">@request.Context.Workflow.Label() · @(request.Context.IsEdit ? "Edit" : "Create") · @TextModelPolicy.ProviderName(request.Model.Backend) · @request.Model.Name</p>
             @if (!string.IsNullOrWhiteSpace(request.Direction)) { <p class="enhancement-direction-used"><strong>Direction:</strong> @request.Direction</p> }
             @if (_job is { } job)
             { <lumibelle.Components.AI.AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" /> }

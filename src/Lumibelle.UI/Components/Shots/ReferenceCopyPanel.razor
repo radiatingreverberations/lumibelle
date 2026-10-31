@@ -95,7 +95,7 @@
     private void Stage()
     {
         if (_copy is null) return;
-        _draft = _copy.Inputs.Copy(); _draft.EnvironmentAssetId = _environmentId; _draft.EnvironmentInspectionDisabled = _environmentDisabled; _draft.ContinuityFrame = _includeFrame ? _frame : null; _issue = null; _error = null;
+        _draft = _copy.Inputs.Copy(); _draft.EnvironmentAssetId = _environmentId; _draft.EnvironmentInspectionDisabled = _environmentDisabled; _draft.ShotFrames = _includeFrame && _frame is { } frame ? [frame] : []; _issue = null; _error = null;
         _invalidEnvironment = _environmentId is { } environment && !Library.Assets.Any(a => a.Id == environment && a.Category == AssetCategory.Environment);
         if (_invalidEnvironment) { _error = "Choose an available environment library, or None selected."; return; }
         try {

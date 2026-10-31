@@ -37,7 +37,26 @@ public sealed class ShotFramePickerTests : BunitContext
         await view.Find(".mud-button-root").ClickAsync(new());
         Assert.Equal(first.Id, picked!.TakeId); Assert.Equal(48, picked.Frame);
         Assert.Contains("Shot 1 · Take 1 · Last frame", picked.Name);
-        Assert.Null(target.ContinuityFrame); Assert.Null(target.StartFrame); Assert.Empty(target.Images);
+        Assert.Empty(target.ShotFrames); Assert.Null(target.StartFrame); Assert.Empty(target.Images);
+    }
+
+    [Fact] public async Task AnotherShotFrameIsAddedBesideAttachedOnesAndDuplicatesAreRefused()
+    {
+        var source = new Shot { Title = "Source" }; var target = new Shot { Title = "Target" };
+        var take = Take(source, 1); source.SelectedTakeId = take.Id;
+        var attached = new ShotContinuityFrame(Guid.NewGuid(), take.Id, 48, "Source · last frame");
+        ShotContinuityFrame? picked = null;
+        var view = Render<ShotFramePicker>(p => p.Add(c => c.CurrentShot, target).Add(c => c.Shots, new[] { source, target })
+            .Add(c => c.Takes, new[] { take }).Add(c => c.Attached, new[] { attached }).Add(c => c.PictureCount, 2)
+            .Add(c => c.Picked, (ShotContinuityFrame value) => picked = value));
+        Loaded(view);
+        Assert.Contains("Adds another shot frame. 1 already attached.", view.Markup);
+        Assert.Equal("Already attached", view.Find(".mud-button-root").TextContent.Trim());
+        view.Find("select[aria-label='Source frame position']").Change("first");
+        Loaded(view);
+        Assert.Equal("Add picture", view.Find(".mud-button-root").TextContent.Trim());
+        await view.Find(".mud-button-root").ClickAsync(new());
+        Assert.Equal(0, picked!.Frame); Assert.NotEqual(attached.Id, picked.Id);
     }
 
     [Fact] public async Task PreviewDoesNotFollowLaterTakeSelectionAndReplacementKeepsBindingIdentityAtBudget()

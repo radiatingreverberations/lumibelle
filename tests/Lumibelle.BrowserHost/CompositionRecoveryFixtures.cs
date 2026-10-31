@@ -9,6 +9,18 @@ public static class CompositionRecoveryFixtures
 {
     public static void MapCompositionRecoveryFixtures(this WebApplication app)
     {
+        app.MapPost("/fixtures/{id:guid}/legacy-reel-error/{jobId:guid}", async (Guid id, Guid jobId, IAiJobStore store) => {
+            var job = (await store.ReadAsync()).Jobs.Single(j => j.Id == jobId && j.Target.ProjectId == id && j.Kind == AiJobKind.ReelComposition);
+            var result = (await store.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result))!;
+            const string error = "The prompt omits Picture 1.";
+            await store.WriteArtifactAsync(job.Id, AiJobArtifact.Result, result with { Error = error });
+            await store.UpdateAsync(job.Id, j => j with { State = AiJobState.NeedsAttention, Recovery = AiJobRecovery.GenerateAgain, Error = error });
+            return Results.Ok(new { result.Raw });
+        });
+        app.MapGet("/fixtures/{id:guid}/reel-response/{jobId:guid}", async (Guid id, Guid jobId, IAiJobStore store) => {
+            var job = (await store.ReadAsync()).Jobs.Single(j => j.Id == jobId && j.Target.ProjectId == id && j.Kind == AiJobKind.ReelComposition);
+            return Results.Ok(await store.ReadArtifactAsync<AiTextJobResult>(job.Id, AiJobArtifact.Result));
+        });
         app.MapPost("/fixtures/{id:guid}/composition-review", async (Guid id, bool conflict, IProductionStore production,
             AiTextJobCapture capture, IAiJobStore store, AiJobCoordinator queue) =>
         {
@@ -33,6 +45,26 @@ public static class CompositionRecoveryFixtures
             }
             finally { await queue.SetPausedAsync(AiBackend.OpenRouter, false); }
             return Results.Ok(new { request.Id, proposed.Prompt });
+        });
+        // A composition that is still receiving text: the provider stays paused so the job keeps waiting.
+        app.MapPost("/fixtures/{id:guid}/streaming-composition", async (Guid id, IProductionStore production, AiTextJobCapture capture, IAiJobStore store, AiJobCoordinator queue) =>
+        {
+            var c = (await production.InitializeAsync(id)).Compositions[0];
+            var request = await capture.ComposeAsync(Guid.NewGuid(), Guid.NewGuid(), id, c.Id, c.Version, new(AiBackend.OpenRouter, "mock/script", "Mock model"), false);
+            await queue.SetPausedAsync(AiBackend.OpenRouter, true);
+            await store.EnqueueAsync(request);
+            await store.WriteArtifactAsync(request.Id, AiJobArtifact.Result, new AiTextJobResult("{\"sections\":{\"subject_definitions\":\"<Subject 1> Mira, a courier in a yellow rain"));
+            c.ReviewJobId = request.Id;
+            await production.SaveAsync(id, c, c.Version);
+            await queue.RefreshAsync();
+            return Results.Ok(new { request.Id });
+        });
+        app.MapPost("/fixtures/streaming-composition-advance", async (Guid jobId, IAiJobStore store, AiJobCoordinator queue) =>
+        {
+            await store.WriteArtifactAsync(jobId, AiJobArtifact.Result, new AiTextJobResult("{\"sections\":{\"subject_definitions\":\"<Subject 1> Mira, a courier in a yellow raincoat.\",\"summary\":\"Mira checks the address and knocks"));
+            // Live progress notifies the page while text streams; a harmless header change stands in for it here.
+            await store.UpdateAsync(jobId, job => job with { Priority = !job.Priority });
+            await queue.RefreshAsync();
         });
         app.MapPost("/fixtures/composition-review-refresh", async (Guid jobId, IAiJobStore store, AiJobCoordinator queue) =>
         {

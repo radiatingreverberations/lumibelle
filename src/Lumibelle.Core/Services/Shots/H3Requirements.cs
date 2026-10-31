@@ -29,7 +29,6 @@ public sealed record H3RequirementStatus(H3Requirement Requirement, H3Requiremen
 public static class H3Requirements
 {
     private const string ComfyOrg = "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/";
-    private const string Drbaph = "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/blob/main/";
     private static readonly H3Badge Default = new("Default", "Lumibelle's default choice.");
     // Common GPU memory sizes, and the working room sampling needs beyond the model weights at preview size.
     private static readonly int[] CardSizes = [8, 12, 16, 20, 24, 32, 48, 80];
@@ -57,14 +56,14 @@ public static class H3Requirements
     };
     public static readonly H3Requirement Model = new("model", H3RequirementKind.File, "Model", "models/diffusion_models", [
         new("minimax_h3_ref2va_pruned_int8_convrot.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
-            { Size = "21 GB", Format = "int8", Tags = [Default, Template, new("Official", "MiniMax's own Ref2VA weights. The Turbo, PDD and HyperFlow speed-ups were trained on these.")] },
+            { Size = "21 GB", Format = "int8", Tags = [Default, Template, new("Official", "MiniMax's own Ref2VA weights.")] },
         new("minimax_h3_ref2va_pruned_w6a8.safetensors", ComfyOrg + "diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors")
             { Size = "16 GB", Format = "W6A8", Tags = [new("Official", "MiniMax's own Ref2VA weights in a smaller format.")] },
         new("minimax_h3_ref2va_pruned_w4a8_mixed.safetensors", "https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/minimax_h3_ref2va_pruned_w4a8_mixed.safetensors")
             { Size = "12 GB", Format = "W4A8", Tags = [new("Official", "MiniMax's own Ref2VA weights in a smaller format."),
-                new("Experimental", "From Kijai's repository of experiments, so it may change or disappear.")] },
+                new("Mixed W4A8", "Published by Kijai.")] },
         new("Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors")
-            { Size = "21 GB", Format = "int8", Tags = [new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge. Its author tuned it for clarity, faces, action scenes and camera control.")] },
+            { Size = "21 GB", Format = "int8", Tags = [new("Finetune", "Singularity v1.3: a community finetune of an FL2VA/Ref2VA merge. It uses the Ref2VA conditioning workflow.")] },
         new("Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors", "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/blob/main/Minimax-h3_Singularity_ref2va_v1.3_Pruned_w4a8.safetensors")
             { Size = "12 GB", Format = "W4A8", Tags = [new("Finetune", "Singularity v1.3 at about half the size.")] },
         new("minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors", "https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/blob/main/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors")
@@ -86,28 +85,40 @@ public static class H3Requirements
 
     public static readonly H3Requirement TurboLora = new("turbo4-lora", H3RequirementKind.File, "Turbo 4-step LoRA", "models/loras", [
         new("minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors", ComfyOrg + "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
-            "Use the ref2v file; the fl2v LoRAs beside it belong to a different workflow.") { Size = "2 GB", Format = "bf16", Tags = [new("Recommended", "The Singularity author recommends this LoRA.")] }]);
-    public static readonly H3Requirement Turbo8Lora = new("turbo8-lora", H3RequirementKind.File, "Turbo 8-step LoRA", "models/loras", [
-        new("minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors", "https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors") { Size = "2 GB", Format = "bf16" }]);
+            "Use the ref2v file; the fl2v LoRAs beside it belong to a different workflow.") { Size = "2 GB", Format = "bf16", Tags = [] }]);
+    public static readonly H3Requirement TenErosCompact = new("10eros-compact-model", H3RequirementKind.File, "10Eros Beta7 Compact checkpoint", "models/diffusion_models", [
+        new(H3AcceleratedCheckpoints.CompactFile, "https://huggingface.co/LokkenJP/TenEros_Max_optimized_learned/blob/8ac39ba42f1b8229141223028b50c5d164647222/" + H3AcceleratedCheckpoints.CompactFile,
+            "Complete checkpoint with embedded Turbo. Select it for the 10Eros Compact preset; Standard uses your ordinary H3 model. File size is not runtime VRAM.")
+        { Size = "14.65 GB", Format = "Mixed W4/W6/INT8", Tags = [new("Native ComfyUI", "Requires mixed W4/W6/INT8 quantization, VSA and Comfy Kitchen nodes.")] }]);
+    public static readonly H3Requirement SmdBase = new("smd-base-model", H3RequirementKind.File, "SMD pruned INT8 Ref2VA base", "models/diffusion_models", [
+        new(H3SmdRecipe.BaseFile, ComfyOrg + "diffusion_models/" + H3SmdRecipe.BaseFile,
+            "SMD uses this separately selected base; Standard keeps the ordinary H3 model selection. Published contents are verified at capture.") { Size = "21 GB", Format = "int8" }]);
+    public static readonly H3Requirement SmdAdapter = new("smd-adapter", H3RequirementKind.File, "SMD Ref2VA 4-step adapter", "models/loras", [
+        new(H3SmdRecipe.AdapterFile, "https://huggingface.co/zjwfufu/SMD-MiniMax-H3-Ref2VA-4step-ComfyUI/blob/9544cef6ca00bcedb34a7139032634c4558ed4f8/" + H3SmdRecipe.AdapterFile,
+            "Use strength 1 with the published four-step fixed-sigma recipe. Do not stack other acceleration adapters.") { Size = "1.96 GB", Format = "bf16" }]);
+    public static readonly H3Requirement FastH3 = new("fasth3-model", H3RequirementKind.File, "FastH3 OmniRef checkpoint", "models/diffusion_models", [
+        new(H3AcceleratedCheckpoints.FastFile, "https://huggingface.co/FastVideo/FastH3-Omni-Comfy/blob/82eff2a6eee6c962846879f4bab52610a4df24d3/diffusion_models/" + H3AcceleratedCheckpoints.FastFile,
+            "Complete Ref2VA checkpoint. Uses native VSA at 10%, Comfy Kitchen attention and no additional acceleration adapter.") { Size = "22.21 GB", Format = "int8" }]);
+    public static readonly H3Requirement PtdBase = new("ptd-base-model", H3RequirementKind.File, "PTD pruned INT8 Ref2VA base", "models/diffusion_models", [
+        new(H3SmdRecipe.BaseFile, ComfyOrg + "diffusion_models/" + H3SmdRecipe.BaseFile,
+            "PTD uses this separately selected base. The W6A8 base has a different quantized output head.") { Size = "21 GB", Format = "int8" }]);
+    public static readonly H3Requirement PtdAdapter = new("ptd-adapter", H3RequirementKind.File, "PTD + RefAsymOPD 6-step adapter", "models/ptd", [
+        new(H3PtdRecipe.AdapterFile, "https://huggingface.co/nynxz/MiniMax-H3-PTD-LoRAs/blob/fa6aea511f451a2ecad7566ed766220325f7ae91/ptd/" + H3PtdRecipe.AdapterFile,
+            "Use the six-hop Ref2VA file with corrected schedule metadata. Requires the compact loader and PTD sampler.") { Size = "4.24 GB", Format = "int8" }]);
+    public static readonly H3Requirement PtdNodes = new("ptd-nodes", H3RequirementKind.NodePack, "PTD compact nodes", "custom_nodes", [
+        new("ComfyUI-PTD-Compact", "https://github.com/Nynxz/ComfyUI-PTD-Compact/tree/" + H3PtdRecipe.PackageRevision,
+            "Includes its PTD runtime; no separate PTD pip installation is required.")]) { Node = H3PtdRecipe.NativeLoader };
     public static readonly H3Requirement LarryNodes = new("larry-nodes", H3RequirementKind.NodePack, "Larry Turbo nodes", "custom_nodes", [
         new("ComfyUI-MiniMax-H3-Turbo", "https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785",
             "Install it with its bundled support files.") { Tags = [Tested("4274783")] }]) { Node = "MiniMaxH3TurboLoRA" };
     public static readonly H3Requirement LarryLora = new("larry-lora", H3RequirementKind.File, "Larry LoRA", "models/loras", [
         new(H3Presets.LarryCheckpoint, "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/blob/43a74557ac3f6539db8e0f2a959d03feb7a81480/minimax_h3_turbo_v4_step600_ema.safetensors")
-            { Size = "0.8 GB", Tags = [new("v4 step600 EMA", "The version its author calls the current best.")] }]);
+            { Size = "0.8 GB", Tags = [new("v4 step600 EMA", "The published v4 step600 EMA checkpoint.")] }]);
     public static readonly H3Requirement PddNodes = new("pdd-nodes", H3RequirementKind.NodePack, "PDD Acc nodes", "custom_nodes", [
         new("ComfyUI-MiniMax-H3-PDD-Acc", "https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90") { Tags = [Tested("311a65d")] }]) { Node = "MiniMaxH3PDDAccApply" };
     public static readonly H3Requirement PddFile = new("pdd-file", H3RequirementKind.File, "PDD Ref2VA weights", "models/pdd_acc", [
         new(H3Presets.PddCheckpoint, "https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/blob/335001fb9e5455d68a0caa18ec2e319072150328/MiniMax-H3-Ref2VA-Acc-8Step.safetensors",
             "Needs the PDD loader. Don't add it as a character or style LoRA.") { Size = "1.4 GB", Format = "bf16" }]);
-    private static H3Badge HyperFlowKind(string name) => name.Contains("_pruned_") ? new("Pruned", "For pruned models such as Singularity.") : new("Full", "For full, unpruned models.");
-    private static H3Badge? HyperFlowRank(string name) => name.Contains("rank_20") ? new("Rank 20", "Resized to an average rank of 20: much smaller, possibly less faithful.") : null;
-    public static readonly H3Requirement HyperFlowLora = new("hyperflow-lora", H3RequirementKind.File, "HyperFlow ComfyUI conversion", "models/loras",
-        H3HyperFlow.Checkpoints.Select((name, i) => new H3Download(name, Drbaph + name, i == 0 ? "Match the file to your model: pruned with pruned, full with full. Keep the published name." : null)
-            { Size = name.Contains("rank_20") ? "0.3 GB" : "3.9 GB", Format = "bf16", Tags = new[] { i == 0 ? Default : null, HyperFlowKind(name), HyperFlowRank(name) }.OfType<H3Badge>().ToArray() }).ToArray());
-    public static readonly H3Requirement SpectrumNodes = new("spectrum-nodes", H3RequirementKind.NodePack, "Spectrum nodes", "custom_nodes", [
-        new("ComfyUI-Spectrum-MiniMax-H3", "https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8") { Tags = [Tested("455bd35")] }]) { Node = "SpectrumApplyMiniMaxH3" };
-
     public static readonly H3Requirement UpscalerNodes = new("upscaler-nodes", H3RequirementKind.NodePack, "Latent upscaler nodes", "custom_nodes", [
         new("Comfyui_Minimax_h3_latent_Upscaler-Plus", "https://github.com/xmarre/Comfyui_Minimax_h3_latent_Upscaler-Plus/tree/db76324d6bbf231bebcb9d794e133ef4d4d9ee87",
             "Install only one of these two packs: they register the same node.") { Tags = [Tested("db76324"), new("Plus", "Upscaler-Plus processes the whole clip at once.")] },
@@ -122,28 +133,35 @@ public static class H3Requirements
     // What each preset needs beyond the required files.
     public static IReadOnlyList<H3Requirement> ForPreset(string key) => key switch
     {
-        "turbo4" or H3Presets.TurboLight => [TurboLora], "turbo8" => [Turbo8Lora], "larry" => [LarryNodes, LarryLora],
-        "pdd" => [PddNodes, PddFile], H3HyperFlow.Key => [HyperFlowLora], "spectrum" => [SpectrumNodes], _ => []
+        H3AcceleratedCheckpoints.Fast => [FastH3], H3PtdRecipe.Key => [PtdBase, PtdAdapter, PtdNodes], H3SmdRecipe.Key => [SmdBase, SmdAdapter], H3AcceleratedCheckpoints.Compact => [TenErosCompact], "turbo4" => [TurboLora], "larry" => [LarryNodes, LarryLora], "pdd" => [PddNodes, PddFile], _ => []
     };
     public static IReadOnlyList<H3Requirement> UpscaledPreview { get; } = [UpscalerNodes, UpscalerFile];
     public static IReadOnlyList<H3Requirement> All { get; } =
-        [.. Required, TurboLora, LarryNodes, LarryLora, PddNodes, PddFile, HyperFlowLora, Turbo8Lora, SpectrumNodes, UpscalerNodes, UpscalerFile, SageNodes];
+        [.. Required, TenErosCompact, SmdBase, SmdAdapter, FastH3, PtdBase, PtdAdapter, PtdNodes, TurboLora, LarryNodes, LarryLora, PddNodes, PddFile, UpscalerNodes, UpscalerFile, SageNodes];
 
     public static string? Selected(H3Requirement r, H3Settings s) => r.Id switch
     {
-        "model" => s.Model, "encoder" => s.Encoder, "video-vae" => s.VideoVae, "audio-vae" => s.AudioVae,
-        "turbo4-lora" => s.TurboLora, "turbo8-lora" => s.Turbo8StepLora, "larry-lora" => H3Presets.Checkpoint("larry", s),
-        "pdd-file" => H3Presets.Checkpoint("pdd", s), "hyperflow-lora" => H3HyperFlow.Checkpoint(s), "upscaler-file" => s.LatentUpscaler, _ => null
+        "fasth3-model" => H3AcceleratedCheckpoints.Model(s, H3AcceleratedCheckpoints.Fast), "ptd-base-model" => H3PtdRecipe.Model(s), "ptd-adapter" => H3PtdRecipe.Adapter(s),
+        "smd-base-model" => H3SmdRecipe.Model(s), "smd-adapter" => H3SmdRecipe.Adapter(s),
+        "10eros-compact-model" => H3AcceleratedCheckpoints.Model(s), "model" => s.Model, "encoder" => s.Encoder, "video-vae" => s.VideoVae, "audio-vae" => s.AudioVae,
+        "turbo4-lora" => s.TurboLora, "larry-lora" => H3Presets.Checkpoint("larry", s),
+        "pdd-file" => H3Presets.Checkpoint("pdd", s), "upscaler-file" => s.LatentUpscaler, _ => null
     };
     public static void Select(H3Requirement r, H3Settings s, string value)
     {
         switch (r.Id)
         {
+            case "fasth3-model": s.FastH3Model = value; break;
+            case "ptd-base-model": s.PtdBaseModel = value; break;
+            case "ptd-adapter": s.PtdAdapter = value; break;
+            case "smd-base-model": s.SmdBaseModel = value; break;
+            case "smd-adapter": s.SmdLora = value; break;
+            case "10eros-compact-model": s.TenErosCompactModel = value; break;
             case "model": s.Model = value; break; case "encoder": s.Encoder = value; break;
             case "video-vae": s.VideoVae = value; break; case "audio-vae": s.AudioVae = value; break;
-            case "turbo4-lora": s.TurboLora = value; break; case "turbo8-lora": s.Turbo8StepLora = value; break;
+            case "turbo4-lora": s.TurboLora = value; break;
             case "larry-lora": s.LarryLora = value; break; case "pdd-file": s.PddCheckpoint = value; break;
-            case "hyperflow-lora": s.HyperFlowLora = value; break; case "upscaler-file": s.LatentUpscaler = value; break;
+            case "upscaler-file": s.LatentUpscaler = value; break;
         }
     }
     // Files installed in the requirement's folder, as the ComfyUI loader lists them.
@@ -151,15 +169,19 @@ public static class H3Requirements
     {
         "models/diffusion_models" => c.InstalledModels, "models/text_encoders" => c.InstalledEncoders, "models/vae" => c.InstalledVaes,
         "models/loras" => c.InstalledLoras, "models/latent_upscale_models" => c.LatentUpscalers,
-        "models/pdd_acc" => c.Presets.FirstOrDefault(p => p.Key == "pdd")?.Files ?? [], _ => []
+        "models/pdd_acc" => c.Presets.FirstOrDefault(p => p.Key == "pdd")?.Files ?? [],
+        "models/ptd" => c.Presets.FirstOrDefault(p => p.Key == H3PtdRecipe.Key)?.Files ?? [], _ => []
     };
     // Installed files whose names discovery recognizes as H3 files for this role, such as renamed Singularity builds.
     public static IReadOnlyList<string> Recognized(H3Requirement r, H3Configuration c) => r.Id switch
     {
-        "model" => c.Models, "encoder" => c.Encoders,
+        "fasth3-model" => c.Presets.FirstOrDefault(p => p.Key == H3AcceleratedCheckpoints.Fast)?.Files ?? [],
+        "ptd-base-model" => c.InstalledModels.Where(H3SmdRecipe.IsBase).ToArray(), "ptd-adapter" => c.Presets.FirstOrDefault(p => p.Key == H3PtdRecipe.Key)?.Files ?? [],
+        "smd-base-model" => c.InstalledModels.Where(H3SmdRecipe.IsBase).ToArray(), "smd-adapter" => c.Presets.FirstOrDefault(p => p.Key == H3SmdRecipe.Key)?.Files ?? [],
+        "10eros-compact-model" => c.Presets.FirstOrDefault(p => p.Key == H3AcceleratedCheckpoints.Compact)?.Files ?? [], "model" => c.Models, "encoder" => c.Encoders,
         "video-vae" => c.Vaes.Where(v => v.Contains("video_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),
         "audio-vae" => c.Vaes.Where(v => v.Contains("audio_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),
-        "turbo4-lora" or "turbo8-lora" => c.Loras, "hyperflow-lora" => c.Presets.FirstOrDefault(p => p.Key == H3HyperFlow.Key)?.Files ?? [], _ => []
+        "turbo4-lora" => c.Loras, _ => []
     };
     public static bool Suggested(H3Requirement r, string file) =>
         r.Downloads.Any(d => string.Equals(d.Name, Path.GetFileName(file.Replace('\\', '/')), StringComparison.OrdinalIgnoreCase));

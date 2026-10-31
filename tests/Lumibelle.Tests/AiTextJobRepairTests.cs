@@ -63,7 +63,8 @@ public sealed partial class AiTextJobTests
             sourceRequest = sourceRequest with { Kind = AiJobKind.ReelComposition, Task = JsonSerializer.SerializeToElement(payload, AtomicJsonFile.Options) };
         }
         var source = AiTextRepairTests.Header(sourceRequest);
-        var invalid = reel ? "{\"prompt\":\"Incomplete\",\"useGuidance\":\"Keep the face\"}" : AiTextRepairTests.Invalid;
+        // Weak reel prose is now a review note, so only an unreadable response needs a repair.
+        var invalid = reel ? "{\"prompt\":\"Incomplete\",\"useGuidance\":\"Keep the face\"" : AiTextRepairTests.Invalid;
         var failed = AiTextResults.Parse(sourceRequest, invalid, "stop");
         var repair = AiTextRepairs.Capture(source, sourceRequest, failed);
         var child = await Capture.RepairAsync(Guid.NewGuid(), Guid.NewGuid(), source, sourceRequest, repair, _ct);

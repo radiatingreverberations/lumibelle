@@ -97,7 +97,7 @@
                     var key = TextModelProfiles.ChoiceKey(model);
                     <label class="probe-model-choice" @key="key">
                         <input type="checkbox" checked="@_selectedModels.Contains(key)" disabled="@SelectionLocked" @onchange="e => SelectModel(key, e)" />
-                        <span><strong>@model.Backend · @TextModelPolicy.DisplayName(model, _settings)</strong>
+                        <span><strong>@TextModelPolicy.ProviderName(model.Backend) · @TextModelPolicy.DisplayName(model, _settings)</strong>
                             <span class="probe-meta">@model.Model @(model.ProfileId is null ? "· Base model" : "· Profile")</span>
                             <span class="probe-meta">@TextModelProfiles.Describe(model)</span>
                             <span class="probe-meta">@Availability(model)</span>
@@ -119,7 +119,7 @@
                     <p>@_plan.Count requests prepared. @_confirmed.Count confirmed in the queue. Requests may start as soon as they are queued.</p>
                     @foreach (var request in PlannedRequests.DistinctBy(r => TextModelProfiles.ChoiceKey(r.Model)))
                     {
-                        <p><strong>@request.Model.Backend · @request.Model.Name</strong> · @TextModelProfiles.Describe(request.Model)
+                        <p><strong>@TextModelPolicy.ProviderName(request.Model.Backend) · @request.Model.Name</strong> · @TextModelProfiles.Describe(request.Model)
                             @if (request.Model.Backend == AiBackend.ComfyUI) { <span> · effective temperature @(request.Model.Temperature ?? request.Settings.Temperature) · output @(request.Model.MaxOutputTokens ?? request.Settings.MaxOutputTokens)</span> }
                             @if (request.Codex is { } capture) { <span> · resolved reasoning @capture.Effort</span> }
                         </p>

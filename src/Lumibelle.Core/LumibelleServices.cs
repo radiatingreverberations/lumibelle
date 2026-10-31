@@ -60,6 +60,9 @@ public static class LumibelleServices
         services.AddSingleton<IAiJobHandler, AiImageJobHandler>();
         services.AddSingleton<IComfyVideoJobAdapter, ComfyVideoJobAdapter>();
         services.AddSingleton<IAiJobHandler, AiVideoJobHandler>();
+        services.AddSingleton<Services.Shots.FileRefinementBatchStore>();
+        services.AddSingleton<Services.Shots.RefinementBatchWorkflow>();
+        services.AddHostedService<Services.Shots.RefinementBatchWorker>();
         services.AddSingleton<Services.Production.ReelRefModStore>();
         services.AddSingleton<Services.Production.ReelRefModPreparation>();
         services.AddSingleton<ComfyRefModClient>();

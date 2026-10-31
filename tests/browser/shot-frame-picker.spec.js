@@ -35,6 +35,9 @@ async function setup(page, request, width) {
   await editor.getByRole('combobox', { name: 'Voice for Juniper', exact: true }).selectOption('none');
   await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(editor).toBeHidden();
+  // With no prompt yet there are no labels to check, so changed references are simply saved.
+  await expect(page.getByText('References saved.', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Check prompt · References changed/)).toHaveCount(0);
   const open = async () => {
     await page.getByRole('button', { name: 'Edit references', exact: true }).click();
     await editor.getByRole('group', { name: 'Reference sources' }).getByRole('button', { name: 'Shot frames', exact: true }).click();
@@ -81,19 +84,37 @@ for (const width of [1152, 390]) test(`shot-frame references are pinned, editabl
   await request.post(`/fixtures/${id}/select-saved-take/${second.id}`);
   await page.reload(); await toolsTab(page, 'References');
   await open();
-  await expect(editor.getByRole('combobox', { name: 'Source take', exact: true })).toHaveValue(first.id);
   expect((await attached()).continuityFrame).toEqual(saved.continuityFrame);
+  // Shot frames adds pictures; Change on an attached frame replaces that one.
+  if (width < 600) await editor.getByRole('tab', { name: /Selected references/ }).click();
+  await editor.getByRole('button', { name: 'Picture 2: Change shot frame', exact: true }).click();
+  await expect(editor.getByRole('combobox', { name: 'Source take', exact: true })).toHaveValue(first.id);
   await picker.getByRole('button', { name: 'Preview selected take', exact: true }).click();
   await editor.getByRole('combobox', { name: 'Source frame position', exact: true }).selectOption('first');
   await expect(picker.locator('img')).toHaveAttribute('src', `/media/projects/${id}/takes/${second.id}/frames/0`);
   await page.screenshot({ path: `artifacts/shot-frame-picker-${width}.png` });
   await picker.getByRole('button', { name: 'Replace shot frame', exact: true }).click();
+  await expect(editor).toContainText('Replaced shot frame. Apply changes to save.');
+  // A second frame joins the first instead of replacing it.
+  await expect(picker).toContainText('Adds another shot frame. 1 already attached.');
+  await expect(editor.getByRole('combobox', { name: 'Source take', exact: true })).toHaveValue(second.id);
+  await picker.getByRole('button', { name: 'Add picture', exact: true }).click();
+  if (width < 600) await editor.getByRole('tab', { name: /Selected references/ }).click();
+  await expect(editor.locator('.shot-frame-reference-list li')).toHaveCount(2);
+  await expect(editor.getByRole('heading', { name: 'Pictures · 3/9', exact: true })).toBeVisible();
+  await page.screenshot({ path: `artifacts/shot-frames-several-${width}.png` });
+  expect(await editor.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(editor).toBeHidden();
-  expect((await attached()).continuityFrame).toMatchObject({ id: saved.continuityFrame.id, takeId: second.id, frame: 0 });
+  const several = await attached();
+  expect(several.continuityFrame ?? null).toBe(null);
+  expect(several.shotFrames).toHaveLength(2);
+  expect(several.shotFrames[0]).toMatchObject({ id: saved.continuityFrame.id, takeId: second.id, frame: 0 });
+  expect(several.shotFrames[1]).toMatchObject({ takeId: second.id, frame: second.snapshot.frameCount - 1 });
   if (width < 600) await page.setViewportSize({ width: 1152, height: 950 });
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await attached()).continuityFrame).toEqual(saved.continuityFrame);
+  expect((await attached()).shotFrames ?? null).toBe(null);
   expect((await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id)).toHaveLength(0);
 });
 

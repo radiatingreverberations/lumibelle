@@ -21,7 +21,6 @@ public sealed partial class ShotTests
     [Theory]
     [InlineData(20, "res_multistep", "1")]
     [InlineData(4, "res_multistep", "16")]
-    [InlineData(8, "euler", "18")]
     public void SamplingModesUseSeparateWeightsAndExactSchedules(int steps, string sampler, string guiderModel)
     {
         var shot = Ready(); shot.Turbo = steps != 20; shot.TurboSteps = steps == 8 ? 8 : 4;
@@ -83,14 +82,15 @@ public sealed partial class ShotTests
     }
 
     [Fact]
-    public void EightStepCatalogKeepsExactNestedPathsAndNeedsNoFourStepFile()
+    public void RemovedEightStepFilesStayOutOfTheActiveCatalogEvenWhenInstalled()
     {
         var root = TurboCatalog(); var settings = new H3Settings();
         var nested = "video/h3/" + settings.Turbo8StepLora;
         root["LoraLoaderModelOnly"]!["input"]!["required"]!["lora_name"]![0] = new JsonArray(nested);
         settings.Turbo8StepLora = nested;
         var check = ComfyH3Video.Inspect(JsonSerializer.SerializeToElement(root), settings);
-        Assert.True(check.Turbo8StepReady, check.Message); Assert.True(check.StandardReady); Assert.False(check.TurboReady);
+        Assert.False(check.Turbo8StepReady); Assert.True(check.StandardReady); Assert.False(check.TurboReady);
+        Assert.DoesNotContain(check.Presets, p => p.Key == "turbo8");
         Assert.Contains(nested, check.Loras);
         Assert.False(ComfyH3Video.Inspect(JsonSerializer.SerializeToElement(root), settings with { Turbo8StepLora = Path.GetFileName(nested) }).Turbo8StepReady);
         Assert.False(ComfyH3Video.Inspect(JsonSerializer.SerializeToElement(root), settings with { TurboLora = nested }).TurboReady);
@@ -122,7 +122,7 @@ public sealed partial class ShotTests
         var shot = Ready(); shot.Turbo = true; shot.TurboSteps = 8;
         var run = new VideoRun { Snapshot = Snapshot(f.Project.Id, shot), InputsPrepared = true };
         var error = await Assert.ThrowsAsync<WorkspaceStoreException>(() => generator.SubmitAsync(run, new() { Number = 1 }, _ct));
-        Assert.Contains("MiniMaxH3SigmaShift", error.Message);
+        Assert.Contains("removed", error.Message);
         Assert.DoesNotContain(handler.Requests, r => r.Path.Contains("prompt") || r.Path.Contains("upload"));
     }
 }

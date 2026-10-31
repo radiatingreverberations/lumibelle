@@ -295,8 +295,10 @@ test('new shots open Shot, existing shots keep the view, and hidden composition 
   await closeShotSetup(page); await shotTab(page, 'Shot').click();
   await expect.poll(() => body.evaluate(el => el.scrollTop)).toBe(0);
   await shotTab(page, 'Takes').click();
+  // A shot without takes opens on Shot rather than an empty Takes view.
   await page.locator('.shot-list-row').last().click();
-  await expect(shotTab(page, 'Takes')).toHaveAttribute('aria-selected', 'true');
+  await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
+  await shotTab(page, 'Takes').click();
   await openPlanning(page);
   const planning = page.locator('.shot-planning-dialog');
   await page.locator('.ai-assist-dialog').getByRole('button', { name: 'Draft shots', exact: true }).click();

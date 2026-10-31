@@ -46,7 +46,7 @@ test('extend preserves the source, reviews the join and leaves selection explici
   await review(page).getByRole('button', { name: 'Preview join', exact: true }).click();
   await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(form).toBeVisible(); await form.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   const refine = review(page).getByRole('region', { name: 'Refine take', exact: true });
   await expect(refine).toContainText('final segment'); await expect(refine.getByLabel('Output size').locator('option')).toHaveCount(1);
   await refine.getByRole('button', { name: 'Back to review', exact: true }).click();
@@ -215,4 +215,27 @@ test('graceful shutdown with an active extension compose control finishes prompt
   await form.getByRole('button', { name: 'Compose extension prompt', exact: true }).click();
   await expect(form.getByRole('button', { name: /Queued.*View request/ })).toBeVisible();
   await shutdown(request, hostLifecycle);
+});
+
+test('extension composition shows its prompt as it arrives', async ({ page, request }) => {
+  test.setTimeout(180000);
+  await setup(page, request);
+  await review(page).getByRole('button', { name: 'Continue', exact: true }).click();
+  const form = review(page).getByRole('region', { name: 'Extend take', exact: true });
+  // The mock streams slowly when the request contains SLOW.
+  await form.getByLabel('Next action', { exact: true }).fill('SLOW: the camera enters the room.');
+  const prompt = form.getByLabel('Extension prompt', { exact: true });
+  await prompt.fill('');
+  await form.getByRole('button', { name: 'Text model options', exact: true }).click();
+  const models = page.locator('.ai-assist-dialog').filter({ has: page.getByRole('heading', { name: 'Text model', exact: true }) });
+  await models.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
+  await models.getByRole('button', { name: 'Done', exact: true }).click();
+  await form.getByRole('button', { name: 'Compose extension prompt', exact: true }).click();
+  const preview = form.getByRole('region', { name: 'Live response preview', exact: true });
+  await expect(preview.locator('.streaming-preview-card').first()).toBeVisible({ timeout: 30000 });
+  await expect(preview).toContainText('Prompt arriving');
+  await expect(preview).toContainText('Still writing');
+  await page.screenshot({ path: 'artifacts/extension-streaming.png' });
+  await expect(preview).toHaveCount(0, { timeout: 90000 });
+  await expect(prompt).not.toHaveValue('');
 });

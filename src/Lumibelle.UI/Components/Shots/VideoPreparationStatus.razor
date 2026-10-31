@@ -1,0 +1,26 @@
+<section class="video-preparation-status" aria-label="Generation preparation">
+    <div class="video-preparation-heading"><strong role="status" aria-live="polite">@Progress.Message</strong><span aria-hidden="true">@ElapsedLabel</span></div>
+    @if (Progress.Total is > 0 && Progress.Completed is { } completed) {
+        <progress aria-label="@Progress.Message" max="@Progress.Total" value="@completed"></progress>
+        <div class="video-preparation-detail"><span>@completed / @Progress.Total inputs</span><span>@Progress.Detail</span></div>
+    }
+    else {
+        <progress aria-label="@Progress.Message"></progress>
+        @if (Progress.Detail is { } detail) { <p>@detail</p> }
+    }
+    @if (Progress.Stage != VideoPreparationStage.Source) {
+        <ol class="video-preparation-steps">
+            @for (var i = 0; i < Steps.Length; i++) {
+                var index = i + 1;
+                <li class="@(index < (int)Progress.Stage ? "complete" : index == (int)Progress.Stage ? "current" : null)" aria-current="@(index == (int)Progress.Stage ? "step" : null)"><span aria-hidden="true">@(index < (int)Progress.Stage ? "✓" : index.ToString())</span>@Steps[i]</li>
+            }
+        </ol>
+        <span class="video-preparation-mobile-step">Step @((int)Progress.Stage) of @Steps.Length</span>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public VideoPreparationProgress Progress { get; set; } = null!;
+    [Parameter] public TimeSpan Elapsed { get; set; }
+    private static readonly string[] Steps = ["Check setup", "Prepare media", "Save inputs", "Save request", "Queue"];
+    private string ElapsedLabel => Elapsed.TotalMinutes >= 1 ? $"{(int)Elapsed.TotalMinutes}:{Elapsed.Seconds:00}" : $"{Elapsed.TotalSeconds:0}s";
+}

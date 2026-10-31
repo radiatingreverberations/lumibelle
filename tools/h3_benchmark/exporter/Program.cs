@@ -11,6 +11,8 @@ using SixLabors.ImageSharp.Formats.Png;
 // Manually invoked benchmark utility; never included in CI or automated test suites.
 // Export application-built API graphs only. Never enqueue or update a project/settings.
 if (args.Length == 2 && args[0] == "--acceleration") { await AccelerationExport.Run(args[1]); return; }
+if (args.Length == 3 && args[0] == "--motion-reference") { await MotionReferenceExport.Run(args[1], args[2]); return; }
+if (args.Length == 3 && args[0] == "--motion-receipt-check") { MotionReferenceExport.CheckReceipt(args[1], args[2]); return; }
 var directory = Path.GetFullPath(args.Single());
 var settings = JsonSerializer.Deserialize<H3Settings>(File.ReadAllText(Path.Combine(directory, "h3-settings.json")), AtomicJsonFile.Options)!;
 settings.LatentUpscaler = "minimax_h3_latent_upscaler_3d_fp16.safetensors";

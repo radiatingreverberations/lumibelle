@@ -21,7 +21,7 @@ public partial class ScriptAssistantPanel
         }
     }
     private static string ResponseSource(AssistantRun run) =>
-        (run.ManuallyReviewed ? "Saved draft · manual review · " : run.CorrectedFromRunId is null ? "" : "Pasted JSON · based on ") + $"{run.Backend} · {run.Model}";
+        (run.ManuallyReviewed ? "Saved draft · manual review · " : run.CorrectedFromRunId is null ? "" : "Pasted JSON · based on ") + $"{TextModelPolicy.ProviderName(run.Backend)} · {run.Model}";
 
     private void EditJson()
     {

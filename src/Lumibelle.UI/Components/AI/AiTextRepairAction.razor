@@ -12,33 +12,56 @@
         @if (_pending is not null)
         {
             <p class="field-hint">The repair request is captured. Retrying uses this same request, not another model call.</p>
-            <button type="button" disabled="@_busy" @onclick="Fix">@(_queued ? "Retry connecting repair" : "Retry repair submission")</button>
+            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined" Color="Color.Primary">@(_queued ? "Retry connecting repair" : "Retry repair submission")</MudButton>
         }
         else if (offer.ExistingRepair is null && offer.Issue is null)
         {
             <p class="field-hint">New text-only request · @offer.ModelName. Sends the failed response, validation error and output contract; no images, audio or video. Review is required before applying. Normal provider charges apply.</p>
-            <button type="button" disabled="@_busy" @onclick="Fix">@(_busy ? "Preparing repair…" : "Fix validation")</button>
+            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.AutoFixHigh">@(_busy ? "Preparing repair…" : "Fix validation")</MudButton>
         }
         else if (offer.ExistingRepair is null && !(offer.IsRepair && offer.Source.State == AiJobState.Completed))
         {
             <p class="field-hint">@offer.Issue</p>
         }
-        @if (offer.ExistingRepair is { } child)
+        @if (offer.ExistingRepair is { } existing)
         {
-            <AiJobProgressView Job="child" Queue="Jobs.View" Progress="Jobs.Progress(child.Id)" />
-            <button type="button" disabled="@_busy" @onclick="() => OpenRepair(child.Id)">Review repair</button>
-            @if (_pending is null && AiTextRepairs.CanRepeat(child))
-            { <button type="button" disabled="@_busy" @onclick="() => FixAgain(child.Id)">Try another text-only repair</button> }
-            @if (_childResult is { Complete: true } result)
+            var child = Jobs.View.Jobs.FirstOrDefault(j => j.Id == existing.Id) ?? existing;
+            var active = child.State is AiJobState.Waiting or AiJobState.Running;
+            @if (Ready)
             {
-                @if (result.Error is not null) { <p role="status">The correction still needs attention: @result.Error</p> }
-                <details><summary>Saved repair response</summary><pre tabindex="0">@result.Raw</pre></details>
+                <p class="repair-ready" role="status"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" aria-hidden="true" />Repair ready — review the corrected response before applying.</p>
+            }
+            else if (active)
+            {
+                <AiJobProgressView Job="child" Queue="Jobs.View" Progress="Jobs.Progress(child.Id)" />
+            }
+            else if (_childResult is { Complete: true, Error: { } stillFailing })
+            {
+                <p class="field-error" role="alert">The repair still needs attention: @stillFailing</p>
+            }
+            else
+            {
+                <AiJobProgressView Job="child" Queue="Jobs.View" Progress="Jobs.Progress(child.Id)" />
+            }
+            <div class="repair-actions">
+                <MudButton Disabled="_busy" OnClick="() => OpenRepair(child.Id)" Variant="@(Ready ? Variant.Filled : Variant.Outlined)" Color="Color.Primary">Review repair</MudButton>
+                @if (_pending is null && AiTextRepairs.CanRepeat(child))
+                { <MudButton Disabled="_busy" OnClick="() => FixAgain(child.Id)" Variant="Variant.Outlined">Try another text-only repair</MudButton> }
+            </div>
+            @if (active)
+            {
+                <StreamingResponsePreview Raw="@_childResult?.Raw" Title="Repair arriving" EmptyMessage="Waiting for the first part of the corrected response…" />
+            }
+            else if (_childResult is { Complete: true } result)
+            {
+                @if (result.Error is null) { <StreamingResponsePreview Raw="@result.Raw" Title="Corrected response" Finished="true" FinishedLabel="Checked · not applied yet" /> }
+                <details class="repair-raw"><summary>Raw repair response</summary><pre tabindex="0">@result.Raw</pre></details>
             }
         }
         else if (offer.IsRepair && offer.Source.State == AiJobState.Completed)
         {
             <p class="field-hint">Text-only correction. The original response is unchanged; this result is not automatically applied.</p>
-            <button type="button" disabled="@_busy" @onclick="() => OpenRepair(offer.Source.Id)">Connect correction for review</button>
+            <MudButton Disabled="_busy" OnClick="() => OpenRepair(offer.Source.Id)" Variant="Variant.Outlined" Color="Color.Primary">Connect correction for review</MudButton>
         }
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </section>
@@ -51,6 +74,12 @@ else if (_error is not null)
 @code {
     [Parameter] public Guid JobId { get; set; }
     [Parameter] public EventCallback<AiJobHeader> ReviewRequested { get; set; }
+    // True while a finished, valid repair waits for review, so the dialog can demote the original error.
+    [Parameter] public EventCallback<bool> RepairReadyChanged { get; set; }
+    private bool Ready => _offer?.ExistingRepair is { } child && (Jobs.View.Jobs.FirstOrDefault(j => j.Id == child.Id) ?? child).State == AiJobState.Completed
+        && _childResult is { Complete: true, Error: null };
+    private bool _reportedReady;
+    private (Guid, AiJobState, AiJobProgress?)? _childVersion;
     private readonly CancellationTokenSource _lifetime = new();
     private AiTextRepairOffer? _offer;
     private AiTextJobResult? _childResult;
@@ -65,9 +94,15 @@ else if (_error is not null)
         if (_for != JobId)
         {
             _for = JobId; _signature = null; _offer = null; _childResult = null;
-            _pending = null; _queued = false; _previousRepairId = null; _error = null;
+            _pending = null; _queued = false; _previousRepairId = null; _error = null; _childVersion = null;
         }
         await Refresh();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Ready == _reportedReady || _disposed) return;
+        _reportedReady = Ready;
+        await RepairReadyChanged.InvokeAsync(_reportedReady);
     }
     private void QueueChanged()
     {
@@ -89,12 +124,23 @@ else if (_error is not null)
                 // Progress tokens do not require reparsing the saved failed output.
                 var signature = string.Join("|", Jobs.View.Jobs.Where(j => j.Target == source.Target && j.Kind == source.Kind)
                     .Select(j => $"{j.Id}/{j.State}/{j.FinishedUtc}/{j.CancelRequested}/{j.RemoteUnconfirmed}/{j.Error}"));
-                if (_signature == signature) continue;
-                var offer = await Repairs.InspectAsync(id, _lifetime.Token);
-                AiTextJobResult? childResult = null;
-                if (offer?.ExistingRepair is { } child)
-                    childResult = await Store.ReadArtifactAsync<AiTextJobResult>(child.Id, AiJobArtifact.Result, _lifetime.Token);
-                if (!_disposed && JobId == id) { _offer = offer; _childResult = childResult; _signature = signature; }
+                if (_signature != signature)
+                {
+                    var offer = await Repairs.InspectAsync(id, _lifetime.Token);
+                    if (_disposed || JobId != id) return;
+                    _offer = offer; _signature = signature;
+                }
+                // The repair's saved result grows while it streams; reread it as progress arrives.
+                if (_offer?.ExistingRepair is { } child)
+                {
+                    var live = Jobs.View.Jobs.FirstOrDefault(j => j.Id == child.Id) ?? child;
+                    var version = (child.Id, live.State, Jobs.Progress(child.Id));
+                    if (_childVersion != version)
+                    {
+                        var childResult = await Store.ReadArtifactAsync<AiTextJobResult>(child.Id, AiJobArtifact.Result, _lifetime.Token);
+                        if (!_disposed && JobId == id) { _childResult = childResult; _childVersion = version; }
+                    }
+                }
             } while (_refreshAgain && !_disposed);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }

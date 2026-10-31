@@ -1,5 +1,5 @@
 @inject IProjectAiPreferencesStore Preferences
-<VisualStyleEditor Label="@Label" Value="Value" ValueChanged="Changed" Inherited="@(Asset?.VisualStyle ?? _projectStyle)" Disabled="@(Disabled || _loading || _error is not null)" />
+<VisualStyleEditor Label="@Label" Compact="Compact" Value="Value" ValueChanged="Changed" Inherited="@(Asset?.VisualStyle ?? _projectStyle)" Disabled="@(Disabled || _loading || _error is not null)" />
 @if (_error is not null) { <p role="alert">@_error</p><button @onclick="Load">Reload visual style</button> }
 @code {
     [Parameter] public Guid ProjectId { get; set; }
@@ -8,6 +8,7 @@
     [Parameter] public EventCallback<VisualStyle?> ValueChanged { get; set; }
     [Parameter] public EventCallback<VisualStyle> Resolved { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Compact { get; set; }
     [Parameter] public string Label { get; set; } = "Run visual style";
     private Guid _loaded;
     private VisualStyle _projectStyle = new();

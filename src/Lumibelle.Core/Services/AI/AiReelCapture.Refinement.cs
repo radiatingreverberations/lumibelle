@@ -40,6 +40,7 @@ public sealed partial class AiReelCapture
         await AiVideoJobPolicy.CopyPreparedInputsAsync(source, await reels.RunDirectoryAsync(project, source.BatchId, ct), request,
             await reels.RunDirectoryAsync(project, id, ct), ct);
         var name = (await projects.GetAsync(project, ct))?.Name ?? throw new WorkspaceStoreException("Project unavailable.");
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.ReelVideo, AiBackend.ComfyUI, AiVideoJobHandler.Target(request),
             name, reel.Name + " · " + mode + " · " + width + " × " + height, tab, request)
             with { Batch = AiBatchDefinition.Create(id, 1, null) };

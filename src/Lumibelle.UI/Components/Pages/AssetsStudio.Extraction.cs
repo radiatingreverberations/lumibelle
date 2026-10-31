@@ -127,7 +127,13 @@ public partial class AssetsStudio
             if (_extractionAssist is not null) await _extractionAssist.QueuedAsync();
             if (_disposed) return;
             await LoadExtractionJobAsync(job);
-            if (_extractOpen && !_extractionReviewSuppressed && await AiReviews.TryOpenAsync(job, _extractionDialogElement, automatic: false)) _extractionReviewOwner = job.Id;
+            var closes = _extractionCloses;
+            if (_extractOpen && !_extractionReviewSuppressed && await AiReviews.TryOpenAsync(job, _extractionDialogElement, automatic: false))
+            {
+                // Closed while the review was being claimed: release it, or no other review could open.
+                if (closes != _extractionCloses || !_extractOpen) await AiReviews.CloseAsync(job.Id);
+                else _extractionReviewOwner = job.Id;
+            }
         }
         catch (WorkspaceStoreException e) { _extractionError = e.Message + " Retry saving this exact request; it will not generate twice."; }
     }

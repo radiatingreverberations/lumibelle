@@ -1,0 +1,37 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="refinement-compare" role="group" aria-label="Compare @Name">
+    <figure><figcaption>Source · video guide</figcaption><video @ref="_source" muted preload="metadata" src="@SourceUrl" aria-label="Source clip for @Name"></video></figure>
+    <figure><figcaption>Final</figcaption><video @ref="_final" controls preload="metadata" src="@FinalUrl" aria-label="Refined final for @Name"></video></figure>
+    <p class="field-hint">Play or seek the final; the source follows.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter, EditorRequired] public string SourceUrl { get; set; } = "";
+    [Parameter, EditorRequired] public string FinalUrl { get; set; } = "";
+    private ElementReference _source, _final;
+    private IJSObjectReference? _module, _pair;
+    private string? _paired;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var key = SourceUrl + "|" + FinalUrl;
+        if (_paired == key) return;
+        _paired = key;
+        try {
+            _module ??= await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("refinement-compare.js"));
+            if (_pair is not null) await _pair.InvokeVoidAsync("dispose");
+            _pair = await _module.InvokeAsync<IJSObjectReference?>("pair", _final, _source);
+        }
+        catch (Exception e) when (e is JSDisconnectedException or TaskCanceledException or InvalidOperationException) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        try {
+            if (_pair is not null) { await _pair.InvokeVoidAsync("dispose"); await _pair.DisposeAsync(); }
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSDisconnectedException or TaskCanceledException) { }
+    }
+}

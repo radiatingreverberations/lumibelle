@@ -214,6 +214,8 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
         var library = await AtomicJsonFile.ReadAsync<AssetLibrary>(Path.Combine(directory, "assets.json"), ct)
             ?? new AssetLibrary { ProjectId = projectId };
         Validate(library, projectId);
+        foreach (var draft in library.ReelDrafts.GroupBy(d => (d.AssetId, d.LookId)).Select(g => g.Last()).Where(d => d.ResolvedJobs.Count == 0))
+            lumibelle.Services.Shots.H3PresetMigrations.Apply(draft);
         return library.Copy();
     }
 

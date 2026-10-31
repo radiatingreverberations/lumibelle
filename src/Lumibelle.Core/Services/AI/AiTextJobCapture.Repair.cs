@@ -20,7 +20,8 @@ public sealed partial class AiTextJobCapture
             label[..Math.Min(label.Length, 500)],
             task, request.Model, false, Copy(request.Settings), AiTextRepairs.Profile,
             AiTextRepairs.Messages(repair).Select(m => m.ToMessage()).ToList(),
-            request.Temperature, request.GuidanceBaseline, ct);
+            request.Temperature, request.GuidanceBaseline, ct,
+            responseSchema: request.Kind == AiJobKind.ReelComposition ? request.ResponseSchema : null);
         var captured = submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!
             with { Repair = repair, SelectionSource = TextModelSelectionSource.RequestOverride };
         submission = submission with { Snapshot = JsonSerializer.SerializeToElement(captured, AtomicJsonFile.Options) };

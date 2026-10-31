@@ -1,6 +1,7 @@
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.AI;
@@ -23,6 +24,22 @@ public sealed class ReelVideoPublication(IAssetStore assets, IAssetReelStore ree
             throw new WorkspaceStoreException("This reel candidate belongs to another request.");
         return true;
     }
+    // Keyframes picked on a refined source reel, at the same moments of the final. Their IDs derive from the
+    // final and source keyframe, so a retried publication produces the same reel.
+    private async Task<ReelKeyframeSet?> CarriedKeyframesAsync(ShotTake output, ReferenceVideoMedia stored, CancellationToken ct)
+    {
+        var s = output.Snapshot;
+        if (s.MotionReference is not { SourceKeyframes: { Count: > 0 } picked } source) return null;
+        var catalog = await media.FrameCatalogAsync(s.ProjectId, stored, s.Settings, ct);
+        var frames = picked.Select(k => (Key: k, Index: MotionReferencePolicy.MapFrame(k.Frame.Index, source.VisibleFrames, catalog.Timestamps.Count)))
+            .DistinctBy(k => k.Index).Select(k => new ReelKeyframe {
+                Id = new Guid(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{output.Id}/{k.Key.Id}"))[..16]),
+                Frame = new(stored.Id, catalog.Source, k.Index, catalog.Timestamps[k.Index]), Crop = k.Key.Crop, Name = k.Key.Name, Notes = k.Key.Notes
+            }).ToList();
+        var set = new ReelKeyframeSet { Frames = frames };
+        ReferenceVideos.ValidateKeyframes(stored, set);
+        return set;
+    }
     public async Task PublishAsync(ShotTake output, string directory, CancellationToken ct)
     {
         var s = output.Snapshot; var recipe = s.Reel!.Recipe;
@@ -37,8 +54,9 @@ public sealed class ReelVideoPublication(IAssetStore assets, IAssetReelStore ree
             await AtomicJsonFile.WriteAsync(receiptPath, stored, ct);
         }
         if (output.HasLosslessFrames) await media.PublishArchiveAsync(s.ProjectId, stored, output, directory, ct);
+        if (output.KeptFrames is { Count: > 0 }) await media.PublishKeptFramesAsync(s.ProjectId, stored, output, directory, s.Settings, ct);
         var reel = new AssetReferenceReel { Id = output.Id, AssetId = recipe.AssetId, LookId = recipe.LookId, Name = recipe.Name,
-            UseGuidance = recipe.UseGuidance, Media = stored, CreatedUtc = output.CreatedUtc,
+            UseGuidance = recipe.UseGuidance, Media = stored, CreatedUtc = output.CreatedUtc, Keyframes = await CarriedKeyframesAsync(output, stored, ct),
             Generation = new(recipe.Copy(), output.RunId, output.AiJobId!.Value, output.Candidate, output.Seed, ShotCopy.Of(s)),
             RefinementPackage = output.RefinementPackage, Refinement = ShotCopy.Of(output.Refinement) };
         await reels.RetainRefinementPackageAsync(s.ProjectId, reel, directory, ct);
