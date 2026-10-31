@@ -14,10 +14,11 @@ public static class H3GenerationRecipes
 
     public static async Task<AiVideoJobRequest> StampAsync(AiVideoJobRequest request, IVideoGenerator generator, CancellationToken ct)
     {
-        request = request with { Recipe = null, Snapshot = H3PtdRecipe.Effective(H3SmdRecipe.Effective(H3AcceleratedCheckpoints.Effective(request.Snapshot))) };
+        request = request with { Recipe = null, Snapshot = H3PikaFlexRecipe.Effective(H3PtdRecipe.Effective(H3SmdRecipe.Effective(H3AcceleratedCheckpoints.Effective(request.Snapshot)))) };
         var recipe = await generator.CaptureRecipeAsync(request, ct);
         H3AcceleratedCheckpoints.ValidateIdentity(request.Snapshot, recipe);
         H3SmdRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
+        H3PikaFlexRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
         H3PtdRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
         return request with { Recipe = recipe };
     }
@@ -66,6 +67,7 @@ public static class H3GenerationRecipes
         if (request.Recipe is not { } recipe) return; // Historical records have no recipe envelope.
         H3AcceleratedCheckpoints.ValidateIdentity(request.Snapshot, recipe);
         H3SmdRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
+        H3PikaFlexRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
         H3PtdRecipe.ValidateIdentity(request.Snapshot, recipe, request.Refinement is null);
         if (recipe.Version != Version || Hash(Parameters(request)) != Hash(recipe.Parameters) ||
             recipe.Fingerprint != Fingerprint(recipe.Parameters, recipe.Models, recipe.Runtime, recipe.ProbeAvailable) ||

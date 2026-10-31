@@ -13,13 +13,15 @@ namespace lumibelle.Services.Shots;
 public static class H3Policy
 {
     public const string Profile = "h3-single-take-v3";
-    public static int Quality(Shot shot) => H3Presets.Key(shot) switch { "larry" or H3PtdRecipe.Key => 6, "pdd" or "turbo8" or H3HyperFlow.Key or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast => 8, "turbo4" or H3Presets.TurboLight or H3SmdRecipe.Key => 4, _ => 20 };
+    public static int Quality(Shot shot) => H3Presets.Key(shot) switch { "larry" or H3PtdRecipe.Key or H3PikaFlexRecipe.Key => 6, "pdd" or "turbo8" or H3HyperFlow.Key or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast => 8, "turbo4" or H3Presets.TurboLight or H3SmdRecipe.Key => 4, _ => 20 };
     public static string QualityLabel(Shot shot) => H3Presets.Label(H3Presets.Key(shot));
     public static H3Sampling Sampling(Shot shot, H3Settings settings)
     {
         var key = H3Presets.Key(shot);
         if (key == H3PtdRecipe.Key) return new("h3-ptd-refasym6-v1", 6, H3PtdRecipe.Sampler, "checkpoint", 12, 3, H3PtdRecipe.Adapter(settings), 1);
         if (key == H3SmdRecipe.Key) return new("h3-smd-ref2va-4step-v1", 4, "euler", "manual", 12, 3, H3SmdRecipe.Adapter(settings), 1);
+        // No shift node, as in the template: the model keeps its native 12/3.
+        if (key == H3PikaFlexRecipe.Key) return new("h3-pika-flex-ref2va-6step-v1", 6, "lcm", "manual", 12, 3, H3PikaFlexRecipe.Adapter(settings), 1);
         if (key == H3HyperFlow.Key) return H3HyperFlow.Sampling(settings);
         return new(key switch { "standard" => "h3-standard-v1", "turbo8" => "h3-ref2v-turbo8-v1", "turbo4" => "h3-turbo4-v1", _ => "h3-" + key + "-v1" },
             Quality(shot), key is "turbo8" or "pdd" or H3Presets.EulerBeta or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast ? "euler" : key == "larry" ? "MiniMaxH3TurboSampler" : "res_multistep",
