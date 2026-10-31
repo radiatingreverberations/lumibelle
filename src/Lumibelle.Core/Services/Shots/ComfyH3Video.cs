@@ -237,7 +237,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (m is null) throw new WorkspaceStoreException($"{b.Name} is missing or in Trash. Restore or replace it before generating.");
         }
         var a = await assets.LoadAsync(s.ProjectId, ct);
-        if (s.Production is null && s.Reel is null) ShotLooks.Validate(s.Shot, a);
+        // A refinement reuses its take's images and prompt, so later look assignments in the library do not change it.
+        if (s.Production is null && s.Reel is null && s.MotionReference is null) ShotLooks.Validate(s.Shot, a);
         foreach (var v in s.Shot.Voices)
         {
             var voice = a.Voices.FirstOrDefault(x => x.Matches(v));

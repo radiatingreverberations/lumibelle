@@ -173,6 +173,25 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task ARefinementKeepsItsTakeReferencesAfterTheirImageIsAssignedALook()
+    {
+        var f = Fixture(); var look = new CharacterLook { Name = "Nightshirt" };
+        var library = await f.Assets.LoadAsync(f.Project.Id, _ct);
+        library = await f.Assets.SaveAsync(library with { Assets = [new ReferenceAsset { Id = Guid.NewGuid(), Name = "Jan", Category = AssetCategory.Character, Looks = [look] }] }, library.Revision, _ct);
+        using (var bytes = new MemoryStream(AssetStoreTests.Png(32, 32)))
+            library = await f.Assets.AddImageAsync(f.Project.Id, library.Assets[0].Id, bytes, new("jan.png", [], AssetImageOrigin.Imported), library.Revision, _ct);
+        var image = library.Assets[0].Images[0];
+        var shot = Ready(); shot.Images = [new() { AssetId = library.Assets[0].Id, MediaId = image.Id, Name = "Jan", InferUsage = true, Role = "Let AI decide" }];
+        await f.Assets.SaveAsync(library with { Assets = [library.Assets[0] with { Images = [image with { LookId = look.Id }] }] }, library.Revision, _ct);
+        var generator = new ComfyH3Video(null!, null!, f.Assets, f.Assets, f.Shots, new ProductionMediaTools());
+        // A new request composes its prompt from the current looks, so the changed assignment is reviewed first.
+        Assert.Contains("assignment changed", (await Assert.ThrowsAsync<WorkspaceStoreException>(() => generator.ValidateInputsAsync(Snapshot(f.Project.Id, shot), _ct))).Message);
+        // A refinement reuses the same images and the take's prompt.
+        var media = new ReferenceVideoMedia(Guid.NewGuid(), "", 1, 32, 32, 24, 24, 1, false);
+        await generator.ValidateInputsAsync(Snapshot(f.Project.Id, shot) with { MotionReference = new(Guid.NewGuid(), Guid.NewGuid(), media, 24, 24, "", "") }, _ct);
+    }
+
+    [Fact]
     public async Task OversizedSharedResolutionIsRejectedPerClipAndAnotherShotRequestMakesTheBatchWait()
     {
         var r = Refinement(); var workflow = r.Restart();
