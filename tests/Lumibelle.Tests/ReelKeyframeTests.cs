@@ -124,7 +124,7 @@ public sealed partial class ShotTests
         var request = new PromptCompositionRequest(Guid.NewGuid(), Guid.NewGuid(), 1, "context", "source", shot, "Scene", [], [], [], resolved.Pictures.Select(p => new CompositionInput(p.BindingId, "hash")).ToArray(), "", "", "", new(AiBackend.OpenRouter, "vision", "Vision"));
         var messages = PromptComposer.BuildMessages(request, [new byte[] { 1 }, new byte[] { 2 }]);
         Assert.Equal(2, messages[1].Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
-        using var context = JsonDocument.Parse(messages[1].Text!);
+        using var context = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
         Assert.Empty(context.RootElement.GetProperty("videos").EnumerateArray());
         Assert.Equal("Environment", context.RootElement.GetProperty("reelKeyframes")[0].GetProperty("ownerType").GetString());
         Assert.Equal("Toward judge platform", context.RootElement.GetProperty("reelKeyframes")[0].GetProperty("name").GetString());

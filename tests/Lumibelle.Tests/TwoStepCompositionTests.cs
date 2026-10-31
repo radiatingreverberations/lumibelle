@@ -76,6 +76,27 @@ public sealed class TwoStepCompositionTests : IDisposable
     }
 
     [Fact]
+    public void EachAttachedPictureFollowsItsOwnLabel()
+    {
+        var (composition, images) = Composition();
+        var pictures = ResolvedReferences.For(composition.Shot).Pictures;
+        Assert.Contains(pictures, p => p.Keyframe is not null);
+        foreach (var message in new[] { PromptComposer.BuildBriefMessages(composition, images, [])[1], PromptComposer.BuildMessages(composition, images)[1] })
+        {
+            var contents = message.Contents;
+            var attached = contents.Select((c, i) => (c, i)).Where(x => x.c is DataContent).Select(x => x.i).ToArray();
+            Assert.Equal(images.Length, attached.Length);
+            for (var n = 0; n < attached.Length; n++)
+            {
+                Assert.Equal(images[n], ((DataContent)contents[attached[n]]).Data.ToArray());
+                var label = Assert.IsType<TextContent>(contents[attached[n] - 1]).Text;
+                Assert.StartsWith($"\n<Picture {pictures[n].Number}> · ", label);
+                Assert.Contains(pictures[n].Image?.Name ?? pictures[n].Reel!.Name, label);
+            }
+        }
+    }
+
+    [Fact]
     public void CompositionStepIsTextOnlyAndTreatsTheBriefAsItsVisualEvidence()
     {
         var (composition, images) = Composition();

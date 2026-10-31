@@ -297,7 +297,7 @@ public sealed class EnvironmentViewTests
             r.DirectingNotes, "", r.RevisionNotes, new(AiBackend.OpenRouter, "vision", "Vision"));
         foreach (var brief in new[] { false, true }) {
             var messages = PromptComposer.BuildMessages(composition, brief ? [] : resolved.Pictures.Select(_ => Png).ToArray(), visualBrief: brief);
-            using var context = JsonDocument.Parse(messages[1].Text!);
+            using var context = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
             var staging = context.RootElement.GetProperty("environmentStaging");
             Assert.Equal(Plan.Blocking, staging.GetProperty("plan").GetProperty("blocking").GetString());
             Assert.Equal(new[] { 2, 3 }, staging.GetProperty("views").EnumerateArray().Select(v => v.GetProperty("picture").GetInt32()));

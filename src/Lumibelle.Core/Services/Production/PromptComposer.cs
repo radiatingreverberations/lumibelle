@@ -85,10 +85,8 @@ public static partial class PromptComposer
             voices = ResolvedReferences.For(r.Shot).Audio.Where(a => a.Voice is not null).Select(a => new { audio = a.Number, a.SourceName, a.Speaker, a.Voice!.Start, a.Voice.Duration })
         }));
         if (structured) message.Contents.Add(new TextContent(DialogueInsertionPlan(r.Shot)));
-        foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
-        foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
-        if (openingFrame is not null) message.Contents.Add(new DataContent(openingFrame, "image/png"));
-        foreach (var frame in motionStills ?? []) message.Contents.Add(new DataContent(frame, "image/png"));
+        Attach(message, r, images, modFrames, openingFrame);
+        for (var i = 0; i < (motionStills?.Count ?? 0); i++) Attach(message, $"Motion still {i + 1} of {motionStills!.Count}:", motionStills[i]);
         var instructions = reader.ReadToEnd() + "\nBefore returning JSON, verify that all six headings are present exactly once and in order. " +
             "Do not stop after detailed_description: overall_soundscape and non_diegetic_music are required even when there is no dialogue, no Audio input, or no music. " +
             "Use the supplied shot.Atmosphere and shot.Music as the sound directions. Always give non_diegetic_music explicit text; write 'No non-diegetic music.' when none is intended. " +
@@ -113,6 +111,7 @@ public static partial class PromptComposer
             "They show selected views, not an actual motion sequence or its timing. Keep each reference's intended identity, outfit or setting without copying source poses, actions, cuts or camera travel. " +
             "Audio remains an independent numbered input. Do not infer voice or target dialogue from these silent previews. State only observed visual detail, not a claim to have watched a video. " +
             "The padded canvas previews are the original build inputs, not a fresh inspection of the remote latent. Do not describe the padding as part of the retained appearance.";
+        if (images.Count > 0) instructions += "\nEach attached image follows the text label that names it, such as <Picture 2>. Match descriptions to labels by that text, not by counting attachments.";
         instructions += ValidLabels(r.Shot, !r.OmitCurrentPrompt && !string.IsNullOrWhiteSpace(r.CurrentPrompt));
         if (r.OmitCurrentPrompt) instructions += "\nCompose a fresh prompt from the current shot, selected references and supplied directing/revision notes. The existing draft is intentionally excluded.";
         if (r.DirectionContext is not null) instructions += "\nPreserve the reviewed dramatic intent and essential relationships in directionContext. Proposed staging is adaptable, not measured geometry. Use only applicable groups; limitations identify stale prescriptions that must not be reused. Do not silently change the story to fit a picture. Surface conflicts with intent in review notes, and qualify inferred or missing geometry. A long-take idea is informational, never an instruction to extend this clip.";
@@ -139,6 +138,25 @@ public static partial class PromptComposer
             "Work from the shot, the scene text, its references and the directing notes; do not claim continuity with shots you cannot see.";
         return [new(ChatRole.System, structured ? StructuredInstructions(instructions, r.Shot) : instructions), message];
     }
+
+    /// <summary>
+    /// Each image follows a text part naming it. Bare attachments left the model to count them: deepseek-v4.1-flash described
+    /// a continuity close-up as &lt;Picture 2&gt; and a full-length wardrobe view as &lt;Picture 1&gt; among six (2026-10-31).
+    /// </summary>
+    private static void Attach(ChatMessage message, PromptCompositionRequest r, IReadOnlyList<byte[]> images, IReadOnlyList<RefModInspectionFrame> modFrames, byte[]? openingFrame)
+    {
+        var pictures = ResolvedReferences.For(r.Shot).Pictures;
+        for (var i = 0; i < images.Count; i++) Attach(message, $"<Picture {pictures[i].Number}> · {PictureName(pictures[i])}:", images[i]);
+        foreach (var frame in modFrames) Attach(message, $"<Video {frame.VideoNumber}> preview, frame {frame.FrameNumber} · {frame.ReelName}:", frame.Png);
+        if (openingFrame is not null) Attach(message, $"{OpeningFrameLabel}, not a reference:", openingFrame);
+    }
+    private static void Attach(ChatMessage message, string label, byte[] image)
+    {
+        message.Contents.Add(new TextContent("\n" + label));
+        message.Contents.Add(new DataContent(image, "image/png"));
+    }
+    private static string PictureName(ResolvedPicture p) => p.Image?.Name ?? p.Continuity?.Name ??
+        (p.Keyframe?.Name is { Length: > 0 } frame ? $"{p.Reel!.Name} · {frame}" : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{p.Reel!.Name} at {p.Keyframe!.Frame.Seconds:0.##} s"));
 
     // One shot frame keeps the single continuity-picture wording and data, so those requests and cached briefs are unchanged.
     private static ResolvedPicture? ContinuityPicture(Shot shot) => ShotFramePictures(shot) is [var single] ? single : null;
@@ -236,11 +254,9 @@ public static partial class PromptComposer
             refMods = selectedMods.Select(v => new { video = v.Number, v.Reel.Name, authorProvidedDescription = v.Reel.Description }),
             refModPreviewAttachments = modFrames.Select((f, i) => new { attachment = images.Count + i + 1, video = f.VideoNumber, frame = f.FrameNumber, f.ViewName, f.Notes })
         }));
-        foreach (var image in images) message.Contents.Add(new DataContent(image, "image/png"));
-        foreach (var frame in modFrames) message.Contents.Add(new DataContent(frame.Png, "image/png"));
-        if (openingFrame is not null) message.Contents.Add(new DataContent(openingFrame, "image/png"));
+        Attach(message, r, images, modFrames, openingFrame);
         var instructions = "You write a compact visual brief for a video-prompt writer who cannot see the images. " +
-            "The attachments are in order: one image per <Picture N> in references and reelKeyframes, then RefMod preview frames mapped to <Video N> labels by refModPreviewAttachments. " +
+            "Each attachment follows the label it shows: one image per <Picture N> in references and reelKeyframes, then RefMod preview frames mapped to <Video N> labels by refModPreviewAttachments. " +
             "For each Picture label, and once per Video label, describe only visible evidence a prompt writer needs: identity cues (face, hair, apparent age, build), " +
             "outfit layer by layer with colours and materials, props, and for settings the layout, surfaces, lighting and palette. Mention framing or crops only when they limit what is visible. " +
             "Pictures or frames of the same reel show the same subject: describe it fully once and list only differences for the others. " +
