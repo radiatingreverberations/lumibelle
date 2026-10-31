@@ -22,7 +22,7 @@ for (const narrow of [false, true]) test(`prepare a quick reel for refinement an
   const refine = async reel => {
     const card = page.locator(`.asset-media-card[data-media-id="${reel.id}"]`);
     await card.getByRole('button', { name: `Actions for ${reel.name}`, exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Refine…', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Upscale latents…', exact: true }).click();
     await expect(page.locator('.reel-refinement-dialog')).toBeVisible();
     return page.locator('.reel-refinement-dialog');
   };

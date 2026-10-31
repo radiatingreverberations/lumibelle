@@ -73,7 +73,7 @@ public sealed partial class AiReelCapture
             Reel = new(recipe, character) { Owner = owner with { Images = [] },
                 RegenerationSource = new(reel.Id, generation.Seed, source.Snapshot.Width, source.Snapshot.Height) }
         };
-        var request = source with { BatchId = id, Snapshot = snapshot, Inputs = ShotCopy.Of(source.Inputs) };
+        var request = source with { BatchId = id, Snapshot = snapshot, Inputs = ShotCopy.Of(source.Inputs), Recipe = null };
         AiVideoJobPolicy.Validate(request);
         var configured = ShotCopy.Of(await settings.LoadAsync(ct));
         var target = AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl);
@@ -108,6 +108,7 @@ public sealed partial class AiReelCapture
             throw new WorkspaceConflictException();
         LookPolicy.ValidateTarget(current, character);
         var name = (await projects.GetAsync(project, ct))?.Name ?? throw new WorkspaceStoreException("Project unavailable.");
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.ReelVideo, AiBackend.ComfyUI, new(project, recipe.AssetId, ReelId: recipe.Id),
             name, recipe.Name + " · Regenerate · " + size.Width + " × " + size.Height, tab, request)
             with { Batch = batch };

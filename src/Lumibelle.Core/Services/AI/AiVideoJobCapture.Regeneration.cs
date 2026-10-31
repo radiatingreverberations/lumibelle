@@ -55,7 +55,7 @@ public sealed partial class AiVideoJobCapture
             TargetComfyUrl = null
         };
         // New requests own their immutable inputs, including formerly version-one captures.
-        var request = source with { Version = 2, BatchId = id, Snapshot = snapshot, Inputs = ShotCopy.Of(source.Inputs),
+        var request = source with { Version = 2, BatchId = id, Snapshot = snapshot, Inputs = ShotCopy.Of(source.Inputs), Recipe = null,
             DestinationShotId = take.ShotId != snapshot.Shot.Id ? take.ShotId : null };
         AiVideoJobPolicy.Validate(request);
         var currentSettings = ShotCopy.Of(await settings.LoadAsync(ct));
@@ -87,6 +87,7 @@ public sealed partial class AiVideoJobCapture
         await AiVideoJobPolicy.CopyPreparedInputsAsync(source, sourceDirectory, request, directory, ct);
         if ((await shots.LoadAsync(projectId, ct)).Shots.All(s => s.Id != take.ShotId)) throw new WorkspaceConflictException();
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("Project unavailable.");
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request),
             project.Name, take.Snapshot.Shot.Title + " · Regenerate · " + size.Width + " × " + size.Height, tab, request)
             with { Batch = batch };

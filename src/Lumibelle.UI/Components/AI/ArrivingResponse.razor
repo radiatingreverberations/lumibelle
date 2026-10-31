@@ -1,0 +1,53 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@* A text request's response while it is still arriving: JSON as readable cards, a plain-text
+   step such as a visual brief as wrapped text. Nothing here is applied until the result is checked.
+   It is a progress view, so it scrolls in a compact box that follows the newest text. *@
+<div class="arriving-response" @ref="_box" tabindex="0" role="region" aria-label="@Title">
+    @if (Json) {
+        <StreamingResponsePreview Raw="@Raw" Title="@Title" ExpandedObject="@ExpandedObject" />
+    }
+    else {
+        <section class="arriving-response-text" aria-label="Live response preview">
+            <h3>@(Raw.Length == 0 ? Title : PlainTitle)</h3>
+            @if (Raw.Length == 0) { <p>Waiting for the first part of the response…</p> } else { <pre>@Raw</pre> }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Response { get; set; }
+    [Parameter] public string Title { get; set; } = "Response arriving";
+    // Two-step compositions first write a plain-text visual brief.
+    [Parameter] public string PlainTitle { get; set; } = "Visual brief arriving";
+    [Parameter] public string? ExpandedObject { get; set; }
+    private string Raw => Response ?? "";
+    // A leading Markdown fence is only a wrapper, as in StreamingJsonPreview.
+    private bool Json
+    {
+        get {
+            var text = Raw.AsSpan().TrimStart();
+            if (text.StartsWith("```", StringComparison.Ordinal)) text = text.IndexOf('\n') is var n and >= 0 ? text[(n + 1)..].TrimStart() : [];
+            return !text.IsEmpty && text[0] is '{' or '[';
+        }
+    }
+    private ElementReference _box;
+    private IJSObjectReference? _module, _follow;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("arriving-response.js"));
+            _follow = await _module.InvokeAsync<IJSObjectReference?>("follow", _box);
+        }
+        catch (Exception e) when (e is JSDisconnectedException or TaskCanceledException or InvalidOperationException) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        try {
+            if (_follow is not null) { await _follow.InvokeVoidAsync("dispose"); await _follow.DisposeAsync(); }
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSDisconnectedException or TaskCanceledException) { }
+    }
+}

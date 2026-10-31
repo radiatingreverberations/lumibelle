@@ -3,7 +3,7 @@
 
 @if (_groups.Count > 0) {
     <section class="streaming-response-preview" aria-label="Live response preview">
-        <header class="streaming-preview-heading"><div><h3>@Title</h3><p>Receiving response · not yet checked</p></div><span class="streaming-preview-indicator" aria-hidden="true"></span></header>
+        <header class="streaming-preview-heading"><div><h3>@Title</h3><p>@(Finished ? FinishedLabel : "Receiving response · not yet checked")</p></div>@if (!Finished) { <span class="streaming-preview-indicator" aria-hidden="true"></span> }</header>
         @for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++) {
             var group = _groups[groupIndex];
             <section class="streaming-preview-group" @key="groupIndex" aria-label="@group.Title">
@@ -12,7 +12,7 @@
                     @for (var i = 0; i < group.Parts.Count; i++) {
                         var part = group.Parts[i];
                         <article class="streaming-preview-card @(!part.Complete ? "is-writing" : null)" @key="i">
-                            <header><div class="streaming-part-heading">@if (part.Property("category") is { Text: { Length: > 0 } category } && part.Property("name") is not null) { <span class="streaming-asset-category">@Label(category)</span> }<strong>@PartTitle(group.Key, part, i)</strong></div><span class="streaming-part-state">@(part.Complete ? "Received" : "Still writing…")</span></header>
+                            <header><div class="streaming-part-heading">@if (part.Property("category") is { Text: { Length: > 0 } category } && part.Property("name") is not null) { <span class="streaming-asset-category">@Label(category)</span> }<strong>@(group.Expanded && part.Name is { } field ? Label(field) : PartTitle(group.Key, part, i))</strong></div>@if (!Finished) { <span class="streaming-part-state">@(part.Complete ? "Received" : "Still writing…")</span> }</header>
                             <StreamingResponseValue Value="part" HideTitle="true" />
                         </article>
                     }
@@ -20,7 +20,7 @@
             </section>
         }
         @if (_limited) { <p class="streaming-preview-limit">Showing the first part of this response. The full output remains available in response details.</p> }
-        <p class="streaming-preview-footnote">This preview updates as text arrives. Validation runs when this step finishes.</p>
+        @if (!Finished) { <p class="streaming-preview-footnote">This preview updates as text arrives. Validation runs when this step finishes.</p> }
     </section>
 }
 else if (EmptyMessage is not null) {
@@ -32,6 +32,11 @@ else if (EmptyMessage is not null) {
     [Parameter] public string Title { get; set; } = "Live preview";
     [Parameter] public string ArrayLabel { get; set; } = "Parts";
     [Parameter] public string? EmptyMessage { get; set; }
+    // A completed, checked response: the same readable cards without the arriving-text cues.
+    [Parameter] public bool Finished { get; set; }
+    // A top-level object whose fields are shown as separate cards, such as composed prompt sections.
+    [Parameter] public string? ExpandedObject { get; set; }
+    [Parameter] public string FinishedLabel { get; set; } = "Response received";
     private string? _previous, _previousArrayLabel;
     private bool _limited;
     private List<Group> _groups = [];
@@ -45,12 +50,13 @@ else if (EmptyMessage is not null) {
         var properties = root.Kind == JsonValueKind.Object ? root.Children : [root];
         var remaining = 200;
         foreach (var property in properties) {
-            var parts = (property.Kind == JsonValueKind.Array ? property.Children : [property]).Where(c => c.HasContent).ToArray();
+            var expanded = property.Kind == JsonValueKind.Object && property.Name is { } name && name == ExpandedObject;
+            var parts = (property.Kind == JsonValueKind.Array || expanded ? property.Children : [property]).Where(c => c.HasContent).ToArray();
             if (parts.Length == 0) continue;
             var key = property.Name ?? "parts";
             if (parts.Length > remaining) _limited = true;
             var title = key == "parts" ? ArrayLabel : key.Equals("beats", StringComparison.OrdinalIgnoreCase) && parts.Any(p => p.Property("covered") is not null) ? "Beat checks" : Label(key);
-            _groups.Add(new(key, title, parts.Take(remaining).ToArray()));
+            _groups.Add(new(key, title, parts.Take(remaining).ToArray(), expanded));
             remaining -= Math.Min(parts.Length, remaining);
             if (remaining == 0) break;
         }
@@ -72,5 +78,5 @@ else if (EmptyMessage is not null) {
             if (part.Property(key)?.Text is { Length: > 0 } title) return title;
         return group.ToLowerInvariant() switch { "scenes" => $"Scene {index + 1}", "beats" => $"Beat {index + 1}", "findings" => $"Finding {index + 1}", _ => $"Part {index + 1}" };
     }
-    private sealed record Group(string Key, string Title, IReadOnlyList<StreamingJsonValue> Parts);
+    private sealed record Group(string Key, string Title, IReadOnlyList<StreamingJsonValue> Parts, bool Expanded = false);
 }

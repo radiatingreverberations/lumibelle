@@ -46,4 +46,18 @@ public sealed class PromptComparisonTests
         Assert.Contains("Good morning", view.Find("ins").TextContent);
         Assert.Equal("subject_definitions:\n", view.Find(".prompt-comparison-heading").TextContent);
     }
+
+    [Theory]
+    [InlineData("")] [InlineData(" \r\n\t")]
+    public void FirstDraftShowsOnlyThePlainResponseWhenThereIsNoPreviousText(string before)
+    {
+        using var context = new BunitContext();
+        const string after = "subject_definitions:\n<Picture 1> Åsa 👋\n\n<d>Hello.\nAgain.</d>\n<script>alert(1)</script>";
+        var view = context.Render<PromptComparisonView>(p => p.Add(c => c.Before, before).Add(c => c.After, after));
+        Assert.Single(view.FindAll(".prompt-comparison.prompt-preview .prompt-comparison-side"));
+        Assert.Empty(view.FindAll(".before, ins, del, small, script"));
+        Assert.Equal(after, view.Find(".after pre").TextContent);
+        Assert.DoesNotContain("Empty prompt", view.Markup);
+        Assert.Equal("subject_definitions:\n", view.Find(".prompt-comparison-heading").TextContent);
+    }
 }

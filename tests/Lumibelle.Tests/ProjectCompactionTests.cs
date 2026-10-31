@@ -206,6 +206,36 @@ public sealed class ProjectCompactionTests : IDisposable
         Assert.Equal(legacy.Id, Assert.Single((await _assets.LoadAsync(project.Id, _ct)).ReelTrash).Reel.Id);
     }
 
+    [Fact]
+    public async Task KeptReelFramesBecomeTheCachedKeyframePicturesWithoutDecoding()
+    {
+        var project = await _projects.CreateAsync(new("Kept"), _ct);
+        var media = await Import(project.Id);
+        var source = Path.Combine(_directory, "kept-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(source);
+        List<TakeKeptFrame> kept = [];
+        foreach (var frame in new[] { 0, 47 })
+        {
+            using var png = new Image<Rgb24>(32, 32, new Rgb24(10, 200, (byte)frame));
+            await png.SaveAsPngAsync(Path.Combine(source, TakeKeptFrame.File(frame)), _ct);
+            kept.Add(new(frame, TakeKeptFrame.File(frame), new FileInfo(Path.Combine(source, TakeKeptFrame.File(frame))).Length));
+        }
+        var shot = new Shot { Title = "Reel", Description = "A room", Duration = 2 };
+        var output = new ShotTake { Width = media.Width, Height = media.Height, KeptFrames = kept,
+            Snapshot = new(project.Id, 1, shot, "", "", "http://localhost:8188", new(), media.Width, media.Height, media.Frames) { OutputPolicy = new(false) { KeptFrames = [0, 47] } } };
+        _tools.Decodes = false;
+        await _reels.PublishKeptFramesAsync(project.Id, media, output, source, new(), _ct);
+        var catalog = await _reels.FrameCatalogAsync(project.Id, media, new(), _ct);
+        Assert.False(catalog.Lossless);
+        // Decoding is unavailable, so these frames can only come from the kept PNGs.
+        await using var opened = await _reels.OpenFrameAsync(project.Id, new(media.Id, catalog.Source, 47, catalog.Timestamps[47]), new(), _ct);
+        Assert.Equal(new Rgb24(10, 200, 47), Image.Load<Rgb24>(opened.Content)[0, 0]);
+        // Publishing again leaves the kept frames as they are.
+        await _reels.PublishKeptFramesAsync(project.Id, media, output, source, new(), _ct);
+        var wrong = output with { };
+        wrong.Width = 64;
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => _reels.PublishKeptFramesAsync(project.Id, media, wrong, source, new(), _ct));
+    }
+
     private async Task<ReferenceVideoMedia> Import(Guid project)
     {
         await using var input = new MemoryStream([1, 2, 3, 4]);

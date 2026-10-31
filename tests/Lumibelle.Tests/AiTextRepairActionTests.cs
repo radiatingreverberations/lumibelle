@@ -93,6 +93,46 @@ public sealed class AiTextRepairActionTests : BunitContext, IDisposable
         Assert.Equal(0, service.Captures); Assert.Equal(0, service.Connections);
     }
     [Fact]
+    public async Task RunningRepairStreamsItsOutputThenReportsAReadyResult()
+    {
+        var source = await RepairSource(); var child = await Add("Fix validation", source.Target.ProjectId);
+        // Waiting counts as active; the queued job shows what has arrived so far.
+        await _queue.RefreshAsync(_ct);
+        await _store.WriteArtifactAsync(child.Id, AiJobArtifact.Result, new AiTextJobResult("{\"prompt\":\"subject_definitions: JAN is a lean wom"), _ct);
+        await _queue.RefreshAsync(_ct);
+        var service = new RepairActionService(new(source, "Captured model", null, child)); AddRepairServices(service);
+        var reported = new List<bool>();
+        var view = Render<AiTextRepairAction>(p => p.Add(c => c.JobId, source.Id).Add(c => c.RepairReadyChanged, ready => reported.Add(ready)));
+        view.WaitForAssertion(() => Assert.Contains("Repair arriving", view.Markup), TimeSpan.FromSeconds(10));
+        Assert.Contains("JAN is a lean wom", view.Find("[aria-label='Live response preview']").TextContent);
+        Assert.DoesNotContain("Repair ready", view.Markup); Assert.Empty(reported);
+
+        await _store.WriteArtifactAsync(child.Id, AiJobArtifact.Result, new AiTextJobResult("{\"prompt\":\"subject_definitions: JAN is a lean woman.\"}", true, "stop"), _ct);
+        await _store.UpdateAsync(child.Id, j => j with { State = AiJobState.Completed, FinishedUtc = DateTimeOffset.UtcNow }, _ct);
+        await _queue.RefreshAsync(_ct);
+        view.WaitForAssertion(() => Assert.Contains("Repair ready — review the corrected response before applying.", view.Markup), TimeSpan.FromSeconds(10));
+        Assert.Contains("Checked · not applied yet", view.Markup);
+        Assert.DoesNotContain("Repair arriving", view.Markup);
+        Assert.Contains("JAN is a lean woman.", view.Find("[aria-label='Live response preview']").TextContent);
+        Assert.Contains("Raw repair response", view.Markup);
+        view.WaitForAssertion(() => Assert.Equal([true], reported), TimeSpan.FromSeconds(10));
+        Assert.Equal(0, service.Captures);
+    }
+    [Fact]
+    public async Task RepairThatStillFailsShowsItsOwnErrorAndIsNotReported()
+    {
+        var source = await RepairSource(); var child = await Add("Fix validation", source.Target.ProjectId);
+        child = await _store.UpdateAsync(child.Id, j => j with { State = AiJobState.NeedsAttention, Recovery = AiJobRecovery.GenerateAgain, FinishedUtc = DateTimeOffset.UtcNow }, _ct);
+        await _store.WriteArtifactAsync(child.Id, AiJobArtifact.Result, new AiTextJobResult("{\"sections\":{}}", true, "stop", Error: "Still missing headings"), _ct);
+        await _queue.RefreshAsync(_ct);
+        var service = new RepairActionService(new(source, "Captured model", null, child)); AddRepairServices(service);
+        var reported = new List<bool>();
+        var view = Render<AiTextRepairAction>(p => p.Add(c => c.JobId, source.Id).Add(c => c.RepairReadyChanged, ready => reported.Add(ready)));
+        view.WaitForAssertion(() => Assert.Contains("The repair still needs attention: Still missing headings", view.Find("[role=alert]").TextContent));
+        Assert.DoesNotContain("Repair ready", view.Markup); Assert.DoesNotContain("Live response preview", view.Markup);
+        Assert.Empty(reported);
+    }
+    [Fact]
     public async Task ChangedTargetBlocksRepairNavigationWithoutDiscardingTheResult()
     {
         var source = await RepairSource(); var child = await Add("Fix validation", source.Target.ProjectId);

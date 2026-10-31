@@ -38,6 +38,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
                 (library.Setups.SingleOrDefault(s => s.Id == c.GenerationSetupId)
                     ?? throw new WorkspaceStoreException("A global generation setup is missing. Your saved shot settings have been retained.")).Apply(c);
         }
+        foreach (var composition in d.Compositions) H3PresetMigrations.Apply(composition.Shot);
         return d;
     }
     private static void ValidateDocument(ProductionDocument d, Guid project)
@@ -97,6 +98,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     public async Task<ProductionDocument> SaveAsync(Guid project, ProductionComposition composition, long expectedVersion, CancellationToken ct = default)
     {
         var c = composition.Copy();
+        H3PresetMigrations.Apply(c.Shot);
         if (c.OutputOverrides is { } output && (output.TakeCount is < 1 or > 4 ||
             output.Resolution is { } resolution && !Enum.IsDefined(resolution) ||
             output.UpscalePreview && output.Resolution != VideoResolution.Preview))
@@ -306,7 +308,7 @@ public static class ProductionInputs
                 ?? throw new WorkspaceStoreException("Reference image metadata is unavailable.");
             images.Add(Prepared(image.Width, image.Height, binding.Crop));
         }
-        if (shot.ContinuityFrame is { } continuity) images.Add(Take(continuity.TakeId, true));
+        foreach (var continuity in shot.ShotFrames) images.Add(Take(continuity.TakeId, true));
         var resolved = ResolvedReferences.For(shot);
         foreach (var picture in resolved.Pictures.Where(p => p.Keyframe is not null))
             images.Add(Prepared(picture.Reel!.Media.Width, picture.Reel.Media.Height, picture.Keyframe!.Crop));
@@ -330,7 +332,7 @@ public static class ProductionInputs
             var png = await ComfyReferenceImageEditor.PrepareSourcePngAsync(source.Content, b.Crop, ct);
             result.Add((new(b.Id, Convert.ToHexString(SHA256.HashData(png))), png));
         }
-        if (shot.ContinuityFrame is { } continuity)
+        foreach (var continuity in shot.ShotFrames)
         {
             var png = await ContinuityPngAsync(project, continuity, shots ?? throw new WorkspaceStoreException("Take storage is unavailable."), ct);
             result.Add((new(continuity.Id, Convert.ToHexString(SHA256.HashData(png))), png));

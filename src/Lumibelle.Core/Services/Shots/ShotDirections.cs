@@ -62,7 +62,7 @@ public static class ShotDirections
         Hash(strategy is null ? null : new { strategy.Approach, strategy.DramaticProgression, strategy.VisualProgression, strategy.AudienceInformation, strategy.SpatialAnchors }),
         Hash(shot.Characters.Select(c => c.Name)), Hash(shot.Dialogue.Select(d => new { d.Speaker, d.Language, d.Text })),
         Hash(shot.Duration), Hash((neighbours ?? []).Select(n => new { n.Title, n.Duration, n.Description, n.Dialogue, n.DirectionFingerprint })),
-        Hash(new { shot.EnvironmentAssetId, shot.Images, shot.Videos, shot.ContinuityFrame, shot.StartFrame }));
+        Hash(new { shot.EnvironmentAssetId, shot.Images, shot.Videos, ContinuityFrame = shot.ShotFrameFingerprint, shot.StartFrame }));
     public static DirectionFreshness Freshness(Shot shot, DirectionStrategy? strategy, IEnumerable<SceneShotSummary>? neighbours = null)
     {
         if (shot.Direction?.Dependencies is not { } before) return new(false, false, false, false, false,

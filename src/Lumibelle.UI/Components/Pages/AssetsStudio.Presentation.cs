@@ -199,7 +199,11 @@ public partial class AssetsStudio
     }
     private async Task SelectMedia(AssetMediaSelection key)
     {
-        if (_presentation.Multiple) { if (key.Kind == AssetMediaKind.Image) { if (!_lookImageSelection.Add(key.Id)) _lookImageSelection.Remove(key.Id); } return; }
+        if (_presentation.Multiple) {
+            if (key.Kind == AssetMediaKind.Image) { if (!_lookImageSelection.Add(key.Id)) _lookImageSelection.Remove(key.Id); }
+            else if (key.Kind == AssetMediaKind.Reel) SelectReel(key.Id, !_reelSelection.Contains(key.Id));
+            return;
+        }
         if (!AllGalleryItems.Any(i => i.Key == key)) return;
         if (_presentation.Selection == key) { await EnterCreate(); return; }
         await TransitionTools(async () => {
@@ -256,7 +260,10 @@ public partial class AssetsStudio
     });
     private void RevealSelectedMedia() { _presentation.Filter = SelectedAsset?.Images.Any(i => i.Id == _presentation.Selection?.Id && i.PendingReview == true) == true ? "Pending review" : "All"; _presentation.Search = ""; _lookFilter = "all"; _revealMedia = _presentation.Selection?.Id; }
     private Guid? _revealMedia;
-    private void ToggleMultiple() { _presentation.Multiple = !_presentation.Multiple; _lookImageSelection.Clear(); }
+    private void ToggleMultiple() { _presentation.Multiple = !_presentation.Multiple; _lookImageSelection.Clear(); _reelSelection.Clear(); }
+    private readonly HashSet<Guid> _reelSelection = [];
+    private void SelectReel(Guid id, bool selected) { if (selected) _reelSelection.Add(id); else _reelSelection.Remove(id); }
+    private IReadOnlyList<AssetReferenceReel> SelectedReels => _library?.Reels.Where(r => _reelSelection.Contains(r.Id) && r.AssetId == _selectedAssetId).ToArray() ?? [];
     private async Task ImportReel() { if (_reels is not null && await FlushSelectedTools()) await _reels.OpenImport(); }
     private async Task ImportVoice() { if (_voices is not null && await FlushSelectedTools()) { await EnterCreate(); _voices.OpenImport(); } }
     private async Task VaryReel(AssetReferenceReel reel) { if (_reels is not null && await FlushSelectedTools()) await _reels.Variation(reel); }

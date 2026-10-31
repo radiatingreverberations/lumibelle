@@ -36,12 +36,15 @@ public static class VideoResolutions
         (_, VideoResolution.Native) => H3Policy.Size(aspect, true),
         ("16:9", VideoResolution.Quick) => (608, 352), ("9:16", VideoResolution.Quick) => (352, 608), ("1:1", VideoResolution.Quick) => (448, 448),
         ("16:9", VideoResolution.Detail) => (1120, 640), ("9:16", VideoResolution.Detail) => (640, 1120), ("1:1", VideoResolution.Detail) => (832, 832),
+        ("16:9", VideoResolution.FullHd) => (1920, 1088), ("9:16", VideoResolution.FullHd) => (1088, 1920), ("1:1", VideoResolution.FullHd) => (1440, 1440),
+        ("16:9", VideoResolution.Qhd) => (2560, 1440), ("9:16", VideoResolution.Qhd) => (1440, 2560), ("1:1", VideoResolution.Qhd) => (1920, 1920),
         _ => throw new WorkspaceStoreException("Choose a supported reel resolution and landscape, portrait, or square aspect.")
     };
     public static string Label(VideoResolution resolution) => resolution switch
     {
         VideoResolution.Quick => "Quick · 0.2 MP", VideoResolution.Preview => "Preview · 0.4 MP",
         VideoResolution.Detail => "Detail · 0.7 MP", VideoResolution.Native => "Native · 1 MP",
+        VideoResolution.FullHd => "1080p-class · 2.1 MP", VideoResolution.Qhd => "1440p-class · 3.7 MP",
         _ => throw new WorkspaceStoreException("Choose a supported reel resolution.")
     };
     public static string Option(string aspect, VideoResolution resolution)

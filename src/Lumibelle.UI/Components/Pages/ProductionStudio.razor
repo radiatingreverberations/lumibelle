@@ -166,9 +166,12 @@ else
                     @if (ShotTakes.Count > 0) {
                         <div class="take-selection-toolbar">
                             <button disabled="@_mediaBusy" @onclick="ToggleTakeSelection">@(SelectingTakes ? "Cancel selection" : "Select multiple")</button>
+                            @if (!SelectingTakes && SceneSelectedTakes.Count > 0) { <button disabled="@(_mediaBusy || _starting)" title="Refine each shot's selected take in this scene" @onclick="RefineSceneTakes">Refine selected takes in this scene…</button> }
+                            <a class="take-refinement-link" href="@ProjectLink(Id, "/refinements")">Refinement batches</a>
                             @if (SelectingTakes) {
                                 <span role="status">@_moveTakeIds.Count selected</span>
                                 <button disabled="@(_mediaBusy || _moveTakeIds.Count == 0 || _doc.Shots.Count < 2)" @onclick="OpenMoveTakes">Move to shot…</button>
+                                <button disabled="@(_mediaBusy || _starting || _moveTakeIds.Count == 0)" @onclick="RefineSelectedTakes">Refine selected…</button>
                             }
                         </div>
                     }
@@ -184,7 +187,7 @@ else
                                 @if (SourceShot?.SelectedTakeId == take.Id) { <span class="selected-take-badge">Selected</span> }
                                 </div>
                                 <TakeSummary Take="take" Changes="TakeChanges(take)" Compact="true" />
-                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Refine…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
+                                <div class="shots-actions"><button @onclick="() => ToggleSelectedTake(take)">@(SourceShot?.SelectedTakeId == take.Id ? "Deselect" : "Use this take")</button><button disabled="@(!CanRegenerate(take))" title="@TakeDisplay.RegenerationIssue(take)" @onclick="() => RegenerateTake(take)">Regenerate…</button><button disabled="@(!CanRefineFromVideo(take))" title="@MotionReferencePolicy.Issue(take)" @onclick="() => RefineFromVideo(take)">Refine from video…</button><button disabled="@(!CanRefine(take))" title="@RefineIssue(take)" @onclick="() => RefineTake(take)">Upscale latents…</button><button disabled="@(_trimCancellation is not null)" @onclick="() => OpenTrim(take)">Trim…</button><a class="take-download" href="@TakeUrl(take.Id)" download="@TakeDownloadName(take.Id)">Download MP4</a></div>
                                 <details><summary>Details</summary><p><time>@take.CreatedUtc.ToLocalTime().ToString("g")</time></p><p>@TakeDisplay.Dimensions(take)</p><TakeGenerationDetails Take="take" /><p>@take.Snapshot.Settings.Model</p><p>@(take.HasLosslessFrames ? "MP4 + lossless frames" : "MP4") · @Bytes(take.Bytes)</p><p>Batch @take.RunId</p></details>
                             </div>
                         </article>
@@ -468,8 +471,14 @@ else
                             }
                     }
                     @if (_compositionError is not null) { <p role="alert">@_compositionError</p> }
-                    @* The raw response is under Response details in the request dialog, as for other text requests; shown here it streamed in mid-dialog. *@
+                    @* While composing, the arriving response is shown as readable sections; the raw text stays under Response details. *@
+                    @if (CompositionStreaming) { <lumibelle.Components.AI.ArrivingResponse Response="@_compositionRaw" Title="Prompt arriving" ExpandedObject="sections" /> }
                     @if (CompositionPromptWarning is { } warning) { <p class="prompt-review-note" role="status"><strong>Review note:</strong> @warning <span>You can keep this text; this does not block saving or generation.</span></p> }
+                    @if (AppliedCompositionNotes.ToArray() is { Length: > 0 } composedNotes) {
+                        <div class="prompt-review-note composed-prompt-notes" role="status"><strong>Check the composed prompt:</strong>
+                            <ul>@foreach (var note in composedNotes) { <li>@note</li> }</ul>
+                            <span>These notes do not block saving or generation.</span> <button type="button" @onclick="DismissCompositionNotes">Dismiss</button></div>
+                    }
                     <PromptEditor @ref="_promptEditor" @key="composition.ShotId" Placeholder="Compose the prompt with AI, or start typing." HistoryKey="@($"{_promptHistoryScope}:{composition.ShotId}")" Text="@composition.Prompt" TextChanged="text => PromptChanged(composition.ShotId, text)" PictureClicked="PreviewPicture" VideoClicked="PreviewVideo"><ToolbarActions>
                     @* With no prompt yet, composing one is the obvious next step. *@
                     <div @ref="_compositionReviewOrigin" class="@(string.IsNullOrWhiteSpace(composition.Prompt) ? "assist-emphasis" : null)"><TextAssistance Label="@(string.IsNullOrWhiteSpace(composition.Prompt) ? "Compose prompt" : "Assist")" Request="CompositionPresentation" Preparing="@(_compositionBusy && _compositionDialogJob is null)" HasError="@(_compositionEnqueue is not null)" ReviewRequested="InspectComposition" CancelRequested="CancelComposition" @ref="_compositionAssist" @key="(composition.ShotId, nameof(TextAssistance))" ProjectId="Id" Studio="TextAssistantStudio.Production" Title="Prompt assistance" SelectionChanged="CompositionModelChanged" Opened="StartContextEstimate" ModelLocked="@(_compositionBusy || CompositionJob?.LocksTarget == true)">
@@ -547,6 +556,7 @@ else
             <p class="field-hint">Shared across all shots and projects. Changes update this setup for future generations. Prompts and references stay with each shot; saved takes keep their original settings.</p>
 <button @onclick="CheckVideo">Check video models</button>                    <section class="shot-generation"><h3>Preset settings</h3><label>Generation preset<select aria-label="Generation preset" value="@H3Presets.Key(shot)" @onchange="ChangeQuality">@foreach (var key in H3Presets.Choices(H3Presets.Key(shot))) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select></label>
                         <p class="field-hint">@H3Presets.Help(H3Presets.Key(shot))</p>
+                        @if (shot.GenerationPresetMigration is { } migration) { <p role="status">@migration</p> }
                         <a href="@(AiSettingsNavigation.Link(Navigation, "video", Id, "shots"))">Preset setup and video models</a>
 
                         @if (_loraSettings is { } loraSettings)
@@ -791,7 +801,8 @@ else
 </DialogContent>
 <Status>@if (ReviewTake is { } regenTake) {
     <MudButton Variant="Variant.Outlined" OnClick="() => RegenerateTake(regenTake)" Disabled="@(!CanRegenerate(regenTake))" title="@TakeDisplay.RegenerationIssue(regenTake)">Regenerate…</MudButton>
-    <MudButton Variant="Variant.Outlined" @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Refine…</MudButton>
+    <MudButton Variant="Variant.Outlined" OnClick="() => RefineFromVideo(regenTake)" Disabled="@(!CanRefineFromVideo(regenTake))" title="@MotionReferencePolicy.Issue(regenTake)">Refine from video…</MudButton>
+    <MudButton Variant="Variant.Outlined" @ref="_refineButton" OnClick="() => RefineTake(regenTake)" Disabled="@(!CanRefine(regenTake))" title="@RefineIssue(regenTake)">Upscale latents…</MudButton>
     @if (regenTake.Refinement is not null || TakeDisplay.HasExtensionReplay(regenTake)) { <MudButton Variant="Variant.Outlined" OnClick="AnotherVersion" Disabled="_refinementBusy" title="Replay the captured request with a new seed">Another version</MudButton> }
 }
 @if (_reviewRun is not null && _videoRequests.ContainsKey(_reviewRun.Id)) { <MudButton OnClick="OneMore" Disabled="@(!CanAddVideoTake)" Variant="Variant.Outlined">One more take</MudButton> }
@@ -799,6 +810,7 @@ else
 <Actions><MudButton OnClick="() => ReviewVisibility(false)">Close</MudButton></Actions></InlineDialog>
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />
+<RefineFromVideoDialog ProjectId="Id" Sources="_refineSources" Closed="() => _refineSources = []" Queued="RefinementQueued" />
 
 
 <InlineDialog Visible="_planningOpen" VisibleChanged="PlanningVisibility" Options="@(LargeDialog with { CloseOnNavigation = false })" Class="shot-planning-dialog" DefaultFocus="DefaultFocus.FirstChild" OnKeyDown="PlanningKeyDown">

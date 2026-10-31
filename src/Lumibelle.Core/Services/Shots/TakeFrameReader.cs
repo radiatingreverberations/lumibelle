@@ -28,6 +28,9 @@ public sealed class TakeFrameReader(IProductionMediaTools media)
             var frame = take.Frames.ElementAtOrDefault(index) ?? throw new WorkspaceStoreException("The lossless frame archive is missing.");
             return await LosslessFrameArchive.OpenFrameAsync(Path.Combine(directory, frame.FileName), frame.ArchiveFrameIndex, take.Width, take.Height, ct);
         }
+        // A frame kept losslessly by request is read as saved; trimming and composition renumber frames, so they decode instead.
+        if (take.Trim is null && take.Composition is null && take.KeptFrames?.FirstOrDefault(f => f.Frame == index) is { } kept && File.Exists(Path.Combine(directory, kept.FileName)))
+            return File.OpenRead(Path.Combine(directory, kept.FileName));
         var path = Path.GetFullPath(Path.Combine(directory, "video.mp4"));
         var key = path + "|" + index;
         Extraction entry;

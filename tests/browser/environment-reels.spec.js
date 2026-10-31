@@ -292,17 +292,32 @@ for (const narrow of [false, true]) test(`image details starts a fresh environme
   const setup = reelSetup(page);
   await expect(setup.getByLabel('Camera preset')).toHaveValue('EnvironmentFullSet');
   await setup.getByLabel('Instructions', { exact: true }).fill('Keep the doorway and brickwork fixed while travelling around the acting area.');
-  await setup.locator('.reel-direction-options > summary').scrollIntoViewIfNeeded();
+  await setup.getByRole('heading', { name: 'Coverage and route', exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `artifacts/environment-from-image-${narrow ? 'narrow' : 'desktop'}.png` });
   const coverage = setup.locator('.environment-coverage');
   const caption = await coverage.locator('figcaption').boundingBox();
   const camera = await setup.locator('.reel-camera-settings').boundingBox();
   const preview = await coverage.boundingBox();
   const visualStyle = await setup.locator('.visual-style-editor').boundingBox();
+  const instructions = await setup.locator('.reel-instruction-fields').boundingBox();
+  const assistSetup = setup.getByRole('region', { name: 'AI assist', exact: true });
+  await expect(assistSetup.getByLabel('Camera preset')).toBeVisible();
+  await expect(assistSetup.getByLabel('Instructions', { exact: true })).toBeVisible();
+  await expect(assistSetup.getByLabel('Visual style', { exact: true })).toBeVisible();
+  await expect(assistSetup.getByRole('button', { name: 'Reel assistance', exact: true })).toBeVisible();
+  await expect(setup.locator('details.reel-direction-options')).toHaveCount(0);
+  await expect(assistSetup.getByText('Inherited style details', { exact: true })).toBeVisible();
+  const inheritedStyle = assistSetup.locator('.visual-style-inherited');
+  await expect(inheritedStyle).not.toHaveAttribute('open');
+  await inheritedStyle.locator('summary').click();
+  await expect(inheritedStyle).toContainText('Preserve the materials, architectural details and arrangement');
+  await inheritedStyle.locator('summary').click();
+  await expect(setup.getByRole('region', { name: 'Prompt and use guidance', exact: true }).getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeAttached();
   expect(caption.width).toBeGreaterThan(220);
-  expect(visualStyle.width).toBeGreaterThanOrEqual(preview.width - 1);
+  expect(Math.abs(visualStyle.width - instructions.width)).toBeLessThan(2);
   expect(visualStyle.y).toBeGreaterThan(preview.y + preview.height);
   if (!narrow) {
+    expect(Math.abs(visualStyle.y - instructions.y)).toBeLessThan(3);
     expect(preview.x).toBeGreaterThanOrEqual(camera.x + camera.width);
     expect(Math.abs(preview.y - camera.y)).toBeLessThan(32);
   }

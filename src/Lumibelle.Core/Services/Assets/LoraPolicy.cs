@@ -34,6 +34,8 @@ public static class LoraPolicy
     public static bool IsIdentityEdit(string file) => file.Replace('\\', '/').Split('/')[^1].StartsWith("krea2_identity_edit", StringComparison.OrdinalIgnoreCase);
     public static bool IsH3Turbo(string file) => Path.GetFileName(file.Replace('\\', '/')).StartsWith("minimax_h3_", StringComparison.OrdinalIgnoreCase) && file.Contains("turbo", StringComparison.OrdinalIgnoreCase);
     public static bool ReservedH3(string file, H3Settings settings) => IsH3Turbo(file) || file == settings.TurboLora || file == settings.Turbo8StepLora || file == settings.LarryLora || file == settings.PddCheckpoint || file == settings.HyperFlowLora ||
+        Path.GetFileName(file.Replace('\\', '/')).Contains("ptd", StringComparison.OrdinalIgnoreCase) ||
+        Path.GetFileName(file.Replace('\\', '/')).StartsWith("SMD-MiniMax-H3-", StringComparison.OrdinalIgnoreCase) ||
         Path.GetFileName(file.Replace('\\', '/')).Contains("hyperflow", StringComparison.OrdinalIgnoreCase) ||
         Path.GetFileName(file.Replace('\\', '/')).Contains("pdd", StringComparison.OrdinalIgnoreCase) ||
         Path.GetFileName(file.Replace('\\', '/')).Contains("Ref2VA-Acc", StringComparison.OrdinalIgnoreCase);

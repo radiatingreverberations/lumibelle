@@ -379,6 +379,15 @@ public sealed class AssetPickingTests
         Assert.Null(result.Error); Assert.Single(result.Read<AssetPickResult>()!.Selections);
     }
 
+    [Fact]
+    public void UnexpectedParserFailuresBecomeReviewableErrors()
+    {
+        var f = Fixture(); var request = Snapshot(Request(f)); var raw = Response([Pick("image", f.Image.Id)]);
+        var broken = request with { Task = JsonSerializer.SerializeToElement(new { projectId = "not a guid" }) };
+        var result = AiTextResults.Parse(broken, raw, "stop");
+        Assert.StartsWith("The response could not be checked (", result.Error); Assert.Null(result.Value); Assert.Equal(raw, result.Raw);
+    }
+
     private static string Json<T>(T value) => JsonSerializer.Serialize(value, AtomicJsonFile.Options);
     private static string Response(IReadOnlyList<AssetPickItem> selections) => Json(new { version = 1, selections, missing = Array.Empty<string>(), summary = "Suitable references" });
     private static AssetPickItem Pick(string kind, Guid id, string? mode = null, string? speaker = null) => new(AssetPickCatalog.Id(kind, id), mode, speaker, "", "Matches the described shot");

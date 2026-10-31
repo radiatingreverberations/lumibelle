@@ -64,6 +64,8 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
                 shot.AspectOverride = shot.Aspect == "16:9" ? null : shot.Aspect;
             doc.SchemaVersion = 2;
         }
+        foreach (var shot in doc.Shots.Concat(doc.Recovery.SelectMany(r => r.Shots)).Concat(doc.Trash.Where(t => t.Owner is not null).Select(t => t.Owner!)))
+            H3PresetMigrations.Apply(shot);
         Validate(doc, id); return doc.Copy();
     }
     public static void Validate(ShotDocument d, Guid id)
@@ -102,7 +104,11 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
                     (i % LosslessFrameArchive.SegmentFrames == 0 ? f.ArchiveFrameIndex != 0 : f.ArchiveFrameIndex < t.Frames[i - 1].ArchiveFrameIndex || f.ArchiveFrameIndex > t.Frames[i - 1].ArchiveFrameIndex + 1)).Any() ||
                 t.Width <= 0 || t.Height <= 0 || t.Fps != 24 || t.Snapshot.ProjectId != id)
                 throw new WorkspaceStoreException("Invalid take frame manifest.");
-            if (t.Refinement is { } refinement) RefinementPolicy.Validate(refinement, t.Snapshot);
+            if (t.KeptFrames is { } kept && (kept.Count is < 1 or > H3OutputPolicy.MaximumKeptFrames || t.HasLosslessFrames ||
+                kept.Any(f => f is null || f.Frame < 0 || f.Frame >= t.FrameCount || f.FileName != TakeKeptFrame.File(f.Frame) || f.Bytes <= 0) ||
+                kept.Select(f => f.Frame).Distinct().Count() != kept.Count))
+                throw new WorkspaceStoreException("Invalid kept take frames.");
+            if (t.Refinement is { } refinement) RefinementPolicy.Validate(refinement, t.Snapshot, historical: true);
             lumibelle.Services.Production.ShotDubbing.ValidateSnapshot(t.Snapshot);
             H3Loras.ValidateSnapshot(t.Snapshot);
             H3Presets.Validate(t.Snapshot);
@@ -135,7 +141,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         => SaveCore(projectId, shots, null, expectedRevision, "Edit image references", ct, assetRevision);
     private async Task<ShotDocument> SaveCore(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup>? setups, long expectedRevision, string reason, CancellationToken ct, long? assetRevision = null, IReadOnlyList<DirectionStrategy>? strategies = null)
     {
-        var captured = ShotCopy.Of(shots.ToList()); foreach (var s in captured) H3Policy.Validate(s);
+        var captured = ShotCopy.Of(shots.ToList()); foreach (var s in captured) { H3PresetMigrations.Apply(s); H3Policy.Validate(s); }
         var capturedSetups = setups is null ? null : ShotCopy.Of(setups.ToList());
         var capturedStrategies = strategies is null ? null : ShotCopy.Of(strategies.ToList());
         if (capturedStrategies is not null) ShotDirections.ValidateStrategies(capturedStrategies);

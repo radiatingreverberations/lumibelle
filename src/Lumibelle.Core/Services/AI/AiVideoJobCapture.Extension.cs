@@ -10,6 +10,7 @@ public sealed partial class AiVideoJobCapture
     public async Task<AiJobSubmission> CaptureExtensionVersionAsync(Guid id, Guid tab, Guid projectId, Guid takeId, CancellationToken ct = default)
     {
         var request = await shots.CaptureExtensionVersionAsync(projectId, takeId, id, ct);
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         await AiVideoJobPolicy.ValidatePreparedFilesAsync(request, await shots.RunDirectoryAsync(projectId, id, ct), ct);
         var project = await projects.GetAsync(projectId, ct) ?? throw new WorkspaceStoreException("The project is unavailable.");
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request), project.Name, request.Snapshot.Shot.Title + " · Another extension version", tab, request)
@@ -33,7 +34,7 @@ public sealed partial class AiVideoJobCapture
         var inputs = source.Copy();
         target.Images = inputs.Images; target.Videos = inputs.Videos; target.Voices = inputs.Voices;
         target.CharacterVoices = inputs.CharacterVoices; target.Characters = ShotReferences.Characters(inputs).ToList();
-        target.ContinuityFrame = inputs.ContinuityFrame;
+        target.ShotFrames = inputs.ShotFrames;
     }
     internal static void ValidateExtensionReferences(Shot shot, TakeExtensionReferences references, AssetLibrary library, ShotDocument document)
     {
@@ -74,6 +75,8 @@ public sealed partial class AiVideoJobCapture
             shot.Id = continuation.Id; shot.Title = continuation.Title;
         }
         var origin = contextTake.Source.Snapshot;
+        // Extension forces Standard sampling, which an accelerated checkpoint baked into the source cannot run.
+        if (H3AcceleratedCheckpoints.Baked(origin)) throw new WorkspaceStoreException(H3AcceleratedCheckpoints.ExtensionIssue);
         if (options.References is { } references)
             ValidateExtensionReferences(shot, references, await assets.LoadAsync(projectId, ct), document);
         var guidance = options.References?.Guidance ?? origin.ReferenceGuidance!;
@@ -84,7 +87,7 @@ public sealed partial class AiVideoJobCapture
             SourceRevision = document.Revision, Width = take.Width, Height = take.Height, FrameCount = motion.GenerationFrames, Motion = motion,
             Sampling = H3Policy.Sampling(shot, origin.Settings), Preset = H3Presets.Capture(shot, origin.Settings), OutputPolicy = new(options.SaveLosslessFrames),
             CaptureRefinementData = true, PreviewUpscale = null, RegenerationSource = null, Dub = null,
-            ReferenceGuidance = ShotCopy.Of(guidance), Appearances = ShotCopy.Of(appearances) };
+            ReferenceGuidance = ShotCopy.Of(guidance), Appearances = ShotCopy.Of(appearances), MotionReference = null };
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
         IReadOnlyList<AiVideoInput> inputs;
         var inputFolder = Path.Combine(directory, "inputs");
@@ -115,6 +118,7 @@ public sealed partial class AiVideoJobCapture
             document = await shots.SaveAsync(projectId, document.Shots, document.Revision, "Add continuation shot", ct);
             request = request with { Snapshot = request.Snapshot with { SourceRevision = document.Revision } };
         }
+        request = await H3GenerationRecipes.StampAsync(request, generator, ct);
         return AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, AiVideoJobHandler.Target(request), project.Name,
             shot.Title + (leading ? " · Lead into" : " · Extend"), tab, request) with { Batch = AiBatchDefinition.Create(id, 1, null) };
         } catch {

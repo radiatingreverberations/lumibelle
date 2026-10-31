@@ -194,7 +194,7 @@ public sealed partial class ShotTests
     }
 
     [Theory]
-    [InlineData(20, 2)] [InlineData(20, 4)] [InlineData(4, 3)] [InlineData(8, 4)]
+    [InlineData(20, 2)] [InlineData(20, 4)] [InlineData(4, 3)] [InlineData(4, 4)]
     public async Task ComfyMultiTakeVideoSharesConditioningAndRoutesOutputsByCandidate(int steps, int count)
     {
         using var f = await QueuedVideoFixture.Create(this, steps);

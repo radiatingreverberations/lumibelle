@@ -1,10 +1,9 @@
-using System.Text.Json;
 using lumibelle.Models;
 
 namespace lumibelle.Services.Shots;
 
-// Experimental drbaph ComfyUI conversions, NOT the upstream two-time loader.
-// Keep this v1 recipe frozen: saved requests retain the exact sampler-domain grid.
+// Historical metadata for archived drbaph conversions. This is not an executable preset.
+// Keep the descriptor frozen so saved takes retain their exact sampler-domain grid.
 public static class H3HyperFlow
 {
     public const string Key = "hyperflow";
@@ -47,23 +46,4 @@ public static class H3HyperFlow
         ["shift_video"] = VideoShift, ["shift_audio"] = AudioShift,
         ["sigma_domain"] = "video-shifted", ["raw_sigmas"] = RawSigmas, ["sigmas"] = VideoSigmas
     };
-    internal static H3PresetSetup Inspect(JsonElement root, H3Settings settings, string? baseIssue)
-    {
-        var installed = ComfyH3Video.Options(root, "LoraLoaderModelOnly", "lora_name");
-        var files = installed.Where(f => FileIssue(f) is null).ToArray();
-        var selected = Checkpoint(settings);
-        var issue = baseIssue ?? FileIssue(selected);
-        if (!installed.Contains(selected, StringComparer.Ordinal))
-            issue ??= "Select the exact installed ComfyUI-converted HyperFlow LoRA in Video models, then refresh.";
-        issue ??= H3Presets.ContractIssue(root, "LoraLoaderModelOnly", new()
-        { ["model"] = new object[] { "1", 0 }, ["lora_name"] = selected, ["strength_model"] = 1.0 }, ["MODEL"]);
-        issue ??= H3Presets.ContractIssue(root, "MiniMaxH3SigmaShift", new()
-        { ["model"] = new object[] { "16", 0 }, ["shift_video"] = VideoShift, ["shift_audio"] = AudioShift }, ["MODEL"]);
-        issue ??= H3Presets.ContractIssue(root, "ManualSigmas", new() { ["sigmas"] = VideoSigmas }, ["SIGMAS"]);
-        issue ??= H3Presets.ContractIssue(root, "KSamplerSelect", new() { ["sampler_name"] = "euler" }, ["SAMPLER"]);
-        if (!ComfyH3Video.Options(root, "KSamplerSelect", "sampler_name").Contains("euler"))
-            issue ??= "HyperFlow requires the Euler sampler. Update ComfyUI and refresh Video models.";
-        // No Normal/Simple/Beta fallback: a different grid would change the captured recipe.
-        return new(Key, issue, files);
-    }
 }

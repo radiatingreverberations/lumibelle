@@ -1,0 +1,286 @@
+@using lumibelle.Services.Production
+@using lumibelle.Services.Shots
+@using lumibelle.Services.AI
+@inject AiVideoJobCapture Requests
+@inject AiReelCapture ReelRequests
+@inject IAssetStore AssetStore
+@inject IAiSettingsStore Settings
+@inject RefinementBatchWorkflow Batches
+@inject IAiReviewGate Reviews
+@implements IAsyncDisposable
+
+<InlineDialog Visible="@(Sources.Count > 0 || Revise is not null)" VisibleChanged="async v => { if (!v) await Close(); }"
+    Options="DialogOptions" Class="refine-dialog" Title="Refine from video" CloseDisabled="_queueing">
+<DialogContent>
+    <DialogEscape Pressed="Close" />
+    <p class="refine-intro">Each clip guides a fresh Standard generation: its action, timing and camera movement carry over, with new audio from the prompt and enabled voices. Source clips stay selected.</p>
+    <section class="refine-shared" aria-label="Shared settings">
+        <div class="refine-shared-heading"><h3>@(_rows.Count == 1 ? "Settings" : "Shared settings")</h3><span>Ordinary H3 model · Standard sampling · one result · random seed</span></div>
+        <div class="refine-shared-grid">
+            <label class="refine-field">Output resolution<select aria-label="Shared output resolution" @bind="_resolution" disabled="@_queueing">
+                <option value="default">@DefaultLabel</option>
+                @foreach (var resolution in VideoResolutions.Choices) { <option value="@VideoResolutions.Key(resolution)">@VideoResolutions.Label(resolution)</option> }
+            </select></label>
+            <div class="refine-storage"><label class="check-row"><input type="checkbox" aria-label="Save lossless frames" @bind="_saveFrames" disabled="@_queueing" />Save lossless frames</label>
+                <label class="check-row"><input type="checkbox" aria-label="Save latents" @bind="_saveLatents" disabled="@_queueing" />Save latents</label></div>
+        </div>
+        <label class="refine-field">Motion-reference instructions<textarea aria-label="Motion-reference instructions" rows="3" @bind="_instructions" @bind:event="oninput" disabled="@_queueing"></textarea></label>
+        @if (RefinedFrameLinks.Any()) {
+            <label class="check-row refine-linked"><input type="checkbox" aria-label="Use refined frames from earlier clips" @bind="_useRefinedFrames" disabled="@_queueing" />Use refined frames from earlier clips · @Plural(RefinedFrameLinks.Select(l => l.Row).Distinct().Count(), "clip") reference@(RefinedFrameLinks.Select(l => l.Row).Distinct().Count() == 1 ? "s" : "") another clip here and wait for its final</label>
+        }
+        <p class="refine-models" role="status">@ModelStatus @if (_checkError is not null) { <button class="refine-link" @onclick="() => CheckModels(true)">Check again</button> }</p>
+    </section>
+    @if (_loaded < _rows.Count) { <p class="refine-loading" role="status">Preparing sources · @_loaded of @_rows.Count</p> }
+    <ul class="refine-rows" aria-label="Clips to refine">
+        @foreach (var row in _rows) {
+            var issue = Issue(row); var size = OutputSize(row);
+            <li class="refine-row @(issue is not null && row.Included ? "needs-adjustment" : null)" @key="row.Source.Id">
+                <div class="refine-row-summary">
+                    @if (_rows.Count > 1) { <input type="checkbox" aria-label="Include @row.Source.Name" checked="@row.Included" disabled="@_queueing" @onchange="e => row.Included = e.Value is true" /> }
+                    <img src="@row.Source.Thumbnail" alt="" loading="lazy" />
+                    <div class="refine-row-text">
+                        <strong>@row.Source.Name</strong>
+                        <span class="refine-facts">@row.Source.Seconds.ToString("0.###") s · @(row.Draft?.Source.Media.Width ?? row.Source.Width) × @(row.Draft?.Source.Media.Height ?? row.Source.Height) → @(size is { } s ? $"{s.Label} · {s.Width} × {s.Height}" : "—")</span>
+                        @if (row.LoadError is not null) { <span class="refine-issue" role="alert">@row.LoadError</span> }
+                        else if (row.Draft is null) { <span class="refine-pending">Preparing source…</span> }
+                        else if (issue is not null && row.Included) { <span class="refine-issue" role="alert">Adjust: @issue</span> }
+                        else if (Overridden(row)) { <span class="refine-override">Custom settings</span> }
+                        @if (_useRefinedFrames && RefinedFrameLinks.Where(l => l.Row == row).Select(l => l.Source).Distinct().ToArray() is { Length: > 0 } sources) {
+                            <span class="refine-linked-hint">Uses the refined @(string.Join(", ", sources.Select(s => s.Source.Name))) once rendered</span>
+                        }
+                        @if (PickedKeyframes(row) is > 0 and var picked && row.KeepKeyframes) {
+                            <span class="refine-linked-hint">@(SaveFrames(row) ? $"Carries over {picked} picked keyframes" : $"Keeps {picked} picked keyframes losslessly · no full frame archive")</span>
+                        }
+                    </div>
+                    <button class="refine-expand" aria-expanded="@(row.Expanded ? "true" : "false")" aria-label="@(row.Expanded ? "Hide" : "Edit") @row.Source.Name" disabled="@(row.Draft is null)" @onclick="() => row.Expanded = !row.Expanded">@(row.Expanded ? "Hide" : "Edit")</button>
+                </div>
+                @if (row.Expanded && row.Draft is { } draft) {
+                    <div class="refine-row-editor">
+                        <aside class="refine-source" aria-label="Source clip">
+                            <video controls muted preload="metadata" src="@ReferenceVideos.Url(ProjectId, draft.Source.Media.Id)" aria-label="Motion reference clip for @row.Source.Name"></video>
+                            <span class="refine-video-only">Video only · soundtrack excluded</span>
+                            <p class="field-hint">@References(draft)</p>
+                            <MudButton OnClick="() => OpenReferences(row)" Disabled="_queueing" Variant="Variant.Outlined" Size="Size.Small">Manage references</MudButton>
+                            @if (row.Source.Edited) { <p class="field-hint">Check timing and dialogue against this visible clip.</p> }
+                            @if (ReferenceVideos.EffectiveFrames(draft.Source.Media, draft.Shot) < draft.Source.VisibleFrames) {
+                                <p class="field-hint">H3 uses the first @ReferenceVideos.EffectiveSeconds(draft.Source.Media, draft.Shot).ToString("0.###") s on its reference frame grid.</p>
+                            }
+                        </aside>
+                        <div class="refine-edit-fields">
+                            @if (draft.Reel is not null) { <label class="refine-field">Reel name<input aria-label="Reel name" @bind="draft.Shot.Title" disabled="@_queueing" /></label> }
+                            <label class="refine-field">Output resolution<select aria-label="Output resolution for @row.Source.Name" value="@(row.Resolution ?? "shared")" disabled="@_queueing" @onchange="e => SetResolution(row, e.Value as string)">
+                                <option value="shared">Shared setting</option>
+                                @foreach (var resolution in MotionReferencePolicy.Resolutions(draft.Shot.Aspect, draft.Source.Media.Width, draft.Source.Media.Height)) { <option value="@VideoResolutions.Key(resolution)">@VideoResolutions.Option(draft.Shot.Aspect, resolution)</option> }
+                            </select></label>
+                            <div class="refine-storage"><label class="check-row"><input type="checkbox" aria-label="Save lossless frames for @row.Source.Name" checked="@SaveFrames(row)" disabled="@_queueing" @onchange="e => row.SaveFrames = e.Value is true" />Save lossless frames</label>
+                                <label class="check-row"><input type="checkbox" aria-label="Save latents for @row.Source.Name" checked="@(row.SaveLatents ?? _saveLatents)" disabled="@_queueing" @onchange="e => row.SaveLatents = e.Value is true" />Save latents</label></div>
+                            @if (PickedKeyframes(row) is > 0 and var keyframes) {
+                                <label class="check-row"><input type="checkbox" aria-label="Keep picked keyframes for @row.Source.Name" checked="@row.KeepKeyframes" disabled="@_queueing" @onchange="e => row.KeepKeyframes = e.Value is true" />Keep the @keyframes picked keyframes on the new reel</label>
+                            }
+                            <label class="check-row"><input type="checkbox" aria-label="Use shared instructions for @row.Source.Name" checked="@(row.Instructions is null)" disabled="@_queueing" @onchange="e => row.Instructions = e.Value is true ? null : _instructions" />Use shared instructions</label>
+                            @if (row.Instructions is not null) { <label class="refine-field">Instructions for this clip<textarea aria-label="Instructions for @row.Source.Name" rows="3" @bind="row.Instructions" @bind:event="oninput" disabled="@_queueing"></textarea></label> }
+                            <details class="refine-details"><summary>Generation prompt</summary>
+                                <label class="refine-field">Base prompt<textarea aria-label="Base prompt for @row.Source.Name" rows="8" @bind="row.BasePrompt" @bind:event="oninput" disabled="@_queueing"></textarea></label>
+                            </details>
+                            @if (draft.Reel is { } reel) {
+                                <details class="refine-details"><summary>Reel use guidance</summary><label class="refine-field">Use guidance<textarea aria-label="Use guidance" rows="3" @bind="reel.Recipe.UseGuidance" @bind:event="oninput" disabled="@_queueing"></textarea></label></details>
+                            }
+                            <details class="refine-details"><summary>Submitted prompt preview</summary><pre class="refine-preview" tabindex="0">@Preview(row)</pre></details>
+                            @if (Overridden(row)) { <button class="refine-link" disabled="@_queueing" @onclick="() => ResetRow(row)">Use shared settings</button> }
+                        </div>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+    @if (_error is not null) { <p role="alert">@_error</p> }
+</DialogContent>
+<DialogActions>
+    <div class="refine-footer">
+        <fieldset class="refine-start" disabled="@_queueing"><legend>When prepared</legend>
+            <label class="check-row"><input type="radio" name="refine-start" checked="@_startNow" @onchange="() => _startNow = true" />Start now</label>
+            <label class="check-row"><input type="radio" name="refine-start" checked="@(!_startNow)" @onchange="() => _startNow = false" />Hold until started</label>
+        </fieldset>
+        <div class="refine-actions"><span>Media preparation continues after you close this dialog.</span>
+            <MudButton OnClick="Close" Disabled="_queueing">Cancel</MudButton>
+            <MudButton OnClick="Queue" Disabled="@(!CanQueue)" Variant="Variant.Filled" Color="Color.Primary">@QueueLabel</MudButton>
+        </div>
+    </div>
+</DialogActions>
+</InlineDialog>
+<InlineDialog Visible="_referenceRow is not null" VisibleChanged="v => { if (!v) _referenceRow = null; }" Options="ReferenceDialogOptions" Title="Manage references" Context="This generation only">
+<DialogContent>
+    @if (_referenceRow?.Draft is { } referenceDraft && _library is not null) {
+        <ShotReferenceEditor @key="referenceDraft" Shot="referenceDraft.Shot" Library="_library" AllowReels="true" AllowOtherShotSwaps="false" VideoOnlyReferenceId="referenceDraft.Source.BindingId"
+            ReferencesApplied="ApplyReferences" ImageSaved="s => _library = s.Library" Cancelled="() => _referenceRow = null" />
+    }
+</DialogContent>
+</InlineDialog>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public IReadOnlyList<RefineSource> Sources { get; set; } = [];
+    // A new request from a queued item's frozen settings; the source clip is not needed.
+    [Parameter] public RefinementBatchItem? Revise { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    [Parameter] public EventCallback<RefinementBatch> Queued { get; set; }
+    private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
+    private static readonly DialogOptions ReferenceDialogOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false };
+    private sealed class Row(RefineSource source)
+    {
+        public RefineSource Source { get; } = source;
+        public MotionReferenceDraft? Draft { get; set; }
+        public string? LoadError { get; set; }
+        public string BasePrompt { get; set; } = "";
+        public string? Resolution { get; set; }
+        public string? Instructions { get; set; }
+        public bool? SaveFrames { get; set; }
+        public bool? SaveLatents { get; set; }
+        public bool Included { get; set; } = true;
+        public bool Expanded { get; set; }
+        public bool KeepKeyframes { get; set; } = true;
+    }
+    private CancellationTokenSource _life = new();
+    private List<Row> _rows = [];
+    private object? _opened;
+    private int _loaded;
+    private bool _queueing, _startNow = true, _saveFrames, _saveLatents, _disposed, _useRefinedFrames = true;
+    // Keyframes picked on a source reel are kept losslessly instead of the full archive, unless chosen otherwise.
+    private static int PickedKeyframes(Row row) => row.Draft?.Source.SourceKeyframes?.Count ?? 0;
+    // A reel holds at most nine keyframes, within the kept-frame limit, so they never need the full archive.
+    private bool SaveFrames(Row row) => row.SaveFrames ?? (PickedKeyframes(row) > 0 && row.KeepKeyframes ? false : _saveFrames);
+    // Rows whose shot frames or start frame come from another included row's take.
+    private IEnumerable<(Row Row, Row Source)> RefinedFrameLinks => Included.Where(r => r.Draft is not null && r.Source.Kind == RefinementSourceKind.Take)
+        .SelectMany(r => r.Draft!.Shot.ShotFrames.Select(f => f.TakeId).Append(r.Draft.Shot.StartFrame?.TakeId ?? Guid.Empty)
+            .Select(take => Included.FirstOrDefault(s => s != r && s.Source.Kind == RefinementSourceKind.Take && s.Source.Id == take)).OfType<Row>().Select(s => (r, s)));
+    private static string Plural(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";
+    private string _resolution = "default", _instructions = MotionReferencePolicy.DefaultInstructions;
+    private string? _error, _checkError;
+    private Guid? _batchId;
+    private H3Configuration? _check;
+    private AssetLibrary? _library;
+    private Row? _referenceRow;
+    private bool Reels => _rows.Count > 0 && _rows[0].Source.Kind == RefinementSourceKind.Reel;
+    private string DefaultLabel => Reels ? "Detail (about 0.7 MP) or the first larger size" : "Native or the first larger size";
+    private IEnumerable<Row> Included => _rows.Where(r => r.Included);
+    private bool CanQueue => !_queueing && _loaded == _rows.Count && Included.Any() && Included.All(r => r.Draft is not null && Issue(r) is null) &&
+        (_check is null || _checkError is not null || Included.All(r => _check.Ready(r.Draft!.Shot)));
+    private string QueueLabel => Included.Count() is var n && n == 1 ? "Queue refinement" : $"Queue {n} refinements";
+    private string ModelStatus => _checkError is not null ? $"Model check unavailable: {_checkError}"
+        : _check is null ? "Checking ComfyUI models…"
+        : Included.FirstOrDefault(r => r.Draft is not null && !_check.Ready(r.Draft.Shot)) is { } blocked ? _check.Issue(blocked.Draft!.Shot)
+        : "Standard H3 model ready.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        object? opened = Revise is not null ? Revise : Sources.Count > 0 ? Sources : null;
+        if (ReferenceEquals(opened, _opened)) return;
+        _opened = opened;
+        await _life.CancelAsync(); _life.Dispose(); _life = new();
+        _rows = []; _loaded = 0; _error = null; _batchId = null; _referenceRow = null; _startNow = true; _resolution = "default"; _useRefinedFrames = true;
+        if (opened is null) return;
+        var token = _life.Token;
+        _ = CheckModels(false);
+        if (Revise is { } item) {
+            var o = item.Options;
+            var row = new Row(new(item.Kind, item.SourceId, item.Name, ReferenceVideos.ThumbnailUrl(ProjectId, o.Draft.Source.Media.Id), o.Draft.Source.VisibleFrames / o.Draft.Source.Fps,
+                o.Draft.Source.Media.Width, o.Draft.Source.Media.Height)) { Draft = ShotCopy.Of(o.Draft), BasePrompt = o.BasePrompt, Expanded = true, KeepKeyframes = o.KeepKeyframes, SaveFrames = o.SaveLosslessFrames };
+            _rows = [row]; _loaded = 1;
+            _resolution = VideoResolutions.Key(o.Resolution); _instructions = o.Instructions; _saveFrames = o.SaveLosslessFrames; _saveLatents = o.SaveLatents;
+            return;
+        }
+        _rows = Sources.Select(s => new Row(s) { Expanded = Sources.Count == 1 }).ToList();
+        _instructions = MotionReferencePolicy.DefaultInstructions; _saveLatents = false; _saveFrames = Reels;
+        // Sources are prepared one at a time so the dialog stays responsive; each copy is independent of its source.
+        foreach (var row in _rows) {
+            try {
+                row.Draft = row.Source.Kind == RefinementSourceKind.Reel ? await ReelRequests.PrepareMotionReferenceAsync(ProjectId, row.Source.Id, token)
+                    : await Requests.PrepareMotionReferenceAsync(ProjectId, row.Source.Id, token);
+                row.BasePrompt = row.Draft.Source.BasePrompt;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
+            catch (Exception e) { row.LoadError = e.Message; row.Included = false; }
+            if (token.IsCancellationRequested) return;
+            _loaded++; StateHasChanged();
+        }
+    }
+
+    private async Task CheckModels(bool refresh)
+    {
+        var token = _life.Token; _checkError = null; if (refresh) _check = null;
+        try {
+            var check = await Batches.CheckModelsAsync(await Settings.LoadAsync(token), refresh, token);
+            if (!token.IsCancellationRequested) _check = check;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
+        catch (Exception e) { _checkError = e.Message; }
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+
+    private VideoResolution? Resolution(Row row)
+    {
+        if (row.Draft is not { } draft) return null;
+        var key = row.Resolution ?? _resolution;
+        if (key != "default") return VideoResolutions.TryParse(key, out var chosen) ? chosen : null;
+        var choices = MotionReferencePolicy.Resolutions(draft.Shot.Aspect, draft.Source.Media.Width, draft.Source.Media.Height);
+        return choices.Count == 0 ? null : MotionReferencePolicy.DefaultResolution(draft.Shot.Aspect, draft.Source.Media.Width, draft.Source.Media.Height, draft.Reel is not null);
+    }
+    private (string Label, int Width, int Height)? OutputSize(Row row) => row.Draft is { } draft && Resolution(row) is { } r && VideoResolutions.Size(draft.Shot.Aspect, r) is var size
+        ? (VideoResolutions.Label(r), size.Width, size.Height) : null;
+    private MotionReferenceOptions? Options(Row row) => row.Draft is { } draft && Resolution(row) is { } resolution
+        ? new(draft, row.BasePrompt, row.Instructions ?? _instructions, resolution, SaveLatents: row.SaveLatents ?? _saveLatents, SaveLosslessFrames: SaveFrames(row),
+            KeepKeyframes: PickedKeyframes(row) > 0 && row.KeepKeyframes) : null;
+    private string? Issue(Row row) => row.LoadError ?? (row.Draft is null ? null : Options(row) is { } options ? MotionReferencePolicy.Issue(options)
+        : "The source clip is larger than the available output presets.");
+    private static void SetResolution(Row row, string? key) => row.Resolution = key is null or "shared" ? null : key;
+    private static bool Overridden(Row row) => row.Resolution is not null || row.Instructions is not null || row.SaveFrames is not null || row.SaveLatents is not null ||
+        PickedKeyframes(row) > 0 && !row.KeepKeyframes;
+    private static void ResetRow(Row row) { row.Resolution = null; row.Instructions = null; row.SaveFrames = null; row.SaveLatents = null; row.KeepKeyframes = true; }
+    private static string References(MotionReferenceDraft draft) =>
+        $"{ResolvedReferences.For(draft.Shot).Pictures.Count} pictures · {ReferenceVideos.ReelSlotCount(draft.Shot)} videos · {ResolvedReferences.For(draft.Shot).Audio.Count} audio inputs";
+    private string Preview(Row row)
+    {
+        try { return row.Draft is { } draft ? MotionReferencePolicy.Render(row.BasePrompt, row.Instructions ?? _instructions, MotionReferencePolicy.GuideNumber(draft), draft.Reel?.Recipe.CapturedVisualStyle) : ""; }
+        catch (Exception e) when (e is lumibelle.Services.Story.WorkspaceStoreException or InvalidOperationException) { return "Resolve the prompt or reference issue to preview the submitted text."; }
+    }
+
+    private async Task OpenReferences(Row row)
+    {
+        if (_queueing || row.Draft is null) return;
+        try {
+            if (row.Draft.Shot.Videos.SingleOrDefault(v => v.Id == row.Draft.Source.BindingId) is { } guide) guide.Description = row.Instructions ?? _instructions;
+            _library = await AssetStore.LoadAsync(ProjectId, _life.Token); _referenceRow = row;
+        }
+        catch (Exception e) { _error = e.Message; }
+    }
+    private void ApplyReferences(ReferenceSelection selection)
+    {
+        if (_referenceRow is not { Draft: { } draft } row || _library is null) return;
+        var shot = selection.Inputs.Copy();
+        // A motion guide never becomes a voice source, even if the generic editor changed it.
+        if (shot.Videos.SingleOrDefault(v => v.Id == draft.Source.BindingId) is { } guide) {
+            guide.UseSoundtrack = false; guide.Speaker = null; guide.Visuals = ReelVisuals.FullReel;
+            if (guide.Description != (row.Instructions ?? _instructions)) row.Instructions = guide.Description;
+        }
+        row.Draft = draft with { Shot = shot, Guidance = ShotReferences.Resolve(shot, _library, new()), Appearances = ShotLooks.Capture(shot, _library) };
+        _referenceRow = null;
+    }
+
+    private Task Close() => _queueing ? Task.CompletedTask : Closed.InvokeAsync();
+    private async Task Queue()
+    {
+        if (!CanQueue) return;
+        _queueing = true; _error = null;
+        try {
+            // The ID is fixed before the first attempt, so repeated clicks confirm one batch.
+            _batchId ??= Guid.NewGuid();
+            var entries = Included.Select(r => new RefinementBatchEntry(r.Source.Kind, r.Source.Id, r.Draft!.Reel is not null ? r.Draft.Shot.Title : r.Source.Name, Options(r)!)).ToArray();
+            var batch = await Batches.CreateAsync(ProjectId, await Reviews.TabIdAsync(), new(_batchId.Value, "", _startNow, entries, _useRefinedFrames && RefinedFrameLinks.Any()), _life.Token);
+            await Queued.InvokeAsync(batch); await Closed.InvokeAsync();
+        }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+        catch (Exception e) { _error = e.Message; }
+        finally { _queueing = false; }
+    }
+    public async ValueTask DisposeAsync() { _disposed = true; await _life.CancelAsync(); _life.Dispose(); }
+}

@@ -1,0 +1,12 @@
+/* A compact progress view: a bounded box that scrolls on its own, so the dialog keeps its height. */
+.arriving-response { margin: .6rem 0; min-width: 0; max-height: 13rem; overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-surface); background: var(--lumi-surface-subtle); padding: 0 .9rem .7rem; }
+.arriving-response:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
+/* The heading stays visible while the cards scroll beneath it. */
+.arriving-response ::deep .streaming-preview-heading { position: sticky; top: 0; z-index: 1; background: var(--lumi-surface-subtle); padding: .6rem 0 .4rem; }
+.arriving-response ::deep .streaming-response-preview { gap: .5rem; margin-block: 0; }
+.arriving-response ::deep .streaming-preview-card { font-size: var(--lumi-font-size-small); padding: .55rem .75rem; }
+.arriving-response ::deep .streaming-preview-footnote { display: none; }
+.arriving-response-text h3 { position: sticky; top: 0; margin: 0; padding: .6rem 0 .4rem; font-size: 1rem; background: var(--lumi-surface-subtle); }
+.arriving-response-text p { margin: 0; color: var(--muted); }
+.arriving-response-text pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--lumi-font-size-small); line-height: 1.6; }

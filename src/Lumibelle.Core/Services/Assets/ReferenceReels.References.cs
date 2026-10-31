@@ -23,7 +23,7 @@ public static partial class ReferenceReels
         "Do not copy source actions, camera movement, cuts, timing or dialogue. Audio is selected separately."));
 
     public static List<ChatMessage> Messages(ReelCompositionRequest request, IReadOnlyList<byte[]> images,
-        IReadOnlyList<RefModInspectionFrame>? modFrames = null)
+        IReadOnlyList<RefModInspectionFrame>? modFrames = null, bool structured = false)
     {
         modFrames ??= [];
         var videos = ResolvedReferences.For(Inputs(request.Draft)).Videos;
@@ -46,6 +46,7 @@ public static partial class ReferenceReels
                 messages[0].Contents.Add(new TextContent(ReelRefMods.UseGuidance));
         }
         foreach (var frame in modFrames) messages[1].Contents.Add(new DataContent(frame.Png, "image/png"));
+        if (structured) UseSectionedOutput(messages, request.Draft);
         return messages;
     }
 

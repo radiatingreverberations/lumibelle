@@ -219,7 +219,7 @@ public sealed partial class ShotTests
     }
 
     [Fact]
-    public async Task ShotBatchCapturesAppearanceAcrossEditsAndOneMoreAndRejectsChangedMembership()
+    public async Task ShotBatchCapturesAppearanceAcrossEditsAndOneMoreAndOwnsArchivedMembership()
     {
         using var f = await QueuedVideoFixture.Create(this); var asset = LookFixtures.Character();
         var library = await f.Assets.SaveAsync(new() { ProjectId = f.Project.Id, Assets = [asset] }, 0, _ct);
@@ -239,7 +239,7 @@ public sealed partial class ShotTests
         doc = await f.Shots.LoadAsync(f.Project.Id, _ct); Assert.Equal(2, doc.Takes.Count);
         Assert.All(doc.Takes, t => { Assert.Equal("Reviewed hoodie", t.Snapshot.Appearances[0].Start.Description); Assert.DoesNotContain("Later hoodie", t.Snapshot.Prompt); });
         library = await f.Assets.SaveAsync(library with { Assets = [asset with { Looks = [asset.Looks[0] with { Archived = true }, asset.Looks[1]] }] }, library.Revision, _ct);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Worker.ValidateExtensionAsync(root, request.Snapshot, _ct));
+        await f.Worker.ValidateExtensionAsync(root, request.Snapshot, _ct);
     }
 }
 

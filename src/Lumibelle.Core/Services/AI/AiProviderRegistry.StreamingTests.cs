@@ -18,7 +18,7 @@ public sealed partial class AiProviderRegistry
     private async Task<AiModelTestJobResult> RunStreamingTestAsync(AiJobContext context, AiModelTestJobRequest request, CancellationToken ct)
     {
         var vllm = request.Model.Backend == AiBackend.Vllm;
-        var backend = vllm ? "vLLM" : "OpenRouter";
+        var backend = vllm ? TextModelPolicy.ProviderName(AiBackend.Vllm) : "OpenRouter";
         using var inactivity = new TextInactivityWatchdog(request.Settings.TimeoutSeconds, ct, context.Clock);
         ct = inactivity.Token;
         const string operation = "model-test";

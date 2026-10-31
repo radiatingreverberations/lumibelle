@@ -43,7 +43,7 @@ public static class AiTextRepairContracts
         object contract = request.Kind switch
         {
             AiJobKind.PromptComposition => ShotContract(request.Payload<PromptCompositionRequest>()),
-            AiJobKind.ReelComposition => ReelContract(request.Payload<ReelCompositionRequest>()),
+            AiJobKind.ReelComposition => ReelContract(request.Payload<ReelCompositionRequest>(), request.ResponseSchema),
             AiJobKind.PromptEnhancement => Enhancement(request.Payload<PromptEnhancementRequest>()),
             AiJobKind.Guidance => new {
                 outputSchema = Suggestion(12_000),
@@ -61,9 +61,11 @@ public static class AiTextRepairContracts
         rules = H3Rules + "\nThis is one continuous take, labelled [Shot 1]. State 'one continuous take' explicitly. Do not add internal cuts or other [Shot N] labels. Preserve the existing opening composition and continuity choices.",
         facts = Facts(request.Shot, false)
     };
-    private static object ReelContract(ReelCompositionRequest request) => new {
-        outputSchema = Pair("useGuidance", 20_000),
-        rules = H3Rules + "\nCuts are allowed. Number views consecutively from [Shot 1] inside detailed_description. Use guidance describes intended later reference use, not verified generated output, and must stay independent of Picture/Video numbering.",
+    private static object ReelContract(ReelCompositionRequest request, JsonElement? schema) => new {
+        outputSchema = schema is { } captured ? (object)captured : Pair("useGuidance", 20_000),
+        rules = schema is not null
+            ? "Return sections and useGuidance. Complete all six section fields. detailed_description is an array of camera-shot prose strings; one entry means one continuous take, and separate entries mean cuts. Preserve intended coverage, timing, delivery and exact reference labels. Do not include section headings, [Shot N] labels or spoken dialogue: Lumibelle renders those and inserts the captured dialogue and generated duration. Use guidance describes intended later reference use, not verified output, and stays independent of reference numbering."
+            : H3Rules + "\nCuts are allowed. Number views consecutively from [Shot 1] inside detailed_description. Use guidance describes intended later reference use, not verified generated output, and must stay independent of Picture/Video numbering.",
         facts = new {
             shot = Facts(ReferenceReels.Inputs(request.Draft), true),
             voiceMode = request.Draft.VoiceMode.ToString(),

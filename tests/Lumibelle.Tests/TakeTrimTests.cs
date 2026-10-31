@@ -38,6 +38,31 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task TrimmingATakeWithKeptFramesLeavesThemWithTheUntrimmedTake()
+    {
+        var f = Fixture(); var store = new FileShotStore(f.Files, _clock, mediaTools: new TrimTestMedia());
+        var shot = Ready(); await store.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var template = Assert.Single((await AddTake(f.Project.Id, store, shot)).Takes);
+        // A refined final without the full archive keeps only the frames later clips use.
+        var runId = Guid.NewGuid(); var dir = Path.Combine(await store.RunDirectoryAsync(f.Project.Id, runId, _ct), "candidate-1"); Directory.CreateDirectory(dir);
+        await File.WriteAllBytesAsync(Path.Combine(dir, "video.mp4"), [1, 2, 3], _ct);
+        var last = template.FrameCount - 1;
+        using (var png = new Image<Rgb24>(template.Width, template.Height, new Rgb24(200, 40, 1))) await png.SaveAsPngAsync(Path.Combine(dir, TakeKeptFrame.File(last)), _ct);
+        var kept = new TakeKeptFrame(last, TakeKeptFrame.File(last), new FileInfo(Path.Combine(dir, TakeKeptFrame.File(last))).Length);
+        var take = new ShotTake { ShotId = shot.Id, RunId = runId, Candidate = 1, Width = template.Width, Height = template.Height,
+            Snapshot = template.Snapshot with { CaptureRefinementData = false, Shot = template.Snapshot.Shot with { SaveLosslessFrames = false },
+                OutputPolicy = new(false) { KeptFrames = [last] }, Preset = H3Presets.Capture(template.Snapshot.Shot with { SaveLosslessFrames = false }, template.Snapshot.Settings),
+                Performance = H3Performance.Capture(H3Presets.NewPerformance(template.Snapshot.Settings)) },
+            Frames = [], KeptFrames = [kept], Bytes = 3 + kept.Bytes };
+        await store.PublishTakeAsync(f.Project.Id, take, dir, _ct);
+        var request = new TakeTrimRequest(take.Id, Guid.NewGuid(), 0, last);
+        var d = await store.TrimTakeAsync(f.Project.Id, request, ct: _ct);
+        var trimmed = d.Takes.Single(t => t.Id == request.ResultId);
+        Assert.Null(trimmed.KeptFrames);
+        Assert.Equal([kept], d.Takes.Single(t => t.Id == take.Id).KeptFrames);
+    }
+
+    [Fact]
     public async Task RepeatedTrimComposesRangeAndArchiveRemovalKeepsVideo()
     {
         var f = Fixture(); var store = new FileShotStore(f.Files, _clock, mediaTools: new TrimTestMedia { HasAudio = false });

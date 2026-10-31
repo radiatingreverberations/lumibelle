@@ -16,9 +16,9 @@
     <ChildContent>
         <p class="field-hint">@(DefaultEditor ? "The default for every text assistant in this project." : "Choose a model for this request. Your project default stays in place unless you explicitly change it.")</p>
         <label for="@_inputId">Text model</label>
-        <select id="@_inputId" value="@SelectedKey" @onchange="SelectAsync" disabled="@(Disabled || _busy || _session is null)">
+        <select id="@_inputId" value="@SelectedKey" @onchange="SelectAsync" disabled="@(Disabled || _saving || !_hasLoadedSettings)">
             <option value="default">Use project default · @BaseLabel</option>
-            @foreach (var model in Choices) { <option value="@TextModelProfiles.ChoiceKey(model)" disabled="@(_session?.IssueFor(model) is not null)">@Label(model)@(_session?.IssueFor(model) is { } reason ? $" · {reason}" : "")</option> }
+            @foreach (var model in Choices) { <option value="@TextModelProfiles.ChoiceKey(model)" disabled="@(_session?.ChoiceIssueFor(model) is not null)">@Label(model)@(_session?.ChoiceIssueFor(model) is { } reason ? $" · {reason}" : "")</option> }
         </select>
         <p class="field-hint">@InheritanceLabel</p>
         @if (_session?.Model is { ProfileId: not null } profile) {
@@ -34,13 +34,14 @@
             </details>
         }
         @if (_busy) { <p role="status">Checking model availability…</p> }
+        @if (_selectionNotice is not null) { <p class="field-hint" role="status">@_selectionNotice</p> }
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
         else if (_session?.Issue is { } issue) { <p class="field-error" role="status">@issue</p> }
-        <div class="assist-model-tools"><button type="button" @onclick="() => RefreshAsync(true)" disabled="@_busy">Refresh availability</button><a href="@ManageUrl">Manage models</a></div>
+        <div class="assist-model-tools"><button type="button" @onclick="() => RefreshAsync()" disabled="@(_busy || _saving)">Refresh availability</button><a href="@ManageUrl">Manage models</a></div>
     </ChildContent>
     <Actions>
-        @if (_session?.Preferences.TextDefault is not null || DefaultEditor) { <MudButton OnClick="() => SaveDefaultAsync(true)" Disabled="@(Disabled || _busy)">Use global default</MudButton> }
-        <MudButton OnClick="() => SaveDefaultAsync(false)" Disabled="@(Disabled || _busy || _session?.Issue is not null)" Variant="Variant.Outlined">Set as project default</MudButton>
+        @if (_session?.Preferences.TextDefault is not null || DefaultEditor) { <MudButton OnClick="() => SaveDefaultAsync(true)" Disabled="@(Disabled || _busy || _saving)">Use global default</MudButton> }
+        <MudButton OnClick="() => SaveDefaultAsync(false)" Disabled="@(Disabled || _busy || _saving || _session?.Issue is not null)" Variant="Variant.Outlined">Set as project default</MudButton>
         @if (!DefaultEditor) { <MudButton OnClick="() => _open = false" Color="Color.Primary" Variant="Variant.Filled">Done</MudButton> }
     </Actions>
 </AiAssistDialog>
@@ -54,12 +55,12 @@
     [Parameter] public EventCallback<TextModelSelectionState> SelectionChanged { get; set; }
     private TextModelSession? _session;
     private Guid? _loaded;
-    private bool _busy, _open, _disposed, _hasLoadedSettings;
-    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private bool _busy, _saving, _open, _disposed, _hasLoadedSettings, _checkAfterRender;
+    private CancellationTokenSource? _refreshCancellation;
     public string DisplayLabel => !_hasLoadedSettings ? "Loading model…" : $"{SourceLabel} · {ShortLabel}";
     // Why the selected model can't be used. The chip shows it as a (!) badge, as request actions do.
     public string? Notice => _hasLoadedSettings && !_busy ? _session?.Issue : null;
-    private string? _error;
+    private string? _error, _selectionNotice;
     private readonly string _inputId = $"text-model-{Guid.NewGuid():N}";
     private readonly CancellationTokenSource _lifetime = new();
     private IJSObjectReference? _module;
@@ -78,70 +79,104 @@
     private string Label(TextModelReference model) => _session is null ? model.Name : TextModelPolicy.PickerLabel(model, _session.Settings, _session.Choices, CatalogName);
     protected override async Task OnParametersSetAsync() {
         if (_loaded == ProjectId) return;
+        CancelRefresh(); _selectionNotice = null;
         _loaded = ProjectId; _hasLoadedSettings = false; _session = new(ProjectId, SettingsStore, Preferences, Providers);
-        await RefreshAsync();
+        await LoadSavedAsync();
+        _checkAfterRender = _hasLoadedSettings;
     }
     protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender) return;
-        try { _module = await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("text-assistance.js")); _reference = DotNetObjectReference.Create(this); if (_module is not null) await _module.InvokeVoidAsync("watch", _inputId, _reference); }
-        catch (JSException) { }
+        if (firstRender) {
+            try { _module = await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("text-assistance.js")); _reference = DotNetObjectReference.Create(this); if (_module is not null) await _module.InvokeVoidAsync("watch", _inputId, _reference); }
+            catch (JSException) { }
+        }
+        if (_checkAfterRender && !_busy) {
+            _checkAfterRender = false;
+            if (_session is not null && !_session.HasAvailability(_session.Model)) await RefreshAsync();
+        }
     }
-    public async Task OpenAsync() { _open = true; await RefreshAsync(true); await InvokeAsync(StateHasChanged); }
+    public async Task OpenAsync() { _open = true; await InvokeAsync(StateHasChanged); await LoadSavedAsync(); await InvokeAsync(StateHasChanged); }
     public async Task UseRequestModelAsync(TextModelReference? model) {
         if (_session is null || _disposed) return;
-        _session.Select(model); await RefreshAsync(); await InvokeAsync(StateHasChanged);
+        CancelRefresh(); _selectionNotice = null; _session.Select(model); await LoadSavedAsync();
+        if (!_session.HasAvailability(_session.Model) || _session.Issue is not null) await RefreshAsync();
+        await InvokeAsync(StateHasChanged);
     }
-    private async Task PublishAsync() { if (_session is not null && !_disposed) await SelectionChanged.InvokeAsync(_session.State with { Ready = !_busy && _error is null && _session.Issue is null, UnavailableReason = _busy ? null : _error ?? _session.Issue }); }
-    private async Task RefreshAsync(bool all = false) {
+    private async Task PublishAsync() { if (_session is not null && !_disposed) await SelectionChanged.InvokeAsync(_session.State with { Ready = !_busy && !_saving && _error is null && _session.Issue is null, UnavailableReason = _busy ? null : _error ?? _session.Issue }); }
+    private void CancelRefresh() { _refreshCancellation?.Cancel(); _refreshCancellation = null; _busy = false; }
+    private async Task LoadSavedAsync() {
         if (_session is null || _disposed) return;
         var session = _session;
-        try { await _refreshGate.WaitAsync(_lifetime.Token); }
-        catch (OperationCanceledException) when (_disposed) { return; }
+        var before = session.State;
         try {
-            if (_disposed || !ReferenceEquals(session, _session)) return;
-            _busy = true; _error = null; await PublishAsync();
-            try { await session.RefreshAsync(all, _lifetime.Token); if (ReferenceEquals(session, _session)) _hasLoadedSettings = true; }
-            catch (OperationCanceledException) when (_disposed) { }
-            catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or AiGenerationException) { if (ReferenceEquals(session, _session)) _error = e.Message; }
-            finally { if (ReferenceEquals(session, _session)) { _busy = false; await PublishAsync(); } }
+            await session.LoadAsync(_lifetime.Token);
+            if (!ReferenceEquals(session, _session) || _disposed) return;
+            _hasLoadedSettings = true; _error = null;
+            if (!TextModelSession.SameChoice(before, session.State) && !session.HasAvailability(session.Model)) {
+                CancelRefresh(); _checkAfterRender = true;
+            }
+            await PublishAsync();
         }
-        finally { _refreshGate.Release(); }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or AiGenerationException) {
+            if (ReferenceEquals(session, _session) && !_disposed) { _error = e.Message; await PublishAsync(); }
+        }
     }
-    [JSInvokable] public async Task RefreshModel() { if (Disabled || _busy || _disposed) return; await RefreshAsync(); await InvokeAsync(StateHasChanged); }
+    private async Task RefreshAsync() {
+        if (_session is null || _disposed) return;
+        var session = _session;
+        CancelRefresh();
+        using var refresh = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _refreshCancellation = refresh;
+        try {
+            _busy = true; _error = null; await PublishAsync();
+            // Load the saved choices before waiting for a remote provider. The picker stays usable.
+            await session.LoadAsync(refresh.Token);
+            if (ReferenceEquals(session, _session)) { _hasLoadedSettings = true; await InvokeAsync(StateHasChanged); }
+            await session.RefreshAsync(ct: refresh.Token);
+        }
+        catch (OperationCanceledException) when (refresh.IsCancellationRequested) { }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or AiGenerationException) { if (ReferenceEquals(refresh, _refreshCancellation)) _error = e.Message; }
+        finally {
+            if (ReferenceEquals(refresh, _refreshCancellation)) { _refreshCancellation = null; _busy = false; await PublishAsync(); await InvokeAsync(StateHasChanged); }
+        }
+    }
+    [JSInvokable] public async Task RefreshModel() { if (Disabled || _saving || _disposed) return; await LoadSavedAsync(); await InvokeAsync(StateHasChanged); }
     private async Task SelectAsync(ChangeEventArgs args) {
-        if (Disabled || _busy || _session is null) return;
+        if (Disabled || _saving || _session is null) return;
         var key = args.Value?.ToString(); var choice = key == "default" ? null : Choices.FirstOrDefault(m => TextModelProfiles.ChoiceKey(m) == key);
-        if (key != "default" && (choice is null || _session.IssueFor(choice) is not null)) return;
-        _session.Select(choice); _error = null; await PublishAsync();
+        if (key != "default" && (choice is null || _session.ChoiceIssueFor(choice) is not null)) return;
+        CancelRefresh(); _selectionNotice = null; _session.Select(choice); _error = null; await PublishAsync();
+        if (!_session.HasAvailability(_session.Model) || _session.Issue is not null) await RefreshAsync();
     }
     private async Task EffortAsync(ChangeEventArgs args) {
-        if (Disabled || _busy || _session is null) return;
+        if (Disabled || _busy || _saving || _session is null) return;
         var effort = args.Value?.ToString();
         if (!string.IsNullOrEmpty(effort) && _session.CatalogModel?.ReasoningEfforts?.Contains(effort) != true) return;
-        _session.SetEffort(effort); _error = null; await PublishAsync();
+        _session.SetEffort(effort); _error = null; _selectionNotice = null; await PublishAsync();
     }
     private async Task SaveDefaultAsync(bool global) {
-        if (Disabled || _busy || _session is null) return;
-        _busy = true; _error = null;
-        try { await _session.SetDefaultAsync(global, _lifetime.Token); _open = false; }
-        catch (WorkspaceConflictException) { await _session.RefreshAsync(ct: _lifetime.Token); _error = "The project default changed in another tab. Review the current choice and try again."; }
+        if (Disabled || _busy || _saving || _session is null) return;
+        _saving = true; _error = null; _selectionNotice = null;
+        try { await _session.SetDefaultAsync(global, _lifetime.Token); _open = false; _checkAfterRender = !_session.HasAvailability(_session.Model); }
+        catch (WorkspaceConflictException) { await _session.LoadAsync(_lifetime.Token); _error = "The project default changed in another tab. Review the current choice and try again."; }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
-        finally { _busy = false; await PublishAsync(); }
+        finally { _saving = false; await PublishAsync(); }
     }
     public async Task<bool> PrepareSubmitAsync() {
-        if (_busy || _session is null) return false;
-        var shown = _session.State; await RefreshAsync();
+        if (_busy || _saving || _session is null) return false;
+        _selectionNotice = null;
+        var shown = _session.State; await LoadSavedAsync();
         if (_error is not null) return false;
-        if (!TextModelSession.SameChoice(shown, _session.State)) { _error = "The project model changed. Review the updated model and submit again."; _open = true; await InvokeAsync(StateHasChanged); return false; }
+        if (!TextModelSession.SameChoice(shown, _session.State)) { _selectionNotice = "The project model changed. Review the updated model and submit again."; _open = true; await InvokeAsync(StateHasChanged); return false; }
         if (_session.Issue is not null) { _error = _session.Issue; _open = true; await InvokeAsync(StateHasChanged); return false; }
         return true;
     }
     public async Task SubmittedAsync() {
         if (_session is null) return;
-        _session.Select(null); await RefreshAsync(); await InvokeAsync(StateHasChanged);
+        CancelRefresh(); _session.Select(null); await LoadSavedAsync(); _checkAfterRender = !_session.HasAvailability(_session.Model); await InvokeAsync(StateHasChanged);
     }
     public async ValueTask DisposeAsync() {
-        _disposed = true; _lifetime.Cancel();
+        _disposed = true; CancelRefresh(); _lifetime.Cancel();
         try { if (_module is not null) { await _module.InvokeVoidAsync("unwatch", _inputId); await _module.DisposeAsync(); } } catch (JSDisconnectedException) { }
         _reference?.Dispose(); _lifetime.Dispose();
     }

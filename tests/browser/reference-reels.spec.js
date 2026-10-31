@@ -51,7 +51,7 @@ async function expand(details) {
   await expect(details).toHaveAttribute('open');
 }
 const voiceOptions = page => expand(reelSetup(page).locator('.reel-voice-options'));
-const directionOptions = page => expand(reelSetup(page).locator('.reel-direction-options'));
+const directionOptions = page => expect(reelSetup(page).locator('.reel-direction-options')).toBeVisible();
 const referenceDetails = page => expand(reelTools(page).locator('.shot-reference-details'));
 // Leaves the Prompt dialog open with its voice and direction sections expanded.
 async function recipe(page, owner, framing = "Custom", voice = "NewVoice", guidance = null, compose = framing !== "Custom", crop = false) {
@@ -408,7 +408,7 @@ for (const narrow of [false, true]) test(`reel request history opens the exact r
     const job = jobs.find(j => j.kind === kind);
     expect(job).toBeTruthy();
     await openRequest(job);
-    const review = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: kind === 'ReelVideo' ? 'Reference reel request' : 'Reel prompt pair', exact: true }) });
+    const review = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: kind === 'ReelVideo' ? 'Reference reel request' : 'Review reel changes', exact: true }) });
     await expect(review).toBeVisible();
     if (kind === 'ReelVideo') {
       await review.getByText('Request details', { exact: true }).click();
@@ -579,7 +579,8 @@ test('narrow AI pair survives closing, revisions compare both fields, manual edi
   await openSetup(page);
   await dialog.getByRole('button', { name: /Review changes|Needs attention/ }).click();
   const diff = page.locator('.reel-review-dialog');
-  await expect(diff.getByRole('heading', { name: 'Use guidance', exact: true })).toBeVisible();
+  await diff.locator('.reel-response-guidance > summary').click();
+  await expect(diff.getByLabel('Response use guidance text', { exact: true })).toBeVisible();
   await diff.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(diff).not.toBeVisible();
   await dialog.getByLabel('Use guidance', { exact: true }).fill('Manual guidance · café 👋');
@@ -628,35 +629,41 @@ test('manual writing prevents auto-application and invalid AI responses remain i
   await openSetup(page);
   await dialog.getByRole('button', { name: /Review changes|Needs attention/ }).click();
   await expect(review.getByRole('alert')).toContainText('JSON pair');
+  await expect(review.getByRole('button', { name: 'Fix validation', exact: true })).toHaveClass(/mud-button-outlined/);
   await expect(review.getByRole('button', { name: 'Apply changes', exact: true })).toHaveCount(0);
   await review.getByText('Raw response', { exact: true }).click();
   await expect(review.locator('.submitted-input')).toContainText(/incomplete|unfinished/);
   expect((await library(request, id)).reelDrafts[0].useGuidance).toBe('My writing while AI works.');
 });
 
-for (const narrow of [false,true]) test(`valid JSON with an error is readable and recoverable (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
+for (const narrow of [false,true]) test(`reel review notes keep both texts readable and editable (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
   const {id,owner}=await fixture(page,request,narrow);
   const setup=await recipe(page,owner);
   await assistPair(page,`${narrow ? 'EMPTY_REEL_MUSIC' : 'WRONG_REEL_DURATION'} Focus on hands`);
-  await expect(setup.getByRole('button', {name:'Needs attention',exact:true})).toBeVisible({timeout:25000});
+  await expect(setup.getByRole('button', {name:'Review changes',exact:true})).toBeVisible({timeout:25000});
   await setup.getByRole('textbox',{name:'H3 prompt',exact:true}).fill('My later writing.');
   await setup.getByLabel('Use guidance',{exact:true}).fill('Keep my later notes.');
-  await setup.getByRole('button',{name:'Needs attention',exact:true}).click();
+  await setup.getByRole('button',{name:'Review changes',exact:true}).click();
   const review=page.locator('.reel-review-dialog');
-  await expect(review.getByLabel('Response generation prompt')).toHaveValue(narrow ? /non_diegetic_music:\s*$/ : /5 seconds/);
-  await expect(review.getByLabel('Response use guidance')).toHaveValue(/hands/);
+  await expect(review.getByLabel('Response generation prompt text', {exact:true})).toContainText(narrow ? /non_diegetic_music:/ : /5 seconds/);
+  await review.locator('.reel-response-guidance > summary').click();
+  await expect(review.getByLabel('Response use guidance text', {exact:true})).toContainText(/hands/);
+  await expect(review.locator('.reel-prompt-note')).toContainText('does not block');
+  await expect(review.locator('.prompt-comparison').first()).not.toHaveClass(/prompt-preview/);
+  await expect(review.locator('.prompt-comparison').first().locator('.before')).toBeVisible();
   await expect(review.getByRole('button',{name:'Copy response prompt',exact:true})).toBeVisible();
   await expect(review.getByRole('button',{name:'Apply changes',exact:true})).toHaveCount(0);
+  await expect(review.getByRole('button',{name:'Apply anyway',exact:true})).toBeVisible();
   const before = (await library(request,id)).reelDrafts.at(-1);
   expect(before.prompt).toBe('My later writing.');
   const failedJob = (await (await request.get('/fixtures/ai-jobs')).json()).find(j=>j.target.projectId===id && j.kind==='ReelComposition');
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels&jobId=${failedJob.id}`);
-  await expect(review.getByLabel('Response generation prompt')).toBeVisible();
+  await expect(review.getByLabel('Response generation prompt text', {exact:true})).toBeVisible();
   await expect(review.getByRole('button',{name:'Edit response',exact:true})).toBeInViewport();
   await expect.poll(async () => (await review.boundingBox()).width).toBeGreaterThan(narrow ? 350 : 1050);
   await page.screenshot({path:`artifacts/reel-response-error-${narrow ? 'narrow' : 'desktop'}.png`});
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const response = await review.getByLabel('Response generation prompt').inputValue();
+  const response = await review.getByLabel('Response generation prompt text', {exact:true}).innerText();
   await review.getByRole('button',{name:'Edit response',exact:true}).press('Enter');
   await expect(review).not.toBeVisible();
   await expect(page).not.toHaveURL(/jobId=/);
@@ -679,6 +686,42 @@ for (const narrow of [false,true]) test(`valid JSON with an error is readable an
   expect(jobs.filter(j=>j.kind==='ReelComposition')).toHaveLength(1);
 });
 
+for (const narrow of [false, true]) test(`old reel reference warnings can be explicitly accepted (${narrow ? 'narrow' : 'desktop'})`, async ({page,request}) => {
+  const {id,owner}=await fixture(page,request,narrow);
+  await recipe(page,owner);
+  const setup = await assistPair(page,'NATURAL_REEL_REFERENCE Focus on hands');
+  await expect(setup.getByRole('button',{name:'Review changes',exact:true})).toBeVisible({timeout:25000});
+  const jobs = (await (await request.get('/fixtures/ai-jobs')).json()).filter(j=>j.target.projectId===id && j.kind==='ReelComposition');
+  expect(jobs).toHaveLength(1);
+  const seeded = await request.post(`/fixtures/${id}/legacy-reel-error/${jobs[0].id}`);
+  expect(seeded.ok()).toBe(true);
+  const savedResult = await (await request.get(`/fixtures/${id}/reel-response/${jobs[0].id}`)).json();
+  expect((await library(request,id)).reelDrafts.at(-1).prompt).toBe('');
+  await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels&jobId=${jobs[0].id}`);
+  const review=page.locator('.reel-review-dialog');
+  await expect(review.locator('.reel-prompt-note')).toContainText('exact <Picture 1> reference marker');
+  await expect(review.getByRole('alert')).toHaveCount(0);
+  await expect(review.getByLabel('Response generation prompt text',{exact:true})).toContainText('Picture 1');
+  const preview = review.locator('.prompt-comparison').first();
+  await expect(preview).toHaveClass(/prompt-preview/);
+  await expect(preview.locator('.before, ins, del, small')).toHaveCount(0);
+  const previewBox = await preview.boundingBox(), responseBox = await preview.locator('.after').boundingBox();
+  expect(responseBox.width).toBeGreaterThan(previewBox.width * .95);
+  const apply = review.getByRole('button',{name:'Apply anyway',exact:true});
+  await expect(apply).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:`artifacts/reel-warning-accept-${narrow ? 'narrow' : 'desktop'}.png`});
+  await apply.click();
+  await expect(review).not.toBeVisible();
+  const draft=(await library(request,id)).reelDrafts.at(-1), response=JSON.parse(savedResult.raw);
+  expect(draft.prompt).toBe(response.prompt); expect(draft.useGuidance).toBe(response.useGuidance);
+  expect(draft.resolvedJobs).toContain(jobs[0].id);
+  expect(await (await request.get(`/fixtures/${id}/reel-response/${jobs[0].id}`)).json()).toEqual(savedResult);
+  await showTools(page);
+  await expect(reelTools(page).getByRole('button',{name:'Generate reel',exact:true})).toBeEnabled();
+  expect((await (await request.get('/fixtures/ai-jobs')).json()).filter(j=>j.target.projectId===id && j.kind==='ReelComposition')).toHaveLength(1);
+});
+
 test('pre-submit failures explain their stage and link to the prompt from Setup', async ({page,request}) => {
   const {id,owner}=await fixture(page,request,true);
   const setup=await recipe(page,owner,'ContinuousTurn','Silent'), tools=reelTools(page);
@@ -686,10 +729,8 @@ test('pre-submit failures explain their stage and link to the prompt from Setup'
   await tools.getByLabel('Requested seconds').fill('6');
   await tools.getByLabel('Requested seconds').blur();
 
-  await tools.getByRole('button',{name:'Generate reel',exact:true}).click();
-  await expect(tools.getByRole('alert')).toContainText('Not submitted to ComfyUI');
-  await expect(tools.getByRole('alert')).toContainText('generation prompt text');
-  await tools.getByRole('button',{name:'Review prompt',exact:true}).click();
+  await openSetup(page);
+  await expect(setup.locator('.reel-prompt-note')).toContainText('generation prompt text');
   await expect(setup.getByRole('button',{name:'Close reel prompt',exact:true})).toBeVisible();
   await expect(setup.getByRole('textbox',{name:'H3 prompt',exact:true})).toBeVisible();
   await closeSetup(page);

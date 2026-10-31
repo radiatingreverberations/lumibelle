@@ -219,6 +219,8 @@ public partial class ProductionStudio
             if (_promptEditor is not null) await _promptEditor.FlushAsync();
             if (!await Save()) return;
             _selected = id;
+            // An empty Takes view is no use; a shot without takes opens on Shot. Shots with takes keep the view.
+            if (!_doc.Takes.Any(t => t.ShotId == id)) _openShotView = true;
             _compositionId = _production.Compositions.FirstOrDefault(c => c.ShotId == id && !c.Archived)?.Id;
             await ApplySelectedGlobalSetup(); ValidateTakeFilter();
             _savedComposition = Current?.Copy(); _undo.Clear(); await RefreshCompositionResult();
@@ -230,7 +232,7 @@ public partial class ProductionStudio
     private async Task BeforeNavigation(LocationChangingContext e) { if (!await SaveForCloseAsync()) e.PreventNavigation(); }
     private async Task DownloadDraft() => await JS.InvokeVoidAsync("lumibelleShots.download", "unsaved-composition.json", Json(Current));
     private async Task CopyPrompt() { try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", PromptPreview); Notify("Prompt copied."); } catch (JSException) { _error = "Select and copy the prompt text."; } }
-    private void ChangeQuality(ChangeEventArgs e) { var key = Text(e); if (H3Presets.Keys.Contains(key)) Edit(s => { s.GenerationPreset = key; s.Turbo = key is "turbo4" or "turbo8"; s.TurboSteps = key == "turbo8" ? 8 : 4; }); }
+    private void ChangeQuality(ChangeEventArgs e) { var key = Text(e); if (H3Presets.Offered.Contains(key)) Edit(s => { s.GenerationPreset = key; s.GenerationPresetMigration = null; s.Turbo = key == "turbo4"; s.TurboSteps = 4; }); }
     private static string Invariant(double? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "";
     private static string Text(ChangeEventArgs e) => e.Value?.ToString() ?? "";
     private static string DurationLabel(Shot s) => s.Duration is >= 1 and <= 15 ? $"{H3Policy.Seconds(s.Duration.Value):0.###} s" : "Set duration in Shots";

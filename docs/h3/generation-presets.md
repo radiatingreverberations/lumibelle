@@ -1,87 +1,98 @@
 # H3 generation presets and frame storage
 
-Shots offers Standard 20-step, Beta 20-step, Euler beta 20-step, Larry 6-step,
-PDD 8-step, Turbo 4-step and HyperFlow 8-step, in that order. Standard remains
-the default. Resolution, duration, references, optional character/style LoRAs, and
-dense attention remain independent. New jobs never apply the old global Sol
-preference. Acceleration weights are excluded from the optional LoRA library.
+Standard remains the default. Current choices are Standard, Beta, Euler beta,
+Larry, PDD, Turbo 4-step, **10Eros Compact**, **SMD Ref2VA 4-step**, **FastH3 Omni 8-step** and **PTD + RefAsymOPD 6-step**. Resolution, references,
+authored dialogue, voice inputs and optional identity/style LoRAs stay editable.
+New requests save [generation settings and owned inputs](generation-recipes.md).
 
-The Larry, PDD and Spectrum recipes come from the committed
-[11 September comparison](acceleration-benchmark-2026-09-11.md), whose workflows
-remain the reference for their explicit values. Larry was acceptable in both
-tested scenes; PDD distorted dialogue; Spectrum and the existing Turbos had
-motion-scene problems. This single-seed comparison ran on the **base** pruned
-W4A8 Ref2VA model, with 141 frames, Upscaled preview, and one 20 GiB RTX 4000
-Ada. Finetunes such as Singularity, additional LoRAs, other GPUs, Native output,
-and longer clips are available but were not verified by that comparison. Larry,
-PDD and HyperFlow were trained against the base model; on a finetune they run
-outside the conditions they were distilled for.
+## Drafts and fresh finals
 
-## Retired presets
+Use **Refine from video…** on a saved take, or on several selected takes, to open a separate editable
+Standard draft. It defaults to native resolution, one take and a random seed,
+using the ordinary H3 model. The independently copied guide is video-only;
+authored dialogue and other enabled voice references remain active. This is an
+video-conditioning workflow, with no reconstruction or motion-strength
+promise. See [promotion](motion-reference-promotion.md) and the
+[30 October trial](promotion-feasibility-2026-10-30.md).
 
-Spectrum, Turbo 8-step and Turbo 4-step at 0.75 were retired on 2026-10-06 to
-shorten the list. Spectrum and Turbo 8-step had motion-scene problems in the
-11 September comparison, and Turbo 8-step was slower than Turbo 4-step. Turbo
-0.75 was never benchmarked, and the strength advice behind it is not on the
-Singularity model card, which recommends the Ref2V Turbo 4-step v0.1 LoRA
-without giving a strength.
+## Complete checkpoints and adapters
 
-Retired presets are no longer offered for new choices. Their keys and recipes are
-unchanged, so shots, named setups and queued requests that already use them keep
-generating as before. A picker still lists the current preset when it is retired,
-marked **Retired**, and **Video models** keeps their setup under **Retired presets**.
+10Eros Compact is a complete **Beta7** checkpoint with embedded Turbo, not an
+adapter. Its separate model selection leaves the ordinary H3 model available for
+Standard finals. Install the [published mixed W4/W6/INT8 Compact file](https://huggingface.co/LokkenJP/TenEros_Max_optimized_learned)
+in `models/diffusion_models`, then refresh Video models and select it in the
+Compact row. The captured recipe uses eight Euler/simple steps, shifts 12/3,
+BasicGuider, Comfy Kitchen attention, and the companion VSA settings: keep 10%,
+dense blocks `0,1`, full denoising range, minimum 12288 tokens, 256 extra tokens,
+`exact_kv_and_rows`, verbose false. No additional acceleration adapter is loaded.
+Native mixed quantization and these node contracts are required. The published
+checkpoint filename is saved at capture. Its 14.65 GB storage size does not specify
+required VRAM. The bounded trial observed no coarse VSA gates; actual attention
+kernel execution remains unobserved. HQ is optional and was not tested.
 
-## Scheduler and strength variants
+SMD is an adapter with a separate official pruned INT8 Ref2VA base selection. It
+uses the [published 4-step adapter](https://huggingface.co/zjwfufu/SMD-MiniMax-H3-Ref2VA-4step-ComfyUI),
+strength 1, Euler, BasicGuider and `ManualSigmas` values
+`1, 0.9677419355, 0.9, 0.6666666667, 0`. Video/audio shifts are 12/3.
+The selected base and adapter filenames are saved at capture. It uses the
+configured shared encoder and VAEs; the bounded trial retained the W4A8 encoder,
+which differs from the publisher's NVFP4-AWQ compact profile. No Lightning/Turbo
+adapter is stacked. File storage does not establish runtime memory requirements.
 
-These three presets use native ComfyUI nodes only and have not been benchmarked
-in Lumibelle. Each isolates one change from an existing recipe, so a paired-seed
-comparison against its parent attributes any difference to that change.
 
-| Preset | Parent | Change | Rationale |
-| --- | --- | --- | --- |
-| Beta · 20 steps | Standard | `simple` → `beta` scheduler | Reportedly suggested by the ComfyUI R2V template notes for reference-heavy prompts; not independently checked. |
-| Euler beta · 20 steps | Beta | `res_multistep` → `euler` sampler | Preferred to Standard in one community Ref2VA comparison, which also used Sol-Attn and EasyCache and changed both sampler and scheduler. |
-| Turbo · 4 steps · 0.75 (retired) | Turbo · 4 steps | LoRA strength 1.0 → 0.75 | Added for a suggested 0.75–1.0 strength with Singularity. That suggestion is not on the Singularity model card (checked 2026-10-06). |
+FastH3 Omni selects its own native ComfyUI OmniRef INT8 ConvRot checkpoint. It
+uses eight Euler/simple steps, BasicGuider, shifts 12/3 and Comfy Kitchen attention.
+VSA keeps 10%, with no dense-block exclusions, start/end 0/1, minimum 12288 tokens,
+256 extra tokens and exact conditioning/audio rows. The older T2V/FL2VA FastH3
+checkpoint is a different model. [Native ComfyUI release](https://huggingface.co/FastVideo/FastH3-Omni-Comfy).
 
-The Turbo variant reuses the LoRA selected for Turbo 4-step. All three keep
-BasicGuider, shifts 12/3 in the model, full denoising and `BasicScheduler` on
-the unpatched model. Their sampler, scheduler, steps and strength are captured
-in `h3-presets-v1`, so queued requests keep them. Refine and Rework keep their
-Standard sampling. Samplers that need extra packages, such as RES4LYF's
-`res_2m`/`res_2s` and the `bong_tangent` scheduler, are deliberately not offered.
+PTD + RefAsymOPD selects its own official pruned INT8 base and six-hop compact INT8
+adapter in `models/ptd`. The pinned [compact package](https://github.com/Nynxz/ComfyUI-PTD-Compact/tree/f9eb8914a9ee39d69ac097979d49e86bb423380d)
+includes the PTD runtime. The graph uses upstream `PTDH3CompactLoader`,
+`PTDH3CompactSampler`, `PTDH3CompactSigmas` and BasicGuider. It uses the adapter's
+corrected six-row clock (`pdd_num_steps=6`, `pdd_block_size=1`), rather than a
+standard scheduler or a model-only LoRA loader. The loader selects
+`exact (PTD reference)` kernel arithmetic. Allocation compilation and resampling
+fallback follow the upstream sampler's policy; weight streaming stays enabled.
+Do not substitute the W6A8
+base, whose quantized output head uses a different layout.
 
-## Installing experimental presets
+Preset names and descriptions present model/recipe facts. They do not attach
+quality ratings or experimental badges. GPU benchmark history and limits belong
+in the dated findings; FastH3/PTD were integrated with CPU/contract validation
+without additional GPU renders, at the user's request.
 
-| Preset | Tested package revision | Checkpoint |
-| --- | --- | --- |
-| Larry | [4274783a23afcfdbea3b4876cb79effd6c510785](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/4274783a23afcfdbea3b4876cb79effd6c510785) | `models/loras/minimax_h3_turbo_v4_step600_ema.safetensors` |
-| PDD | [311a65dd53832d8a5f8177a9d5fb923c09e35a90](https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc/tree/311a65dd53832d8a5f8177a9d5fb923c09e35a90) | `models/pdd_acc/MiniMax-H3-Ref2VA-Acc-8Step.safetensors` |
-| Spectrum | [455bd357cb45637c8e852f7f448dc57b52de94f8](https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3/tree/455bd357cb45637c8e852f7f448dc57b52de94f8) | None |
+Standard partial-denoise refinement is unavailable for baked accelerated
+checkpoints. Use motion-reference promotion for a fresh Standard final.
 
-Install the complete package and its dependencies in the running ComfyUI Python
-environment. Docker installations need persistent custom-node and model mounts.
-Restart ComfyUI and choose **Check again** in Video models. Each preset row lists
-its node pack and files with download links, as defined in `H3Requirements`; use
-**Change** to pick the exact installed checkpoint (including subfolders), then Save. Lumibelle neither installs nor downloads files.
-Unavailable selections remain visible and block generation rather than falling
-back. Readiness validates advertised contracts and file catalogs, not weight
-contents, real accelerator execution, or available GPU capacity.
+Turbo 4-step uses the Ref2V v0.1 LoRA, strength 1. Larry uses its dedicated loader
+and sampler, strength 1, six simple-schedule steps and `low_vram=false`. PDD uses
+its loader/head bank, eight evaluations, supplied sigmas, Euler, shifts 12/3,
+strengths 1/1 and strict grid/partition checks. Beta and Euler beta are 20-step scheduler/sampler variants. Optional character/style LoRAs remain ordered
+separately; acceleration adapters cannot be selected as optional style LoRAs.
 
-Larry uses its dedicated loader and sampler, strength 1, six simple-schedule
-steps, and `low_vram=false`. PDD uses its loader/head bank, eight evaluations,
-supplied sigmas, Euler, shifts 12/3, strengths 1/1, and strict grid/partition
-checks. Spectrum wraps the prepared model for both guider and scheduler, with
-audio blend zero, video blend 0.5, smoothing replay, and system-RAM history and
-replay storage. Every supported input is serialized explicitly in `h3-presets-v1`.
+Larry and PDD setup links and exact files are listed in Video models. Their pinned
+[11 September comparison](acceleration-benchmark-2026-09-11.md) remains dated
+evidence: one seed, base W4A8 Ref2VA, 141 frames, Upscaled preview and a 20 GiB
+RTX 4000 Ada. Larry was acceptable in both scenes; PDD distorted dialogue.
+Those observations do not establish behavior on other models or scenes.
 
-## Queue and storage compatibility
+## Removed presets and migration
 
-New requests capture a versioned preset, exact checkpoint paths, sampling and
-attention settings, and an output policy. Recovery, retries, and added candidates
-reuse that snapshot. The captured requirements are checked again before remote
-submission. Existing shots without a preset resolve their old Standard/Turbo
-fields; absent optional fields do not change legacy fingerprints. Existing
-queued snapshots keep their Sol, compression, and required-archive behavior.
+Spectrum, LightX2V 8-step, the 0.75-strength Turbo variant and standalone HyperFlow
+are removed from selection, discovery, downloads and execution. Editable shots,
+saved setups and reel drafts using them reset to Standard and display a migration
+notice. Normalized edits persist on the next save. Saved takes, historical recipes
+and receipts retain their original data. Old queued requests using a removed
+recipe cannot silently execute a replacement: capture a new current request.
+The [old HyperFlow document](hyperflow.md) is retained solely as historical evidence.
+
+## Queue and storage
+
+New requests freeze prompt bytes, owned prepared inputs, model/adapter filenames
+and sampling/attention settings. Retries validate prepared inputs and retain each
+attempt's submitted graph and ordinary ComfyUI history. Model contents and runtime
+implementations are not audited. Existing historical records retain their data.
 
 **Save lossless frames** is per shot and off by default. Enabling it uses Fast
 lossless WebP. Disabling it omits encoding, download, and validation of archives;

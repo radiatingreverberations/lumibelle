@@ -27,7 +27,7 @@ builder.Services.AddSingleton<IAiSettingsStore, MockSettings>();
 builder.Services.AddSingleton<IAiProviderRegistry, MockProviders>();
 builder.Services.AddSingleton<IReferenceImageGenerator, MockImages>(); builder.Services.AddSingleton<IReferenceImageEditor, MockImages>();
 builder.Services.AddSingleton<MockLoraCatalog>(); builder.Services.AddSingleton<IComfyLoraCatalog>(s => s.GetRequiredService<MockLoraCatalog>());
-builder.Services.AddSingleton<IVideoGenerator>(s => new Lumibelle.Testing.MockVideoGenerator(s.GetRequiredService<IAssetStore>(),s.GetRequiredService<IShotStore>(),s.GetRequiredService<IReferenceVideoStore>()) { DelayMilliseconds = 1800, OptionalLoraCatalog = settings => s.GetRequiredService<MockLoraCatalog>().CheckAsync(settings).GetAwaiter().GetResult() });
+builder.Services.AddSingleton<IVideoGenerator>(s => new Lumibelle.Testing.MockVideoGenerator(s.GetRequiredService<IAssetStore>(),s.GetRequiredService<IShotStore>(),s.GetRequiredService<IReferenceVideoStore>()) { DelayMilliseconds = 1800, MotionReferencePreparationDelayMilliseconds = 2000, OptionalLoraCatalog = settings => s.GetRequiredService<MockLoraCatalog>().CheckAsync(settings).GetAwaiter().GetResult() });
 builder.Services.AddSingleton<MockCapacityState>();
 foreach (var backend in new[] { "ComfyUI", "OpenRouter" })
     builder.Services.AddHttpClient(backend, client => client.Timeout = Timeout.InfiniteTimeSpan)
@@ -51,6 +51,7 @@ var app = builder.Build();
 app.MapLumibelleWeb();
 app.MapCutFixtures();
 app.MapStorageFixtures();
+app.MapMotionReferenceFixtures();
 app.MapReferencePickerFixtures();
 app.MapShotCopyFixtures();
 app.MapCompositionRecoveryFixtures();
@@ -589,6 +590,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
             var pair = ReferenceReels.Preset(draft);
             if (last.Contains("EMPTY_REEL_MUSIC")) pair = pair with { Prompt = pair.Prompt.Replace("No non-diegetic music.", "") };
             if (last.Contains("WRONG_REEL_DURATION")) pair = pair with { Prompt = pair.Prompt.Replace("5.167 seconds", "5 seconds") };
+            if (last.Contains("NATURAL_REEL_REFERENCE")) pair = pair with { Prompt = pair.Prompt.Replace("<Picture 1>", "Picture 1") };
             output = last.Contains("INVALID_PAIR") ? "{\"prompt\":\"incomplete\"}" : JsonSerializer.Serialize(pair, AtomicJsonFile.Options);
         }
         else if ((list[0].Text ?? "").Contains("Compose a character reference reel."))
@@ -602,6 +604,7 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
                 UseGuidance = pair.UseGuidance + " Pay attention to the hands." };
             if (last.Contains("EMPTY_REEL_MUSIC")) pair = pair with { Prompt = pair.Prompt.Replace("No non-diegetic music.", "") };
             if (last.Contains("WRONG_REEL_DURATION")) pair = pair with { Prompt = pair.Prompt.Replace("5.167 seconds", "5 seconds") };
+            if (last.Contains("NATURAL_REEL_REFERENCE")) pair = pair with { Prompt = pair.Prompt.Replace("<Picture 1>", "Picture 1") };
             output = last.Contains("INVALID_PAIR") ? "{\"prompt\":\"incomplete\"}" : JsonSerializer.Serialize(pair, AtomicJsonFile.Options);
         }
         else if ((list[0].Text ?? "").Contains("Lumibelle's production director"))
@@ -642,6 +645,12 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
             }
             output = JsonSerializer.Serialize(new { prompt = composedPrompt, referenceUsage = "Selected images are inspected; video descriptions are author-provided context, not video analysis." });
             if (root.GetProperty("directingNotes").GetString()?.Contains("INVALID_COMPOSITION") == true) output = "{\"prompt\":\"incomplete\",\"referenceUsage\":\"Invalid fixture response\"}";
+            // A structured reply that leaves out its summary: usable, with a review note.
+            if (root.GetProperty("directingNotes").GetString()?.Contains("SECTIONS_WITHOUT_SUMMARY") == true)
+                output = JsonSerializer.Serialize(new { sections = new {
+                    subject_definitions = "<Subject 1> Juniper, the mouse from the shot.", retention_analysis = "Keep Juniper's appearance.",
+                    detailed_description = Enumerable.Range(0, shot.Dialogue.Count + 1).Select(i => i == 0 ? "The camera holds as Juniper looks up." : "").ToArray(),
+                    overall_soundscape = "Quiet room tone.", non_diegetic_music = "No non-diegetic music." }, referenceUsage = "Fixture response." });
         }
         else if ((list[0].Text ?? "").Contains("Lumibelle's preservation guidance assistant"))
         {

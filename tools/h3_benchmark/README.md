@@ -4,6 +4,64 @@
 tests or CI. Normal application tests use mocked catalogs and generation. Run
 GPU benchmarks explicitly when a compatible local ComfyUI setup is available.
 
+## Historical promotion and candidate trial
+
+See the [30 October findings](../../docs/h3/promotion-feasibility-2026-10-30.md)
+and [current generation capture](../../docs/h3/generation-recipes.md). The dated
+trial used a recorder that has since been retired; its existing artifacts retain
+that evidence. Current application graphs use native and upstream nodes without
+Lumibelle custom nodes. Scripts expecting recorder receipts are historical tools.
+Use a separate
+ComfyUI server and owned artifact directory; never restart production for a trial.
+The prepared directory contains `h3-settings.json`, `inputs/face.png`,
+`inputs/outfit.png`, `inputs/voice.wav`, `requests`, `results`, a budget ledger and
+explicit review decisions. Models remain in the configured ordinary model folders.
+
+The exporter builds application graphs and freezes requests. It refuses to
+overwrite a case. The worker runs one case, watches production, checks the budget
+and owned input hashes, records memory/events/actual sigmas, and never retries
+automatically. Given a prepared directory and an isolated server on port 18188:
+
+```powershell
+dotnet run --project tools/h3_benchmark/exporter -- --motion-reference artifacts/YOUR-TRIAL dialogue-draft
+```
+
+Copy `motion_reference_live.py` into the trial's `/bench` mount, then run inside
+the isolated container, whose own ComfyUI is on port 8188:
+
+```text
+python /bench/motion_reference_live.py /bench dialogue-draft --maximum-seconds 1200
+```
+
+Export `dialogue-final-1` after the draft completes; use `motion-*` for the
+movement scene. Standard Quick controls are `*-control`, followed by `*-refine`.
+The latter compose and inspect a real refinement package and freeze its split
+latents. Validate each completed receipt with:
+
+```powershell
+dotnet run --project tools/h3_benchmark/exporter -- --motion-receipt-check artifacts/YOUR-TRIAL dialogue-final-1
+```
+
+`acceleration_export.py` prepares an explicitly experimental Compact or SMD graph
+only after both initial promotion reviews are accepted. It pins the complete
+checkpoint versus adapter role and verifies contents before capture. This is
+isolated recipe screening, not a production job import path. Its conditional
+FastH3 prototype additionally requires an accepted initial-candidate promotion;
+preparing that path does not advertise a validated production integration.
+
+An explicitly requested retry uses `retry_capture.py ROOT FAILED_CASE NEW_CASE
+--reason TEXT`. It preserves request, seed, prompt graph and media, changes only
+the transport identity, and retains the failed result. Choose its watchdog
+deliberately and charge the failed attempt as well. Native promotion exceeded
+20 minutes once in the October trial; a step count alone is not a latency bound.
+
+## Historical September tooling
+
+The scripts below document the pinned September experiment. Current application
+code rejects removed Spectrum and LightX2V 8-step recipes. Reproducing those old
+exports requires the corresponding historical source revision; their presence
+does not make them supported current presets. Preserve the dated evidence.
+
 ## Manual acceleration comparison
 
 The [September 11 findings](../../docs/h3/acceleration-benchmark-2026-09-11.md)

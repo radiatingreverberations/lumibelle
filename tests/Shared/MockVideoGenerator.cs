@@ -5,6 +5,7 @@ using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Assets;
+using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 using SixLabors.ImageSharp;
@@ -18,6 +19,7 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
     public bool FailTransfer, MissingJob, UncertainSubmission;
     public bool PatternedFrames;
     public int DelayMilliseconds = 500;
+    public int MotionReferencePreparationDelayMilliseconds;
     public Func<Task>? OnSubmit;
     public Func<CancellationToken, Task>? OnObserve;
     public Func<CancellationToken, Task<bool>>? OnCancel;
@@ -28,14 +30,15 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
     {
         Interlocked.Increment(ref CheckCalls);
         return Task.FromResult(Catalog ?? new H3Configuration(true, true, "Mock H3 Standard and Turbo are ready.", [s.H3.Model], [s.H3.Encoder], [s.H3.VideoVae,s.H3.AudioVae], [s.H3.TurboLora,s.H3.Turbo8StepLora,"h3/"+new H3Settings().Turbo8StepLora])
-        { DiscoverySucceeded = true, VideoReferenceIssue = null, StartFrameIssue = null, Presets = H3Presets.Keys.Select(key => new H3PresetSetup(key, null, key switch {
+        { DiscoverySucceeded = true, VideoReferenceIssue = null, StartFrameIssue = null, Presets = H3Presets.Offered.Select(key => new H3PresetSetup(key, null, key switch {
                 "larry" => [H3Presets.Checkpoint("larry", s.H3)!], "pdd" => [H3Presets.Checkpoint("pdd", s.H3)!], "turbo4" => [s.H3.TurboLora, "custom/renamed-ref2va-turbo.safetensors"],
                 "turbo8" => [s.H3.Turbo8StepLora, "h3/"+new H3Settings().Turbo8StepLora, "custom/renamed-ref2va-turbo.safetensors"], _ => [] })).ToArray(), OptionalLoras = OptionalLoraCatalog?.Invoke(s) ?? new(true, "Mock H3 LoRAs ready.", ["h3/character.safetensors", "h3/styles/film.safetensors"]), Performance = new() { PyTorchIssue=null, KitchenIssue=null, SageIssue=null, SolIssue=null, FastArchiveIssue=null },
             PackageCaptureReady=true, RefinementIssue=null, LatentUpscalers=["mock-h3-3d.safetensors"],
             PreviewUpscaling=new(H3UpscalerImplementation.Plus, s.H3.LatentUpscaler == "mock-h3-3d.safetensors" ? null : "Choose an installed learned 3D upscaler checkpoint under Preview upscaling and Save."),
             Turbo8StepReady=true, InstalledModels=[s.H3.Model,"custom/renamed-ref2va.safetensors"], InstalledEncoders=[s.H3.Encoder,"custom/renamed-h3-encoder.safetensors"], InstalledVaes=[s.H3.VideoVae,s.H3.AudioVae,"custom/renamed-vae.safetensors"], InstalledLoras=[s.H3.TurboLora,s.H3.Turbo8StepLora,"h3/"+new H3Settings().Turbo8StepLora,"custom/renamed-ref2va-turbo.safetensors",H3Presets.Checkpoint("larry", s.H3)!,H3HyperFlow.Checkpoint(s.H3)],
             // The preset and upscaler node packs are installed; KJNodes for SageAttention is not.
-            Nodes=new[] { H3Requirements.LarryNodes, H3Requirements.PddNodes, H3Requirements.SpectrumNodes, H3Requirements.UpscalerNodes }.Select(r => r.Node!).ToHashSet() });
+            // Stock frame selection and PNG saving, used for kept lossless frames.
+            Nodes=new[] { H3Requirements.LarryNodes, H3Requirements.PddNodes, H3Requirements.UpscalerNodes }.Select(r => r.Node!).Append("ImageFromBatch").Append("SaveImage").ToHashSet() });
     }
     public async Task ValidateInputsAsync(VideoSnapshot s, CancellationToken ct)
     {
@@ -47,12 +50,22 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
             if (media is null) throw new WorkspaceStoreException("Restore or replace the missing reference.");
         }
     }
+    public async Task PrepareAsync(VideoRun run, string path, CancellationToken ct, IProgress<VideoPreparationProgress>? progress)
+    {
+        progress?.Report(new(VideoPreparationStage.References, "Preparing reference inputs", 0, ReferenceVideos.InputOrder(run.Snapshot.Shot).Count()));
+        if (run.Snapshot.MotionReference is not null && MotionReferencePreparationDelayMilliseconds > 0)
+            await Task.Delay(MotionReferencePreparationDelayMilliseconds, ct);
+        await PrepareAsync(run, path, ct);
+        progress?.Report(new(VideoPreparationStage.References, "Reference inputs ready", run.Inputs.Count, run.Inputs.Count));
+    }
     public async Task PrepareAsync(VideoRun run, string path, CancellationToken ct)
     {
         if (run.Snapshot.Reel?.Recipe.Name.Contains("MEMORY_FAILURE", StringComparison.Ordinal) == true)
             throw new OutOfMemoryException("Mock application memory failure");
         if (run.Snapshot.Reel?.Recipe.Name.Contains("SLOW_PREPARATION", StringComparison.Ordinal) == true)
             await Task.Delay(30000, ct);
+        if (run.Snapshot.Shot.Title.Contains("PREPARATION_FAILURE", StringComparison.Ordinal))
+            throw new WorkspaceStoreException("Mock media preparation failed.");
         await ValidateInputsAsync(run.Snapshot,ct); run.Inputs.Clear();
         var folder=Path.Combine(path,"inputs");Directory.CreateDirectory(folder);
         foreach(var reference in run.Snapshot.Shot.Images)
@@ -67,7 +80,7 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
             else { using var image=new Image<Rgb24>(16,16);await image.SaveAsPngAsync(Path.Combine(folder,name),ct); }
             run.Inputs.Add(new(name,false));
         }
-        if (run.Snapshot.Shot.ContinuityFrame is { } continuity)
+        foreach (var continuity in run.Snapshot.Shot.ShotFrames)
         {
             var name=$"image-{run.Inputs.Count:D2}.png";
             if (shots is not null) await File.WriteAllBytesAsync(Path.Combine(folder,name),await lumibelle.Services.Production.ProductionInputs.ContinuityPngAsync(run.Snapshot.ProjectId,continuity,shots,ct),ct);

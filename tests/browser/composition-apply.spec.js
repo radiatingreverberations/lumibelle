@@ -24,7 +24,9 @@ async function review(page, request, conflict = false) {
 for (const narrow of [false, true]) test(`Apply fills an empty prompt after an extra save (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
   const { id, job, dialog } = await review(page, request);
-  await expect(dialog).toContainText('Empty prompt');
+  await expect(dialog.locator('.prompt-comparison')).toHaveClass(/prompt-preview/);
+  await expect(dialog.locator('.prompt-comparison .before, .prompt-comparison ins, .prompt-comparison small')).toHaveCount(0);
+  await expect(dialog.locator('.prompt-comparison .after')).toContainText('subject_definitions:');
   const apply = dialog.getByRole('button', { name: 'Apply changes', exact: true });
   await apply.focus(); await expect(apply).toBeInViewport(); await apply.press('Enter');
   await expect(dialog).not.toBeVisible();

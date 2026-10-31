@@ -24,8 +24,9 @@ public static class RefinementPolicy
     }
     public static RefinementSize DefaultSize(int width, int height) => Sizes(width, height)
         .Skip(1).FirstOrDefault(s => s.Issue is null && s.Pixels > (long)width * height) ?? Sizes(width, height)[0];
-    public static void Validate(TakeRefinement r, VideoSnapshot source)
+    public static void Validate(TakeRefinement r, VideoSnapshot source, bool historical = false)
     {
+        if (!historical && H3AcceleratedCheckpoints.Baked(source)) throw new WorkspaceStoreException(H3AcceleratedCheckpoints.RefinementIssue);
         var p = r.SourcePackage;
         if (r.ParentTakeId == Guid.Empty || p is null || p.Id == Guid.Empty || !Enum.IsDefined(r.Mode) || !Enum.IsDefined(r.Implementation) || r.Profile != Profile ||
             string.IsNullOrWhiteSpace(r.Upscaler) || !r.Upscaler.EndsWith(".safetensors", StringComparison.OrdinalIgnoreCase) || p.Bytes <= 0 || !Hash(p.Sha256) ||

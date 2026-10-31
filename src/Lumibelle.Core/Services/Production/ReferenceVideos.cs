@@ -117,6 +117,9 @@ public interface IReferenceVideoStore
         => throw new WorkspaceStoreException("Reel frame archives are unavailable.");
     Task<ReelFrameCatalog> FrameCatalogAsync(Guid project, ReferenceVideoMedia media, H3Settings settings, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Reel keyframes are unavailable.");
+    // Kept lossless frames of a reel final become its cached keyframe pictures, so they are never decoded from the MP4.
+    Task PublishKeptFramesAsync(Guid project, ReferenceVideoMedia media, ShotTake take, string sourceDirectory, H3Settings settings, CancellationToken ct = default)
+        => Task.CompletedTask;
     Task<ReelKeyframeSet> SuggestFramesAsync(Guid project, ReferenceVideoMedia media, int count, H3Settings settings, CancellationToken ct = default)
         => throw new WorkspaceStoreException("Reel keyframes are unavailable.");
     Task<AssetMedia> OpenFrameAsync(Guid project, ReelFrameIdentity frame, H3Settings settings, CancellationToken ct = default)

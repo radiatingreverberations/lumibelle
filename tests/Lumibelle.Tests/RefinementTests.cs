@@ -29,8 +29,8 @@ public sealed partial class ShotTests
         Assert.Empty((await f.Jobs.ReadAsync(_ct)).Jobs);
     }
     [Theory]
-    [InlineData(false, 20)] [InlineData(false, 4)] [InlineData(false, 8)]
-    [InlineData(true, 20)] [InlineData(true, 4)] [InlineData(true, 8)]
+    [InlineData(false, 20)] [InlineData(false, 4)]
+    [InlineData(true, 20)] [InlineData(true, 4)]
     public async Task OptionalCaptureIsFixedForAllCandidatesAndExtensions(bool companion, int steps)
     {
         using var f = await QueuedVideoFixture.Create(this, steps, companion);
@@ -171,7 +171,7 @@ public sealed partial class ShotTests
     [InlineData(false)] [InlineData(true)]
     public async Task RefinementUsesSavedContextAfterEditsAndParentPurgeAndSurvivesRestart(bool moved)
     {
-        using var f = await QueuedVideoFixture.Create(this, 8);
+        using var f = await QueuedVideoFixture.Create(this, 4);
         var original = await f.Capture(); var context = await f.Claim(original);
         await f.Worker.ExecuteAsync(context, original.Snapshot, _ct);
         await f.Jobs.UpdateAsync(original.Id, j => j with { State = AiJobState.Completed, LeaseId = null }, _ct);

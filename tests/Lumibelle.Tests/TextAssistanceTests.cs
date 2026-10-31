@@ -80,6 +80,44 @@ public sealed partial class TextModelStoreTests
         Assert.Null(request.SelectionSource);
     }
     [Fact]
+    public async Task LoadingSavedModelChoicesDoesNotContactProviders()
+    {
+        var providers = new FakeProviders();
+        var settings = new FakeAiSettingsStore { Value = new() { HasOpenRouterKey = true, StarredTextModels = [Cloud, Local] } };
+        var session = new TextModelSession(Guid.NewGuid(), settings, new FakeProjectAiPreferencesStore(), providers);
+        await session.LoadAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(0, providers.CheckCalls);
+        Assert.Contains(Cloud, session.Choices);
+        Assert.Null(session.ChoiceIssueFor(Cloud));
+        Assert.False(session.State.Ready);
+    }
+    [Fact]
+    public async Task AvailabilityChecksOnlyTheChosenOpenAiConnectionAndPreservesOtherResults()
+    {
+        var first = new OpenAiConnectionSettings { Name = "One", Url = "http://one:8000/v1" };
+        var second = new OpenAiConnectionSettings { Name = "Two", Url = "http://two:8000/v1" };
+        var model = new TextModelReference(AiBackend.Vllm, "served", "Served") { VllmUrl = first.Url };
+        var other = model with { VllmUrl = second.Url };
+        var settings = new FakeAiSettingsStore { Value = new() { TextDefault = model, OpenAiConnections = [first, second], StarredTextModels = [model, other] } };
+        var providers = new FakeProviders { Models = [new("served", "Served")] };
+        var session = new TextModelSession(Guid.NewGuid(), settings, new FakeProjectAiPreferencesStore(), providers);
+        await session.RefreshAsync(ct: TestContext.Current.CancellationToken);
+        Assert.Single(session.Checks[AiBackend.Vllm].Connections!);
+        Assert.True(session.HasAvailability(model));
+        Assert.False(session.HasAvailability(other));
+        Assert.Null(session.ChoiceIssueFor(other));
+        session.Select(other);
+        await session.RefreshAsync(ct: TestContext.Current.CancellationToken);
+        Assert.Equal(2, providers.CheckCalls);
+        Assert.True(session.State.Ready);
+        session.Select(model);
+        Assert.True(session.State.Ready);
+        settings.Value = settings.Value with { OpenAiConnections = [first with { SupportsImages = true }, second] };
+        await session.LoadAsync(TestContext.Current.CancellationToken);
+        Assert.Empty(session.Checks);
+        Assert.Equal(2, providers.CheckCalls);
+    }
+    [Fact]
     public async Task MissingSelectedModelNeverFallsBackToAnAvailableModel()
     {
         var preferences = new FakeProjectAiPreferencesStore(); var id = Guid.NewGuid();
@@ -87,5 +125,6 @@ public sealed partial class TextModelStoreTests
         var session = new TextModelSession(id, new FakeAiSettingsStore(), preferences, new FakeProviders { Models = [new("different", "Available")] });
         await session.RefreshAsync(ct: TestContext.Current.CancellationToken);
         Assert.Equal(Cloud, session.Model); Assert.False(session.State.Ready); Assert.Contains("no longer available", session.Issue);
+        Assert.Null(session.ChoiceIssueFor(Cloud)); // A saved choice can be picked again to recheck it.
     }
 }

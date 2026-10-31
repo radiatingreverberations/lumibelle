@@ -28,6 +28,7 @@
             @if (Value is { } existing) {
                 <p class="field-hint">Replaces the attached shot frame, @Label(existing, Shots, Takes). Other references stay attached.</p>
             }
+            else if (Attached.Count > 0) { <p class="field-hint">Adds another shot frame. @Attached.Count already attached.</p> }
             @if (PictureCount >= 9 && Value is null) { <p role="status">@PictureCount/9 pictures. Remove a picture before adding this frame.</p> }
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(Disabled || !_loaded || _failed || PictureCount >= 9 && Value is null || IsCurrent)" OnClick="Pick">@(IsCurrent ? "Already attached" : Value is null ? "Add picture" : "Replace shot frame")</MudButton>
             <p class="field-hint">Uses one picture slot. The reference stays pinned to this take and frame.</p>
@@ -39,7 +40,9 @@
     [Parameter, EditorRequired] public Shot CurrentShot { get; set; } = null!;
     [Parameter] public IReadOnlyList<Shot> Shots { get; set; } = [];
     [Parameter] public IReadOnlyList<ShotTake> Takes { get; set; } = [];
+    // The attached frame this picker replaces; null adds a new frame.
     [Parameter] public ShotContinuityFrame? Value { get; set; }
+    [Parameter] public IReadOnlyList<ShotContinuityFrame> Attached { get; set; } = [];
     [Parameter] public int PictureCount { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public EventCallback<ShotContinuityFrame> Picked { get; set; }
@@ -53,7 +56,8 @@
     private List<ShotTake> SourceTakes => Takes.Where(t => t.ShotId == _shotId && t.FrameCount > 0).OrderBy(t => t.CreatedUtc).ThenBy(t => t.Id).ToList();
     private ShotTake? SourceTake => SourceTakes.FirstOrDefault(t => t.Id == _takeId);
     private string PreviewUrl => $"/media/projects/{ProjectId}/takes/{_takeId}/frames/{_frame}";
-    private bool IsCurrent => Value is { } current && current.TakeId == _takeId && current.Frame == _frame;
+    // Replacing a frame may not duplicate another attached one either.
+    private bool IsCurrent => (Value is null ? Attached : Attached.Append(Value)).Any(f => f.TakeId == _takeId && f.Frame == _frame);
     private string ShotLabel(Shot s) => $"{Shots.ToList().FindIndex(x => x.Id == s.Id) + 1} · {s.Title}";
     protected override void OnParametersSet() {
         if (_initialized || AvailableShots.Count == 0) return;

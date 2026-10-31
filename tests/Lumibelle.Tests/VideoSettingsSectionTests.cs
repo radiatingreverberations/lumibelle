@@ -39,6 +39,7 @@ public sealed class VideoSettingsSectionTests : BunitContext
         Assert.Equal(H3AttentionBackend.Sage, saved.Performance.Attention); Assert.Equal(settings.H3.TimeoutSeconds, saved.TimeoutSeconds);
         // Preview upscaling lives on the same page now, and take refinement is hidden.
         Assert.Equal([VideoSettingsPanel.H3Section], VideoSettingsPanel.Sections.Select(s => s.Key));
-        Assert.DoesNotContain("companion", panel.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("companion node", panel.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("optional companion", panel.Markup, StringComparison.OrdinalIgnoreCase);
     }
 }

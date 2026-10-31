@@ -34,7 +34,7 @@ public sealed partial class ShotTests
     {
         foreach (var backend in Enum.GetValues<H3AttentionBackend>())
         foreach (var sol in new[] { false, true })
-        foreach (var steps in new[] { 20, 4, 8 }) yield return [backend, sol, steps];
+        foreach (var steps in new[] { 20, 4 }) yield return [backend, sol, steps];
     }
     [Theory, MemberData(nameof(PerformanceGraphs))]
     public void PerformanceGraphPreservesSamplingAndMedia(H3AttentionBackend backend, bool sol, int steps)

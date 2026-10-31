@@ -13,21 +13,23 @@ namespace lumibelle.Services.Shots;
 public static class H3Policy
 {
     public const string Profile = "h3-single-take-v3";
-    public static int Quality(Shot shot) => H3Presets.Key(shot) switch { "larry" => 6, "pdd" or "turbo8" or H3HyperFlow.Key => 8, "turbo4" or H3Presets.TurboLight => 4, _ => 20 };
+    public static int Quality(Shot shot) => H3Presets.Key(shot) switch { "larry" or H3PtdRecipe.Key => 6, "pdd" or "turbo8" or H3HyperFlow.Key or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast => 8, "turbo4" or H3Presets.TurboLight or H3SmdRecipe.Key => 4, _ => 20 };
     public static string QualityLabel(Shot shot) => H3Presets.Label(H3Presets.Key(shot));
     public static H3Sampling Sampling(Shot shot, H3Settings settings)
     {
         var key = H3Presets.Key(shot);
+        if (key == H3PtdRecipe.Key) return new("h3-ptd-refasym6-v1", 6, H3PtdRecipe.Sampler, "checkpoint", 12, 3, H3PtdRecipe.Adapter(settings), 1);
+        if (key == H3SmdRecipe.Key) return new("h3-smd-ref2va-4step-v1", 4, "euler", "manual", 12, 3, H3SmdRecipe.Adapter(settings), 1);
         if (key == H3HyperFlow.Key) return H3HyperFlow.Sampling(settings);
         return new(key switch { "standard" => "h3-standard-v1", "turbo8" => "h3-ref2v-turbo8-v1", "turbo4" => "h3-turbo4-v1", _ => "h3-" + key + "-v1" },
-            Quality(shot), key is "turbo8" or "pdd" or H3Presets.EulerBeta ? "euler" : key == "larry" ? "MiniMaxH3TurboSampler" : "res_multistep",
+            Quality(shot), key is "turbo8" or "pdd" or H3Presets.EulerBeta or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast ? "euler" : key == "larry" ? "MiniMaxH3TurboSampler" : "res_multistep",
             key is H3Presets.Beta or H3Presets.EulerBeta ? "beta" : "simple", 12, 3, H3Presets.Checkpoint(key, settings),
-            key is "standard" or "spectrum" or H3Presets.Beta or H3Presets.EulerBeta ? 0 : key == H3Presets.TurboLight ? H3Presets.TurboLightStrength : 1);
+            key is "standard" or "spectrum" or H3Presets.Beta or H3Presets.EulerBeta or H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast ? 0 : key == H3Presets.TurboLight ? H3Presets.TurboLightStrength : 1);
     }
     public static string? TurboFileIssue(string file, int steps)
     {
         var name = Path.GetFileName(file.Replace('\\', '/'));
-        if (name.Contains("hyperflow", StringComparison.OrdinalIgnoreCase)) return "Choose the HyperFlow generation preset; ordinary Turbo does not use its fixed sigma grid.";
+        if (name.Contains("hyperflow", StringComparison.OrdinalIgnoreCase)) return "Standalone HyperFlow was removed. Choose a current generation preset and its matching weights.";
         if (name.Contains("fl2v", StringComparison.OrdinalIgnoreCase)) return "Choose a Ref2V LoRA; FL2V requires a different workflow.";
         if (name.Contains(steps == 8 ? "4step" : "8step", StringComparison.OrdinalIgnoreCase)) return $"Choose a {steps}-step LoRA for this Turbo option.";
         return null;
@@ -76,6 +78,11 @@ public static class H3Policy
             s.Voices.Select(x => x.VoiceId).Distinct().Count() != s.Voices.Count ||
             s.Dialogue.Select(x => x.Id).Distinct().Count() != s.Dialogue.Count)
             throw new WorkspaceStoreException("Use distinct references: up to nine images and three voices.");
+        // Shot frames count toward the nine pictures in ReferenceVideos.Validate; here each must be a distinct, complete frame.
+        if (s.ShotFrames.Any(f => f is null || f.Id == Guid.Empty || f.TakeId == Guid.Empty || f.Frame < 0 || f.Name is null) ||
+            s.ShotFrames.Select(f => f.Id).Distinct().Count() != s.ShotFrames.Count ||
+            s.ShotFrames.Select(f => (f.TakeId, f.Frame)).Distinct().Count() != s.ShotFrames.Count)
+            throw new WorkspaceStoreException("Use distinct shot frames, each from a saved take.");
         foreach (var image in s.Images)
         {
             if (image.InferUsage && (image.Use is not null || image.Purpose is not null)) throw new WorkspaceStoreException("Choose inferred usage or an explicit reference role.");
@@ -124,7 +131,7 @@ public static class H3Policy
         if (loras.Length == 0) json.AsObject().Remove("loras");
         else json["loras"] = JsonSerializer.SerializeToNode(loras, AtomicJsonFile.Options);
         // Preferences and setup provenance do not change the captured visual content.
-        json.AsObject().Remove("aspectOverride");
+        json.AsObject().Remove("aspectOverride"); json.AsObject().Remove("generationPresetMigration");
         // Existing Standard/4-step shots must retain their original take fingerprints.
         if (!s.Turbo || s.TurboSteps == 4) json.AsObject().Remove("turboSteps");
         // Keep fingerprints of untouched v1 drafts stable when optional fields are absent.

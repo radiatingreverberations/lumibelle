@@ -1,0 +1,64 @@
+{
+  "PTDH3CompactLoader": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ],
+        "checkpoint": [
+          [
+            "ptd_h3_ref2va_refasymopd_6step_int8.safetensors"
+          ]
+        ]
+      },
+      "optional": {
+        "kernels": [
+          [
+            "exact (PTD reference)",
+            "fast (native kernels)"
+          ],
+          {
+            "default": "exact (PTD reference)",
+            "tooltip": "exact: PTD's reference block arithmetic, as the adapters were trained. fast: ComfyUI's fused native blocks, ~8% faster per block. Same maths; only bf16 rounding differs."
+          }
+        ]
+      }
+    },
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ]
+  },
+  "PTDH3CompactSampler": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ]
+      }
+    },
+    "output": [
+      "SAMPLER"
+    ],
+    "output_is_list": [
+      false
+    ]
+  },
+  "PTDH3CompactSigmas": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ]
+      }
+    },
+    "output": [
+      "SIGMAS"
+    ],
+    "output_is_list": [
+      false
+    ]
+  }
+}

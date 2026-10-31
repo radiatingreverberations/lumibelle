@@ -20,7 +20,8 @@ public partial class ProductionStudio
     private bool RefinementLocked(ShotTake take) => AiJobs.View.Jobs.Any(j => j.Kind == AiJobKind.Video && j.Target.ProjectId == Id && j.Target.TakeId == take.Id && j.LocksTarget);
     private bool ReviewContains(ShotTake take) => _reviewRun is not null &&
         (take.RunId == _reviewRun.Id || _runs.FirstOrDefault(r => r.Id == take.RunId) is { } run && ReviewRoot(run).Id == _reviewRun.Id);
-    private string? RefineIssue(ShotTake take) => take.RefinementPackage is null ? TakeDisplay.NoLatents
+    private string? RefineIssue(ShotTake take) => H3AcceleratedCheckpoints.Baked(take.Snapshot) ? H3AcceleratedCheckpoints.RefinementIssue
+        : take.RefinementPackage is null ? TakeDisplay.NoLatents
         : RefinementLocked(take) ? "This take is already being refined." : null;
     private bool CanRefine(ShotTake take) => RefineIssue(take) is null && !_refinementBusy && _refinementEnqueue is null;
     // Opens the take in review, where the refinement options appear above the player.

@@ -78,7 +78,7 @@ public sealed class CompositionEstimateTests
         owner = owner with { Images = [image] };
         var take = new ShotTake { Id = Guid.NewGuid(), Width = 2000, Height = 2000, Snapshot = null! };
         var shot = new Shot { Images = [new() { AssetId = owner.Id, MediaId = image.Id, Crop = new() { X = .25, Width = .5, Height = .5 } }],
-            ContinuityFrame = new(Guid.NewGuid(), take.Id, 0, "Before"), StartFrame = new(take.Id, 0),
+            ShotFrames = [new(Guid.NewGuid(), take.Id, 0, "Before")], StartFrame = new(take.Id, 0),
             Videos = [new() { Media = new(Guid.NewGuid(), "hash", 1, 640, 360, 24, 24, 1, false), Visuals = ReelVisuals.Keyframes,
                 Keyframes = new() { Frames = [new() { Frame = new(Guid.NewGuid(), "hash", 0, 0), Crop = new() { Width = .5 } }] } },
                 new() { Media = new(Guid.NewGuid(), "hash", 1, 640, 360, 24, 24, 1, false), Visuals = ReelVisuals.RefMod,

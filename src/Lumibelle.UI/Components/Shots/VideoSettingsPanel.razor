@@ -10,7 +10,7 @@
 
     <section class="video-setup-group" aria-labelledby="video-required-files">
         <h3 id="video-required-files">Required files</h3>
-        <p class="field-hint">Every preset needs these four. Put each file in the folder shown inside your ComfyUI folder, then check again.</p>
+        <p class="field-hint">Choose the ordinary H3 model used by Standard, plus the shared encoder and VAEs. Complete accelerated checkpoints have separate selections below. Put each file in the folder shown, then check again.</p>
         @foreach (var requirement in H3Requirements.Required) { @RequirementRow(requirement) }
     </section>
 
@@ -18,10 +18,7 @@
         <h3>Presets</h3>
         <p class="field-hint">Offered in the Shots preset picker. Each lists only what it needs beyond the required files.</p>
         @foreach (var key in H3Presets.Offered) { @PresetRow(key) }
-        <details class="video-retired-presets"><summary>Retired presets (@H3Presets.Keys.Count(H3Presets.Retired))</summary>
-            <p class="field-hint">No longer offered for new choices. Shots and saved setups that already use them keep generating with these settings.</p>
-            @foreach (var key in H3Presets.Keys.Where(H3Presets.Retired)) { @PresetRow(key) }
-        </details>
+        <p class="field-hint">Spectrum, LightX2V 8-step, Turbo strength 0.75 and standalone HyperFlow were removed. Editable setups using them reset to Standard; saved takes retain their captured settings.</p>
     </section>
 
     <section class="video-setup-group" aria-labelledby="video-add-ons">
@@ -88,7 +85,7 @@
             if (!CommonSetupUnchanged) return ("Your file choices changed. Check again to update the presets.", "NotChecked");
             if (!_catalog.StandardReady) return (_catalog.Presets.FirstOrDefault(p => p.Key == "standard")?.Issue ?? _catalog.Message, "Missing");
             var offered = H3Presets.Offered.ToArray(); var waiting = offered.Where(k => PresetState(k).State != H3RequirementState.Installed).Select(H3Presets.Label).ToArray();
-            return waiting.Length == 0 ? ("Ready. Every preset can generate.", "Installed")
+            return waiting.Length == 0 ? ("Setup complete for every preset.", "Installed")
                 : ($"{offered.Length - waiting.Length} of {offered.Length} presets ready. Not set up yet: {string.Join(", ", waiting)}.", "Installed");
         }
     }
@@ -96,11 +93,15 @@
     private (string Label, H3RequirementState State) PresetState(string key)
     {
         if (!Checked) return ("Not checked", H3RequirementState.NotChecked);
-        if (H3Requirements.Required.Any(r => State(r) == H3RequirementState.Missing)) return ("Needs required files", H3RequirementState.Missing);
+        var ownModel = H3AcceleratedCheckpoints.Full(key) || key is H3SmdRecipe.Key or H3PtdRecipe.Key;
+        if (H3Requirements.Required.Any(r => (!ownModel || r.Id != "model") && State(r) == H3RequirementState.Missing)) return ("Needs required files", H3RequirementState.Missing);
         var extra = H3Requirements.ForPreset(key).Select(r => H3Requirements.Status(r, _draft, _catalog)).ToArray();
         if (extra.Any(s => s.State == H3RequirementState.Missing && s.Requirement.Kind == H3RequirementKind.NodePack)) return ("Needs node pack", H3RequirementState.Missing);
         if (extra.Any(s => s.State == H3RequirementState.Missing)) return ("Needs file", H3RequirementState.Missing);
         if (!CommonSetupUnchanged || H3Presets.Checkpoint(key, _checked!) != H3Presets.Checkpoint(key, _draft)) return ("Check again", H3RequirementState.NotChecked);
+        if (H3AcceleratedCheckpoints.Full(key) && H3AcceleratedCheckpoints.Model(_checked!, key) != H3AcceleratedCheckpoints.Model(_draft, key)) return ("Check again", H3RequirementState.NotChecked);
+        if (key == H3SmdRecipe.Key && H3SmdRecipe.Model(_checked!) != H3SmdRecipe.Model(_draft)) return ("Check again", H3RequirementState.NotChecked);
+        if (key == H3PtdRecipe.Key && H3PtdRecipe.Model(_checked!) != H3PtdRecipe.Model(_draft)) return ("Check again", H3RequirementState.NotChecked);
         return _catalog!.Presets.FirstOrDefault(p => p.Key == key)?.Issue is null ? ("Ready", H3RequirementState.Installed) : ("Setup needed", H3RequirementState.Missing);
     }
     private (string Label, H3RequirementState State) UpscaleState => !Checked ? ("Not checked", H3RequirementState.NotChecked) :
@@ -122,7 +123,6 @@
             <summary><span class="video-row-title">@H3Presets.Label(key)</span>
                 <span class="video-badges">
                     @foreach (var badge in H3Presets.Recipe(key)) { @Badge(badge.Label, badge.Hint, "recipe") }
-                    @if (H3Presets.Retired(key)) { @Badge("Retired", "No longer offered for new choices. Shots and setups that already use it keep working.", "tag") }
                 </span>@Status(state)</summary>
             <p class="field-hint video-preset-help">@H3Presets.Help(key)</p>
             @if (H3Presets.WorksWith(key) is { Count: > 0 } works)
@@ -220,6 +220,9 @@
         {
             to.Model = from.Model; to.Encoder = from.Encoder; to.VideoVae = from.VideoVae; to.AudioVae = from.AudioVae; to.Performance = from.Performance;
             to.LarryLora = from.LarryLora; to.PddCheckpoint = from.PddCheckpoint; to.HyperFlowLora = from.HyperFlowLora; to.TurboLora = from.TurboLora;
+            to.TenErosCompactModel = from.TenErosCompactModel;
+            to.SmdBaseModel = from.SmdBaseModel; to.SmdLora = from.SmdLora;
+            to.FastH3Model = from.FastH3Model; to.PtdBaseModel = from.PtdBaseModel; to.PtdAdapter = from.PtdAdapter;
             to.Turbo8StepLora = from.Turbo8StepLora; to.LatentUpscaler = from.LatentUpscaler;
         }
         else { to.TimeoutSeconds = from.TimeoutSeconds; to.Ffmpeg = from.Ffmpeg; to.Ffprobe = from.Ffprobe; }

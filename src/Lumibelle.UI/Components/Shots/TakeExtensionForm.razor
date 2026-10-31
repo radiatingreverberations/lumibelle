@@ -30,6 +30,7 @@
         <label>New dialogue<textarea aria-label="New dialogue" rows="3" placeholder="Speaker: dialogue · one line per turn" @bind="_dialogue" @bind:event="oninput" disabled="@(Busy || _composing)"></textarea></label>
     </div>
     <div class="shots-actions extension-compose-actions"><TextModelPicker ProjectId="ProjectId" Studio="TextAssistantStudio.Production" SelectionChanged="s => _model = s" Disabled="@(Busy || _composing)" /><TextRequestAction @ref="_composeAction" Primary="true" Label="@(Leading ? "Compose lead-in prompt" : "Compose extension prompt")" Request="CompositionPresentation" Preparing="_compositionPreparing" HasError="@(CompositionPresentation?.Inspectable != true && _compositionError is not null)" Disabled="@(Busy || _composing || _model is null || Generation is null || string.IsNullOrWhiteSpace(_action))" OnStart="StartComposition" OnReview="InspectComposition" /></div>
+    @if (_composing && !_compositionPreparing) { <ArrivingResponse Response="@_compositionArriving" Title="Prompt arriving" ExpandedObject="sections" /> }
     <label>Prompt<textarea aria-label="@(Leading ? "Lead-in prompt" : "Extension prompt")" rows="6" value="@Prompt" @oninput="e => _prompt = e.Value?.ToString() ?? string.Empty" disabled="@(Busy || _composing)"></textarea></label>
     @if (_referenceReview) { <label class="check-row extension-prompt-review"><input type="checkbox" @bind="_promptReviewed" disabled="@(Busy || _composing)" />References changed. I checked the Picture, Video and Audio labels in this prompt.</label> }
     <fieldset disabled="@Busy"><legend>Result</legend>
@@ -53,7 +54,8 @@
         <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
     }
     @if ((_compositionError ?? _compositionResult?.Error ?? CompositionJob?.Error) is { } error) { <p class="field-error" role="alert">@error</p> }
-    <div class="request-details"><h4>Saved response</h4><pre tabindex="0">@(_compositionResult?.Raw ?? (_composing ? "Waiting for the response…" : "No response was saved."))</pre></div>
+    @if (_composing && _compositionResult is null) { <ArrivingResponse Response="@_compositionArriving" Title="Prompt arriving" ExpandedObject="sections" /> }
+    <div class="request-details"><h4>Saved response</h4><pre tabindex="0">@(_compositionResult?.Raw ?? (_composing ? _compositionArriving is { Length: > 0 } arriving ? arriving : "Waiting for the response…" : "No response was saved."))</pre></div>
 </ChildContent><Actions>
     @if (!_composing) { <MudButton Disabled="Busy" OnClick="NewComposition">New request</MudButton> }
 </Actions></AiAssistDialog>
@@ -80,6 +82,8 @@
     private TextModelSelectionState? _model;
     private Guid? _compositionJob;
     private AiTextJobResult? _compositionResult;
+    // The saved result grows while the response streams; shown as a preview until it is checked.
+    private string? _compositionArriving;
     private TextRequestAction? _composeAction;
     private AiJobHeader? CompositionJob => Jobs.View.Jobs.FirstOrDefault(j => j.Id == _compositionJob);
     private TextRequestPresentation? CompositionPresentation => CompositionJob is { } job ? new(job, "Writing prompt…", _compositionError is not null || _compositionResult?.Error is not null ? TextRequestOutcome.Invalid : TextRequestOutcome.Response) : null;
@@ -111,7 +115,7 @@
         var draft = selection.Inputs.Copy();
         var guidance = ShotReferences.Resolve(draft, _referenceLibrary!, new());
         var appearances = ShotLooks.Capture(draft, _referenceLibrary!);
-        static string Signature(Shot shot) => JsonSerializer.Serialize(new { shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, Characters = ShotReferences.Characters(shot), shot.ContinuityFrame }, AtomicJsonFile.Options);
+        static string Signature(Shot shot) => JsonSerializer.Serialize(new { shot.Images, shot.Videos, shot.Voices, shot.CharacterVoices, Characters = ShotReferences.Characters(shot), shot.ShotFrames }, AtomicJsonFile.Options);
         if (Signature(draft) == Signature(_referenceDraft!) &&
             ShotReferences.SameEffective(guidance, _references?.Guidance ?? ContextTake.Snapshot.ReferenceGuidance) &&
             appearances.SequenceEqual(_references?.Appearances ?? ContextTake.Snapshot.Appearances)) {
@@ -132,7 +136,7 @@
     private void NewComposition() { _compositionOpen = false; _compositionError = null; _composeAction?.StartFresh(); }
     private async Task Compose() {
         if (_model is null || _composing) return;
-        _composing = true; _compositionPreparing = true; _compositionError = null; _compositionResult = null; _compositionJob = null;
+        _composing = true; _compositionPreparing = true; _compositionError = null; _compositionResult = null; _compositionJob = null; _compositionArriving = null;
         try {
             var submission = await TextRequests.ComposeExtensionAsync(Guid.NewGuid(), await Reviews.TabIdAsync(), ProjectId, Options, _model.Model, _model.FollowsDefault, _life.Token);
             _compositionJob = submission.Id; await Jobs.EnqueueAsync(submission, _life.Token);
@@ -140,7 +144,12 @@
             while (!_life.IsCancellationRequested) {
                 await Task.Delay(500, _life.Token);
                 var job = Jobs.View.Jobs.FirstOrDefault(j => j.Id == submission.Id);
-                if (job is null || job.LocksTarget) continue;
+                if (job is null) continue;
+                if (job.LocksTarget) {
+                    var partial = (await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _life.Token))?.Raw;
+                    if (partial != _compositionArriving) { _compositionArriving = partial; await InvokeAsync(StateHasChanged); }
+                    continue;
+                }
                 var result = await JobStore.ReadArtifactAsync<AiTextJobResult>(submission.Id, AiJobArtifact.Result, _life.Token);
                 _compositionResult = result;
                 if (result is { Error: null }) { _prompt = PromptComposer.Parse(result.Raw, submission.Snapshot.Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!.Payload<PromptCompositionRequest>()).Prompt; _referenceReview = false; _promptReviewed = false; }

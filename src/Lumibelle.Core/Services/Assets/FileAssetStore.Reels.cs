@@ -72,7 +72,7 @@ public sealed partial class FileAssetStore : IAssetReelStore
 
     public async Task<ReferenceReelDraft> SaveDraftAsync(Guid project, ReferenceReelDraft draft, long expectedRevision, CancellationToken ct = default)
     {
-        draft = draft.Copy(); ReferenceReels.Validate(draft);
+        draft = draft.Copy(); H3PresetMigrations.Apply(draft); ReferenceReels.Validate(draft);
         var directory = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(directory, ct);
         var current = await ReadAsync(directory, project, ct); ReferenceReels.ValidateOwner(draft, ReelOwner(current, draft.AssetId, draft.LookId));
         var old = current.ReelDrafts.SingleOrDefault(d => d.Id == draft.Id);
@@ -177,9 +177,12 @@ public sealed partial class FileAssetStore : IAssetReelStore
     // Apply names changes since the request and applies them when the author accepts (AssistedApply).
     public async Task<bool> ApplyPairAsync(AiJobHeader job, ReelCompositionRequest request, ReelPromptPair pair, bool initialOnly, CancellationToken ct = default, bool acceptChangedInputs = false)
     {
-        if (job.Kind != AiJobKind.ReelComposition || job.State != AiJobState.Completed || job.CancelRequested ||
+        if (job.Kind != AiJobKind.ReelComposition ||
+            !(job.State == AiJobState.Completed || !initialOnly && job.State == AiJobState.NeedsAttention && job.Recovery == AiJobRecovery.GenerateAgain) || job.CancelRequested || job.RemoteUnconfirmed ||
             job.Target.ProjectId != request.ProjectId || job.Target.AssetId != request.Draft.AssetId || job.Target.ReelId != request.Draft.Id) return false;
         ReferenceReels.ValidatePair(pair, request.Draft);
+        // A complete response with advisory findings always waits for its author.
+        if (initialOnly && ReferenceReels.PromptWarning(pair, request.Draft) is not null) return false;
         var directory = await files.DirectoryAsync(request.ProjectId, ct); using var gate = await ProjectFiles.LockAsync(directory, ct);
         var current = await ReadAsync(directory, request.ProjectId, ct);
         var draft = current.ReelDrafts.SingleOrDefault(d => d.Id == request.Draft.Id);

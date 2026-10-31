@@ -67,7 +67,7 @@ test('trim preserves full latents and refinement reapplies the range and reviews
   await expect(review(page)).toContainText('Full source latents retained');
   const videoPosition = review(page).getByRole('slider', { name: 'Video position' });
   await expect(videoPosition).toHaveAttribute('max', '24');
-  await review(page).getByRole('button', { name: 'Refine…', exact: true }).click();
+  await review(page).getByRole('button', { name: 'Upscale latents…', exact: true }).click();
   const form = review(page).getByRole('region', { name: 'Refine take' });
   await expect(form).toContainText('automatically reapplies your trim');
   await form.getByLabel('Output size').selectOption('0');

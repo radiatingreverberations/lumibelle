@@ -1,3 +1,8 @@
+> Historical implementation notes. Standalone HyperFlow was removed on 2026-10-30.
+> The instructions below describe the former integration and are not current setup
+> guidance. Editable setups migrate to Standard; historical takes keep their data.
+> See [current presets](generation-presets.md).
+
 # HyperFlow 8-step ComfyUI conversion (experimental)
 
 This preset integrates the **drbaph ComfyUI conversions** into Lumibelle's existing

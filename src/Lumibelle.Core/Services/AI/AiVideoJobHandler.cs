@@ -151,6 +151,14 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
                             await context.ReportAsync(new(new(GenerationPhase.Downloading, message), candidate.Number,
                                 (await context.CurrentAsync(linked.Token)).Batch!.Candidates[^1].Number)), linked.Token);
                         staged.AiJobId = context.Job.Id;
+                        staged.GenerationRecipe = ShotCopy.Of(request.Recipe);
+                        if (request.Recipe is { ProbeAvailable: true } recipe) {
+                            var saved = await context.ReadOperationAsync<ComfySavedOperation>(remoteOperation, AiOperationArtifact.Request, linked.Token)
+                                ?? throw new WorkspaceStoreException("The submitted H3 graph is unavailable. Retry retrieval without regenerating.");
+                            staged.ExecutionReceipt = H3GenerationRecipes.BindReceipt(output.Value.GetProperty("outputs"), recipe, candidate.Seed,
+                                saved.Workflow, group is null ? H3GenerationRecipes.ProbeId : ComfyMultiTakeWorkflow.Node(candidate, H3GenerationRecipes.ProbeId),
+                                remote.PromptId, remote.ClientId);
+                        }
                         if (staged.ShotId != request.Snapshot.Shot.Id)
                             throw new WorkspaceStoreException("The downloaded take does not match its captured shot.");
                         staged.ShotId = request.OutputShotId;
@@ -226,6 +234,7 @@ public sealed class AiVideoJobHandler(IShotStore shots, IVideoGenerator generato
     private static IEnumerable<string> RequiredOutputs(AiVideoJobRequest request)
     {
         yield return "14";
+        if (request.Recipe?.ProbeAvailable == true) yield return H3GenerationRecipes.ReceiptId;
         if (request.Refinement is not null || request.Snapshot.OutputPolicy?.SaveLosslessFrames != false) yield return "15";
         if (request.Refinement is not null || request.Snapshot.CaptureRefinementData) { yield return "21"; yield return "22"; }
     }

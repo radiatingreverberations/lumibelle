@@ -14,7 +14,7 @@
         }
         @if (Job.Priority)
         {
-            <span class="field-hint">Priority · ahead of normal waiting requests on @Job.Backend. Running work, pause and recovery checks still take precedence.</span>
+            <span class="field-hint">Priority · ahead of normal waiting requests on @TextModelPolicy.ProviderName(Job.Backend). Running work, pause and recovery checks still take precedence.</span>
         }
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </div>

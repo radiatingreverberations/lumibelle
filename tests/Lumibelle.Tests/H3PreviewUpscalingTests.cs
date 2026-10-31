@@ -33,12 +33,12 @@ public sealed partial class ShotTests
         return s with { Sampling = H3Policy.Sampling(shot, s.Settings), PreviewUpscale = H3PreviewUpscaling.Capture(lbh ? H3UpscalerImplementation.Lbh : H3UpscalerImplementation.Plus, UpscaleCheckpoint, aspect) };
     }
     [Theory]
-    [InlineData("16:9", 20, false)] [InlineData("16:9", 4, false)] [InlineData("16:9", 8, false)]
-    [InlineData("9:16", 20, false)] [InlineData("9:16", 4, false)] [InlineData("9:16", 8, false)]
-    [InlineData("1:1", 20, false)] [InlineData("1:1", 4, false)] [InlineData("1:1", 8, false)]
-    [InlineData("16:9", 20, true)] [InlineData("16:9", 4, true)] [InlineData("16:9", 8, true)]
-    [InlineData("9:16", 20, true)] [InlineData("9:16", 4, true)] [InlineData("9:16", 8, true)]
-    [InlineData("1:1", 20, true)] [InlineData("1:1", 4, true)] [InlineData("1:1", 8, true)]
+    [InlineData("16:9", 20, false)] [InlineData("16:9", 4, false)]
+    [InlineData("9:16", 20, false)] [InlineData("9:16", 4, false)]
+    [InlineData("1:1", 20, false)] [InlineData("1:1", 4, false)]
+    [InlineData("16:9", 20, true)] [InlineData("16:9", 4, true)]
+    [InlineData("9:16", 20, true)] [InlineData("9:16", 4, true)]
+    [InlineData("1:1", 20, true)] [InlineData("1:1", 4, true)]
     public void UpscaledPreviewUsesOneSamplerAndPreservesAudio(string aspect, int steps, bool lbh)
     {
         var s = UpscaledSnapshot(aspect, steps, lbh); var graph = JsonSerializer.SerializeToElement(ComfyH3Video.BuildWorkflow(s, 42, "run", [])).GetProperty("prompt");
@@ -126,7 +126,7 @@ public sealed partial class ShotTests
     [Fact]
     public async Task UpscaledQueuedBatchKeepsItsProfileThroughReloadExtensionAndTransferRetry()
     {
-        using var f = await QueuedVideoFixture.Create(this, 8);
+        using var f = await QueuedVideoFixture.Create(this, 4);
         f.Shot.UpscalePreview = true;
         await f.Shots.SaveAsync(f.Project.Id, [f.Shot], (await f.Shots.LoadAsync(f.Project.Id, _ct)).Revision, ct: _ct);
         var submission = await f.Capture(2); var context = await f.Claim(submission);

@@ -31,9 +31,10 @@
     <ChildContent>@if (InspectedJob is { } job) {
         <AiResultAcknowledgement Observed="@(_inspectedResultJob is { } observed && observed.Id == job.Id ? new[] { observed } : [])" />
         <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
-        @if (job.Error is { } error) { <p class="field-error" role="alert">@error</p> }
+        @* A valid repair waiting for review makes the original failure background information. *@
+        @if (job.Error is { } error) { @if (_repairReady == job.Id) { <p class="field-hint">Original problem: @error</p> } else { <p class="field-error" role="alert">@error</p> } }
         @if (_requestError is not null) { <p class="field-error" role="alert">@_requestError</p> }
-        <AiTextRequestDetails @key="job.Id" JobId="job.Id" RepairReviewRequested="ReviewRepair" />
+        <AiTextRequestDetails @key="job.Id" JobId="job.Id" RepairReviewRequested="ReviewRepair" RepairReadyChanged="ready => _repairReady = ready ? job.Id : _repairReady == job.Id ? null : _repairReady" />
         @if (TextRequestPresentation.IsActive(job)) { <StreamingResponsePreview Raw="@_inspectedPreview" /> }
         @if (_inspectedCorrection) { <p class="field-hint">Saved local correction. The original model response is preserved in the asset review.</p> }
         <details class="request-details"><summary>Response details</summary>@if (_inspectedRaw.Length > 0) { <pre>@_inspectedRaw</pre> } else { <p class="field-hint">Nothing received yet.</p> }</details>
@@ -91,6 +92,7 @@
     private string _inspectedRaw = "";
     private bool _inspectedCorrection;
     private string? _inspectedPreview;
+    private Guid? _repairReady;
     private (Guid, AiJobState, DateTimeOffset?, AiJobProgress?)? _inspectedVersion;
     private AiJobHeader? InspectedJob => Jobs.View.Jobs.FirstOrDefault(j => j.Id == _inspectedId);
     private TextRequestAction? _action;

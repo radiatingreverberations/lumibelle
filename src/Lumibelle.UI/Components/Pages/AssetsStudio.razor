@@ -101,6 +101,11 @@ else
                                 @if (asset.Category == AssetCategory.Character) { <label>Move selected to look<select aria-label="Move selected to look" @bind="_bulkLook"><option value="">General / unassigned</option>@foreach (var look in asset.Looks.Where(l => !l.Archived)) { <option value="@look.Id">@look.Name</option> }</select></label><button disabled="@(_generating || _enhancing)" @onclick="AssignSelectedLooks">Assign selected</button> }
                                 <button disabled="@(_saving || !CanTrashSelection)" title="Only unapproved generated images can be discarded together." @onclick="TrashSelectedImages">Move selected to Trash</button><button @onclick="() => _lookImageSelection.Clear()">Clear selection</button></div>
                 }
+                @if (_presentation.Multiple && SelectedReels.Count > 0) {
+                    <div class="look-bulk" role="group" aria-label="Selected reels"><span>@SelectedReels.Count @(SelectedReels.Count == 1 ? "reel" : "reels") selected</span>
+                        <button disabled="@(_reels is null || _selectionChanging)" @onclick="() => _reels!.RefineReels(SelectedReels)">Refine selected reels…</button>
+                        <a href="@ProjectLink(Id, "/refinements")">Refinement batches</a><button @onclick="() => _reelSelection.Clear()">Clear selection</button></div>
+                }
                 <span class="sr-only" role="status">@_lookNotice</span>
                 <div class="asset-gallery-groups" aria-label="Asset references">
                 @foreach (var group in GalleryGroups) {
@@ -138,7 +143,7 @@ else
                             </span>
                         </button>
                         <div class="reference-card-body">
-                            <button class="media-select" aria-pressed="@(selected ? "true" : "false")" aria-label="Select @item.Key.Kind @item.Name" title="@item.Name" @onclick="() => SelectMedia(item.Key)"></button>
+                            <button class="media-select" aria-pressed="@((_presentation.Multiple ? item.Key.Kind == AssetMediaKind.Image ? _lookImageSelection.Contains(item.Key.Id) : _reelSelection.Contains(item.Key.Id) : selected) ? "true" : "false")" aria-label="Select @item.Key.Kind @item.Name" title="@item.Name" @onclick="() => SelectMedia(item.Key)"></button>
                             <div class="media-card-heading">
                                 <strong class="media-name">@item.Name</strong>
                                 <div class="reference-actions">
@@ -150,6 +155,7 @@ else
                                         ToggleReference="() => ToggleReference(image.Id)" KeepAsTake="() => EditImage(image.Id, i => i with { PendingReview = false })" MakeCover="() => MakeCover(image.Id)" Trash="() => DeleteImageAsync(image.Id)"
                                         CropDisabled="@(_generating || _enhancing)" MoveDisabled="_composerLocked" DeleteDisabled="_saving" />
                                 } else {
+                                    @if (_presentation.Multiple && item.Reel is { } selectableReel) { <input type="checkbox" aria-label="Select reel @item.Name" checked="@_reelSelection.Contains(selectableReel.Id)" @onchange="e => SelectReel(selectableReel.Id, e.Value is true)" /> }
                                     <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {item.Name}")" Size="Size.Small" Dense="true">
                                         <MudMenuItem role="menuitem" OnClick="() => RenameMedia(item.Key)" Disabled="@(_saving || _selectionChanging || _imageDetailsDirty)">Rename</MudMenuItem>
                                         <MudMenuItem role="menuitem" OnClick="() => OpenMediaDetails(item.Key)">Edit details</MudMenuItem>
@@ -158,7 +164,8 @@ else
                                         @if (asset.Category == AssetCategory.Character && item.Reel is not null) { <MudMenuItem role="menuitem" OnClick="() => OpenGalleryLook(asset.Id, item)" Disabled="@(_saving || _selectionChanging || _imageDetailsDirty)">Change look…</MudMenuItem> }
                                         @if (asset.Category == AssetCategory.Character && item.Reel is { Media.HasAudio: true } audioReel) { <MudMenuItem role="menuitem" OnClick="() => SaveReelVoice(audioReel)">Save voice…</MudMenuItem> }
                                         @if (item.Voice is { } voiceItem) { <MudMenuItem role="menuitem" OnClick="() => _voices!.ToggleDefault(voiceItem)">@(asset.DefaultVoiceId == voiceItem.Id ? "Clear default voice" : "Make default voice")</MudMenuItem> }
-                                        @if (item.Reel is { Generation: not null } reel) { <MudMenuItem role="menuitem" Disabled="@(_reels?.CanVary(reel) != true)" OnClick="() => VaryReel(reel)">Create similar</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => _reels!.Refine(reel)">Refine…</MudMenuItem>@if (ReferenceReelsPanel.CanRegenerate(reel)) { <MudMenuItem role="menuitem" OnClick="() => _reels!.Regenerate(reel)">Regenerate…</MudMenuItem> } }
+                                        @if (item.Reel is { Generation: not null } reel) { <MudMenuItem role="menuitem" Disabled="@(_reels?.CanVary(reel) != true)" OnClick="() => VaryReel(reel)">Create similar</MudMenuItem><MudMenuItem role="menuitem" OnClick="() => _reels!.Refine(reel)">Upscale latents…</MudMenuItem>@if (ReferenceReelsPanel.CanRegenerate(reel)) { <MudMenuItem role="menuitem" OnClick="() => _reels!.Regenerate(reel)">Regenerate…</MudMenuItem> } }
+                                        @if (item.Reel is { Generation: not null } motionReel) { <MudMenuItem role="menuitem" Disabled="@(MotionReferencePolicy.Issue(motionReel) is not null)" title="@MotionReferencePolicy.Issue(motionReel)" OnClick="() => _reels!.RefineFromVideo(motionReel)">Refine from video…</MudMenuItem> }
                                         @if (item.Reel is { } replacing && _reels?.CanReplace(replacing) == true) { <MudMenuItem role="menuitem" OnClick="() => _reels!.ReplaceInShots(replacing)">Replace in shots…</MudMenuItem> }
                                         <MudDivider />
                                         <MudMenuItem role="menuitem" Class="danger-link" OnClick="() => TrashMedia(item)">Move to Trash</MudMenuItem>

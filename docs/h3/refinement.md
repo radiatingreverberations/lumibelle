@@ -1,9 +1,11 @@
-# Take refinement
+# Latent upscaling (alternative refinement)
 
-Refining a take makes a larger version of it that keeps its motion, composition
-and audio. The intended workflow is to generate several cheap takes, for example
-at Quick size (0.2 MP) with Standard's 20 steps, pick the best, and refine only
-that one to a larger size.
+The main way to turn a cheap draft into a final is [Refine from video](motion-reference-promotion.md):
+a fresh Standard generation guided by the draft, with stock nodes and the ordinary
+model. **Upscale latents…** is an alternative. It makes a larger version of a take from its
+saved latents, keeping its motion, composition and audio closer to the draft, but
+it needs the learned 3D latent upscaler node pack and its model, and the take must
+have been generated with **Save latents**, which is off by default.
 
 A take's seed doesn't carry over to another size or preset: the starting noise
 depends on the clip's dimensions, and presets sample differently. Generating the
@@ -11,8 +13,13 @@ same seed at a larger size gives an unrelated clip. Refinement instead starts fr
 the take itself.
 
 It uses stock ComfyUI nodes plus the learned 3D latent upscaler pack that
-Upscaled preview also uses. No Lumibelle companion nodes are involved; the earlier
-companion-based version was removed on 2026-10-07.
+Upscaled preview also uses. No Lumibelle custom nodes are required. New requests
+save their [settings and prepared inputs](generation-recipes.md). The earlier companion-based
+refinement implementation was removed on 2026-10-07.
+
+Baked accelerated checkpoints such as 10Eros Compact cannot use Standard
+partial-denoise refinement. Use [motion-reference promotion](motion-reference-promotion.md)
+for a fresh Standard final.
 
 ## How it works
 

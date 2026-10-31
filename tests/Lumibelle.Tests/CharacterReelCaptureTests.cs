@@ -185,7 +185,7 @@ public sealed class CharacterReelCaptureTests
     }
 
     [Theory]
-    [InlineData("standard")] [InlineData("turbo4")] [InlineData("turbo8")]
+    [InlineData("standard")] [InlineData("turbo4")]
     public void TenSecondRecipeReachesCapturedRequestAndRealWorkflowAt243Frames(string preset)
     {
         var draft = Recipe(); draft.GenerationPreset = preset;

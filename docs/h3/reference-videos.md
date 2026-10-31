@@ -1,5 +1,8 @@
 # Reference video experiment
 
+For a source take's blocking and camera motion with fresh generated audio, use
+the experimental [Refine from video workflow](motion-reference-promotion.md).
+
 In **Shots → References → Manage video references**, import an MP4 or choose a take from this project. Lumibelle copies it into project storage. Removing or deleting the original take does not remove the attachment. Changes to names, descriptions, ordering, and soundtrack choices belong to the selected setup; duplicated setups can edit them independently.
 
 Use complete clips lasting 2–15 seconds (including H3's 15-second frame-grid rounding), up to 250 MB each. Trim longer files beforehand. Keep at most three videos, three enabled audio references (video soundtracks plus voice recordings), 15 seconds of each modality, and twelve source files in total. Playback uses the original attachment. Generation prepares a bounded 24 fps MP4 and, when enabled, synchronized 32 kHz stereo WAV. The interface reports when H3 will use a shorter prefix to fit its frame grid or the target duration. No new frames or speech are generated during preparation.

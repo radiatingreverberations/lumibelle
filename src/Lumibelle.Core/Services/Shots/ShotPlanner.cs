@@ -208,6 +208,9 @@ public sealed partial class ShotPlanner(IAiProviderRegistry providers, IAiSettin
             List<string> dialogueNotes = [], coverageNotes = [], sourceNotes = [], directionNotes = [];
             List<DirectionStrategy> strategies = [];
             var assessments = new Dictionary<Guid, DraftingEnvironmentAssessment>();
+            // JsonNode defers duplicate-key failures to the first edit, where they escape as ArgumentException.
+            if (DuplicateProperty(json) is { } duplicate)
+                return new([], raw, [], $"The response repeats the \"{duplicate}\" field inside one entry, so it is unclear which value to use. Nothing was added; inspect it and retry.");
             var envelope = JsonNode.Parse(json);
             if (envelope is JsonObject wrapper && wrapper["shots"] is JsonArray shots)
             {
@@ -325,6 +328,23 @@ public sealed partial class ShotPlanner(IAiProviderRegistry providers, IAiSettin
         { return new([], raw, [], $"The proposal could not be applied: {e.Message} Nothing was added; inspect it and retry."); }
         catch (Exception e) when (e is JsonException or InvalidOperationException or NullReferenceException)
         { return new([], raw, [], "The model returned an invalid or incomplete shot list. Nothing was added; inspect it and retry."); }
+    }
+
+    private static string? DuplicateProperty(string json)
+    {
+        var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json));
+        var objects = new Stack<HashSet<string>?>();
+        while (reader.Read())
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.StartObject: objects.Push(new(StringComparer.Ordinal)); break;
+                case JsonTokenType.StartArray: objects.Push(null); break;
+                case JsonTokenType.EndObject: case JsonTokenType.EndArray: objects.Pop(); break;
+                case JsonTokenType.PropertyName:
+                    if (!objects.Peek()!.Add(reader.GetString()!)) return reader.GetString();
+                    break;
+            }
+        return null;
     }
 
     // Script dialogue can carry parentheticals such as "(Into mic, energetic)"; shots keep only the spoken words.

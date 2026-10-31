@@ -23,7 +23,7 @@ for (const narrow of [false, true]) test(`regenerate reel with captured seed (${
   await page.getByRole('menuitem', { name: 'Regenerate…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Regenerate reel', exact: true });
   await expect(dialog.getByLabel('Resolution', { exact: true })).toHaveValue(source.generation.recipe.resolution?.toLowerCase() ?? (source.generation.recipe.nativeResolution ? 'native' : 'preview'));
-  await expect(dialog.getByLabel('Resolution', { exact: true }).locator('option')).toHaveCount(4);
+  await expect(dialog.getByLabel('Resolution', { exact: true }).locator('option')).toHaveCount(6);
   await expect(dialog.getByLabel('Use original seed')).not.toBeChecked();
   await dialog.getByLabel('Take count').selectOption('3');
   await dialog.getByLabel('Use original seed').check();

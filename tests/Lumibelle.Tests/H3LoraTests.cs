@@ -22,7 +22,6 @@ public sealed partial class ShotTests
     [Theory]
     [InlineData(20, 0)] [InlineData(20, 1)] [InlineData(20, 2)]
     [InlineData(4, 0)] [InlineData(4, 1)] [InlineData(4, 2)]
-    [InlineData(8, 0)] [InlineData(8, 1)] [InlineData(8, 2)]
     public void H3OptionalStacksPreserveConditioningSamplingAndPerformance(int steps, int count)
     {
         var shot = Ready(); shot.Turbo = steps != 20; shot.TurboSteps = steps == 8 ? 8 : 4;
@@ -233,7 +232,7 @@ public sealed partial class ShotTests
     [Fact]
     public async Task H3StackSurvivesQueueEditsExtensionRefinementAndTrash()
     {
-        using var f = await QueuedVideoFixture.Create(this, 8);
+        using var f = await QueuedVideoFixture.Create(this, 4);
         var selection = VideoLora(server: f.Settings.Value.ComfyUrl);
         f.Shot.Loras = [selection]; f.Settings.Value = f.Settings.Value with { LoraLibrary = [new(selection.Reference, .4f, "trigger")] };
         var document = await f.Shots.LoadAsync(f.Project.Id, _ct);

@@ -29,8 +29,11 @@ public sealed partial class AiTextJobCapture
             ? await (refmods ?? throw new WorkspaceStoreException("RefMod preview storage is unavailable.")).InspectionAsync(project, inputs, ct)
             : Array.Empty<RefModInspectionFrame>();
         var request = new ReelCompositionRequest(project, draft, ReferenceReels.Fingerprint(draft), character, images.Select(i => i.Identity).ToArray()) { ImageGuidance = ShotReferences.Resolve(inputs, library, new()) };
+        var configured = Copy(await settings.LoadAsync(ct));
+        var structured = await SupportsStructuredResponseAsync(model, configured, ct);
         return await BuildAsync(id, tab, AiJobKind.ReelComposition, new(project, draft.AssetId, ReelId: draft.Id),
-            draft.Name + " · Compose reel", request, model, followsDefault, Copy(await settings.LoadAsync(ct)), draft.PresetVersion,
-            ReferenceReels.Messages(request, images.Select(i => i.Bytes).ToArray(), modFrames), .7f, request.Baseline, ct);
+            draft.Name + " · Compose reel", request, model, followsDefault, configured, draft.PresetVersion,
+            ReferenceReels.Messages(request, images.Select(i => i.Bytes).ToArray(), modFrames, structured), .7f, request.Baseline, ct,
+            responseSchema: structured ? ReferenceReels.ResponseSchemaFor(draft) : null);
     }
 }

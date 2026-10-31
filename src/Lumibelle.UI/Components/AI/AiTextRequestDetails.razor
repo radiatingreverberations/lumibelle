@@ -1,13 +1,13 @@
 @inject IAiJobStore Store
 @inject IServiceProvider Services
 @* What can be done about the request comes before its details. *@
-@if (Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
+@if (ShowRepair && Services.GetService(typeof(IAiTextRepairService)) is IAiTextRepairService)
 {
-    <AiTextRepairAction @key="JobId" JobId="JobId" ReviewRequested="RepairReviewRequested" />
+    <AiTextRepairAction @key="JobId" JobId="JobId" ReviewRequested="RepairReviewRequested" RepairReadyChanged="RepairReadyChanged" />
 }
 <details class="request-details"><summary @onclick="LoadAsync">Request details</summary>
     @if (_request is { } request) {
-        <p>@request.Model.Backend · @request.Model.Name · @(request.SelectionSource switch { TextModelSelectionSource.GlobalDefault => "Global default", TextModelSelectionSource.ProjectDefault => "Project default", TextModelSelectionSource.RequestOverride => "Request override", _ => "Captured model" })</p>
+        <p>@Provider(request) · @request.Model.Name · @(request.SelectionSource switch { TextModelSelectionSource.GlobalDefault => "Global default", TextModelSelectionSource.ProjectDefault => "Project default", TextModelSelectionSource.RequestOverride => "Request override", _ => "Captured model" })</p>
         @if (request.Repair is { } repair) {
             <p>Text-only validation repair · source request <code>@repair.SourceJobId</code>. No reference media was resent.</p>
             <details><summary>Failed response and repair contract</summary><pre>@repair.FailedResponse</pre><p>@repair.ValidationError</p><pre>@repair.Contract.GetRawText()</pre></details>
@@ -38,13 +38,18 @@
 </details>
 @code {
     [Parameter] public Guid JobId { get; set; }
+    [Parameter] public bool ShowRepair { get; set; } = true;
     [Parameter] public EventCallback<AiJobHeader> RepairReviewRequested { get; set; }
+    [Parameter] public EventCallback<bool> RepairReadyChanged { get; set; }
     private Guid? _loaded;
     private AiTextJobRequest? _request;
     private string? _brief;
     private static string Describe(IReadOnlyList<AiTextMessage> messages) =>
         string.Join("\n\n", messages.Select(m => m.Role + ":\n" + string.Join("\n", m.Parts.Select(p => p.Text ?? "[Attached image]"))));
     private string? _error;
+    // OpenAI-compatible requests also name their saved connection, which identifies the endpoint.
+    private static string Provider(AiTextJobRequest request) => TextModelPolicy.ProviderName(request.Model.Backend) +
+        (request.Model.Backend == AiBackend.Vllm ? " · " + OpenAiConnections.Name(request.Settings, request.Model.VllmUrl) : "");
     protected override void OnParametersSet() { if (_loaded != JobId) { _request = null; _error = null; } }
     private async Task LoadAsync() {
         if (_loaded == JobId) return;
