@@ -211,6 +211,16 @@ public partial class ProductionStudio
     }
     private void ValidateTakeFilter() { if (!TakeSetupOptions.Any(s => s.Id == _takeSetupFilter)) _takeSetupFilter = ""; }
     private bool _selectingShot;
+    // Moving to another shot in the list: an empty Takes view is no use, so a shot without takes opens on Shot.
+    // Shots with takes keep the view, and links that open a shot keep the remembered view.
+    private async Task SelectFromList(Guid id)
+    {
+        // Switch before the shot changes, not after its saves or on a later render, so the switch always reaches
+        // the browser before the new shot shows as selected and never undoes a following click on Takes.
+        if (_selected != id && !_doc.Takes.Any(t => t.ShotId == id))
+        { if (_workspace is not null) await _workspace.ShowCenterAsync("Shot"); else _openShotView = true; }
+        await Select(id);
+    }
     private async Task Select(Guid id)
     {
         if (_selectingShot) return;
@@ -219,8 +229,6 @@ public partial class ProductionStudio
             if (_promptEditor is not null) await _promptEditor.FlushAsync();
             if (!await Save()) return;
             _selected = id;
-            // An empty Takes view is no use; a shot without takes opens on Shot. Shots with takes keep the view.
-            if (!_doc.Takes.Any(t => t.ShotId == id)) _openShotView = true;
             _compositionId = _production.Compositions.FirstOrDefault(c => c.ShotId == id && !c.Archived)?.Id;
             await ApplySelectedGlobalSetup(); ValidateTakeFilter();
             _savedComposition = Current?.Copy(); _undo.Clear(); await RefreshCompositionResult();
