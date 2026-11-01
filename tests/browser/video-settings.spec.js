@@ -11,9 +11,10 @@ test('video setup checks on open and keeps chosen community files through save a
   await expect(panel.locator('.video-setup-summary')).toHaveText(/presets ready|Every preset/);
   await expect(panel.locator('[data-requirement=encoder]')).toContainText('models/text_encoders');
   await expect(panel.locator('[data-requirement=encoder] a').first()).toHaveAttribute('href', /Comfy-Org\/MiniMax-H3\/.*qwen3vl_32b_minimax_h3_nvfp4_awq/);
-  await expect(panel.locator('.video-preset-settings > .video-preset-setup')).toHaveCount(7);
-  await expect(panel.locator('.video-preset-setup')).toHaveCount(10);
-  await expect(panel.getByText(/companion/i)).toHaveCount(0);
+  await expect(panel.locator('.video-preset-settings > .video-preset-setup')).toHaveCount(11); // H3Presets.Offered
+  await expect(panel.locator('.video-preset-setup')).toHaveCount(11);
+  // Latents are saved with built-in nodes: no companion node pack is listed.
+  await expect(panel.getByText(/companion (node|pack)/i)).toHaveCount(0);
   const attention = panel.getByLabel('H3 dense attention', { exact: true });
   await panel.locator('[data-add-on=attention] > summary').click();
   await expect(panel.getByRole('checkbox', { name: /Sol-Attn/ })).toHaveCount(0);
@@ -23,13 +24,12 @@ test('video setup checks on open and keeps chosen community files through save a
   await panel.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(attention).toHaveValue('ServerDefault');
   await attention.selectOption('Kitchen');
-  // Retired presets keep their setup, out of the way.
-  await panel.locator('.video-retired-presets > summary').click();
-  await panel.locator('[data-preset=turbo8] > summary').click();
-  const turbo8 = panel.locator('[data-preset=turbo8] [data-requirement=turbo8-lora]');
-  const eightStepFile = 'h3/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors';
-  await panel.getByLabel('Turbo 8-step LoRA file', { exact: true }).selectOption(eightStepFile);
-  await expect(turbo8.locator('.video-status')).toHaveText('Installed');
+  // A preset's own file can be a renamed copy.
+  await panel.locator('[data-preset=turbo4] > summary').click();
+  const turbo4 = panel.locator('[data-preset=turbo4] [data-requirement=turbo4-lora]');
+  const turboFile = 'custom/renamed-ref2va-turbo.safetensors';
+  await panel.getByLabel('Turbo 4-step LoRA file', { exact: true }).selectOption(turboFile);
+  await expect(turbo4.locator('.video-status')).toHaveText('Other file');
   const encoder = panel.locator('[data-requirement=encoder]');
   const custom = 'custom/renamed-h3-encoder.safetensors';
   await expect(panel.getByLabel('Encoder file', { exact: true }).locator('optgroup[label="Other installed files"] option', { hasText: custom })).toHaveCount(1);
@@ -44,18 +44,18 @@ test('video setup checks on open and keeps chosen community files through save a
   await expect(attention).toHaveValue('Kitchen');
   await expect(panel.getByLabel('Encoder file', { exact: true })).toHaveValue(custom);
   await expect(encoder.locator('.video-status')).toHaveText('Other file');
-  await panel.locator('.video-retired-presets > summary').click();
-  await panel.locator('[data-preset=turbo8] > summary').click();
-  await expect(panel.getByLabel('Turbo 8-step LoRA file', { exact: true })).toHaveValue(eightStepFile);
+  await panel.locator('[data-preset=turbo4] > summary').click();
+  await expect(panel.getByLabel('Turbo 4-step LoRA file', { exact: true })).toHaveValue(turboFile);
+  await expect(turbo4.locator('.video-status')).toHaveText('Other file');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(encoder.locator('.video-status')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'test-results/video-settings-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await model.locator('.video-requirement-options > summary').click();
-  await expect(panel.locator('[data-requirement=model] .video-requirement-options a')).toHaveCount(6);
+  await expect(panel.locator('[data-requirement=model] .video-requirement-options a')).toHaveCount(7);
   // Alternatives say one is enough, and their facts are badges that explain themselves.
-  await expect(model.locator('.video-requirement-options > summary')).toHaveText('Download one of these (6)');
+  await expect(model.locator('.video-requirement-options > summary')).toHaveText('Download one of these (7)');
   const defaultBadge = model.locator('.video-badge', { hasText: /^Default/ });
   await expect(defaultBadge).toHaveAttribute('data-hint', "Lumibelle's default choice.");
   await expect(model.locator('.video-badge[data-kind=size]').first()).toHaveText(/21 GB/);

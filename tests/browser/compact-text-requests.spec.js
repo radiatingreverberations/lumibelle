@@ -58,7 +58,8 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
      await (await reelFraming(page)).getByLabel('Framing preset', { exact: true }).selectOption('Custom');
      control = page.locator('#reel-setup-prompt-panel .request-action-button'); start = control; review = page.locator('.reel-review-dialog');
     }
-    await start.click(); composer = page.locator('.ai-assist-dialog').last();
+    // Extraction has its own dialog; the other requests share the AI assist composer.
+    await start.click(); composer = workflow === 'extraction' ? page.locator('.extraction-dialog') : page.locator('.ai-assist-dialog').last();
     if (workflow === 'reel' || workflow === 'prompt') {
      await composer.locator('.model-chip').click();
      await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
@@ -66,6 +67,8 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
     }
     const action = { extraction: 'Find assets', planning: 'Draft shots', enhancement: 'Enhance', guidance: 'Suggest', prompt: 'Compose prompt', reel: 'Compose pair' }[workflow];
     await composer.getByRole('button', { name: action, exact: true }).click();
+    // Extraction keeps its dialog open on the queued request; close it as a person would.
+    if (workflow === 'extraction') await composer.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
     await expect(composer).toBeHidden();
    }
    await expect(control).toContainText('Queued');

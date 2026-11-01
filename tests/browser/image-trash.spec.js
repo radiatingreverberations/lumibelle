@@ -117,6 +117,8 @@ test('global Trash previews, filters, restores and permanently deletes exact con
   await page.locator('.trash-thumbnail').click();
   await expect(page.locator('.trash-preview')).toBeVisible();
   expect(await page.locator('.trash-preview img').evaluate(i => i.complete && i.naturalWidth > 0)).toBeTruthy();
+  // Escape reaches the dialog once focus has moved into it.
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('.trash-preview'))).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('.trash-preview')).toHaveCount(0);
   await expect(page.locator('.trash-thumbnail')).toBeFocused();

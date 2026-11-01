@@ -49,7 +49,7 @@ test('video review opens on the first saved take in a visible unfocused page and
   await review(page).getByText('Performance and timings', { exact: true }).click();
   await expect(review(page).locator('.video-performance-details')).toContainText('Not requested');
   await expect(review(page).locator('.video-performance-details')).toContainText('Unavailable');
-  await expect(review(page).getByRole('button', { name: 'Take 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(review(page).getByRole('button', { name: /^Take 1(?: |$)/ })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => (await state(request, id)).takes.length).toBe(1);
   await review(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).takes.length, { timeout: 15000 }).toBe(2);
@@ -110,9 +110,9 @@ test('video batches queue per shot and retain captured settings through edits, r
     await expect(review(page)).not.toBeVisible();
     await closeSetup(page);
   await page.getByRole('button', { name: 'Review latest batch', exact: true }).click();
-    await expect(review(page).getByRole('button', { name: 'Take 2', exact: true })).toBeVisible();
-    await review(page).getByRole('button', { name: 'Take 2', exact: true }).click();
-    await expect(review(page).getByRole('button', { name: 'Take 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(review(page).getByRole('button', { name: /^Take 2(?: |$)/ })).toBeVisible();
+    await review(page).getByRole('button', { name: /^Take 2(?: |$)/ }).click();
+    await expect(review(page).getByRole('button', { name: /^Take 2(?: |$)/ })).toHaveAttribute('aria-pressed', 'true');
     const video = review(page).locator('video');
     const source = `/media/projects/${id}/takes/${saved.takes.find(t => t.shotId === original.id && t.candidate === 2).id}`;
     await expect(video).toHaveAttribute('src', source);

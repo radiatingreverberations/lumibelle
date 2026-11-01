@@ -241,7 +241,7 @@ test('the take player ignores stale frames, retries missing archives and follows
   await expect(player).toHaveAttribute('data-frame-index', '30');
   await expect(player.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
   await seek(20);
-  await review.getByRole('button', { name: 'Take 2', exact: true }).click();
+  await review.getByRole('button', { name: /^Take 2(?: |$)/ }).click();
   await expect(player).toHaveAttribute('data-frame-index', '0');
   await expect(player.locator('video')).toHaveAttribute('src', new RegExp((await state()).takes[1].id));
   await position.focus(); await page.keyboard.press('Home');
@@ -290,40 +290,32 @@ test('paused seeking without presented-frame callbacks requires the archived fra
   await expect(player.getByRole('button', { name: 'Save frame', exact: true })).toBeFocused();
 });
 
-test('a shot on retired 8-step Turbo survives reload and one more take preserves its captured sampling', async ({ page, request }) => {
+test('a shot on retired 8-step Turbo is reset to Standard with a notice, and one more take preserves its captured sampling', async ({ page, request }) => {
   test.setTimeout(80000);
   const { project, state } = await setup(page, request);
   const quality = page.getByRole('combobox', { name: 'Generation preset', exact: true });
   await toolsTab(page, 'Generate');
   await page.getByLabel('Save lossless frames', { exact: true }).check();
   await expect.poll(async () => (await state()).shots[0].saveLosslessFrames).toBe(true);
-  // Turbo 8 is retired, so it is no longer offered; a shot saved with it keeps it.
+  // Turbo 8 is retired: it is no longer offered, and a shot saved with it opens on Standard and says why.
   await expect(quality.locator('option[value=turbo8]')).toHaveCount(0);
   await request.post(`/fixtures/${project.id}/shot-preset?key=turbo8`);
   await page.reload();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   await toolsTab(page, 'Generate');
-  await expect(quality).toHaveValue('turbo8');
-  await expect(quality.locator('option:checked')).toHaveText('Turbo · 8 steps · Retired');
-  await expect(page.locator('.shot-generation')).toContainText('Euler · video shift 12 · audio shift 3');
-  await expect.poll(async () => (await state()).shots[0].turboSteps).toBe(8);
-  await page.reload();
-  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await toolsTab(page, 'Generate');
-  await expect(quality).toHaveValue('turbo8');
+  await expect(quality).toHaveValue('standard');
+  await expect(page.locator('.shot-generation')).toContainText('Turbo · 8 steps was removed. This setup has been reset to Standard.');
+  await expect(quality.locator('option[value=turbo8]')).toHaveCount(0);
   await composeProduction(page);
   await generateTakes(page);
   const review = page.locator('.shot-review-dialog');
   await expect(review).toBeVisible({ timeout: 20000 });
   await review.getByText('Generation details', { exact: true }).click();
-  await expect(review).toContainText('Turbo · 8 steps');
+  await expect(review).not.toContainText('Turbo · 8 steps');
   const first = (await state()).takes[0].snapshot;
-  expect(first.sampling).toMatchObject({ steps: 8, sampler: 'euler', scheduler: 'simple', videoShift: 12, audioShift: 3, loraStrength: 1 });
-  expect(first.sampling.lora).toContain('8step');
+  expect(first.sampling.steps).not.toBe(8);
+  expect(first.sampling.lora ?? '').not.toContain('8step');
   await review.getByRole('button', { name: 'Close', exact: true }).click();
-  await toolsTab(page, 'Generate');
-  await quality.selectOption('standard');
-  await expect.poll(async () => (await state()).shots[0].turbo).toBe(false);
   await toolsTab(page, 'Generate');
   await closeShotSetup(page);
   await page.getByRole('button', { name: 'Review latest batch' }).click();
@@ -333,8 +325,6 @@ test('a shot on retired 8-step Turbo survives reload and one more take preserves
   await review.getByRole('button', { name: 'Close', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await toolsTab(page, 'Generate');
-  // Once the shot moves off the retired preset, it is no longer offered.
-  await expect(quality.locator('option[value=turbo8]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'test-results/shots-turbo8-mobile.png', fullPage: true });
 });

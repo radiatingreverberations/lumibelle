@@ -553,7 +553,7 @@ else
             <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
                 <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedExtractionJob is { } read && read.Id == _extractionJob?.Id ? new[] { read } : [])" />
                 <header class="extraction-header">
-                    <div class="dialog-heading"><div><p class="eyebrow">SCRIPT TO ASSETS</p><h2 id="extract-title">@ExtractionDialogTitle</h2></div><button class="preview-close" @onclick="CloseExtraction" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button></div>
+                    <div class="dialog-heading"><div><p class="eyebrow">SCRIPT TO ASSETS</p><h2 id="extract-title">@ExtractionDialogTitle</h2></div><button class="preview-close" @onclick="CloseExtraction" aria-label="Close asset extraction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button></div>
                     @if (ExtractionReadyForReview)
                     {
                         <p class="extraction-stage" role="status">@(ExtractionFinished ? "Applied to library" : "Suggestions ready · Awaiting your review")</p>

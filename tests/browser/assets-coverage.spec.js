@@ -59,6 +59,7 @@ test('partial and empty extraction track saved scene content across revisions', 
   await submitExtraction(page);
   await dialog.getByLabel('Decision for Juniper', { exact: true }).selectOption('Skip');
   await dialog.locator('.apply-extraction').click();
+  await expect(dialog).toBeHidden(); // Applying closes the review.
   await expectCoverage(page, '1 / 2');
   let saved = (await state()).assets;
   expect(saved.assets).toHaveLength(0); expect(saved.extractionReviews).toHaveLength(1);
@@ -69,6 +70,7 @@ test('partial and empty extraction track saved scene content across revisions', 
   await submitExtraction(page);
   await expect(dialog).toContainText('No reusable assets found');
   await dialog.locator('.apply-extraction').click();
+  await expect(dialog).toBeHidden();
   await expectCoverage(page, '2 / 2');
   await request.post(`/fixtures/${id}/coverage-script?mode=reformat`); await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expectCoverage(page, '2 / 2');

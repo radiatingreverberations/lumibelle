@@ -27,16 +27,21 @@ for (const studio of ['Assets', 'Shots']) {
     for (const [width, height] of [[1173, 1272], [390, 844], [587, 636]]) {
       await page.setViewportSize({ width, height });
       // Test actual rendered geometry so a shared button reset cannot silently turn cards into rows.
-      for (const card of await cards.evaluateAll(items => items.map(el => {
+      const measured = await cards.evaluateAll(items => items.map(el => {
         const image = el.querySelector('img').getBoundingClientRect();
         const title = el.querySelector('strong').getBoundingClientRect();
         const metadata = el.querySelector('small').getBoundingClientRect();
         return { imageHeight: image.height, imageBottom: image.bottom, imageWidth: image.width,
           titleTop: title.top, titleBottom: title.bottom, titleWidth: title.width,
-          metadataTop: metadata.top, metadataWidth: metadata.width, overflow: el.scrollWidth > el.clientWidth };
-      }))) {
-        // Rendered sizes: the dialog may still be scaling in. Square previews, with a padded caption below that stays readable and inside the card.
-        expect(Math.abs(card.imageHeight - card.imageWidth)).toBeLessThan(1.5);
+          metadataTop: metadata.top, metadataWidth: metadata.width, overflow: el.scrollWidth > el.clientWidth,
+          cardWidth: el.getBoundingClientRect().width,
+          inside: image.left >= el.getBoundingClientRect().left - 0.5 && image.right <= el.getBoundingClientRect().right + 0.5 };
+      }));
+      for (const card of measured) {
+        // Rendered sizes: the dialog may still be scaling in. Previews share one height, like reel previews,
+        // fill the card's width, and have a padded caption below that stays readable and inside the card.
+        expect(Math.abs(card.imageHeight - measured[0].imageHeight)).toBeLessThan(1.5);
+        expect(card.inside).toBe(true); expect(card.imageWidth).toBeGreaterThan(card.cardWidth * 0.8);
         expect(card.titleTop).toBeGreaterThanOrEqual(card.imageBottom);
         expect(card.metadataTop).toBeGreaterThanOrEqual(card.titleBottom);
         for (const width of [card.titleWidth, card.metadataWidth]) { expect(width).toBeLessThanOrEqual(card.imageWidth); expect(width).toBeGreaterThan(card.imageWidth - 30); }
