@@ -123,6 +123,8 @@ new takes in their shots; the originals stay selected. Review them under
 
 **Refinement batches**, opened from **Batches** beside **Bulk operations** or **View batch** in the
 notice after queueing, lists each batch with completed, failed, waiting and reviewed counts.
+A badge on **Batches** counts finished batches with completed clips you have not
+seen yet; opening the list, or seeing those clips as new takes, clears it.
 Clips move through **Preparing media**, **Ready**, **Waiting**, **Generating** and
 **Completed**. Media preparation runs on the CPU beside the GPU queue, and
 survives restarts. A batch submits one render at a time to the ComfyUI queue,

@@ -1,6 +1,7 @@
 using lumibelle.Components.Shots;
 using lumibelle.Models;
 using lumibelle.Services.Shots;
+using Microsoft.AspNetCore.Components;
 using MudBlazor;
 
 namespace lumibelle.Components.Pages;
@@ -11,6 +12,23 @@ public partial class ProductionStudio
     // Mounted on first opening, then kept: removing an open dialog would leave it on screen.
     private bool _refinementBatchesOpen, _refinementBatchesMounted;
     private Guid? _requestedRefinementBatch;
+    [Inject] public RefinementBatchWorkflow BatchWorkflow { get; set; } = null!;
+    private RefinementBatches? _refinementRuns;
+    // A finished batch is new until its completed clips are seen, in the batches or as new takes.
+    // The header is narrow, so its badge shows only the count; the label says "new".
+    private int NewRefinementBatches => _refinementRuns?.Runs.Count(r => r.State == RefinementBatchState.Finished &&
+        r.Items.Any(i => UnreadJobs.Contains(i.Id) && AiJobs.View.Jobs.Any(j => j.Id == i.Id && j.State == AiJobState.Completed))) ?? 0;
+    private string? NewRefinementLabel => NewRefinementBatches is > 0 and var count ? $"{count} new" : null;
+    private async Task LoadRefinementRuns()
+    {
+        try { _refinementRuns = await BatchWorkflow.LoadAsync(Id, _lifetime.Token); }
+        catch (Exception e) when (e is lumibelle.Services.Story.WorkspaceStoreException or OperationCanceledException) { }
+    }
+    private void RefinementRunsChanged(Guid project)
+    {
+        if (_disposed || project != Id) return;
+        _ = InvokeAsync(async () => { await LoadRefinementRuns(); if (!_disposed) StateHasChanged(); });
+    }
     private bool CanRefineFromVideo(ShotTake take) => !_starting && !_mediaBusy && MotionReferencePolicy.Issue(take) is null;
     private void RefineFromVideo(ShotTake take) { if (CanRefineFromVideo(take)) _refineSources = [RefineSource.From(Id, take, TakeName(take))]; }
     // Ineligible takes stay in the list, flagged, so a mixed selection can still be queued.

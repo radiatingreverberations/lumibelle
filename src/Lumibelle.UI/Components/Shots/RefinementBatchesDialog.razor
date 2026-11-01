@@ -11,6 +11,7 @@
 <InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="DialogOptions" Class="refinement-batches-dialog"
               Title="Refinement batches" CloseLabel="Close refinement batches"><DialogContent>
     <div class="refinement-studio">
+        <lumibelle.Components.AI.AiResultAcknowledgement Observed="SeenJobs" />
         <p class="refinement-intro">Each clip is a separate generation. Media is prepared in the background, then clips render one at a time in the ComfyUI queue. Originals stay selected until you accept a final.</p>
         @if (_error is not null) { <p role="alert">@_error</p> }
         @if (_doc is { Runs.Count: 0 }) { <p role="status">No refinement batches yet. Select takes or reels, then choose Refine selected…</p> }
@@ -95,6 +96,9 @@
     private string? _error;
     private bool _busy, _disposed, _refreshing, _refreshAgain, _shown;
     private int _loads;
+    // Completed clips are seen once the open dialog shows them, which clears the new marks on Batches and Takes.
+    private AiJobHeader[] SeenJobs => Ordered.SelectMany(r => RefinementBatchWorkflow.View(r, Jobs.View.Jobs))
+        .Where(v => v.Stage == RefinementItemStage.Completed && v.Job is { Unread: true }).Select(v => v.Job!).ToArray();
     private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs.OrderByDescending(r => r.CreatedUtc);
 
     protected override void OnInitialized() { Batches.Changed += BatchesChanged; Jobs.Changed += Refresh; }

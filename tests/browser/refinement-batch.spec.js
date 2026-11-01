@@ -59,7 +59,15 @@ test('refine selected takes as a held background batch', async ({ page, request,
   expect((await state()).takes).toHaveLength(2);
 
   await reopened.getByRole('button', { name: 'Start batch', exact: true }).click();
+  // A batch that finishes unseen marks Batches as new; showing its clips clears the mark.
+  await reopened.getByRole('button', { name: 'Done', exact: true }).click();
+  await returned.locator('[data-workspace-group=center]').getByRole('tab', { name: 'Shot', exact: true }).click();
+  const batchesButton = returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
+  await expect(batchesButton.locator('.tab-new')).toHaveText('1', { timeout: 60000 });
+  await expect(batchesButton).toHaveAttribute('aria-description', '1 new');
+  await batchesButton.click();
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
+  await expect(batchesButton.locator('.tab-new')).toHaveCount(0);
   await expect(items.nth(1)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
   await expect(returned.locator('.refinement-counts')).toContainText('Completed2');
   const results = (await state()).takes.filter(t => !drafts.some(d => d.id === t.id));
