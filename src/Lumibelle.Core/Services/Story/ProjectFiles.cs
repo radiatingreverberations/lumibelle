@@ -5,13 +5,12 @@ using Microsoft.Extensions.Options;
 
 namespace lumibelle.Services.Story;
 
-public sealed class ProjectFiles(ApplicationPaths paths, IProjectStore projects, ILogger<SqliteMediaIndex>? indexLogger = null, ProjectLocations? locations = null)
+public sealed class ProjectFiles(ApplicationPaths paths, IProjectStore projects, ProjectLocations? locations = null)
 {
     // Shared by every store instance, including fresh instances reading the same library.
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
     public ProjectFiles(IOptions<ProjectStorageOptions> options, IHostEnvironment environment, IProjectStore projects) : this(ApplicationPaths.Legacy(environment, options.Value), projects) { }
     internal ProjectLocations Locations { get; } = locations ?? new(paths);
-    internal SqliteMediaIndex MediaIndex { get; } = new(paths, indexLogger);
     public string SharedAssetsDirectory => Path.Combine(paths.Data, "shared-assets");
     public string AiJobsDirectory => Path.Combine(paths.Data, "ai-jobs");
     public Task<Models.ProjectLibrary> ListProjectsAsync(CancellationToken ct) => projects.ListAsync(ct);

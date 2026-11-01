@@ -54,7 +54,7 @@ In **Review prompt changes**, an empty Current prompt is a valid starting point.
 
 Recovery is unavailable for interrupted responses, missing sound directions, or unresolved prompt validation failures. Saving also checks that the prompt, shot settings, and references still match the captured request; newer edits cannot be overwritten. The original AI response remains available in request history.
 
-- `shots.json`: editable shots, selected takes, frame records, recovery versions, and production-media Trash.
+- `project.sqlite`: editable shots, selected takes, frame records, recovery versions, and production-media Trash, among the project's other documents (see [SQLite project storage](sqlite-storage.md)).
 - `shots/runs/{run-id}/run.json`: captured settings, prompt, reference bindings, candidate states, ComfyUI prompt IDs, and output receipts.
 - `shots/runs/{run-id}/inputs`: prepared inputs shared by the captured batch.
 - `shots/runs/{run-id}/candidate-N`: recoverable output transfer staging.

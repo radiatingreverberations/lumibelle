@@ -35,17 +35,14 @@ Names may contain Unicode and may repeat. Folder names use stable IDs, so projec
 Each project folder additionally contains:
 
 ```text
-script.json                   # typed blocks, revision, historical source pointer
-script-assistant.json         # discussion, proposals, request metadata and status
-script-history/<id>.json      # recoverable draft snapshots
-script-sources/<id>.json      # immutable saved-source captures
-script-approved/<id>.json     # historical snapshots, compatibility reader only
-assets.json                   # ordered assets, image metadata, tags, and revision
+project.sqlite                # the script and its history, assets, shots, takes, the cut and settings
 assets/<asset-id>/images/*    # validated project-owned reference images
-cut.json                      # the project's saved sequence
+shots/takes/<take-id>/*       # take videos and their lossless frames
+reference-videos/<id>/*       # reference reels
+legacy-json/                  # project files saved by earlier versions, kept as a backup
 ```
 
-Files are versioned, readable JSON published through atomic replacement. Existing projects without writing files open as empty workspaces. Corrupt or unsupported documents produce errors and are not replaced.
+The project's writing, assets, shots and settings are saved together in `project.sqlite`, an SQLite database. Each save is complete or not made at all. A project saved by an earlier version of Lumibelle is converted the first time you open each part of it; its original JSON files are kept in `legacy-json`, which Lumibelle doesn't read again. A damaged database is reported and never replaced: restore `project.sqlite` from a backup.
 
 ## Edit project details
 
@@ -69,7 +66,7 @@ Invalid, unreadable or unsupported manifests produce warnings while healthy proj
 - **Lossless take archives** and **Lossless reel archives**: takes and reels keep their MP4. Every reel keyframe already chosen from lossless frames is saved as a picture first, so reference images, RefMod inputs and prompts are unchanged. Paused frames and new keyframes are then decoded from the MP4.
 - **Copies left by saved reels**: saving a generated reel copies its video and lossless frames to Assets and leaves the originals in its generation folder. Once the reel is saved, those copies are no longer read.
 - **Repeated generation inputs**: each generation used to keep its own copy of the same cropped references and voice excerpts. Generations now keep one shared copy of each in `shots/input-store`, found by its hash; this moves older generations' copies there too. Regenerate, language versions and One more take keep working.
-- **Migration backups**: copies of `production.json` saved before an automatic upgrade, which Lumibelle does not read.
+- **Migration backups**: the `legacy-json` folder, holding project files from before the database upgrade and copies saved before automatic upgrades. Lumibelle does not read them.
 - **Package manifest**: an unzipped project package keeps `manifest.json` beside its `project` folder; once the project is edited it no longer matches. The unzipped folder still opens without it.
 
 Removed data cannot be recovered, and the original lossless pixels cannot be rebuilt from the MP4. Close the project in other windows and let queued AI requests finish first. Images are never re-encoded in place; to share smaller images, use **Compress images for sharing** when exporting a package.

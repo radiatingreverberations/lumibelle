@@ -331,7 +331,7 @@ public sealed class ProjectFolderTests : IDisposable
             Paths = new(directory); Directory.CreateDirectory(Paths.Projects);
             Locations = new(Paths, lease);
             Projects = new(Paths, TimeProvider.System, NullLogger<FileProjectStore>.Instance, Locations);
-            Files = new(Paths, Projects, null, Locations);
+            Files = new(Paths, Projects, Locations);
             Jobs = new(Paths.Jobs, TimeProvider.System);
             Setups = new(Paths);
             Shots = new(Files, TimeProvider.System);

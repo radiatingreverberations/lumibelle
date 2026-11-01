@@ -45,11 +45,13 @@ The xUnit/bUnit suite covers project, script, assistant, asset and image persist
 
 ### Storage
 
+Project documents (shots, production, assets, the script and its versions, and the rest) are stored in each project folder's `project.sqlite`, one row per shot, take, asset and so on. Documents written as JSON by earlier versions are brought in on first use and kept in `legacy-json/`. See [SQLite project storage](sqlite-storage.md) for the layout, cache, migration and what stays as files.
+
 Project creation writes into a `.creating-<id>` staging directory, then renames the directory within the same library after the manifest is complete. Interrupted staging writes are ignored.
 
-Script files are published through same-directory atomic replacement; unpublished temporary files are ignored. Historical approved snapshots remain readable through the source compatibility loader. Script proposals are versioned JSON operations that replace ranges, insert, delete, or move captured blocks while preserving block IDs. Storage and editor acknowledgement complete before the next request can capture the applied document. Transport retries reuse their captured request.
+Each save commits in one database transaction. Script proposals are versioned JSON operations that replace ranges, insert, delete, or move captured blocks while preserving block IDs. Storage and editor acknowledgement complete before the next request can capture the applied document. Transport retries reuse their captured request.
 
-Trash metadata lives alongside active images in each project's `assets.json`; files stay in their original locations until permanent deletion. Membership changes publish atomically under the project lock, and ordinary metadata saves cannot bypass Trash. A hosted cleanup service checks at startup and hourly while Lumibelle runs. Purges publish durable deletion intent before removing files, so interrupted or failed cleanup resumes safely after restart.
+Trash metadata lives alongside active images in each project's asset library; files stay in their original locations until permanent deletion. Membership changes publish atomically under the project lock, and ordinary metadata saves cannot bypass Trash. A hosted cleanup service checks at startup and hourly while Lumibelle runs. Purges publish durable deletion intent before removing files, so interrupted or failed cleanup resumes safely after restart.
 
 Settings API keys are protected with ASP.NET Core Data Protection using application name `Lumibelle` and the hosting account's default persistent key ring.
 

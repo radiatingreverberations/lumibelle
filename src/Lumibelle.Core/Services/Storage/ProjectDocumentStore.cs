@@ -44,7 +44,8 @@ internal interface IProjectDocumentStore
 
 internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDocumentStore where T : class
 {
-    private static readonly ConcurrentDictionary<string, bool> Migrated = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+    // Database instance each document was last checked against, so a replaced file is checked again.
+    private static readonly ConcurrentDictionary<string, string> Migrated = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     public DocumentSpec<T> Spec { get; } = spec;
     public string Kind => Spec.Kind;
 
@@ -129,7 +130,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     /// <summary>Stores the document, writing only rows that changed. Hold the project lease.</summary>
     public async Task SaveAsync(string directory, Guid project, object document, CancellationToken ct)
     {
-        await EnsureAsync(directory, project, ct);
+        await EntryAsync(directory, project, ct);
         var prepared = Prepare(document);
         ct.ThrowIfCancellationRequested();
         var db = ProjectDatabase.For(directory);
@@ -228,17 +229,26 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     /// <summary>The current rows, from the cache when its stamp is current. Null when the document doesn't exist yet.</summary>
     private async Task<DocumentEntry?> EntryAsync(string directory, Guid project, CancellationToken ct)
     {
-        if (!await EnsureAsync(directory, project, ct)) return null;
         var db = ProjectDatabase.For(directory);
-        var entry = db.Read(s =>
+        var key = db.Path + "|" + Kind;
+        for (var attempt = 0; ; attempt++)
         {
-            var instance = ProjectDatabase.Instance(s);
-            var stamp = s.Scalar("SELECT stamp FROM documents WHERE kind = $kind", ("$kind", Kind));
-            if (stamp is null) return null;
-            return Cached(db.Path, instance, Convert.ToInt64(stamp)) ?? ReadEntry(s, instance, Convert.ToInt64(stamp));
-        }, Spec.Description);
-        if (entry is not null) DocumentCache.Put(db.Path, Kind, entry);
-        return entry;
+            if (!await EnsureAsync(directory, project, ct)) return null;
+            var known = Migrated.GetValueOrDefault(key);
+            string? seen = null;
+            var entry = db.Read(s =>
+            {
+                var instance = seen = ProjectDatabase.Instance(s);
+                if (instance != known) return null;
+                var stamp = s.Scalar("SELECT stamp FROM documents WHERE kind = $kind", ("$kind", Kind));
+                if (stamp is null) return null;
+                return Cached(db.Path, instance, Convert.ToInt64(stamp)) ?? ReadEntry(s, instance, Convert.ToInt64(stamp));
+            }, Spec.Description);
+            // The database file was replaced since this document was checked: check it again.
+            if (seen != known && attempt == 0) { Migrated.TryRemove(key, out _); continue; }
+            if (entry is not null) DocumentCache.Put(db.Path, Kind, entry);
+            return entry;
+        }
     }
 
     private DocumentEntry? Cached(string path, string instance, long stamp) =>
@@ -313,17 +323,18 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
         if (!db.Exists && !LegacyFiles.Any(directory, Spec.Legacy)) return false;
         using var gate = await ProjectFiles.LockAsync(db.Path + "#migrate-" + Kind, ct);
         if (Migrated.ContainsKey(key) && db.Exists) return true;
-        var (state, files) = db.Read(s =>
+        var (state, files, instance) = db.Read(s =>
         {
+            var instance = ProjectDatabase.Instance(s);
             using var command = s.Command("SELECT state, files FROM migrations WHERE document = $kind", ("$kind", Kind));
             using var reader = command.ExecuteReader();
-            return reader.Read() ? (reader.GetString(0), JsonSerializer.Deserialize<List<string>>(reader.GetString(1)) ?? []) : ((string?)null, new List<string>());
+            return reader.Read() ? (reader.GetString(0), JsonSerializer.Deserialize<List<string>>(reader.GetString(1)) ?? [], instance) : ((string?)null, new List<string>(), instance);
         }, Spec.Description);
         if (state is null && LegacyFiles.Existing(directory, Spec.Legacy).Count == 0)
         {
             // Nothing to bring in. Reading never writes: exports must leave the project unchanged,
             // and read-only folders must still open. A save records the migration with its rows.
-            Migrated[key] = true;
+            Migrated[key] = instance;
             return true;
         }
         if (state is null)
@@ -357,7 +368,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
             db.Write(s => s.Execute("UPDATE migrations SET state = 'complete', completed_utc = $now WHERE document = $kind",
                 ("$kind", Kind), ("$now", DateTimeOffset.UtcNow.ToString("O"))));
         }
-        Migrated[key] = true;
+        Migrated[key] = instance;
         return true;
     }
 
