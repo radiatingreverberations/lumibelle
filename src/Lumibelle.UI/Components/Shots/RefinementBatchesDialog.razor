@@ -61,8 +61,8 @@
                                         @* Opening a result leaves this dialog for the take or reel. *@
                                         <a href="@ResultLink(item)" @onclick="Close">@(item.Kind == RefinementSourceKind.Take ? "Open take" : "Open reel")</a>
                                         @if (item.Kind == RefinementSourceKind.Reel && ResultReel(item) is { } reel) { <a href="@ProjectLink(ProjectId, $"/assets?assetId={reel.AssetId}&reelId={reel.Id}")" @onclick="Close">Choose keyframes</a> }
-                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" @onclick="() => Command(() => Batches.AcceptAsync(ProjectId, run.Id, item.Id, _lifetime.Token))">@(item.Kind == RefinementSourceKind.Take ? "Use this take" : "Prefer this reel")</button> }
-                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" aria-pressed="@(item.ReviewedUtc is not null ? "true" : "false")" @onclick="() => Command(() => Batches.MarkReviewedAsync(ProjectId, run.Id, item.Id, item.ReviewedUtc is null, _lifetime.Token))">@(item.ReviewedUtc is null ? "Mark reviewed" : "Reviewed")</button> }
+                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" @onclick="() => Decide(item.Id, () => Batches.AcceptAsync(ProjectId, run.Id, item.Id, _lifetime.Token))">@(item.Kind == RefinementSourceKind.Take ? "Use this take" : "Prefer this reel")</button> }
+                                        @if (item.AcceptedUtc is null) { <button disabled="@_busy" aria-pressed="@(item.ReviewedUtc is not null ? "true" : "false")" @onclick="() => item.ReviewedUtc is null ? Decide(item.Id, () => Batches.MarkReviewedAsync(ProjectId, run.Id, item.Id, true, _lifetime.Token)) : Command(() => Batches.MarkReviewedAsync(ProjectId, run.Id, item.Id, false, _lifetime.Token))">@(item.ReviewedUtc is null ? "Mark reviewed" : "Reviewed")</button> }
                                     }
                                     @if (view.Stage is RefinementItemStage.Failed or RefinementItemStage.Cancelled or RefinementItemStage.NeedsAttention && view.Job?.RemoteUnconfirmed != true) { <button disabled="@_busy" @onclick="() => Command(() => Batches.RetryAsync(ProjectId, run.Id, item.Id, _lifetime.Token))">Retry</button> }
                                     @if (view.Stage is not (RefinementItemStage.Preparing or RefinementItemStage.Generating)) { <button disabled="@_busy" title="Change resolution, prompt or instructions. Creates a new request with a new seed." @onclick="() => _revise = item">New request…</button> }
@@ -148,6 +148,8 @@
         finally { _busy = false; }
     }
     private Task Close() => VisibleChanged.InvokeAsync(false);
+    // Accepting or reviewing a clip finishes looking at it, so its comparison closes.
+    private Task Decide(Guid item, Func<Task> action) => Command(async () => { await action(); _comparing.Remove(item); });
     private Task Queued(RefinementBatch batch) { _revise = null; return Load(); }
     private void ToggleCompare(Guid item) { if (!_comparing.Remove(item)) _comparing.Add(item); }
     private ShotTake? ResultTake(RefinementBatchItem item) => item.Kind == RefinementSourceKind.Take ? _shots?.Takes.FirstOrDefault(t => t.Id == item.ResultId) : null;

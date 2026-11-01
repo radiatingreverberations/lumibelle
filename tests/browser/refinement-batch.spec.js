@@ -76,9 +76,13 @@ test('refine selected takes as a held background batch', async ({ page, request,
   const [source, final] = await heights(); expect(final).toBe(source);
   await items.nth(0).locator('.refinement-compare').screenshot({ path: 'test-results/refinement-compare.png' });
   await items.nth(0).getByRole('button', { name: 'Use this take', exact: true }).click();
+  await expect(items.nth(0).locator('.refinement-compare')).toHaveCount(0);
   const accepted = results.find(t => t.snapshot.motionReference.takeId === drafts[0].id);
   await expect.poll(async () => (await state()).shots[0].selectedTakeId).toBe(accepted.id);
+  await items.nth(1).getByRole('button', { name: 'Compare', exact: true }).click();
+  await expect(items.nth(1).locator('.refinement-compare')).toBeVisible();
   await items.nth(1).getByRole('button', { name: 'Mark reviewed', exact: true }).click();
+  await expect(items.nth(1).locator('.refinement-compare')).toHaveCount(0);
   await expect(returned.locator('.refinement-counts')).toContainText('Reviewed2 / 2');
   expect(await returned.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await returned.screenshot({ path: 'artifacts/refinement-batch.png', fullPage: true });
