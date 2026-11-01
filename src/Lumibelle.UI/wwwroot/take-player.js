@@ -119,7 +119,9 @@ export function attach(root, dotnet, baseUrl, count, fps, lossless = true) {
     on(root.querySelector('[data-action=volume]'), 'input', e => video.volume = Number(e.target.value));
     on(root.querySelector('[data-action=mute]'), 'click', e => { video.muted = !video.muted; e.currentTarget.setAttribute('aria-pressed', String(video.muted)); e.currentTarget.textContent = video.muted ? 'Muted' : 'Sound'; e.currentTarget.setAttribute('aria-label', video.muted ? 'Unmute audio' : 'Mute audio'); });
     on(root.querySelector('[data-action=fullscreen]'), 'click', () => (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(() => {}));
-    settle(0);
+    // The slider renders before the player attaches. Start where it already is, so a position chosen
+    // in between is kept instead of being reset to the first frame.
+    settle(Math.max(0, Math.min(count - 1, Number(seek.value) || 0)));
     return {
         async previewJoin(join) {
             rangeStart = 0; rangeEnd = count;
