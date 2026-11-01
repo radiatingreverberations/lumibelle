@@ -33,7 +33,8 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
     let start;
     if (workflow === 'extraction' || workflow === 'planning') {
      if (workflow === 'extraction') await reveal('left');
-     else await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+     // Draft shots sits at the foot of the scene's environment sidebar.
+     else { await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true'); await reveal('right'); }
      start = page.getByRole('button', { name: workflow === 'extraction' ? 'Extract assets from script' : 'Draft shots', exact: true });
      control = page.locator(workflow === 'extraction' ? '.asset-library-extraction .request-action-button' : '.scene-drafting-tools .request-action-button').first();
      review = page.locator(workflow === 'extraction' ? '.extraction-dialog' : '.shot-planning-dialog');
@@ -81,7 +82,7 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
    const close = review.getByRole('button', { name: 'Close', exact: true }).last();
    await close.click(); await expect(review).toBeHidden();
    if (narrow) {
-    if (['script', 'enhancement'].includes(workflow)) await reveal('right');
+    if (['script', 'enhancement', 'planning'].includes(workflow)) await reveal('right');
     else if (workflow === 'extraction') await reveal('left');
    }
    await expect(control).toBeInViewport();

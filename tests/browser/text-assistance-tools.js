@@ -14,9 +14,10 @@ export async function openPlanning(page) {
     await expect(scenes).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   }
+  // Draft shots sits at the foot of the scene's environment sidebar, a drawer on narrow screens.
   const actions = page.locator('.scene-drafting-tools');
-  if (!await actions.isVisible() && await page.getByRole('button', { name: 'Show Shots', exact: true }).isVisible())
-    await page.getByRole('button', { name: 'Show Shots', exact: true }).click();
+  const sidebar = page.locator('[data-toggle-pane=right]');
+  if (!await actions.isVisible() && await sidebar.isVisible()) await sidebar.click();
   const start = actions.getByRole('button', { name: 'Draft shots', exact: true });
   // After a reload the control can show an earlier request until it learns that request is out of date,
   // then switch to Draft shots. Retry with whichever control is current instead of waiting on a stale one.
