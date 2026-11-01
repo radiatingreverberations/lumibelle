@@ -103,8 +103,11 @@ public sealed class AiTextRepairActionTests : BunitContext, IDisposable
         var service = new RepairActionService(new(source, "Captured model", null, child)); AddRepairServices(service);
         var reported = new List<bool>();
         var view = Render<AiTextRepairAction>(p => p.Add(c => c.JobId, source.Id).Add(c => c.RepairReadyChanged, ready => reported.Add(ready)));
-        view.WaitForAssertion(() => Assert.Contains("Repair arriving", view.Markup), TimeSpan.FromSeconds(10));
-        Assert.Contains("JAN is a lean wom", view.Find("[aria-label='Live response preview']").TextContent);
+        // The label can render before the arrived text is read; wait for both.
+        view.WaitForAssertion(() => {
+            Assert.Contains("Repair arriving", view.Markup);
+            Assert.Contains("JAN is a lean wom", view.Find("[aria-label='Live response preview']").TextContent);
+        }, TimeSpan.FromSeconds(10));
         Assert.DoesNotContain("Repair ready", view.Markup); Assert.Empty(reported);
 
         await _store.WriteArtifactAsync(child.Id, AiJobArtifact.Result, new AiTextJobResult("{\"prompt\":\"subject_definitions: JAN is a lean woman.\"}", true, "stop"), _ct);
@@ -113,7 +116,7 @@ public sealed class AiTextRepairActionTests : BunitContext, IDisposable
         view.WaitForAssertion(() => Assert.Contains("Repair ready — review the corrected response before applying.", view.Markup), TimeSpan.FromSeconds(10));
         Assert.Contains("Checked · not applied yet", view.Markup);
         Assert.DoesNotContain("Repair arriving", view.Markup);
-        Assert.Contains("JAN is a lean woman.", view.Find("[aria-label='Live response preview']").TextContent);
+        view.WaitForAssertion(() => Assert.Contains("JAN is a lean woman.", view.Find("[aria-label='Live response preview']").TextContent), TimeSpan.FromSeconds(10));
         Assert.Contains("Raw repair response", view.Markup);
         view.WaitForAssertion(() => Assert.Equal([true], reported), TimeSpan.FromSeconds(10));
         Assert.Equal(0, service.Captures);
