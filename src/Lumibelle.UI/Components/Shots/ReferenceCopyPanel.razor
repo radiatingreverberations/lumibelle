@@ -40,7 +40,7 @@
             <label>Frame<select aria-label="Continuity frame" value="@(_first ? "first" : "last")" @onchange="FrameChanged" disabled="@(_busy || _frame is null)"><option value="last">Last frame</option><option value="first">First frame</option></select></label>
             @if (ResolvedReferences.For(copy.Inputs).Pictures.Count >= 9) { <p class="field-hint">The copied references fill all nine picture slots. Make room in Manage references before adding a continuity picture.</p> }
         </div> }
-        @foreach (var warning in copy.Warnings) { <p class="field-hint">@warning</p> }
+        @foreach (var warning in copy.Warnings) { <MudAlert Severity="Severity.Warning" Dense="true" Class="reference-copy-warning"><span role="status">@warning</span></MudAlert> }
         @foreach (var note in copy.Notes ?? []) { <p class="field-hint">@note</p> }
         @if (_issue is not null) { <p role="status">@_issue Resolve this in Manage references before applying.</p> }
     }

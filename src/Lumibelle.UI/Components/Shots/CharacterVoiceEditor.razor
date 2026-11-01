@@ -1,6 +1,9 @@
 <section class="character-voice-editor" aria-label="Character voices">
     <h3>Character voices · @ResolvedReferences.For(Shot).Audio.Count/3 audio inputs</h3>
     <p class="field-hint">Choose one voice per character, shared across their visual references. Recorded words do not become dialogue.</p>
+    @foreach (var (speaker, character) in CharacterVoices.Unvoiced(Shot, Library)) {
+        <p class="character-voice-missing" role="status">@CharacterVoices.UnvoicedWarning(speaker, character)</p>
+    }
     @foreach (var id in CharacterVoices.Owners(Shot, Library)) {
         var choice = Shot.CharacterVoices?.FirstOrDefault(c => c.AssetId == id);
         var asset = Library.Assets.FirstOrDefault(a => a.Id == id) ?? new ReferenceAsset { Id = id, Category = AssetCategory.Character, Name = choice?.CharacterName ?? "Unavailable character" };
@@ -62,6 +65,9 @@
     private async Task Select(ReferenceAsset asset, ChangeEventArgs e) {
         var value = e.Value?.ToString(); if (value is "legacy" or "saved-default" or null) return;
         var c = ShotCopy.Of(Shot.CharacterVoices?.FirstOrDefault(v => v.AssetId == asset.Id) ?? CharacterVoices.Initial(Shot, asset, Library));
+        // None has no speaker, which would make a new voice vocalizations only: find the
+        // character's lines as adding them does, or ask for the speaker.
+        if (value != "none" && c.Source == CharacterVoiceSource.None) { var guess = CharacterVoices.Initial(Shot, asset, Library); c.Speaker = guess.Speaker; c.SpeakerConfirmed = guess.SpeakerConfirmed; }
         c.FromDefault = false; c.Recording = null; c.ReelBindingId = null; c.ReelMediaId = null; c.Excerpt = null; c.SourceName = "";
         if (value == "none") c.Source = CharacterVoiceSource.None;
         else if (value == "default" && CharacterVoices.Default(asset, Library) is { } def) CharacterVoices.SelectRecording(c, def, true);
