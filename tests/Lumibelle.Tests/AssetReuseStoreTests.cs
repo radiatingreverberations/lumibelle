@@ -227,7 +227,7 @@ public sealed partial class AssetStoreTests
         await File.WriteAllBytesAsync(Path.Combine(voiceDir, voice.FileName), sound, TestContext.Current.CancellationToken);
         library = library with { Reels = [reel], Voices = [voice], Assets = [owner with { DefaultVoiceId = voice.Id }] };
         FileAssetStore.Validate(library, f.Source.Id);
-        await AtomicJsonFile.WriteAsync(Path.Combine(AssetReuseProject(f.Source.Id), "assets.json"), library, TestContext.Current.CancellationToken);
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(AssetReuseProject(f.Source.Id)), library, TestContext.Current.CancellationToken);
         var result = await f.Store.ReuseAsync(AssetReuseRequest(library, f.Target.Id), TestContext.Current.CancellationToken);
         var copiedReel = Assert.Single(result.Library.Reels); var copiedVoice = Assert.Single(result.Library.Voices);
         Assert.NotEqual(reel.Id, copiedReel.Id); Assert.NotEqual(media.Id, copiedReel.Media.Id); Assert.Null(copiedReel.Generation);

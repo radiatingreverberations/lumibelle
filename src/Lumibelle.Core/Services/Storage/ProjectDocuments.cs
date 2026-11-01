@@ -6,7 +6,7 @@ internal static class ProjectDocuments
     public static IReadOnlyList<IProjectDocumentStore> All =>
     [
         Shots.FileShotStore.Documents, Shots.FileCutStore.Documents, Shots.FileRefinementBatchStore.Documents,
-        Production.FileProductionStore.Documents
+        Production.FileProductionStore.Documents, Assets.FileAssetStore.Documents, Assets.FileAssetBatchStore.Documents
     ];
 
     /// <summary>Brings every document of a project folder in from legacy JSON now, instead of on first use.</summary>

@@ -111,7 +111,7 @@ public sealed partial class AssetStoreTests
         using var f = await ImageJobFixture.Create(this, ImageWorkflow.Flux2Klein9bKv, true); var ct = TestContext.Current.CancellationToken;
         var request = await f.Capture(); var context = await f.Claim(request);
         FileStream? locked = null;
-        f.OnDownload = () => { locked = new FileStream(Path.Combine(_directory, "projects", f.Project.Id.ToString("D"), "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read); return Task.CompletedTask; };
+        f.OnDownload = () => { locked = TestProjectDatabase.HoldReadOnly(Path.Combine(_directory, "projects", f.Project.Id.ToString("D"))); return Task.CompletedTask; };
         try
         {
             var failure = await Assert.ThrowsAsync<AiJobRecoveryException>(() => f.Worker.ExecuteAsync(context, request.Snapshot, ct));

@@ -51,12 +51,12 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     public async Task<T> LoadAsync(string directory, Guid project, CancellationToken ct)
     {
         var entry = await EntryAsync(directory, project, ct);
-        return entry is null ? Spec.Empty(project) : DocumentCache.Deserialize<T>(entry.Summary(Spec.Lists), Spec.Description);
+        return entry is null ? Spec.Empty(project) : DocumentCache.Deserialize<T>(Summary(entry), Spec.Description);
     }
 
     /// <summary>The document as a summary, or null when it has never been saved.</summary>
     public async Task<T?> TryLoadAsync(string directory, Guid project, CancellationToken ct) =>
-        await EntryAsync(directory, project, ct) is { } entry ? DocumentCache.Deserialize<T>(entry.Summary(Spec.Lists), Spec.Description) : null;
+        await EntryAsync(directory, project, ct) is { } entry ? DocumentCache.Deserialize<T>(Summary(entry), Spec.Description) : null;
 
     /// <summary>The whole document, including every detached property.</summary>
     public async Task<T> LoadCompleteAsync(string directory, Guid project, CancellationToken ct) =>
@@ -67,15 +67,24 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     {
         var entry = await EntryAsync(directory, project, ct);
         if (entry is null) return null;
-        if (!complete || !Spec.Lists.Any(l => l.HasDetached)) return entry.Summary(Spec.Lists).ToArray();
+        if (!complete || !Spec.Lists.Any(l => l.HasDetached)) return Summary(entry).ToArray();
         var detached = ProjectDatabase.For(directory).Read(s => ReadDetached(s, null, null), Spec.Description);
-        return DocumentJson.Compose(entry.Header, entry.Lists, name =>
+        return Readable(() => DocumentJson.Compose(entry.Header, entry.Lists, name =>
         {
             var list = Spec.Lists.First(l => l.Name == name);
             if (!list.HasDetached) return entry.Rows[name].Select(r => r.Payload);
             var extra = detached.GetValueOrDefault(name);
             return entry.Rows[name].Select(r => DocumentJson.Merge(r.Payload, extra?.GetValueOrDefault(r.Id) ?? list.EmptyDetached));
-        });
+        }));
+    }
+
+    private byte[] Summary(DocumentEntry entry) => Readable(() => entry.Summary(Spec.Lists));
+
+    // A damaged stored header surfaces like any unreadable document, never as a raw parser error.
+    private byte[] Readable(Func<byte[]> compose)
+    {
+        try { return compose(); }
+        catch (JsonException e) { throw new WorkspaceStoreException($"Couldn’t read {Spec.Description}. Nothing was changed.", e); }
     }
 
     /// <summary>One list's elements (detached properties empty), without materializing the rest of the document.</summary>
@@ -309,6 +318,13 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
             using var reader = command.ExecuteReader();
             return reader.Read() ? (reader.GetString(0), JsonSerializer.Deserialize<List<string>>(reader.GetString(1)) ?? []) : ((string?)null, new List<string>());
         }, Spec.Description);
+        if (state is null && LegacyFiles.Existing(directory, Spec.Legacy).Count == 0)
+        {
+            // Nothing to bring in. Reading never writes: exports must leave the project unchanged,
+            // and read-only folders must still open. A save records the migration with its rows.
+            Migrated[key] = true;
+            return true;
+        }
         if (state is null)
         {
             files = LegacyFiles.Existing(directory, Spec.Legacy);

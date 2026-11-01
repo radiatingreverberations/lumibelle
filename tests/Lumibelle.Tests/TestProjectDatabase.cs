@@ -28,6 +28,37 @@ internal static class TestProjectDatabase
         return string.Join("\n", parts);
     }
 
+    /// <summary>Saves an asset library as stored rows, bypassing the store's checks, for setups and older states.</summary>
+    public static Task SaveAssetsAsync(string projectDirectory, lumibelle.Models.AssetLibrary library, CancellationToken ct) =>
+        lumibelle.Services.Assets.FileAssetStore.Documents.SaveAsync(projectDirectory, library.ProjectId, library, ct);
+
+    /// <summary>A stored document's JSON, for inspecting or editing it as a test.</summary>
+    public static async Task<System.Text.Json.Nodes.JsonNode> JsonAsync<T>(ProjectDocumentStore<T> store, string projectDirectory, Guid project, CancellationToken ct) where T : class =>
+        System.Text.Json.Nodes.JsonNode.Parse((await store.LoadJsonAsync(projectDirectory, project, complete: true, ct))!)!;
+
+    public static Task SaveJsonAsync<T>(ProjectDocumentStore<T> store, string projectDirectory, Guid project, System.Text.Json.Nodes.JsonNode json, CancellationToken ct) where T : class =>
+        store.SaveAsync(projectDirectory, project, System.Text.Json.JsonSerializer.SerializeToElement(json), ct);
+
+    /// <summary>Replaces a stored document's header with text that isn't JSON.</summary>
+    public static void Corrupt(string projectDirectory, string kind)
+    {
+        Execute(projectDirectory, $"UPDATE documents SET header = 'invalid', stamp = stamp + 1 WHERE kind = '{kind}'");
+        lumibelle.Services.Storage.DocumentCache.Clear();
+    }
+
+    public static string Dump(string projectDirectory)
+    {
+        using var connection = Open(projectDirectory);
+        var lines = new List<string>();
+        foreach (var sql in new[] { "SELECT * FROM meta", "SELECT * FROM migrations", "SELECT kind, stamp, updated_utc, length(header), lists FROM documents", "SELECT kind, list, id, position, length(payload), hash FROM parts ORDER BY kind, list, id", "PRAGMA user_version", "PRAGMA page_count", "PRAGMA freelist_count" })
+        {
+            using var command = connection.CreateCommand(); command.CommandText = sql;
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) lines.Add(sql[..Math.Min(30, sql.Length)] + ": " + string.Join("|", Enumerable.Range(0, reader.FieldCount).Select(i => reader.IsDBNull(i) ? "null" : Convert.ToString(reader.GetValue(i)))));
+        }
+        return string.Join(Environment.NewLine, lines);
+    }
+
     public static bool HasDocument(string projectDirectory, string kind) =>
         File.Exists(PathIn(projectDirectory)) && Stamp(projectDirectory, kind) is not null;
 

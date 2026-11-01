@@ -6,7 +6,7 @@ namespace Lumibelle.Tests;
 public sealed partial class AssetStoreTests
 {
     [Fact]
-    public async Task IndexedImagesFollowMovesTrashAndRestoreWithoutServingStaleAssetUrls()
+    public async Task StoredImagesFollowMovesTrashAndRestoreWithoutServingStaleAssetUrls()
     {
         var ct = TestContext.Current.CancellationToken;
         var (project, store) = CreateStore();
@@ -29,7 +29,7 @@ public sealed partial class AssetStoreTests
     }
 
     [Fact]
-    public async Task IndexedImageRequiresValidSourceAndExistingMediaFile()
+    public async Task StoredImageRequiresValidRecordAndExistingMediaFile()
     {
         var ct = TestContext.Current.CancellationToken;
         var (project, store) = CreateStore(); var asset = Asset("Mira");
@@ -41,7 +41,7 @@ public sealed partial class AssetStoreTests
         var projectDirectory = Path.Combine(_directory, "projects", project.Id.ToString("D"));
         File.Delete(Path.Combine(projectDirectory, "assets", asset.Id.ToString("D"), "images", image.FileName));
         Assert.Null(await store.OpenImageAsync(project.Id, asset.Id, image.Id, ct));
-        await File.WriteAllTextAsync(Path.Combine(projectDirectory, "assets.json"), "broken", ct);
+        TestProjectDatabase.Execute(projectDirectory, "UPDATE parts SET payload = 'broken' WHERE kind = 'assets' AND list = 'assets'; UPDATE documents SET stamp = stamp + 1 WHERE kind = 'assets'");
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.OpenImageAsync(project.Id, asset.Id, image.Id, ct));
     }
 }

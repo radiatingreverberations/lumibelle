@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 using lumibelle.Services.AI;
 
@@ -8,6 +9,17 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
     lumibelle.Services.Production.IReferenceVideoStore? referenceVideos = null, IAiSettingsStore? settings = null) : IAssetStore, IImageTrashStore
 {
     public const long MaximumImageBytes = 25 * 1024 * 1024;
+    internal static readonly ProjectDocumentStore<AssetLibrary> Documents = new(new()
+    {
+        Kind = "assets", Description = "the asset library", Legacy = ["assets.json"],
+        Empty = id => new() { ProjectId = id },
+        Lists = [
+            new("assets"), new("trash"), new("reels"), new("reelDrafts"), new("reelTrash", Key: null), new("reelPublications", "reelId"),
+            new("voices"), new("voiceTrash"), new("extractionReviews", Key: null), new("voiceImportReceipts", Key: null),
+            new("imageCopyReceipts", "imageId"), new("imagePublications", "imageId"),
+            new("assetReuseReceipts", Key: null), new("assetMoveReceipts", Key: null)
+        ]
+    });
 
     public async Task<AssetLibrary> LoadAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -183,10 +195,9 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
     public async Task<AssetMedia?> OpenImageAsync(Guid projectId, Guid assetId, Guid imageId, CancellationToken cancellationToken = default)
     {
         var directory = await files.DirectoryAsync(projectId, cancellationToken);
-        var image = await files.MediaIndex.FindAsync<StoredImage>(Path.Combine(directory, "assets.json"), $"{assetId:D}/{imageId:D}",
-            async ct => (await ReadAsync(directory, projectId, ct)).Assets
-                .SelectMany(a => a.Images.Select(i => new KeyValuePair<string, StoredImage>($"{a.Id:D}/{i.Id:D}",
-                    new(ImagePath(directory, a.Id, i), i.ContentType, i.CreatedUtc)))).ToDictionary(), cancellationToken);
+        // A keyed row read: serving an image never loads the whole library.
+        var asset = await Documents.FindAsync<ReferenceAsset>(directory, projectId, "assets", assetId.ToString("D"), attach: false, cancellationToken);
+        var image = asset?.Images.FirstOrDefault(i => i.Id == imageId) is { } found ? new StoredImage(ImagePath(directory, assetId, found), found.ContentType, found.CreatedUtc) : null;
         if (image is null) return null;
         try
         {
@@ -205,17 +216,17 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
     {
         var saved = Normalize(library) with { Revision = revision + 1, UpdatedUtc = clock.GetUtcNow() };
         Validate(saved, saved.ProjectId);
-        await AtomicJsonFile.WriteAsync(Path.Combine(directory, "assets.json"), saved, ct);
+        await Documents.SaveAsync(directory, saved.ProjectId, saved, ct);
         return saved.Copy();
     }
 
     private static async Task<AssetLibrary> ReadAsync(string directory, Guid projectId, CancellationToken ct)
     {
-        var library = await AtomicJsonFile.ReadAsync<AssetLibrary>(Path.Combine(directory, "assets.json"), ct)
-            ?? new AssetLibrary { ProjectId = projectId };
+        var library = await Documents.LoadAsync(directory, projectId, ct);
         Validate(library, projectId);
         foreach (var draft in library.ReelDrafts.GroupBy(d => (d.AssetId, d.LookId)).Select(g => g.Last()).Where(d => d.ResolvedJobs.Count == 0))
             lumibelle.Services.Shots.H3PresetMigrations.Apply(draft);
+        // Not only a copy: it also normalizes Trash entries (their owner snapshots carry no images).
         return library.Copy();
     }
 

@@ -63,7 +63,7 @@ public sealed class ProjectFolderTests : IDisposable
         var id = Guid.NewGuid();
         var image = new AssetImage { Id = id, FileName = id.ToString("N") + ".png", ContentType = "image/png", Width = 400, Height = 300, CreatedUtc = DateTimeOffset.UtcNow };
         var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Lantern", Category = AssetCategory.Prop, Images = [image] };
-        await AtomicJsonFile.WriteAsync(Path.Combine(source.Root(project), "assets.json"), new AssetLibrary { ProjectId = project.Id, Assets = [asset] }, _ct);
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(source.Root(project)), new AssetLibrary { ProjectId = project.Id, Assets = [asset] }, _ct);
         var file = Path.Combine(source.Root(project), "assets", asset.Id.ToString("D"), "images", image.FileName);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!); await File.WriteAllBytesAsync(file, ProjectPackageTests.Photo(400, 300), _ct);
         var export = await source.Packages.ExportAsync(project.Id, new(LeaveOutLosslessArchives: true, CompressImages: true, MaxImageDimension: 256), ct: _ct);

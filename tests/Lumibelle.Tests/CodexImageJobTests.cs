@@ -106,7 +106,7 @@ public sealed partial class AssetStoreTests
         var request = await capture.CreateAsync(Guid.NewGuid(), Guid.NewGuid(), f.AssetId, new() { ProjectId = f.Project.Id, Workflow = ImageWorkflow.CodexImages, Prompt = "Create", AspectRatio = "1:1" }, ct);
         await f.Jobs.EnqueueAsync(request, ct); var job = (await f.Jobs.ClaimNextAsync(AiBackend.Codex, 1, ct))!; var context = f.Context(job, false);
         FileStream? locked = null;
-        mock.Notification += e => { if (e.GetProperty("method").GetString() == "item/completed") locked = new(Path.Combine(_directory, "projects", f.Project.Id.ToString("D"), "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read); };
+        mock.Notification += e => { if (e.GetProperty("method").GetString() == "item/completed") locked = TestProjectDatabase.HoldReadOnly(Path.Combine(_directory, "projects", f.Project.Id.ToString("D"))); };
         var worker = new AiImageJobHandler(f.Assets, null!, null!, null!, TimeProvider.System, client);
         try
         {

@@ -21,7 +21,7 @@ public sealed partial class AssetStoreTests
         return (project.Id, asset.Id, store, library);
     }
     private string TrashPath(Guid project, Guid asset, AssetImage image) => Path.Combine(_directory, "projects", project.ToString("D"), "assets", asset.ToString("D"), "images", image.FileName);
-    private string ManifestPath(Guid project) => Path.Combine(_directory, "projects", project.ToString("D"), "assets.json");
+    private string ProjectPath(Guid project) => Path.Combine(_directory, "projects", project.ToString("D"));
 
     [Fact]
     public async Task TrashPersistsExactMetadataAndOnlyDedicatedMediaCanReadIt()
@@ -48,9 +48,9 @@ public sealed partial class AssetStoreTests
     {
         var (project, asset, store, library) = await TrashFixture(1);
         await store.DeleteImageAsync(project, asset, library.Assets[0].Images[0].Id, library.Revision, TestContext.Current.CancellationToken);
-        var json = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(ManifestPath(project), TestContext.Current.CancellationToken))!;
+        var json = await TestProjectDatabase.JsonAsync(FileAssetStore.Documents, ProjectPath(project), project, TestContext.Current.CancellationToken);
         json["trash"]![0]!.AsObject().Remove("id");
-        await File.WriteAllTextAsync(ManifestPath(project), json.ToJsonString(), TestContext.Current.CancellationToken);
+        await TestProjectDatabase.SaveJsonAsync(FileAssetStore.Documents, ProjectPath(project), project, json, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.LoadAsync(project, TestContext.Current.CancellationToken));
         Assert.True(File.Exists(TrashPath(project, asset, library.Assets[0].Images[0])));
     }
@@ -149,7 +149,7 @@ public sealed partial class AssetStoreTests
         if (!OperatingSystem.IsWindows()) return;
         var (project, asset, store, library) = await TrashFixture(1);
         var deleted = await store.DeleteImageAsync(project, asset, library.Assets[0].Images[0].Id, library.Revision, TestContext.Current.CancellationToken);
-        await using (var locked = new FileStream(ManifestPath(project), FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var locked = TestProjectDatabase.HoldReadOnly(ProjectPath(project)))
         {
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.RestoreImagesAsync(project, deleted.TrashIds, deleted.Library.Revision, TestContext.Current.CancellationToken));
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.PurgeImagesAsync(project, deleted.TrashIds, deleted.Library.Revision, TestContext.Current.CancellationToken));
@@ -185,7 +185,7 @@ public sealed partial class AssetStoreTests
         var (project, asset, store, library) = await TrashFixture(1);
         var deleted = await store.DeleteImageAsync(project, asset, library.Assets[0].Images[0].Id, library.Revision, TestContext.Current.CancellationToken);
         var item = deleted.Library.Trash[0];
-        await AtomicJsonFile.WriteAsync(ManifestPath(project), deleted.Library with { Trash = [item with { State = ImageTrashState.Purging }] }, TestContext.Current.CancellationToken);
+        await TestProjectDatabase.SaveAssetsAsync(ProjectPath(project), deleted.Library with { Trash = [item with { State = ImageTrashState.Purging }] }, TestContext.Current.CancellationToken);
         File.Delete(TrashPath(project, asset, item.Image));
         await CreateFreshStore().CleanupExpiredAsync(TestContext.Current.CancellationToken);
         Assert.Empty((await store.LoadAsync(project, TestContext.Current.CancellationToken)).Trash);
@@ -213,7 +213,7 @@ public sealed partial class AssetStoreTests
         await store.DeleteImageAsync(first, asset1, library1.Assets[0].Images[0].Id, library1.Revision, TestContext.Current.CancellationToken);
         await store.DeleteImageAsync(second, asset2, library2.Assets[0].Images[0].Id, library2.Revision, TestContext.Current.CancellationToken);
         Assert.Equal(2, (await store.ListTrashAsync(TestContext.Current.CancellationToken)).Images.Count);
-        await File.WriteAllTextAsync(ManifestPath(first), "invalid", TestContext.Current.CancellationToken);
+        TestProjectDatabase.Corrupt(ProjectPath(first), "assets");
         var list = await store.ListTrashAsync(TestContext.Current.CancellationToken);
         Assert.Equal(second, Assert.Single(list.Images).ProjectId); Assert.Single(list.Issues);
         _clock.Now = _clock.Now.AddDays(31);

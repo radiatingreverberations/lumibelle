@@ -257,7 +257,7 @@ public sealed partial class AssetStoreTests
         var assetsPath = Path.Combine(_directory, "projects", f.Project.Id.ToString("D"), "assets.json");
         if (OperatingSystem.IsWindows())
         {
-            using var locked = new FileStream(assetsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(assetsPath)!);
             await Assert.ThrowsAnyAsync<Exception>(() => review.SaveAsync(f.Project.Id, submission.Id, first, 8, colour, ct));
             Assert.Equal(colour, (await review.LoadAsync(f.Project.Id, submission.Id, ct)).Candidates[0].State.SaveColour);
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => review.SaveDraftAsync(f.Project.Id, submission.Id, first, 0, new(), ct));

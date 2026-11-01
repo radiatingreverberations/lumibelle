@@ -344,7 +344,7 @@ public sealed partial class ShotTests
         await f.Assets.SaveDraftAsync(f.Project.Id, draft, draft.Revision, _ct);
         FileStream? locked = null;
         f.Adapter.BeforeDownload = () => {
-            locked = new(Path.Combine(f.ProjectDirectory, "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            locked = TestProjectDatabase.HoldReadOnly(Path.Combine(f.ProjectDirectory));
             return Task.CompletedTask;
         };
         try {

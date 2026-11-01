@@ -61,7 +61,7 @@ public sealed partial class AssetStoreTests
         var library = await store.SaveAsync(new() { ProjectId = project.Id, Assets = [asset] }, 0, ct);
         var request = WithJob(Candidate(asset.Id)); var directory = Path.Combine(_directory, "projects", project.Id.ToString("D"));
         using var content = new MemoryStream(Png(4, 4));
-        using (var locked = new FileStream(Path.Combine(directory, "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.Combine(directory)))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.PublishGeneratedImageAsync(project.Id, request, content, ct));
         Assert.Equal(library.Revision, (await store.LoadAsync(project.Id, ct)).Revision);
         Assert.Empty(Directory.GetFiles(Path.Combine(directory, "assets", asset.Id.ToString("D"), "images")));

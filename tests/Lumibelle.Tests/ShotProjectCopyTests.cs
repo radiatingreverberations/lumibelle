@@ -119,7 +119,7 @@ public sealed partial class ShotTests
             await File.WriteAllBytesAsync(Path.Combine(root, "video.mp4"), video, _ct);
             await AtomicJsonFile.WriteAsync(Path.Combine(root, "media.json"), binding.Media, _ct);
             library = await f.Assets.LoadAsync(f.Project.Id, _ct);
-            await AtomicJsonFile.WriteAsync(Path.Combine(f.ProjectDirectory, "assets.json"), library with { Reels = [new() { AssetId = asset.Id, Media = binding.Media, Name = binding.Name, CreatedUtc = _clock.GetUtcNow() }] }, _ct);
+            await TestProjectDatabase.SaveAssetsAsync(Path.Combine(f.ProjectDirectory), library with { Reels = [new() { AssetId = asset.Id, Media = binding.Media, Name = binding.Name, CreatedUtc = _clock.GetUtcNow() }] }, _ct);
             await new ReelRefModStore(f.Files).AcceptSourcesAsync(f.Project.Id, recipe, [pixels, pixels], _ct);
             var stored = source.Takes[0];
             var captured = original.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;

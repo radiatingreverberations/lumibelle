@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Assets;
@@ -6,22 +7,28 @@ namespace lumibelle.Services.Assets;
 public sealed class FileAssetBatchStore(ProjectFiles files)
 {
     public event Action<Guid>? Changed;
-    // Keep the original filename so saved image batches remain resumable after adding reels.
-    private async Task<string> PathAsync(Guid project, CancellationToken ct) => Path.Combine(await files.DirectoryAsync(project, ct), "asset-image-batches.json");
+    internal static readonly ProjectDocumentStore<AssetBatches> Documents = new(new()
+    {
+        // The legacy name predates reel batches; saved image batches stay resumable.
+        Kind = "asset_batches", Description = "the saved asset batches", Legacy = ["asset-image-batches.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("runs")]
+    });
+    // Batches keep their own lease, independent of the project's other documents.
+    private static string Gate(string directory) => Path.Combine(directory, "asset-image-batches.json");
     public async Task<AssetBatches> LoadAsync(Guid project, CancellationToken ct = default)
     {
-        var path = await PathAsync(project, ct); using var gate = await ProjectFiles.LockAsync(path, ct);
-        return await ReadAsync(path, project, ct);
+        var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(Gate(dir), ct);
+        return await ReadAsync(dir, project, ct);
     }
     public async Task<AssetBatches> UpdateAsync(Guid project, Func<AssetBatches, Task<AssetBatches>> update, CancellationToken ct = default)
     {
-        var path = await PathAsync(project, ct); AssetBatches next;
-        using (await ProjectFiles.LockAsync(path, ct))
+        var dir = await files.DirectoryAsync(project, ct); AssetBatches next;
+        using (await ProjectFiles.LockAsync(Gate(dir), ct))
         {
-            var current = await ReadAsync(path, project, ct); next = await update(current);
+            var current = await ReadAsync(dir, project, ct); next = await update(current);
             if (next == current) return current;
             next = next with { Revision = current.Revision + 1 }; Validate(next, project);
-            await AtomicJsonFile.WriteAsync(path, next, ct);
+            await Documents.SaveAsync(dir, project, next, ct);
         }
         Changed?.Invoke(project); return next;
     }
@@ -29,9 +36,9 @@ public sealed class FileAssetBatchStore(ProjectFiles files)
         doc.Runs.Any(r => r.Id == run.Id && r == run) ? doc : doc with { Runs = doc.Runs.Select(r => r.Id == run.Id ? run : r).ToArray() };
     public static AssetBatch Replace(AssetBatch run, AssetBatchItem item) =>
         run with { Items = run.Items.Select(i => i.Id == item.Id ? item : i).ToArray() };
-    private static async Task<AssetBatches> ReadAsync(string path, Guid project, CancellationToken ct)
+    private static async Task<AssetBatches> ReadAsync(string dir, Guid project, CancellationToken ct)
     {
-        var doc = await AtomicJsonFile.ReadAsync<AssetBatches>(path, ct) ?? new() { ProjectId = project };
+        var doc = await Documents.LoadAsync(dir, project, ct);
         Validate(doc, project); return doc;
     }
     internal static void Validate(AssetBatches doc, Guid project)

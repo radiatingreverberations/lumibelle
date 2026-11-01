@@ -28,7 +28,8 @@ internal sealed class ProjectPackageState
             throw new WorkspaceStoreException("Invalid project manifest.");
         var result = new ProjectPackageState {
             Project = info,
-            Assets = await ProjectPackageFormat.ReadAsync<AssetLibrary>(root, "assets.json", ct) ?? new() { ProjectId = project },
+            Assets = stored ? await FileAssetStore.Documents.LoadAsync(root, project, ct)
+                : await ProjectPackageFormat.ReadAsync<AssetLibrary>(root, "assets.json", ct) ?? new() { ProjectId = project },
             Shots = stored ? await FileShotStore.Documents.LoadCompleteAsync(root, project, ct)
                 : await ProjectPackageFormat.ReadAsync<ShotDocument>(root, "shots.json", ct) ?? new() { ProjectId = project },
             Production = stored ? await FileProductionStore.Documents.LoadAsync(root, project, ct)

@@ -42,7 +42,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => f.Assets.CommitVoiceAsync(f.Project.Id, draft.Id, "Mira", 0, 2, 0, _ct));
         foreach (var end in new[] { .5, 3, double.NaN }) await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.CommitVoiceAsync(f.Project.Id, draft.Id, "Mira", 0, end, d.Revision, _ct));
         var manifest = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "assets.json");
-        using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(manifest)!))
             await Assert.ThrowsAnyAsync<Exception>(() => f.Assets.CommitVoiceAsync(f.Project.Id, draft.Id, "Mira", 0, 2, d.Revision, _ct));
         Assert.Empty((await f.Assets.LoadAsync(f.Project.Id, _ct)).Voices);
         await using (var preview = await f.Assets.OpenVoicePreviewAsync(f.Project.Id, draft.Id, new(), staged: true, ct: _ct)) Assert.NotNull(preview);

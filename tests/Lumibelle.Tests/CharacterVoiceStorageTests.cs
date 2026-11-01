@@ -23,7 +23,7 @@ public sealed partial class ShotTests
         Assert.Equal("audio/wav", draft.ContentType); Assert.Equal(reel.Id, draft.SourceReel!.ReelId);
         Assert.Empty((await f.Assets.LoadAsync(f.Project.Id, _ct)).Voices);
         var manifest = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "assets.json");
-        using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(manifest)!))
             await Assert.ThrowsAnyAsync<Exception>(() => f.Assets.CommitVoiceAsync(f.Project.Id, draft.Id, "Elementalist voice", .5, 2.5, true, d.Revision, _ct));
         var failed = await f.Assets.LoadAsync(f.Project.Id, _ct);
         Assert.Empty(failed.Voices); Assert.Null(failed.Assets[0].DefaultVoiceId);
