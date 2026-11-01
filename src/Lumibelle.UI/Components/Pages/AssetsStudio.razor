@@ -505,7 +505,7 @@ else
     </DialogContent>
     <DialogActions><MudButton OnClick="() => CloseAllAssetDeletion(false)" Disabled="_deletingAllAssets">Cancel</MudButton><MudButton OnClick="ConfirmAllAssetDeletionAsync" Disabled="@(_deletingAllAssets || _deleteAssetsSnapshot?.Assets.Count is not > 0 || AssetDeletionActivityIssue is not null || _deleteAssetsConflict)" Color="Color.Error" Variant="Variant.Filled">Delete all assets</MudButton></DialogActions>
 </InlineDialog>
-@if (_refinementBatchesOpen) { <lumibelle.Components.Shots.RefinementBatchesDialog ProjectId="Id" Visible="true" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
+@if (_refinementBatchesMounted) { <lumibelle.Components.Shots.RefinementBatchesDialog ProjectId="Id" Visible="_refinementBatchesOpen" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
 @if (_review is not null && _library is not null)
 {
     <ImageReviewDialog @key="_review.Id" Session="_review" Library="_library" RegionalSaved="RegionalImageSaved" InitialSelection="_reviewInitial" Visible="_reviewOpen" OpenDetails="_openImageDetails" ApplyDetails="ApplyImageDetails" DetailsDirtyChanged="v => _imageDetailsDirty = v" RequestedGuidanceId="_requestedGuidanceId"

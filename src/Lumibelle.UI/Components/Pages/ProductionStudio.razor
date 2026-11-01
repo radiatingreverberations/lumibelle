@@ -809,7 +809,7 @@ else
 
 <VideoRegenerationDialog ProjectId="Id" Take="_regenerationTake" Closed="() => _regenerationTake = null" Submitted="TakeRegenerationSubmitted" />
 <RefineFromVideoDialog ProjectId="Id" Sources="_refineSources" Closed="() => _refineSources = []" Queued="RefinementQueued" />
-@if (_refinementBatchesOpen) { <RefinementBatchesDialog ProjectId="Id" Visible="true" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
+@if (_refinementBatchesMounted) { <RefinementBatchesDialog ProjectId="Id" Visible="_refinementBatchesOpen" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
 
 
 <InlineDialog Visible="_planningOpen" VisibleChanged="PlanningVisibility" Options="@(LargeDialog with { CloseOnNavigation = false })" Class="shot-planning-dialog" DefaultFocus="DefaultFocus.FirstChild" OnKeyDown="PlanningKeyDown">

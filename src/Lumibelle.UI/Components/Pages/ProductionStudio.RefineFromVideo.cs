@@ -8,7 +8,8 @@ namespace lumibelle.Components.Pages;
 public partial class ProductionStudio
 {
     private IReadOnlyList<RefineSource> _refineSources = [];
-    private bool _refinementBatchesOpen;
+    // Mounted on first opening, then kept: removing an open dialog would leave it on screen.
+    private bool _refinementBatchesOpen, _refinementBatchesMounted;
     private Guid? _requestedRefinementBatch;
     private bool CanRefineFromVideo(ShotTake take) => !_starting && !_mediaBusy && MotionReferencePolicy.Issue(take) is null;
     private void RefineFromVideo(ShotTake take) { if (CanRefineFromVideo(take)) _refineSources = [RefineSource.From(Id, take, TakeName(take))]; }
@@ -31,5 +32,5 @@ public partial class ProductionStudio
             Severity.Success, config => { config.Action = "View batch"; config.OnClick = _ => InvokeAsync(() => OpenRefinementBatches(batch.Id)); });
         await RefreshMedia();
     }
-    private void OpenRefinementBatches(Guid? batch = null) { _requestedRefinementBatch = batch; _refinementBatchesOpen = true; StateHasChanged(); }
+    private void OpenRefinementBatches(Guid? batch = null) { _requestedRefinementBatch = batch; _refinementBatchesMounted = _refinementBatchesOpen = true; StateHasChanged(); }
 }

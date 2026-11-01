@@ -76,7 +76,7 @@
             </section>
         }
     </div>
-</DialogContent></InlineDialog>
+</DialogContent><Actions><MudButton OnClick="Close" Variant="Variant.Outlined">Done</MudButton></Actions></InlineDialog>
 <RefineFromVideoDialog ProjectId="ProjectId" Revise="_revise" Closed="() => _revise = null" Queued="Queued" />
 
 @code {
@@ -93,14 +93,18 @@
     private AssetLibrary? _library;
     private RefinementBatchItem? _revise;
     private string? _error;
-    private bool _busy, _disposed, _refreshing, _refreshAgain;
+    private bool _busy, _disposed, _refreshing, _refreshAgain, _shown;
     private int _loads;
     private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs.OrderByDescending(r => r.CreatedUtc);
 
-    // Rendered only while open, so it loads and follows progress only then.
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized() { Batches.Changed += BatchesChanged; Jobs.Changed += Refresh; }
+    // Pages keep it mounted after the first opening, since removing an open MudDialog leaves it on screen.
+    // It loads on each opening and follows progress only while open.
+    protected override async Task OnParametersSetAsync()
     {
-        Batches.Changed += BatchesChanged; Jobs.Changed += Refresh;
+        if (Visible == _shown) return;
+        _shown = Visible;
+        if (!Visible) return;
         try { await Load(); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception e) { _error = e.Message; }
@@ -119,7 +123,7 @@
     private void BatchesChanged(Guid project) { if (project == ProjectId) Refresh(); }
     private void Refresh()
     {
-        if (_disposed) return;
+        if (_disposed || !_shown) return;
         // Job progress fires often while rendering: events that arrive during a load collapse into one more.
         _ = InvokeAsync(async () => {
             if (_refreshing) { _refreshAgain = true; return; }

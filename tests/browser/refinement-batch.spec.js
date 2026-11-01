@@ -70,6 +70,11 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await items.nth(0).getByRole('button', { name: 'Compare', exact: true }).click();
   await expect(items.nth(0).getByLabel(/^Source clip for /)).toBeVisible();
   await expect(items.nth(0).getByLabel(/^Refined final for /)).toBeVisible();
+  // A final sized to another aspect is letterboxed in a box as large as the source's.
+  const heights = () => Promise.all([/^Source clip for /, /^Refined final for /].map(async l => Math.round((await items.nth(0).getByLabel(l).boundingBox()).height)));
+  await expect.poll(heights).toEqual([expect.any(Number), expect.any(Number)]);
+  const [source, final] = await heights(); expect(final).toBe(source);
+  await items.nth(0).locator('.refinement-compare').screenshot({ path: 'test-results/refinement-compare.png' });
   await items.nth(0).getByRole('button', { name: 'Use this take', exact: true }).click();
   const accepted = results.find(t => t.snapshot.motionReference.takeId === drafts[0].id);
   await expect.poll(async () => (await state()).shots[0].selectedTakeId).toBe(accepted.id);
@@ -77,4 +82,22 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await expect(returned.locator('.refinement-counts')).toContainText('Reviewed2 / 2');
   expect(await returned.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await returned.screenshot({ path: 'artifacts/refinement-batch.png', fullPage: true });
+});
+
+test('refinement batches close from the header, Done and Escape, and reopen', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/approved`);
+  await request.post(`/fixtures/${id}/production-shot`);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/projects/${id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  const open = page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  for (const close of [() => page.getByRole('button', { name: 'Close refinement batches', exact: true }).click(),
+    () => dialog.getByRole('button', { name: 'Done', exact: true }).click(), () => page.keyboard.press('Escape')]) {
+    await open.click();
+    await expect(dialog).toContainText('No refinement batches yet');
+    await close();
+    await expect(dialog).toBeHidden();
+  }
 });
