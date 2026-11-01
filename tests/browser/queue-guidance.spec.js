@@ -142,8 +142,10 @@ test('look guidance reopens inline from activity on mobile without changing note
   await expect(editor.getByLabel('This look', { exact: true })).toHaveValue('Keep the gray coat.');
   await editor.getByRole('button', { name: 'Save look', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).assets[0].looks[0].preservationGuidance).toBe('Keep the gray coat.');
-  await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true'); await assetView(page, 'Asset details');
-  // An exact link still shows the original result, names the change and shows the guidance it would replace.
+  await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  // The exact link reopens the details, the look and the review itself, a moment after the page is ready.
+  await expect(page.locator('.asset-details-dialog')).toBeVisible(); await expect(review(page)).toBeVisible();
+  // It still shows the original result, names the change and shows the guidance it would replace.
   await expect(review(page)).toContainText('Since this suggestion was written, the guidance was edited. It may not match the look as it is now.');
   await expect(review(page).getByLabel('Current guidance, replaced when applied', { exact: true })).toHaveValue('Keep the gray coat.');
   await expect(review(page).getByRole('button', { name: 'Apply anyway', exact: true })).toBeEnabled();

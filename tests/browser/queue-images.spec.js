@@ -15,6 +15,13 @@ async function setup(page, request, patterned = false) {
   await toolsTab(page, 'Prompt');
   return { id, library };
 }
+// Choosing an asset saves the previous one before it switches; a prompt typed in between belongs to
+// the previous asset. Wait for the switch before using the composer.
+async function chooseAsset(page, index) {
+  const choice = page.locator('.asset-choice').nth(index);
+  await choice.click(); await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  await toolsTab(page, 'Prompt');
+}
 async function jobs(request, id) { return (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id); }
 
 for (const edit of [false, true]) {
@@ -112,15 +119,15 @@ test('image jobs release the page and keep other asset drafts and cancellation i
   try {
     await page.getByRole('button', { name: 'Generate images', exact: true }).click();
     await expect(page.locator('.generation-panel .ai-queue-wait')).toBeVisible();
-    await page.locator('.asset-choice').nth(1).click(); await toolsTab(page, 'Prompt');
+    await chooseAsset(page, 1);
     await expect(page.locator('#image-prompt')).toBeEnabled();
     await page.locator('#image-prompt').fill('Keep this other asset draft');
-    await page.locator('.asset-choice').first().click(); await toolsTab(page, 'Prompt');
+    await chooseAsset(page, 0);
     await expect(page.locator('#image-prompt')).toHaveValue('');
     await page.locator('.asset-image-request').getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.locator('#image-prompt')).toBeEnabled();
     await expect(page.locator('.generation-panel')).toContainText('Generation cancelled');
-    await page.locator('.asset-choice').nth(1).click(); await toolsTab(page, 'Prompt');
+    await chooseAsset(page, 1);
     await expect(page.locator('#image-prompt')).toHaveValue('Keep this other asset draft');
     expect((await jobs(request, id))[0].state).toBe('Cancelled');
     await expect(review(page)).not.toBeVisible();
@@ -136,16 +143,16 @@ test('successful background image creation clears its own draft and preserves an
     await page.getByRole('button', { name: 'Generate images', exact: true }).click();
     await expect(page.locator('.generation-panel .ai-queue-wait')).toBeVisible();
     await expect(page.locator('#image-prompt')).toHaveValue(''); await expect(page.locator('#image-prompt')).toBeEnabled();
-    await page.locator('.asset-choice').nth(1).click(); await toolsTab(page, 'Prompt');
+    await chooseAsset(page, 1);
     await page.locator('#image-prompt').fill('Keep this other asset draft');
   } finally { await pause(page, false); }
   await expect.poll(async () => (await jobs(request, id))[0]?.state).toBe('Completed');
   await expect(page.locator('#image-prompt')).toHaveValue('Keep this other asset draft');
   await expect(review(page)).not.toBeVisible();
-  await page.locator('.asset-choice').first().click(); await toolsTab(page, 'Prompt');
+  await chooseAsset(page, 0);
   await expect(page.locator('#image-prompt')).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Generate images', exact: true })).toBeDisabled();
-  await page.locator('.asset-choice').nth(1).click(); await toolsTab(page, 'Prompt');
+  await chooseAsset(page, 1);
   await expect(page.locator('#image-prompt')).toHaveValue('Keep this other asset draft');
 });
 

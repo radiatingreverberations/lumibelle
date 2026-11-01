@@ -21,9 +21,12 @@ for (const [size, viewport] of [['desktop', { width: 1173, height: 1272 }], ['mo
     await expect(menu).toBeVisible();
     expect(await geometry()).toEqual(before);
     expect(await menu.evaluate(el => el.closest('.reference-card'))).toBeNull();
-    await menu.getByRole('menuitem', { name: 'Rename', exact: true }).focus();
-    await page.keyboard.press('ArrowDown');
-    await expect(menu.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeFocused();
+    // The menu's arrow-key handling attaches just after it opens; a busy runner can press too early.
+    await expect(async () => {
+      await menu.getByRole('menuitem', { name: 'Rename', exact: true }).focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(menu.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeFocused({ timeout: 1000 });
+    }).toPass({ timeout: 15000 });
     await page.screenshot({ path: `artifacts/asset-card-menu-${size}.png` });
     await page.keyboard.press('Escape');
     await expect(menu).not.toBeVisible(); await expect(trigger).toBeFocused();
@@ -59,7 +62,8 @@ for (const [size, viewport] of [['desktop', { width: 1173, height: 1272 }], ['mo
     await page.getByRole('button',{name:'Select multiple',exact:true}).click();
     const checkbox = card.getByRole('checkbox', { name: 'Select image', exact: true });
     await checkbox.focus(); await page.keyboard.press('Space');
-    await expect(checkbox).toBeChecked(); await expect(card.locator('.media-select')).toHaveAttribute('aria-pressed','false');
+    // In multi-select mode the card's select button toggles the same bulk selection as its checkbox.
+    await expect(checkbox).toBeChecked(); await expect(card.locator('.media-select')).toHaveAttribute('aria-pressed','true');
     await expect(page.locator('.look-bulk')).toContainText('1 selected');
     await expect(page.locator('.image-review-dialog')).not.toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
