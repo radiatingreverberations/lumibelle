@@ -26,16 +26,16 @@ internal sealed class ProjectPackageState
         if (info.Id != project || project == Guid.Empty || info.SchemaVersion != ProjectInfo.CurrentSchemaVersion ||
             string.IsNullOrWhiteSpace(info.Name) || info.CreatedUtc == default || info.CreatedUtc.Offset != TimeSpan.Zero || info.VideoAspect is not ("16:9" or "9:16" or "1:1"))
             throw new WorkspaceStoreException("Invalid project manifest.");
+        // Stored documents are read in the package's file layout, through the same checks as package files.
+        var documents = stored ? await StoredDocumentsAsync(root, project, ct) : null;
+        async Task<T?> Read<T>(string relative) => documents is null ? await ProjectPackageFormat.ReadAsync<T>(root, relative, ct)
+            : documents.TryGetValue(relative, out var bytes) ? ProjectPackageFormat.Parse<T>(bytes) : default;
         var result = new ProjectPackageState {
             Project = info,
-            Assets = stored ? await FileAssetStore.Documents.LoadAsync(root, project, ct)
-                : await ProjectPackageFormat.ReadAsync<AssetLibrary>(root, "assets.json", ct) ?? new() { ProjectId = project },
-            Shots = stored ? await FileShotStore.Documents.LoadCompleteAsync(root, project, ct)
-                : await ProjectPackageFormat.ReadAsync<ShotDocument>(root, "shots.json", ct) ?? new() { ProjectId = project },
-            Production = stored ? await FileProductionStore.Documents.LoadAsync(root, project, ct)
-                : await ProjectPackageFormat.ReadAsync<ProductionDocument>(root, "production.json", ct) ?? new() { ProjectId = project },
-            Cut = stored ? await FileCutStore.Documents.LoadAsync(root, project, ct)
-                : await ProjectPackageFormat.ReadAsync<CutDocument>(root, "cut.json", ct) ?? new() { ProjectId = project }
+            Assets = await Read<AssetLibrary>("assets.json") ?? new() { ProjectId = project },
+            Shots = await Read<ShotDocument>("shots.json") ?? new() { ProjectId = project },
+            Production = await Read<ProductionDocument>("production.json") ?? new() { ProjectId = project },
+            Cut = await Read<CutDocument>("cut.json") ?? new() { ProjectId = project }
         };
         if (result.Shots.SchemaVersion == 1)
         {
@@ -44,9 +44,9 @@ internal sealed class ProjectPackageState
             result.Shots.SchemaVersion = 2;
         }
         result.Validate();
-        var script = await ProjectPackageFormat.ReadAsync<ScriptDocument>(root, "script.json", ct);
+        var script = await Read<ScriptDocument>("script.json");
         if (script is not null) { FileScriptStore.Validate(script, project); result.Other.Add("script.json", ProjectPackageFormat.Json(script)); }
-        var source = await ProjectPackageFormat.ReadAsync<SourceDocument>(root, "source.json", ct);
+        var source = await Read<SourceDocument>("source.json");
         if (source is not null) {
             FileSourceStore.Validate(source, project);
             // Packages carry original material and completed analysis, never live queue submissions
@@ -57,13 +57,13 @@ internal sealed class ProjectPackageState
             }).ToList() };
             result.Other.Add("source.json", ProjectPackageFormat.Json(source));
         }
-        var history = await ProjectPackageFormat.ReadAsync<AssistantHistory>(root, "script-assistant.json", ct);
+        var history = await Read<AssistantHistory>("script-assistant.json");
         if (history is not null)
         {
             if (history.ProjectId != project || history.SchemaVersion != 1 || history.Runs is null) throw new WorkspaceStoreException("Invalid saved Script discussion history.");
             result.History = history;
         }
-        var preferences = await ProjectPackageFormat.ReadAsync<ProjectAiPreferences>(root, "ai-preferences.json", ct);
+        var preferences = await Read<ProjectAiPreferences>("ai-preferences.json");
         if (preferences is not null)
         {
             if (preferences.ProjectId != project || preferences.SchemaVersion is not (1 or 2)) throw new WorkspaceStoreException("Invalid project AI preferences.");
@@ -73,25 +73,30 @@ internal sealed class ProjectPackageState
         long otherBytes = result.Other.Values.Sum(b => (long)b.Length);
         foreach (var folder in ProjectPackageFormat.ScriptFolders)
         {
-            var dir = ProjectPackageFormat.Under(root, folder);
-            if (!Directory.Exists(dir)) continue;
-            ProjectPackageFormat.NoLinks(root, dir);
-            foreach (var file in Directory.EnumerateFiles(dir, "*.json", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))
+            IEnumerable<string> names;
+            if (documents is not null) names = documents.Keys.Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal)).Select(k => k[(folder.Length + 1)..]);
+            else {
+                var dir = ProjectPackageFormat.Under(root, folder);
+                if (!Directory.Exists(dir)) continue;
+                ProjectPackageFormat.NoLinks(root, dir);
+                names = Directory.EnumerateFiles(dir, "*.json", SearchOption.TopDirectoryOnly).Select(f => Path.GetFileName(f));
+            }
+            foreach (var name in names.Order(StringComparer.Ordinal).ToList())
             {
                 ct.ThrowIfCancellationRequested();
-                var name = Path.GetFileName(file); var relative = folder + "/" + name;
+                var relative = folder + "/" + name;
                 if (!ProjectPackageFormat.Allowed(relative)) throw new WorkspaceStoreException("Invalid captured script filename.");
                 var id = Guid.ParseExact(name[..^5], "D"); byte[] bytes;
                 if (folder == "script-history") {
-                    var r = (await ProjectPackageFormat.ReadAsync<ScriptRecovery>(root, relative, ct))!;
+                    var r = (await Read<ScriptRecovery>(relative))!;
                     if (r.Id != id) throw new WorkspaceStoreException("Invalid script recovery identity.");
                     FileScriptStore.Validate(r.Document, project); bytes = ProjectPackageFormat.Json(r);
                 } else if (folder == "script-approved") {
-                    var r = (await ProjectPackageFormat.ReadAsync<ApprovedScriptSnapshot>(root, relative, ct))!;
+                    var r = (await Read<ApprovedScriptSnapshot>(relative))!;
                     if (r.Id != id || r.ProjectId != project || r.SourceRevision < 0) throw new WorkspaceStoreException("Invalid approved script identity.");
                     ScriptStructure.ValidateBlocks(r.Blocks); bytes = ProjectPackageFormat.Json(r);
                 } else {
-                    var r = (await ProjectPackageFormat.ReadAsync<ScriptSourceSnapshot>(root, relative, ct))!;
+                    var r = (await Read<ScriptSourceSnapshot>(relative))!;
                     if (r.Id != id || r.ProjectId != project || r.SourceRevision < 0) throw new WorkspaceStoreException("Invalid script source identity.");
                     ScriptStructure.ValidateBlocks(r.Blocks); bytes = ProjectPackageFormat.Json(r);
                 }
@@ -102,6 +107,31 @@ internal sealed class ProjectPackageState
             }
         }
         return result;
+    }
+
+    /// <summary>A library project's stored documents as the JSON files a package holds, keyed by package path.</summary>
+    private static async Task<Dictionary<string, byte[]>> StoredDocumentsAsync(string root, Guid project, CancellationToken ct)
+    {
+        var files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        async Task Add<T>(string name, Storage.ProjectDocumentStore<T> store) where T : class
+        {
+            if (await store.LoadJsonAsync(root, project, complete: true, ct) is { } json) files[name] = json;
+        }
+        await Add("assets.json", FileAssetStore.Documents);
+        await Add("shots.json", FileShotStore.Documents);
+        await Add("production.json", FileProductionStore.Documents);
+        await Add("cut.json", FileCutStore.Documents);
+        await Add("script.json", FileScriptStore.Documents);
+        await Add("source.json", FileSourceStore.Documents);
+        await Add("script-assistant.json", FileAssistantHistoryStore.Documents);
+        await Add("ai-preferences.json", FileProjectAiPreferencesStore.Documents);
+        if (await FileScriptStore.Snapshots.TryLoadAsync(root, project, ct) is { } snapshots)
+        {
+            foreach (var s in snapshots.Sources) files[$"script-sources/{s.Id:D}.json"] = ProjectPackageFormat.Json(s);
+            foreach (var r in snapshots.History) files[$"script-history/{r.Id:D}.json"] = ProjectPackageFormat.Json(r);
+            foreach (var a in snapshots.Approved) files[$"script-approved/{a.Id:D}.json"] = ProjectPackageFormat.Json(a);
+        }
+        return files;
     }
     /// <summary>
     /// Reading a staged import through the stores brings its documents into project.sqlite and moves

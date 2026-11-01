@@ -1,9 +1,15 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.Story;
 
 public sealed class FileSourceStore(ProjectFiles files)
 {
+    internal static readonly ProjectDocumentStore<SourceDocument> Documents = new(new()
+    {
+        Kind = "source", Description = "the source material", Legacy = ["source.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("runs")]
+    });
     public async Task<SourceDocument> LoadAsync(Guid project, CancellationToken ct = default)
     {
         var path = Path.Combine(await files.DirectoryAsync(project, ct), "source.json");
@@ -19,7 +25,7 @@ public sealed class FileSourceStore(ProjectFiles files)
         if (next == current) return current;
         next = next with { Revision = current.Revision + 1 };
         Validate(next, project);
-        await AtomicJsonFile.WriteAsync(path, next, ct);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, project, next, ct);
         return next;
     }
     public Task<SourceDocument> SaveAsync(Guid project, long sourceRevision, string title, string text, string direction, CancellationToken ct = default) =>
@@ -42,7 +48,7 @@ public sealed class FileSourceStore(ProjectFiles files)
             doc with { Runs = doc.Runs.Select(r => r.Id == run.Id ? run : r).ToList() };
     private static async Task<SourceDocument> ReadAsync(string path, Guid project, CancellationToken ct)
     {
-        var doc = await AtomicJsonFile.ReadAsync<SourceDocument>(path, ct) ?? new() { ProjectId = project };
+        var doc = await Documents.LoadAsync(Path.GetDirectoryName(path)!, project, ct);
         Validate(doc, project);
         return doc;
     }

@@ -16,8 +16,9 @@ internal sealed class DocumentSpec<T> where T : class
     /// <summary>Files and folders, relative to the project folder, that held this document before SQLite.</summary>
     public IReadOnlyList<string> Legacy { get; init; } = [];
     /// <summary>
-    /// Reads and validates the legacy files, returning the object to store (the typed document, or
-    /// raw JSON when the file holds a persisted projection). Defaults to reading <c>Legacy[0]</c> as <typeparamref name="T"/>.
+    /// Reads the legacy files, returning the object to store. Defaults to the raw JSON of
+    /// <c>Legacy[0]</c>, kept exactly as saved (including properties this build doesn't know);
+    /// the store validates it on every load, as it validated the file.
     /// </summary>
     public Func<string, Guid, CancellationToken, Task<object?>>? ReadLegacy { get; init; }
 }
@@ -331,8 +332,10 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
             object? legacy = null;
             if (files.Count > 0)
                 legacy = Spec.ReadLegacy is { } read ? await read(directory, project, ct)
-                    : await AtomicJsonFile.ReadAsync<T>(Path.Combine(directory, Spec.Legacy[0]), ct);
-            var prepared = legacy is null ? null : Prepare(legacy);
+                    : File.Exists(Path.Combine(directory, Spec.Legacy[0])) ? await AtomicJsonFile.ReadAsync<JsonElement>(Path.Combine(directory, Spec.Legacy[0]), ct) : null;
+            PreparedDocument? prepared;
+            try { prepared = legacy is null ? null : Prepare(legacy); }
+            catch (JsonException e) { throw new WorkspaceStoreException($"Couldn’t read {Spec.Description}. Nothing was changed.", e); }
             ct.ThrowIfCancellationRequested();
             var now = DateTimeOffset.UtcNow.ToString("O");
             var json = JsonSerializer.Serialize(files);

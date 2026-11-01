@@ -29,7 +29,7 @@ public sealed class ScriptStoreTests : IDisposable
         var saved = await Stories.SaveAsync(draft, 0, cancellationToken: TestContext.Current.CancellationToken);
         var reopened = await Stories.LoadAsync(project.Id, TestContext.Current.CancellationToken);
         Assert.Empty(reopened.Brief.Idea);
-        Assert.DoesNotContain("brief", await File.ReadAllTextAsync(Path.Combine(ProjectPath(project.Id), "script.json"), TestContext.Current.CancellationToken));
+        Assert.DoesNotContain("brief", System.Text.Encoding.UTF8.GetString((await FileScriptStore.Documents.LoadJsonAsync(ProjectPath(project.Id), project.Id, complete: true, TestContext.Current.CancellationToken))!));
         Assert.Equal(ScriptStructure.Fingerprint(draft.Blocks), ScriptStructure.Fingerprint(reopened.Blocks));
         Assert.Equal(1, saved.Revision);
         Assert.Empty(Directory.GetFiles(ProjectPath(project.Id), "*.tmp"));
@@ -92,7 +92,9 @@ public sealed class ScriptStoreTests : IDisposable
         await File.WriteAllTextAsync(path, content, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.LoadAsync(project.Id, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.SaveAsync(new() { ProjectId = project.Id }, 0, cancellationToken: TestContext.Current.CancellationToken));
-        Assert.Equal(content, await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        // Unreadable JSON stays where it was; JSON that only fails validation was kept aside when stored.
+        var kept = File.Exists(path) ? path : Path.Combine(ProjectPath(project.Id), "legacy-json", "script.json");
+        Assert.Equal(content, await File.ReadAllTextAsync(kept, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -101,8 +103,8 @@ public sealed class ScriptStoreTests : IDisposable
         var project = await Projects.CreateAsync(new("Film"), TestContext.Current.CancellationToken);
         var saved = await Stories.SaveAsync(new() { ProjectId = project.Id, Blocks = [ScriptBlock.Create(ScriptBlockKind.Action, "keep")] }, 0, cancellationToken: TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(ProjectPath(project.Id), "script.json.abandoned.tmp"), "{", TestContext.Current.CancellationToken);
-        await File.WriteAllTextAsync(Path.Combine(ProjectPath(project.Id), "script-history"), "blocks recovery", TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.SaveAsync(saved with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Action, "lost")] }, 1, "AI edit", TestContext.Current.CancellationToken));
+        using (TestProjectDatabase.HoldReadOnly(ProjectPath(project.Id)))
+            await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.SaveAsync(saved with { Blocks = [ScriptBlock.Create(ScriptBlockKind.Action, "lost")] }, 1, "AI edit", TestContext.Current.CancellationToken));
         Assert.Equal("keep", (await Stories.LoadAsync(project.Id, TestContext.Current.CancellationToken)).Blocks[0].Text);
     }
 
@@ -153,8 +155,8 @@ public sealed class ScriptStoreTests : IDisposable
         var project = await Projects.CreateAsync(new("Film"), ct);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.ApproveAsync(project.Id, 0, ct));
         var draft = await Stories.SaveAsync(ScriptFixtures.Document(project.Id), 0, cancellationToken: ct);
-        await File.WriteAllTextAsync(Path.Combine(ProjectPath(project.Id), "script-approved"), "blocks publication", ct);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.ApproveAsync(project.Id, draft.Revision, ct));
+        using (TestProjectDatabase.HoldReadOnly(ProjectPath(project.Id)))
+            await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.ApproveAsync(project.Id, draft.Revision, ct));
         Assert.Null((await Stories.LoadAsync(project.Id, ct)).ApprovedSnapshotId);
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => Stories.ApproveAsync(project.Id, 0, ct));
         Assert.Equal(draft.Revision, (await Stories.LoadAsync(project.Id, ct)).Revision);

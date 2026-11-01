@@ -91,8 +91,12 @@ internal static class TestProjectDatabase
     /// Opens the database file so others may only read it, like a scanner or backup tool holding it.
     /// Loads still work; the next save fails without changing anything.
     /// </summary>
-    public static FileStream HoldReadOnly(string projectDirectory) =>
-        new(PathIn(projectDirectory), FileMode.Open, FileAccess.Read, FileShare.Read);
+    public static FileStream HoldReadOnly(string projectDirectory)
+    {
+        // An empty file is a new database to SQLite, so a project without one can be held too.
+        if (!File.Exists(PathIn(projectDirectory))) File.WriteAllBytes(PathIn(projectDirectory), []);
+        return new(PathIn(projectDirectory), FileMode.Open, FileAccess.Read, FileShare.Read);
+    }
 
     /// <summary>Overwrites the file header so SQLite no longer recognizes the database.</summary>
     public static void Damage(string projectDirectory)

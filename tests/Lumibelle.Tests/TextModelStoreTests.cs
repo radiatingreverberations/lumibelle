@@ -82,10 +82,10 @@ public sealed partial class TextModelStoreTests : IDisposable
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Preferences.SetSelectionAsync(project.Id, TextAssistantStudio.Story, Cloud, cancellation.Token));
         Assert.Equal(Local, (await Preferences.LoadAsync(project.Id, TestContext.Current.CancellationToken)).Story);
-        var path = Path.Combine(_root, "App_Data", "Projects", project.Id.ToString("D"), "ai-preferences.json");
-        await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
+        var directory = Path.Combine(_root, "App_Data", "Projects", project.Id.ToString("D"));
+        TestProjectDatabase.Corrupt(directory, "ai_preferences");
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => Preferences.SetSelectionAsync(project.Id, TextAssistantStudio.Story, Cloud, TestContext.Current.CancellationToken));
-        Assert.Equal("{", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal("invalid", TestProjectDatabase.Header(directory, "ai_preferences"));
     }
     [Fact]
     public void EligibilityRequiresExactVersionServerAndAvailableModel()

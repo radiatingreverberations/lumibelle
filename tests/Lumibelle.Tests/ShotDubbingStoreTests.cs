@@ -84,7 +84,7 @@ public sealed partial class ShotDubbingStoreTests : IDisposable
         await AtomicJsonFile.WriteAsync(path, new ProjectLanguages { ProjectId = Guid.NewGuid(), Main = ShotDubbingTests.English }, _ct);
         var before = await File.ReadAllBytesAsync(path, _ct);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Store.LanguagesAsync(f.Project.Id, _ct));
-        Assert.Equal(before, await File.ReadAllBytesAsync(path, _ct));
+        Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(Path.GetDirectoryName(path)!, "legacy-json", "languages.json"), _ct));
     }
     [Fact]
     public async Task ConcurrentLanguageSavesHaveOneWinner()
@@ -144,10 +144,10 @@ public sealed partial class ShotDubbingStoreTests : IDisposable
         await f.Store.SaveAsync(r, ShotDubbingTests.Translation(r), 0, ct: _ct);
         var d = await f.Store.LoadAsync(f.Project, _ct);
         d = d with { Variants = [d.Variants[0] with { Prompt = d.Variants[0].Prompt.Replace("Locked camera.", "Pan right.") }] };
-        var path = Path.Combine(await f.Files.DirectoryAsync(f.Project, _ct), "dubbing.json");
-        await AtomicJsonFile.WriteAsync(path, d, _ct); var before = await File.ReadAllBytesAsync(path, _ct);
+        var dir = await f.Files.DirectoryAsync(f.Project, _ct);
+        await FileProjectDubbingStore.Documents.SaveAsync(dir, f.Project, d, _ct); var before = TestProjectDatabase.Stamp(dir, "dubbing");
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Store.LoadAsync(f.Project, _ct));
-        Assert.Equal(before, await File.ReadAllBytesAsync(path, _ct));
+        Assert.Equal(before, TestProjectDatabase.Stamp(dir, "dubbing"));
     }
     [Theory]
     [InlineData(false)][InlineData(true)]

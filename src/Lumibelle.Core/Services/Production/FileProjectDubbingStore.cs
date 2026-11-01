@@ -19,6 +19,16 @@ public interface IProjectDubbingStore
 
 public sealed class FileProjectDubbingStore(ProjectFiles files, IShotStore shots, IAiJobStore jobs, TimeProvider clock) : IProjectDubbingStore
 {
+    internal static readonly Storage.ProjectDocumentStore<ProjectLanguages> Languages = new(new()
+    {
+        Kind = "languages", Description = "the language versions", Legacy = ["languages.json"],
+        Empty = id => new() { ProjectId = id }, Lists = []
+    });
+    internal static readonly Storage.ProjectDocumentStore<ShotDubDocument> Documents = new(new()
+    {
+        Kind = "dubbing", Description = "the language versions", Legacy = ["dubbing.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("variants")]
+    });
     public static async Task CheckPortableExportAsync(string directory, Guid project, CancellationToken ct = default)
     {
         var languages = await ReadLanguages(directory, project, ct);
@@ -34,7 +44,7 @@ public sealed class FileProjectDubbingStore(ProjectFiles files, IShotStore shots
     }
     private static async Task<ProjectLanguages> ReadLanguages(string dir, Guid project, CancellationToken ct)
     {
-        var value = await AtomicJsonFile.ReadAsync<ProjectLanguages>(Path.Combine(dir, "languages.json"), ct) ?? new() { ProjectId = project };
+        var value = await Languages.LoadAsync(dir, project, ct);
         if (value.ProjectId != project) throw new WorkspaceStoreException("Language settings belong to another project.");
         return ShotDubbing.Normalize(value);
     }
@@ -45,14 +55,14 @@ public sealed class FileProjectDubbingStore(ProjectFiles files, IShotStore shots
         var current = await ReadLanguages(dir, languages.ProjectId, ct);
         if (current.Revision != expectedRevision) throw new WorkspaceConflictException();
         var saved = languages with { Revision = current.Revision + 1 };
-        await AtomicJsonFile.WriteAsync(Path.Combine(dir, "languages.json"), saved, ct);
+        await Languages.SaveAsync(dir, languages.ProjectId, saved, ct);
         return ShotCopy.Of(saved);
     }
     public async Task<ShotDubDocument> LoadAsync(Guid project, CancellationToken ct = default) =>
         await Read(await files.DirectoryAsync(project, ct), project, ct);
     private static async Task<ShotDubDocument> Read(string dir, Guid project, CancellationToken ct)
     {
-        var d = await AtomicJsonFile.ReadAsync<ShotDubDocument>(Path.Combine(dir, "dubbing.json"), ct) ?? new() { ProjectId = project };
+        var d = await Documents.LoadAsync(dir, project, ct);
         if (d.SchemaVersion != 1 || d.ProjectId != project || d.Revision < 0 || d.Variants is null ||
             d.Variants.Any(v => v is null || v.Id == Guid.Empty || v.Version < 1 || v.Request is null || v.Request.Target is null || v.Request.ProjectId != project ||
                 v.Id != v.Request.VariantId || v.UpdatedUtc == default || v.TranslationJobId == Guid.Empty) ||
@@ -133,6 +143,6 @@ public sealed class FileProjectDubbingStore(ProjectFiles files, IShotStore shots
             current is null && d.Variants.Any(v => v.Id == request.VariantId)) throw new WorkspaceConflictException();
         var saved = proposed with { Version = expectedVersion + 1 };
         d = d with { Revision = d.Revision + 1, Variants = [.. d.Variants.Where(v => v.Id != saved.Id), saved] };
-        await AtomicJsonFile.WriteAsync(Path.Combine(dir, "dubbing.json"), d, ct); return ShotCopy.Of(saved);
+        await Documents.SaveAsync(dir, request.ProjectId, d, ct); return ShotCopy.Of(saved);
     }
 }

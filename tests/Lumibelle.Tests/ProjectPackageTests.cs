@@ -236,12 +236,13 @@ public sealed partial class ProjectPackageTests
             Revision = 2, Applied = true, Model = "test/model" };
         var running = new AssistantRun { Status = AssistantRunStatus.Running, Output = "Partial text", Model = "test/model" };
         await f.Save(project, "script-assistant.json", new AssistantHistory { ProjectId = project.Id, Runs = [run, running] });
-        var before = await File.ReadAllBytesAsync(Path.Combine(f.Root(project), "script-assistant.json"), TestContext.Current.CancellationToken);
+        await TestProjectDatabase.SnapshotAsync(f.Root(project), project.Id, TestContext.Current.CancellationToken);
+        var before = TestProjectDatabase.Stamp(f.Root(project), "script_assistant");
         var export = await f.Service.ExportAsync(project.Id, new(), ct: TestContext.Current.CancellationToken); var entries = await f.Unzip(project, export);
         var history = ProjectPackageFormat.Parse<AssistantHistory>(entries["project/script-assistant.json"]);
         Assert.Equal(run.Id, history.Runs[0].Id); Assert.Null(history.Runs[0].JobId); Assert.True(history.Runs[0].Applied);
         Assert.Equal(run.Output, history.Runs[0].Output); Assert.Equal(AssistantRunStatus.Interrupted, history.Runs[1].Status);
-        Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(f.Root(project), "script-assistant.json"), TestContext.Current.CancellationToken));
+        Assert.Equal(before, TestProjectDatabase.Stamp(f.Root(project), "script_assistant"));
         using var target = new Fixture(); await using var zip = (await f.Service.OpenExportAsync(project.Id, export.Id, TestContext.Current.CancellationToken))!;
         var stage = await target.Service.StageImportAsync(zip.Content, ct: TestContext.Current.CancellationToken); await target.Service.CommitImportAsync(stage.Token, TestContext.Current.CancellationToken);
         var saved = await new FileAssistantHistoryStore(target.Files, new ApplicationSession()).LoadAsync(project.Id, TestContext.Current.CancellationToken);

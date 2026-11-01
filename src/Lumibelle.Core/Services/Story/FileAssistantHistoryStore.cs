@@ -1,9 +1,15 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.Story;
 
 public sealed class FileAssistantHistoryStore(ProjectFiles files, ApplicationSession session) : IAssistantHistoryStore
 {
+    internal static readonly ProjectDocumentStore<AssistantHistory> Documents = new(new()
+    {
+        Kind = "script_assistant", Description = "the script assistant history", Legacy = ["script-assistant.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("runs")]
+    });
     public async Task<AssistantHistory> LoadAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         var directory = await files.DirectoryAsync(projectId, cancellationToken);
@@ -14,7 +20,7 @@ public sealed class FileAssistantHistoryStore(ProjectFiles files, ApplicationSes
             history = history with { Revision = history.Revision + 1, Runs = history.Runs.Select(run =>
                 run.JobId is null && run.Status == AssistantRunStatus.Running && run.SessionId != session.Id
                 ? run with { Status = AssistantRunStatus.Interrupted, Revision = run.Revision + 1, Error = "The application restarted before this request finished." } : run).ToList() };
-            await AtomicJsonFile.WriteAsync(Path.Combine(directory, "script-assistant.json"), history, cancellationToken);
+            await Documents.SaveAsync(directory, projectId, history, cancellationToken);
         }
         return history;
     }
@@ -30,14 +36,13 @@ public sealed class FileAssistantHistoryStore(ProjectFiles files, ApplicationSes
         var saved = run with { Revision = run.Revision + 1 };
         var runs = history.Runs.ToList();
         if (existing is null) runs.Add(saved); else runs[runs.IndexOf(existing)] = saved;
-        await AtomicJsonFile.WriteAsync(Path.Combine(directory, "script-assistant.json"), history with { Revision = history.Revision + 1, Runs = runs }, cancellationToken);
+        await Documents.SaveAsync(directory, projectId, history with { Revision = history.Revision + 1, Runs = runs }, cancellationToken);
         return saved;
     }
 
     private static async Task<AssistantHistory> ReadAsync(string directory, Guid id, CancellationToken ct)
     {
-        var history = await AtomicJsonFile.ReadAsync<AssistantHistory>(Path.Combine(directory, "script-assistant.json"), ct)
-            ?? new AssistantHistory { ProjectId = id };
+        var history = await Documents.LoadAsync(directory, id, ct);
         if (history.ProjectId != id || history.SchemaVersion != 1 || history.Revision < 0 || history.Runs is null ||
             history.Runs.Any(run => run is null) || history.Runs.Select(run => run.Id).Distinct().Count() != history.Runs.Count)
             throw new WorkspaceStoreException("The assistant history is invalid or uses an unsupported format.");
