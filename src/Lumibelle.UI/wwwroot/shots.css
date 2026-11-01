@@ -588,7 +588,7 @@
 .shot-generate-actions { display:flex; align-items:center; gap:8px; }
 .shot-generate-actions > .mud-button-root:first-child,
 .shot-generate-actions > .generation-primary-action { flex:1; min-width:0; }
-.shot-generate-actions > .shot-review-latest { flex:none; padding:6px 8px; font-size:var(--lumi-font-size-small); }
+.shot-generate-actions > .shot-review-latest, .shots-library-tools > .shot-review-latest { flex:none; padding:6px 8px; font-size:var(--lumi-font-size-small); }
 .shot-batch-actions { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; }
 .shot-generation-footer .mud-button-root { min-height:38px; }
 @media (pointer:coarse) { .shot-generation-footer .mud-button-root { min-height:44px; } }

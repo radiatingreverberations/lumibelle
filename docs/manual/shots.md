@@ -121,7 +121,7 @@ new takes in their shots; the originals stay selected. Review them under
 
 ### Refinement batches
 
-**Refinement batches**, opened from the Takes toolbar or **View batch** in the
+**Refinement batches**, opened from **Batches** beside **Bulk operations** or **View batch** in the
 notice after queueing, lists each batch with completed, failed, waiting and reviewed counts.
 Clips move through **Preparing media**, **Ready**, **Waiting**, **Generating** and
 **Completed**. Media preparation runs on the CPU beside the GPU queue, and

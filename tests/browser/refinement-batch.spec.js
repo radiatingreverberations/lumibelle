@@ -51,7 +51,7 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await returned.setViewportSize({ width: 1173, height: 1000 });
   await returned.goto(`/projects/${id}/shots?view=Takes`);
   await expect(returned.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  await returned.locator('.take-selection-toolbar').getByRole('button', { name: 'Refinement batches', exact: true }).click();
+  await returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click();
   const reopened = returned.getByRole('dialog', { name: 'Refinement batches', exact: true });
   const items = reopened.locator('.refinement-batch').first().locator('.refinement-item');
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Ready', { timeout: 30000 });
