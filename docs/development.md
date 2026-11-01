@@ -45,7 +45,7 @@ node build/browser-shards.mjs --update test-results/browser-report.json
 node build/browser-shards.mjs --plan 16
 ```
 
-To run one CI shard locally, pass its files to Playwright: `npx playwright test (node build/browser-shards.mjs 3 16)`. Add entries to the `shard` list in `.github/workflows/ci.yml` when the longest shard grows past the other CI jobs.
+To run one CI shard locally, pass its files to Playwright: `npx playwright test (node build/browser-shards.mjs 3 16)`. Add entries to the `shard` list in `.github/workflows/ci.yml` when the longest shard grows past the other CI jobs. In CI, Playwright retries a failing test up to twice; one that passes on retry is listed as flaky in the shard's summary. Treat a flaky test as a timing race to fix, not as a pass.
 
 ## Architecture and verification
 
