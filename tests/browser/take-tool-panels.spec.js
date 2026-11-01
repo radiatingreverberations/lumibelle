@@ -42,6 +42,10 @@ test('take tools toggle, switch, and close around one shared player', async ({ p
   await panel.getByLabel('Next action', { exact: true }).fill('Keep walking through the doorway.');
   await panel.getByLabel('New dialogue', { exact: true }).fill('Riley: This way.');
   await panel.getByLabel('Added duration', { exact: true }).fill('3');
+  // The duration commits on change, and the composed prompt follows it until edited. Let it
+  // catch up first, or its re-render races the typing and keeps the composed text in front.
+  await panel.getByLabel('Added duration', { exact: true }).blur();
+  await expect(panel.getByLabel('Extension prompt', { exact: true })).toHaveValue(/lasting 3(\.\d+)? seconds/);
   await panel.getByLabel('Extension prompt', { exact: true }).fill('Keep my edited prompt.');
   await position.fill('12');
   // Seeking must update the frame without recreating the form and losing edits.
