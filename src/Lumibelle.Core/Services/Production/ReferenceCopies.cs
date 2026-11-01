@@ -67,7 +67,8 @@ public static class ReferenceCopies
         // that is clearly the same character, by the cast member its pictures represent or by name.
         // Silent characters still identify destination speakers. Otherwise a turn from Guard
         // to Riley incorrectly asks whether the Guard voice should speak Riley's lines.
-        var speaking = choices.Where(c => c.Source == CharacterVoiceSource.None || c.Speaker.Length > 0).ToArray();
+        // A voice that only vocalized in the source, like None there, may speak the destination's lines.
+        var speaking = choices.Where(c => c.Source == CharacterVoiceSource.None || c.Speaker.Length > 0 || c.SpeakerConfirmed).ToArray();
         var matched = new Dictionary<Guid, string>();
         foreach (var choice in speaking)
             if (speakers.FirstOrDefault(s => s.Equals(choice.Speaker, StringComparison.OrdinalIgnoreCase)) is { } same) matched[choice.AssetId] = same;
@@ -139,7 +140,7 @@ public static class ReferenceCopies
                     warned.Add(newSpeaker);
                 }
             }
-            if (choice.Source != CharacterVoiceSource.None && choice.Speaker.Length > 0)
+            if (choice.Source != CharacterVoiceSource.None && (choice.Speaker.Length > 0 || matched.ContainsKey(choice.AssetId)))
             {
                 if (matched.TryGetValue(choice.AssetId, out var speaker)) { choice.Speaker = speaker; choice.SpeakerConfirmed = true; }
                 else if (unclaimed.Length == 0)

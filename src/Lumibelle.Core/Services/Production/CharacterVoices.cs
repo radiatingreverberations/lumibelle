@@ -66,8 +66,12 @@ public static class CharacterVoices
     // without a managed choice keeps older inputs: any recording or reel audio they own.
     public static IReadOnlyList<(string Speaker, ReferenceAsset Character)> Unvoiced(Shot shot, AssetLibrary library)
     {
+        // A managed choice says whom its voice speaks for. Its materialized recording is labelled with the
+        // character's name even for vocalizations only, so only older inputs without a choice count by label.
+        bool Managed(Guid? owner) => owner is { } id && shot.CharacterVoices?.Any(c => c.AssetId == id) == true;
         var voiced = (shot.CharacterVoices ?? []).Where(c => c.Source is CharacterVoiceSource.Recording or CharacterVoiceSource.Reel).Select(c => c.Speaker)
-            .Concat(shot.Voices.Select(v => v.Speaker)).Concat(shot.Videos.Where(v => v.UseSoundtrack).Select(v => v.Speaker ?? ""))
+            .Concat(shot.Voices.Where(v => !Managed(v.CharacterAssetId ?? v.AssetId)).Select(v => v.Speaker))
+            .Concat(shot.Videos.Where(v => v.UseSoundtrack && !Managed(Owner(v, library))).Select(v => v.Speaker ?? ""))
             .Select(s => s.Trim()).Where(s => s.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unvoiced = new List<(string, ReferenceAsset)>();
         foreach (var speaker in shot.Dialogue.Select(d => d.Speaker.Trim()).Where(s => s.Length > 0 && !voiced.Contains(s)).Distinct(StringComparer.OrdinalIgnoreCase))

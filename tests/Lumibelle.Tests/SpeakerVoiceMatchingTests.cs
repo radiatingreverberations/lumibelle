@@ -96,6 +96,37 @@ public sealed class SpeakerVoiceMatchingTests
         Assert.Empty(copy.Inputs.Voices);
         Assert.Contains("this shot's voice for them is None", Assert.Single(copy.Warnings));
     }
+
+    private static Shot Vocalizing(AssetLibrary library, ReferenceAsset character, VoiceReference voice, List<ShotDialogue> lines)
+    {
+        var shot = new Shot { Dialogue = lines };
+        var choice = new CharacterVoiceSelection { AssetId = character.Id, CharacterName = character.Name, Speaker = "", SpeakerConfirmed = true };
+        CharacterVoices.SelectRecording(choice, voice, false); CharacterVoices.Set(shot, choice, library);
+        return shot;
+    }
+
+    [Fact]
+    public void AVoiceThatOnlyVocalizedSpeaksTheCharactersLinesWhenCopied()
+    {
+        var (library, jan, voice, lines) = Jan();
+        var source = Vocalizing(library, jan, voice, []);
+        var copy = ReferenceCopies.Into(source, new Shot { Dialogue = lines }, library);
+        Assert.Empty(copy.Warnings); CharacterVoices.Validate(copy.Inputs);
+        Assert.Equal(("JAN (V.O.)", true), (copy.Inputs.CharacterVoices![0].Speaker, copy.Inputs.CharacterVoices[0].SpeakerConfirmed));
+        Assert.Equal("JAN (V.O.)", Assert.Single(copy.Inputs.Voices).Speaker);
+        Assert.Contains(copy.Notes!, n => n.Contains("speaks the JAN (V.O.) lines here"));
+    }
+
+    [Fact]
+    public void AVocalizationsOnlyVoiceLeavesTheCharactersLinesUnvoiced()
+    {
+        // Its recording is labelled with the character's name, which must not count as voicing JAN.
+        var (library, riley, voice, _) = CharacterVoiceTests.Fixture();
+        var jan = riley with { Name = "Jan" }; library.Assets[0] = jan;
+        var shot = Vocalizing(library, jan, voice, [new() { Speaker = "JAN", Text = "Where am I?", Language = "en" }]);
+        Assert.Equal("Jan", Assert.Single(shot.Voices).Speaker);
+        Assert.Equal(("JAN", jan.Id), Assert.Single(CharacterVoices.Unvoiced(shot, library)) is var (speaker, character) ? (speaker, character.Id) : default);
+    }
 }
 
 [Trait("Category", "Component")]
