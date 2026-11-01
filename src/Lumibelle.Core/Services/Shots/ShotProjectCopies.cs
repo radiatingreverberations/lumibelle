@@ -231,7 +231,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
             await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script-history", recovery.Id.ToString("D") + ".json"), recovery, ct);
             await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script.json"), nextScript, ct);
         }
-        await AtomicJsonFile.WriteAsync(Path.Combine(destination, "production.json"), targetProduction, ct);
+        await FileProductionStore.Documents.SaveAsync(destination, request.DestinationProjectId, FileProductionStore.Persisted(targetProduction), ct);
         await FileShotStore.Documents.SaveAsync(destination, request.DestinationProjectId, latest, ct);
         return new(request.DestinationProjectId, copiedShots.Select(s => s.Id).ToArray());
     }

@@ -106,11 +106,14 @@ public sealed partial class AssetStoreTests
         var f = await AssetReuseFixture(); var command = AssetReuseRequest(f.Library, f.Target.Id, move: true);
         var path = Path.Combine(AssetReuseProject(f.Source.Id), file);
         if (file == "shots.json") await Guard(f.Source.Id, f.Library.Assets[0].Images[0].Id);
-        else await AtomicJsonFile.WriteAsync(path, new { historical = new { imageId = f.Library.Assets[0].Images[0].Id } }, TestContext.Current.CancellationToken);
+        else await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(AssetReuseProject(f.Source.Id), f.Source.Id,
+            new { historical = new { imageId = f.Library.Assets[0].Images[0].Id } }, TestContext.Current.CancellationToken);
         var first = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.True(first.Available); Assert.False(first.SourceRemoved); Assert.Contains("Saved shots", first.Notice);
         Assert.Single((await f.Store.LoadAsync(f.Source.Id, TestContext.Current.CancellationToken)).Assets);
-        if (file == "shots.json") await Unguard(f.Source.Id); else File.Delete(path);
+        if (file == "shots.json") await Unguard(f.Source.Id);
+        else await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(AssetReuseProject(f.Source.Id), f.Source.Id,
+            new { projectId = f.Source.Id }, TestContext.Current.CancellationToken);
         var retry = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.True(retry.SourceRemoved); Assert.Equal(first.AssetId, retry.AssetId); Assert.Single(retry.Library.Assets);
     }

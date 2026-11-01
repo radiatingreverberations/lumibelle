@@ -103,14 +103,14 @@ public sealed partial class ShotTests
         old.Prompt = "Preserved shot prompt";
         await oldStore.SaveAsync(f.Project.Id, old, old.Version, _ct);
         var directory = await f.Files.DirectoryAsync(f.Project.Id, _ct);
-        var original = await File.ReadAllBytesAsync(Path.Combine(directory, "production.json"), _ct);
+        var original = await FileProductionStore.Documents.LoadJsonAsync(directory, f.Project.Id, complete: true, _ct);
         var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, jobs,
             generationSetups: new FileGenerationSetupStore(new ApplicationPaths(_root)));
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
         var setup = Assert.Single(migrated.Compositions);
         Assert.NotNull(setup.GenerationSetupId); Assert.Equal(old.Id, setup.Id);
         Assert.Equal(old.Prompt, setup.Prompt); Assert.Equal(4, setup.TakeCount); Assert.Equal(VideoResolution.Quick, setup.Shot.Resolution);
-        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(directory, "production-before-global-setups.json"), _ct));
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(directory, "legacy-json", "production-before-global-setups.json"), _ct));
         Assert.Equal(migrated.Revision, (await store.InitializeAsync(f.Project.Id, _ct)).Revision);
     }
 }

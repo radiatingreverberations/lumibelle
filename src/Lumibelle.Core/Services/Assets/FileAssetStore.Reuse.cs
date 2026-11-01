@@ -200,16 +200,14 @@ public sealed partial class FileAssetStore : IAssetReuseStore
         var ids = content.Asset.Images.Select(i => i.Id).Concat(content.Reels.SelectMany(r => new[] { r.Id, r.Media.Id }))
             .Concat(content.Voices.Select(v => v.Id)).ToHashSet();
         if (content.Source.Kind == AssetReuseKind.Asset) ids.Add(content.Asset.Id);
-        // Every saved shot, take, Trash entry and recovery version counts, as when the whole file was scanned.
-        var shots = await Shots.FileShotStore.Documents.LoadCompleteAsync(directory, content.Source.ProjectId, ct);
-        if (AssetReusePolicy.ContainsIdentity(JsonSerializer.SerializeToElement(shots, AtomicJsonFile.Options), ids))
-            throw new WorkspaceStoreException("Saved shots or takes reference this item. Copy it instead of moving it.");
-        foreach (var name in new[] { "production.json" })
+        // Every saved shot, take, Trash entry, recovery version and setup counts, as when the whole files were scanned.
+        foreach (var stored in new[] {
+            await Shots.FileShotStore.Documents.LoadJsonAsync(directory, content.Source.ProjectId, complete: true, ct),
+            await FileProductionStore.Documents.LoadJsonAsync(directory, content.Source.ProjectId, complete: true, ct) })
         {
-            var path = Path.Combine(directory, name);
-            if (!File.Exists(path)) continue;
-            var document = await AtomicJsonFile.ReadAsync<JsonElement>(path, ct);
-            if (AssetReusePolicy.ContainsIdentity(document, ids))
+            if (stored is null) continue;
+            using var document = JsonDocument.Parse(stored);
+            if (AssetReusePolicy.ContainsIdentity(document.RootElement, ids))
                 throw new WorkspaceStoreException("Saved shots or takes reference this item. Copy it instead of moving it.");
         }
         foreach (var draft in library.ReelDrafts.Where(d => d.AssetId != content.Source.AssetId || content.Source.Kind != AssetReuseKind.Asset))

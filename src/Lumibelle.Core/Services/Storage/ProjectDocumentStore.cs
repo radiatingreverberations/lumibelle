@@ -54,22 +54,28 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
         return entry is null ? Spec.Empty(project) : DocumentCache.Deserialize<T>(entry.Summary(Spec.Lists), Spec.Description);
     }
 
+    /// <summary>The document as a summary, or null when it has never been saved.</summary>
+    public async Task<T?> TryLoadAsync(string directory, Guid project, CancellationToken ct) =>
+        await EntryAsync(directory, project, ct) is { } entry ? DocumentCache.Deserialize<T>(entry.Summary(Spec.Lists), Spec.Description) : null;
+
     /// <summary>The whole document, including every detached property.</summary>
-    public async Task<T> LoadCompleteAsync(string directory, Guid project, CancellationToken ct)
+    public async Task<T> LoadCompleteAsync(string directory, Guid project, CancellationToken ct) =>
+        await LoadJsonAsync(directory, project, complete: true, ct) is { } json ? DocumentCache.Deserialize<T>(json, Spec.Description) : Spec.Empty(project);
+
+    /// <summary>The stored document's JSON (detached properties empty unless <paramref name="complete"/>), or null when it has never been saved.</summary>
+    public async Task<byte[]?> LoadJsonAsync(string directory, Guid project, bool complete, CancellationToken ct)
     {
         var entry = await EntryAsync(directory, project, ct);
-        if (entry is null) return Spec.Empty(project);
-        if (!Spec.Lists.Any(l => l.HasDetached)) return DocumentCache.Deserialize<T>(entry.Summary(Spec.Lists), Spec.Description);
-        var db = ProjectDatabase.For(directory);
-        var detached = db.Read(s => ReadDetached(s, null, null), Spec.Description);
-        var json = DocumentJson.Compose(entry.Header, entry.Lists, name =>
+        if (entry is null) return null;
+        if (!complete || !Spec.Lists.Any(l => l.HasDetached)) return entry.Summary(Spec.Lists).ToArray();
+        var detached = ProjectDatabase.For(directory).Read(s => ReadDetached(s, null, null), Spec.Description);
+        return DocumentJson.Compose(entry.Header, entry.Lists, name =>
         {
             var list = Spec.Lists.First(l => l.Name == name);
             if (!list.HasDetached) return entry.Rows[name].Select(r => r.Payload);
             var extra = detached.GetValueOrDefault(name);
             return entry.Rows[name].Select(r => DocumentJson.Merge(r.Payload, extra?.GetValueOrDefault(r.Id) ?? list.EmptyDetached));
         });
-        return DocumentCache.Deserialize<T>(json, Spec.Description);
     }
 
     /// <summary>One list's elements (detached properties empty), without materializing the rest of the document.</summary>

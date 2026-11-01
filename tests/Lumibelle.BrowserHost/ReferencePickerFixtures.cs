@@ -88,7 +88,7 @@ internal static class ReferencePickerFixtures
             }
             // A saved older setup can exceed current combined limits; the copy editor must repair it.
             document.ShotContent[0] = ShotProductionContent.From(source);
-            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(await files.DirectoryAsync(id, default), id, document, default);
             return new { names = owners.Select(o => o.Name).ToArray() };
         });
         app.MapPost("/fixtures/{id:guid}/historical-environment-selection", async (Guid id, AiTextJobCapture capture, IProductionStore production, AiJobCoordinator jobs) => {
@@ -107,7 +107,7 @@ internal static class ReferencePickerFixtures
             source.Shot.EnvironmentAssetId = null;
             document.Compositions.Add(alternate); document.SchemaVersion = 3;
             foreach (var content in document.ShotContent) content.EnvironmentAssetId = null;
-            await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+            await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(await files.DirectoryAsync(id, default), id, document, default);
             return Results.Ok();
         });
         app.MapPost("/fixtures/{id:guid}/picture-ten", async (Guid id, IProductionStore production, IAssetStore assets, ProjectFiles files) => {
@@ -117,10 +117,10 @@ internal static class ReferencePickerFixtures
             c.Shot.Videos = [new() { Name = reel.Name, Media = reel.Media, OwnerAssetId = reel.AssetId, OwnerCategory = AssetCategory.Environment,
                 Visuals = ReelVisuals.Keyframes, Keyframes = new() { Frames = reel.Keyframes!.Frames.Take(2).ToList() } }];
             // Simulate an older over-budget document without weakening the real save validation.
-            var path = Path.Combine(await files.DirectoryAsync(id, CancellationToken.None), "production.json");
-            var raw = (await AtomicJsonFile.ReadAsync<ProductionDocument>(path, CancellationToken.None))!;
+            var directory = await files.DirectoryAsync(id, CancellationToken.None);
+            var raw = await lumibelle.Services.Production.FileProductionStore.Documents.LoadAsync(directory, id, CancellationToken.None);
             raw.ShotContent[0] = ShotProductionContent.From(c);
-            await AtomicJsonFile.WriteAsync(path, raw, CancellationToken.None); return Results.Ok();
+            await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(directory, id, raw, CancellationToken.None); return Results.Ok();
         });
         app.MapPost("/fixtures/{id:guid}/environment-library", async (Guid id, IAssetStore assets, IAssetReelStore reels, IProductionStore production, IShotStore shots, int extraViews = 0, string notes = "", bool selected = true, bool fullBudget = false, bool directed = false) => {
             var library = await assets.LoadAsync(id); var owner = library.Assets.First();

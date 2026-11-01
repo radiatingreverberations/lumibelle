@@ -3,6 +3,7 @@ using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Shots;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Production;
@@ -23,11 +24,25 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     TimeProvider clock, IAiJobStore jobs, IReferenceVideoStore? referenceVideos = null, IAiSettingsStore? settings = null,
     IGenerationSetupStore? generationSetups = null) : IProductionStore
 {
+    // Stored as saved: the settings each composition owns, not the hydrated runtime document.
+    internal static readonly ProjectDocumentStore<ProductionDocument> Documents = new(new()
+    {
+        Kind = "production", Description = "shot prompts and generation setups",
+        // One-time upgrade backups move aside with the document they were copied from.
+        Legacy = ["production.json", "production-before-shared-inputs.json", "production-before-shared-environment.json", "production-before-global-setups.json"],
+        Empty = id => new() { ProjectId = id },
+        Lists = [new("compositions"), new("shotContent", "shotId"), new("earlierSetupContent", "setupId")],
+        ReadLegacy = async (dir, id, ct) =>
+        {
+            var path = Path.Combine(dir, "production.json");
+            return File.Exists(path) ? await AtomicJsonFile.ReadAsync<System.Text.Json.JsonElement>(path, ct) : null;
+        }
+    });
     public async Task<ProductionDocument> LoadAsync(Guid project, CancellationToken ct = default)
         => await Read(await files.DirectoryAsync(project, ct), project, ct);
     private async Task<ProductionDocument> Read(string dir, Guid project, CancellationToken ct)
     {
-        var d = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(dir, "production.json"), ct) ?? new() { ProjectId = project };
+        var d = await Documents.LoadAsync(dir, project, ct);
         ValidateDocument(d, project);
         var coverage = await CoverageAsync(project, ct);
         // Shots read from the shot store are this call's own objects: the first setup of each shot
@@ -63,7 +78,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     public async Task<ProductionDocument> InitializeAsync(Guid project, CancellationToken ct = default)
     {
         var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
-        var raw = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(dir, "production.json"), ct);
+        var raw = await Documents.TryLoadAsync(dir, project, ct);
         List<Shot> sourceShots;
         if (raw is null || raw.SchemaVersion < 2)
         {
@@ -71,7 +86,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             if ((await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && (j.Kind is AiJobKind.Video or AiJobKind.PromptComposition) && j.LocksTarget))
                 throw new WorkspaceStoreException("Wait for active production requests before starting the new Shots workspace.");
             await jobs.ResetProductionAsync(project, ct);
-            // Publish production.json last: interrupted resets repeat safely. Media files stay untouched.
+            // Publish production last: interrupted resets repeat safely. Media files stay untouched.
             source.Shots = source.Shots.Select(ProductionPolicy.CoverageCopy).ToList();
             source.Takes.Clear(); source.Trash.Clear(); source.TakePublications.Clear();
             source.SceneSetups = PlanningSetups(source.SceneSetups);

@@ -31,7 +31,8 @@ internal sealed class ProjectPackageState
             Assets = await ProjectPackageFormat.ReadAsync<AssetLibrary>(root, "assets.json", ct) ?? new() { ProjectId = project },
             Shots = stored ? await FileShotStore.Documents.LoadCompleteAsync(root, project, ct)
                 : await ProjectPackageFormat.ReadAsync<ShotDocument>(root, "shots.json", ct) ?? new() { ProjectId = project },
-            Production = await ProjectPackageFormat.ReadAsync<ProductionDocument>(root, "production.json", ct) ?? new() { ProjectId = project },
+            Production = stored ? await FileProductionStore.Documents.LoadAsync(root, project, ct)
+                : await ProjectPackageFormat.ReadAsync<ProductionDocument>(root, "production.json", ct) ?? new() { ProjectId = project },
             Cut = stored ? await FileCutStore.Documents.LoadAsync(root, project, ct)
                 : await ProjectPackageFormat.ReadAsync<CutDocument>(root, "cut.json", ct) ?? new() { ProjectId = project }
         };
