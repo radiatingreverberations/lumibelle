@@ -120,13 +120,6 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     public async Task<TItem?> FindAsync<TItem>(string directory, Guid project, string list, string id, bool attach, CancellationToken ct) where TItem : class =>
         await FindAsync(directory, project, list, id, attach, ct) is { } json ? DocumentCache.Deserialize<TItem>(System.Text.Encoding.UTF8.GetBytes(json), Spec.Description) : null;
 
-    /// <summary>Detached properties of the given elements, as JSON objects keyed by element id.</summary>
-    public async Task<IReadOnlyDictionary<string, string>> DetachedAsync(string directory, Guid project, string list, IReadOnlyCollection<string> ids, CancellationToken ct)
-    {
-        if (await EntryAsync(directory, project, ct) is null || ids.Count == 0) return new Dictionary<string, string>();
-        return ProjectDatabase.For(directory).Read(s => ReadDetached(s, list, ids), Spec.Description).GetValueOrDefault(list) ?? new Dictionary<string, string>();
-    }
-
     /// <summary>Stores the document, writing only rows that changed. Hold the project lease.</summary>
     public async Task SaveAsync(string directory, Guid project, object document, CancellationToken ct)
     {
@@ -144,7 +137,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
 
     public PreparedDocument Prepare(object document) => new(Kind, DocumentJson.Decompose(document, Spec.Lists));
 
-    /// <summary>Applies a prepared document inside a caller's transaction. Publish the result with <see cref="Publish"/> after commit.</summary>
+    /// <summary>Applies a prepared document inside a caller's transaction, returning its new rows for the cache.</summary>
     public DocumentEntry Apply(ProjectDbSession s, PreparedDocument prepared, bool replace = false)
     {
         var path = s.Database.Path;
@@ -223,8 +216,6 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
             Rows = rows.Rows, DetachedHashes = hashes
         };
     }
-
-    public void Publish(ProjectDatabase db, DocumentEntry entry) => DocumentCache.Put(db.Path, Kind, entry);
 
     /// <summary>The current rows, from the cache when its stamp is current. Null when the document doesn't exist yet.</summary>
     private async Task<DocumentEntry?> EntryAsync(string directory, Guid project, CancellationToken ct)
