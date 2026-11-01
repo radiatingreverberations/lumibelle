@@ -7,7 +7,10 @@ export async function openPlanning(page) {
   const scenes = page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Scenes', exact: true });
   if (await scenes.getAttribute('aria-current') !== 'page') {
     // On narrow screens an open drawer covers the navigation; follow its link instead of clicking it.
-    await page.goto(await scenes.getAttribute('href'));
+    // Open the selected shot's scene, as the former Plan scenes link did.
+    const selected = await page.locator('.shot-outline-item.selected').getAttribute('data-scene', { timeout: 2000 }).catch(() => null);
+    const href = await scenes.getAttribute('href');
+    await page.goto(selected && !/^0{8}-/.test(selected) ? `${href}?sceneId=${selected}` : href);
     await expect(scenes).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   }
