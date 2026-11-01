@@ -7,7 +7,8 @@ public enum VideoResolution { Quick, Preview, Detail, Native, FullHd, Qhd }
 
 public static class ShotCopy
 {
-    public static T Of<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, AtomicJsonFile.Options), AtomicJsonFile.Options)!;
+    // Compact JSON: indentation only cost time. Hashes keep using AtomicJsonFile.Options.
+    public static T Of<T>(T value) => lumibelle.Services.Storage.ProjectJson.Copy(value);
 }
 
 public sealed record H3Settings
