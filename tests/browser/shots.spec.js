@@ -151,7 +151,9 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await destination.getByLabel('New asset name').fill('Arrival state');
     await destination.getByLabel('Image name', { exact: true }).fill('Mouse paused at doorway');
     await destination.getByRole('button', { name: 'Save and edit', exact: true }).click();
-    await expect(page).toHaveURL(/assets\?assetId=.*&imageId=.*&edit=true/);
+    // Assets opens the saved image for editing, then drops the one-time link from the address.
+    await expect(page).toHaveURL(/\/assets/);
+    await expect(page.locator('.asset-list-row.selected')).toContainText('Arrival state');
     await expect(page.getByLabel('Edit instruction')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Continuity frames', exact: true })).toHaveCount(0);
     const frameAsset = (await library()).assets.find(a => a.name === 'Arrival state');

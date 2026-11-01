@@ -60,7 +60,12 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
      control = page.locator('#reel-setup-prompt-panel .request-action-button'); start = control; review = page.locator('.reel-review-dialog');
     }
     // Extraction has its own dialog; the other requests share the AI assist composer.
-    await start.click(); composer = workflow === 'extraction' ? page.locator('.extraction-dialog') : page.locator('.ai-assist-dialog').last();
+    composer = workflow === 'extraction' ? page.locator('.extraction-dialog') : page.locator('.ai-assist-dialog').last();
+    // A click that lands while the previous change re-renders the panel can be lost; open it until it shows.
+    await expect(async () => {
+     if (!await composer.isVisible()) await start.click({ timeout: 2000 });
+     await expect(composer).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
     if (workflow === 'reel' || workflow === 'prompt') {
      await composer.locator('.model-chip').click();
      await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });

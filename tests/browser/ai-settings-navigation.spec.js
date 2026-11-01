@@ -43,6 +43,9 @@ test('connections sidebar preserves drafts, supports keyboard navigation and res
   // The URL keeps the tab; the provider selection is page state and resets on reload.
   await expect(page).toHaveURL(/tab=connections/); await expect(page).not.toHaveURL(/provider=/);
   await page.reload();
+  // The prerendered page already shows ComfyUI selected; a click only works once it is interactive,
+  // which is when it focuses the heading.
+  await expect(page.locator('h1')).toBeFocused();
   await expect(provider(page, 'ComfyUI')).toHaveAttribute('aria-selected', 'true');
   await provider(page, 'OpenRouter').click();
   await expect(page.locator('#openrouter-key')).toHaveValue('');
