@@ -609,7 +609,8 @@ sealed class MockChat(string model, AiBackend backend) : IChatClient, IProgressR
         }
         else if ((list[0].Text ?? "").Contains("Lumibelle's production director"))
         {
-            using var context = JsonDocument.Parse(last); var root = context.RootElement;
+            // The task data is the first part; each attached picture follows its own label.
+            using var context = JsonDocument.Parse(list[^1].Contents.OfType<TextContent>().First().Text); var root = context.RootElement;
             var images = list.SelectMany(m => m.Contents).OfType<DataContent>().Select(data => { var info = SixLabors.ImageSharp.Image.Identify(data.Data.Span); return new { info.Width, info.Height }; }).ToArray();
             Compositions.Enqueue(new { model, context = root.Clone(), images });
             var shot = root.GetProperty("shot").Deserialize<Shot>(AtomicJsonFile.Options)!;

@@ -8,7 +8,7 @@ public static class H3Presets
 {
     public const string Beta = "beta", EulerBeta = "euler-beta", TurboLight = "turbo4-075";
     public const double TurboLightStrength = 0.75;
-    public static readonly string[] Keys = ["standard", Beta, EulerBeta, "larry", "pdd", "spectrum", "turbo4", H3AcceleratedCheckpoints.Compact, H3SmdRecipe.Key, H3AcceleratedCheckpoints.Fast, H3PtdRecipe.Key, TurboLight, "turbo8", H3HyperFlow.Key];
+    public static readonly string[] Keys = ["standard", Beta, EulerBeta, "larry", "pdd", "spectrum", "turbo4", H3AcceleratedCheckpoints.Compact, H3SmdRecipe.Key, H3PikaFlexRecipe.Key, H3AcceleratedCheckpoints.Fast, H3PtdRecipe.Key, TurboLight, "turbo8", H3HyperFlow.Key];
     // These keys remain readable as historical metadata, but cannot be captured or executed.
     public static bool Retired(string key) => key is "spectrum" or "turbo8" or TurboLight or H3HyperFlow.Key;
     public static string RemovedIssue(string key) => $"{Label(key)} was removed. Choose Standard or another current preset and capture a new request.";
@@ -19,13 +19,14 @@ public static class H3Presets
     public const string LarryCheckpoint = "minimax_h3_turbo_v4_step600_ema.safetensors";
     public const string PddCheckpoint = "MiniMax-H3-Ref2VA-Acc-8Step.safetensors";
     public static string Key(Shot shot) => shot.GenerationPreset ?? (shot.Turbo ? shot.TurboSteps == 8 ? "turbo8" : "turbo4" : "standard");
-    public static bool RequiresPresetProfile(string key) => key is "larry" or "pdd" or "spectrum" or H3HyperFlow.Key or Beta or EulerBeta or TurboLight or H3AcceleratedCheckpoints.Compact or H3SmdRecipe.Key or H3AcceleratedCheckpoints.Fast or H3PtdRecipe.Key;
+    public static bool RequiresPresetProfile(string key) => key is "larry" or "pdd" or "spectrum" or H3HyperFlow.Key or Beta or EulerBeta or TurboLight or H3AcceleratedCheckpoints.Compact or H3SmdRecipe.Key or H3PikaFlexRecipe.Key or H3AcceleratedCheckpoints.Fast or H3PtdRecipe.Key;
     public static bool UsesTurboLora(string key) => key is "turbo4" or "turbo8" or TurboLight;
     public static string Label(string key) => key switch
     {
         "standard" => "Standard · 20 steps", Beta => "Beta · 20 steps", EulerBeta => "Euler beta · 20 steps",
         H3AcceleratedCheckpoints.Compact => "10Eros Compact · 8 steps",
         H3SmdRecipe.Key => "SMD Ref2VA · 4 steps",
+        H3PikaFlexRecipe.Key => "Pika H3 Flex · 6 steps",
         H3AcceleratedCheckpoints.Fast => "FastH3 Omni · 8 steps",
         H3PtdRecipe.Key => "PTD + RefAsymOPD · 6 steps",
         "larry" => "Larry · 6 steps", "pdd" => "PDD · 8 steps", "spectrum" => "Spectrum · Standard 20 steps",
@@ -37,6 +38,7 @@ public static class H3Presets
     {
         H3AcceleratedCheckpoints.Compact => "A complete Beta7 Compact checkpoint with embedded eight-step Turbo. Uses its companion attention recipe. Use as motion reference for a fresh Standard final.",
         H3SmdRecipe.Key => "The SMD Ref2VA adapter at strength 1 on its separately selected official pruned INT8 base, using Euler and published fixed sigmas.",
+        H3PikaFlexRecipe.Key => "Pika's H3 Flex Ref2VA LoRA, distilled from a 50-step generator to six steps, at strength 1 on its separately selected official pruned INT8 base. Uses lcm and the fixed sigmas from ComfyUI's template.",
         H3AcceleratedCheckpoints.Fast => "A complete OmniRef checkpoint with eight Euler/simple steps, shifts 12/3 and native VSA at 10%.",
         H3PtdRecipe.Key => "Six-hop Ref2VA adapters on the official pruned INT8 base, with the compact loader, dedicated PTD sampler and checkpoint-derived sigmas.",
         H3HyperFlow.Key => "Eight steps with drbaph's ComfyUI conversion of HyperFlow, on a fixed schedule. It doesn't use HyperFlow's own two-time loader.",
@@ -57,6 +59,8 @@ public static class H3Presets
         return key switch
         {
             H3AcceleratedCheckpoints.Compact => ["The published Beta7 Compact mixed W4/W6/INT8 checkpoint, with native ComfyUI quantization support. Uses its own model selection; ordinary H3 settings stay available for Standard finals."],
+            H3PikaFlexRecipe.Key => ["The official pruned INT8 Ref2VA base and the Pika H3 Flex Ref2VA LoRA, as in ComfyUI's Pika H3 Flex template. Don't stack a Turbo or Lightning LoRA on it.",
+                "Shared encoder and VAEs remain configured explicitly; the template uses the NVFP4-AWQ text encoder."],
             H3SmdRecipe.Key => ["The official pruned INT8 Ref2VA base and published SMD 4-step Ref2VA adapter. A different base requires a separately validated recipe. Shared encoder and VAEs remain configured explicitly."],
             H3AcceleratedCheckpoints.Fast => ["The native ComfyUI OmniRef INT8 ConvRot checkpoint, with VSA attention. T2V/FL2VA FastH3 checkpoints use a different workflow."],
             H3PtdRecipe.Key => ["The official pruned INT8 Ref2VA base and six-hop RefAsymOPD INT8 adapter. Uses the upstream ComfyUI-PTD-Compact loader, sampler and schedule."],
@@ -85,6 +89,7 @@ public static class H3Presets
             "larry" => [new("Turbo sampler", "Larry's own sampler node."), Scheduler("simple")],
             "pdd" => [Sampler("euler"), new("PDD schedule", "The PDD node supplies its own schedule.")],
             H3SmdRecipe.Key => [Sampler("euler"), new("fixed sigmas", H3SmdRecipe.Sigmas), new("strength 1", "SMD Ref2VA adapter on the official pruned INT8 base.")],
+            H3PikaFlexRecipe.Key => [Sampler("lcm"), new("fixed sigmas", H3PikaFlexRecipe.Sigmas), new("strength 1", "Pika H3 Flex Ref2VA LoRA on the official pruned INT8 base.")],
             "turbo4" => [Sampler("res_multistep"), Scheduler("simple")],
             TurboLight => [Sampler("res_multistep"), Scheduler("simple"), new("strength 0.75", "The Turbo LoRA is applied at 0.75 instead of 1.")],
             "turbo8" => [Sampler("euler"), Scheduler("simple")],
@@ -94,7 +99,7 @@ public static class H3Presets
         };
     }
     public static string? Checkpoint(string key, H3Settings s) => key switch
-    { H3SmdRecipe.Key => H3SmdRecipe.Adapter(s), H3PtdRecipe.Key => H3PtdRecipe.Adapter(s), "larry" => s.LarryLora ?? LarryCheckpoint, "pdd" => s.PddCheckpoint ?? PddCheckpoint, "turbo4" or TurboLight => s.TurboLora, "turbo8" => s.Turbo8StepLora, H3HyperFlow.Key => H3HyperFlow.Checkpoint(s), _ => null };
+    { H3SmdRecipe.Key => H3SmdRecipe.Adapter(s), H3PikaFlexRecipe.Key => H3PikaFlexRecipe.Adapter(s), H3PtdRecipe.Key => H3PtdRecipe.Adapter(s), "larry" => s.LarryLora ?? LarryCheckpoint, "pdd" => s.PddCheckpoint ?? PddCheckpoint, "turbo4" or TurboLight => s.TurboLora, "turbo8" => s.Turbo8StepLora, H3HyperFlow.Key => H3HyperFlow.Checkpoint(s), _ => null };
     public static string Node(string key) => key switch
     { "larry" => "MiniMaxH3TurboLoRA", "pdd" => "MiniMaxH3PDDAccApply", "spectrum" => "SpectrumApplyMiniMaxH3", _ => "" };
     public static Dictionary<string, object> Inputs(string key, H3Settings settings) => key switch
@@ -103,6 +108,7 @@ public static class H3Presets
         H3AcceleratedCheckpoints.Fast => H3AcceleratedCheckpoints.FastInputs(settings),
         H3PtdRecipe.Key => H3PtdRecipe.Inputs(settings),
         H3SmdRecipe.Key => H3SmdRecipe.Inputs(settings),
+        H3PikaFlexRecipe.Key => H3PikaFlexRecipe.Inputs(settings),
         H3HyperFlow.Key => H3HyperFlow.Inputs(settings),
         // Native nodes only; captured so a queued request cannot pick up a changed recipe.
         Beta => new() { ["sampler"] = "res_multistep", ["scheduler"] = "beta", ["steps"] = 20 },
@@ -128,7 +134,7 @@ public static class H3Presets
         var key = Key(shot);
         if (!Keys.Contains(key)) throw new WorkspaceStoreException("Choose a supported generation preset.");
         if (!historical && Retired(key)) throw new WorkspaceStoreException(RemovedIssue(key));
-        if (!historical && !H3AcceleratedCheckpoints.Full(key) && key is not H3SmdRecipe.Key and not H3PtdRecipe.Key && H3AcceleratedCheckpoints.IsBakedFile(settings.Model))
+        if (!historical && !H3AcceleratedCheckpoints.Full(key) && key is not H3SmdRecipe.Key and not H3PikaFlexRecipe.Key and not H3PtdRecipe.Key && H3AcceleratedCheckpoints.IsBakedFile(settings.Model))
             throw new WorkspaceStoreException("Use a validated preset for this checkpoint's embedded acceleration recipe, or select ordinary H3 weights for Standard.");
         if (key == H3HyperFlow.Key && H3HyperFlow.FileIssue(H3HyperFlow.Checkpoint(settings)) is { } issue)
             throw new WorkspaceStoreException(issue);
@@ -185,6 +191,7 @@ public static class H3Presets
             if (H3AcceleratedCheckpoints.Full(key)) return H3AcceleratedCheckpoints.Inspect(root, settings, sharedIssue, key);
             if (key == H3PtdRecipe.Key) return H3PtdRecipe.Inspect(root, settings, sharedIssue);
             if (key == H3SmdRecipe.Key) return H3SmdRecipe.Inspect(root, settings, sharedIssue);
+            if (key == H3PikaFlexRecipe.Key) return H3PikaFlexRecipe.Inspect(root, settings, sharedIssue);
             if (key is Beta or EulerBeta)
             {
                 var sampler = key == Beta ? "res_multistep" : "euler";

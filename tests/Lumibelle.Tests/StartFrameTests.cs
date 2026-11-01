@@ -163,7 +163,7 @@ public sealed partial class ShotTests
         Assert.Equal(frame, Assert.Single(messages[1].Contents.OfType<DataContent>()).Data.ToArray());
         Assert.Contains("OPENING FRAME", messages[0].Text); Assert.Contains("final attached image", messages[0].Text);
         Assert.DoesNotContain("design a clearly distinct opening image", messages[0].Text);
-        using (var data = JsonDocument.Parse(messages[1].Text))
+        using (var data = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text))
         {
             var cut = data.RootElement.GetProperty("cutContinuity");
             Assert.Equal("continuous_from_opening_frame", cut.GetProperty("transition").GetString());

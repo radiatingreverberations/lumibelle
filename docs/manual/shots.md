@@ -89,9 +89,10 @@ Click a take to review it. The player steps through single frames with **‹ ›
 ### Refine from video
 
 Choose **Refine from video…** on a take card or in review. For several takes, use
-**Select multiple**, tick them and choose **Refine selected…**, or choose
-**Refine selected takes in this scene…** to use each shot's selected take. All
-three open the same dialog.
+**Select multiple**, tick them and choose **Refine selected…**. To refine each
+shot's selected take, choose **Bulk operations** › **Refine selected takes…**
+above the shot list, then untick the shots to leave out. All three open the same
+dialog.
 
 Each clip becomes a separate Standard generation from its take's captured
 prompt, references, dialogue, aspect and visible duration. The copied clip
@@ -110,27 +111,33 @@ preview**. A row is flagged when a setting cannot apply to it, for example a
 size smaller than its source. Fix it or untick the row. Takes shorter than two
 seconds or longer than 15 seconds are flagged; trim them first.
 
-When one selected take uses a shot frame or start frame from another selected take, for example a scene's takes refined together, **Use refined frames from earlier clips** is offered and on by default. That clip waits for the earlier clip's refined take, then uses the same moment from it instead of the draft frame. If the earlier clip fails or is cancelled, the draft frame is kept and the batch continues. The batch page lists each frame that was swapped or kept. When the earlier clip saves no full lossless archive, its render still keeps the frames later clips use as lossless PNGs, so those clips get exact frames rather than MP4 stills. This lets you queue a scene of curated Quick drafts overnight and get consistent finals.
+When one selected take uses a shot frame or start frame from another selected take, for example a scene's takes refined together, **Use refined frames from earlier clips** is offered and on by default. That clip waits for the earlier clip's refined take, then uses the same moment from it instead of the draft frame. If the earlier clip fails or is cancelled, the draft frame is kept and the batch continues. **Refinement batches** lists each frame that was swapped or kept. When the earlier clip saves no full lossless archive, its render still keeps the frames later clips use as lossless PNGs, so those clips get exact frames rather than MP4 stills. This lets you queue a scene of curated Quick drafts overnight and get consistent finals.
 
 Choose **Start now** or **Hold until started**, then **Queue refinements**.
 Lumibelle freezes the reviewed settings, prompts and seeds and prepares media in
-the background, so you can close the dialog or leave the page. Results appear as
+the background, so you can close the dialog or leave Shots. Results appear as
 new takes in their shots; the originals stay selected. Review them under
 [Refinement batches](#refinement-batches).
 
 ### Refinement batches
 
-**Refinement batches**, linked from the Takes toolbar and the notice after
-queueing, lists each batch with completed, failed, waiting and reviewed counts.
+**Refinement batches**, opened from **Batches** beside **Bulk operations** or **View batch** in the
+notice after queueing, lists each batch with completed, failed, waiting and reviewed counts.
+A badge on **Batches** counts finished batches with completed clips you have not
+seen yet; opening the list, or seeing those clips as new takes, clears it.
 Clips move through **Preparing media**, **Ready**, **Waiting**, **Generating** and
 **Completed**. Media preparation runs on the CPU beside the GPU queue, and
 survives restarts. A batch submits one render at a time to the ComfyUI queue,
-where the usual priority and ordering controls apply.
+in batch order, where the usual priority and ordering controls apply. A clip
+that is still preparing holds back the clips after it, except when it is waiting
+for another clip's refined take.
 
 - **Start batch** or **Resume batch** submits prepared clips.
 - **Pause after current clip** lets the running render finish.
 - **Cancel waiting clips** stops clips that have not been submitted.
 - **Cancel current render** stops the clip that is rendering now.
+- **Retry failed clips** retries every failed clip together, so they keep their
+  batch order. Cancelled clips stay cancelled.
 
 For each result, **Compare** plays the final beside its source: play or seek
 the final and the source follows. **Use this take** selects the result in its

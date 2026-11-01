@@ -263,7 +263,7 @@ public sealed class AutomaticReelVoiceTests
         var inspection = f.Binding.RefMod!.Recipe.FrameHashes.Select((hash, i) =>
             new RefModInspectionFrame(1, i + 1, f.Binding.Name, "Angle", hash, Encoding.UTF8.GetBytes("angle-" + i))).ToArray();
         var messages = PromptComposer.BuildMessages(request, [], inspection);
-        using var payload = JsonDocument.Parse(messages[1].Text!);
+        using var payload = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
         var sources = payload.RootElement.GetProperty(mode == ReelVoiceMode.ExistingRecording ? "voices" : "reelAudio");
         var mapped = Assert.Single(sources.EnumerateArray());
         Assert.Equal(1, mapped.GetProperty("audio").GetInt32()); Assert.Equal("Riley", mapped.GetProperty("speaker").GetString());

@@ -30,7 +30,7 @@ public sealed partial class ShotTests
     [Fact]
     public void RemovedPresetsAreNeverListedForEditableSetups()
     {
-        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", H3AcceleratedCheckpoints.Compact, H3SmdRecipe.Key, H3AcceleratedCheckpoints.Fast, H3PtdRecipe.Key], H3Presets.Offered);
+        Assert.Equal(["standard", "beta", "euler-beta", "larry", "pdd", "turbo4", H3AcceleratedCheckpoints.Compact, H3SmdRecipe.Key, H3PikaFlexRecipe.Key, H3AcceleratedCheckpoints.Fast, H3PtdRecipe.Key], H3Presets.Offered);
         Assert.Equal(H3Presets.Offered, H3Presets.Choices("larry"));
         Assert.Equal(H3Presets.Offered, H3Presets.Choices("turbo8"));
         Assert.Equal("Turbo · 8 steps · Retired", H3Presets.ChoiceLabel("turbo8"));

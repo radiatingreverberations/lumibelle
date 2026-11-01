@@ -48,6 +48,7 @@ public static class H3Requirements
           "Cards with less memory still work, more slowly, because ComfyUI streams the rest from system memory."
         : "Download size.";
     private static readonly H3Badge Template = new("ComfyUI template", "ComfyUI's own MiniMax H3 Ref2VA template uses this file.");
+    private static readonly H3Badge PikaTemplate = new("Pika template", "ComfyUI's Pika H3 Flex Ref2VA template uses this file.");
     private static H3Badge Tested(string commit) => new($"Tested {commit}", $"Lumibelle was tested with commit {commit}. Newer versions may work too.");
     public static string FormatHint(string format) => format switch
     {
@@ -96,6 +97,12 @@ public static class H3Requirements
     public static readonly H3Requirement SmdAdapter = new("smd-adapter", H3RequirementKind.File, "SMD Ref2VA 4-step adapter", "models/loras", [
         new(H3SmdRecipe.AdapterFile, "https://huggingface.co/zjwfufu/SMD-MiniMax-H3-Ref2VA-4step-ComfyUI/blob/9544cef6ca00bcedb34a7139032634c4558ed4f8/" + H3SmdRecipe.AdapterFile,
             "Use strength 1 with the published four-step fixed-sigma recipe. Do not stack other acceleration adapters.") { Size = "1.96 GB", Format = "bf16" }]);
+    public static readonly H3Requirement PikaBase = new("pika-base-model", H3RequirementKind.File, "Pika H3 Flex pruned INT8 Ref2VA base", "models/diffusion_models", [
+        new(H3SmdRecipe.BaseFile, ComfyOrg + "diffusion_models/" + H3SmdRecipe.BaseFile,
+            "Pika H3 Flex uses this separately selected base; Standard keeps the ordinary H3 model selection. Published contents are verified at capture.") { Size = "21 GB", Format = "int8", Tags = [PikaTemplate] }]);
+    public static readonly H3Requirement PikaAdapter = new("pika-adapter", H3RequirementKind.File, "Pika H3 Flex Ref2VA LoRA", "models/loras", [
+        new(H3PikaFlexRecipe.AdapterFile, ComfyOrg + "loras/" + H3PikaFlexRecipe.AdapterFile,
+            "Use the ref2va file at strength 1 with the template's six fixed sigmas. Don't stack a Turbo or Lightning LoRA.") { Size = "1.96 GB", Format = "bf16", Tags = [PikaTemplate] }]);
     public static readonly H3Requirement FastH3 = new("fasth3-model", H3RequirementKind.File, "FastH3 OmniRef checkpoint", "models/diffusion_models", [
         new(H3AcceleratedCheckpoints.FastFile, "https://huggingface.co/FastVideo/FastH3-Omni-Comfy/blob/82eff2a6eee6c962846879f4bab52610a4df24d3/diffusion_models/" + H3AcceleratedCheckpoints.FastFile,
             "Complete Ref2VA checkpoint. Uses native VSA at 10%, Comfy Kitchen attention and no additional acceleration adapter.") { Size = "22.21 GB", Format = "int8" }]);
@@ -133,16 +140,17 @@ public static class H3Requirements
     // What each preset needs beyond the required files.
     public static IReadOnlyList<H3Requirement> ForPreset(string key) => key switch
     {
-        H3AcceleratedCheckpoints.Fast => [FastH3], H3PtdRecipe.Key => [PtdBase, PtdAdapter, PtdNodes], H3SmdRecipe.Key => [SmdBase, SmdAdapter], H3AcceleratedCheckpoints.Compact => [TenErosCompact], "turbo4" => [TurboLora], "larry" => [LarryNodes, LarryLora], "pdd" => [PddNodes, PddFile], _ => []
+        H3AcceleratedCheckpoints.Fast => [FastH3], H3PtdRecipe.Key => [PtdBase, PtdAdapter, PtdNodes], H3SmdRecipe.Key => [SmdBase, SmdAdapter], H3PikaFlexRecipe.Key => [PikaBase, PikaAdapter], H3AcceleratedCheckpoints.Compact => [TenErosCompact], "turbo4" => [TurboLora], "larry" => [LarryNodes, LarryLora], "pdd" => [PddNodes, PddFile], _ => []
     };
     public static IReadOnlyList<H3Requirement> UpscaledPreview { get; } = [UpscalerNodes, UpscalerFile];
     public static IReadOnlyList<H3Requirement> All { get; } =
-        [.. Required, TenErosCompact, SmdBase, SmdAdapter, FastH3, PtdBase, PtdAdapter, PtdNodes, TurboLora, LarryNodes, LarryLora, PddNodes, PddFile, UpscalerNodes, UpscalerFile, SageNodes];
+        [.. Required, TenErosCompact, SmdBase, SmdAdapter, PikaBase, PikaAdapter, FastH3, PtdBase, PtdAdapter, PtdNodes, TurboLora, LarryNodes, LarryLora, PddNodes, PddFile, UpscalerNodes, UpscalerFile, SageNodes];
 
     public static string? Selected(H3Requirement r, H3Settings s) => r.Id switch
     {
         "fasth3-model" => H3AcceleratedCheckpoints.Model(s, H3AcceleratedCheckpoints.Fast), "ptd-base-model" => H3PtdRecipe.Model(s), "ptd-adapter" => H3PtdRecipe.Adapter(s),
         "smd-base-model" => H3SmdRecipe.Model(s), "smd-adapter" => H3SmdRecipe.Adapter(s),
+        "pika-base-model" => H3PikaFlexRecipe.Model(s), "pika-adapter" => H3PikaFlexRecipe.Adapter(s),
         "10eros-compact-model" => H3AcceleratedCheckpoints.Model(s), "model" => s.Model, "encoder" => s.Encoder, "video-vae" => s.VideoVae, "audio-vae" => s.AudioVae,
         "turbo4-lora" => s.TurboLora, "larry-lora" => H3Presets.Checkpoint("larry", s),
         "pdd-file" => H3Presets.Checkpoint("pdd", s), "upscaler-file" => s.LatentUpscaler, _ => null
@@ -156,6 +164,8 @@ public static class H3Requirements
             case "ptd-adapter": s.PtdAdapter = value; break;
             case "smd-base-model": s.SmdBaseModel = value; break;
             case "smd-adapter": s.SmdLora = value; break;
+            case "pika-base-model": s.PikaBaseModel = value; break;
+            case "pika-adapter": s.PikaLora = value; break;
             case "10eros-compact-model": s.TenErosCompactModel = value; break;
             case "model": s.Model = value; break; case "encoder": s.Encoder = value; break;
             case "video-vae": s.VideoVae = value; break; case "audio-vae": s.AudioVae = value; break;
@@ -178,6 +188,7 @@ public static class H3Requirements
         "fasth3-model" => c.Presets.FirstOrDefault(p => p.Key == H3AcceleratedCheckpoints.Fast)?.Files ?? [],
         "ptd-base-model" => c.InstalledModels.Where(H3SmdRecipe.IsBase).ToArray(), "ptd-adapter" => c.Presets.FirstOrDefault(p => p.Key == H3PtdRecipe.Key)?.Files ?? [],
         "smd-base-model" => c.InstalledModels.Where(H3SmdRecipe.IsBase).ToArray(), "smd-adapter" => c.Presets.FirstOrDefault(p => p.Key == H3SmdRecipe.Key)?.Files ?? [],
+        "pika-base-model" => c.InstalledModels.Where(H3SmdRecipe.IsBase).ToArray(), "pika-adapter" => c.Presets.FirstOrDefault(p => p.Key == H3PikaFlexRecipe.Key)?.Files ?? [],
         "10eros-compact-model" => c.Presets.FirstOrDefault(p => p.Key == H3AcceleratedCheckpoints.Compact)?.Files ?? [], "model" => c.Models, "encoder" => c.Encoders,
         "video-vae" => c.Vaes.Where(v => v.Contains("video_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),
         "audio-vae" => c.Vaes.Where(v => v.Contains("audio_vae", StringComparison.OrdinalIgnoreCase)).ToArray(),

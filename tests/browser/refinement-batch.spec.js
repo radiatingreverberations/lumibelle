@@ -38,23 +38,36 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await dialog.getByRole('radio', { name: 'Hold until started', exact: true }).check();
   await dialog.getByRole('button', { name: 'Queue 2 refinements', exact: true }).click();
   await expect(dialog).not.toBeVisible();
+  // The batches open over Shots rather than replacing it.
   await page.getByRole('button', { name: 'View batch', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Refinement batches' })).toBeVisible();
-  const batch = page.locator('.refinement-batch').first();
+  const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  const batch = batches.locator('.refinement-batch').first();
   await expect(batch).toContainText('Held');
+  await expect(batch).toHaveClass(/is-requested/);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-studio', 'Shots');
   // Preparation continues without the page: close it and return in a new tab.
-  const url = page.url();
   await page.close();
   const returned = await context.newPage();
   await returned.setViewportSize({ width: 1173, height: 1000 });
-  await returned.goto(url);
-  const items = returned.locator('.refinement-batch').first().locator('.refinement-item');
+  await returned.goto(`/projects/${id}/shots?view=Takes`);
+  await expect(returned.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  await returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click();
+  const reopened = returned.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  const items = reopened.locator('.refinement-batch').first().locator('.refinement-item');
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Ready', { timeout: 30000 });
   await expect(items.nth(1)).toHaveAttribute('data-stage', 'Ready', { timeout: 30000 });
   expect((await state()).takes).toHaveLength(2);
 
-  await returned.getByRole('button', { name: 'Start batch', exact: true }).click();
+  await reopened.getByRole('button', { name: 'Start batch', exact: true }).click();
+  // A batch that finishes unseen marks Batches as new; showing its clips clears the mark.
+  await reopened.getByRole('button', { name: 'Done', exact: true }).click();
+  await returned.locator('[data-workspace-group=center]').getByRole('tab', { name: 'Shot', exact: true }).click();
+  const batchesButton = returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
+  await expect(batchesButton.locator('.tab-new')).toHaveText('1', { timeout: 60000 });
+  await expect(batchesButton).toHaveAttribute('aria-description', '1 new');
+  await batchesButton.click();
   await expect(items.nth(0)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
+  await expect(batchesButton.locator('.tab-new')).toHaveCount(0);
   await expect(items.nth(1)).toHaveAttribute('data-stage', 'Completed', { timeout: 60000 });
   await expect(returned.locator('.refinement-counts')).toContainText('Completed2');
   const results = (await state()).takes.filter(t => !drafts.some(d => d.id === t.id));
@@ -65,11 +78,38 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await items.nth(0).getByRole('button', { name: 'Compare', exact: true }).click();
   await expect(items.nth(0).getByLabel(/^Source clip for /)).toBeVisible();
   await expect(items.nth(0).getByLabel(/^Refined final for /)).toBeVisible();
+  // A final sized to another aspect is letterboxed in a box as large as the source's.
+  const heights = () => Promise.all([/^Source clip for /, /^Refined final for /].map(async l => Math.round((await items.nth(0).getByLabel(l).boundingBox()).height)));
+  await expect.poll(heights).toEqual([expect.any(Number), expect.any(Number)]);
+  const [source, final] = await heights(); expect(final).toBe(source);
+  await items.nth(0).locator('.refinement-compare').screenshot({ path: 'test-results/refinement-compare.png' });
   await items.nth(0).getByRole('button', { name: 'Use this take', exact: true }).click();
+  await expect(items.nth(0).locator('.refinement-compare')).toHaveCount(0);
   const accepted = results.find(t => t.snapshot.motionReference.takeId === drafts[0].id);
   await expect.poll(async () => (await state()).shots[0].selectedTakeId).toBe(accepted.id);
+  await items.nth(1).getByRole('button', { name: 'Compare', exact: true }).click();
+  await expect(items.nth(1).locator('.refinement-compare')).toBeVisible();
   await items.nth(1).getByRole('button', { name: 'Mark reviewed', exact: true }).click();
+  await expect(items.nth(1).locator('.refinement-compare')).toHaveCount(0);
   await expect(returned.locator('.refinement-counts')).toContainText('Reviewed2 / 2');
   expect(await returned.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await returned.screenshot({ path: 'artifacts/refinement-batch.png', fullPage: true });
+});
+
+test('refinement batches close from the header, Done and Escape, and reopen', async ({ page, request }) => {
+  const { id } = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${id}/approved`);
+  await request.post(`/fixtures/${id}/production-shot`);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/projects/${id}/shots`);
+  await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+  const open = page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  for (const close of [() => page.getByRole('button', { name: 'Close refinement batches', exact: true }).click(),
+    () => dialog.getByRole('button', { name: 'Done', exact: true }).click(), () => page.keyboard.press('Escape')]) {
+    await open.click();
+    await expect(dialog).toContainText('No refinement batches yet');
+    await close();
+    await expect(dialog).toBeHidden();
+  }
 });

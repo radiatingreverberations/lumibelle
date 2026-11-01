@@ -43,7 +43,7 @@ public sealed class MockVideoGenerator(IAssetStore? assets = null, IShotStore? s
     public async Task ValidateInputsAsync(VideoSnapshot s, CancellationToken ct)
     {
         if (assets is null || shots is null) return;
-        ShotLooks.Validate(s.Shot, await assets.LoadAsync(s.ProjectId, ct));
+        if (s.MotionReference is null) ShotLooks.Validate(s.Shot, await assets.LoadAsync(s.ProjectId, ct));
         foreach (var b in s.Shot.Images)
         {
             await using var media = b.Kind == ShotImageKind.AssetImage ? await assets.OpenImageAsync(s.ProjectId,b.AssetId,b.MediaId,ct) : throw new WorkspaceStoreException("The standalone frame was removed. Replace it with an asset image.");

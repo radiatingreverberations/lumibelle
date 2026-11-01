@@ -138,7 +138,7 @@ public sealed partial class ShotTests
             resolved.Pictures.Select(p => new CompositionInput(p.BindingId, "hash")).ToArray(), "", "", "", new(AiBackend.OpenRouter, "vision", "Vision"));
         var messages = PromptComposer.BuildMessages(request, resolved.Pictures.Select(_ => new byte[] { 1 }).ToArray());
         Assert.Equal(2, messages.Count);
-        using var context = JsonDocument.Parse(messages[1].Text!);
+        using var context = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
         var voice = Assert.Single(context.RootElement.GetProperty("voices").EnumerateArray());
         Assert.Equal("Elementalist voice", voice.GetProperty("sourceName").GetString()); Assert.Equal(1, voice.GetProperty("audio").GetInt32());
         Assert.Equal("Riley", voice.GetProperty("speaker").GetString());

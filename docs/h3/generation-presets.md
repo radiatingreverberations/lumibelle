@@ -1,7 +1,7 @@
 # H3 generation presets and frame storage
 
 Standard remains the default. Current choices are Standard, Beta, Euler beta,
-Larry, PDD, Turbo 4-step, **10Eros Compact**, **SMD Ref2VA 4-step**, **FastH3 Omni 8-step** and **PTD + RefAsymOPD 6-step**. Resolution, references,
+Larry, PDD, Turbo 4-step, **10Eros Compact**, **SMD Ref2VA 4-step**, **Pika H3 Flex 6-step**, **FastH3 Omni 8-step** and **PTD + RefAsymOPD 6-step**. Resolution, references,
 authored dialogue, voice inputs and optional identity/style LoRAs stay editable.
 New requests save [generation settings and owned inputs](generation-recipes.md).
 
@@ -38,6 +38,20 @@ The selected base and adapter filenames are saved at capture. It uses the
 configured shared encoder and VAEs; the bounded trial retained the W4A8 encoder,
 which differs from the publisher's NVFP4-AWQ compact profile. No Lightning/Turbo
 adapter is stacked. File storage does not establish runtime memory requirements.
+
+Pika H3 Flex is Pika's Ref2VA LoRA, distilled from a 50-step generator to six
+steps. Lumibelle follows ComfyUI's [Pika H3 Flex Ref2VA template](https://docs.comfy.org/tutorials/video/pika/pika-h3-flex)
+(`video_pika_h3_flex_ref2va`): the official pruned INT8 Ref2VA base, selected
+separately like SMD's, the [`pika_h3_flex_ref2va_v1_bf16.safetensors`](https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors)
+LoRA at strength 1, the `lcm` sampler, BasicGuider and `ManualSigmas` values
+`1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0`. Like the template it adds
+no shift node. ComfyUI's guide says to keep the sigma list unchanged and not to
+stack a Turbo or Lightning LoRA. The base and LoRA contents are checked against
+their published SHA-256 at capture. It uses the configured shared encoder and
+VAEs; the template uses the NVFP4-AWQ encoder. ComfyUI's guide reports that camera
+amplitude is advisory, that "wide shot" alone often renders as a medium shot, and
+that fine contact constraints are unreliable. Its license is the MiniMax H3
+Community License.
 
 
 FastH3 Omni selects its own native ComfyUI OmniRef INT8 ConvRot checkpoint. It

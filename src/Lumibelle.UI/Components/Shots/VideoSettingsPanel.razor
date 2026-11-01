@@ -93,7 +93,7 @@
     private (string Label, H3RequirementState State) PresetState(string key)
     {
         if (!Checked) return ("Not checked", H3RequirementState.NotChecked);
-        var ownModel = H3AcceleratedCheckpoints.Full(key) || key is H3SmdRecipe.Key or H3PtdRecipe.Key;
+        var ownModel = H3AcceleratedCheckpoints.Full(key) || key is H3SmdRecipe.Key or H3PikaFlexRecipe.Key or H3PtdRecipe.Key;
         if (H3Requirements.Required.Any(r => (!ownModel || r.Id != "model") && State(r) == H3RequirementState.Missing)) return ("Needs required files", H3RequirementState.Missing);
         var extra = H3Requirements.ForPreset(key).Select(r => H3Requirements.Status(r, _draft, _catalog)).ToArray();
         if (extra.Any(s => s.State == H3RequirementState.Missing && s.Requirement.Kind == H3RequirementKind.NodePack)) return ("Needs node pack", H3RequirementState.Missing);
@@ -101,6 +101,7 @@
         if (!CommonSetupUnchanged || H3Presets.Checkpoint(key, _checked!) != H3Presets.Checkpoint(key, _draft)) return ("Check again", H3RequirementState.NotChecked);
         if (H3AcceleratedCheckpoints.Full(key) && H3AcceleratedCheckpoints.Model(_checked!, key) != H3AcceleratedCheckpoints.Model(_draft, key)) return ("Check again", H3RequirementState.NotChecked);
         if (key == H3SmdRecipe.Key && H3SmdRecipe.Model(_checked!) != H3SmdRecipe.Model(_draft)) return ("Check again", H3RequirementState.NotChecked);
+        if (key == H3PikaFlexRecipe.Key && H3PikaFlexRecipe.Model(_checked!) != H3PikaFlexRecipe.Model(_draft)) return ("Check again", H3RequirementState.NotChecked);
         if (key == H3PtdRecipe.Key && H3PtdRecipe.Model(_checked!) != H3PtdRecipe.Model(_draft)) return ("Check again", H3RequirementState.NotChecked);
         return _catalog!.Presets.FirstOrDefault(p => p.Key == key)?.Issue is null ? ("Ready", H3RequirementState.Installed) : ("Setup needed", H3RequirementState.Missing);
     }
@@ -222,6 +223,7 @@
             to.LarryLora = from.LarryLora; to.PddCheckpoint = from.PddCheckpoint; to.HyperFlowLora = from.HyperFlowLora; to.TurboLora = from.TurboLora;
             to.TenErosCompactModel = from.TenErosCompactModel;
             to.SmdBaseModel = from.SmdBaseModel; to.SmdLora = from.SmdLora;
+            to.PikaBaseModel = from.PikaBaseModel; to.PikaLora = from.PikaLora;
             to.FastH3Model = from.FastH3Model; to.PtdBaseModel = from.PtdBaseModel; to.PtdAdapter = from.PtdAdapter;
             to.Turbo8StepLora = from.Turbo8StepLora; to.LatentUpscaler = from.LatentUpscaler;
         }

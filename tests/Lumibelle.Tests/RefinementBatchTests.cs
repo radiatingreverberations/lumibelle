@@ -173,6 +173,49 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task ClipsRenderInBatchOrderAndFailedClipsAreRetriedTogetherInPlace()
+    {
+        var r = Refinement(); var workflow = r.Restart();
+        var entries = new[] { await TakeEntry(r, "PREPARATION_FAILURE"), await TakeEntry(r, "Second"), await TakeEntry(r, "Third") };
+        var batch = await workflow.CreateAsync(r.Project, Guid.NewGuid(), new(Guid.NewGuid(), "", true, entries), _ct);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => workflow.RetryFailedAsync(r.Project, batch.Id, _ct));
+        // The third clip is prepared first, but earlier clips still being prepared hold it back.
+        await workflow.PrepareAsync(r.Project, batch.Id, batch.Items[2].Id, _ct);
+        await workflow.AdvanceAsync(r.Project, _ct);
+        Assert.Empty((await r.Jobs.ReadAsync(_ct)).Jobs);
+        // A failed clip does not hold back the rest.
+        await workflow.PrepareAsync(r.Project, batch.Id, batch.Items[0].Id, _ct);
+        await workflow.PrepareAsync(r.Project, batch.Id, batch.Items[1].Id, _ct);
+        await workflow.AdvanceAsync(r.Project, _ct);
+        Assert.Equal(batch.Items[1].Id, Assert.Single((await r.Jobs.ReadAsync(_ct)).Jobs).Id);
+
+        await workflow.RetryFailedAsync(r.Project, batch.Id, _ct);
+        var retried = Run(await workflow.LoadAsync(r.Project, _ct), batch.Id);
+        Assert.Equal(batch.Items.Select(i => i.Id), retried.Items.Select(i => i.Id));
+        Assert.Equal([RefinementItemState.Preparing, RefinementItemState.Submitted, RefinementItemState.Ready], retried.Items.Select(i => i.State));
+        Assert.Null(retried.Items[0].Error); Assert.Equal(batch.Items[0].Options.Seed, retried.Items[0].Options.Seed);
+    }
+
+    [Fact]
+    public async Task ARefinementKeepsItsTakeReferencesAfterTheirImageIsAssignedALook()
+    {
+        var f = Fixture(); var look = new CharacterLook { Name = "Nightshirt" };
+        var library = await f.Assets.LoadAsync(f.Project.Id, _ct);
+        library = await f.Assets.SaveAsync(library with { Assets = [new ReferenceAsset { Id = Guid.NewGuid(), Name = "Jan", Category = AssetCategory.Character, Looks = [look] }] }, library.Revision, _ct);
+        using (var bytes = new MemoryStream(AssetStoreTests.Png(32, 32)))
+            library = await f.Assets.AddImageAsync(f.Project.Id, library.Assets[0].Id, bytes, new("jan.png", [], AssetImageOrigin.Imported), library.Revision, _ct);
+        var image = library.Assets[0].Images[0];
+        var shot = Ready(); shot.Images = [new() { AssetId = library.Assets[0].Id, MediaId = image.Id, Name = "Jan", InferUsage = true, Role = "Let AI decide" }];
+        await f.Assets.SaveAsync(library with { Assets = [library.Assets[0] with { Images = [image with { LookId = look.Id }] }] }, library.Revision, _ct);
+        var generator = new ComfyH3Video(null!, null!, f.Assets, f.Assets, f.Shots, new ProductionMediaTools());
+        // A new request composes its prompt from the current looks, so the changed assignment is reviewed first.
+        Assert.Contains("assignment changed", (await Assert.ThrowsAsync<WorkspaceStoreException>(() => generator.ValidateInputsAsync(Snapshot(f.Project.Id, shot), _ct))).Message);
+        // A refinement reuses the same images and the take's prompt.
+        var media = new ReferenceVideoMedia(Guid.NewGuid(), "", 1, 32, 32, 24, 24, 1, false);
+        await generator.ValidateInputsAsync(Snapshot(f.Project.Id, shot) with { MotionReference = new(Guid.NewGuid(), Guid.NewGuid(), media, 24, 24, "", "") }, _ct);
+    }
+
+    [Fact]
     public async Task OversizedSharedResolutionIsRejectedPerClipAndAnotherShotRequestMakesTheBatchWait()
     {
         var r = Refinement(); var workflow = r.Restart();

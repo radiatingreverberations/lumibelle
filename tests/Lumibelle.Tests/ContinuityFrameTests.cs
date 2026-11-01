@@ -69,7 +69,7 @@ public sealed partial class ShotTests
         var request = new PromptCompositionRequest(Guid.NewGuid(), Guid.NewGuid(), 1, "context", "source", shot, "Scene", [], [], [],
             [new(shot.ShotFrames[0].Id, Convert.ToHexString(SHA256.HashData(frame)))], "", "", "", new(AiBackend.OpenRouter, "vision", "Vision"));
         var messages = PromptComposer.BuildMessages(request, [frame]);
-        using (var data = JsonDocument.Parse(messages[1].Text))
+        using (var data = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text))
         {
             var continuity = data.RootElement.GetProperty("continuityPicture");
             Assert.Equal((1, "Sip · last frame"), (continuity.GetProperty("picture").GetInt32(), continuity.GetProperty("name").GetString()));
@@ -120,7 +120,7 @@ public sealed partial class ShotTests
             [new(shot.ShotFrames[0].Id, Convert.ToHexString(SHA256.HashData(first))), new(shot.ShotFrames[1].Id, Convert.ToHexString(SHA256.HashData(second)))],
             "", "", "", new(AiBackend.OpenRouter, "vision", "Vision"));
         var messages = PromptComposer.BuildMessages(request, [first, second]);
-        using (var data = JsonDocument.Parse(messages[1].Text))
+        using (var data = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text))
         {
             Assert.False(data.RootElement.TryGetProperty("continuityPicture", out _));
             Assert.Equal([(1, "Shot 1 · Last frame"), (2, "Shot 2 · Last frame")], data.RootElement.GetProperty("shotFrames").EnumerateArray()

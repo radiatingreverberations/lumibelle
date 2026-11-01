@@ -237,7 +237,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (m is null) throw new WorkspaceStoreException($"{b.Name} is missing or in Trash. Restore or replace it before generating.");
         }
         var a = await assets.LoadAsync(s.ProjectId, ct);
-        if (s.Production is null && s.Reel is null) ShotLooks.Validate(s.Shot, a);
+        // A refinement reuses its take's images and prompt, so later look assignments in the library do not change it.
+        if (s.Production is null && s.Reel is null && s.MotionReference is null) ShotLooks.Validate(s.Shot, a);
         foreach (var v in s.Shot.Voices)
         {
             var voice = a.Voices.FirstOrDefault(x => x.Matches(v));
@@ -451,6 +452,10 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture SMD's selected pruned INT8 base before submission.");
             model = H3SmdRecipe.Apply(model, s.Settings, Node);
         }
+        if (key == H3PikaFlexRecipe.Key) {
+            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture Pika H3 Flex's selected pruned INT8 base before submission.");
+            model = H3PikaFlexRecipe.Apply(model, s.Settings, Node);
+        }
         if (key == H3PtdRecipe.Key) {
             if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture PTD's selected pruned INT8 base before submission.");
             model = H3PtdRecipe.Apply(model, s.Settings, Node);
@@ -475,6 +480,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         else Node("8", "KSamplerSelect", new { sampler_name = refine is null ? sampling.Sampler : "res_multistep" });
         if (refine is not null) Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = "simple", steps = refine.Refinement.Steps, denoise = refine.Refinement.Denoise });
         else if (key == H3SmdRecipe.Key) Node("9", "ManualSigmas", new { sigmas = H3SmdRecipe.Sigmas });
+        else if (key == H3PikaFlexRecipe.Key) Node("9", "ManualSigmas", new { sigmas = H3PikaFlexRecipe.Sigmas });
         else if (key == H3PtdRecipe.Key) Node("9", H3PtdRecipe.Sigmas, new { model = Link(model) });
         else if (key != "pdd") Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = sampling.Scheduler, steps = sampling.Steps, denoise = 1.0 });
         var source = motionLatent ?? Link("5", latent);

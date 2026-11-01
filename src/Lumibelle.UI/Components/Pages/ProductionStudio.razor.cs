@@ -93,7 +93,7 @@ public partial class ProductionStudio
     private string? GenerationIssue => ActiveGlobalSetup?.Archived == true ? "Restore this global setup or choose another before generating." : CompositionIssue ?? LoraIssue ?? (_configuration is null ? null : Selected is { } s && !_configuration.Ready(s) ? _configuration.Issue(s) : null);
     private IEnumerable<List<Shot>> VisibleGroups => _doc.Shots.Where(MatchesPromptStatus).Where(s => s.Title.Contains(_filter, StringComparison.OrdinalIgnoreCase) || SceneLabel(s).Contains(_filter, StringComparison.OrdinalIgnoreCase)).GroupBy(s => s.SceneId).Select(g => g.ToList());
     private bool TakeMatches(ShotTake take, Shot shot) => Current is { } c && take.Snapshot.Production is { } p && p.CompositionId == c.Id && p.Revision.Id == c.AcceptedRevisionId && CompositionIssue is null;
-    protected override void OnInitialized() { AiJobs.Changed += JobChanged; AiJobs.Changed += PlanningQueueChanged; }
+    protected override void OnInitialized() { AiJobs.Changed += JobChanged; AiJobs.Changed += PlanningQueueChanged; BatchWorkflow.Changed += RefinementRunsChanged; }
     protected override async Task OnParametersSetAsync()
     {
         if (_doc.ProjectId != Id) {
@@ -112,7 +112,7 @@ public partial class ProductionStudio
             if (RequestedShotId is not null || RequestedCompositionId is not null || RequestedJobId is not null) { _filter = ""; _takeSetupFilter = ""; }
             await ResetVideoProjectAsync();
             _project = await Projects.GetAsync(Id, _lifetime.Token);
-            await ResetPlanningProjectAsync(); await Reload(); await AiJobs.RefreshAsync(_lifetime.Token); if (_loadFailure is null && !ScenesMode) await RefreshMedia(); await RefreshPlanningJobsAsync(); _planningInitialized = true;
+            await ResetPlanningProjectAsync(); await Reload(); await AiJobs.RefreshAsync(_lifetime.Token); if (_loadFailure is null && !ScenesMode) await RefreshMedia(); await RefreshPlanningJobsAsync(); await LoadRefinementRuns(); _planningInitialized = true;
         }
         if (ScenesMode) {
             if (RequestedSceneId is { } sceneId && _handledScene != sceneId) { _handledScene = sceneId; _sceneId = sceneId; }
@@ -396,7 +396,7 @@ public partial class ProductionStudio
 
     public async ValueTask DisposeAsync()
     {
-        _disposed = true; AiJobs.Changed -= JobChanged; AiJobs.Changed -= PlanningQueueChanged; _planningDraftDelay?.Cancel(); await SavePlanningDraftAsync(); await ReleasePlanningReviewAsync(); _saveDelay?.Cancel(); _lifetime.Cancel(); _saveDelay?.Dispose();
+        _disposed = true; AiJobs.Changed -= JobChanged; AiJobs.Changed -= PlanningQueueChanged; BatchWorkflow.Changed -= RefinementRunsChanged; _planningDraftDelay?.Cancel(); await SavePlanningDraftAsync(); await ReleasePlanningReviewAsync(); _saveDelay?.Cancel(); _lifetime.Cancel(); _saveDelay?.Dispose();
         await ReleaseVideoReviewAsync(); if (_videoOriginJob is { } id) await AiReviews.CloseAsync(id);
         await ReleaseCompositionReview();
         if (_interactive) try {

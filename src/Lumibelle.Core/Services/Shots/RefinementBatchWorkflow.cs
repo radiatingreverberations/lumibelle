@@ -161,7 +161,7 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
         // job was removed from the queue, and Retry requeues the saved request explicitly.
         if (run.Items.Any(i => i.State == RefinementItemState.Submitted && Unfinished(queued.SingleOrDefault(j => j.Id == i.Id)))) return run;
         if (run.State == RefinementBatchState.Running && run.PauseRequested) return run with { State = RefinementBatchState.Paused, PauseRequested = false };
-        if (run.State == RefinementBatchState.Running && run.Items.FirstOrDefault(i => i.State == RefinementItemState.Ready) is { Submission: { } submission } next)
+        if (run.State == RefinementBatchState.Running && NextInOrder(run) is { Submission: { } submission } next)
         {
             var key = AiJobLocks.Key(submission.Kind, submission.Target, submission.Batch);
             if (queued.Any(j => j.Id != next.Id && j.LocksTarget && AiJobLocks.Key(j) == key))
@@ -178,6 +178,12 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
         return run.Items.Any(i => i.State is RefinementItemState.Preparing or RefinementItemState.Ready)
             ? run : run with { State = RefinementBatchState.Finished, PauseRequested = false };
     }
+
+    // Clips render in batch order: one still being prepared holds back the clips after it. A clip waiting for
+    // another clip's refined take does not, so a link to a later clip cannot stall the batch.
+    private static RefinementBatchItem? NextInOrder(RefinementBatch run) =>
+        run.Items.FirstOrDefault(i => i.State == RefinementItemState.Ready || i.State == RefinementItemState.Preparing && i.WaitingForItemId is null)
+            is { State: RefinementItemState.Ready } next ? next : null;
 
     private static bool Unfinished(AiJobHeader? job) => job is { State: AiJobState.Waiting or AiJobState.Running } || job?.RemoteUnconfirmed == true;
 
@@ -225,26 +231,50 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
         var requeue = false;
         await UpdateRunAsync(project, batch, run =>
         {
-            var item = Item(run, itemId);
-            var fresh = item with { Id = Guid.NewGuid(), State = RefinementItemState.Preparing, Submission = null, ResultId = null, Error = null, Notice = null, WaitingForItemId = null,
-                ReviewedUtc = null, AcceptedUtc = null };
-            item = item.State switch {
-                // Its job finished but the result is gone: a new request, since the old ID belongs to that job.
-                RefinementItemState.Failed when item.Submission is not null => fresh,
-                RefinementItemState.Failed => item with { State = RefinementItemState.Preparing, Error = null },
-                RefinementItemState.Submitted when job is null && item.ResultId is null => fresh,
-                RefinementItemState.Cancelled when item.Submission is null => item with { State = RefinementItemState.Preparing, Error = null },
-                RefinementItemState.Cancelled => item with { State = RefinementItemState.Ready, Error = null },
-                RefinementItemState.Submitted when job is { State: AiJobState.NeedsAttention, CancelRequested: false, RemoteUnconfirmed: false } => item,
-                RefinementItemState.Submitted when job is { State: AiJobState.Cancelled, RemoteUnconfirmed: false } && item.ResultId is null => fresh,
-                _ => throw new WorkspaceStoreException("This clip has no retryable request.")
-            };
+            var item = Retried(Item(run, itemId), job) ?? throw new WorkspaceStoreException("This clip has no retryable request.");
             requeue = item.Id == itemId && item.State == RefinementItemState.Submitted;
             return Task.FromResult(run with {
                 Items = run.Items.Select(i => i.Id == itemId ? item : i).ToArray(),
                 State = run.State == RefinementBatchState.Finished ? RefinementBatchState.Running : run.State });
         }, ct);
         if (requeue) await queue.ResumeAsync(itemId, ct);
+    }
+
+    // Every failed clip and every request that needs attention is retried in one step, so they keep their batch order
+    // instead of following the order of separate Retry clicks. Cancelled clips stay cancelled.
+    public async Task RetryFailedAsync(Guid project, Guid batch, CancellationToken ct = default)
+    {
+        var queued = (await jobs.ReadAsync(ct)).Jobs;
+        List<Guid> requeue = [];
+        await UpdateRunAsync(project, batch, run =>
+        {
+            requeue.Clear();
+            var failed = View(run, queued).Where(v => v.Stage is RefinementItemStage.Failed or RefinementItemStage.NeedsAttention && v.Job?.RemoteUnconfirmed != true)
+                .Select(v => v.Item.Id).ToHashSet();
+            var items = run.Items.Select(i => failed.Contains(i.Id) && Retried(i, queued.SingleOrDefault(j => j.Id == i.Id)) is { } retried ? retried : i).ToArray();
+            requeue.AddRange(items.Where(i => failed.Contains(i.Id) && i.State == RefinementItemState.Submitted).Select(i => i.Id));
+            if (items.SequenceEqual(run.Items)) throw new WorkspaceStoreException("This batch has no failed clips to retry.");
+            return Task.FromResult(run with { Items = items, State = run.State == RefinementBatchState.Finished ? RefinementBatchState.Running : run.State });
+        }, ct);
+        foreach (var id in requeue) await queue.ResumeAsync(id, ct);
+    }
+
+    // Null when the clip has no retryable request.
+    private static RefinementBatchItem? Retried(RefinementBatchItem item, AiJobHeader? job)
+    {
+        var fresh = item with { Id = Guid.NewGuid(), State = RefinementItemState.Preparing, Submission = null, ResultId = null, Error = null, Notice = null, WaitingForItemId = null,
+            ReviewedUtc = null, AcceptedUtc = null };
+        return item.State switch {
+            // Its job finished but the result is gone: a new request, since the old ID belongs to that job.
+            RefinementItemState.Failed when item.Submission is not null => fresh,
+            RefinementItemState.Failed => item with { State = RefinementItemState.Preparing, Error = null },
+            RefinementItemState.Submitted when job is null && item.ResultId is null => fresh,
+            RefinementItemState.Cancelled when item.Submission is null => item with { State = RefinementItemState.Preparing, Error = null },
+            RefinementItemState.Cancelled => item with { State = RefinementItemState.Ready, Error = null },
+            RefinementItemState.Submitted when job is { State: AiJobState.NeedsAttention, CancelRequested: false, RemoteUnconfirmed: false } => item,
+            RefinementItemState.Submitted when job is { State: AiJobState.Cancelled, RemoteUnconfirmed: false } && item.ResultId is null => fresh,
+            _ => null
+        };
     }
 
     public Task<RefinementBatches> MarkReviewedAsync(Guid project, Guid batch, Guid itemId, bool reviewed, CancellationToken ct = default) => UpdateRunAsync(project, batch, run =>

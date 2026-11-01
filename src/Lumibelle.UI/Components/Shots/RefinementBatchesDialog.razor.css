@@ -1,10 +1,10 @@
-.refinement-studio { display:grid; gap:20px; max-width:1100px; margin:0 auto; padding:0 16px 32px; }
+.refinement-studio { display:grid; gap:20px; min-width:0; padding-bottom:8px; }
 .refinement-intro { margin:0; color:var(--muted); }
 .refinement-batch { border:1px solid var(--lumi-border); border-radius:var(--lumi-radius-surface); padding:16px 18px; min-width:0; }
 .refinement-batch.is-requested { border-color:var(--plum); }
 .refinement-batch-heading { display:grid; gap:12px; }
 .refinement-batch-heading > div:first-child { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; }
-h2 { margin:0; font-size:var(--lumi-font-size-title, 1.15rem); overflow-wrap:anywhere; }
+h3 { margin:0; font-size:var(--lumi-font-size-title, 1.15rem); overflow-wrap:anywhere; }
 .refinement-state { color:var(--plum); font-size:var(--lumi-font-size-meta); font-weight:600; }
 time { color:var(--muted); font-size:var(--lumi-font-size-small); }
 .refinement-counts { display:flex; flex-wrap:wrap; gap:8px 22px; margin:0; }

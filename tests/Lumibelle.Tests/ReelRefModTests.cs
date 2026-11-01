@@ -287,13 +287,15 @@ public sealed partial class ShotTests
         var frames = Enumerable.Range(0, 2).Select(i => new RefModInspectionFrame(1, i + 1, mod.Name,
             mod.Keyframes!.Frames[i].Notes, mod.RefMod!.Recipe.FrameHashes[i], Encoding.UTF8.GetBytes("frame" + i)) { ViewName = mod.Keyframes.Frames[i].Name }).ToArray();
         var messages = PromptComposer.BuildMessages(request, [], frames);
-        Assert.Equal(3, messages[1].Contents.Count);
-        using var payload = JsonDocument.Parse(messages[1].Text!);
+        // The task data, then a label before each preview.
+        Assert.Equal(5, messages[1].Contents.Count);
+        Assert.Contains("<Video 1> preview, frame 2", Assert.IsType<Microsoft.Extensions.AI.TextContent>(messages[1].Contents[3]).Text);
+        using var payload = JsonDocument.Parse(messages[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
         Assert.Equal(1, payload.RootElement.GetProperty("sparseVisualReferences")[0].GetProperty("video").GetInt32());
         Assert.Empty(payload.RootElement.GetProperty("references").EnumerateArray());
         Assert.Equal("Toward judge platform", payload.RootElement.GetProperty("sparseInspectionAttachments")[0].GetProperty("viewName").GetString());
         var brief = PromptComposer.BuildBriefMessages(request, [], frames);
-        using var briefPayload = JsonDocument.Parse(brief[1].Text!);
+        using var briefPayload = JsonDocument.Parse(brief[1].Contents.OfType<Microsoft.Extensions.AI.TextContent>().First().Text);
         Assert.Equal("Toward judge platform", briefPayload.RootElement.GetProperty("refModPreviewAttachments")[0].GetProperty("viewName").GetString());
         Assert.Equal("Angle 0", briefPayload.RootElement.GetProperty("refModPreviewAttachments")[0].GetProperty("notes").GetString());
         Assert.Contains("never create Picture identifiers", messages[0].Text);

@@ -1,6 +1,7 @@
 .refinement-compare { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
-figure { margin:0; min-width:0; }
+/* Both boxes share the row height: a final sized to a different aspect is letterboxed, not shown smaller. */
+figure { display:flex; flex-direction:column; margin:0; min-width:0; }
 figcaption { margin-bottom:6px; color:var(--muted); font-size:var(--lumi-font-size-meta); font-weight:600; }
-video { display:block; width:100%; max-height:320px; object-fit:contain; border-radius:var(--lumi-radius-control); background:var(--lumi-surface-subtle); }
+video { display:block; flex:1; width:100%; min-height:0; max-height:320px; object-fit:contain; border-radius:var(--lumi-radius-control); background:var(--lumi-media-stage); }
 .field-hint { grid-column:1 / -1; margin:0; color:var(--muted); font-size:var(--lumi-font-size-small); }
 @media(max-width:640px) { .refinement-compare { grid-template-columns:minmax(0,1fr); } }
