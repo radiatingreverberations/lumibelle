@@ -71,7 +71,6 @@ public sealed partial class ShotTests
         await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
         var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
         var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
-        var originalBytes = await File.ReadAllBytesAsync(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "shots.json"), _ct);
         var first = await store.InitializeAsync(f.Project.Id, _ct); var second = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(first.Revision, second.Revision); var c = Assert.Single(first.Compositions); Assert.Equal("Default setup", c.Name); Assert.Null(c.Accepted); Assert.Empty(c.Prompt);
         var copy = c.Copy(); copy.Id = Guid.NewGuid(); copy.Name = "Close view"; copy.Shot.Description = "A close view of the same arrival.";

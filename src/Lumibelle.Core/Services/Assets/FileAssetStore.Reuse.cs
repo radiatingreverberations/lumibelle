@@ -200,7 +200,11 @@ public sealed partial class FileAssetStore : IAssetReuseStore
         var ids = content.Asset.Images.Select(i => i.Id).Concat(content.Reels.SelectMany(r => new[] { r.Id, r.Media.Id }))
             .Concat(content.Voices.Select(v => v.Id)).ToHashSet();
         if (content.Source.Kind == AssetReuseKind.Asset) ids.Add(content.Asset.Id);
-        foreach (var name in new[] { "shots.json", "production.json" })
+        // Every saved shot, take, Trash entry and recovery version counts, as when the whole file was scanned.
+        var shots = await Shots.FileShotStore.Documents.LoadCompleteAsync(directory, content.Source.ProjectId, ct);
+        if (AssetReusePolicy.ContainsIdentity(JsonSerializer.SerializeToElement(shots, AtomicJsonFile.Options), ids))
+            throw new WorkspaceStoreException("Saved shots or takes reference this item. Copy it instead of moving it.");
+        foreach (var name in new[] { "production.json" })
         {
             var path = Path.Combine(directory, name);
             if (!File.Exists(path)) continue;

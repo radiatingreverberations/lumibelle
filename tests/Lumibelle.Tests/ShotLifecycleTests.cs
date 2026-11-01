@@ -43,8 +43,7 @@ public sealed partial class ShotTests
     public async Task FailedPublicationKeepsOldManifestAndMediaForRetry()
     {
         var f=Fixture();var s=Ready();var d=await f.Shots.SaveAsync(f.Project.Id,[s],0,ct:_ct);d=await AddTake(f.Project.Id,f.Shots,s);
-        var manifest=Path.Combine(await f.Files.DirectoryAsync(f.Project.Id,_ct),"shots.json");
-        using(var locked=new FileStream(manifest,FileMode.Open,FileAccess.Read,FileShare.Read))
+        using(var locked=TestProjectDatabase.HoldReadOnly(await f.Files.DirectoryAsync(f.Project.Id,_ct)))
             await Assert.ThrowsAnyAsync<Exception>(()=>f.Shots.DiscardAsync(f.Project.Id,d.Takes[0].Id,ShotTrashKind.Take,d.Revision,_ct));
         var saved=await f.Shots.LoadAsync(f.Project.Id,_ct);Assert.Equal(d.Revision,saved.Revision);Assert.Single(saved.Takes);Assert.Empty(saved.Trash);
         await using var media=await f.Shots.OpenAsync(f.Project.Id,saved.Takes[0].Id,ShotTrashKind.Take,ct:_ct);Assert.NotNull(media);

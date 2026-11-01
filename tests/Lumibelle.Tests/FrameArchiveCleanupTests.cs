@@ -67,14 +67,14 @@ public sealed partial class ShotTests
         var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
         var doc = await AddTake(f.Project.Id, f.Shots, shot); var take = doc.Takes.Single();
         var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct);
-        var manifest = Path.Combine(dir, "shots.json");
-        var media = new CleanupMedia { AfterExtraction = () => { File.Move(manifest, manifest + ".held"); Directory.CreateDirectory(manifest); } };
+        FileStream? held = null;
+        var media = new CleanupMedia { AfterExtraction = () => { held = TestProjectDatabase.HoldReadOnly(dir); } };
         var store = new FileShotStore(f.Files, _clock, mediaTools: media);
         try
         {
             await Assert.ThrowsAnyAsync<Exception>(() => store.RemoveFrameArchivesAsync(f.Project.Id, [take.Id], doc.Revision, _ct));
         }
-        finally { Directory.Delete(manifest); File.Move(manifest + ".held", manifest); }
+        finally { held?.Dispose(); }
         Assert.Null((await store.LoadAsync(f.Project.Id, _ct)).Takes.Single().FrameArchiveRemoval);
         Assert.All(take.Frames, frame => Assert.True(File.Exists(Path.Combine(FileShotStore.ArchiveDirectory(dir, take), frame.FileName))));
     }

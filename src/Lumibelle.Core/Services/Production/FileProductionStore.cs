@@ -29,9 +29,12 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     {
         var d = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(dir, "production.json"), ct) ?? new() { ProjectId = project };
         ValidateDocument(d, project);
-        var coverage = await shots.LoadAsync(project, ct);
-        foreach (var c in d.Compositions) if (coverage.Shots.FirstOrDefault(s => s.Id == c.ShotId) is { } source)
-            ProductionPolicy.CopyCoverage(source, c.Shot);
+        var coverage = await CoverageAsync(project, ct);
+        // Shots read from the shot store are this call's own objects: the first setup of each shot
+        // takes their large parts (drafting environments) instead of copying them again.
+        var owned = new HashSet<Guid>();
+        foreach (var c in d.Compositions) if (coverage.FirstOrDefault(s => s.Id == c.ShotId) is { } source)
+            ProductionPolicy.CopyCoverage(source, c.Shot, takeOwnership: shots is FileShotStore && owned.Add(source.Id));
         if (generationSetups is not null && d.Compositions.Any(c => c.GenerationSetupId is not null)) {
             var library = await generationSetups.LoadAsync(ct);
             foreach (var c in d.Compositions.Where(c => c.GenerationSetupId is not null))
@@ -41,6 +44,9 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         foreach (var composition in d.Compositions) H3PresetMigrations.Apply(composition.Shot);
         return d;
     }
+    // Compositions read only the current shots; loading the whole shot document copied every take.
+    private async Task<List<Shot>> CoverageAsync(Guid project, CancellationToken ct) =>
+        shots is FileShotStore stored ? await stored.LoadShotsAsync(project, ct) : (await shots.LoadAsync(project, ct)).Shots;
     private static void ValidateDocument(ProductionDocument d, Guid project)
     {
         if (d.SchemaVersion is not (2 or 3 or 4) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
@@ -58,9 +64,10 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
     {
         var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var raw = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(dir, "production.json"), ct);
-        var source = await shots.LoadAsync(project, ct);
+        List<Shot> sourceShots;
         if (raw is null || raw.SchemaVersion < 2)
         {
+            var source = await shots.LoadCompleteAsync(project, ct);
             if ((await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && (j.Kind is AiJobKind.Video or AiJobKind.PromptComposition) && j.LocksTarget))
                 throw new WorkspaceStoreException("Wait for active production requests before starting the new Shots workspace.");
             await jobs.ResetProductionAsync(project, ct);
@@ -70,15 +77,17 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             source.SceneSetups = PlanningSetups(source.SceneSetups);
             source.Recovery = source.Recovery.Select(r => r with { Shots = r.Shots.Select(ProductionPolicy.CoverageCopy).ToList(), SceneSetups = PlanningSetups(r.SceneSetups) }).ToList();
             source.Revision++;
-            await AtomicJsonFile.WriteAsync(Path.Combine(dir, "shots.json"), source, ct);
-            var cut = await AtomicJsonFile.ReadAsync<CutDocument>(Path.Combine(dir, "cut.json"), ct) ?? new() { ProjectId = project };
+            await FileShotStore.Documents.SaveAsync(dir, project, source, ct);
+            var cut = await FileCutStore.Documents.LoadAsync(dir, project, ct);
             cut.Clips.Clear(); cut.Revision++;
-            await AtomicJsonFile.WriteAsync(Path.Combine(dir, "cut.json"), cut, ct);
+            await FileCutStore.Documents.SaveAsync(dir, project, cut, ct);
             raw = new() { ProjectId = project };
             await Publish(dir, raw, ct);
+            sourceShots = source.Shots;
         }
+        else sourceShots = await CoverageAsync(project, ct);
         var d = await Read(dir, project, ct); var changed = raw.SchemaVersion < 4;
-        foreach (var shot in source.Shots.Where(s => d.Compositions.All(c => c.ShotId != s.Id)))
+        foreach (var shot in sourceShots.Where(s => d.Compositions.All(c => c.ShotId != s.Id)))
         {
             d.Compositions.Add(new() { ShotId = shot.Id, Name = "Default setup", Version = 1,
                 Shot = ProductionPolicy.CoverageCopy(shot), SourceFingerprint = ProductionPolicy.SourceFingerprint(shot) });
@@ -114,7 +123,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var d = await Read(dir, project, ct); var old = d.Compositions.SingleOrDefault(x => x.Id == c.Id);
         if ((old?.Version ?? 0) != expectedVersion) throw new WorkspaceConflictException();
-        if (!(await shots.LoadAsync(project, ct)).Shots.Any(s => s.Id == c.ShotId)) throw new WorkspaceStoreException("The source shot was removed. Restore it before editing this composition.");
+        if (!(await CoverageAsync(project, ct)).Any(s => s.Id == c.ShotId)) throw new WorkspaceStoreException("The source shot was removed. Restore it before editing this composition.");
         if (old is not null && old.ShotId != c.ShotId) throw new WorkspaceStoreException("A composition cannot be moved to another shot.");
         if (c.Archived && (await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && j.Target.CompositionId == c.Id && (j.State is AiJobState.Waiting or AiJobState.Running || j.RemoteUnconfirmed)))
             throw new WorkspaceStoreException("Wait for this composition's active requests, or cancel them before archiving.");

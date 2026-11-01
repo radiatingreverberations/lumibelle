@@ -33,7 +33,7 @@ public interface IShotProjectCopyStore
 }
 
 // Copies own their media. Stable operation identities make retries safe across every publication;
-// shots.json is published last, once its script, production inputs and media are installed.
+// The shot document is published last, once its script, production inputs and media are installed.
 public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, IProductionStore production,
     IScriptStore scripts, IAssetStore assets, IAssetReuseStore reuse, TimeProvider clock, IAiJobStore? jobs = null,
     IReferenceVideoStore? referenceVideos = null, IAiSettingsStore? settings = null) : IShotProjectCopyStore
@@ -232,7 +232,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
             await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script.json"), nextScript, ct);
         }
         await AtomicJsonFile.WriteAsync(Path.Combine(destination, "production.json"), targetProduction, ct);
-        await AtomicJsonFile.WriteAsync(Path.Combine(destination, "shots.json"), latest, ct);
+        await FileShotStore.Documents.SaveAsync(destination, request.DestinationProjectId, latest, ct);
         return new(request.DestinationProjectId, copiedShots.Select(s => s.Id).ToArray());
     }
 

@@ -35,11 +35,17 @@ internal sealed class PreparedDocument(string kind, DecomposedDocument rows)
 /// objects the caller may change. Saves expect the caller to hold the project's
 /// <see cref="ProjectFiles.LockAsync"/> lease across its read-modify-write cycle.
 /// </summary>
-internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) where T : class
+internal interface IProjectDocumentStore
+{
+    string Kind { get; }
+    Task<bool> EnsureAsync(string directory, Guid project, CancellationToken ct);
+}
+
+internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDocumentStore where T : class
 {
     private static readonly ConcurrentDictionary<string, bool> Migrated = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     public DocumentSpec<T> Spec { get; } = spec;
-    private string Kind => Spec.Kind;
+    public string Kind => Spec.Kind;
 
     /// <summary>The document with detached properties left empty (a summary).</summary>
     public async Task<T> LoadAsync(string directory, Guid project, CancellationToken ct)
@@ -283,7 +289,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) where T : cl
     /// the legacy files are only moved aside, which a later open resumes. JSON is never read again
     /// once the migration row exists.
     /// </remarks>
-    internal async Task<bool> EnsureAsync(string directory, Guid project, CancellationToken ct)
+    public async Task<bool> EnsureAsync(string directory, Guid project, CancellationToken ct)
     {
         var db = ProjectDatabase.For(directory);
         var key = db.Path + "|" + Kind;

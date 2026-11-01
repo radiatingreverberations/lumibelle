@@ -46,6 +46,8 @@ public sealed partial class FileAssetStore
     private static async Task<string> MentionsAsync(string dir, AssetLibrary library, CancellationToken ct)
     {
         var text = new StringBuilder(JsonSerializer.Serialize(library, AtomicJsonFile.Options));
+        // Stored documents other than the asset library itself, which the caller passed in its new state.
+        Storage.ProjectDatabase.For(dir).ScanJson(json => text.Append(json), ["assets"]);
         foreach (var file in Directory.EnumerateFiles(dir, "*.json", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))
         {
             // One-time migration backups are never read by Lumibelle.

@@ -121,7 +121,7 @@ public sealed partial class ShotTests
         FileStream? locked = null;
         f.Adapter.BeforeDownload = () =>
         {
-            locked = new(Path.Combine(f.ProjectDirectory, "shots.json"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            locked = TestProjectDatabase.HoldReadOnly(f.ProjectDirectory);
             return Task.CompletedTask;
         };
         try

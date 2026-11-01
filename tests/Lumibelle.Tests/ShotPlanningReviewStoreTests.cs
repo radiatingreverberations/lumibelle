@@ -84,7 +84,7 @@ public sealed partial class ShotTests
         var saved = await store.SaveAsync(project.Id, [original], 0, ct: _ct); var proposed = Ready(); var job = Guid.NewGuid();
         if (OperatingSystem.IsWindows())
         {
-            using var locked = new FileStream(Path.Combine(await files.DirectoryAsync(project.Id, _ct), "shots.json"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var locked = TestProjectDatabase.HoldReadOnly(await files.DirectoryAsync(project.Id, _ct));
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.ApplyPlanningAsync(project.Id, job, [proposed], saved.Revision, _ct));
             var unchanged = await store.LoadAsync(project.Id, _ct); Assert.Single(unchanged.Shots); Assert.Empty(unchanged.PlanningReviews);
         }

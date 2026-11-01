@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Shots;
@@ -7,34 +8,40 @@ public sealed class FileRefinementBatchStore(ProjectFiles files)
 {
     public const int MaximumItems = 200;
     public event Action<Guid>? Changed;
-    private async Task<string> PathAsync(Guid project, CancellationToken ct) => Path.Combine(await files.DirectoryAsync(project, ct), "refinement-batches.json");
+    internal static readonly ProjectDocumentStore<RefinementBatches> Documents = new(new()
+    {
+        Kind = "refinement_batches", Description = "the saved refinement batches", Legacy = ["refinement-batches.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("runs")]
+    });
+    // Batches keep their own lease, independent of the project's other documents.
+    private static string Gate(string directory) => Path.Combine(directory, "refinement-batches.json");
     public async Task<RefinementBatches> LoadAsync(Guid project, CancellationToken ct = default)
     {
-        var path = await PathAsync(project, ct); using var gate = await ProjectFiles.LockAsync(path, ct);
-        return await ReadAsync(path, project, ct);
+        var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(Gate(dir), ct);
+        return await ReadAsync(dir, project, ct);
     }
     public async Task<RefinementBatches> UpdateAsync(Guid project, Func<RefinementBatches, Task<RefinementBatches>> update, CancellationToken ct = default)
     {
-        var path = await PathAsync(project, ct); RefinementBatches next;
-        using (await ProjectFiles.LockAsync(path, ct))
+        var dir = await files.DirectoryAsync(project, ct); RefinementBatches next;
+        using (await ProjectFiles.LockAsync(Gate(dir), ct))
         {
-            var current = await ReadAsync(path, project, ct); next = await update(current);
+            var current = await ReadAsync(dir, project, ct); next = await update(current);
             // Compare content: the worker wakes on Changed, so an unchanged pass must not publish.
             if (next == current || Same(next, current)) return current;
             next = next with { Revision = current.Revision + 1 }; Validate(next, project);
-            await AtomicJsonFile.WriteAsync(path, next, ct);
+            await Documents.SaveAsync(dir, project, next, ct);
         }
         Changed?.Invoke(project); return next;
     }
     private static bool Same(RefinementBatches a, RefinementBatches b) =>
-        System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(a, AtomicJsonFile.Options).AsSpan().SequenceEqual(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(b, AtomicJsonFile.Options));
+        System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(a, ProjectJson.Compact).AsSpan().SequenceEqual(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(b, ProjectJson.Compact));
     public static RefinementBatches Replace(RefinementBatches doc, RefinementBatch run) =>
         doc.Runs.Any(r => r.Id == run.Id && r == run) ? doc : doc with { Runs = doc.Runs.Select(r => r.Id == run.Id ? run : r).ToArray() };
     public static RefinementBatch Replace(RefinementBatch run, RefinementBatchItem item) =>
         run with { Items = run.Items.Select(i => i.Id == item.Id ? item : i).ToArray() };
-    private static async Task<RefinementBatches> ReadAsync(string path, Guid project, CancellationToken ct)
+    private static async Task<RefinementBatches> ReadAsync(string dir, Guid project, CancellationToken ct)
     {
-        var doc = await AtomicJsonFile.ReadAsync<RefinementBatches>(path, ct) ?? new() { ProjectId = project };
+        var doc = await Documents.LoadAsync(dir, project, ct);
         Validate(doc, project); return doc;
     }
     internal static void Validate(RefinementBatches doc, Guid project)

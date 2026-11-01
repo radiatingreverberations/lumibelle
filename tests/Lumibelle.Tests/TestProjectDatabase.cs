@@ -12,6 +12,22 @@ internal static class TestProjectDatabase
     public static long? Stamp(string projectDirectory, string kind) =>
         Scalar(projectDirectory, "SELECT stamp FROM documents WHERE kind = $kind", kind) is { } value ? Convert.ToInt64(value) : null;
 
+    /// <summary>
+    /// The saved state of a project folder's documents: each stored document's stamp and the text of
+    /// every remaining top-level JSON file. Equal snapshots mean nothing was saved in between.
+    /// Brings legacy JSON in first, so a later first read cannot look like a change.
+    /// </summary>
+    public static async Task<string> SnapshotAsync(string projectDirectory, Guid project, CancellationToken ct)
+    {
+        await ProjectDocuments.MigrateAllAsync(projectDirectory, project, ct);
+        var parts = new List<string>();
+        if (File.Exists(PathIn(projectDirectory)))
+            parts.AddRange(ProjectDocuments.All.Select(d => $"{d.Kind}={Stamp(projectDirectory, d.Kind)}"));
+        parts.AddRange(Directory.EnumerateFiles(projectDirectory, "*.json").Order(StringComparer.Ordinal)
+            .Select(f => Path.GetFileName(f) + "=" + File.ReadAllText(f)));
+        return string.Join("\n", parts);
+    }
+
     public static bool HasDocument(string projectDirectory, string kind) =>
         File.Exists(PathIn(projectDirectory)) && Stamp(projectDirectory, kind) is not null;
 

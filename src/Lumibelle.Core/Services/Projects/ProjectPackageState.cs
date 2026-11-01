@@ -18,7 +18,8 @@ internal sealed class ProjectPackageState
     internal AssistantHistory? History;
     internal Dictionary<string, byte[]> Other { get; } = new(StringComparer.Ordinal);
 
-    internal static async Task<ProjectPackageState> ReadAsync(string root, Guid project, CancellationToken ct)
+    /// <param name="stored">Read a library project's documents from its database (export), instead of a package's JSON files (import).</param>
+    internal static async Task<ProjectPackageState> ReadAsync(string root, Guid project, CancellationToken ct, bool stored = false)
     {
         var info = await ProjectPackageFormat.ReadAsync<ProjectInfo>(root, "project.json", ct)
             ?? throw new WorkspaceStoreException("Project manifest missing.");
@@ -28,9 +29,11 @@ internal sealed class ProjectPackageState
         var result = new ProjectPackageState {
             Project = info,
             Assets = await ProjectPackageFormat.ReadAsync<AssetLibrary>(root, "assets.json", ct) ?? new() { ProjectId = project },
-            Shots = await ProjectPackageFormat.ReadAsync<ShotDocument>(root, "shots.json", ct) ?? new() { ProjectId = project },
+            Shots = stored ? await FileShotStore.Documents.LoadCompleteAsync(root, project, ct)
+                : await ProjectPackageFormat.ReadAsync<ShotDocument>(root, "shots.json", ct) ?? new() { ProjectId = project },
             Production = await ProjectPackageFormat.ReadAsync<ProductionDocument>(root, "production.json", ct) ?? new() { ProjectId = project },
-            Cut = await ProjectPackageFormat.ReadAsync<CutDocument>(root, "cut.json", ct) ?? new() { ProjectId = project }
+            Cut = stored ? await FileCutStore.Documents.LoadAsync(root, project, ct)
+                : await ProjectPackageFormat.ReadAsync<CutDocument>(root, "cut.json", ct) ?? new() { ProjectId = project }
         };
         if (result.Shots.SchemaVersion == 1)
         {
@@ -97,6 +100,21 @@ internal sealed class ProjectPackageState
             }
         }
         return result;
+    }
+    /// <summary>
+    /// Reading a staged import through the stores brings its documents into project.sqlite and moves
+    /// their JSON aside. The package itself is the backup, so the staged project keeps only the database.
+    /// </summary>
+    internal static HashSet<string> StagedFiles(string root, IEnumerable<string> expected)
+    {
+        var legacy = Path.Combine(root, Storage.LegacyFiles.Folder);
+        var files = expected.Where(relative => File.Exists(ProjectPackageFormat.Under(root, relative))).ToHashSet(StringComparer.Ordinal);
+        if (Directory.Exists(legacy)) Directory.Delete(legacy, recursive: true);
+        foreach (var folder in ProjectPackageFormat.ScriptFolders)
+            if (Directory.Exists(Path.Combine(root, folder)) && !Directory.EnumerateFileSystemEntries(Path.Combine(root, folder)).Any())
+                Directory.Delete(Path.Combine(root, folder));
+        if (File.Exists(Path.Combine(root, Storage.ProjectDatabase.FileName))) files.Add(Storage.ProjectDatabase.FileName);
+        return files;
     }
     internal void Validate()
     {

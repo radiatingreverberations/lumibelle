@@ -75,7 +75,7 @@ public sealed partial class ShotTests
         b.AcceptedRevisionId = b.History[0].Id;
         await AtomicJsonFile.WriteAsync(Path.Combine(dir, "production.json"), new ProductionDocument { SchemaVersion = 2, ProjectId = f.Project.Id, Revision = 9, Compositions = [a, b] }, _ct);
         var original = await File.ReadAllBytesAsync(Path.Combine(dir, "production.json"), _ct);
-        var shots = await File.ReadAllBytesAsync(Path.Combine(dir, "shots.json"), _ct);
+        var shots = TestProjectDatabase.Stamp(dir, "shots");
         var job = Guid.NewGuid();
         await jobs.EnqueueAsync(AiJobSubmission.Create(job, AiJobKind.PromptComposition, AiBackend.OpenRouter, new(f.Project.Id, ShotId: source.Id, CompositionId: b.Id), "Project", "Existing request", Guid.NewGuid(), new { preserved = true }), _ct);
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
@@ -85,7 +85,7 @@ public sealed partial class ShotTests
         Assert.Equal(b.Id, earlier.SetupId); Assert.Equal(b.Prompt, earlier.Content.Prompt);
         Assert.Equal(b.History, earlier.Content.History); Assert.Equal(b.Shot.Images, earlier.Content.Images);
         Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "production-before-shared-inputs.json"), _ct));
-        Assert.Equal(shots, await File.ReadAllBytesAsync(Path.Combine(dir, "shots.json"), _ct));
+        Assert.Equal(shots, TestProjectDatabase.Stamp(dir, "shots"));
         Assert.Equal(job, Assert.Single((await jobs.ReadAsync(_ct)).Jobs).Id);
         var reopened = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(migrated.Revision, reopened.Revision);

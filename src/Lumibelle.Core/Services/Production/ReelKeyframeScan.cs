@@ -19,11 +19,14 @@ public static class ReelKeyframeScan
         if (Read(o) is { } keyframe) found.Add(keyframe);
         foreach (var entry in o) Collect(entry.Value, found);
     }
-    // Every top-level project document, including backups: keeping an extra picture is harmless.
+    // Every stored project document and top-level JSON file, including backups: keeping an extra picture is harmless.
     public static async Task<HashSet<ReelFrameIdentity>> ProjectAsync(string directory, CancellationToken ct)
     {
         HashSet<ReelFrameIdentity> found = [];
-        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))
+        Storage.ProjectDatabase.For(directory).ScanJson(json => Collect(JsonNode.Parse(json), found));
+        var legacy = Path.Combine(directory, Storage.LegacyFiles.Folder);
+        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.Exists(legacy) ? Directory.EnumerateFiles(legacy, "*.json", SearchOption.TopDirectoryOnly) : []).Order(StringComparer.Ordinal))
         {
             await using var input = File.OpenRead(file);
             Collect(await JsonNode.ParseAsync(input, cancellationToken: ct), found);

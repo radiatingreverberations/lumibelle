@@ -117,6 +117,26 @@ public sealed class ProjectDatabase
         command.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Visits every stored JSON text (document headers and rows, detached rows included), for scans
+    /// that look for references anywhere in a project, as the former whole-folder file scans did.
+    /// </summary>
+    internal void ScanJson(Action<string> visit, IReadOnlyCollection<string>? excludeKinds = null)
+    {
+        if (!Exists) return;
+        Read(s =>
+        {
+            foreach (var sql in new[] { "SELECT kind, header FROM documents ORDER BY kind", "SELECT kind, payload FROM parts ORDER BY kind, list, position" })
+            {
+                using var command = s.Command(sql);
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                    if (excludeKinds is null || !excludeKinds.Contains(reader.GetString(0))) visit(reader.GetString(1));
+            }
+            return 0;
+        }, "the project database");
+    }
+
     /// <summary>Identifies this database file, so a replaced or restored file never matches cached rows.</summary>
     internal static string Instance(ProjectDbSession session) =>
         session.Scalar("SELECT value FROM meta WHERE key = 'instance'") as string ?? "";

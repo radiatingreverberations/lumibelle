@@ -25,6 +25,11 @@ public sealed partial class AssetStoreTests
         return (source, target, store, library);
     }
     private string AssetReuseProject(Guid project) => Path.Combine(_directory, "projects", project.ToString("D"));
+    // A saved shot document that mentions the given identity, as a take publication receipt.
+    private Task Guard(Guid project, Guid id) => lumibelle.Services.Shots.FileShotStore.Documents.SaveAsync(AssetReuseProject(project), project,
+        new ShotDocument { ProjectId = project, TakePublications = [new(id, Guid.NewGuid(), Guid.NewGuid(), null, 1, new string('0', 64), DateTimeOffset.UtcNow)] }, TestContext.Current.CancellationToken);
+    private Task Unguard(Guid project) => lumibelle.Services.Shots.FileShotStore.Documents.SaveAsync(AssetReuseProject(project), project,
+        new ShotDocument { ProjectId = project }, TestContext.Current.CancellationToken);
     private static AssetReuseCommand AssetReuseRequest(AssetLibrary source, Guid target, AssetReuseKind kind = AssetReuseKind.Asset, bool move = false, Guid? targetAsset = null)
     {
         var owner = source.Assets[0];
@@ -100,23 +105,24 @@ public sealed partial class AssetStoreTests
     {
         var f = await AssetReuseFixture(); var command = AssetReuseRequest(f.Library, f.Target.Id, move: true);
         var path = Path.Combine(AssetReuseProject(f.Source.Id), file);
-        await AtomicJsonFile.WriteAsync(path, new { historical = new { imageId = f.Library.Assets[0].Images[0].Id } }, TestContext.Current.CancellationToken);
+        if (file == "shots.json") await Guard(f.Source.Id, f.Library.Assets[0].Images[0].Id);
+        else await AtomicJsonFile.WriteAsync(path, new { historical = new { imageId = f.Library.Assets[0].Images[0].Id } }, TestContext.Current.CancellationToken);
         var first = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.True(first.Available); Assert.False(first.SourceRemoved); Assert.Contains("Saved shots", first.Notice);
         Assert.Single((await f.Store.LoadAsync(f.Source.Id, TestContext.Current.CancellationToken)).Assets);
-        File.Delete(path); var retry = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
+        if (file == "shots.json") await Unguard(f.Source.Id); else File.Delete(path);
+        var retry = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.True(retry.SourceRemoved); Assert.Equal(first.AssetId, retry.AssetId); Assert.Single(retry.Library.Assets);
     }
     [Fact]
     public async Task AssetReuseMoveRefusesRemovalWhenSourceWasEditedAfterPartialCopy()
     {
         var f = await AssetReuseFixture(); var command = AssetReuseRequest(f.Library, f.Target.Id, move: true);
-        var guard = Path.Combine(AssetReuseProject(f.Source.Id), "shots.json");
-        await AtomicJsonFile.WriteAsync(guard, new { assetId = f.Library.Assets[0].Id }, TestContext.Current.CancellationToken);
+        await Guard(f.Source.Id, f.Library.Assets[0].Id);
         var first = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken); Assert.False(first.SourceRemoved);
         var changed = await f.Store.LoadAsync(f.Source.Id, TestContext.Current.CancellationToken);
         changed.Assets[0] = changed.Assets[0] with { Description = "Newer local description" };
-        await f.Store.SaveAsync(changed, changed.Revision, TestContext.Current.CancellationToken); File.Delete(guard);
+        await f.Store.SaveAsync(changed, changed.Revision, TestContext.Current.CancellationToken); await Unguard(f.Source.Id);
         var retry = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.False(retry.SourceRemoved); Assert.Contains("edited after copying", retry.Notice); Assert.Single(retry.Library.Assets);
         Assert.Equal("Newer local description", (await f.Store.LoadAsync(f.Source.Id, TestContext.Current.CancellationToken)).Assets[0].Description);
@@ -125,11 +131,10 @@ public sealed partial class AssetStoreTests
     public async Task AssetReuseMoveKeepsSourceWhenDestinationFileWasLostBeforeRemoval()
     {
         var f = await AssetReuseFixture(); var command = AssetReuseRequest(f.Library, f.Target.Id, move: true);
-        var guard = Path.Combine(AssetReuseProject(f.Source.Id), "shots.json");
-        await AtomicJsonFile.WriteAsync(guard, new { assetId = f.Library.Assets[0].Id }, TestContext.Current.CancellationToken);
+        await Guard(f.Source.Id, f.Library.Assets[0].Id);
         var first = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         var image = first.Library.Assets[0].Images[0];
-        File.Delete(Path.Combine(AssetReuseProject(f.Target.Id), "assets", first.AssetId.ToString("D"), "images", image.FileName)); File.Delete(guard);
+        File.Delete(Path.Combine(AssetReuseProject(f.Target.Id), "assets", first.AssetId.ToString("D"), "images", image.FileName)); await Unguard(f.Source.Id);
         var retry = await f.Store.ReuseAsync(command, TestContext.Current.CancellationToken);
         Assert.False(retry.SourceRemoved); Assert.Contains("destination media", retry.Notice);
         Assert.Single((await f.Store.LoadAsync(f.Source.Id, TestContext.Current.CancellationToken)).Assets);

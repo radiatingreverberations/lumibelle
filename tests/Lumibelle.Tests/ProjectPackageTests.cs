@@ -327,6 +327,7 @@ public sealed partial class ProjectPackageTests
         foreach (var file in segments) await f.Bytes(project, $"shots/takes/{take.Id:D}/{file}", new byte[7]);
         await f.Save(project, "shots.json", new ShotDocument { ProjectId = project.Id, Shots = [snapshot.Shot], Takes = [take] });
         Assert.False(File.Exists(Path.Combine(f.Root(project), "reference-videos", media.Id.ToString("D"), FileReferenceVideoStore.FrameFileName(Pick(30)))));
+        await TestProjectDatabase.SnapshotAsync(f.Root(project), project.Id, ct);
         var before = Tree(f.Root(project));
 
         var export = await f.Service.ExportAsync(project.Id, new(LeaveOutLosslessArchives: true), ct: ct);

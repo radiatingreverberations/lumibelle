@@ -45,21 +45,23 @@ public static class ProductionPolicy
     {
         var s = new Shot { EnvironmentAssetId = source.EnvironmentAssetId, EnvironmentInspection = ShotCopy.Of(source.EnvironmentInspection), EnvironmentInspectionDisabled = source.EnvironmentInspectionDisabled }; CopyCoverage(source, s); s.SelectedTakeId = null; return s;
     }
-    public static void CopyCoverage(Shot source, Shot target)
+    /// <param name="takeOwnership">The caller owns <paramref name="source"/> and never uses it again, so its parts move instead of being copied.</param>
+    public static void CopyCoverage(Shot source, Shot target, bool takeOwnership = false)
     {
+        T Own<T>(T value) => takeOwnership ? value : ShotCopy.Of(value);
         var looks = target.Characters.ToDictionary(c => c.Id, c => c.Appearance);
         target.Id = source.Id; target.Title = source.Title; target.ApprovedScriptId = source.ApprovedScriptId;
         target.SceneId = source.SceneId; target.SceneTitle = source.SceneTitle; target.SourceBlockIds = [..source.SourceBlockIds];
         target.SourceExcerpt = source.SourceExcerpt; target.Planning = source.Planning; target.Duration = source.Duration;
-        target.DraftingEnvironment = ShotCopy.Of(source.DraftingEnvironment);
+        target.DraftingEnvironment = Own(source.DraftingEnvironment);
         // Old documents kept inspection choices with coverage. An explicitly reviewed
         // input choice (including false for scene inheritance) takes precedence.
         if (target.EnvironmentInspectionDisabled is null && target.EnvironmentInspection is null) {
-            target.EnvironmentInspection = ShotCopy.Of(source.EnvironmentInspection);
+            target.EnvironmentInspection = Own(source.EnvironmentInspection);
             target.EnvironmentInspectionDisabled = source.EnvironmentInspectionDisabled;
         }
-        target.Direction = ShotCopy.Of(source.Direction); target.DirectionStrategyId = source.DirectionStrategyId;
-        target.Description = source.Description; target.Dialogue = ShotCopy.Of(source.Dialogue);
+        target.Direction = Own(source.Direction); target.DirectionStrategyId = source.DirectionStrategyId;
+        target.Description = source.Description; target.Dialogue = Own(source.Dialogue);
         target.Characters = ShotReferences.Characters(source).Select(c => c with { Appearance = looks.GetValueOrDefault(c.Id) }).ToList();
         target.Atmosphere = source.Atmosphere; target.Music = source.Music; target.StartFrame = source.StartFrame;
         foreach (var b in target.Images.Where(b => b.RepresentsId is { } id && target.Characters.All(c => c.Id != id))) { b.RepresentsId = null; b.Purpose = null; }
