@@ -10,7 +10,7 @@
 @implements IAsyncDisposable
 
 <InlineDialog OnEscape="Close" Visible="@(Sources.Count > 0 || Revise is not null)" VisibleChanged="async v => { if (!v) await Close(); }"
-    Options="DialogOptions" Class="refine-dialog" Title="Refine from video" CloseDisabled="_queueing">
+    Options="DialogSizes.Large" CloseOnEscape="!_queueing" Class="refine-dialog" Title="Refine from video" Context="@ContextLabel" CloseLabel="Close refine from video" CloseDisabled="_queueing">
 <DialogContent>
     <p class="refine-intro">Each clip guides a fresh Standard generation: its action, timing and camera movement carry over, with new audio from the prompt and enabled voices. Source clips stay selected.</p>
     <section class="refine-shared" aria-label="Shared settings">
@@ -94,20 +94,19 @@
     </ul>
     @if (_error is not null) { <p role="alert">@_error</p> }
 </DialogContent>
-<DialogActions>
-    <div class="refine-footer">
-        <fieldset class="refine-start" disabled="@_queueing"><legend>When prepared</legend>
-            <label class="check-row"><input type="radio" name="refine-start" checked="@_startNow" @onchange="() => _startNow = true" />Start now</label>
-            <label class="check-row"><input type="radio" name="refine-start" checked="@(!_startNow)" @onchange="() => _startNow = false" />Hold until started</label>
-        </fieldset>
-        <div class="refine-actions"><span>Media preparation continues after you close this dialog.</span>
-            <MudButton OnClick="Close" Disabled="_queueing">Cancel</MudButton>
-            <MudButton OnClick="Queue" Disabled="@(!CanQueue)" Variant="Variant.Filled" Color="Color.Primary">@QueueLabel</MudButton>
-        </div>
-    </div>
-</DialogActions>
+<Status><span class="refine-hint">Media preparation continues after you close this dialog.</span></Status>
+<Tools>
+    <fieldset class="refine-start" disabled="@_queueing"><legend>When prepared</legend>
+        <label class="check-row"><input type="radio" name="refine-start" checked="@_startNow" @onchange="() => _startNow = true" />Start now</label>
+        <label class="check-row"><input type="radio" name="refine-start" checked="@(!_startNow)" @onchange="() => _startNow = false" />Hold until started</label>
+    </fieldset>
+</Tools>
+<Actions>
+    <DialogDismiss Label="Cancel" OnDismiss="Close" Disabled="_queueing" Confirming="_confirmingDiscard" OnDiscard="Discard" OnKeepEditing="() => _confirmingDiscard = false" />
+    <MudButton OnClick="Queue" Disabled="@(!CanQueue)" Variant="Variant.Filled" Color="Color.Primary">@QueueLabel</MudButton>
+</Actions>
 </InlineDialog>
-<InlineDialog Visible="_referenceRow is not null" VisibleChanged="v => { if (!v) _referenceRow = null; }" Options="ReferenceDialogOptions" Title="Manage references" Context="This generation only">
+<InlineDialog Visible="_referenceRow is not null" VisibleChanged="v => { if (!v) _referenceRow = null; }" Options="DialogSizes.Media" Title="Manage references" Context="This generation only" CloseLabel="Close manage references">
 <DialogContent>
     @if (_referenceRow?.Draft is { } referenceDraft && _library is not null) {
         <ShotReferenceEditor @key="referenceDraft" Shot="referenceDraft.Shot" Library="_library" AllowReels="true" AllowOtherShotSwaps="false" VideoOnlyReferenceId="referenceDraft.Source.BindingId"
@@ -123,8 +122,6 @@
     [Parameter] public RefinementBatchItem? Revise { get; set; }
     [Parameter] public EventCallback Closed { get; set; }
     [Parameter] public EventCallback<RefinementBatch> Queued { get; set; }
-    private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
-    private static readonly DialogOptions ReferenceDialogOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false };
     private sealed class Row(RefineSource source)
     {
         public RefineSource Source { get; } = source;
@@ -138,6 +135,9 @@
         public bool Included { get; set; } = true;
         public bool Expanded { get; set; }
         public bool KeepKeyframes { get; set; } = true;
+        // The row's settings when its source was prepared, to tell whether closing would lose edits.
+        public string? Baseline { get; set; }
+        public bool ReferencesChanged { get; set; }
     }
     private CancellationTokenSource _life = new();
     private List<Row> _rows = [];
@@ -164,6 +164,14 @@
     private IEnumerable<Row> Included => _rows.Where(r => r.Included);
     private bool CanQueue => !_queueing && _loaded == _rows.Count && Included.Any() && Included.All(r => r.Draft is not null && Issue(r) is null) &&
         (_check is null || _checkError is not null || Included.All(r => _check.Ready(r.Draft!.Shot)));
+    private string? ContextLabel => Revise?.Name ?? (_rows.Count == 1 ? _rows[0].Source.Name : _rows.Count > 1 ? Plural(_rows.Count, "clip") : null);
+    // Closing asks first once any shared setting or clip setting differs from how the dialog opened.
+    private bool _confirmingDiscard;
+    private string? _sharedBaseline;
+    private string SharedState() => string.Join("\u001f", _resolution, _instructions, _saveFrames, _saveLatents, _useRefinedFrames);
+    private static string RowState(Row row) => string.Join("\u001f", row.Included, row.Resolution, row.Instructions, row.SaveFrames, row.SaveLatents, row.KeepKeyframes, row.BasePrompt,
+        row.Draft?.Reel is not null ? row.Draft.Shot.Title : null, row.Draft?.Reel?.Recipe.UseGuidance);
+    private bool Edited => _sharedBaseline is not null && SharedState() != _sharedBaseline || _rows.Any(r => r.ReferencesChanged || r.Baseline is not null && RowState(r) != r.Baseline);
     private string QueueLabel => Included.Count() is var n && n == 1 ? "Queue refinement" : $"Queue {n} refinements";
     private string ModelStatus => _checkError is not null ? $"Model check unavailable: {_checkError}"
         : _check is null ? "Checking ComfyUI models…"
@@ -177,6 +185,7 @@
         _opened = opened;
         await _life.CancelAsync(); _life.Dispose(); _life = new();
         _rows = []; _loaded = 0; _error = null; _batchId = null; _referenceRow = null; _startNow = true; _resolution = "default"; _useRefinedFrames = true;
+        _confirmingDiscard = false; _sharedBaseline = null;
         if (opened is null) return;
         var token = _life.Token;
         _ = CheckModels(false);
@@ -186,10 +195,12 @@
                 o.Draft.Source.Media.Width, o.Draft.Source.Media.Height)) { Draft = ShotCopy.Of(o.Draft), BasePrompt = o.BasePrompt, Expanded = true, KeepKeyframes = o.KeepKeyframes, SaveFrames = o.SaveLosslessFrames };
             _rows = [row]; _loaded = 1;
             _resolution = VideoResolutions.Key(o.Resolution); _instructions = o.Instructions; _saveFrames = o.SaveLosslessFrames; _saveLatents = o.SaveLatents;
+            _sharedBaseline = SharedState(); row.Baseline = RowState(row);
             return;
         }
         _rows = Sources.Select(s => new Row(s) { Expanded = Sources.Count == 1 }).ToList();
         _instructions = MotionReferencePolicy.DefaultInstructions; _saveLatents = false; _saveFrames = Reels;
+        _sharedBaseline = SharedState();
         // Sources are prepared one at a time so the dialog stays responsive; each copy is independent of its source.
         foreach (var row in _rows) {
             try {
@@ -200,6 +211,7 @@
             catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
             catch (Exception e) { row.LoadError = e.Message; row.Included = false; }
             if (token.IsCancellationRequested) return;
+            row.Baseline = RowState(row);
             _loaded++; StateHasChanged();
         }
     }
@@ -262,10 +274,17 @@
             if (guide.Description != (row.Instructions ?? _instructions)) row.Instructions = guide.Description;
         }
         row.Draft = draft with { Shot = shot, Guidance = ShotReferences.Resolve(shot, _library, new()), Appearances = ShotLooks.Capture(shot, _library) };
-        _referenceRow = null;
+        row.ReferencesChanged = true; _referenceRow = null;
     }
 
-    private Task Close() => _queueing ? Task.CompletedTask : Closed.InvokeAsync();
+    private Task Close()
+    {
+        if (_queueing) return Task.CompletedTask;
+        // While asking, closing waits for Discard changes or Keep editing.
+        if (Edited) { _confirmingDiscard = true; return Task.CompletedTask; }
+        return Discard();
+    }
+    private Task Discard() { _confirmingDiscard = false; return Closed.InvokeAsync(); }
     private async Task Queue()
     {
         if (!CanQueue) return;

@@ -18,7 +18,7 @@
     @if (_notice is not null) { <p role="status">@_notice</p> }
     @if (_error is not null) { <p role="alert">@_error</p> }
     @foreach (var issue in _library.Issues) { <p role="alert">@issue.Message</p> }
-    @if (!_loading && Filtered.Count == 0) { <div class="empty-library"><h2>No lossless archives to remove</h2><p>New takes save only MP4 unless you enable Save lossless frames in Shots. Discarded takes are managed in Trash.</p></div> }
+    @if (!_loading && Filtered.Count == 0) { <EmptyState Icon="@Icons.Material.Outlined.Inventory2" Title="No lossless archives to remove">New takes save only MP4 unless you enable Save lossless frames in Shots. Discarded takes are managed in Trash.</EmptyState> }
     <div class="archive-cleanup-list">
         @foreach (var row in Filtered.Skip(_page * PageSize).Take(PageSize))
         {
@@ -32,11 +32,10 @@
     </div>
     @if (Filtered.Count > PageSize) { <nav class="cleanup-toolbar" aria-label="Archive pages"><button disabled="@(_page == 0 || _busy)" @onclick="() => _page--">Previous</button><span>Page @(_page + 1) of @PageCount</span><button disabled="@(_page + 1 >= PageCount || _busy)" @onclick="() => _page++">Next</button></nav> }
 </section>
-<InlineDialog OnEscape="() => _confirm = false" Visible="_confirm" VisibleChanged="v => _confirm = v" Options="Options" Class="archive-cleanup-confirm" DefaultFocus="DefaultFocus.FirstChild" ContentClass="dialog-prose"
-              Title="Remove lossless frame archives?" CloseLabel="Close remove frame archives">
-    <DialogContent><p>Remove @_pending.Count archive@(_pending.Count == 1 ? "" : "s") and free approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>?</p><p>MP4 videos remain playable. Future saved frames from these takes will come from compressed video instead of the original lossless images. This cannot be undone.</p><p>Only these captured takes are included. Other projects and new takes are excluded.</p><ul>@foreach (var row in _pending.Take(10)) { <li>@row.ProjectName · @row.Title</li> }</ul>@if (_pending.Count > 10) { <p>And @(_pending.Count - 10) more selected takes.</p> }</DialogContent>
-    <DialogActions><MudButton OnClick="() => _confirm = false">Cancel</MudButton><MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Remove">Remove archives permanently</MudButton></DialogActions>
-</InlineDialog>
+<ConfirmDialog @bind-Visible="_confirm" Class="archive-cleanup-confirm" Title="Remove lossless frame archives?" CloseLabel="Close remove frame archives"
+               ConfirmLabel="Remove permanently" Danger="true" OnConfirm="Remove">
+    <p>Remove @_pending.Count archive@(_pending.Count == 1 ? "" : "s") and free approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>?</p><p>MP4 videos remain playable. Future saved frames from these takes will come from compressed video instead of the original lossless images. This cannot be undone.</p><p>Only these captured takes are included. Other projects and new takes are excluded.</p><ul>@foreach (var row in _pending.Take(10)) { <li>@row.ProjectName · @row.Title</li> }</ul>@if (_pending.Count > 10) { <p>And @(_pending.Count - 10) more selected takes.</p> }
+</ConfirmDialog>
 
 @code {
     private const int PageSize = 24;
@@ -48,7 +47,6 @@
     private int _page;
     private bool _loading, _busy, _confirm, _interactive, _focus;
     private ElementReference _refresh;
-    private DialogOptions Options => new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
     private IReadOnlyList<FrameArchiveRow> Filtered => _library.Items.Where(r => _project.Length == 0 || r.ProjectId.ToString() == _project).ToArray();
     private int PageCount => Math.Max(1, (Filtered.Count + PageSize - 1) / PageSize);
     protected override Task OnInitializedAsync() => Refresh();

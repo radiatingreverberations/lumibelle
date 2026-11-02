@@ -28,12 +28,11 @@
     </ChildContent>
 </RepeatGenerationDialog>
 
-<InlineDialog OnEscape="Close" Visible="Take is not null" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="video-regeneration-dialog"
-              Title="@($"Regenerate {Kind}")" CloseLabel="@($"Close regenerate {Kind}")" CloseDisabled="_busy">
+<InlineDialog OnEscape="Close" Visible="Take is not null" VisibleChanged="async v => { if (!v) await Close(); }" Options="DialogSizes.Small" CloseOnEscape="!_busy" Class="video-regeneration-dialog"
+              Title="@($"Regenerate {Kind}")" Context="@Name" CloseLabel="@($"Close regenerate {Kind}")" CloseDisabled="_busy">
 <DialogContent>
     @if (Snapshot is { } snapshot) {
-    <p><strong>@Name</strong> · @Width × @Height</p>
-    <p>Source seed <strong class="video-seed">@SourceSeed</strong></p>
+    <p>@Width × @Height · Source seed <strong class="video-seed">@SourceSeed</strong></p>
     <label class="video-regeneration-field">Seed
         <select aria-label="Seed mode" @bind="_seedMode" disabled="@Locked">
             <option value="same">Keep source seed</option><option value="random">New random seed</option><option value="custom">Custom seed</option>
@@ -62,10 +61,10 @@
     @if (_busy) { <p role="status">@(_submission is null ? "Preparing captured inputs…" : "Submitting request…")</p> }
     }
 </DialogContent>
-<DialogActions>
+<Actions>
     <MudButton OnClick="Close" Disabled="_busy">Cancel</MudButton>
     <MudButton OnClick="Submit" Disabled="@(_busy || !ValidSeed)" Variant="Variant.Filled" Color="Color.Primary">@(_submission is null ? "Generate " + Kind : "Retry submission")</MudButton>
-</DialogActions>
+</Actions>
 </InlineDialog>
 
 @code {
@@ -86,7 +85,6 @@
     private bool Locked => _busy || _submission is not null;
     private bool SeedChanged => _seedMode != "same";
     private bool ValidSeed => _seedMode != "custom" || long.TryParse(_seedText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var seed) && seed >= 0;
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
     private readonly CancellationTokenSource _lifetime = new();
     private bool _busy;
     private string _resolution = "native", _seedMode = "same", _seedText = "";

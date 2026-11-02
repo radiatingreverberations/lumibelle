@@ -15,7 +15,7 @@
     @foreach (var size in _sizes.Where(s => s.Issue is not null)) { <p class="field-hint">@size.Name: @size.Issue</p> }
     @if (ContextChanged) { <p role="status">The shot or its defaults changed since this take. Refinement uses the take's saved prompt and references, so those changes aren't included.</p> }
     @if (Issue is not null) { <p role="status">@Issue</p><a href='@AiSettingsNavigation.Link(Navigation, "video")'>Video models and setup</a> }
-    <div class="take-refinement-actions"><button disabled="@Busy" @onclick="Cancel">Back to review</button><button disabled="@Busy" @onclick="Refresh">Check setup</button><button class="primary-action" disabled="@(Busy || Issue is not null || Size.Issue is not null)" @onclick="Submit">@(_mode == TakeRefinementMode.Refine ? "Queue Refine" : "Queue Rework")</button></div>
+    <div class="take-refinement-actions"><button disabled="@Busy" @onclick="Cancel">Back to review</button><button disabled="@Busy" @onclick="Refresh">Check setup</button><button type="button" class="lumi-button primary" disabled="@(Busy || Issue is not null || Size.Issue is not null)" @onclick="Submit">@(_mode == TakeRefinementMode.Refine ? "Queue Refine" : "Queue Rework")</button></div>
 </section>
 
 @code {

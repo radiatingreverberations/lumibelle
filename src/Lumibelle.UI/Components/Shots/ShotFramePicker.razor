@@ -30,7 +30,7 @@
             }
             else if (Attached.Count > 0) { <p class="field-hint">Adds another shot frame. @Attached.Count already attached.</p> }
             @if (PictureCount >= 9 && Value is null) { <p role="status">@PictureCount/9 pictures. Remove a picture before adding this frame.</p> }
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(Disabled || !_loaded || _failed || PictureCount >= 9 && Value is null || IsCurrent)" OnClick="Pick">@(IsCurrent ? "Already attached" : Value is null ? "Add picture" : "Replace shot frame")</MudButton>
+            <MudButton Variant="Variant.Outlined" Disabled="@(Disabled || !_loaded || _failed || PictureCount >= 9 && Value is null || IsCurrent)" OnClick="Pick">@(IsCurrent ? "Already attached" : Value is null ? "Add picture" : "Replace shot frame")</MudButton>
             <p class="field-hint">Uses one picture slot. The reference stays pinned to this take and frame.</p>
         }
     }

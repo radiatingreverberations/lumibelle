@@ -8,7 +8,7 @@
 @inject IAssetStore AssetStore
 @implements IAsyncDisposable
 
-<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="DialogOptions" Class="refinement-batches-dialog"
+<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="DialogSizes.Large" Class="refinement-batches-dialog"
               Title="Refinement batches" CloseLabel="Close refinement batches"><DialogContent>
     <div class="refinement-studio">
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="SeenJobs" />
@@ -77,7 +77,7 @@
             </section>
         }
     </div>
-</DialogContent><Actions><MudButton OnClick="Close" Variant="Variant.Outlined">Done</MudButton></Actions></InlineDialog>
+</DialogContent><Actions><MudButton OnClick="Close">Close</MudButton></Actions></InlineDialog>
 <RefineFromVideoDialog ProjectId="ProjectId" Revise="_revise" Closed="() => _revise = null" Queued="Queued" />
 
 @code {
@@ -86,7 +86,6 @@
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
     // Highlighted when opened from a batch's "View batch" notice.
     [Parameter] public Guid? RequestedBatchId { get; set; }
-    private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private readonly CancellationTokenSource _lifetime = new();
     private readonly HashSet<Guid> _comparing = [];
     private RefinementBatches? _doc;

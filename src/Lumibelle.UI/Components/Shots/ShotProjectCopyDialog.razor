@@ -3,7 +3,7 @@
 @inject IShotProjectCopyStore Copies
 @inject IProjectStore Projects
 
-<InlineDialog Visible="Visible" VisibleChanged="Close" Title="Copy shots to project" CloseLabel="Close copy shots" CloseDisabled="_busy" Options="Options" Class="shot-bulk-dialog shot-copy-dialog">
+<InlineDialog Visible="Visible" VisibleChanged="Close" Title="Copy shots to project" CloseLabel="Close copy shots" CloseDisabled="_busy" Options="DialogSizes.Large" CloseOnEscape="!_busy" Class="shot-bulk-dialog shot-copy-dialog">
     <Summary>Copy shots, their reference assets, saved takes and relevant script scenes. Originals stay here.</Summary>
     <DialogContent>
         @if (_result is not null) {
@@ -60,7 +60,6 @@
     private ShotProjectCopyRequest? _pending;
     private ShotProjectCopyResult? _result;
     private bool Locked => _busy || _pending is not null;
-    private DialogOptions Options => new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_busy };
     protected override async Task OnParametersSetAsync() {
         var opening = Visible && !_wasVisible;
         _wasVisible = Visible;
