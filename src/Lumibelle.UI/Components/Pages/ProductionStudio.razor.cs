@@ -287,6 +287,7 @@ public partial class ProductionStudio
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        EndRenderChecks();
         // Resolve explicit views against this render before awaiting persistence: a
         // slow load can populate Current during those awaits, before its tabs exist.
         if (RequestedView is null) _handledView = null;

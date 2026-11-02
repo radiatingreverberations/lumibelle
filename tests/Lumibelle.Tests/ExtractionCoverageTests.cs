@@ -84,7 +84,7 @@ public sealed partial class AssetStoreTests
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => store.FinishExtractionAsync(project.Id, input, 0, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.FinishExtractionAsync(project.Id, input with { SceneIds = [Guid.NewGuid()] }, saved.Revision, TestContext.Current.CancellationToken));
         var path = Path.Combine(_directory, "projects", project.Id.ToString("D"), "assets.json");
-        await using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(path)!))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.FinishExtractionAsync(project.Id, input, saved.Revision, TestContext.Current.CancellationToken));
         Assert.Empty((await store.LoadAsync(project.Id, TestContext.Current.CancellationToken)).ExtractionReviews);
         saved = await store.FinishExtractionAsync(project.Id, input, saved.Revision, TestContext.Current.CancellationToken);

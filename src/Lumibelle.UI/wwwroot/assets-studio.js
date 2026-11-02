@@ -189,15 +189,21 @@ window.lumibelleAssets = {
         });
     },
     focusReview(label) {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        // The field can render a little later, and a menu that opened the review returns focus to its
+        // trigger as it closes. Keep the focus for about half a second, until the person moves it.
+        let frames = 0, focused = false;
+        const attempt = () => {
             const dialog = document.querySelector('.image-review-dialog');
             const target = label.startsWith('Image ') ? [...document.querySelectorAll('.image-edit-reference-manager .reference-action-buttons button')].find(b => b.getAttribute('aria-label') === label) : [...(dialog?.querySelectorAll('button[aria-label],input[aria-label],textarea[aria-label]') || [])].find(b => b.getAttribute('aria-label') === label);
-            // A delayed initial focus must not move typing into another field.
             const active = document.activeElement;
-            if (active !== target && dialog?.contains(active) && active.matches('input,textarea,select,[contenteditable=true]')) return;
-            target?.focus();
-            if (label === 'Name') target?.select();
-        }));
+            if (active !== target && dialog?.contains(active)) {
+                // A delayed initial focus must not move typing into another field, or undo a move within the review.
+                if (focused || active.matches('input,textarea,select,[contenteditable=true]')) return;
+            }
+            if (target && active !== target) { target.focus(); if (label === 'Name') target.select(); focused = true; }
+            if (++frames < 30) requestAnimationFrame(attempt);
+        };
+        requestAnimationFrame(() => requestAnimationFrame(attempt));
     },
     focusLibrary() {
         requestAnimationFrame(() => requestAnimationFrame(() =>

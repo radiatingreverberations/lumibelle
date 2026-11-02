@@ -65,6 +65,9 @@ for (const narrow of [false, true]) test(`low resolution takes and captured rege
   expect(result.snapshot.outputPolicy.saveLosslessFrames).toBe(narrow ? !sourceFrames : sourceFrames);
   expect((await setup()).inputs).toEqual(current.inputs);
   await page.reload();
-  await expect(page.locator(`[data-take-id='${result.id}'] .take-summary`)).toContainText(narrow ? 'Seed 4242' : 'Seed 53');
+  // Take cards keep generation details, including the seed, folded under Details.
+  const resultCard = page.locator(`[data-take-id='${result.id}']`);
+  await resultCard.locator('details > summary').filter({ hasText: 'Details' }).click();
+  await expect(resultCard).toContainText(narrow ? 'Seed 4242' : 'Seed 53');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

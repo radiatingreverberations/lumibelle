@@ -30,7 +30,8 @@ test('upscaled previews retain choices, check setup, and publish native-size tak
   await toolsTab(page, 'Generate');
   await page.getByRole('combobox', { name: 'Default takes', exact: true }).selectOption('1');
   const resolution = page.getByLabel('Default resolution', { exact: true });
-  await expect(resolution.locator('option')).toHaveText(['Quick · 0.2 MP · 608 × 352', 'Preview · 0.4 MP · 832 × 480', 'Detail · 0.7 MP · 1120 × 640', 'Native · 1 MP · 1344 × 768', 'Upscaled preview']);
+  await expect(resolution.locator('option')).toHaveText(['Quick · 0.2 MP · 608 × 352', 'Preview · 0.4 MP · 832 × 480', 'Detail · 0.7 MP · 1120 × 640', 'Native · 1 MP · 1344 × 768',
+    '1080p-class · 2.1 MP · 1920 × 1088', '1440p-class · 3.7 MP · 2560 × 1440', 'Upscaled preview']);
   await expect(resolution).toHaveValue('preview');
   await resolution.selectOption('upscaled');
   await expect(page.getByText(/832 × 480 sampling → 1344 × 768 output/)).toBeVisible();

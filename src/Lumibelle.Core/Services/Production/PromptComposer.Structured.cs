@@ -96,6 +96,8 @@ public static partial class PromptComposer
                 fields[name] = field.Value;
             }
         var rendered = new List<string>();
+        var addedAudio = new SortedSet<int>();
+        string? definitions = null;
         foreach (var name in ProductionPolicy.Sections)
         {
             var value = fields.GetValueOrDefault(name);
@@ -106,11 +108,19 @@ public static partial class PromptComposer
             {
                 body = direction.Trim(); notes.Add($"The response left out {name}, so the shot's own sound direction was used.");
             }
+            if (name is "subject_definitions" or "retention_analysis")
+            {
+                var given = body;
+                body = WithAudioLines(name, body, definitions, shot, addedAudio);
+                if (name == "subject_definitions") definitions = body;
+                if (string.IsNullOrWhiteSpace(given) && !string.IsNullOrWhiteSpace(body)) notes.Add($"The response left out {name}. Add it if this shot needs it.");
+            }
             if (string.IsNullOrWhiteSpace(body)) { notes.Add($"The response left out {name}. Add it if this shot needs it."); continue; }
             rendered.Add(name + ":\n" + body);
         }
         if (!fields.Values.Any(v => !string.IsNullOrWhiteSpace(Text(v))))
             throw new WorkspaceStoreException("The response has no usable prompt sections. Inspect it and retry; the accepted prompt is unchanged.");
+        if (addedAudio.Count > 0) notes.Add(AddedAudioNote(addedAudio));
         var usage = Field(root, "referenceUsage") is { } explanation ? Text(explanation)?.Trim() ?? "" : "";
         return new(string.Join("\n\n", rendered), usage) { Notes = notes };
     }

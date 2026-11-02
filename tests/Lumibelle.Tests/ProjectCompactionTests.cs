@@ -88,7 +88,7 @@ public sealed class ProjectCompactionTests : IDisposable
             File.WriteAllText(Path.Combine(folder, "reel-media.json"), "{}"); return folder; }
         var savedFolder = Candidate(saved); var pendingFolder = Candidate(pending);
         // Only the saved reel has its publication receipt; the other might still be published by a retry.
-        await AtomicJsonFile.WriteAsync(Path.Combine(root, "assets.json"), new AssetLibrary { ProjectId = project.Id, ReelPublications = [new(saved, Guid.NewGuid(), batch, 1, "fingerprint")] }, _ct);
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(root), new AssetLibrary { ProjectId = project.Id, ReelPublications = [new(saved, Guid.NewGuid(), batch, 1, "fingerprint")] }, _ct);
         var compaction = new ProjectCompaction(_files, new NoFolders(), _shots, _reels, _trash, new FakeAiSettingsStore(), assets: _assets);
 
         var plan = await compaction.InspectAsync(project.Id, _ct);
@@ -197,7 +197,7 @@ public sealed class ProjectCompactionTests : IDisposable
         library = await _assets.TrashReelAsync(project.Id, recent.Id, library.Revision, _ct);
         // Rewrite the first entry as it was saved before reels had a Trash period.
         var root = await _files.DirectoryAsync(project.Id, _ct);
-        await AtomicJsonFile.WriteAsync(Path.Combine(root, "assets.json"), library with {
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(root), library with {
             ReelTrash = library.ReelTrash.Select(t => t.Reel.Id == legacy.Id ? new TrashedReferenceReel(t.Reel, t.Owner, t.DeletedUtc) : t).ToList() }, _ct);
         var row = (await _trash.ListAsync(_ct)).Items.Single(r => r.Id == legacy.Id);
         Assert.Equal("Kept until deleted", row.Remaining(_clock.GetUtcNow()));

@@ -1,5 +1,6 @@
 using lumibelle.Models;
 using lumibelle.Services.Shots;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Production;
@@ -77,41 +78,30 @@ public sealed partial class FileProductionStore
             }
         }
         HydrateSharedContent(d);
-        var path = Path.Combine(dir, "production.json");
-        var existing = await AtomicJsonFile.ReadAsync<ProductionDocument>(path, ct);
-        if (existing?.SchemaVersion == 2)
-        {
-            var backup = Path.Combine(dir, "production-before-shared-inputs.json");
-            if (!File.Exists(backup)) {
-                var temporary = backup + ".tmp";
-                File.Copy(path, temporary, overwrite: true);
-                DurableFile.Flush(temporary);
-                File.Move(temporary, backup);
-            }
-        }
-        if (existing?.SchemaVersion == 3)
-        {
-            var backup = Path.Combine(dir, "production-before-shared-environment.json");
-            if (!File.Exists(backup)) {
-                var temporary = backup + ".tmp";
-                File.Copy(path, temporary, overwrite: true);
-                DurableFile.Flush(temporary);
-                File.Move(temporary, backup);
-            }
-        }
+        var existing = await Documents.TryLoadAsync(dir, d.ProjectId, ct);
+        if (existing?.SchemaVersion == 2) await BackupAsync(dir, d.ProjectId, "production-before-shared-inputs.json", ct);
+        if (existing?.SchemaVersion == 3) await BackupAsync(dir, d.ProjectId, "production-before-shared-environment.json", ct);
         if (existing?.Compositions.Any(c => c.GenerationSetupId is null) == true && d.Compositions.Any(c => c.GenerationSetupId is not null))
-        {
-            var backup = Path.Combine(dir, "production-before-global-setups.json");
-            if (!File.Exists(backup)) {
-                var temporary = backup + ".tmp";
-                File.Copy(path, temporary, overwrite: true);
-                DurableFile.Flush(temporary);
-                File.Move(temporary, backup);
-            }
-        }
+            await BackupAsync(dir, d.ProjectId, "production-before-global-setups.json", ct);
         d.Revision++;
-        // Composition is a runtime adapter. Persist only the settings it owns.
-        await AtomicJsonFile.WriteAsync(path, new {
+        await Documents.SaveAsync(dir, d.ProjectId, Persisted(d), ct);
+    }
+
+    // A copy of the saved document from just before a one-time upgrade rewrites it. Lumibelle never
+    // reads it; Compact project offers to remove it with the other legacy files.
+    private static async Task BackupAsync(string dir, Guid project, string name, CancellationToken ct)
+    {
+        var backup = Path.Combine(dir, LegacyFiles.Folder, name);
+        if (File.Exists(backup) || await Documents.LoadJsonAsync(dir, project, complete: true, ct) is not { } json) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
+        var temporary = backup + ".tmp";
+        await File.WriteAllBytesAsync(temporary, json, ct);
+        DurableFile.Flush(temporary);
+        File.Move(temporary, backup);
+    }
+
+    // Composition is a runtime adapter. Persist only the settings it owns.
+    internal static object Persisted(ProductionDocument d) => new {
             d.SchemaVersion, d.ProjectId, d.Revision, d.ShotContent, d.EarlierSetupContent,
             Compositions = d.Compositions.Select(c => new {
                 c.Id, c.ShotId, c.Name, c.GenerationSetupId, c.GenerationSetupVersion, c.Seed, c.TakeCount, c.OutputOverrides, c.Archived, c.Version, c.SourceFingerprint,
@@ -121,6 +111,5 @@ public sealed partial class FileProductionStore
                     c.Shot.Turbo, c.Shot.TurboSteps, c.Shot.Loras
                 }
             }).ToArray()
-        }, ct);
-    }
+        };
 }

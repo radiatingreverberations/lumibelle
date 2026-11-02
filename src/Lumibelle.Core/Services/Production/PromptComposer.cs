@@ -104,7 +104,7 @@ public static partial class PromptComposer
         else if (ShotFramePictures(r.Shot) is { Count: > 1 } frames) instructions += $"\n{Labels(frames)} are shot frames, described by shotFrames: stills from earlier takes, such as the end of the previous shot or earlier shots that must stay consistent. " +
             "Use them to keep wardrobe, hair, props, set dressing, lighting and where people are consistent, and name each in retention_analysis like any reference. " +
             "Their framing and poses are where those takes were, not compositions to copy, unless the directions say this shot continues from one of them.";
-        if (ReferenceVideos.AudioMappings(r.Shot).Any()) instructions += AudioReferenceInstructions;
+        if (ReferenceVideos.AudioMappings(r.Shot).Any()) instructions += AudioReferenceInstructions(r.Shot);
         if (attach && r.Shot.Videos.Any(v => v.EffectiveVisuals is ReelVisuals.Keyframes or ReelVisuals.None)) instructions += "\nReels in keyframe mode are supplied as the numbered Picture images, not videos. Inspect these images directly. Their grouped use guidance describes intended uses; only the selected frames establish visible information. Character frames supply appearance; environment frames supply layout and setting. Source actions, camera movements and sample dialogue are not target-shot instructions. Never invent Video identifiers for keyframe or audio-only reels.";
         if (attach && selectedMods.Length > 0) instructions += "\nThe sparseVisualReferences are visual-only RefMods addressed by their numbered Video labels, not Picture labels. " +
             "The extra attached stills are inspection previews of those RefMods, mapped by sparseInspectionAttachments. Inspect them, but never create Picture identifiers for them. " +
@@ -209,14 +209,6 @@ public static partial class PromptComposer
             (resolved.Audio.Count == 0 ? "No reference recordings are selected. Generate speech and sound from the shot directions; speaker numbers do not identify attached recordings. " : "") +
             (revision ? "The currentPrompt may name removed references; never carry over any other reference label." : "");
     }
-
-    private const string AudioReferenceInstructions = "\nOnly the selected numbered Audio inputs supply voice identity or an explicitly enabled soundtrack. " +
-        "Character voice choices are independent of appearance references; disabled reel soundtracks and choices set to None are not inputs. " +
-        "Use the supplied Audio numbers exactly; never derive them from Video numbers or speaker numbers. " +
-        "On each mapped Audio definition line, include its assigned authored name or defined subject and stable (S1), (S2) speaker label. " +
-        "An unmapped soundtrack retains its supplied role without an invented speaker. Audio-only reels supply voice references without visual information. " +
-        "Do not claim to have heard recordings; only their supplied roles and speaker mappings are available. " +
-        "Voice references supply identity, never their source words. A vocalizations-only voice supplies no dialogue. Include the enabled Audio references in referenceUsage.";
 
     /// <summary>RefMod videos, after checking the attached preview frames against the captured recipes.</summary>
     private static ResolvedVideo[] RefModVideos(PromptCompositionRequest r, bool attach, IReadOnlyList<RefModInspectionFrame> modFrames)

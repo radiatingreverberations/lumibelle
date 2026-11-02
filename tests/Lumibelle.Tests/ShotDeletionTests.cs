@@ -52,11 +52,11 @@ public sealed partial class ShotTests
         await f.Shots.SaveAsync(f.Project.Id, [first, second], 0, ct: _ct);
         var d = await AddTake(f.Project.Id, f.Shots, first); d.Shots[0].SelectedTakeId = d.Takes[0].Id;
         d = await f.Shots.SaveAsync(f.Project.Id, d.Shots, d.Revision, ct: _ct);
-        var manifest = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "shots.json");
-        var before = await File.ReadAllBytesAsync(manifest, _ct);
-        using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
+        var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct);
+        var before = TestProjectDatabase.Stamp(dir, "shots");
+        using (var locked = TestProjectDatabase.HoldReadOnly(dir))
             await Assert.ThrowsAnyAsync<Exception>(() => f.Shots.DeleteShotsAsync(f.Project.Id, [first.Id, second.Id], d.Revision, true, _ct));
-        Assert.Equal(before, await File.ReadAllBytesAsync(manifest, _ct));
+        Assert.Equal(before, TestProjectDatabase.Stamp(dir, "shots"));
         await using var media = await f.Shots.OpenAsync(f.Project.Id, d.Takes[0].Id, ShotTrashKind.Take, ct: _ct); Assert.NotNull(media);
         var saved = await f.Shots.DeleteShotsAsync(f.Project.Id, [first.Id, second.Id], d.Revision, true, _ct);
         Assert.Empty(saved.Shots); Assert.Single(saved.Trash);

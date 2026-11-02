@@ -65,14 +65,14 @@ public sealed partial class ShotTests
         var changed = await assets.SaveAsync(library with { Assets = [LookFixtures.Character()] }, library.Revision, _ct);
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => store.SaveImageReferencesAsync(project.Id, doc.Shots, doc.Revision, library.Revision, _ct));
         Assert.Equal(doc.Revision, (await store.LoadAsync(project.Id, _ct)).Revision);
-        var path = Path.Combine(await files.DirectoryAsync(project.Id, _ct), "shots.json");
-        var before = await File.ReadAllBytesAsync(path, _ct);
+        var dir = await files.DirectoryAsync(project.Id, _ct);
+        var before = TestProjectDatabase.Stamp(dir, "shots");
         var draft = doc.Copy(); draft.Shots[0].Title = "Reviewed title";
         // Deny publication while permitting readers; the prepared save must never
         // replace the previous manifest after an explicit publication failure.
-        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(dir))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.SaveImageReferencesAsync(project.Id, draft.Shots, doc.Revision, changed.Revision, _ct));
-        Assert.Equal(before, await File.ReadAllBytesAsync(path, _ct));
+        Assert.Equal(before, TestProjectDatabase.Stamp(dir, "shots"));
         var saved = await store.SaveImageReferencesAsync(project.Id, draft.Shots, doc.Revision, changed.Revision, _ct);
         Assert.Equal("Reviewed title", saved.Shots[0].Title); Assert.Equal("The arrival", saved.Recovery[0].Shots[0].Title);
     }

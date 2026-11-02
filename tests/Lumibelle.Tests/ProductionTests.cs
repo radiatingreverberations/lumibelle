@@ -71,7 +71,6 @@ public sealed partial class ShotTests
         await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
         var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) };
         var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, new FileAiJobStore(Path.Combine(_root, "jobs"), _clock));
-        var originalBytes = await File.ReadAllBytesAsync(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "shots.json"), _ct);
         var first = await store.InitializeAsync(f.Project.Id, _ct); var second = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(first.Revision, second.Revision); var c = Assert.Single(first.Compositions); Assert.Equal("Default setup", c.Name); Assert.Null(c.Accepted); Assert.Empty(c.Prompt);
         var copy = c.Copy(); copy.Id = Guid.NewGuid(); copy.Name = "Close view"; copy.Shot.Description = "A close view of the same arrival.";
@@ -79,7 +78,7 @@ public sealed partial class ShotTests
         Assert.Equal(2, saved.Compositions.Count); Assert.Equal(source.Description, saved.Compositions[0].Shot.Description);
         Assert.Null(saved.Compositions[1].Accepted); Assert.Empty(saved.Compositions[1].History);
         var reset = await f.Shots.LoadAsync(f.Project.Id, _ct); Assert.Equal(source.Description, reset.Shots[0].Description); Assert.Equal(source.Id, reset.Shots[0].Id);
-        using var serialized = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "production.json"), _ct));
+        using var serialized = JsonDocument.Parse((await FileProductionStore.Documents.LoadJsonAsync(await f.Files.DirectoryAsync(f.Project.Id, _ct), f.Project.Id, complete: true, _ct))!);
         Assert.False(serialized.RootElement.GetProperty("compositions")[0].TryGetProperty("shot", out _));
         var changed = c.Copy(); changed.DirectingNotes = "Stay close"; await store.SaveAsync(f.Project.Id, changed, c.Version, _ct);
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => store.SaveAsync(f.Project.Id, c, c.Version, _ct));

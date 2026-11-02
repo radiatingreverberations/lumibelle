@@ -11,6 +11,7 @@ public static class ProjectGitFiles
         .lumibelle.lock
         # Unfinished writes left by an interrupted save
         *.tmp
+        project.sqlite-journal
 
         """;
 

@@ -10,7 +10,8 @@ public sealed partial class FileProductionStore
     // retained with each composition, without changing shot content or captured takes.
     internal static async Task ReconcileFolderSetupsAsync(string directory, Guid project, IGenerationSetupStore setups, CancellationToken ct)
     {
-        var document = await AtomicJsonFile.ReadAsync<ProductionDocument>(Path.Combine(directory, "production.json"), ct);
+        // Reading through the store also brings the folder's legacy JSON into its database.
+        var document = await Documents.TryLoadAsync(directory, project, ct);
         if (document is null || document.SchemaVersion == 1) return;
         ValidateDocument(document, project);
         var library = await setups.LoadAsync(ct);

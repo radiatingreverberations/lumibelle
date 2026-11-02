@@ -44,7 +44,7 @@ public sealed partial class AssetStoreTests
         var voiceRoot = Path.Combine(AssetReuseProject(f.Source.Id), "assets", owner.Id.ToString("D"), "voices"); Directory.CreateDirectory(voiceRoot);
         await File.WriteAllBytesAsync(Path.Combine(voiceRoot, voice.FileName), [5, 6, 7, 8], ct);
         var library = f.Library with { Reels = [reel], Voices = [voice], Assets = [owner with { DefaultVoiceId = voice.Id }] };
-        await AtomicJsonFile.WriteAsync(Path.Combine(AssetReuseProject(f.Source.Id), "assets.json"), library, ct);
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(AssetReuseProject(f.Source.Id)), library, ct);
         var shot = new Shot { Title = "Turn", Duration = 2, Description = "Mira turns.", Dialogue = [new() { Speaker = "Mira", Text = "Hello." }] };
         await shots.SaveAsync(f.Source.Id, [shot], 0, ct: ct);
         var production = new FileProductionStore(files, shots, f.Store, projects, _clock, new FileAiJobStore(Path.Combine(_directory, "jobs"), _clock), videos);

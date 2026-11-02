@@ -94,7 +94,7 @@ public sealed class CutExportPlanTests
             .Select(i => new CutExportSegment(source, 0, 124, 24))
             .ToArray();
         var plan = CutExportPlan.Create(segments, new Dictionary<string, VideoFileInfo> { [source] = new(1344, 768, 124, 24, true) }, "C:/cut/output.mp4");
-        Assert.Contains("{filter-script}", plan.Arguments[plan.Arguments.ToList().IndexOf("-filter_complex_script") + 1]);
+        Assert.Contains("{filter-script}", plan.Arguments[plan.Arguments.ToList().IndexOf(CutExportPlan.FilterScriptOption) + 1]);
         Assert.DoesNotContain("-filter_complex", plan.Arguments);
         Assert.True(plan.Arguments.Sum(a => a.Length) + plan.Arguments.Count + 1 <= 32767);
         Assert.Contains("[63:v:0]", plan.FilterGraph);
@@ -105,7 +105,7 @@ public sealed class CutExportPlanTests
     {
         var plan = CutExportPlan.Create([new("audio.mp4", 0, 24, 24)],
             new Dictionary<string, VideoFileInfo> { ["audio.mp4"] = Audio }, "out.mp4");
-        Assert.DoesNotContain("-filter_complex_script", plan.Arguments);
+        Assert.DoesNotContain(CutExportPlan.FilterScriptOption, plan.Arguments);
         Assert.Contains("-filter_complex", plan.Arguments);
     }
 }

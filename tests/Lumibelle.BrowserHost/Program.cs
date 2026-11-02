@@ -103,7 +103,7 @@ app.MapPost("/fixtures/{id:guid}/legacy-setup-inputs", async (Guid id, IProducti
     var alternative = setup.Copy(); alternative.Id = Guid.NewGuid(); alternative.Name = "Earlier alternative";
     alternative.Prompt = "A different preserved prompt."; alternative.Shot.Images.Clear(); alternative.Shot.Resolution = VideoResolution.Detail;
     document.Compositions.Add(alternative); document.SchemaVersion = 2;
-    await AtomicJsonFile.WriteAsync(Path.Combine(await files.DirectoryAsync(id, default), "production.json"), document, default);
+    await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(await files.DirectoryAsync(id, default), id, document, default);
     return Results.Ok();
 });
 app.MapPost("/fixtures/{id:guid}/take-generation-setup", async (Guid id, IProductionStore production) => {

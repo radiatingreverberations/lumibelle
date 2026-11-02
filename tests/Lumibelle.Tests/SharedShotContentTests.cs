@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using lumibelle.Services.Production;
@@ -50,8 +51,7 @@ public sealed partial class ShotTests
             Assert.Equal(alternative.Prompt, c.Prompt);
             Assert.Equal("Renamed room", Assert.Single(c.Shot.Images).Name);
         });
-        var path = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "production.json");
-        using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(path, _ct));
+        using var saved = JsonDocument.Parse((await FileProductionStore.Documents.LoadJsonAsync(await f.Files.DirectoryAsync(f.Project.Id, _ct), f.Project.Id, complete: true, _ct))!);
         foreach (var setup in saved.RootElement.GetProperty("compositions").EnumerateArray()) {
             Assert.False(setup.TryGetProperty("prompt", out _));
             Assert.False(setup.GetProperty("inputs").TryGetProperty("images", out _));
@@ -75,7 +75,7 @@ public sealed partial class ShotTests
         b.AcceptedRevisionId = b.History[0].Id;
         await AtomicJsonFile.WriteAsync(Path.Combine(dir, "production.json"), new ProductionDocument { SchemaVersion = 2, ProjectId = f.Project.Id, Revision = 9, Compositions = [a, b] }, _ct);
         var original = await File.ReadAllBytesAsync(Path.Combine(dir, "production.json"), _ct);
-        var shots = await File.ReadAllBytesAsync(Path.Combine(dir, "shots.json"), _ct);
+        var shots = TestProjectDatabase.Stamp(dir, "shots");
         var job = Guid.NewGuid();
         await jobs.EnqueueAsync(AiJobSubmission.Create(job, AiJobKind.PromptComposition, AiBackend.OpenRouter, new(f.Project.Id, ShotId: source.Id, CompositionId: b.Id), "Project", "Existing request", Guid.NewGuid(), new { preserved = true }), _ct);
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
@@ -84,8 +84,10 @@ public sealed partial class ShotTests
         var earlier = Assert.Single(migrated.EarlierSetupContent);
         Assert.Equal(b.Id, earlier.SetupId); Assert.Equal(b.Prompt, earlier.Content.Prompt);
         Assert.Equal(b.History, earlier.Content.History); Assert.Equal(b.Shot.Images, earlier.Content.Images);
-        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "production-before-shared-inputs.json"), _ct));
-        Assert.Equal(shots, await File.ReadAllBytesAsync(Path.Combine(dir, "shots.json"), _ct));
+        // The legacy file is kept as it was; the upgrade backup holds the same stored document.
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production.json"), _ct));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(original), JsonNode.Parse(await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production-before-shared-inputs.json"), _ct))));
+        Assert.Equal(shots, TestProjectDatabase.Stamp(dir, "shots"));
         Assert.Equal(job, Assert.Single((await jobs.ReadAsync(_ct)).Jobs).Id);
         var reopened = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(migrated.Revision, reopened.Revision);
@@ -120,12 +122,13 @@ public sealed partial class ShotTests
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(4, migrated.SchemaVersion);
         Assert.All(migrated.Compositions, c => Assert.Equal(conflicting ? null : (Guid?)environment, c.Shot.EnvironmentAssetId));
-        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "production-before-shared-environment.json"), _ct));
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production.json"), _ct));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(original), JsonNode.Parse(await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production-before-shared-environment.json"), _ct))));
         if (conflicting) Assert.Equal(new[] { first.Shot.EnvironmentAssetId, alternate.Shot.EnvironmentAssetId }.Order(),
             migrated.EarlierSetupContent.Select(e => e.Content.EnvironmentAssetId).Order());
         else Assert.Empty(migrated.EarlierSetupContent);
         Assert.All(migrated.EarlierSetupContent, e => { Assert.Equal(content.Prompt, e.Content.Prompt); Assert.Equal(content.Images, e.Content.Images); });
-        using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(path, _ct));
+        using var saved = JsonDocument.Parse((await FileProductionStore.Documents.LoadJsonAsync(dir, f.Project.Id, complete: true, _ct))!);
         Assert.All(saved.RootElement.GetProperty("compositions").EnumerateArray(), c => Assert.False(c.GetProperty("inputs").TryGetProperty("environmentAssetId", out _)));
         var edited = migrated.Compositions.Single(c => c.Id == alternate.Id);
         edited.Shot.EnvironmentAssetId = null;

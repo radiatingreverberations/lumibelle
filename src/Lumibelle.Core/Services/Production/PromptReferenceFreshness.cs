@@ -109,8 +109,6 @@ public static class PromptReferenceFreshness
             return new(PromptReferenceState.Missing, "Write or compose a prompt for this shot.");
         if (composition.Accepted is not { } accepted)
             return new(PromptReferenceState.NeedsReview, "This prompt has not been reviewed against the selected references.");
-        if (checkDirection && directionFingerprint != accepted.DirectionFingerprint)
-            return new(PromptReferenceState.NeedsReview, "The reviewed direction or scene strategy changed. Check the prompt against the current intent and applicable staging.");
         var baseline = accepted.ReferenceFingerprint;
         if (!IsFingerprint(currentFingerprint))
             return new(PromptReferenceState.NeedsReview, "The references could not be compared. Check the selected references before reviewing the prompt.");
@@ -119,6 +117,10 @@ public static class PromptReferenceFreshness
         if (baseline is not null && baseline != currentFingerprint)
             return new(PromptReferenceState.ReferencesChanged,
                 "The selected references, their order, crops, use guidance or voice mappings differ from the last reviewed prompt. Revise the prompt, or mark it reviewed if the text still fits.");
+        // After the reference comparison: changed references also mark the direction's reference
+        // support for review, and saying the references changed is the more useful note.
+        if (checkDirection && directionFingerprint != accepted.DirectionFingerprint)
+            return new(PromptReferenceState.NeedsReview, "The reviewed direction or scene strategy changed. Check the prompt against the current intent and applicable staging.");
         if (Text(accepted.Prompt) != Text(composition.Prompt))
             return new(PromptReferenceState.NeedsReview, "The prompt was edited after its last review. Review it against the selected references.");
         if (baseline is null)

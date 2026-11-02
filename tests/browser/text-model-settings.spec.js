@@ -125,7 +125,8 @@ test('provider catalogs preserve filters, pages, aliases and keyboard focus acro
   await page.getByLabel('Search text models', { exact: true }).fill('Mock script');
   await section(page, 'Image models').click(); await section(page, 'Text models').click();
   await expect(page.getByLabel('Search text models', { exact: true })).toHaveValue('Mock script');
-  await provider(page, 'ComfyUI').focus(); await page.keyboard.press('ArrowDown');
+  // Arrow keys follow the tab order: ComfyUI, OpenAI-compatible, OpenRouter, …
+  await provider(page, 'OpenAI-compatible').focus(); await page.keyboard.press('ArrowDown');
   await expect(provider(page, 'OpenRouter')).toBeFocused();
   await expect(page.getByText('Page 2 of 2', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Alias', { exact: true })).toHaveValue('Unfinished alias');

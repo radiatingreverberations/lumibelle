@@ -57,8 +57,8 @@ public sealed partial class ShotTests
         two.Prompt = "Second shot's prompt";
         two = (await second.SaveAsync(g.Project.Id, two, two.Version, _ct)).Compositions.Single();
         await AddTake(f.Project.Id, f.Shots, a);
-        var shotPath = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "shots.json");
-        var takesBefore = await File.ReadAllBytesAsync(shotPath, _ct);
+        var shotDirectory = await f.Files.DirectoryAsync(f.Project.Id, _ct);
+        var takesBefore = TestProjectDatabase.Stamp(shotDirectory, "shots");
         one.Name = "Seed Hunter"; one.TakeCount = 4; one.Seed = 123;
         one.Shot.Resolution = VideoResolution.Quick; one.Shot.AspectOverride = null;
         one = (await first.SaveAsync(f.Project.Id, one, one.Version, _ct)).Compositions.Single();
@@ -67,7 +67,7 @@ public sealed partial class ShotTests
         Assert.Equal(VideoResolution.Quick, refreshed.Shot.Resolution); Assert.Null(refreshed.Shot.AspectOverride);
         Assert.Equal("Second shot's prompt", refreshed.Prompt); Assert.Empty(refreshed.Shot.Images);
         Assert.Equal("First shot's prompt", one.Prompt); Assert.Equal("Room one", Assert.Single(one.Shot.Images).Name);
-        Assert.Equal(takesBefore, await File.ReadAllBytesAsync(shotPath, _ct));
+        Assert.Equal(takesBefore, TestProjectDatabase.Stamp(shotDirectory, "shots"));
         two.TakeCount = 2;
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => second.SaveAsync(g.Project.Id, two, two.Version, _ct));
         Assert.Equal(4, (await second.LoadAsync(g.Project.Id, _ct)).Compositions.Single().TakeCount);
@@ -103,14 +103,14 @@ public sealed partial class ShotTests
         old.Prompt = "Preserved shot prompt";
         await oldStore.SaveAsync(f.Project.Id, old, old.Version, _ct);
         var directory = await f.Files.DirectoryAsync(f.Project.Id, _ct);
-        var original = await File.ReadAllBytesAsync(Path.Combine(directory, "production.json"), _ct);
+        var original = await FileProductionStore.Documents.LoadJsonAsync(directory, f.Project.Id, complete: true, _ct);
         var store = new FileProductionStore(f.Files, f.Shots, f.Assets, projects, _clock, jobs,
             generationSetups: new FileGenerationSetupStore(new ApplicationPaths(_root)));
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
         var setup = Assert.Single(migrated.Compositions);
         Assert.NotNull(setup.GenerationSetupId); Assert.Equal(old.Id, setup.Id);
         Assert.Equal(old.Prompt, setup.Prompt); Assert.Equal(4, setup.TakeCount); Assert.Equal(VideoResolution.Quick, setup.Shot.Resolution);
-        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(directory, "production-before-global-setups.json"), _ct));
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(directory, "legacy-json", "production-before-global-setups.json"), _ct));
         Assert.Equal(migrated.Revision, (await store.InitializeAsync(f.Project.Id, _ct)).Revision);
     }
 }

@@ -33,7 +33,8 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
     let start;
     if (workflow === 'extraction' || workflow === 'planning') {
      if (workflow === 'extraction') await reveal('left');
-     else await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
+     // Draft shots sits at the foot of the scene's environment sidebar.
+     else { await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true'); await reveal('right'); }
      start = page.getByRole('button', { name: workflow === 'extraction' ? 'Extract assets from script' : 'Draft shots', exact: true });
      control = page.locator(workflow === 'extraction' ? '.asset-library-extraction .request-action-button' : '.scene-drafting-tools .request-action-button').first();
      review = page.locator(workflow === 'extraction' ? '.extraction-dialog' : '.shot-planning-dialog');
@@ -58,7 +59,13 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
      await (await reelFraming(page)).getByLabel('Framing preset', { exact: true }).selectOption('Custom');
      control = page.locator('#reel-setup-prompt-panel .request-action-button'); start = control; review = page.locator('.reel-review-dialog');
     }
-    await start.click(); composer = page.locator('.ai-assist-dialog').last();
+    // Extraction has its own dialog; the other requests share the AI assist composer.
+    composer = workflow === 'extraction' ? page.locator('.extraction-dialog') : page.locator('.ai-assist-dialog').last();
+    // A click that lands while the previous change re-renders the panel can be lost; open it until it shows.
+    await expect(async () => {
+     if (!await composer.isVisible()) await start.click({ timeout: 2000 });
+     await expect(composer).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
     if (workflow === 'reel' || workflow === 'prompt') {
      await composer.locator('.model-chip').click();
      await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
@@ -66,6 +73,8 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
     }
     const action = { extraction: 'Find assets', planning: 'Draft shots', enhancement: 'Enhance', guidance: 'Suggest', prompt: 'Compose prompt', reel: 'Compose pair' }[workflow];
     await composer.getByRole('button', { name: action, exact: true }).click();
+    // Extraction keeps its dialog open on the queued request; close it as a person would.
+    if (workflow === 'extraction') await composer.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
     await expect(composer).toBeHidden();
    }
    await expect(control).toContainText('Queued');
@@ -78,7 +87,7 @@ for (const narrow of [false, true]) for (const workflow of workflows) {
    const close = review.getByRole('button', { name: 'Close', exact: true }).last();
    await close.click(); await expect(review).toBeHidden();
    if (narrow) {
-    if (['script', 'enhancement'].includes(workflow)) await reveal('right');
+    if (['script', 'enhancement', 'planning'].includes(workflow)) await reveal('right');
     else if (workflow === 'extraction') await reveal('left');
    }
    await expect(control).toBeInViewport();

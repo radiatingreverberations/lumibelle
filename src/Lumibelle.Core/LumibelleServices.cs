@@ -19,7 +19,7 @@ public static class LumibelleServices
         services.AddSingleton(_ => new ProjectLocations(paths, lease: exclusive));
         services.AddSingleton<IProjectStore>(s => new FileProjectStore(paths, s.GetRequiredService<TimeProvider>(), s.GetRequiredService<ILogger<FileProjectStore>>(), s.GetRequiredService<ProjectLocations>()));
         services.AddSingleton<IProjectRoutes, FileProjectRoutes>();
-        services.AddSingleton(s => new ProjectFiles(paths, s.GetRequiredService<IProjectStore>(), s.GetRequiredService<ILogger<SqliteMediaIndex>>(), s.GetRequiredService<ProjectLocations>()));
+        services.AddSingleton(s => new ProjectFiles(paths, s.GetRequiredService<IProjectStore>(), s.GetRequiredService<ProjectLocations>()));
         services.AddSingleton<Services.Projects.IProjectFolders, Services.Projects.ProjectFolders>();
         services.AddSingleton<Services.Projects.IProjectCompaction, Services.Projects.ProjectCompaction>();
         services.AddSingleton<ApplicationSession>();

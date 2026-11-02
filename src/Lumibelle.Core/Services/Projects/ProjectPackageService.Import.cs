@@ -85,9 +85,11 @@ public sealed partial class ProjectPackageService
             }
             await state.WriteAsync(root, ct);
             foreach (var (relative, bytes) in plan.Metadata) await File.WriteAllBytesAsync(ProjectPackageFormat.Under(root, relative), bytes, ct);
+            // Bring every document into project.sqlite now; the package keeps the JSON form.
+            await Storage.ProjectDocuments.MigrateAllAsync(root, state.Project.Id, ct);
             await ProjectPackageState.ValidateStoresAsync(root, state.Project, ct);
             var staged = new List<ProjectPackageFile>();
-            foreach (var relative in expected.Order(StringComparer.Ordinal)) {
+            foreach (var relative in ProjectPackageState.StagedFiles(root, expected).Order(StringComparer.Ordinal)) {
                 var path = ProjectPackageFormat.Under(root, relative); ProjectPackageFormat.NoLinks(root, path);
                 await using var source = File.OpenRead(path);
                 staged.Add(await ProjectPackageFormat.CopyAsync(source, Stream.Null, relative, ProjectPackageFormat.MaxExpandedBytes, ct));
@@ -180,6 +182,7 @@ public sealed partial class ProjectPackageService
             ct.ThrowIfCancellationRequested();
             DurableFile.FlushDirectory(root);
             Directory.Move(root, target); // Same parent filesystem; one publication point. Never overwrite.
+            Storage.DocumentCache.EvictDirectory(root);
             return receipt.Project; // Do not observe cancellation after successful publication.
         }
         catch (Exception e) when (TransferError(e)) { throw Failure(e); }

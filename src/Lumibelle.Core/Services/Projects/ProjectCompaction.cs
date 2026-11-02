@@ -3,6 +3,7 @@ using lumibelle.Services.AI;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Projects;
@@ -66,9 +67,13 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
                 var bytes = Directory.Exists(lossless) ? Directory.EnumerateFiles(lossless, "archive-*.webp").Sum(f => new FileInfo(f).Length) : 0;
                 if (bytes > 0) { media.Add(id); reelBytes += bytes; }
             }
-        // The backup is copied from production.json just before a one-time upgrade rewrites it.
-        var backups = File.Exists(Path.Combine(dir, "production.json"))
-            ? BackupNames.SelectMany(n => new[] { n, n + ".tmp" }).Where(n => File.Exists(Path.Combine(dir, n))).ToArray() : [];
+        // Project files from before SQLite storage, and copies saved just before one-time upgrades.
+        // Lumibelle never reads them. A project still on JSON keeps its production backups beside it.
+        var legacy = Path.Combine(dir, LegacyFiles.Folder);
+        var backups = (File.Exists(Path.Combine(dir, "production.json"))
+            ? BackupNames.SelectMany(n => new[] { n, n + ".tmp" }).Where(n => File.Exists(Path.Combine(dir, n))) : [])
+            .Concat(Directory.Exists(legacy) ? Directory.EnumerateFiles(legacy, "*", SearchOption.AllDirectories)
+                .Select(f => Path.GetRelativePath(dir, f).Replace('\\', '/')).Order(StringComparer.Ordinal) : []).ToArray();
         var manifest = await ManifestAsync(project, ct);
         var (candidates, candidateBytes) = await SavedReelCandidatesAsync(project, dir, ct);
         var (inputRuns, inputBytes) = await LocalInputsAsync(dir, ct);
@@ -138,11 +143,13 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
             }
         });
         await Run(CompactionPart.Backups, "Removing migration backups…", () => {
-            foreach (var name in plan.Backups.Where(n => BackupNames.Any(b => n == b || n == b + ".tmp")))
+            foreach (var name in plan.Backups.Where(n => BackupNames.Any(b => n == b || n == b + ".tmp") || n.StartsWith(LegacyFiles.Folder + "/", StringComparison.Ordinal)))
             {
                 var path = Path.Combine(dir, name);
                 if (File.Exists(path)) { reclaimed += new FileInfo(path).Length; File.Delete(path); }
             }
+            var legacy = Path.Combine(dir, LegacyFiles.Folder);
+            if (Directory.Exists(legacy) && !Directory.EnumerateFiles(legacy, "*", SearchOption.AllDirectories).Any()) Directory.Delete(legacy, recursive: true);
             return Task.CompletedTask;
         });
         await Run(CompactionPart.PackageManifest, "Removing the package manifest…", async () => {

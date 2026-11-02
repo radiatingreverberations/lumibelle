@@ -1,11 +1,17 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Shots;
 
 public interface IShotStore
 {
+    /// <summary>The shot document. Recovery versions carry no shots or setups; use <see cref="LoadRecoveryAsync"/> or <see cref="LoadCompleteAsync"/>.</summary>
     Task<ShotDocument> LoadAsync(Guid projectId, CancellationToken ct = default);
+    /// <summary>The shot document including every recovery version's shots and setups.</summary>
+    Task<ShotDocument> LoadCompleteAsync(Guid projectId, CancellationToken ct = default) => LoadAsync(projectId, ct);
+    async Task<ShotRecovery?> LoadRecoveryAsync(Guid projectId, Guid recoveryId, CancellationToken ct = default)
+        => (await LoadCompleteAsync(projectId, ct)).Recovery.FirstOrDefault(r => r.Id == recoveryId);
     Task<ShotDocument> SaveAsync(Guid projectId, IReadOnlyList<Shot> shots, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default);
     Task<ShotDocument> SaveWorkspaceAsync(Guid projectId, IReadOnlyList<Shot> shots, IReadOnlyList<SceneReferenceSetup> setups, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
         => setups.Count == 0 ? SaveAsync(projectId, shots, expectedRevision, reason, ct) : throw new WorkspaceStoreException("Scene reference setup storage is unavailable.");
@@ -50,12 +56,49 @@ public interface IShotStore
 
 public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock, TakeFrameReader? frameReader = null, IProductionMediaTools? mediaTools = null, lumibelle.Services.AI.IAiJobStore? jobs = null) : IShotStore
 {
-    private static string Manifest(string directory) => Path.Combine(directory, "shots.json");
+    // Recovery versions hold complete copies of every shot (most of a large project's data) and
+    // are only read when one is restored, so they are stored apart and left out of loads.
+    internal static readonly ProjectDocumentStore<ShotDocument> Documents = new(new()
+    {
+        Kind = "shots", Description = "the shot list", Legacy = ["shots.json"],
+        Empty = id => new() { ProjectId = id },
+        Lists = [
+            new("shots"), new("takes"), new("trash"),
+            new("recovery", Detached: [new("shots", "[]"), new("sceneSetups", "[]"), new("directionStrategies", "[]")]),
+            new("sceneSetups", "sceneId"), new("directionStrategies"), new("planningReviews", "jobId"),
+            new("takePublications", "takeId"), new("trimPublications", "resultId"), new("extensionPublications", "resultId"), new("projectCopies")
+        ],
+        ReadLegacy = async (dir, id, ct) =>
+        {
+            var doc = await AtomicJsonFile.ReadAsync<ShotDocument>(Path.Combine(dir, "shots.json"), ct);
+            if (doc is not null) { Migrate(doc); Validate(doc, id); }
+            return doc;
+        }
+    });
     private static void Revision(ShotDocument d, long expected) { if (d.Revision != expected) throw new WorkspaceConflictException(); }
     public async Task<ShotDocument> LoadAsync(Guid projectId, CancellationToken ct = default) => await Read(await files.DirectoryAsync(projectId, ct), projectId, ct);
-    private static async Task<ShotDocument> Read(string dir, Guid id, CancellationToken ct)
+    public async Task<ShotDocument> LoadCompleteAsync(Guid projectId, CancellationToken ct = default) => await Read(await files.DirectoryAsync(projectId, ct), projectId, ct, complete: true);
+    public async Task<ShotRecovery?> LoadRecoveryAsync(Guid projectId, Guid recoveryId, CancellationToken ct = default)
     {
-        var doc = await AtomicJsonFile.ReadAsync<ShotDocument>(Manifest(dir), ct) ?? new() { ProjectId = id };
+        var recovery = await Documents.FindAsync<ShotRecovery>(await files.DirectoryAsync(projectId, ct), projectId, "recovery", recoveryId.ToString("D"), attach: true, ct);
+        foreach (var shot in recovery?.Shots ?? []) H3PresetMigrations.Apply(shot);
+        return recovery;
+    }
+    /// <summary>The current shots only, for callers that read coverage without the takes, Trash or receipts.</summary>
+    internal async Task<List<Shot>> LoadShotsAsync(Guid projectId, CancellationToken ct = default)
+    {
+        var shots = await Documents.LoadListAsync<Shot>(await files.DirectoryAsync(projectId, ct), projectId, "shots", ct);
+        foreach (var shot in shots) H3PresetMigrations.Apply(shot);
+        return shots;
+    }
+    private static async Task<ShotDocument> Read(string dir, Guid id, CancellationToken ct, bool complete = false)
+    {
+        // Loads are fresh objects: callers may change them freely.
+        var doc = complete ? await Documents.LoadCompleteAsync(dir, id, ct) : await Documents.LoadAsync(dir, id, ct);
+        Migrate(doc); Validate(doc, id); return doc;
+    }
+    private static void Migrate(ShotDocument doc)
+    {
         if (doc.SchemaVersion == 1)
         {
             // Before schema 2 the application default was always 16:9. Compare to
@@ -66,7 +109,6 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         }
         foreach (var shot in doc.Shots.Concat(doc.Recovery.SelectMany(r => r.Shots)).Concat(doc.Trash.Where(t => t.Owner is not null).Select(t => t.Owner!)))
             H3PresetMigrations.Apply(shot);
-        Validate(doc, id); return doc.Copy();
     }
     public static void Validate(ShotDocument d, Guid id)
     {
@@ -129,7 +171,8 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
     private async Task<ShotDocument> Publish(string dir, ShotDocument d, CancellationToken ct)
     {
         d.Revision++; d.UpdatedUtc = clock.GetUtcNow(); Validate(d, d.ProjectId);
-        await AtomicJsonFile.WriteAsync(Manifest(dir), d, ct); return d.Copy();
+        // Only changed rows are written. The document is this call's own copy, so it is returned as is.
+        await Documents.SaveAsync(dir, d.ProjectId, d, ct); return d;
     }
     public Task<ShotDocument> SaveAsync(Guid projectId, IReadOnlyList<Shot> shots, long expectedRevision, string reason = "Edit shots", CancellationToken ct = default)
         => SaveCore(projectId, shots, null, expectedRevision, reason, ct);
@@ -235,9 +278,10 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
     public async Task<ShotDocument> RecoverAsync(Guid projectId, Guid recoveryId, long expectedRevision, CancellationToken ct = default)
     {
         var d = await LoadAsync(projectId, ct); Revision(d, expectedRevision);
-        var recovered = ShotCopy.Of(d.Recovery.SingleOrDefault(r => r.Id == recoveryId)?.Shots ?? throw new WorkspaceStoreException("Recovery version not found."));
+        var recovery = d.Recovery.Any(r => r.Id == recoveryId) ? await LoadRecoveryAsync(projectId, recoveryId, ct) : null;
+        var recovered = recovery?.Shots ?? throw new WorkspaceStoreException("Recovery version not found.");
         foreach (var s in recovered) if (!d.Takes.Any(t => t.Id == s.SelectedTakeId && t.ShotId == s.Id)) s.SelectedTakeId = null;
-        return await SaveDirectedWorkspaceAsync(projectId, recovered, d.Recovery.Single(r => r.Id == recoveryId).SceneSetups, d.Recovery.Single(r => r.Id == recoveryId).DirectionStrategies, expectedRevision, "Restore recovery", ct);
+        return await SaveDirectedWorkspaceAsync(projectId, recovered, recovery.SceneSetups, recovery.DirectionStrategies, expectedRevision, "Restore recovery", ct);
     }
     private void TrashTake(ShotDocument d, ShotTake take, Shot owner)
     {
@@ -367,10 +411,10 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
         string path, type; DateTimeOffset created;
         if (kind == ShotTrashKind.Take)
         {
+            // Keyed row reads: serving media never loads the whole document.
             var take = trash
-                ? (await Read(dir, projectId, ct)).Trash.FirstOrDefault(t => t.Id == mediaId && !t.Purging && t.ExpiresUtc > clock.GetUtcNow())?.Take
-                : await files.MediaIndex.FindAsync<ShotTake>(Manifest(dir), mediaId.ToString("D"),
-                    async token => (await Read(dir, projectId, token)).Takes.ToDictionary(t => t.Id.ToString("D")), ct);
+                ? (await Documents.FindAsync<ShotTrashEntry>(dir, projectId, "trash", mediaId.ToString("D"), attach: false, ct)) is { Purging: false } entry && entry.ExpiresUtc > clock.GetUtcNow() ? entry.Take : null
+                : await Documents.FindAsync<ShotTake>(dir, projectId, "takes", mediaId.ToString("D"), attach: false, ct);
             if (take is null || frame is < 0 || frame >= take.FrameCount) return null;
             path = Path.Combine(dir, "shots", "takes", take.Directory, "video.mp4");
             type = frame.HasValue ? "image/png" : "video/mp4"; created = take.CreatedUtc;

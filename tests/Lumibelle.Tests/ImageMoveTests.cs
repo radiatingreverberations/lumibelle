@@ -76,7 +76,7 @@ public sealed partial class AssetStoreTests
         if (!OperatingSystem.IsWindows()) return;
         var (project, store, before) = await MoveFixture(); var source = before.Assets[0];
         var path = Path.Combine(_directory, "projects", project.Id.ToString(), "assets.json");
-        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(path)!))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.MoveImagesAsync(project.Id, source.Id, source.Images.Select(i => i.Id).ToArray(), new(before.Assets[1].Id), before.Revision, cancellationToken: TestContext.Current.CancellationToken));
         var saved = await store.LoadAsync(project.Id, cancellationToken: TestContext.Current.CancellationToken); Assert.Equal(before.Revision, saved.Revision); Assert.Empty(saved.Assets[1].Images);
         foreach (var image in source.Images) { await using var media = await store.OpenImageAsync(project.Id, source.Id, image.Id, cancellationToken: TestContext.Current.CancellationToken); Assert.NotNull(media); }

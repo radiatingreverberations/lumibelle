@@ -73,14 +73,14 @@ test('provider details are collapsed, show separate capacity and key allowance, 
   const checks = async () => (await (await request.get('/fixtures/capacity')).json());
   const initial = await checks();
   const toggles = drawer(page).locator('.ai-provider-toggle');
-  await expect(toggles).toHaveText([/ComfyUI.*VRAM/, /OpenRouter.*Allowance/, /Codex.*Allowance/, /Claude Code.*Limits/]);
+  await expect(toggles).toHaveText([/ComfyUI.*VRAM/, /OpenAI-compatible.*Server/, /OpenRouter.*Allowance/, /Codex.*Allowance/, /Claude Code.*Limits/]);
   for (const button of await toggles.all()) await expect(button).toHaveAttribute('aria-expanded', 'false');
   await toggles.nth(0).click();
   const comfy = drawer(page).locator('#activity-capacity-ComfyUI');
   await expect(comfy).toContainText(/7[.,]0 \/ 20[.,]0 GiB/);
   await expect(comfy).toContainText(/1[.,]0 \/ 8[.,]0 GiB/);
   await expect(comfy.locator('meter')).toHaveCount(2);
-  await toggles.nth(1).click();
+  await toggles.filter({ hasText: 'OpenRouter' }).click();
   const router = drawer(page).locator('#activity-capacity-OpenRouter');
   await expect(router).toContainText('Key allowance remaining: $12.25 USD');
   await expect(router).toContainText('Spending cap: $20 USD · resets monthly');

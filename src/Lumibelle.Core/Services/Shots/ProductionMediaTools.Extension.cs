@@ -31,7 +31,7 @@ public sealed partial class ProductionMediaTools
                 : $"anullsrc=r=48000:cl=stereo,atrim=duration={N((s.EndFrameExclusive - s.StartFrame) / s.Fps)},asetpts=PTS-STARTPTS[a{i}]");
         }
         filters.Add(string.Concat(Enumerable.Range(0, segments.Count).Select(i => $"[v{i}]" + (audio ? $"[a{i}]" : ""))) + $"concat=n={segments.Count}:v=1:a={(audio ? 1 : 0)}[v]" + (audio ? "[a]" : ""));
-        args.AddRange(["-filter_complex_threads", "1", "-filter_complex_script", "{filter-script}", "-map", "[v]"]);
+        args.AddRange(["-filter_complex_threads", "1", CutExportPlan.FilterScriptOption, "{filter-script}", "-map", "[v]"]);
         if (audio) args.AddRange(["-map", "[a]", "-c:a", "aac", "-b:a", "192k"]); else args.Add("-an");
         var count = segments.Sum(s => s.EndFrameExclusive - s.StartFrame); var fps = segments[0].Fps;
         args.AddRange(["-frames:v", count.ToString(), "-t", N(count / fps), "-r", N(fps), "-fps_mode", "cfr", "-c:v", "libx264", "-crf", "16", "-preset", "fast", "-pix_fmt", "yuv420p", "-threads", "1", "-map_metadata", "-1", "-movflags", "+faststart", target]);

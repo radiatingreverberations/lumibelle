@@ -141,7 +141,7 @@ public sealed partial class ShotTests
         var d = await AddTake(f.Project.Id, f.Shots, shot); var request = FrameCopy(d.Takes[0]);
         var library = await f.Assets.SaveAsync(new() { ProjectId = f.Project.Id }, 0, _ct);
         var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct);
-        await using (var locked = new FileStream(Path.Combine(dir, "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var locked = TestProjectDatabase.HoldReadOnly(Path.Combine(dir)))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.SaveDerivedImageAsync(f.Project.Id, request, library.Revision, _ct));
         var unchanged = await f.Assets.LoadAsync(f.Project.Id, _ct);
         Assert.Equal(library.Revision, unchanged.Revision); Assert.Empty(unchanged.Assets); Assert.Empty(unchanged.ImageCopyReceipts);

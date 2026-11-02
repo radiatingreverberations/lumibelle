@@ -59,20 +59,20 @@ public sealed class HostBoundaryTests : IDisposable
             services.AddSingleton<ISecretProtector>(new WebSecretProtector(new EphemeralDataProtectionProvider()));
             services.AddLumibelleCore(paths); return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         }
-        Guid id; string file; byte[] before;
+        Guid id; string file; long? before;
         await using (var provider = Provider())
         {
             var project = await provider.GetRequiredService<IProjectStore>().CreateAsync(new("Shared host fixture", "Disposable"), Ct); id = project.Id;
             var store = provider.GetRequiredService<IScriptStore>(); var doc = await store.LoadAsync(id, Ct);
             await store.SaveAsync(doc with { Blocks = ScriptFixtures.Document(id).Blocks }, doc.Revision, cancellationToken: Ct);
-            file = Path.Combine(paths.Projects, id.ToString("D"), "script.json");
-            before = await File.ReadAllBytesAsync(file, Ct);
+            file = Path.Combine(paths.Projects, id.ToString("D"));
+            before = TestProjectDatabase.Stamp(file, "script");
         }
         await using (var provider = Provider())
         {
             var saved = await provider.GetRequiredService<IScriptStore>().LoadAsync(id, Ct);
             Assert.Equal("You called?", saved.Blocks[^1].Text);
-            Assert.Equal(before, await File.ReadAllBytesAsync(file, Ct));
+            Assert.Equal(before, TestProjectDatabase.Stamp(file, "script"));
             Assert.Same(provider.GetRequiredService<IAssetStore>(), provider.GetRequiredService<IImageTrashStore>());
         }
     }

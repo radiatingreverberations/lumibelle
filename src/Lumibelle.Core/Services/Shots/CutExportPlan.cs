@@ -72,7 +72,7 @@ public sealed record CutExportPlan(IReadOnlyList<string> Arguments, long Frames,
         // ProcessStartInfo still uses Windows' command-line length limit even when the
         // path is not shell-quoted. Long cuts move the graph to a UTF-8 filter script.
         var inline = filterText.Length + args.Sum(a => a.Length) + args.Count + 1 <= WindowsCommandLineCharacters;
-        args.AddRange(inline ? ["-filter_complex", filterText] : ["-filter_complex_script", "{filter-script}"]);
+        args.AddRange(inline ? ["-filter_complex", filterText] : [FilterScriptOption, "{filter-script}"]);
         args.AddRange(["-map", "[outv]"]);
         if (hasAudio) args.AddRange(["-map", "[outa]", "-c:a", "aac", "-b:a", "192k"]);
         else args.Add("-an");
@@ -80,6 +80,12 @@ public sealed record CutExportPlan(IReadOnlyList<string> Arguments, long Frames,
             "-r", N(fps), "-fps_mode", "cfr", "-t", N(totalFrames / fps), "-map_metadata", "-1", "-movflags", "+faststart", target]);
         return new(args, totalFrames, fps, hasAudio, filterText);
     }
+
+    // FFmpeg 7.0 reads any option's value from a file with "-/option"; FFmpeg 8 removed the older
+    // -filter_complex_script, which earlier releases still need. The runner retries with it once.
+    public const string FilterScriptOption = "-/filter_complex";
+    public const string LegacyFilterScriptOption = "-filter_complex_script";
+    internal static bool RejectsFilterScriptOption(string error) => error.Contains("Unrecognized option '/filter_complex'", StringComparison.Ordinal);
 
     private static string N(double value) => value.ToString("0.########", CultureInfo.InvariantCulture);
 }

@@ -6,7 +6,7 @@ namespace Lumibelle.Tests;
 public sealed partial class ShotTests
 {
     [Fact]
-    public async Task IndexedTakeAndFrameFollowDiscardRestoreAndValidateFrameBounds()
+    public async Task StoredTakeAndFrameFollowDiscardRestoreAndValidateFrameBounds()
     {
         var f = Fixture(); var shot = Ready();
         await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);

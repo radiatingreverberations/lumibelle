@@ -4,3 +4,4 @@
 .character-voice-row label { display: grid; gap: .25rem; min-width: 0; }
 .character-voice-row audio, .character-voice-editor select { width: 100%; min-width: 0; }
 .character-voice-summary { margin: 0; overflow-wrap: anywhere; }
+.character-voice-missing { margin: 0; padding: .5rem .75rem; border-radius: var(--lumi-radius-surface); background: var(--lumi-warning-surface); color: var(--lumi-warning); overflow-wrap: anywhere; }

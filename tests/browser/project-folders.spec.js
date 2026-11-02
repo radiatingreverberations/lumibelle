@@ -1,10 +1,12 @@
 import { test, expect } from './fixtures.js';
+import { realpathSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 test('a project moves to a folder, is edited there, and opens again after removal', async ({ page, request }) => {
-  const outside = await mkdtemp(path.join(tmpdir(), 'lumibelle-outside-'));
+  // The app shows full paths, and a CI runner's temp folder is a short 8.3 path (RUNNER~1).
+  const outside = realpathSync.native(await mkdtemp(path.join(tmpdir(), 'lumibelle-outside-')));
   try {
     const { id } = await (await request.get('/fixtures/new')).json();
     await page.goto(`/projects/${id}/settings`);

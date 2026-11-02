@@ -97,10 +97,10 @@ public sealed partial class ShotTests
         var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
         var shots = await AddTake(f.Project.Id, f.Shots, shot); var cuts = new FileCutStore(f.Files, f.Shots, _clock);
         var cut = await cuts.SaveAsync(f.Project.Id, [CutClip.From(shot, shots.Takes[0])], 0, _ct);
-        var path = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "cut.json"); var before = await File.ReadAllBytesAsync(path, _ct);
-        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct); var before = TestProjectDatabase.Stamp(dir, "cut");
+        using (var locked = TestProjectDatabase.HoldReadOnly(dir))
             await Assert.ThrowsAnyAsync<Exception>(() => cuts.SaveAsync(f.Project.Id, [], cut.Revision, _ct));
-        Assert.Equal(before, await File.ReadAllBytesAsync(path, _ct));
+        Assert.Equal(before, TestProjectDatabase.Stamp(dir, "cut"));
         await using var media = await f.Shots.OpenAsync(f.Project.Id, shots.Takes[0].Id, ShotTrashKind.Take, ct: _ct); Assert.NotNull(media);
         Assert.Empty((await cuts.SaveAsync(f.Project.Id, [], cut.Revision, _ct)).Clips);
     }

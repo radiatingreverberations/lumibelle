@@ -46,7 +46,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => assets.SaveDerivedImageAsync(f.Project.Id, request, 0, _ct));
         if (OperatingSystem.IsWindows())
         {
-            await using (var locked = new FileStream(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "assets.json"), FileMode.Open, FileAccess.Read, FileShare.Read))
+            await using (var locked = TestProjectDatabase.HoldReadOnly(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct))))
                 await Assert.ThrowsAsync<WorkspaceStoreException>(() => assets.SaveDerivedImageAsync(f.Project.Id, request, library.Revision, _ct));
             Assert.Empty((await assets.LoadAsync(f.Project.Id, _ct)).Assets[0].Images);
         }

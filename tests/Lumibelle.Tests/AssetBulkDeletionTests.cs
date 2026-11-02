@@ -69,7 +69,7 @@ public sealed partial class AssetStoreTests
         var (project, assetId, store, library) = await TrashFixture();
         library = await store.SaveAsync(library with { Assets = [.. library.Assets, Asset("Another asset")] }, library.Revision, ct);
         var ids = library.Assets.Select(a => a.Id).ToArray();
-        await using (var locked = new FileStream(ManifestPath(project), FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var locked = TestProjectDatabase.HoldReadOnly(ProjectPath(project)))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.DeleteAssetsAsync(project, ids, library.Revision, ct));
         var reloaded = await store.LoadAsync(project, ct);
         Assert.Equal(library.Revision, reloaded.Revision); Assert.Equal(2, reloaded.Assets.Count); Assert.Empty(reloaded.Trash);

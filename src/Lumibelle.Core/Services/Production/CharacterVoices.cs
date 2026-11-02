@@ -22,9 +22,11 @@ public static class CharacterVoices
         var mapped = shot.Voices.Where(v => (v.CharacterAssetId ?? v.AssetId) == asset.Id).Select(v => v.Speaker)
             .Concat(shot.Videos.Where(v => Owner(v, library) == asset.Id).Select(v => v.Speaker ?? ""))
             .Where(s => speakers.Contains(s, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var matches = mapped.Length > 0 ? mapped : speakers.Where(s => s.Equals(asset.Name.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
-        var unambiguous = matches.Length == 1 && (mapped.Length == 1 || library.Assets.Count(a => a.Category == AssetCategory.Character && a.Name.Trim().Equals(asset.Name.Trim(), StringComparison.OrdinalIgnoreCase)) == 1);
-        var allSpeakersKnown = speakers.All(s => library.Assets.Count(a => a.Category == AssetCategory.Character && a.Name.Trim().Equals(s, StringComparison.OrdinalIgnoreCase)) == 1);
+        // JAN (V.O.) and JAN are both Jan Sherwood, unless another character could be JAN too.
+        int Named(string speaker) => library.Assets.Count(a => a.Category == AssetCategory.Character && DialogueSpeakers.Names(speaker, a.Name));
+        var matches = mapped.Length > 0 ? mapped : speakers.Where(s => DialogueSpeakers.Names(s, asset.Name)).ToArray();
+        var unambiguous = matches.Length == 1 && (mapped.Length == 1 || Named(matches[0]) == 1);
+        var allSpeakersKnown = speakers.All(s => Named(s) == 1);
         var choice = new CharacterVoiceSelection { AssetId = asset.Id, CharacterName = asset.Name, SpeakerConfirmed = unambiguous || speakers.Length == 0 || allSpeakersKnown && matches.Length == 0,
             Speaker = unambiguous ? matches[0] : "", Source = speakers.Length == 0 || allSpeakersKnown && matches.Length == 0
                 ? CharacterVoiceSource.None : CharacterVoiceSource.Unselected };
@@ -59,6 +61,29 @@ public static class CharacterVoices
             reel.AudioExcerpt = choice.Excerpt;
         }
     }
+    // Dialogue speakers no voice input speaks for, each with the one library character it names.
+    // Speakers that name no character, such as an unnamed extra, are left out. A character
+    // without a managed choice keeps older inputs: any recording or reel audio they own.
+    public static IReadOnlyList<(string Speaker, ReferenceAsset Character)> Unvoiced(Shot shot, AssetLibrary library)
+    {
+        // A managed choice says whom its voice speaks for. Its materialized recording is labelled with the
+        // character's name even for vocalizations only, so only older inputs without a choice count by label.
+        bool Managed(Guid? owner) => owner is { } id && shot.CharacterVoices?.Any(c => c.AssetId == id) == true;
+        var voiced = (shot.CharacterVoices ?? []).Where(c => c.Source is CharacterVoiceSource.Recording or CharacterVoiceSource.Reel).Select(c => c.Speaker)
+            .Concat(shot.Voices.Where(v => !Managed(v.CharacterAssetId ?? v.AssetId)).Select(v => v.Speaker))
+            .Concat(shot.Videos.Where(v => v.UseSoundtrack && !Managed(Owner(v, library))).Select(v => v.Speaker ?? ""))
+            .Select(s => s.Trim()).Where(s => s.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unvoiced = new List<(string, ReferenceAsset)>();
+        foreach (var speaker in shot.Dialogue.Select(d => d.Speaker.Trim()).Where(s => s.Length > 0 && !voiced.Contains(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (library.Assets.Where(a => a.Category == AssetCategory.Character && DialogueSpeakers.Names(speaker, a.Name)).ToArray() is [var character] &&
+                (shot.CharacterVoices?.Any(c => c.AssetId == character.Id) == true ||
+                 !shot.Voices.Any(v => (v.CharacterAssetId ?? v.AssetId) == character.Id) && !shot.Videos.Any(v => v.UseSoundtrack && Owner(v, library) == character.Id)))
+                unvoiced.Add((speaker, character));
+        return unvoiced;
+    }
+    public const string MadeUpVoice = "without one, the video model makes up a voice for these lines";
+    public static string UnvoicedWarning(string speaker, ReferenceAsset character) =>
+        $"No voice is chosen for {speaker}, which names {character.Name}. Choose {character.Name}'s voice under Character voices; {MadeUpVoice}.";
     public static string Label(CharacterVoiceSelection? choice) => choice switch {
         null => "Saved legacy inputs", { Source: CharacterVoiceSource.None } => "None",
         { Source: CharacterVoiceSource.Unselected } => "Choose voice",

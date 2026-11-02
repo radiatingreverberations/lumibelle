@@ -35,6 +35,18 @@ npm test
 
 Browser tests use Playwright with installed Microsoft Edge and a separate `Lumibelle.BrowserHost` process for each test, listening on a dynamically assigned loopback port. The fixture builds the host once, isolates queue and settings state between tests, and removes its temporary data after each test. The host uses the real UI and file stores with a temporary library and entirely mocked text/image providers; it never reads your AI credentials or project data. On a machine without Edge, install it with `npx playwright install msedge`. Tests cover the writing-to-assets flow, formatting, selections, undo, paste, conflicts, reconnects, keyboard controls, and mobile layouts. Browser screenshots and reports are ignored.
 
+CI runs every spec file in `tests/browser`. `build/browser-shards.mjs` splits them into shards of similar duration, one runner each, using the measured times in `tests/browser/durations.json`. A new spec file is picked up automatically and counts as an average file until the times are refreshed. After adding or substantially changing specs, refresh the times from a full Release run, then check the longest shard against the .NET test job:
+
+```powershell
+$env:LUMIBELLE_BROWSER_CONFIGURATION='Release'
+$env:PLAYWRIGHT_JSON_OUTPUT_NAME='test-results/browser-report.json'
+npx playwright test --reporter=json
+node build/browser-shards.mjs --update test-results/browser-report.json
+node build/browser-shards.mjs --plan 16
+```
+
+To run one CI shard locally, pass its files to Playwright: `npx playwright test (node build/browser-shards.mjs 3 16)`. Add entries to the `shard` list in `.github/workflows/ci.yml` when the longest shard grows past the other CI jobs. In CI, Playwright retries a failing test up to twice; one that passes on retry is listed as flaky in the shard's summary. Treat a flaky test as a timing race to fix, not as a pass.
+
 ## Architecture and verification
 
 Components use `IScriptStore`, `IAssistantHistoryStore`, `IAssetStore`, `IAiSettingsStore`, `IScriptAssistant`, `IAssetExtractor`, `IReferenceImageGenerator`, and `IReferenceImageEditor`. `IAiProviderRegistry` supplies Microsoft.Extensions.AI `IChatClient` instances for OpenRouter and ComfyUI text. Asset extraction reuses that boundary; the ComfyUI image adapters own workflow submission, in-memory source preparation, scoped cancellation, history polling, and download. Prompts, validation, HTTP, and filesystem operations remain outside Razor markup.
@@ -45,11 +57,13 @@ The xUnit/bUnit suite covers project, script, assistant, asset and image persist
 
 ### Storage
 
+Project documents (shots, production, assets, the script and its versions, and the rest) are stored in each project folder's `project.sqlite`, one row per shot, take, asset and so on. Documents written as JSON by earlier versions are brought in on first use and kept in `legacy-json/`. See [SQLite project storage](sqlite-storage.md) for the layout, cache, migration and what stays as files.
+
 Project creation writes into a `.creating-<id>` staging directory, then renames the directory within the same library after the manifest is complete. Interrupted staging writes are ignored.
 
-Script files are published through same-directory atomic replacement; unpublished temporary files are ignored. Historical approved snapshots remain readable through the source compatibility loader. Script proposals are versioned JSON operations that replace ranges, insert, delete, or move captured blocks while preserving block IDs. Storage and editor acknowledgement complete before the next request can capture the applied document. Transport retries reuse their captured request.
+Each save commits in one database transaction. Script proposals are versioned JSON operations that replace ranges, insert, delete, or move captured blocks while preserving block IDs. Storage and editor acknowledgement complete before the next request can capture the applied document. Transport retries reuse their captured request.
 
-Trash metadata lives alongside active images in each project's `assets.json`; files stay in their original locations until permanent deletion. Membership changes publish atomically under the project lock, and ordinary metadata saves cannot bypass Trash. A hosted cleanup service checks at startup and hourly while Lumibelle runs. Purges publish durable deletion intent before removing files, so interrupted or failed cleanup resumes safely after restart.
+Trash metadata lives alongside active images in each project's asset library; files stay in their original locations until permanent deletion. Membership changes publish atomically under the project lock, and ordinary metadata saves cannot bypass Trash. A hosted cleanup service checks at startup and hourly while Lumibelle runs. Purges publish durable deletion intent before removing files, so interrupted or failed cleanup resumes safely after restart.
 
 Settings API keys are protected with ASP.NET Core Data Protection using application name `Lumibelle` and the hosting account's default persistent key ring.
 

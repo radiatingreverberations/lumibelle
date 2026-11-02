@@ -119,7 +119,7 @@ public sealed partial class ShotTests
             await File.WriteAllBytesAsync(Path.Combine(root, "video.mp4"), video, _ct);
             await AtomicJsonFile.WriteAsync(Path.Combine(root, "media.json"), binding.Media, _ct);
             library = await f.Assets.LoadAsync(f.Project.Id, _ct);
-            await AtomicJsonFile.WriteAsync(Path.Combine(f.ProjectDirectory, "assets.json"), library with { Reels = [new() { AssetId = asset.Id, Media = binding.Media, Name = binding.Name, CreatedUtc = _clock.GetUtcNow() }] }, _ct);
+            await TestProjectDatabase.SaveAssetsAsync(Path.Combine(f.ProjectDirectory), library with { Reels = [new() { AssetId = asset.Id, Media = binding.Media, Name = binding.Name, CreatedUtc = _clock.GetUtcNow() }] }, _ct);
             await new ReelRefModStore(f.Files).AcceptSourcesAsync(f.Project.Id, recipe, [pixels, pixels], _ct);
             var stored = source.Takes[0];
             var captured = original.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
@@ -131,7 +131,7 @@ public sealed partial class ShotTests
             stored.CopyRequest = stored.CopyRequest with { Recipe = H3GenerationRecipes.Capture(stored.CopyRequest) };
             AiVideoJobPolicy.Validate(stored.CopyRequest);
             source.Shots[0].Videos = [binding];
-            await AtomicJsonFile.WriteAsync(Path.Combine(f.ProjectDirectory, "shots.json"), source, _ct);
+            await FileShotStore.Documents.SaveAsync(f.ProjectDirectory, f.Project.Id, source, _ct);
             var setup = (await production.LoadAsync(f.Project.Id, _ct)).Compositions.Single();
             setup.Shot.Videos = [binding]; await production.SaveAsync(f.Project.Id, setup, setup.Version, _ct);
             f.Generator.Catalog = (await f.Generator.CheckAsync(f.Settings.Value, _ct)) with { RefModIssue = null };
@@ -217,7 +217,7 @@ public sealed partial class ShotTests
         sourceDoc = await f.Shots.SaveAsync(f.Project.Id, sourceDoc.Shots, sourceDoc.Revision, ct: _ct);
         await production.InitializeAsync(target.Project.Id, _ct);
         var sourcePath = await f.Files.DirectoryAsync(f.Project.Id, _ct);
-        var originals = new[] { "shots.json", "assets.json", "script.json", "production.json" }.ToDictionary(p => p, p => File.ReadAllText(Path.Combine(sourcePath, p)));
+        var originals = await TestProjectDatabase.SnapshotAsync(sourcePath, f.Project.Id, _ct);
         var copier = new ShotProjectCopyStore(f.Files, f.Shots, production, scripts, f.Assets, f.Assets, _clock);
         var preview = await copier.PreviewAsync(f.Project.Id, [second.Id, first.Id], _ct);
         Assert.Equal((2, 1, 1, 1), (preview.Shots, preview.Takes, preview.Assets, preview.Scenes));
@@ -262,7 +262,7 @@ public sealed partial class ShotTests
         Assert.Equal(copied.Revision, (await f.Shots.LoadAsync(target.Project.Id, _ct)).Revision);
         Assert.Single((await f.Assets.LoadAsync(target.Project.Id, _ct)).Assets);
         Assert.Equal(copiedScript.Revision, (await scripts.LoadAsync(target.Project.Id, _ct)).Revision);
-        foreach (var pair in originals) Assert.Equal(pair.Value, await File.ReadAllTextAsync(Path.Combine(sourcePath, pair.Key), _ct));
+        Assert.Equal(originals, await TestProjectDatabase.SnapshotAsync(sourcePath, f.Project.Id, _ct));
         Assert.Empty((await jobs.ReadAsync(_ct)).Jobs);
     }
 

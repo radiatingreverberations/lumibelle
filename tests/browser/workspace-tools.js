@@ -49,10 +49,13 @@ export async function openShotSetup(page, tab = 'Prompt') {
 
 export async function closeShotSetup(page) {
   const dialog = page.locator('.shot-setup-dialog');
-  if (await dialog.isVisible()) {
-    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(dialog).not.toBeVisible();
-  }
+  if (!await dialog.isVisible()) return;
+  // Done does nothing while a setting is still saving, and its disabled state can reach the page
+  // after the click does. Click again until the dialog closes.
+  await expect(async () => {
+    if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Done', exact: true }).click({ timeout: 2000 });
+    await expect(dialog).not.toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
 }
 
 export async function generateTakes(page) {

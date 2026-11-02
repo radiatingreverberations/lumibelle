@@ -170,7 +170,7 @@ public sealed partial class ShotTests
         var messages = PromptComposer.BuildMessages(SoundRequest(shot), [], structured: structured);
         Assert.Contains("No reference recordings are selected", messages[0].Text);
         Assert.DoesNotContain("<Audio N>", messages[0].Text);
-        Assert.DoesNotContain("Audio definition line", messages[0].Text);
+        Assert.DoesNotContain("Define every selected Audio input", messages[0].Text);
         Assert.DoesNotContain("supplied voice slots", messages[0].Text);
         Assert.Contains("overall_soundscape", messages[0].Text); Assert.Contains("non_diegetic_music", messages[0].Text);
         using var data = JsonDocument.Parse(messages[1].Contents.OfType<TextContent>().First().Text);
@@ -184,11 +184,11 @@ public sealed partial class ShotTests
         var (_, _, _, shot) = CharacterVoiceTests.Fixture();
         var withAudio = PromptComposer.BuildMessages(SoundRequest(shot), [], structured: structured)[0].Text;
         Assert.Contains("<Audio 1>", withAudio);
-        Assert.Contains("On each mapped Audio definition line", withAudio);
+        Assert.Contains("Define every selected Audio input on its own line", withAudio);
         shot.Videos[0].UseSoundtrack = false;
         var withoutAudio = PromptComposer.BuildMessages(SoundRequest(shot), [], structured: structured)[0].Text;
         Assert.DoesNotContain("<Audio N>", withoutAudio); Assert.DoesNotContain("<Audio 1>", withoutAudio);
-        Assert.DoesNotContain("On each mapped Audio definition line", withoutAudio);
+        Assert.DoesNotContain("Define every selected Audio input", withoutAudio);
         Assert.Contains("No reference recordings are selected", withoutAudio);
     }
 

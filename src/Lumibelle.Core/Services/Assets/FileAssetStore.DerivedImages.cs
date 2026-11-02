@@ -115,10 +115,7 @@ public sealed partial class FileAssetStore
         }
         if (request.TakeId is { } takeId)
         {
-            var shots = await AtomicJsonFile.ReadAsync<ShotDocument>(Path.Combine(dir, "shots.json"), ct)
-                ?? throw new WorkspaceStoreException("The source take is unavailable.");
-            FileShotStore.Validate(shots, library.ProjectId);
-            var take = shots.Takes.SingleOrDefault(t => t.Id == takeId)
+            var take = await FileShotStore.Documents.FindAsync<ShotTake>(dir, library.ProjectId, "takes", takeId.ToString("D"), attach: false, ct)
                 ?? throw new WorkspaceStoreException("Restore the source take before saving a frame.");
             var index = request.FrameIndex!.Value;
             if (index >= take.FrameCount) throw new WorkspaceStoreException("Choose an available frame.");

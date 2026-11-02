@@ -26,7 +26,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.MoveReelAsync(f.Project.Id, owner.Id, candidate.Id, wrong.Id, library.Revision, _ct));
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => f.Assets.MoveReelAsync(f.Project.Id, owner.Id, candidate.Id, target.Id, library.Revision - 1, _ct));
         var manifest = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "assets.json");
-        using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(manifest)!))
             await Assert.ThrowsAnyAsync<Exception>(() => f.Assets.MoveReelAsync(f.Project.Id, owner.Id, candidate.Id, target.Id, library.Revision, _ct));
         Assert.Equal(owner.Id, (await f.Assets.LoadAsync(f.Project.Id, _ct)).Reels.Single().AssetId);
         library = await f.Assets.MoveReelAsync(f.Project.Id, owner.Id, candidate.Id, target.Id, library.Revision, _ct);
@@ -67,7 +67,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.MoveVoiceAsync(f.Project.Id, owner.Id, voice.Id, wrong.Id, library.Revision, _ct));
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => f.Assets.MoveVoiceAsync(f.Project.Id, owner.Id, voice.Id, target.Id, library.Revision - 1, _ct));
         var manifest = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "assets.json");
-        using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(manifest)!))
             await Assert.ThrowsAnyAsync<Exception>(() => f.Assets.MoveVoiceAsync(f.Project.Id, owner.Id, voice.Id, target.Id, library.Revision, _ct));
         Assert.Equal(owner.Id, (await f.Assets.LoadAsync(f.Project.Id, _ct)).Voices.Single().AssetId);
         Assert.Equal(voice.Id, (await f.Assets.LoadAsync(f.Project.Id, _ct)).Assets.Single(a => a.Id == owner.Id).DefaultVoiceId);

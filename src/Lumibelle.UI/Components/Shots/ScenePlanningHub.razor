@@ -11,7 +11,7 @@
         @if (MissingSetups.Any()) { <details><summary>Unavailable script scenes</summary>@foreach (var setup in MissingSetups) { <p>@setup.SceneTitle · saved setup retained</p> }</details> }
     </ChildContent></StudioPane></Left>
     <Center><StudioPane Label="Scene planning" Class="scene-planning"><Header>
-        @if (Current is { } scene) { <div class="scene-hub-heading"><h1>@scene.Title</h1>@Planning</div><div class="scene-hub-actions"><a href="@ProjectLink(ProjectId, "/script")">Edit in Script</a></div> }
+        @if (Current is { } scene) { <div class="scene-hub-heading"><h1>@scene.Title</h1></div><div class="scene-hub-actions"><a href="@ProjectLink(ProjectId, "/script")">Edit in Script</a></div> }
     </Header><ChildContent>
         @if (Current is { } selected) {
             <details class="scene-hub-section" open><summary>Script excerpt</summary><pre class="shot-source">@Excerpt</pre></details>
@@ -43,7 +43,8 @@
             }
         }
     </ChildContent></StudioPane></Center>
-    <Right><StudioPane Label="Scene environment" Class="scene-environment"><Header><h2>Environment</h2></Header><ChildContent>
+    @* The scene's main action sits at the foot of its tools, as Generate does in Shots. *@
+    <Right><StudioPane Label="Scene environment" Class="scene-environment" Footer="@(Current is null ? null : Planning)"><Header><h2>Environment</h2></Header><ChildContent>
         @if (Current is { } environmentScene) {
             var setup = Document.SceneSetups.FirstOrDefault(s => s.SceneId == environmentScene.Id)?.Environment;
             <div class="scene-environment-summary">

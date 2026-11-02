@@ -19,8 +19,10 @@ test('presets, setup and optional archives survive autosave and queue capture', 
   await toolsTab(page, 'Generate');
   const preset = page.getByRole('combobox', { name: 'Generation preset', exact: true });
   const archive = page.getByLabel('Save lossless frames', { exact: true });
-  await expect(preset.locator('option')).toHaveCount(7);
-  expect(await preset.locator('option').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(['standard', 'beta', 'euler-beta', 'larry', 'pdd', 'turbo4', 'hyperflow']);
+  // Every current preset (H3Presets.Offered); retired recipes such as HyperFlow are not offered.
+  await expect(preset.locator('option')).toHaveCount(11);
+  expect(await preset.locator('option').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(
+    ['standard', 'beta', 'euler-beta', 'larry', 'pdd', 'turbo4', '10eros-compact', 'smd4', 'pika-flex6', 'fasth3-omni', 'ptd-refasym6']);
   await expect(preset).toHaveValue('standard'); await expect(archive).not.toBeChecked();
   await preset.selectOption('larry');
   await expect.poll(async () => (await state()).shots[0].generationPreset).toBe('larry');
@@ -58,7 +60,8 @@ test('presets, setup and optional archives survive autosave and queue capture', 
   const first = (await state()).takes[0];
   expect(first.frames).toHaveLength(0); expect(first.snapshot.preset.key).toBe('larry');
   expect(first.snapshot.outputPolicy.saveLosslessFrames).toBe(false);
-  await expect(review.getByText(/Frames are extracted from compressed MP4/)).toBeVisible();
+  // The take's frame source is a short label; its tooltip explains it.
+  await expect(review.getByText('MP4 frames', { exact: true }).first()).toHaveAttribute('title', /Frames are extracted from compressed MP4/);
   await expect(review.getByRole('button', { name: 'Save frame', exact: true })).toBeEnabled();
   await review.getByText('Performance and timings', { exact: true }).click();
   await expect(review.getByText('Not requested', { exact: true })).toBeVisible();

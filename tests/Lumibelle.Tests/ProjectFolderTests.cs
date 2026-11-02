@@ -63,7 +63,7 @@ public sealed class ProjectFolderTests : IDisposable
         var id = Guid.NewGuid();
         var image = new AssetImage { Id = id, FileName = id.ToString("N") + ".png", ContentType = "image/png", Width = 400, Height = 300, CreatedUtc = DateTimeOffset.UtcNow };
         var asset = new ReferenceAsset { Id = Guid.NewGuid(), Name = "Lantern", Category = AssetCategory.Prop, Images = [image] };
-        await AtomicJsonFile.WriteAsync(Path.Combine(source.Root(project), "assets.json"), new AssetLibrary { ProjectId = project.Id, Assets = [asset] }, _ct);
+        await TestProjectDatabase.SaveAssetsAsync(Path.Combine(source.Root(project)), new AssetLibrary { ProjectId = project.Id, Assets = [asset] }, _ct);
         var file = Path.Combine(source.Root(project), "assets", asset.Id.ToString("D"), "images", image.FileName);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!); await File.WriteAllBytesAsync(file, ProjectPackageTests.Photo(400, 300), _ct);
         var export = await source.Packages.ExportAsync(project.Id, new(LeaveOutLosslessArchives: true, CompressImages: true, MaxImageDimension: 256), ct: _ct);
@@ -89,16 +89,19 @@ public sealed class ProjectFolderTests : IDisposable
         var library = NewLibrary();
         await library.Folders.OpenAsync(folder, _ct);
         var root = Path.Combine(folder, "project");
-        await File.WriteAllTextAsync(Path.Combine(root, "production-before-global-setups.json"), "{}", _ct);
+        // Opening the folder brought the package's JSON documents into project.sqlite and kept them in legacy-json.
+        await TestProjectDatabase.SnapshotAsync(root, project.Id, _ct);
         var assets = new FileAssetStore(library.Files, TimeProvider.System);
         var compaction = new ProjectCompaction(library.Files, library.Folders, library.Shots,
             new FileReferenceVideoStore(library.Files, library.Shots, new ProjectCompactionTests.FrameTools()),
             new MediaTrashStore(library.Files, assets, assets, assets, library.Shots, TimeProvider.System), new FakeAiSettingsStore(), library.Jobs);
         var plan = await compaction.InspectAsync(project.Id, _ct);
-        Assert.Equal(["production-before-global-setups.json"], plan.Backups);
+        Assert.Contains("legacy-json/production.json", plan.Backups);
+        Assert.All(plan.Backups, b => Assert.StartsWith("legacy-json/", b));
         Assert.Equal(Path.Combine(folder, "manifest.json"), plan.Manifest);
         await compaction.CompactAsync(plan, new HashSet<CompactionPart> { CompactionPart.Backups }, ct: _ct);
-        Assert.False(File.Exists(Path.Combine(root, "production-before-global-setups.json")));
+        Assert.False(Directory.Exists(Path.Combine(root, "legacy-json")));
+        Assert.Equal(project.Id, (await library.Production.LoadAsync(project.Id, _ct)).ProjectId); // Still opens without its legacy files.
         Assert.True(File.Exists(Path.Combine(folder, "manifest.json")));
         var result = await compaction.CompactAsync(plan, new HashSet<CompactionPart> { CompactionPart.PackageManifest }, ct: _ct);
         Assert.Empty(result.Issues); Assert.False(File.Exists(Path.Combine(folder, "manifest.json")));
@@ -282,12 +285,11 @@ public sealed class ProjectFolderTests : IDisposable
         Assert.Equal(ReferenceSetups.Hash(content), ReferenceSetups.Hash(ShotProductionContent.From(opened)));
         Assert.NotEqual(unrelated.Id, opened.GenerationSetupId);
         Assert.Equal(1, (await destination.Setups.LoadAsync(_ct)).Setups.Single(s => s.Id == unrelated.Id).Settings.TakeCount);
-        var productionPath = Path.Combine(moved.Path, "production.json");
-        var saved = await File.ReadAllBytesAsync(productionPath, _ct);
+        var saved = TestProjectDatabase.Stamp(moved.Path, "production");
         await destination.Folders.RemoveAsync(project.Id, _ct);
         await destination.Folders.OpenAsync(moved.Path, _ct);
         Assert.Equal(opened.GenerationSetupId, (await destination.Production.InitializeAsync(project.Id, _ct)).Compositions.Single().GenerationSetupId);
-        Assert.Equal(saved, await File.ReadAllBytesAsync(productionPath, _ct));
+        Assert.Equal(saved, TestProjectDatabase.Stamp(moved.Path, "production"));
         Assert.Equal(2, (await destination.Setups.LoadAsync(_ct)).Setups.Count);
     }
 
@@ -329,7 +331,7 @@ public sealed class ProjectFolderTests : IDisposable
             Paths = new(directory); Directory.CreateDirectory(Paths.Projects);
             Locations = new(Paths, lease);
             Projects = new(Paths, TimeProvider.System, NullLogger<FileProjectStore>.Instance, Locations);
-            Files = new(Paths, Projects, null, Locations);
+            Files = new(Paths, Projects, Locations);
             Jobs = new(Paths.Jobs, TimeProvider.System);
             Setups = new(Paths);
             Shots = new(Files, TimeProvider.System);

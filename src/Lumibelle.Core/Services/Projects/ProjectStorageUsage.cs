@@ -67,7 +67,8 @@ public sealed partial record ProjectStorageUsage(long Total, IReadOnlyList<Stora
             ["assets", _, "images", ..] => StorageKind.Images,
             ["assets", _, "voices", ..] or ["voice-imports", ..] => StorageKind.Voices,
             [_] when name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) => StorageKind.ProjectData,
-            ["script-sources" or "script-history" or "script-approved", ..] => StorageKind.ProjectData,
+            [_] when name.StartsWith(Storage.ProjectDatabase.FileName, StringComparison.OrdinalIgnoreCase) => StorageKind.ProjectData,
+            ["script-sources" or "script-history" or "script-approved" or Storage.LegacyFiles.Folder, ..] => StorageKind.ProjectData,
             _ => StorageKind.Other
         };
     }

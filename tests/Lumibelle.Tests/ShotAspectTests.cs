@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using lumibelle.Models;
 using lumibelle.Services;
@@ -65,15 +66,15 @@ public sealed partial class ShotTests
         var setups = JsonNode.Parse(await File.ReadAllTextAsync(setupsPath, _ct))!;
         setups["setups"]![0]!["settings"]!["aspectOverride"] = "9:16";
         await File.WriteAllTextAsync(setupsPath, setups.ToJsonString(), _ct);
-        var productionPath = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "production.json");
-        var production = JsonNode.Parse(await File.ReadAllTextAsync(productionPath, _ct))!;
+        var directory = await f.Files.DirectoryAsync(f.Project.Id, _ct);
+        var production = JsonNode.Parse((await FileProductionStore.Documents.LoadJsonAsync(directory, f.Project.Id, complete: true, _ct))!)!;
         production["compositions"]![0]!["inputs"]!["aspectOverride"] = "9:16";
-        await File.WriteAllTextAsync(productionPath, production.ToJsonString(), _ct);
+        await FileProductionStore.Documents.SaveAsync(directory, f.Project.Id, JsonSerializer.SerializeToElement(production), _ct);
         var c = (await store.LoadAsync(f.Project.Id, _ct)).Compositions.Single();
         Assert.Null(c.Shot.AspectOverride);
         c.TakeCount = 2;
         await store.SaveAsync(f.Project.Id, c, c.Version, _ct);
         Assert.DoesNotContain("aspectOverride", await File.ReadAllTextAsync(setupsPath, _ct));
-        Assert.DoesNotContain("aspectOverride", await File.ReadAllTextAsync(productionPath, _ct));
+        Assert.DoesNotContain("aspectOverride", System.Text.Encoding.UTF8.GetString((await FileProductionStore.Documents.LoadJsonAsync(directory, f.Project.Id, complete: true, _ct))!));
     }
 }

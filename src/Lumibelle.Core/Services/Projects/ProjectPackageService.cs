@@ -43,7 +43,7 @@ public sealed partial class ProjectPackageService(ApplicationPaths paths, Projec
             // Language variants depend on immutable source jobs; the current portable
             // package schema does not preserve that ownership. Never silently omit them.
             await FileProjectDubbingStore.CheckPortableExportAsync(root, project, ct);
-            var state = await ProjectPackageState.ReadAsync(root, project, ct);
+            var state = await ProjectPackageState.ReadAsync(root, project, ct, stored: true);
             var leftOutTakes = options.LeaveOutLosslessArchives ? ProjectPackageCompaction.LeaveOutTakeArchives(state, clock.GetUtcNow()) : [];
             state.History = await ProjectPackageHistory.CaptureAsync(project, state.History, jobs, ct);
             // Lock order matches production saves: project, then global setups. Release the

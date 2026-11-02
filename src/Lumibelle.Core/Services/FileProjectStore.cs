@@ -138,7 +138,7 @@ public sealed class FileProjectStore : IProjectStore
                 await stream.FlushAsync(cancellationToken);
             }
 
-            if (visualStyle is not null) await AtomicJsonFile.WriteAsync(Path.Combine(staging, "ai-preferences.json"),
+            if (visualStyle is not null) await AI.FileProjectAiPreferencesStore.Documents.SaveAsync(staging, project.Id,
                 new ProjectAiPreferences { ProjectId = project.Id, VisualStyle = visualStyle }, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -163,7 +163,8 @@ public sealed class FileProjectStore : IProjectStore
                 if (Directory.Exists(staging))
                 {
                     File.Delete(Path.Combine(staging, "project.json"));
-                    File.Delete(Path.Combine(staging, "ai-preferences.json"));
+                    File.Delete(Path.Combine(staging, Storage.ProjectDatabase.FileName));
+                    File.Delete(Path.Combine(staging, Storage.ProjectDatabase.FileName + "-journal"));
                     Directory.Delete(staging);
                 }
             }

@@ -660,6 +660,9 @@
 .scene-outline-item small { color:var(--muted); font-size:var(--lumi-font-size-small); }
 .scene-hub-actions,.scene-hub-heading { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:.75rem; }
 .scene-hub-heading h1 { flex:1 1 15rem; }
+/* Draft shots fills the foot of the environment sidebar, like Generate takes in Shots. */
+.scene-environment .scene-drafting-tools :is(.text-assistance, .text-assist-controls, .text-request-action, .request-action-button) { width:100%; }
+.scene-environment .scene-drafting-tools .request-action-button { justify-content:center; }
 .scene-hub-actions { margin-top:4px; font-size:var(--lumi-font-size-meta); }
 .scene-hub-section { padding:1rem 0; border-bottom:1px solid var(--mud-palette-divider); }
 .scene-hub-section:first-child { padding-top:0; }

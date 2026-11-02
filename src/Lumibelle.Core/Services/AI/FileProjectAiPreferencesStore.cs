@@ -6,6 +6,11 @@ namespace lumibelle.Services.AI;
 
 public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProjectAiPreferencesStore
 {
+    internal static readonly Storage.ProjectDocumentStore<ProjectAiPreferences> Documents = new(new()
+    {
+        Kind = "ai_preferences", Description = "this project’s AI settings", Legacy = ["ai-preferences.json"],
+        Empty = id => new() { ProjectId = id }, Lists = []
+    });
     public async Task<ProjectAiPreferences> SetVisualStyleAsync(Guid projectId, VisualStyle style, long expectedRevision, CancellationToken cancellationToken = default)
     {
         style = VisualStyles.Normalize(style);
@@ -14,7 +19,7 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
         var current = await ReadAsync(path, projectId, cancellationToken);
         if (current.VisualStyleRevision != expectedRevision) throw new WorkspaceConflictException();
         var updated = current with { VisualStyle = style, VisualStyleRevision = checked(expectedRevision + 1) };
-        await AtomicJsonFile.WriteAsync(path, updated, cancellationToken);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, projectId, updated, cancellationToken);
         return updated;
     }
     public async Task<ProjectAiPreferences> SetImageDefaultAsync(Guid projectId, ImageWorkflow? workflow, long expectedRevision,
@@ -26,7 +31,7 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
         var current = await ReadAsync(path, projectId, cancellationToken);
         if (current.ImageDefaultRevision != expectedRevision) throw new WorkspaceConflictException();
         var updated = current with { ImageDefault = workflow, ImageDefaultRevision = checked(expectedRevision + 1) };
-        await AtomicJsonFile.WriteAsync(path, updated, cancellationToken);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, projectId, updated, cancellationToken);
         return updated;
     }
 
@@ -39,7 +44,7 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
         var current = await ReadAsync(path, projectId, cancellationToken);
         if (current.TextDefaultRevision != expectedRevision) throw new WorkspaceConflictException();
         var updated = current with { TextDefault = selection, TextDefaultRevision = checked(expectedRevision + 1) };
-        await AtomicJsonFile.WriteAsync(path, updated, cancellationToken);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, projectId, updated, cancellationToken);
         return updated;
     }
     public async Task<ProjectAiPreferences> LoadAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -65,7 +70,7 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
             TextAssistantStudio.PromptEnhancement => current with { PromptEnhancement = selection },
             _ => throw new ArgumentOutOfRangeException(nameof(studio))
         };
-        await AtomicJsonFile.WriteAsync(path, updated, cancellationToken);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, projectId, updated, cancellationToken);
         return updated;
     }
 
@@ -79,13 +84,13 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
         var current = await ReadAsync(path, projectId, cancellationToken);
         if (current.LoraVisibilityRevision != expectedRevision) throw new WorkspaceConflictException();
         var updated = current with { LoraVisibility = captured, LoraVisibilityRevision = checked(expectedRevision + 1) };
-        await AtomicJsonFile.WriteAsync(path, updated, cancellationToken);
+        await Documents.SaveAsync(Path.GetDirectoryName(path)!, projectId, updated, cancellationToken);
         return updated;
     }
 
     private static async Task<ProjectAiPreferences> ReadAsync(string path, Guid id, CancellationToken ct)
     {
-        var preferences = await AtomicJsonFile.ReadAsync<ProjectAiPreferences>(path, ct) ?? new() { ProjectId = id };
+        var preferences = await Documents.LoadAsync(Path.GetDirectoryName(path)!, id, ct);
         if (preferences.SchemaVersion is not (1 or 2) || preferences.ProjectId != id || preferences.LoraVisibilityRevision < 0 || preferences.TextDefaultRevision < 0 ||
             preferences.ImageDefaultRevision < 0 || preferences.VisualStyleRevision < 0 || preferences.VisualStyle is null || preferences.ImageDefault is { } workflow && !Enum.IsDefined(workflow))
             throw new WorkspaceStoreException("Project AI preferences use an invalid or unsupported format. They have not been replaced.");

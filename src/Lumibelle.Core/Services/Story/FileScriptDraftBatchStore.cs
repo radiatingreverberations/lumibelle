@@ -1,12 +1,18 @@
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.AI;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.Story;
 
 public sealed class FileScriptDraftBatchStore(ProjectFiles files)
 {
     public event Action<Guid>? Changed;
+    internal static readonly ProjectDocumentStore<ScriptDraftBatches> Documents = new(new()
+    {
+        Kind = "script_draft_batches", Description = "the saved script draft batches", Legacy = ["script-draft-batches.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("runs")]
+    });
     public async Task<ScriptDraftBatches> LoadAsync(Guid project, CancellationToken ct = default)
     {
         var path = Path.Combine(await files.DirectoryAsync(project, ct), "script-draft-batches.json");
@@ -23,7 +29,7 @@ public sealed class FileScriptDraftBatchStore(ProjectFiles files)
             if (next == current) return current;
             next = next with { Revision = current.Revision + 1 };
             Validate(next, project);
-            await AtomicJsonFile.WriteAsync(path, next, ct);
+            await Documents.SaveAsync(Path.GetDirectoryName(path)!, project, next, ct);
         }
         Changed?.Invoke(project);
         return next;
@@ -32,7 +38,7 @@ public sealed class FileScriptDraftBatchStore(ProjectFiles files)
         doc.Runs.Any(r => r.Id == run.Id && r == run) ? doc : doc with { Runs = doc.Runs.Select(r => r.Id == run.Id ? run : r).ToArray() };
     private static async Task<ScriptDraftBatches> ReadAsync(string path, Guid project, CancellationToken ct)
     {
-        var doc = await AtomicJsonFile.ReadAsync<ScriptDraftBatches>(path, ct) ?? new() { ProjectId = project };
+        var doc = await Documents.LoadAsync(Path.GetDirectoryName(path)!, project, ct);
         Validate(doc, project); return doc;
     }
     private static void Validate(ScriptDraftBatches doc, Guid project)

@@ -82,7 +82,7 @@ public sealed partial class AssetStoreTests : IDisposable
         saved = await store.AddImageAsync(project.Id, asset.Id, bytes, new("take.png", [], AssetImageOrigin.Generated, new()), saved.Revision, TestContext.Current.CancellationToken);
         var take = saved.Assets[0].Images[0];
         var path = Path.Combine(_directory, "projects", project.Id.ToString("D"), "assets.json");
-        await using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var locked = TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(path)!))
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.DeleteImagesAsync(project.Id, asset.Id, [take.Id], saved.Revision, TestContext.Current.CancellationToken));
         Assert.Equal(saved.Revision, (await store.LoadAsync(project.Id, TestContext.Current.CancellationToken)).Revision);
         await using var media = await store.OpenImageAsync(project.Id, asset.Id, take.Id, TestContext.Current.CancellationToken); Assert.NotNull(media);
@@ -142,10 +142,10 @@ public sealed partial class AssetStoreTests : IDisposable
         var (project, store) = CreateStore();
         var first = await store.SaveAsync(new() { ProjectId = project.Id, Assets = [Asset("One")] }, 0, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<WorkspaceConflictException>(() => store.SaveAsync(first with { Assets = [Asset("Two")] }, 0, TestContext.Current.CancellationToken));
-        var path = Path.Combine(_directory, "projects", project.Id.ToString("D"), "assets.json");
-        await File.WriteAllTextAsync(path, "{broken", TestContext.Current.CancellationToken);
+        var directory = Path.Combine(_directory, "projects", project.Id.ToString("D"));
+        TestProjectDatabase.Corrupt(directory, "assets");
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => store.LoadAsync(project.Id, TestContext.Current.CancellationToken));
-        Assert.Equal("{broken", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal("invalid", TestProjectDatabase.Header(directory, "assets"));
     }
 
     [Fact]

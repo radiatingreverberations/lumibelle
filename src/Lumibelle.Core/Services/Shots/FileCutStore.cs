@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Storage;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Shots;
@@ -11,6 +12,12 @@ public interface ICutStore
 
 public sealed class FileCutStore(ProjectFiles files, IShotStore shots, TimeProvider clock) : ICutStore
 {
+    internal static readonly ProjectDocumentStore<CutDocument> Documents = new(new()
+    {
+        Kind = "cut", Description = "the cut", Legacy = ["cut.json"],
+        Empty = id => new() { ProjectId = id }, Lists = [new("clips")]
+    });
+
     public async Task<CutDocument> LoadAsync(Guid projectId, CancellationToken ct = default)
     {
         var directory = await files.DirectoryAsync(projectId, ct);
@@ -19,9 +26,9 @@ public sealed class FileCutStore(ProjectFiles files, IShotStore shots, TimeProvi
 
     private static async Task<CutDocument> Read(string directory, Guid projectId, CancellationToken ct)
     {
-        var cut = await AtomicJsonFile.ReadAsync<CutDocument>(Path.Combine(directory, "cut.json"), ct) ?? new() { ProjectId = projectId };
+        var cut = await Documents.LoadAsync(directory, projectId, ct);
         Validate(cut, projectId);
-        return cut.Copy();
+        return cut;
     }
 
     public static void Validate(CutDocument cut, Guid projectId)
@@ -61,7 +68,7 @@ public sealed class FileCutStore(ProjectFiles files, IShotStore shots, TimeProvi
             }
         }
         next.Revision++; next.UpdatedUtc = clock.GetUtcNow();
-        await AtomicJsonFile.WriteAsync(Path.Combine(directory, "cut.json"), next, ct);
+        await Documents.SaveAsync(directory, projectId, next, ct);
         return next.Copy();
     }
 }

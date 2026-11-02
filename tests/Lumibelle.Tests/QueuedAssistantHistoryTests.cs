@@ -95,9 +95,9 @@ public sealed class QueuedAssistantHistoryTests : IDisposable
     public async Task FailedReviewPublicationRetainsTheDurableProposalForRetry()
     {
         var submission = await Submit(); await Finish(submission); var run = await Read(submission); var project = submission.Target.ProjectId!.Value;
-        var path = HistoryPath(project); Directory.CreateDirectory(path);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => History.SaveRunAsync(project, run with { Applied = true }, _ct));
-        Directory.Delete(path);
+        var path = HistoryPath(project);
+        using (TestProjectDatabase.HoldReadOnly(Path.GetDirectoryName(path)!))
+            await Assert.ThrowsAsync<WorkspaceStoreException>(() => History.SaveRunAsync(project, run with { Applied = true }, _ct));
         var retry = await Read(submission); Assert.False(retry.Applied); Assert.Equal(run.Proposal!.Select(b => b.Id), retry.Proposal!.Select(b => b.Id));
         Assert.True((await History.SaveRunAsync(project, retry with { Applied = true }, _ct)).Applied);
     }

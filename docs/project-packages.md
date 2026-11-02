@@ -32,7 +32,9 @@ settings → Storage** can also move a library project into a folder of your cho
 remove a linked folder from the library without touching its files. The same project ID
 can be in a library only once, whether in the library folder or a linked one, so opening
 the export of a project that is still in the library is refused. The unzipped folder
-opens even after **Compact project** has removed its stale `manifest.json`.
+opens even after **Compact project** has removed its stale `manifest.json`. The first time it
+is opened, its JSON documents move into the folder's `project.sqlite` and the files are kept
+in `project/legacy-json/`.
 
 Opening a folder from another library recreates missing generation presets from the
 settings saved with its shots. Existing presets in the destination are preserved;
@@ -205,7 +207,9 @@ reel/RefMod source hashes. Dependency traversal rejects unreferenced extra media
 Typed metadata is normalized and read through the actual project stores before
 publication. Source links/reparse points are not followed during export.
 
-A private `.importing-<token>` directory holds the unpublished project. Confirmation
+A private `.importing-<token>` directory holds the unpublished project. Its JSON documents
+are brought into its `project.sqlite` and then removed; the package itself keeps the JSON
+form, and `project.sqlite` is never a package entry. Confirmation
 rechecks staged bytes and refuses added files, then publishes by a same-filesystem
 directory rename. Import never resumes an AI request or starts inference. Completed
 import acknowledgement can be retried without another copy. The source project is

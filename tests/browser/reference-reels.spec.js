@@ -216,7 +216,11 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   if (narrow) {
     expect(editorBox.y).toBeGreaterThan(guidanceBox.y);
     expect(videoBox.height).toBeLessThanOrEqual(page.viewportSize().height * 0.28 + 1);
-  } else expect(editorBox.x).toBeGreaterThanOrEqual(videoBox.x + videoBox.width);
+  } else await expect(async () => {
+    // Measured again until the video's loaded size settles, as above.
+    const video = await preview.locator('video').boundingBox(), editor = await details.locator('.media-details-editor').boundingBox();
+    expect(editor.x).toBeGreaterThanOrEqual(video.x + video.width);
+  }).toPass({ timeout: 10000 });
   await page.screenshot({ path: `artifacts/reel-details-balanced-${narrow ? 'narrow' : 'desktop'}.png` });
   await guidance.locator('summary').focus();
   await page.keyboard.press('Enter');

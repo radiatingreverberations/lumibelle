@@ -33,7 +33,7 @@ public interface IShotProjectCopyStore
 }
 
 // Copies own their media. Stable operation identities make retries safe across every publication;
-// shots.json is published last, once its script, production inputs and media are installed.
+// The shot document is published last, once its script, production inputs and media are installed.
 public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, IProductionStore production,
     IScriptStore scripts, IAssetStore assets, IAssetReuseStore reuse, TimeProvider clock, IAiJobStore? jobs = null,
     IReferenceVideoStore? referenceVideos = null, IAiSettingsStore? settings = null) : IShotProjectCopyStore
@@ -199,8 +199,8 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         var additions = blocks.Where(b => targetScript.Blocks.All(existing => existing.Id != b.Id)).ToList();
         var nextScript = targetScript with { SchemaVersion = 2, Revision = targetScript.Revision + 1, UpdatedUtc = clock.GetUtcNow(), Blocks = [.. targetScript.Blocks, .. additions] };
         FileScriptStore.Validate(nextScript, request.DestinationProjectId);
-        foreach (var captured in Remap(package.ScriptSources, package.Identities, request.DestinationProjectId))
-            await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script-sources", captured.Id.ToString("D") + ".json"), captured, ct);
+        await FileScriptStore.AddSnapshotsAsync(destination, request.DestinationProjectId, ct,
+            sources: Remap(package.ScriptSources, package.Identities, request.DestinationProjectId));
         foreach (var setup in package.Setups) {
             var original = setup.Composition;
             var composition = Remap(original, package.Identities, request.DestinationProjectId);
@@ -228,11 +228,11 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
         // Dependencies may survive an interrupted publication; the saved operation resumes them.
         if (additions.Count > 0) {
             var recovery = new ScriptRecovery(Guid.NewGuid(), "Before copying shot scenes", clock.GetUtcNow(), targetScript);
-            await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script-history", recovery.Id.ToString("D") + ".json"), recovery, ct);
-            await AtomicJsonFile.WriteAsync(Path.Combine(destination, "script.json"), nextScript, ct);
+            await FileScriptStore.AddSnapshotsAsync(destination, request.DestinationProjectId, ct, recovery: recovery);
+            await FileScriptStore.Documents.SaveAsync(destination, request.DestinationProjectId, nextScript, ct);
         }
-        await AtomicJsonFile.WriteAsync(Path.Combine(destination, "production.json"), targetProduction, ct);
-        await AtomicJsonFile.WriteAsync(Path.Combine(destination, "shots.json"), latest, ct);
+        await FileProductionStore.Documents.SaveAsync(destination, request.DestinationProjectId, FileProductionStore.Persisted(targetProduction), ct);
+        await FileShotStore.Documents.SaveAsync(destination, request.DestinationProjectId, latest, ct);
         return new(request.DestinationProjectId, copiedShots.Select(s => s.Id).ToArray());
     }
 
@@ -341,8 +341,7 @@ public sealed class ShotProjectCopyStore(ProjectFiles files, IShotStore shots, I
     {
         var directory = await files.DirectoryAsync(package.Request.SourceProjectId, ct);
         foreach (var id in package.Takes.SelectMany(t => TakeBundles.Contexts(t)).Select(t => t.Take.Snapshot.Shot.ApprovedScriptId).OfType<Guid>().Distinct()) {
-            if (!File.Exists(Path.Combine(directory, "script-sources", id.ToString("D") + ".json")) &&
-                !File.Exists(Path.Combine(directory, "script-approved", id.ToString("D") + ".json"))) continue;
+            if (!await FileScriptStore.HasSnapshotAsync(directory, package.Request.SourceProjectId, id, ct)) continue;
             var captured = await scripts.LoadSourceAsync(package.Request.SourceProjectId, id, ct);
             if (captured is null) continue; // Older takes may already lack their historical script.
             package.ScriptSources.Add(captured);

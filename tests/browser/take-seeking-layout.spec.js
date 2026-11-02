@@ -43,7 +43,10 @@ test('loading a sought frame leaves the player and its controls in place', async
       for (const button of await player.locator('.take-frame-buttons button').all()) {
         await expect(button).toBeEnabled();
       }
-      expect(await geometry()).toEqual(before);
+      // Nothing moves; sub-pixel layout can still settle by half a pixel on another machine.
+      const after = await geometry();
+      after.forEach((box, i) => Object.entries(box).forEach(([edge, value]) =>
+        expect(Math.abs(value - before[i][edge]), `${edge} of box ${i + 1} moved`).toBeLessThanOrEqual(1)));
       // A click during loading waits for the chosen frame instead of using the previous one.
       if (width === 390) {
         await save.click();

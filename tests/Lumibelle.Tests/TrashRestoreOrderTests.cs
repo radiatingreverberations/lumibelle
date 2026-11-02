@@ -30,7 +30,7 @@ public sealed partial class AssetStoreTests
             DeletedUtc = _clock.Now.AddTicks(n), ExpiresUtc = _clock.Now.AddTicks(n).AddDays(30),
             AssetOrder = legacy ? null : t.AssetOrder, ImageOrder = legacy ? null : t.ImageOrder
         }).ToList() };
-        await AtomicJsonFile.WriteAsync(ManifestPath(project), deleted, ct);
+        await TestProjectDatabase.SaveAssetsAsync(ProjectPath(project), deleted, ct);
         var restored = await store.RestoreImagesAsync(project, deleted.Trash.Select(t => t.Id).Reverse().ToArray(), deleted.Revision, ct);
         Assert.Equal(original.Assets.Select(a => a.Id), restored.Assets.Select(a => a.Id));
         foreach (var owner in original.Assets) Assert.Equal(owner.Images.Select(i => i.Id), restored.Assets.Single(a => a.Id == owner.Id).Images.Select(i => i.Id));
