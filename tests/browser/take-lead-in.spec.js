@@ -67,7 +67,7 @@ test('paused lead-in captures following motion and saves a separate shot before 
   const before = (await (await request.get('/fixtures/compositions')).json()).length;
   await form.getByRole('button', { name: 'Text model options', exact: true }).click();
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
-  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Done', exact: true }).click();
   await form.getByRole('button', { name: 'Compose lead-in prompt', exact: true }).click();
   await expect.poll(async () => (await (await request.get('/fixtures/compositions')).json()).length).toBe(before + 1);
   const composition = (await (await request.get('/fixtures/compositions')).json()).at(-1);

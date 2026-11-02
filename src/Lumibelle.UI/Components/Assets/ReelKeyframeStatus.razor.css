@@ -1,6 +1,6 @@
 .reel-keyframe-status { position:relative; z-index:2; font-size:var(--lumi-font-size-small); }
-.reel-keyframe-status button { font:inherit; color:var(--plum); background:transparent; border:1px solid var(--line); border-radius:var(--lumi-radius-small); padding:3px 7px; cursor:pointer; }
-.needs-keyframes button { background:var(--lumi-surface-selected); border-color:var(--plum); font-weight:600; }
-.reel-keyframe-status button:focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
-.reel-keyframe-status button:disabled { opacity:.5; cursor:default; }
-.reel-keyframe-status p { margin:.4rem 0 .75rem; color:var(--muted); line-height:1.5; }
+/* One line at card width: the card's select overlay must stay reachable above the button. */
+.reel-keyframe-status .lumi-button { min-height:26px; padding:2px 7px; font-size:var(--lumi-font-size-small); white-space:nowrap; }
+/* A reel without keyframes asks for them: the same small button, marked as the next step. */
+.needs-keyframes .lumi-button { background:var(--lumi-surface-selected); border-color:var(--lumi-accent); color:var(--lumi-accent); font-weight:600; }
+.reel-keyframe-status p { margin:.4rem 0 .75rem; color:var(--lumi-text-muted); line-height:1.5; }

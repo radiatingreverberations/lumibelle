@@ -17,7 +17,7 @@ public partial class ScriptWorkspace
     private ScriptCanvas? _canvas;
     private StudioWorkspace? _workspace;
     private string? _assistantStatus;
-    private static readonly MudBlazor.DialogOptions RecoveryOptions = new() { MaxWidth = MudBlazor.MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true };
+    private ScriptAssistantPanel? _assistant;
     private IJSObjectReference? _writingModule, _outlineModule;
     private DotNetObjectReference<ScriptWorkspace>? _reference;
     private ScriptSelection? _selection;
@@ -39,7 +39,7 @@ public partial class ScriptWorkspace
     private IReadOnlyList<ScriptSection> Sections => ScriptStructure.Sections(Document.Blocks);
     private int WordCount => string.Join(" ", Document.Blocks.Select(b => b.Text)).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
     private string CurrentKind => Document.Blocks.FirstOrDefault(b => b.Id == _selection?.AnchorBlockId)?.Kind.ToString() ?? "Action";
-    private string SaveStatus => _session!.Conflict ? "Save conflict" : _session.Error is not null ? "Couldn’t save" : _session.Saving || _saveRequested ? "Saving…" : Unsaved ? "Unsaved" : "Saved";
+    private string SaveStatus => _session!.Conflict ? SaveStatusText.Conflict : _session.Error is not null ? SaveStatusText.Failed : _session.Saving || _saveRequested ? SaveStatusText.Saving : Unsaved ? SaveStatusText.Unsaved : SaveStatusText.Saved;
     protected override async Task OnInitializedAsync() { DraftWorkflow.Changed += BatchScriptChanged; await LoadAsync(); }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -238,9 +238,12 @@ public partial class ScriptWorkspace
     private async Task DeleteAsync(Guid id)
     {
         var section = Sections.Single(s => s.Id == id);
-        if (section.Kind == ScriptBlockKind.Act && section.Count > 1) { _deleteSection = id; return; }
+        if (ConfirmsDelete(section)) { _deleteSection = id; return; }
         await DeleteConfirmedAsync(id);
     }
+    // Matches DeleteAsync: only an act with scenes opens a confirmation.
+    private static bool ConfirmsDelete(ScriptSection section) => section.Kind == ScriptBlockKind.Act && section.Count > 1;
+    private Task OpenRequestsAsync() => _assistant?.OpenRequestsAsync() ?? Task.CompletedTask;
     private async Task ConfirmDeleteAsync() { if (_deleteSection is { } id) { await DeleteConfirmedAsync(id); _deleteSection = null; } }
     private void OpenMove(Guid id) { _movingSection = id; _moveDestination = ""; _movePosition = "after"; }
     private async Task MoveToAsync()

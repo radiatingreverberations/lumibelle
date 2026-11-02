@@ -44,7 +44,7 @@ for (const width of [1173, 390]) {
     };
     await assertFooter();
     await page.screenshot({ path: `test-results/extraction-review-${width}.png` });
-    await dialog.locator('.extraction-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
+    await dialog.locator('.extraction-content').evaluate(el => { el.scrollTop = el.scrollHeight; });
     await assertFooter();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await dialog.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();

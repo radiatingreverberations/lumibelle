@@ -45,7 +45,7 @@ test('per-model settings preserve defaults, drafts and return routes', async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/comfy-text-settings-mobile.png', fullPage: true });
   await page.reload(); await expect(page.locator('h1')).toBeFocused();
-  await expect(page.getByRole('link', { name: '← Back to assets' })).toHaveAttribute('href', origin);
+  await expect(page.getByRole('link', { name: 'Back to assets' })).toHaveAttribute('href', origin);
   await row.getByRole('button', { name: 'Mock script writer', exact: true }).click();
   await expect(form.getByLabel('Maximum reply tokens', { exact: true })).toHaveValue('8192');
   await form.getByRole('button', { name: 'Use ComfyUI defaults', exact: true }).click();

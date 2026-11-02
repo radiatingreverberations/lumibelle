@@ -42,7 +42,7 @@ test('paused-frame extension captures ordered motion stills and supports both co
   const before = (await (await request.get('/fixtures/compositions')).json()).length;
   await form.getByRole('button', { name: 'Text model options', exact: true }).click();
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
-  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Done', exact: true }).click();
   await form.getByRole('button', { name: 'Compose extension prompt', exact: true }).click();
   await expect.poll(async () => (await (await request.get('/fixtures/compositions')).json()).length).toBe(before + 1);
   await expect(form.getByRole('button', { name: 'Queue extension', exact: true })).toBeEnabled();
@@ -99,7 +99,7 @@ test('copying references from the previous shot adds its production take\'s last
   await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   // The last frame can be added on its own, after the images, without copying the other references.
   await picker.getByRole('group', { name: 'Reference sources' }).getByRole('button', { name: 'Shot frames', exact: true }).click();
   await picker.getByRole('button', { name: 'Add picture', exact: true }).click();

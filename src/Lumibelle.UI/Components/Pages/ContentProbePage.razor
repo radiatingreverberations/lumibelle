@@ -6,20 +6,24 @@
 
 <PageTitle>Text model tests · Lumibelle</PageTitle>
 <div class="probe-workbench ai-settings-form">
-    <header class="probe-heading">
-        <a href="/settings/ai?tab=text">← AI settings</a>
-        <h1>Text model tests</h1>
-        <p>Compare writing responses from models and profiles. Rate request fulfillment—not explicitness or an official age rating.</p>
-    </header>
+    <PageHeading Title="Text model tests" BackHref="/settings/ai?tab=text" BackLabel="AI settings">
+        <Lead>Compare writing responses from models and profiles. Rate request fulfillment—not explicitness or an official age rating.</Lead>
+    </PageHeading>
     @if (_error is not null)
     {
-        <div class="probe-error" role="alert">@_error <button type="button" @onclick="() => _error = null">Dismiss</button></div>
+        <MudAlert Severity="Severity.Error" role="alert" ShowCloseIcon="true" CloseIconClicked="() => _error = null" Class="probe-alert">@_error</MudAlert>
     }
     <p class="probe-feedback" role="status">@_message</p>
     @if (_library is null || _settings is null)
     {
-        <p role="status">@(_loading ? "Loading saved tests and configurations…" : "The test library is unavailable.")</p>
-        @if (!_loading) { <button type="button" @onclick="ReloadLibraryAsync">Try again</button> }
+        @if (_loading) { <LoadingState Text="Loading saved tests and configurations…" /> }
+        else
+        {
+            <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="The test library is unavailable">
+                <ChildContent>Saved tests and configurations couldn’t be read.</ChildContent>
+                <Actions><button type="button" @onclick="ReloadLibraryAsync">Try again</button></Actions>
+            </EmptyState>
+        }
     }
     else
     {
@@ -46,15 +50,8 @@
                             <button type="button" @onclick="() => EditProbe(probe)" disabled="@SelectionLocked">@(ContentProbeBuiltIns.IsBuiltIn(probe.Id) ? "View" : "Edit")</button>
                             <button type="button" @onclick="() => DuplicateProbe(probe)" disabled="@SelectionLocked">Duplicate</button>
                             <button type="button" @onclick="() => EnableProbeAsync(probe)" disabled="@SelectionLocked">@(probe.Enabled ? "Disable" : "Enable")</button>
-                            @if (!ContentProbeBuiltIns.IsBuiltIn(probe.Id)) { <button type="button" @onclick="() => _deleteProbe = probe.Id" disabled="@SelectionLocked">Delete</button> }
+                            @if (!ContentProbeBuiltIns.IsBuiltIn(probe.Id)) { <button type="button" class="lumi-button danger" @onclick="() => _deleteProbe = probe.Id" disabled="@SelectionLocked">Delete…</button> }
                         </div>
-                        @if (_deleteProbe == probe.Id)
-                        {
-                            <div role="alert">Delete this custom test? Saved responses and ratings will remain.
-                                <button type="button" @onclick="() => DeleteProbeAsync(probe.Id)" disabled="@SelectionLocked">Confirm delete</button>
-                                <button type="button" @onclick="() => _deleteProbe = null">Keep test</button>
-                            </div>
-                        }
                         </td>
                     </tr>
                 }
@@ -79,8 +76,8 @@
                     </fieldset>
                     <details><summary>Full prompt preview</summary><pre>@EditorPrompt</pre></details>
                     <div class="probe-actions">
-                        @if (!_editorReadOnly) { <button type="submit" disabled="@SelectionLocked">Save test</button> }
-                        <button type="button" @onclick="() => _editing = null" disabled="@_busy">@(_editorReadOnly ? "Close" : "Cancel edit")</button>
+                        <button type="button" class="lumi-button ghost" @onclick="() => _editing = null" disabled="@_busy">@(_editorReadOnly ? "Close" : "Cancel edit")</button>
+                        @if (!_editorReadOnly) { <button type="submit" class="lumi-button primary" disabled="@SelectionLocked">Save test</button> }
                     </div>
                 </form>
             }
@@ -129,8 +126,8 @@
                         <details><summary>@request.Probe.Name · exact outgoing prompt</summary><pre>@request.SubmittedPrompt</pre></details>
                     }
                     <div class="probe-actions">
-                        <button type="button" @onclick="EnqueuePlanAsync" disabled="@_busy">@(_confirmed.Count == 0 ? $"Run {_plan.Count} requests" : "Continue queueing this run")</button>
                         <button type="button" @onclick="DiscardPlan" disabled="@_busy">Discard unqueued requests</button>
+                        <button type="button" class="lumi-button primary" @onclick="EnqueuePlanAsync" disabled="@_busy">@(_confirmed.Count == 0 ? $"Run {_plan.Count} requests" : "Continue queueing this run")</button>
                     </div>
                     <p class="probe-hint">Retrying queueing uses the same request IDs. Discarding this plan does not cancel requests already accepted into the queue.</p>
                 </section>
@@ -243,3 +240,8 @@
         }
     }
 </div>
+<ConfirmDialog Visible="@(_deleteProbe is not null)" VisibleChanged="visible => { if (!visible) _deleteProbe = null; }" Title="Delete test?" Context="@DeleteProbeName"
+               ConfirmLabel="Delete test" BusyLabel="Deleting…" Danger="true" Busy="_busy" ConfirmDisabled="SelectionLocked" OnConfirm="() => _deleteProbe is { } id ? DeleteProbeAsync(id) : Task.CompletedTask">
+    <ChildContent><p>Delete this custom test? Saved responses and ratings will remain.</p></ChildContent>
+    <Status>@if (_error is not null) { <span class="field-error">@_error</span> }</Status>
+</ConfirmDialog>

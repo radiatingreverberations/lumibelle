@@ -30,7 +30,7 @@ for(const narrow of [false,true]) test(`look filters and organization preserve d
  await assetView(page,'Images'); await page.getByLabel('Gallery look').selectOption('general');
  const outputCard=page.locator(`[data-media-id="${output.id}"]`);
  await outputCard.getByRole('button',{name:'Image actions',exact:true}).click();
- await page.getByRole('menuitem',{name:'Edit details',exact:true}).click();
+ await page.getByRole('menuitem',{name:'Edit details…',exact:true}).click();
  await review.getByLabel('Image look',{exact:true}).selectOption(look.id);
  await review.getByRole('button',{name:'Save details',exact:true}).click(); await review.getByRole('button',{name:'Close image review',exact:true}).click();
  await expect.poll(async()=>(await state(request,id)).assets[0].images.find(i=>i.id===output.id).lookId).toBe(look.id);
@@ -48,7 +48,7 @@ test('look management stays in Details and bulk organization never changes tools
  await toolsTab(page,'Prompt'); await page.locator('#image-prompt').fill('My handwritten creation prompt');
  await lookAction(page,owner.looks[0].id,'Duplicate look');
  await expect.poll(async()=>(await state(request,id)).assets[0].looks.length).toBe(3);
- const copy=(await state(request,id)).assets[0].looks[2]; await lookAction(page,copy.id,'Edit look');
+ const copy=(await state(request,id)).assets[0].looks[2]; await lookAction(page,copy.id,'Edit look…');
  const dialog=page.locator('.look-editor-dialog'); await dialog.getByLabel('Look name',{exact:true}).fill('Raincoat');
  await dialog.getByRole('button',{name:'Save look',exact:true}).click();
  await lookAction(page,copy.id,'Archive look'); await expect.poll(async()=>(await state(request,id)).assets[0].looks[2].archived).toBe(true);
@@ -59,5 +59,5 @@ test('look management stays in Details and bulk organization never changes tools
  await expect.poll(async()=>(await state(request,id)).assets[0].images.filter(i=>i.lookId===copy.id).length).toBe(1);
  await expect(page.locator('#image-prompt')).toHaveValue('My handwritten creation prompt');
  await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready','true'); await page.getByLabel('Gallery look').selectOption(copy.id); await expect(page.locator('.reference-card')).toHaveCount(1);
- await imageAction(page,'Edit details'); await expect(page.locator('.image-review-dialog').getByLabel('Image look',{exact:true})).toHaveValue(copy.id);
+ await imageAction(page,'Edit details…'); await expect(page.locator('.image-review-dialog').getByLabel('Image look',{exact:true})).toHaveValue(copy.id);
 });

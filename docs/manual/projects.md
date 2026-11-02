@@ -46,7 +46,7 @@ The project's writing, assets, shots and settings are saved together in `project
 
 ## Edit project details
 
-Choose **Edit project** on the project overview to change its name or description. Saving keeps the same project ID, creation date, script and assets. The description can be cleared; a name is required. Cancel discards the draft, and save failures keep your edits available for retry. If another tab changed the details first, copy your draft and reopen the refreshed project before saving again.
+Choose **Edit project…** on the project overview to change its name or description. Saving keeps the same project ID, creation date, script and assets. The description can be cleared; a name is required. Cancel discards the draft, and save failures keep your edits available for retry. If another tab changed the details first, copy your draft and reopen the refreshed project before saving again.
 
 ## Back up and move projects
 

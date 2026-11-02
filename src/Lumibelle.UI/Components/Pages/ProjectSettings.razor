@@ -6,31 +6,33 @@
 <PageTitle>Project settings · Lumibelle</PageTitle>
 @if (_loading)
 {
-    <div class="loading-state" role="status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />Opening project settings…</div>
+    <LoadingState Text="Opening project settings…" />
 }
 else if (_error is not null)
 {
-    <h1 class="state-title">Project settings couldn’t be opened</h1>
-    <MudButton Href="@(ProjectLink(Id, ""))">Back to project</MudButton>
-    <MudAlert Severity="Severity.Error" role="alert">@_error</MudAlert>
-    <MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton>
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Project settings couldn’t be opened" HeadingLevel="1" role="alert">
+        <ChildContent>@_error</ChildContent>
+        <Actions><MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton><MudButton Href="@(ProjectLink(Id, ""))">Back to project</MudButton></Actions>
+    </EmptyState>
 }
 else if (_project is null)
 {
-    <h1 class="state-title">Project not found</h1>
-    <MudButton Href="/">Back to your projects</MudButton>
+    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found" HeadingLevel="1">
+        <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
+        <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to your projects</MudButton></Actions>
+    </EmptyState>
 }
 else
 {
     <PagePosition ProjectId="Id" Studio="settings" />
     <ProjectNavigation Project="_project" CurrentStudio="settings" />
-    <header class="settings-heading"><h1>Project settings</h1><p>Preferences for @_project.Name.</p></header>
+    <PageHeading Title="Project settings"><Lead>Preferences for @_project.Name.</Lead></PageHeading>
     <div class="project-settings-grid">
         <section class="settings-card project-details" aria-labelledby="project-details-heading">
             <h2 id="project-details-heading">Project details</h2>
             <p class="project-settings-name">@_project.Name</p>
             @if (!string.IsNullOrWhiteSpace(_project.Description)) { <p class="project-synopsis">@_project.Description</p> }
-            <MudButton OnClick="EditProjectAsync" Disabled="_dialogOpen" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Edit">Edit project</MudButton>
+            <MudButton OnClick="EditProjectAsync" Disabled="_dialogOpen" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Edit">Edit project…</MudButton>
         </section>
         <ProjectVisualStylePanel @key="(Id, nameof(ProjectVisualStylePanel))" ProjectId="Id" />
         <ProjectStoragePanel @key="(Id, nameof(ProjectStoragePanel))" Project="_project" />
@@ -69,7 +71,7 @@ else
         {
             var dialog = await DialogService.ShowAsync<ProjectDialog>("Edit project",
                 new DialogParameters { [nameof(ProjectDialog.Project)] = original },
-                new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false });
+                ProjectDialog.Options);
             var result = await dialog.Result;
             if (Id == original.Id && result is { Canceled: false, Data: ProjectInfo updated }) _project = updated;
         }

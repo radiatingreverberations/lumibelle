@@ -19,7 +19,7 @@ public sealed partial class AiModelComponentTests
         var page = Render<AiSettingsPage>();
         Assert.Equal(new[] { AiBackend.OpenRouter }, _providers.CheckedBackends);
         Assert.Equal("true", page.Find("#ai-text-provider-openrouter").GetAttribute("aria-selected"));
-        Assert.Equal($"/projects/{project}/assets?view=grid#focus", page.Find(".writing-back").GetAttribute("href"));
+        Assert.Equal($"/projects/{project}/assets?view=grid#focus", page.Find(".page-back").GetAttribute("href"));
         Button(page, "Next").Click(); page.Find(".text-model-expand").Click();
         page.Find(".model-alias-form input").Input("Draft on page two");
         page.Find("#ai-text-provider-comfyui").Click();

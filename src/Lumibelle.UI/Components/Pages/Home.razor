@@ -7,19 +7,15 @@
 @inject NavigationManager Navigation
 
 <PageTitle>Your projects · Lumibelle</PageTitle>
-<section class="library-heading" aria-labelledby="welcome-title">
-    <div>
-        <p class="eyebrow">PROJECT LIBRARY</p>
-        <h1 id="welcome-title">Your projects</h1>
-        <p class="intro-copy">A place for your stories, characters, and worlds.</p>
-    </div>
-    <div class="library-actions">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
-               OnClick="NewProjectAsync" Disabled="_dialogOpen">New project</MudButton>
-    <MudButton Variant="Variant.Outlined" OnClick="() => { _transferBusy = false; _transferOpen = true; }" Disabled="@(_dialogOpen || _loading)">Export / import project</MudButton>
-    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FolderOpen" OnClick="OpenFolderDialog" Disabled="@(_dialogOpen || _loading)">Open project folder…</MudButton>
-    </div>
-</section>
+<PageHeading Title="Your projects" Eyebrow="Project library">
+    <Lead>A place for your stories, characters, and worlds.</Lead>
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
+                   OnClick="NewProjectAsync" Disabled="_dialogOpen">New project</MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="() => { _transferBusy = false; _transferOpen = true; }" Disabled="@(_dialogOpen || _loading)">Export / import project…</MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FolderOpen" OnClick="OpenFolderDialog" Disabled="@(_dialogOpen || _loading)">Open project folder…</MudButton>
+    </Actions>
+</PageHeading>
 <section class="library-section" aria-labelledby="library-title">
     <div class="section-heading">
         <div class="section-title"><h2 id="library-title">All projects</h2>@if (_library is not null) { <span class="count-badge">@_library.Projects.Count</span> }</div>
@@ -27,12 +23,14 @@
     </div>
     @if (_loading)
     {
-        <div class="loading-state" role="status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" /><span>Opening your library…</span></div>
+        <LoadingState Text="Opening your library…" />
     }
     else if (_error is not null)
     {
-        <MudAlert Severity="Severity.Error" role="alert">@_error</MudAlert>
-        <MudButton OnClick="LoadAsync" Class="mt-3" Variant="Variant.Outlined">Try again</MudButton>
+        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Your library couldn’t be opened" HeadingLevel="3" role="alert">
+            <ChildContent>@_error</ChildContent>
+            <Actions><MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton></Actions>
+        </EmptyState>
     }
     else if (_library is not null)
     {
@@ -52,13 +50,10 @@
         }
         @if (_library.Projects.Count == 0)
         {
-            <div class="empty-library">
-                <span class="empty-icon"><MudIcon Icon="@Icons.Material.Outlined.CreateNewFolder" Size="Size.Large" /></span>
-                <h3>@(_library.Issues.Count == 0 ? "Your next story belongs here" : "No readable projects yet")</h3>
-                <p>Create a project to make room for your ideas.<br />A name is all you need to begin.</p>
-                <MudButton Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Outlined.ArrowForward"
-                           OnClick="NewProjectAsync" Disabled="_dialogOpen">Create a project</MudButton>
-            </div>
+            <EmptyState Icon="@Icons.Material.Outlined.CreateNewFolder" Title="@(_library.Issues.Count == 0 ? "Your next story belongs here" : "No readable projects yet")" HeadingLevel="3">
+                <ChildContent>Create a project to make room for your ideas.<br />A name is all you need to begin.</ChildContent>
+                <Actions><MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="NewProjectAsync" Disabled="_dialogOpen">Create a project</MudButton></Actions>
+            </EmptyState>
         }
         else
         {
@@ -79,8 +74,8 @@
     }
 </section>
 
-<InlineDialog Visible="_folderOpen" VisibleChanged="value => { if (!_folderBusy) _folderOpen = value; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })"
-              Class="project-folder-dialog" Title="Open project folder" CloseLabel="Close open project folder" CloseDisabled="_folderBusy">
+<InlineDialog Visible="_folderOpen" VisibleChanged="value => { if (!_folderBusy) _folderOpen = value; }" Options="DialogSizes.Small"
+              Class="project-folder-dialog" Title="Open project folder" CloseLabel="Close open project folder" CloseDisabled="_folderBusy" CloseOnEscape="!_folderBusy">
     <Summary>Edit a project where it is, outside the library folder.</Summary>
     <DialogContent>
         <ProjectFolderField Id="project-folder" Label="Project folder" @bind-Value="_folderPath" Disabled="_folderBusy">
@@ -88,14 +83,14 @@
         </ProjectFolderField>
         @if (_folderError is not null) { <p class="field-error" role="alert">@_folderError</p> }
     </DialogContent>
-    <DialogActions>
+    <Actions>
         <MudButton Disabled="_folderBusy" OnClick="() => _folderOpen = false">Cancel</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_folderBusy || string.IsNullOrWhiteSpace(_folderPath))" OnClick="OpenFolderAsync">@(_folderBusy ? "Opening…" : "Open project")</MudButton>
-    </DialogActions>
+    </Actions>
 </InlineDialog>
 
-<InlineDialog Visible="_transferOpen" VisibleChanged="value => _transferOpen = value" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false })"
-              Class="project-transfer-dialog" Title="Project packages" CloseLabel="Close project packages" CloseDisabled="_transferBusy">
+<InlineDialog Visible="_transferOpen" VisibleChanged="value => { if (!_transferBusy) _transferOpen = value; }" Options="DialogSizes.Medium"
+              Class="project-transfer-dialog" Title="Project packages" CloseLabel="Close project packages" CloseDisabled="_transferBusy" CloseOnEscape="!_transferBusy">
     <Summary>Move a project between libraries as a single ZIP.</Summary>
     <DialogContent>@if (_transferOpen) { <ProjectTransferPanel Projects="@(_library?.Projects ?? [])" ActionsSection="_transferActions" BusyChanged="value => _transferBusy = value" Imported="PackageImported" Closed="() => _transferOpen = false" /> }</DialogContent>
     <DialogActions><SectionOutlet SectionId="_transferActions" /></DialogActions>
@@ -162,10 +157,7 @@
         _dialogOpen = true;
         try
         {
-            var dialog = await DialogService.ShowAsync<ProjectDialog>("New project", new DialogOptions
-            {
-                MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false
-            });
+            var dialog = await DialogService.ShowAsync<ProjectDialog>("New project", ProjectDialog.Options);
             var result = await dialog.Result;
             if (result is { Canceled: false, Data: ProjectInfo project }) { if (ProjectRoutes is not null) await ProjectRoutes.RefreshAsync(); Navigation.NavigateTo(ProjectLink(project.Id)); }
         }

@@ -15,7 +15,7 @@ for (const narrow of [false, true]) test(`generation footer keeps output local u
   };
   await showTools();
   const tools = page.locator('.shot-controls');
-  await expect(tools.locator(':scope > .workspace-pane-header')).toHaveCount(0);
+  await expect(tools.locator(':scope > .workspace-pane-header .pane-title')).toHaveText('References');
   await expect(tools.locator('.workspace-pane-footer').getByRole('combobox', { name: 'Generation setup', exact: true })).toBeInViewport();
   const footer = tools.locator('.generation-output');
   const resolution = footer.getByLabel('Resolution', { exact: true });

@@ -130,7 +130,7 @@ test('global Trash previews, filters, restores and permanently deletes exact con
   await expect(page.locator('.trash-card')).toHaveCount(0);
   expect((await state(request, first.project)).assets[0].images).toHaveLength(1);
   await page.locator('.trash-toolbar select').selectOption(second.project.id);
-  await page.locator('.trash-card').getByRole('button', { name: 'Delete permanently', exact: true }).click();
+  await page.locator('.trash-card').getByRole('button', { name: 'Delete permanently…', exact: true }).click();
   const confirm = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Delete media permanently?' }) });
   await expect(confirm).toBeVisible();
   expect((await state(request, second.project)).trash).toHaveLength(1);
@@ -138,7 +138,7 @@ test('global Trash previews, filters, restores and permanently deletes exact con
   // A different project's existing Trash is outside the selected scope.
   await request.post(`/fixtures/${first.project.id}/trash/${first.library.assets[0].images[0].id}`);
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await page.getByRole('button', { name: 'Empty Trash', exact: true }).click();
+  await page.getByRole('button', { name: 'Empty Trash…', exact: true }).click();
   const empty = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Empty Trash for this project?' }) });
   await expect(empty).toBeVisible();
   await empty.getByRole('button', { name: 'Delete permanently', exact: true }).click();

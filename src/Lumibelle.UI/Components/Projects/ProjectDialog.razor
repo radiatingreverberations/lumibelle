@@ -1,10 +1,10 @@
 <MudDialog DefaultFocus="DefaultFocus.FirstChild">
     <TitleContent>
-        <DialogHeader Title="@(Dialog.Title ?? "Project")" Close="Cancel" CloseDisabled="_saving" CloseLabel="@($"Close {Dialog.Title?.ToLowerInvariant()}")">
+        <DialogHeader Title="@(Dialog.Title ?? "Project")" Close="Cancel" CloseDisabled="_saving" CloseLabel="@(Project is null ? "Close new project" : "Close edit project")">
             <Summary>@(Project is null ? "Choose a name, an optional description and a visual style." : "Update the name and description of your project.")</Summary>
         </DialogHeader>
     </TitleContent>
-    <DialogContent><ProjectForm Project="Project" ActionsSection="_actions" SavingChanged="value => _saving = value" OnSaved="Saved" OnCancel="Cancel" /></DialogContent>
+    <DialogContent><ProjectForm Project="Project" ActionsSection="_actions" SavingChanged="SavingChangedAsync" OnSaved="Saved" OnCancel="Cancel" /></DialogContent>
     <DialogActions><SectionOutlet SectionId="_actions" /></DialogActions>
 </MudDialog>
 @code {
@@ -14,4 +14,8 @@
     private bool _saving;
     private void Saved(ProjectInfo project) => Dialog.Close(DialogResult.Ok(project));
     private void Cancel() { if (!_saving) Dialog.Cancel(); }
+    // The form is staged without an unsaved-changes prompt, so callers open it with Escape off
+    // (ProjectDialog.Options); the close button waits while the project is being saved.
+    public static DialogOptions Options { get; } = DialogSizes.Small with { CloseOnEscapeKey = false };
+    private Task SavingChangedAsync(bool saving) { _saving = saving; StateHasChanged(); return Task.CompletedTask; }
 }

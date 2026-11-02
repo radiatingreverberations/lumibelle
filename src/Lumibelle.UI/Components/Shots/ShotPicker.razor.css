@@ -5,7 +5,7 @@
 .picker-selection strong { font-weight:600; }
 .picker-selection small { font-size:inherit; color:var(--muted); }
 .picker-selection-actions { display:flex; gap:10px; }
-button { padding:4px 0; border:0; background:transparent; color:var(--plum); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; }
+button { padding:4px 0; border:0; background:transparent; color:var(--lumi-accent); font:inherit; font-size:var(--lumi-font-size-small); cursor:pointer; }
 button:disabled { opacity:.45; cursor:default; }
 .picker-list { flex:1; min-height:180px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; border:1px solid var(--line); border-radius:var(--lumi-radius-surface); }
 .picker-scene h3 { position:sticky; top:0; z-index:1; margin:0; padding:10px 12px; background:var(--lumi-surface-subtle); border-bottom:1px solid var(--line); font-size:var(--lumi-font-size-small); font-weight:600; color:var(--muted); overflow-wrap:anywhere; }

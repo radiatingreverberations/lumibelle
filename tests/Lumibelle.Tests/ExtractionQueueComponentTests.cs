@@ -26,26 +26,26 @@ public sealed partial class AssetComponentTests
         if (text == "Find assets") {
             await _queue.Until(() => Assert.NotEmpty(_queue.View.Jobs));
             page.WaitForElement(".asset-library-extraction .request-action-button", BunitDefaults.WaitTimeout(5));
-            page.WaitForElement(".extraction-dialog", BunitDefaults.WaitTimeout(5));
+            _dialogs.WaitForElement(".extraction-dialog", BunitDefaults.WaitTimeout(5));
         }
     }
     private async Task<IRenderedComponent<AssetsStudio>> ReviewableExtraction()
     {
         _extractor.Result = new([new() { Name = "Mira", Description = "A quiet traveller.", Category = AssetCategory.Character }], "mock extraction");
         var page = Page(); await ExtractionClick(page, "Extract from script"); await ExtractionClick(page, "Find assets");
-        page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5)); return page;
+        _dialogs.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5)); return page;
     }
     [Fact]
     public async Task FailedReviewPublicationKeepsDecisionsAndBlocksImportUntilExplicitRetry()
     {
         var page = await ReviewableExtraction(); var reviews = (TestReviewDraftStore)Services.GetRequiredService<IAiJobReviewStore>();
         reviews.SaveError = new WorkspaceStoreException("Review disk full");
-        await page.InvokeAsync(() => page.Find("input[aria-label='Asset name']").Input("Kept author decision"));
+        await page.InvokeAsync(() => _dialogs.Find("input[aria-label='Asset name']").Input("Kept author decision"));
         await ExtractionClick(page, "Add to library");
-        page.WaitForAssertion(() => Assert.Contains("Review disk full", page.Markup));
-        Assert.Empty(_assets.Library.Assets); Assert.Equal("Kept author decision", page.Find("input[aria-label='Asset name']").GetAttribute("value"));
-        await page.InvokeAsync(() => page.Find(".extraction-dialog .preview-close").ClickAsync(new()));
-        Assert.NotEmpty(page.FindAll(".extraction-dialog"));
+        _dialogs.WaitForAssertion(() => Assert.Contains("Review disk full", _dialogs.Markup));
+        Assert.Empty(_assets.Library.Assets); Assert.Equal("Kept author decision", _dialogs.Find("input[aria-label='Asset name']").GetAttribute("value"));
+        await page.InvokeAsync(() => _dialogs.Find(".extraction-dialog .dialog-close").ClickAsync(new()));
+        Assert.NotEmpty(_dialogs.FindAll(".extraction-dialog"));
         reviews.SaveError = null; await ExtractionClick(page, "Retry saving review"); await ExtractionClick(page, "Add to library");
         page.WaitForAssertion(() => Assert.Equal("Kept author decision", Assert.Single(_assets.Library.Assets).Name));
         Assert.Equal(1, _extractor.Calls); Assert.Equal(_extractor.JobId, Assert.Single(_assets.Library.ExtractionReviews).Id);
@@ -54,11 +54,11 @@ public sealed partial class AssetComponentTests
     public async Task ReopeningAnExtractionRetainsEditedDecisionsAndDoesNotRepeatTheProvider()
     {
         var page = await ReviewableExtraction();
-        await page.InvokeAsync(() => page.Find("input[aria-label='Asset name']").Input("Named in review"));
-        await page.InvokeAsync(() => page.Find(".extraction-dialog .preview-close").ClickAsync(new()));
+        await page.InvokeAsync(() => _dialogs.Find("input[aria-label='Asset name']").Input("Named in review"));
+        await page.InvokeAsync(() => _dialogs.Find(".extraction-dialog .dialog-close").ClickAsync(new()));
         await page.Instance.DisposeAsync(); page.Dispose();
         page = Page(false); await ExtractionClick(page, "Review suggestions");
-        page.WaitForAssertion(() => Assert.Equal("Named in review", page.Find("input[aria-label='Asset name']").GetAttribute("value")));
+        _dialogs.WaitForAssertion(() => Assert.Equal("Named in review", _dialogs.Find("input[aria-label='Asset name']").GetAttribute("value")));
         Assert.Equal(1, _extractor.Calls); Assert.Empty(_assets.Library.Assets);
         await ExtractionClick(page, "Add to library"); Assert.Equal("Named in review", Assert.Single(_assets.Library.Assets).Name);
     }
@@ -73,31 +73,31 @@ public sealed partial class AssetComponentTests
         await reviews.LoadStarted.WaitAsync(BunitDefaults.WaitTimeout(5), Xunit.TestContext.Current.CancellationToken);
         // Any render while they load, such as a progress update, must not show proposals yet: an edit made before
         // the saved decisions arrive would be mistaken for them and never saved.
-        await page.InvokeAsync(() => { page.Render(); Assert.Empty(page.FindAll(".extraction-proposal")); });
+        await page.InvokeAsync(() => { page.Render(); Assert.Empty(_dialogs.FindAll(".extraction-proposal")); });
         loading.SetResult();
-        page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
-        await page.InvokeAsync(() => page.Find("input[aria-label='Asset name']").Input("Named early"));
-        await page.InvokeAsync(() => page.Find(".extraction-dialog .preview-close").ClickAsync(new()));
+        _dialogs.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
+        await page.InvokeAsync(() => _dialogs.Find("input[aria-label='Asset name']").Input("Named early"));
+        await page.InvokeAsync(() => _dialogs.Find(".extraction-dialog .dialog-close").ClickAsync(new()));
         await page.Instance.DisposeAsync(); page.Dispose();
         page = Page(false); await ExtractionClick(page, "Review suggestions");
-        page.WaitForAssertion(() => Assert.Equal("Named early", page.Find("input[aria-label='Asset name']").GetAttribute("value")));
+        _dialogs.WaitForAssertion(() => Assert.Equal("Named early", _dialogs.Find("input[aria-label='Asset name']").GetAttribute("value")));
     }
     [Fact]
     public async Task SkippingSuggestionsChangesTheApplyActionWithoutCreatingAssets()
     {
         var page = await ReviewableExtraction();
-        Assert.Contains("Awaiting your review", page.Markup);
-        Assert.Contains("1 asset to add", page.Markup);
-        Assert.Equal("Add to library", page.Find(".apply-extraction").TextContent.Trim());
+        Assert.Contains("Awaiting your review", _dialogs.Markup);
+        Assert.Contains("1 asset to add", _dialogs.Markup);
+        Assert.Equal("Add to library", _dialogs.Find(".apply-extraction").TextContent.Trim());
         // The review can still settle after its proposal appears. A stale handler means the page's DOM
         // lags the renderer, so re-render to refresh it and try again.
         for (var attempt = 0; ; attempt++)
         {
-            try { await page.InvokeAsync(() => page.Find("select[aria-label='Decision for Mira']").Change("Skip")); break; }
-            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { page.Render(); }
+            try { await page.InvokeAsync(() => _dialogs.Find("select[aria-label='Decision for Mira']").Change("Skip")); break; }
+            catch (Bunit.Rendering.UnknownEventHandlerIdException) when (attempt < 10) { page.Render(); _dialogs.Render(); }
         }
-        page.WaitForAssertion(() => Assert.Equal("Finish review", page.Find(".apply-extraction").TextContent.Trim()));
-        Assert.Contains("1 skipped", page.Markup);
+        _dialogs.WaitForAssertion(() => Assert.Equal("Finish review", _dialogs.Find(".apply-extraction").TextContent.Trim()));
+        Assert.Contains("1 skipped", _dialogs.Markup);
         Assert.Empty(_assets.Library.Assets);
         await ExtractionClick(page, "Finish review");
         page.WaitForAssertion(() => Assert.Single(_assets.Library.ExtractionReviews));
@@ -108,11 +108,11 @@ public sealed partial class AssetComponentTests
     {
         await _queue.SetPausedAsync(AiBackend.OpenRouter, true, Xunit.TestContext.Current.CancellationToken);
         var page = Page(); await ExtractionClick(page, "Extract from script"); await ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.Contains("Queued in Lumibelle", page.Markup));
-        await page.InvokeAsync(() => page.Find(".extraction-dialog .preview-close").ClickAsync(new()));
+        _dialogs.WaitForAssertion(() => Assert.Contains("Queued in Lumibelle", _dialogs.Markup));
+        await page.InvokeAsync(() => _dialogs.Find(".extraction-dialog .dialog-close").ClickAsync(new()));
         Assert.Equal(0, _extractor.Calls); Assert.False(_queue.View.Jobs.Single().CancelRequested);
         await ExtractionClick(page, "Queued · View extraction"); await ExtractionClick(page, "Cancel request");
-        page.WaitForAssertion(() => Assert.Contains("cancelled", page.Markup));
+        _dialogs.WaitForAssertion(() => Assert.Contains("cancelled", _dialogs.Markup + page.Markup));
         Assert.Equal(AiJobState.Cancelled, _queue.View.Jobs.Single().State); Assert.Equal(0, _extractor.Calls);
     }
 }

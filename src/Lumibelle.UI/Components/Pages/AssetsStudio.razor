@@ -22,27 +22,38 @@
 }
 else if (!_loading && (_project is null || _library is null))
 {
-    <h1>Project not found</h1><p>This project may have moved or is no longer in your library.</p><MudButton Href="/">Back to your projects</MudButton>
+    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found">
+        <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
+        <Actions><MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Back to your projects</MudButton></Actions>
+    </EmptyState>
 }
 else
 {
     @if (_project is not null) { <ProjectNavigation Project="_project" CurrentStudio="assets" /> }
-    <StudioPageHeader Title="Assets studio">
-        <div class="assets-header-actions"><span class="save-status @(_saveError is null ? "" : "failed")" role="status">@(_loading ? "Loading…" : _saveStatus)</span><MudButton OnClick="SaveNowAsync" Disabled="@(_loading || !_dirty || _saving)" Variant="Variant.Outlined">Save</MudButton></div>
+    <StudioPageHeader Title="Assets">
+        <StudioActions Class="assets-header-actions" Status="@(_loading ? SaveStatusText.Loading : _saveStatus)" Problem="@(_saveError is not null || _conflict)"
+                       OnSave="SaveNowAsync" CanSave="@(!_loading && _dirty && !_saving)" />
     </StudioPageHeader>
-    @if (_saveError is not null) { <div class="writing-error"><p>@_saveError</p><MudButton OnClick="SaveNowAsync" Size="Size.Small">Retry</MudButton></div> }
-    @if (_imageNavigationError is not null) { <p class="writing-error" role="alert">@_imageNavigationError</p> }
-    @if (_conflict)
+    @if (_saveError is not null || _conflict)
     {
-        <div class="writing-notice"><p>Another tab saved newer asset changes. Your local edits are still here.</p><MudButton OnClick="ReloadAsync" Variant="Variant.Outlined" Size="Size.Small">Reload saved version</MudButton></div>
+        <SaveErrorNotice Message="@SaveProblemMessage" Busy="_saving" OnRetry="@(_saveError is not null ? EventCallback.Factory.Create(this, SaveNowAsync) : default)"
+                         OnReload="@(_conflict ? EventCallback.Factory.Create(this, ReloadAsync) : default)" ReloadLabel="Reload saved version" />
     }
+    @if (_imageNavigationError is not null) { <p class="assets-error" role="alert">@_imageNavigationError</p> }
     <StudioWorkspace @ref="_workspace" Studio="Assets" ProjectId="Id" LeftLabel="Library" RightLabel="Asset tools" SelectionKey="@_selectedAssetId.ToString()" Busy="_loading">
         <Status>@if (ImageQueueStatus is { } queueStatus) { <span>@queueStatus</span> } else if (_generating) { <span>Preparing request…</span> } else if (_enhancing) { <span>Enhancing prompt…</span> } else if (_generationError is not null && !ImageErrorIsHistory) { <span>@_generationError</span> }</Status>
         <Left>@if (_loading) {
-            <StudioPane Class="asset-library" Label="Asset library"><Header><div class="asset-library-heading"><h2>Assets</h2></div></Header><ChildContent></ChildContent></StudioPane>
+            <StudioPane Class="asset-library" Label="Asset library" Title="Assets"><ChildContent></ChildContent></StudioPane>
         } else if (_library is not null) {
-        <StudioPane Class="asset-library" Label="Asset library"><Header>
-            <div class="asset-library-heading"><h2>Assets <small>@_library.Assets.Count</small></h2><div class="asset-library-actions"><button @onclick="() => _createOpen = true" aria-label="Create asset" title="Create asset">+</button><MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Asset library options" Size="Size.Small" Dense="true"><MudMenuItem role="menuitem" OnClick="OpenAllAssetDeletionAsync" Disabled="@(_library.Assets.Count == 0 || _saving || _deletingAllAssets)" Class="danger-link">Delete all assets…</MudMenuItem></MudMenu></div></div>
+        <StudioPane Class="asset-library" Label="Asset library" Title="Assets" Count="@_library.Assets.Count.ToString()">
+            <HeaderActions>
+                @* "Create asset" is also the focus target after the whole library is deleted (assets-studio.js). *@
+                <MudButton Class="asset-create" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" OnClick="() => _createOpen = true" aria-label="Create asset">Create asset…</MudButton>
+                <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Asset library options" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                    <MudMenuItem role="menuitem" OnClick="OpenAllAssetDeletionAsync" Disabled="@(_library.Assets.Count == 0 || _saving || _deletingAllAssets)" Class="danger-item">Delete all assets…</MudMenuItem>
+                </MudMenu>
+            </HeaderActions>
+            <Header>
             <div class="asset-library-extraction" @ref="_extractionOriginElement"><TextAssistance @ref="_extractionAssist" ProjectId="Id" Studio="TextAssistantStudio.AssetExtraction" ExternalComposer="true" Request="ExtractionPresentation" Preparing="_extractionSubmitting" HasError="@(_pendingExtraction is not null)" ReviewRequested="InspectExtraction" CancelRequested="CancelExtraction" Label="Extract from script" Title="Extract assets from script" Notice="@ExtractionCoverageNotice" Disabled="@(_saving || _finishingReview || _deletingAllAssets)" ModelLocked="_extracting" Opened="PrepareExtractionComposerAsync" SelectionChanged="ExtractionModelChanged" /></div>
             <AssetBatchPanel ProjectId="Id" Disabled="@(_dirty || _saving || _loading || _deletingAllAssets)" RequestedReviewJobId="RequestedAssetBatchReview" LibraryChanged="BulkLibraryChanged" />
             <div class="asset-library-search" data-workspace-menu-open="@(_assetCategoryMenuOpen ? "true" : "false")" @onkeydown="AssetCategoryMenuKeyDown">
@@ -58,7 +69,10 @@ else
                 </MudMenu>
             </div>
 </Header><ChildContent>            <AssetLibraryList ProjectId="Id" Items="FilteredAssets" SelectedId="_selectedAssetId" Selected="SelectAssetAsync" Rename="RenameAsset" Delete="id => _deleteAsset = id" MoveRequested="OpenAssetMove" Moved="MoveAsset" ReviewReady="EnhancementReviewAssets" ReviewRequested="ReviewEnhancement" Disabled="@(_saving || _ordering || _deletingAllAssets)" />
-            @if (!FilteredAssets.Any()) { <p class="rail-hint">@(_library.Assets.Count == 0 ? "Create an asset or extract ideas from your story." : "No assets match this view.")</p> }
+            @if (!FilteredAssets.Any()) {
+                @if (_library.Assets.Count == 0) { <EmptyState Compact="true" HeadingLevel="3" Class="asset-library-empty" Title="No assets yet">Create an asset or extract ideas from your story.</EmptyState> }
+                else { <EmptyState Compact="true" HeadingLevel="3" Class="asset-library-empty" Title="No assets match this view">Try another search or category.</EmptyState> }
+            }
             @if (_orderUndo is not null) { <p role="status" class="rail-hint">Asset moved. <button @onclick="UndoAssetMove" disabled="@_ordering">Undo</button></p> }
 </ChildContent></StudioPane>
         }</Left>
@@ -75,25 +89,37 @@ else
                     <div class="asset-media-counts"><span>@MediaCount(headerAsset.Images.Count(i => i.PendingReview != true), "image")</span>@if (ReferenceReels.Supports(headerAsset.Category)) { <span>@MediaCount(_library!.Reels.Count(r => r.AssetId == headerAsset.Id), "reel")</span> }@if (headerAsset.Category == AssetCategory.Character) { <span>@MediaCount(headerAsset.Looks.Count(l => !l.Archived), "look")</span><span>@MediaCount(_library!.Voices.Count(v => v.AssetId == headerAsset.Id), "voice")</span> }</div>
                     </div>
                 </div>
-                <div class="asset-reference-heading"><h2>References <small>@AllGalleryItems.Count(i => i.Image?.PendingReview != true)</small></h2><div class="asset-gallery-actions">@if (headerAsset.Category == AssetCategory.Character) { <button class="asset-group-toggle" aria-pressed="@(GalleryGrouped ? "true" : "false")" @onclick="ToggleGalleryGrouping">Group by look</button> }<MudButton OnClick="OpenAssetDetails" Size="Size.Small" aria-label="Edit asset details">Edit details</MudButton>
+                <div class="asset-reference-heading"><h2>References <small>@AllGalleryItems.Count(i => i.Image?.PendingReview != true)</small></h2><div class="asset-gallery-actions">@if (headerAsset.Category == AssetCategory.Character) { <button class="asset-group-toggle" aria-pressed="@(GalleryGrouped ? "true" : "false")" @onclick="ToggleGalleryGrouping">Group by look</button> }<MudButton OnClick="OpenAssetDetails" Size="Size.Small" aria-label="Edit asset details">Edit details…</MudButton>
                 </div></div>
                 <div class="asset-gallery-toolbar">
                     <label>Show<select aria-label="Filter media" @bind="_presentation.Filter" @bind:after="RememberAssetPosition"><option>All</option><option>Images</option><option>Pending review</option>@if (ReferenceReels.Supports(headerAsset.Category)) { <option>Reels</option> }@if (headerAsset.Category == AssetCategory.Character) { <option>Voices</option> }</select></label>
                     <input type="search" aria-label="Search references" placeholder="Search references…" @bind="_presentation.Search" @bind:event="oninput" @bind:after="RememberAssetPosition" />
                     @if (headerAsset.Category == AssetCategory.Character) { <label>Look<select @ref="_galleryLookFilter" aria-label="Gallery look" @bind="_lookFilter" @bind:after="RememberAssetPosition"><option value="all">All looks</option><option value="general">General / unassigned</option>@foreach (var look in headerAsset.Looks) { <option value="@look.Id">@look.Name @(look.Archived ? "· Archived" : "")</option> }</select></label> }
-                    <details class="asset-import-menu"><summary>Import…</summary><div><label class="import-button">Import image<InputFile OnChange="ImportAsync" accept="image/png,image/jpeg,image/webp" /></label>@if (ReferenceReels.Supports(headerAsset.Category)) { <button @onclick="ImportReel">Import reel</button> }@if (headerAsset.Category == AssetCategory.Character) { <button @onclick="ImportVoice">Import voice</button> }</div></details>
-                    <button class="bulk-mode" aria-pressed="@(_presentation.Multiple ? "true" : "false")" @onclick="ToggleMultiple">@(_presentation.Multiple ? "Done selecting" : "Select multiple")</button>
+                    @* The file input stays outside the menu, so choosing a file still reaches it after the menu closes. *@
+                    <InputFile @ref="_imageImport" class="asset-image-import" OnChange="ImportAsync" accept="image/png,image/jpeg,image/webp" tabindex="-1" aria-hidden="true" />
+                    <MudMenu Class="asset-import-menu" Label="Import" EndIcon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        <MudMenuItem role="menuitem" OnClick="ChooseImageImport">Import image…</MudMenuItem>
+                        @if (ReferenceReels.Supports(headerAsset.Category)) { <MudMenuItem role="menuitem" OnClick="ImportReel">Import reel…</MudMenuItem> }
+                        @if (headerAsset.Category == AssetCategory.Character) { <MudMenuItem role="menuitem" OnClick="ImportVoice">Import voice…</MudMenuItem> }
+                    </MudMenu>
+                    <button class="lumi-button bulk-mode" aria-pressed="@(_presentation.Multiple ? "true" : "false")" @onclick="ToggleMultiple">@(_presentation.Multiple ? "Done selecting" : "Select multiple")</button>
                 </div>
             }
         </Header><ChildContent>
-            @if (_loading) { <p class="field-hint" role="status">Loading assets…</p> }
-            else if (SelectedAsset is not { } asset) { <section class="asset-empty"><h2>Build a visual vocabulary.</h2><p>Create a character, environment, or prop, then collect the views that define it.</p><MudButton OnClick="() => _createOpen = true">Create your first asset</MudButton></section> }
+            @* Loading shows only this message, never the empty-library invitation below. *@
+            @if (_loading) { <LoadingState Compact="true" Class="assets-loading" Text="Loading assets…" /> }
+            else if (SelectedAsset is not { } asset) {
+                <EmptyState Class="asset-empty" Icon="@Icons.Material.Outlined.Collections" Title="Build a visual vocabulary">
+                    <ChildContent>Create a character, environment, or prop, then collect the views that define it.</ChildContent>
+                    <Actions><MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="() => _createOpen = true">Create your first asset…</MudButton></Actions>
+                </EmptyState>
+            }
             else {
                 @if (!GalleryGrouped && asset.Category == AssetCategory.Character && asset.Looks.Any(l => !l.Archived)) {
                     <CharacterLookCards Asset="asset" Selected="_targetLookId" Disabled="@(!CanPrepareLookImages)" Create="CreateLookImages" Manage="ManageLook" />
                 }
                 @if (asset.Images.Count(i => i.PendingReview == true) is > 0 and var pendingCount) {
-                    <div class="asset-pending-review"><span>@pendingCount candidates awaiting your decision. Pending candidates are separate from kept images.</span><button @onclick='async () => { _presentation.Filter = "Pending review"; await RememberAssetPosition(); }'>Show pending candidates (@pendingCount)</button></div>
+                    <div class="asset-pending-review"><span>@pendingCount @(pendingCount == 1 ? "take" : "takes") awaiting your decision. Pending takes are separate from kept images.</span><button @onclick='async () => { _presentation.Filter = "Pending review"; await RememberAssetPosition(); }'>Show pending takes (@pendingCount)</button></div>
                 }
                 @if (_presentation.Multiple && _lookImageSelection.Count > 0) {
                             <div class="look-bulk" role="group" aria-label="Assign selected images"><span>@_lookImageSelection.Count selected</span>
@@ -127,9 +153,9 @@ else
                     if (item.Reel is not null) mediaDescriptionIds += $" {mediaLabelId}-resolution";
                     <article @key="item.Key" data-media-id="@item.Key.Id" data-media-kind="@item.Key.Kind" class="reference-card asset-media-card @(selected ? "selected" : "") @(item.Image?.IsReference == true ? "approved" : "")">
                         <button class="reference-image media-preview" aria-label="Preview @(item.Image is not null ? "image" : item.Key.Kind.ToString()) @item.Name" aria-describedby="@mediaDescriptionIds" @onclick="() => PreviewMedia(item)">
-                            @if (item.Image is { } thumbnail) { <img src="@ImageUrl(asset.Id, thumbnail.Id)" alt="@ImageAlt(asset, thumbnail)" loading="lazy" />@if (thumbnail.IsReference) { <span class="reference-badge">APPROVED</span> } }
+                            @if (item.Image is { } thumbnail) { <img src="@ImageUrl(asset.Id, thumbnail.Id)" alt="@ImageAlt(asset, thumbnail)" loading="lazy" />@if (thumbnail.IsReference) { <span class="reference-badge">Approved</span> } }
                             else if (item.Reel is { } clip) { <ReferenceVideoThumbnail ProjectId="Id" MediaId="clip.Media.Id" /> }
-                            else { <span class="voice-card-icon" aria-hidden="true">♫</span> }
+                            else { <span class="voice-card-icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.MusicNote" /></span> }
                             @if (item.Voice is { } defaultVoice && asset.DefaultVoiceId == defaultVoice.Id) { <span class="media-look-badge">Default voice</span> }
                             @if (lookLabel is not null) { <span id="@(mediaLabelId + "-look")" class="media-look-badge" title="@lookLabel" aria-label="Look: @lookLabel">@lookLabel</span> }
                             @if (item.Reel is { } resolutionReel) {
@@ -158,7 +184,7 @@ else
                                     @if (_presentation.Multiple && item.Reel is { } selectableReel) { <input type="checkbox" aria-label="Select reel @item.Name" checked="@_reelSelection.Contains(selectableReel.Id)" @onchange="e => SelectReel(selectableReel.Id, e.Value is true)" /> }
                                     <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {item.Name}")" Size="Size.Small" Dense="true">
                                         <MudMenuItem role="menuitem" OnClick="() => RenameMedia(item.Key)" Disabled="@(_saving || _selectionChanging || _imageDetailsDirty)">Rename</MudMenuItem>
-                                        <MudMenuItem role="menuitem" OnClick="() => OpenMediaDetails(item.Key)">Edit details</MudMenuItem>
+                                        <MudMenuItem role="menuitem" OnClick="() => OpenMediaDetails(item.Key)">Edit details…</MudMenuItem>
                                         @if (item.Reel is { } keyframeReel) { <MudMenuItem role="menuitem" OnClick="() => _reels!.ManageKeyframes(keyframeReel)">Manage keyframes…</MudMenuItem> }
                                         <MudMenuItem role="menuitem" OnClick="() => OpenMediaMove(item.Key)" Disabled="@(_saving || _selectionChanging)">Move to asset…</MudMenuItem>
                                         @if (asset.Category == AssetCategory.Character && item.Reel is not null) { <MudMenuItem role="menuitem" OnClick="() => OpenGalleryLook(asset.Id, item)" Disabled="@(_saving || _selectionChanging || _imageDetailsDirty)">Change look…</MudMenuItem> }
@@ -168,7 +194,7 @@ else
                                         @if (item.Reel is { Generation: not null } motionReel) { <MudMenuItem role="menuitem" Disabled="@(MotionReferencePolicy.Issue(motionReel) is not null)" title="@MotionReferencePolicy.Issue(motionReel)" OnClick="() => _reels!.RefineFromVideo(motionReel)">Refine from video…</MudMenuItem> }
                                         @if (item.Reel is { } replacing && _reels?.CanReplace(replacing) == true) { <MudMenuItem role="menuitem" OnClick="() => _reels!.ReplaceInShots(replacing)">Replace in shots…</MudMenuItem> }
                                         <MudDivider />
-                                        <MudMenuItem role="menuitem" Class="danger-link" OnClick="() => TrashMedia(item)">Move to Trash</MudMenuItem>
+                                        <MudMenuItem role="menuitem" Class="danger-item" OnClick="() => TrashMedia(item)">Move to Trash</MudMenuItem>
                                     </MudMenu>
                                 }
                                 </div>
@@ -185,7 +211,17 @@ else
                 }
                 </div>
                 @if (!GalleryItems.Any() && !(GalleryGrouped && GalleryGroups.Any())) {
-                    <div class="reference-empty">@if (AllGalleryItems.Any()) { <strong>No references match this view.</strong><p>Try another search or look.</p><button @onclick="ResetGalleryFilters">Clear filters</button> } else { <strong>No references yet.</strong><p>Import media or create the first reference for @asset.Name.</p><button @onclick="EnterCreate">Create reference</button> }</div>
+                    @if (AllGalleryItems.Any()) {
+                        <EmptyState Compact="true" HeadingLevel="3" Class="reference-empty" Icon="@Icons.Material.Outlined.FilterAltOff" Title="No references match this view">
+                            <ChildContent>Try another search or look.</ChildContent>
+                            <Actions><MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ResetGalleryFilters">Clear filters</MudButton></Actions>
+                        </EmptyState>
+                    } else {
+                        <EmptyState Compact="true" HeadingLevel="3" Class="reference-empty" Icon="@Icons.Material.Outlined.Collections" Title="No references yet">
+                            <ChildContent>Import media or create the first reference for @asset.Name.</ChildContent>
+                            <Actions><MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="EnterCreate">Create reference</MudButton></Actions>
+                        </EmptyState>
+                    }
                 }
                 @if (ReferenceReels.Supports(asset.Category)) { <ReferenceReelsPanel RegisterPanel="RegisterReelPanel" ClearCreationAvailabilityChanged="_ => StateHasChanged()" SaveVoiceRequested="SaveReelVoice" Embedded="true" RegisterFlush="RegisterReelFlush" ToolsSection="_reelToolsSection" DetailsSection="_reelDetailsSection" SelectedReelId="@(_presentation.Selection is { Kind: AssetMediaKind.Reel } reelSelection ? reelSelection.Id : null)" RevealTools="RevealReelTools" RevealPrompts="RevealReelPrompts" @key="(asset.Id, AssetMediaKind.Reel)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" RequestedJobId="RequestedJobId" ViewRefinementBatch="id => OpenRefinementBatches(id)" /> }
                 @if (asset.Category == AssetCategory.Character) { <VoiceReferencesPanel RegisterPanel="RegisterVoicePanel" Embedded="true" ToolsSection="_voiceToolsSection" SelectedVoiceId="@(_presentation.Selection is { Kind: AssetMediaKind.Voice } voiceSelection ? voiceSelection.Id : null)" @key="(asset.Id, AssetMediaKind.Voice)" ProjectId="Id" AssetId="asset.Id" Library="_library" Mutate="MutateVoiceAsync" /> }
@@ -195,22 +231,27 @@ else
                 Disabled="@(_saving || _deletingAllAssets || _finishingReview || _selectionChanging)" ClipboardDirty="@(_dirty || _imageDetailsDirty)"
                 Prepare="PrepareAssetReuseAsync" Changed="AssetReuseChangedAsync" />
         }</Footer></StudioPane></Center>
-        <Right><div class="asset-tool-shell">
-        @if (_loading) { <header class="asset-tools-header"><strong>Asset tools</strong></header> }
+        <Right>
+        @if (_loading) { <StudioPane Class="asset-tool-shell" Label="Asset tools" Title="Asset tools"><ChildContent></ChildContent></StudioPane> }
         else {
-        <header class="asset-tools-header @(_presentation.Selection is null ? "compact-creation-header" : "")">
-            <div class="asset-tool-heading"><h2 id="assets-tool-heading">@ToolOperation</h2>@if (_presentation.Selection is not null) { <button type="button" disabled="@(_selectionChanging || _clearingCreation)" @onclick="ClearMediaSelection" aria-label="Clear selection" title="Deselect and return to Create"><span aria-hidden="true">×</span></button> } else if (SelectedAsset is not null) { <button type="button" disabled="@(!CanClearCreation)" @onclick="ClearCreationFields" aria-label="Clear creation fields" title="Clear draft content"><span aria-hidden="true">×</span></button> }</div>
+        <StudioPane Class="asset-tool-shell" Label="Asset tools" Title="@ToolOperation">
+        <HeaderActions>
+            @if (_presentation.Selection is not null) { <MudIconButton Class="asset-tool-clear" Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Disabled="@(_selectionChanging || _clearingCreation)" OnClick="ClearMediaSelection" aria-label="Clear selection" title="Deselect and return to Create" /> }
+            else if (SelectedAsset is not null) { <MudIconButton Class="asset-tool-clear" Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Disabled="@(!CanClearCreation)" OnClick="ClearCreationFields" aria-label="Clear creation fields" title="Clear draft content" /> }
+        </HeaderActions>
+        <Header><div class="asset-tools-header @(_presentation.Selection is null ? "compact-creation-header" : "")">
             @if (_creationClearError is not null) { <p class="field-error" role="alert">@_creationClearError</p> }
             @if (_presentation.Selection is { } selection) {
                 @* One compact context for the selection: its name, then its asset (unless named the same) and look. *@
                 <div class="asset-tool-context selection-context"><strong>@SelectedMediaName</strong><span>@(SelectedAsset is { } owner && owner.Name != SelectedMediaName ? $"{owner.Name} · {SelectedMediaLook}" : SelectedMediaLook)</span></div>
-                @if (!GalleryItems.Any(i => i.Key == selection)) { <button class="reveal-selection" @onclick="RevealSelectedMedia">Reveal in gallery</button> }
+                @if (!GalleryItems.Any(i => i.Key == selection)) { <button class="lumi-button small reveal-selection" @onclick="RevealSelectedMedia">Reveal in gallery</button> }
             }
             else {
                 @if (SelectedAsset is { Category: AssetCategory.Character } && _presentation.Creation == AssetCreationKind.Image) { <div class="asset-tool-context"><span>Look · @(TargetLook?.Name ?? "General")</span></div> }
                 <label>Create<select aria-label="Create media type" disabled="@_clearingCreation" value="@_presentation.Creation" @onchange="ChangeCreation"><option value="@AssetCreationKind.Image">Image</option>@if (SelectedAsset is { } selectedAsset && ReferenceReels.Supports(selectedAsset.Category)) { <option value="@AssetCreationKind.Reel">Reference reel</option> }</select></label>
             }
-        </header><fieldset disabled="@(_selectionChanging || _clearingCreation)" id="assets-tools-content" aria-labelledby="assets-tool-heading" class="asset-tool-content">
+        </div></Header>
+        <ChildContent><fieldset disabled="@(_selectionChanging || _clearingCreation)" id="assets-tools-content" aria-label="@ToolOperation" class="asset-tool-content">
         <div class="asset-tool-mode" hidden="@(!ShowImageTools)"><StudioPane Class="generation-panel" Label="Reference image creation and editing">
 
             <ChildContent>
@@ -230,11 +271,11 @@ else
                 <VisualStyleEditor Label="Run visual style" Value="_imageVisualStyle" ValueChanged="ImageStyleChanged" Inherited="@(SelectedAsset.VisualStyle ?? _projectVisualStyle)" Disabled="_composerLocked" />
                 @if (TargetLook is { } promptLook) {
                     <section class="image-look-context" aria-label="Selected look notes">
-                        <div><strong>@promptLook.Name</strong><button type="button" @onclick="() => ManageLook(promptLook.Id)" disabled="@_composerLocked">Manage look</button></div>
+                        <div><strong>@promptLook.Name</strong><button type="button" class="lumi-button ghost small" @onclick="() => ManageLook(promptLook.Id)" disabled="@_composerLocked">Manage look…</button></div>
                         @if (!string.IsNullOrWhiteSpace(promptLook.Description)) { <p>@promptLook.Description</p> }
                         @if (!string.IsNullOrWhiteSpace(promptLook.PreservationGuidance)) { <details><summary>Keep consistent</summary><p>@promptLook.PreservationGuidance</p></details> }
                         @if (LookIssue is { } lookIssue) { <p class="field-error" role="alert">@lookIssue</p> }
-                        <div class="image-look-destination"><small>Images will be added to this look.</small><button type="button" @onclick="UseGeneralImageDestination" disabled="@_composerLocked">Use unassigned</button></div>
+                        <div class="image-look-destination"><small>Images will be added to this look.</small><button type="button" class="lumi-button ghost small" @onclick="UseGeneralImageDestination" disabled="@_composerLocked">Use unassigned</button></div>
                         @if (!IsEditMode) { <p class="field-hint">This draft starts from character notes. Add an approved reference to preserve the same identity.</p> }
                     </section>
                 }
@@ -245,7 +286,7 @@ else
 </section>
                     <section class="image-reference-fields">
                     @if (IsEditMode) {
-                        <button class="manage-image-inputs" @onclick="OpenImageInputs" disabled="@_composerLocked">Manage references</button>
+                        <button class="lumi-button manage-image-inputs" @onclick="OpenImageInputs" disabled="@_composerLocked">Manage references…</button>
                         @foreach (var input in CurrentImageInputs) { var number = CurrentImageInputs.ToList().IndexOf(input) + 1; var picture = FindImage(input);
                             <button class="compact-image-input" @onclick="OpenImageInputs" disabled="@_composerLocked"><CropThumbnail Url="@ImageUrl(input.AssetId, input.ImageId)" Width="@(picture?.Width ?? 1)" Height="@(picture?.Height ?? 1)" Crop="@(input == BaseReference ? SourceCrop : ReferenceCrop(input))" Label="@($"Image {number}")" /><span><strong>Image @number · @(number == 1 ? "Source" : "Reference")</strong><small>@ReferenceLabel(input) · @((input == BaseReference ? SourceCrop : ReferenceCrop(input)) is null ? "Full image" : "Cropped")@(_regions.TryGetValue(input, out var region) ? $" · {region.Mode} active" : "")</small></span></button>
                         }
@@ -344,7 +385,7 @@ else
                 </div>
                 @if (QwenOptionsIssue is { } qwenIssue) { <p class="field-error" role="alert">@qwenIssue <button data-workspace-focus="#image-resolution">Review settings</button></p> }
                 @if (SelectedRecipeImage is { } recipeImage) {
-                    <button type="button" class="create-similar" @onclick="CreateSimilarImage" disabled="@(!CanCreateSimilarImage)" title="@(recipeImage.Generation is null ? "No saved creation recipe is available for this image." : "Load the saved prompt, inputs and settings into Create.")">Create similar</button>
+                    <button type="button" class="lumi-button create-similar" @onclick="CreateSimilarImage" disabled="@(!CanCreateSimilarImage)" title="@(recipeImage.Generation is null ? "No saved creation recipe is available for this image." : "Load the saved prompt, inputs and settings into Create.")">Create similar</button>
                 }
                 @if (IsEditMode && ReferenceInputError is { } inputIssue) { <p role="alert">@inputIssue <button @onclick="OpenImageInputs">Review inputs</button></p> }
                 <MudButton OnClick="GenerateAsync" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Disabled="@(!CanRunImageOperation)">@(_generating ? "Preparing request…" : _presentation.Edit ? "Generate edited images" : "Generate images")</MudButton>
@@ -366,11 +407,11 @@ else
                             <div class="asset-image-request @(compact ? "is-compact" : "")" @key="imageJob.Id" data-job-id="@imageJob.Id">
                                 @if (compact) {
                                     <p class="asset-image-request-prompt" title="@($"Queued · position {position} · {ImageRequestPrompt(imageJob)}")"><span class="asset-image-request-hidden">Queued, position @position: </span><span aria-hidden="true">@($"#{position} ")</span>@ImageRequestPrompt(imageJob)</p>
-                                    <div class="asset-image-request-actions"><MudButton OnClick="() => ViewImageRequestAsync(imageJob)" Size="Size.Small" aria-label="View request">View</MudButton>@if (!imageJob.CancelRequested) { <MudButton OnClick="() => CancelGeneration(imageJob)" Size="Size.Small">Cancel</MudButton> }</div>
+                                    <div class="asset-image-request-actions"><MudButton OnClick="() => ViewImageRequestAsync(imageJob)" Size="Size.Small" aria-label="View request">View</MudButton>@if (!imageJob.CancelRequested) { <MudButton OnClick="() => CancelGeneration(imageJob)" Size="Size.Small">Cancel request</MudButton> }</div>
                                 } else {
                                     <p class="asset-image-request-prompt" title="@ImageRequestPrompt(imageJob)">@ImageRequestPrompt(imageJob)</p>
                                     <AiJobProgressView Job="imageJob" Queue="AiJobs.View" Progress="@AiJobs.Progress(imageJob.Id)" />
-                                    <div class="asset-image-request-actions"><MudButton OnClick="() => ViewImageRequestAsync(imageJob)" Size="Size.Small">View request</MudButton>@if (!imageJob.CancelRequested) { <MudButton OnClick="() => CancelGeneration(imageJob)" Size="Size.Small">Cancel</MudButton> }</div>
+                                    <div class="asset-image-request-actions"><MudButton OnClick="() => ViewImageRequestAsync(imageJob)" Size="Size.Small">View request</MudButton>@if (!imageJob.CancelRequested) { <MudButton OnClick="() => CancelGeneration(imageJob)" Size="Size.Small">Cancel request</MudButton> }</div>
                                 }
                             </div>
                         }
@@ -383,12 +424,12 @@ else
         <div class="asset-tool-mode" hidden="@(!ShowReelTools)"><SectionOutlet SectionId="_reelToolsSection" /></div>
         <div class="asset-tool-mode" hidden="@(_presentation.Selection?.Kind != AssetMediaKind.Reel)"><SectionOutlet SectionId="_reelDetailsSection" /></div>
         <div class="asset-tool-mode" hidden="@(_presentation.Selection?.Kind != AssetMediaKind.Voice)"><SectionOutlet SectionId="_voiceToolsSection" /></div>
-        </fieldset>
-        }</div></Right>
+        </fieldset></ChildContent></StudioPane>
+        }</Right>
     </StudioWorkspace>
 }
 
-<InlineDialog @bind-Visible="_imageLorasOpen" Class="image-loras-dialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true })"
+<InlineDialog @bind-Visible="_imageLorasOpen" Class="image-loras-dialog" Options="DialogSizes.Small"
               Title="Image LoRAs" Context="@SelectedAsset?.Name" CloseLabel="Close image LoRAs">
     <Summary>@_imageWorkflow.Label()</Summary>
     <DialogContent>
@@ -400,12 +441,13 @@ else
             @if (_imageLoraTriggers.Count > 0) { <p class="field-hint" role="status">@_imageLoraTriggers.Count trigger(s) will be added to the prompt.</p> }
         }
     </DialogContent>
-    <DialogActions><MudButton OnClick="() => _imageLorasOpen = false">Cancel</MudButton><MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApplyImageLoras" Disabled="@(!_imageLoraDraftValid || _composerLocked || _checkingImages || !_visibilityReady)">Apply changes</MudButton></DialogActions>
+    <DialogActions><DialogFooter><MudButton OnClick="() => _imageLorasOpen = false">Cancel</MudButton><MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApplyImageLoras" Disabled="@(!_imageLoraDraftValid || _composerLocked || _checkingImages || !_visibilityReady)">Apply changes</MudButton></DialogFooter></DialogActions>
 </InlineDialog>
 
-<InlineDialog Visible="_assetDetailsOpen" VisibleChanged="async v => { if (!v) await CloseAssetDetails(); }" Class="asset-details-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false })"
-              Title="@($"{SelectedAsset?.Name} · Details")" CloseLabel="Close asset details" CloseDisabled="_saving">
-    <DialogContent><div @onkeydown="AssetDetailsKeyDown">
+@* Edits autosave; closing flushes them, and a failed save keeps the dialog and its edits open. *@
+<InlineDialog Visible="_assetDetailsOpen" VisibleChanged="async v => { if (!v) await CloseAssetDetails(); }" OnEscape="CloseAssetDetails" Class="asset-details-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="DialogSizes.Medium"
+              Title="Details" Context="@SelectedAsset?.Name" CloseLabel="Close asset details" CloseDisabled="_saving">
+    <DialogContent>
         @if (SelectedAsset is { } detailsAsset && _library is not null) {
             <div class="asset-editor">
                     <label for="asset-details-name">Asset name</label><input id="asset-details-name" maxlength="200" @bind:get="detailsAsset.Name" @bind:set="value => NameChanged(new ChangeEventArgs { Value = value })" @bind:event="oninput" />
@@ -430,29 +472,29 @@ else
                     @if (detailsAsset.Category == AssetCategory.Character) { <CharacterLooksPanel @key="detailsAsset.Id" Asset="detailsAsset" Library="_library" Filter="@_lookManagementFilter" FilterChanged="v => _lookManagementFilter = v" Changed="UpdateLooks" Disabled="_saving" RequestedJobId="_requestedGuidanceId" /> }
             </div>
         }
-        @if (_saveError is not null) { <p role="alert" class="writing-error">@_saveError</p> }
-        @if (_conflict) { <p class="writing-notice">Another tab saved newer asset changes. Your local edits are still here.</p><MudButton OnClick="ReloadAsync" Size="Size.Small">Reload saved version</MudButton> }
-    </div></DialogContent>
-    <DialogActions><div class="asset-details-actions" @onkeydown="AssetDetailsKeyDown">
-        <span class="asset-details-save-status" role="status">@_saveStatus</span>
-        @if (_saveError is not null) { <MudButton OnClick="SaveNowAsync" Disabled="_saving">Retry save</MudButton> }
-        <MudButton OnClick="CloseAssetDetails" Disabled="_saving">Close</MudButton>
-    </div></DialogActions>
+        @if (_saveError is not null || _conflict) { <p role="alert" class="assets-error">@SaveProblemMessage</p> }
+    </DialogContent>
+    <Status><span class="asset-details-save-status @(_saveError is not null || _conflict ? "failed" : null)" role="status">@_saveStatus</span></Status>
+    <Tools>
+        @if (_saveError is not null) { <MudButton Variant="Variant.Outlined" OnClick="SaveNowAsync" Disabled="_saving">Retry save</MudButton> }
+        @if (_conflict) { <MudButton OnClick="ReloadAsync" Disabled="_saving">Reload saved version</MudButton> }
+    </Tools>
+    <Actions><DialogDismiss Label="Done" OnDismiss="CloseAssetDetails" Disabled="_saving" /></Actions>
 </InlineDialog>
 
-<InlineDialog Visible="_createOpen" VisibleChanged="v => { if (!v) CloseCreate(); }" Class="asset-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })"
+<InlineDialog Visible="_createOpen" VisibleChanged="v => { if (!v) CloseCreate(); }" Class="asset-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="DialogSizes.Small" CloseOnEscape="@(string.IsNullOrWhiteSpace(_newName) && string.IsNullOrWhiteSpace(_newDescription))"
               Title="Create an asset" CloseLabel="Close create an asset">
     <DialogContent><form id="create-asset-form" @onsubmit="CreateAssetAsync" @onsubmit:preventDefault><label for="new-asset-kind">Kind</label><select id="new-asset-kind" @bind="_newCategory">@foreach (var category in Enum.GetValues<AssetCategory>()) { <option value="@category">@CategoryName(category)</option> }</select><label for="new-asset-name">Name</label><input id="new-asset-name" @bind="_newName" @bind:event="oninput" /><label for="new-asset-description">Visual notes</label><textarea id="new-asset-description" rows="4" @bind="_newDescription" @bind:event="oninput"></textarea>@if (_createError is not null) { <p class="generation-error">@_createError</p> }</form></DialogContent>
     <Actions><MudButton OnClick="CloseCreate">Cancel</MudButton><MudButton ButtonType="ButtonType.Submit" form="create-asset-form" Color="Color.Primary" Variant="Variant.Filled">Create asset</MudButton></Actions>
 </InlineDialog>
-<InlineDialog Visible="@(_moveSource is not null)" VisibleChanged="v => { if (!v) CloseImageMove(); }" Class="image-move-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_movingImages })"
+<InlineDialog Visible="@(_moveSource is not null)" VisibleChanged="v => { if (!v) CloseImageMove(); }" Class="image-move-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="DialogSizes.Small" CloseOnEscape="!_movingImages"
               Title="Move to asset" CloseLabel="Close move to asset" CloseDisabled="_movingImages">
     <DialogContent>@if (_moveSource is { } moveSource && _library is not null) {
         <ImageMovePanel @key="moveSource" Library="_library" Source="moveSource" Images="_moveImages" Save="MoveImages" Moved="r => FinishImageMove(r, false)" EditRequested="r => FinishImageMove(r, true)" Cancelled="CloseImageMove" />
     }</DialogContent>
 </InlineDialog>
-<InlineDialog Visible="@(_copySource is not null)" VisibleChanged="v => { if (!v) _copySource = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true })"
-              Title="Crop image" CloseLabel="Close crop image">
+<InlineDialog Visible="@(_copySource is not null)" VisibleChanged="v => { if (!v) _copySource = null; }" Options="DialogSizes.Medium"
+              Title="Crop image" Context="@(_copySource is { } cropping ? cropping.Image.Name ?? SelectedAsset?.Name : null)" CloseLabel="Close crop image">
     <DialogContent>
         @if (_copySource is { } copy && _library is not null)
         {
@@ -462,36 +504,35 @@ else
         }
     </DialogContent>
 </InlineDialog>
-<InlineDialog Visible="_moveAssetId is not null" VisibleChanged="v => { if (!v && !_ordering) _moveAssetId = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })"
-              Title="Move asset" CloseLabel="Close move asset" CloseDisabled="_ordering"><DialogContent>
+<InlineDialog Visible="_moveAssetId is not null" VisibleChanged="v => { if (!v && !_ordering) _moveAssetId = null; }" Options="DialogSizes.Small"
+              Title="Move asset" Context="@(_library?.Assets.FirstOrDefault(a => a.Id == _moveAssetId)?.Name)" CloseLabel="Close move asset" CloseDisabled="_ordering"><DialogContent>
     <label>Position<select value="@(_moveAfter ? "after" : "before")" @onchange="@(e => _moveAfter = e.Value?.ToString() == "after")"><option value="before">Before</option><option value="after">After</option></select></label><label>Asset<select aria-label="Destination asset" @bind="_moveTarget">@foreach (var target in _library?.Assets.Where(a => a.Id != _moveAssetId) ?? []) { <option value="@target.Id">@target.Name</option> }</select></label>
     @if (_orderError is not null) { <p role="alert">@_orderError</p>@if (_conflict) { <MudButton OnClick="ReloadOrder">Review latest order</MudButton> } }
-</DialogContent><DialogActions><MudButton OnClick="() => _moveAssetId = null" Disabled="_ordering">Cancel</MudButton><MudButton OnClick="ConfirmAssetMove" Disabled="@(_ordering || _moveTarget == Guid.Empty)" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogActions></InlineDialog>
-<InlineDialog Visible="_lookChangeItem is not null" VisibleChanged="v => { if (!v && !_changingLook) _lookChangeItem = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })" Class="media-move-dialog"
+</DialogContent><DialogActions><DialogFooter><MudButton OnClick="() => _moveAssetId = null" Disabled="_ordering">Cancel</MudButton><MudButton OnClick="ConfirmAssetMove" Disabled="@(_ordering || _moveTarget == Guid.Empty)" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogFooter></DialogActions></InlineDialog>
+<InlineDialog Visible="_lookChangeItem is not null" VisibleChanged="v => { if (!v && !_changingLook) _lookChangeItem = null; }" Options="DialogSizes.Small" Class="media-move-dialog"
               Title="Change look" Context="@_lookChangeItem?.Name" CloseLabel="Close change look" CloseDisabled="_changingLook"><DialogContent>
     <label>Look<select aria-label="Look" @bind="_lookChangeValue" disabled="@_changingLook"><option value="">General / unassigned</option>@foreach (var look in _library?.Assets.FirstOrDefault(a => a.Id == _lookChangeOwner)?.Looks.Where(l => !l.Archived || l.Id == _lookChangeItem?.LookId) ?? []) { <option value="@look.Id" disabled="@look.Archived">@look.Name @(look.Archived ? "· Archived" : "")</option> }</select></label>
-    @if (_galleryLookError is not null) { <p class="writing-error" role="alert">@_galleryLookError</p> }
-</DialogContent><DialogActions><MudButton OnClick="() => _lookChangeItem = null" Disabled="_changingLook">Cancel</MudButton><MudButton OnClick="ApplyGalleryLook" Disabled="_changingLook" Variant="Variant.Filled" Color="Color.Primary">Apply changes</MudButton></DialogActions></InlineDialog>
-<InlineDialog Visible="_moveMedia is not null" VisibleChanged="v => { if (!v && !_movingMedia) _moveMedia = null; }" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })" Class="media-move-dialog"
+    @if (_galleryLookError is not null) { <p class="assets-error" role="alert">@_galleryLookError</p> }
+</DialogContent><DialogActions><DialogFooter><MudButton OnClick="() => _lookChangeItem = null" Disabled="_changingLook">Cancel</MudButton><MudButton OnClick="ApplyGalleryLook" Disabled="_changingLook" Variant="Variant.Filled" Color="Color.Primary">Apply changes</MudButton></DialogFooter></DialogActions></InlineDialog>
+<InlineDialog Visible="_moveMedia is not null" VisibleChanged="v => { if (!v && !_movingMedia) _moveMedia = null; }" Options="DialogSizes.Small" Class="media-move-dialog"
               Title="@($"Move {(_moveMedia?.Key.Kind == AssetMediaKind.Voice ? "recording" : "reel")} to asset")" Context="@_moveMedia?.Name" CloseLabel="Close move to asset" CloseDisabled="_movingMedia"><DialogContent>
     <label>Destination asset<select aria-label="Destination asset" @bind="_mediaDestination" disabled="@_movingMedia"><option value="@Guid.Empty">Choose an asset…</option>@foreach (var target in MediaDestinations) { <option value="@target.Id">@target.Name</option> }</select></label>
     <p class="field-hint">@(_moveMediaCategory switch { AssetCategory.Character => "Choose another character.", AssetCategory.Prop => "Choose another prop.", _ => "Choose another environment." }) @(_moveMedia?.Key.Kind == AssetMediaKind.Reel ? "The reel will be unassigned to a look. Captured requests keep their original destination." : "Existing shot references keep the same recording and excerpt.")</p>
     @if (!MediaDestinations.Any()) { <p>Create another @(_moveMediaCategory switch { AssetCategory.Character => "character", AssetCategory.Prop => "prop", _ => "environment" }) asset first.</p> }
     @if (_mediaMoveError is not null) { <p role="alert">@_mediaMoveError</p> }
-</DialogContent><DialogActions><MudButton OnClick="() => _moveMedia = null" Disabled="_movingMedia">Cancel</MudButton><MudButton OnClick="ConfirmMediaMove" Disabled="@(_movingMedia || _mediaDestination == Guid.Empty)" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogActions></InlineDialog>
-<InlineDialog Visible="_imageInputsOpen" VisibleChanged="v => _imageInputsOpen = v" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="image-input-manager-dialog"
+</DialogContent><DialogActions><DialogFooter><MudButton OnClick="() => _moveMedia = null" Disabled="_movingMedia">Cancel</MudButton><MudButton OnClick="ConfirmMediaMove" Disabled="@(_movingMedia || _mediaDestination == Guid.Empty)" Variant="Variant.Filled" Color="Color.Primary">Move</MudButton></DialogFooter></DialogActions></InlineDialog>
+<InlineDialog Visible="_imageInputsOpen" VisibleChanged="v => _imageInputsOpen = v" Options="DialogSizes.Media" CloseOnEscape="false" Class="image-input-manager-dialog"
               Title="Manage references" Context="@SelectedAsset?.Name" CloseLabel="Close manage references"><DialogContent>
     @if (_imageInputsOpen && _library is not null && _selectedAssetId is { } inputAsset) { <ImageEditReferenceManager Library="_library" AssetId="inputAsset" AllowOtherSourceAssets="_imageRecipeCreation" Inputs="CurrentImageInputs.ToArray()" Crops="AllImageCrops" Regions="@(CurrentRegions ?? [])" Aspect="@ImageAspect" Resolution="CapturedImageResolution" QwenImage21="CaptureQwenOptions()" Maximum="@(Math.Min(ReferenceLimit, _editConfiguration?.MaximumReferences ?? ReferenceLimit))" RestoreTrashedImage="RestoreImageInputAsync" Applied="ApplyImageInputs" Cancelled="() => _imageInputsOpen = false" /> }
 </DialogContent></InlineDialog>
-<InlineDialog Visible="_deleteAsset is not null" VisibleChanged="v => { if (!v) _deleteAsset = null; }" Class="asset-delete-dialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })"
-              Title="Delete this asset?" CloseLabel="Close delete asset">
-    <DialogContent><p>Its images will stay in Trash for 30 days. Restoring an image can recreate this asset.</p></DialogContent>
-    <Actions><MudButton OnClick="() => _deleteAsset = null">Cancel</MudButton><MudButton OnClick="DeleteAssetAsync" Color="Color.Error" Variant="Variant.Filled">Delete asset</MudButton></Actions>
-</InlineDialog>
-<InlineDialog Visible="_deleteAllAssetsOpen" VisibleChanged="CloseAllAssetDeletion" Options="DeleteAllAssetsOptions" Class="asset-delete-all-dialog" ContentClass="dialog-prose"
-              Title="Delete all assets?" CloseLabel="Close delete all assets" CloseDisabled="_deletingAllAssets">
-    <DialogContent>
-        <DialogEscape Pressed="() => CloseAllAssetDeletion(false)" />
+<ConfirmDialog Visible="_deleteAsset is not null" VisibleChanged="v => { if (!v) _deleteAsset = null; }" Class="asset-delete-dialog" Danger="true"
+               Title="Delete this asset?" Context="@(_library?.Assets.FirstOrDefault(a => a.Id == _deleteAsset)?.Name)" CloseLabel="Close delete asset" ConfirmLabel="Delete asset" OnConfirm="DeleteAssetAsync">
+    <p>Its images will stay in Trash for 30 days. Restoring an image can recreate this asset.</p>
+</ConfirmDialog>
+<ConfirmDialog Visible="_deleteAllAssetsOpen" VisibleChanged="CloseAllAssetDeletion" OnCancel="() => CloseAllAssetDeletion(false)" Class="asset-delete-all-dialog" Danger="true" Busy="_deletingAllAssets"
+               Title="Delete all assets?" CloseLabel="Close delete all assets" ConfirmLabel="Delete all assets" OnConfirm="ConfirmAllAssetDeletionAsync"
+               ConfirmDisabled="@(_deleteAssetsSnapshot?.Assets.Count is not > 0 || AssetDeletionActivityIssue is not null || _deleteAssetsConflict)">
+    <ChildContent>
         @if (_deleteAssetsSnapshot is { } snapshot)
         {
             <p>Delete all @snapshot.Assets.Count assets in this project, including assets hidden by search or category filters.</p>
@@ -499,12 +540,11 @@ else
             <p>Existing shot references may need restoration or replacement before generating again.</p>
             <ul class="asset-delete-list">@foreach (var asset in snapshot.Assets) { <li>@asset.Name <small>· @asset.Images.Count images</small></li> }</ul>
         }
-        @if (_deletingAllAssets) { <p role="status">@_deleteAssetsProgress</p> }
         @if (AssetDeletionActivityIssue is { } activityIssue) { <p role="status">@activityIssue</p> }
         @if (_deleteAssetsError is not null) { <p class="field-error" role="alert">@_deleteAssetsError</p><MudButton OnClick="OpenAllAssetDeletionAsync" Disabled="_deletingAllAssets" Variant="Variant.Outlined" Size="Size.Small">Review latest assets</MudButton> }
-    </DialogContent>
-    <DialogActions><MudButton OnClick="() => CloseAllAssetDeletion(false)" Disabled="_deletingAllAssets">Cancel</MudButton><MudButton OnClick="ConfirmAllAssetDeletionAsync" Disabled="@(_deletingAllAssets || _deleteAssetsSnapshot?.Assets.Count is not > 0 || AssetDeletionActivityIssue is not null || _deleteAssetsConflict)" Color="Color.Error" Variant="Variant.Filled">Delete all assets</MudButton></DialogActions>
-</InlineDialog>
+    </ChildContent>
+    <Status>@if (_deletingAllAssets) { <span role="status">@_deleteAssetsProgress</span> }</Status>
+</ConfirmDialog>
 @if (_refinementBatchesMounted) { <lumibelle.Components.Shots.RefinementBatchesDialog ProjectId="Id" Visible="_refinementBatchesOpen" VisibleChanged="v => _refinementBatchesOpen = v" RequestedBatchId="_requestedRefinementBatch" /> }
 @if (_review is not null && _library is not null)
 {
@@ -516,175 +556,170 @@ else
 <RepeatGenerationDialog Visible="@(_confirmImageAppend is not null)" Kind="image" Busy="_appendingImage" Locked="@(ImageAppendAttempt is not null)" InitialCount="@(ImageAppendAttempt?.Commands.Length ?? 1)" Notice="@ImageAppendNotice" Error="@_imageAppendError" Confirmed="ConfirmOneMoreImage" Closed="() => _confirmImageAppend = null"
     Destination="@(_library?.Assets.FirstOrDefault(a => a.Id == _confirmImageAppend?.AssetId)?.Name ?? "Original asset (unavailable)")"
     Summary="@(_confirmImageAppend is { } moreImage ? $"{moreImage.Workflow.Label()} · {moreImage.AspectRatio}" : "")" Prompt="@(_confirmImageAppend?.Prompt ?? "")" />
-<InlineDialog Visible="_projectPickerOpen" VisibleChanged="v => _projectPickerOpen = v" Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true })"
+<InlineDialog Visible="_projectPickerOpen" VisibleChanged="v => _projectPickerOpen = v" Options="DialogSizes.Large"
               Title="Add reference images" CloseLabel="Close add reference images"><DialogContent>
         @if (_projectPickerOpen && _library is not null) { <ProjectImagePicker Library="_library" Maximum="@Math.Max(0, Math.Min(ReferenceLimit, _editConfiguration?.MaximumReferences ?? 1) - 1 - _additionalReferences.Count)" Excluded="@(_additionalReferences.Concat(BaseReference is { } source ? new[] { source } : []).ToArray())" Selected="AddProjectReferences" Cancelled="() => _projectPickerOpen = false" /> }
     </DialogContent>
 </InlineDialog>
-@if (_cropOpen && _cropTarget is { } cropTarget && FindImage(cropTarget) is { } cropSource)
-{
-    var draftCrop = CropRegion(cropSource, _draftCropAspect, _draftCropZoom, _draftCropFocusX, _draftCropFocusY) ?? new ImageCropRegion();
-    <div class="studio-dialog-backdrop" @onclick="CancelCrop" @onkeydown="HandleCropKey">
-        <section class="studio-dialog crop-dialog" role="dialog" aria-modal="true" aria-labelledby="crop-title" @onclick="KeepPreviewOpen" @onclick:stopPropagation>
-            <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
-            <div class="dialog-heading"><div><p class="eyebrow">SOURCE PREPARATION</p><h2 id="crop-title">@(_cropTarget == BaseReference ? "Crop for this edit" : "Crop reference image")</h2></div><button class="preview-close" @onclick="CancelCrop" aria-label="Close crop editor" autofocus><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button></div>
-            <p>Drag inside the crop to position it, or pull any edge to zoom. The stored image stays unchanged.</p>
-            <div class="crop-stage" style="@CropStageStyle(cropSource)" @ref="_cropStage">
-                <img src="@ImageUrl(cropTarget.AssetId, cropSource.Id)" alt="Selected image crop preview" />
-                <span class="crop-selection" style="@DraftCropStyle(cropSource)" data-x="@Invariant(draftCrop.X)" data-y="@Invariant(draftCrop.Y)" data-width="@Invariant(draftCrop.Width)" data-height="@Invariant(draftCrop.Height)" data-zoom="@Invariant(_draftCropZoom)" aria-hidden="true">
-                    <i class="crop-handle top" data-crop-handle="top"></i><i class="crop-handle right" data-crop-handle="right"></i><i class="crop-handle bottom" data-crop-handle="bottom"></i><i class="crop-handle left" data-crop-handle="left"></i>
-                </span>
+@* Extraction separates suggested work from saved library content. Closing saves the review draft and returns focus to Extract from script. *@
+<InlineDialog Visible="_extractOpen" VisibleChanged="async v => { if (!v) await CloseExtraction(); }" OnEscape="CloseExtraction" Options="DialogSizes.Large"
+              Class="extraction-dialog" ContentClass="extraction-content" ActionsClass="extraction-footer" DefaultFocus="DefaultFocus.FirstChild"
+              Title="@ExtractionDialogTitle" Context="Extract from script" CloseLabel="Close asset extraction" CloseDisabled="@(_finishingReview || _savingExtractionJson)">
+    <DialogContent>
+        <div class="extraction-body" @ref="_extractionDialogElement">
+            <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedExtractionJob is { } read && read.Id == _extractionJob?.Id ? new[] { read } : [])" />
+            <div class="extraction-progress-header">
+                @if (ExtractionReadyForReview)
+                {
+                    <p class="extraction-stage" role="status">@(ExtractionFinished ? "Applied to library" : "Suggestions ready · Awaiting your review")</p>
+                    <p class="field-hint">@(_reviewRequest?.Selection?.Name ?? _extractionModel?.Name) · @_extractionResult!.Proposals.Count suggestions</p>
+                }
+                else if (_extractionJob is { } headerJob) { <p class="field-hint">@headerJob.TargetName · @_reviewRequest?.Selection?.Name</p> }
+                <ol class="extraction-workflow" aria-label="Extraction steps">
+                    @for (var step = 1; step <= 3; step++) {
+                        var done = step < ExtractionStage || ExtractionFinished;
+                        <li class="@(done ? "is-complete" : step == ExtractionStage ? "is-current" : null)" aria-current="@(step == ExtractionStage ? "step" : null)"><span class="extraction-step-number" aria-hidden="true">@if (done) { <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" /> } else { @step.ToString() }</span><span>@(step switch { 1 => "Choose scenes", 2 => "Find assets", _ => "Review & add" })</span></li>
+                    }
+                </ol>
             </div>
-            <label class="crop-shape-control" for="crop-aspect">Crop shape<select id="crop-aspect" @bind="_draftCropAspect">@foreach (var ratio in CropAspectRatios) { <option value="@ratio">@(ratio == "Original" ? "Original ratio" : ratio)</option> }</select></label>
-            <details class="crop-precise"><summary>Precise controls</summary><div class="crop-controls">
-                <label for="crop-zoom">Zoom <output>@_draftCropZoom.ToString("0.00")×</output><input id="crop-zoom" type="range" min="1" max="4" step="0.05" value="@Invariant(_draftCropZoom)" @oninput="CropZoomChanged" /></label>
-                <label for="crop-horizontal">Horizontal position <output>@Math.Round(_draftCropFocusX)%</output><input id="crop-horizontal" type="range" min="0" max="100" step="1" value="@Invariant(_draftCropFocusX)" @oninput="CropHorizontalChanged" /></label>
-                <label for="crop-vertical">Vertical position <output>@Math.Round(_draftCropFocusY)%</output><input id="crop-vertical" type="range" min="0" max="100" step="1" value="@Invariant(_draftCropFocusY)" @oninput="CropVerticalChanged" /></label>
-            </div></details>
-            <div class="dialog-actions"><MudButton OnClick="UseFullSource">Use full image</MudButton><MudButton OnClick="CancelCrop">Cancel</MudButton><MudButton OnClick="ApplyCrop" Color="Color.Primary" Variant="Variant.Filled">Use crop</MudButton></div>
-            </MudFocusTrap>
-        </section>
-    </div>
-}
-@if (_extractOpen)
-{
-    <div class="studio-dialog-backdrop">
-        <section class="studio-dialog extraction-dialog" role="dialog" aria-modal="true" aria-labelledby="extract-title" @onkeydown="HandleExtractionKey" @ref="_extractionDialogElement">
-            <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
-                <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedExtractionJob is { } read && read.Id == _extractionJob?.Id ? new[] { read } : [])" />
-                <header class="extraction-header">
-                    <div class="dialog-heading"><div><p class="eyebrow">SCRIPT TO ASSETS</p><h2 id="extract-title">@ExtractionDialogTitle</h2></div><button class="preview-close" @onclick="CloseExtraction" aria-label="Close asset extraction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button></div>
-                    @if (ExtractionReadyForReview)
-                    {
-                        <p class="extraction-stage" role="status">@(ExtractionFinished ? "Applied to library" : "Suggestions ready · Awaiting your review")</p>
-                        <p class="field-hint">@(_reviewRequest?.Selection?.Name ?? _extractionModel?.Name) · @_extractionResult!.Proposals.Count suggestions</p>
-                    }
-                    else if (_extractionJob is { } headerJob) { <p class="field-hint">@headerJob.TargetName · @_reviewRequest?.Selection?.Name</p> }
-                    <ol class="extraction-workflow" aria-label="Extraction steps">
-                        @for (var step = 1; step <= 3; step++) {
-                            <li class="@(step < ExtractionStage || ExtractionFinished ? "is-complete" : step == ExtractionStage ? "is-current" : null)" aria-current="@(step == ExtractionStage ? "step" : null)"><span class="extraction-step-number" aria-hidden="true">@(step < ExtractionStage || ExtractionFinished ? "✓" : step.ToString())</span><span>@(step switch { 1 => "Choose scenes", 2 => "Find assets", _ => "Review & add" })</span></li>
-                        }
-                    </ol>
-                </header>
-                <div class="extraction-body">
-                    @if (_extractionJob is null && !_extracting) { <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" /> }
-                    @if (_extractionJob is { } extractionJob && _extractionResult is null)
-                    {
-                        <section class="extraction-progress-card" aria-label="Extraction status"><lumibelle.Components.AI.AiJobProgressView Job="extractionJob" Queue="AiJobs.View" Progress="AiJobs.Progress(extractionJob.Id)" />
-                        @if (_activeExtraction is not null) { <p class="field-hint">You can close this window. Extraction continues in AI activity.</p> }</section>
-                    }
-                    @if (_reviewDraftError is not null)
-                    { <p role="alert" class="generation-error">@_reviewDraftError</p><div class="extraction-inline-actions"><MudButton OnClick="() => SaveReviewDraftAsync()" Disabled="@_reviewDraftConflict" Variant="Variant.Outlined">Retry saving review</MudButton><MudButton OnClick="LoadReviewDraftAsync" Variant="Variant.Outlined">Load saved review</MudButton><a href="@ReviewDownloadUrl" download="asset-review.json">Download my decisions</a></div> }
-                    @if (_pendingExtraction is not null) { <div class="extraction-inline-actions"><MudButton OnClick="RetryExtractionEnqueueAsync" Disabled="@_extractionSubmitting" Variant="Variant.Outlined">Retry saving request</MudButton></div> }
-                    @if (_editingExtractionJson)
-                    {
-                        <ResponseJsonEditor Id="corrected-extraction-json" Title="Correct asset suggestions JSON" Label="Asset suggestions JSON" Help="Paste or edit the complete asset array. Use the captured scene IDs listed below." Format="@ExtractionJsonFormat" @bind-Value="_extractionJson" Busy="_savingExtractionJson" Error="@_extractionJsonError" />
-                        <details class="extraction-source-scenes" open><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
-                    }
-                    else if (_extractionResult is null)
-                    {
-                        @if (_extracting) {
-                            <div class="extraction-live-content"><StreamingResponsePreview Raw="@_extractionRaw" Title="Asset suggestions arriving" ArrayLabel="Assets" EmptyMessage="Characters, environments and props will appear here as the response arrives." /></div>
-                        }
-                        @if (_extractionJob is { } captured)
-                        {
-                            <details class="extraction-request-details"><summary><strong>@_reviewRequest?.SceneIds.Count selected @(_reviewRequest?.SceneIds.Count == 1 ? "scene" : "scenes")</strong><span>Request details</span></summary>
-                                <div class="extraction-request-content">
-                                    @if (_reviewRequest is { } source) {
-                                        <p class="field-hint">Saved script · @source.Script.CapturedUtc.ToLocalTime().ToString("g")</p>
-                                        <ol class="extraction-captured-scenes">@foreach (var scene in ExtractionCoverage.Scenes(source.Script).Where(s => source.SceneIds.Contains(s.SceneId))) { <li>@scene.Title</li> }</ol>
-                                    }
-                                    <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" />
-                                    <AiTextRequestDetails JobId="captured.Id" />
-                                </div>
-                            </details>
-                        }
-                        else if (!_extracting && _approvedScript is null)
-                        {
-                            <p>Write a scene in Script before extracting assets.</p><MudButton Href="@(ProjectLink(Id, "/script"))" Variant="Variant.Outlined">Open Script studio</MudButton>
-                        }
-                        else if (!_extracting && _approvedScript is { } selectedSource)
-                        {
-                            <p>Saved source @selectedSource.CapturedUtc.ToLocalTime().ToString("g"). Choose scenes from this fixed version.</p>
-                            <ScriptCoveragePicker Source="selectedSource" Reviews="_library!.ExtractionReviews" Selected="_selectedScenes" SelectedChanged="value => _selectedScenes = value" Disabled="_extracting" />
-                            @if (_unapprovedScriptChanges) { <p class="writing-notice">The script has newer edits. This review retains its captured source. <a href="@(ProjectLink(Id, "/script"))">Open Script studio</a></p> }
-                        }
-                        @if (_extractionJob is null && !_extracting) { <p class="context-estimate">@_selectedScenes.Count selected @(_selectedScenes.Count == 1 ? "scene" : "scenes") · Approximate input: ≈@ExtractionTokens.ToString("N0") tokens</p> }
-                        @if (_extractionRaw.Length > 0) { <details class="extraction-raw-details"><summary>Raw response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
-                    }
-                    else if (_extractionResult.ValidationError is not null)
-                    {
-                        <section class="extraction-validation" aria-label="Extraction needs correction">
-                            <h3>Asset suggestions need correction</h3><p>Your library is unchanged. Fix the fields below, recheck the saved response, or start a new extraction.</p>
-                            @if (_extractionResult.ValidationIssues.Count > 0) { <ul>@foreach (var issue in _extractionResult.ValidationIssues) { <li>@issue</li> }</ul> }
-                            else { <p>@_extractionResult.ValidationError</p> }
-                            @if (_extractionJsonError is not null) { <p role="alert">@_extractionJsonError</p> }
-                        </section>
-                        <details class="extraction-source-scenes"><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
-                        <details><summary>Saved model response</summary><pre class="raw-response">@_extractionResult.RawText</pre></details>
-                        @if (_extractionJob is { } failedRequest) { <AiTextRequestDetails JobId="failedRequest.Id" /> }
-                    }
-                    else
-                    {
-                        @if (_extractionCorrected) { <p class="extraction-review-notice">Showing your saved JSON correction. The original model response is preserved.</p><details><summary>Original model response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
-                        @if (_approvedScript?.Id != _latestApprovalId)
-                        { <p class="writing-notice">A newer saved script is available. These suggestions retain their original source.</p><MudButton OnClick="StartNewExtractionAsync" Disabled="_finishingReview" Variant="Variant.Outlined">Use latest saved script</MudButton> }
-                        @if (ExtractionFinished)
-                        { <p class="extraction-review-notice" role="status">This extraction was already reviewed. These decisions will not be applied again, and later library changes are kept.</p> }
-                        else
-                        { <p class="extraction-review-notice">These are suggestions, not saved assets. Choose what to add, update, or skip, then apply your choices below.</p> }
-                        @if (_extractionResult.Proposals.Count == 0) { <p>No reusable assets found. Finish review to record these scenes as reviewed.</p> }
-                        <fieldset disabled="@(_finishingReview || ExtractionFinished)" class="extraction-review-fields">
-                            <div class="extraction-proposals">
-                                @foreach (var proposal in _extractionResult.Proposals)
-                                {
-                                    <AssetExtractionProposalEditor @key="proposal.Id" Proposal="proposal" ExistingAssets="_library!.Assets" EvidenceStatus="EvidenceStatus" Changed="ReviewDraftChanged" InitiallyOpen="@(proposal == _extractionResult.Proposals[0])" />
-                                }
-                            </div>
-                        </fieldset>
-                        <p class="extraction-coverage-note">Applying also marks @_reviewRequest?.SceneIds.Count script scenes as reviewed, including suggestions you skip.</p>
-                    }
-                </div>
-                <footer class="extraction-footer">
-                    @if (_extractionError is not null)
-                    {
-                        <p class="generation-error" role="alert">@_extractionError</p>
-                        @if (_conflict) { <p class="field-hint">Close and reload the library to review current update targets. Your suggestion draft stays available.</p> }
-                    }
-                    @if (_editingExtractionJson)
-                    {
-                        <div class="dialog-actions"><MudButton OnClick="() => _editingExtractionJson = false" Disabled="_savingExtractionJson" Variant="Variant.Outlined">Cancel JSON edit</MudButton><MudButton OnClick="() => CorrectExtractionAsync(true)" Disabled="@(_savingExtractionJson || string.IsNullOrWhiteSpace(_extractionJson))" Color="Color.Primary" Variant="Variant.Filled">Review corrected JSON</MudButton></div>
-                    }
-                    else if (ExtractionReadyForReview)
-                    {
-                        @if (!ExtractionFinished) { <p class="extraction-apply-summary">@ReviewSummary</p> }
-                        <div class="extraction-footer-row">
-                            <p class="field-hint" role="status">@(ExtractionFinished ? "Review complete" : _reviewDraftDirty ? "Saving review draft…" : "Review draft saved · Not applied")</p>
-                            <div class="dialog-actions"><MudButton OnClick="RetryExtraction" Disabled="_finishingReview" Variant="Variant.Outlined">Start over</MudButton><MudButton OnClick="CloseExtraction" Disabled="_finishingReview" Variant="Variant.Outlined">Close</MudButton><MudButton OnClick="ApplyExtractionAsync" Class="apply-extraction" Disabled="@(_finishingReview || ExtractionFinished || _reviewDraftConflict)" Color="Color.Primary" Variant="Variant.Filled">@ApplyExtractionLabel</MudButton></div>
+            @if (_extractionJob is null && !_extracting) { <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" /> }
+            @if (_extractionJob is { } extractionJob && _extractionResult is null)
+            {
+                <section class="extraction-progress-card" aria-label="Extraction status"><lumibelle.Components.AI.AiJobProgressView Job="extractionJob" Queue="AiJobs.View" Progress="AiJobs.Progress(extractionJob.Id)" />
+                @if (_activeExtraction is not null) { <p class="field-hint">You can close this window. Extraction continues in AI activity.</p> }</section>
+            }
+            @if (_reviewDraftError is not null)
+            { <p role="alert" class="generation-error">@_reviewDraftError</p><div class="extraction-inline-actions"><MudButton OnClick="() => SaveReviewDraftAsync()" Disabled="@_reviewDraftConflict" Variant="Variant.Outlined">Retry saving review</MudButton><MudButton OnClick="LoadReviewDraftAsync" Variant="Variant.Outlined">Load saved review</MudButton><a href="@ReviewDownloadUrl" download="asset-review.json">Download my decisions</a></div> }
+            @if (_pendingExtraction is not null) { <div class="extraction-inline-actions"><MudButton OnClick="RetryExtractionEnqueueAsync" Disabled="@_extractionSubmitting" Variant="Variant.Outlined">Retry saving request</MudButton></div> }
+            @if (_editingExtractionJson)
+            {
+                <ResponseJsonEditor Id="corrected-extraction-json" Title="Correct asset suggestions JSON" Label="Asset suggestions JSON" Help="Paste or edit the complete asset array. Use the captured scene IDs listed below." Format="@ExtractionJsonFormat" @bind-Value="_extractionJson" Busy="_savingExtractionJson" Error="@_extractionJsonError" />
+                <details class="extraction-source-scenes" open><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
+            }
+            else if (_extractionResult is null)
+            {
+                @if (_extracting) {
+                    <div class="extraction-live-content"><StreamingResponsePreview Raw="@_extractionRaw" Title="Asset suggestions arriving" ArrayLabel="Assets" EmptyMessage="Characters, environments and props will appear here as the response arrives." /></div>
+                }
+                @if (_extractionJob is { } captured)
+                {
+                    <details class="extraction-request-details"><summary><strong>@_reviewRequest?.SceneIds.Count selected @(_reviewRequest?.SceneIds.Count == 1 ? "scene" : "scenes")</strong><span>Request details</span></summary>
+                        <div class="extraction-request-content">
+                            @if (_reviewRequest is { } source) {
+                                <p class="field-hint">Saved script · @source.Script.CapturedUtc.ToLocalTime().ToString("g")</p>
+                                <ol class="extraction-captured-scenes">@foreach (var scene in ExtractionCoverage.Scenes(source.Script).Where(s => source.SceneIds.Contains(s.SceneId))) { <li>@scene.Title</li> }</ol>
+                            }
+                            <ExtractionCoverageStatus Summary="@CoverageSummary" Ignored="_ignoreExtractionReminders" IgnoredChanged="IgnoreExtractionRemindersChanged" />
+                            <AiTextRequestDetails JobId="captured.Id" />
                         </div>
-                    }
-                    else if (_extracting)
-                    {
-                        <div class="extraction-footer-row"><p class="field-hint">Your library changes only when you apply.</p><div class="dialog-actions">@if (_activeExtraction is { CancelRequested: false }) { <MudButton OnClick="CancelExtraction" Variant="Variant.Outlined">Cancel request</MudButton> }<MudButton OnClick="CloseExtraction" Color="Color.Primary" Variant="Variant.Filled">Close</MudButton></div></div>
-                    }
-                    else if (_extractionResult is null)
-                    {
-                        <div class="extraction-footer-row"><div class="assist-composer-model assist-footer-model">@(_extractionAssist?.ModelControl)</div><div class="dialog-actions"><MudButton OnClick="CloseExtraction" Variant="Variant.Outlined">Close</MudButton><MudButton Class="ai-assist-action" OnClick="ExtractAsync" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_pendingExtraction is not null || !_extractionReady || (_approvedScript is null || _selectedScenes.Count == 0) || string.IsNullOrWhiteSpace(ExtractionModel))"><AiAssistIcon />Find assets</MudButton></div></div>
-                    }
-                    else
-                    {
-                        <div class="dialog-actions">
-                                @if (CanCorrectExtraction) { <MudButton OnClick="() => CorrectExtractionAsync(false)" Disabled="_savingExtractionJson" Variant="Variant.Outlined">Recheck saved response</MudButton><MudButton OnClick="EditExtractionJson" Color="Color.Primary" Variant="Variant.Filled">Edit JSON</MudButton> }
-                                <MudButton OnClick="RetryExtraction" Variant="Variant.Outlined">New extraction</MudButton>
-                            <MudButton OnClick="CloseExtraction" Variant="Variant.Outlined">Close</MudButton>
-                        </div>
-                    }
-                </footer>
-            </MudFocusTrap>
-        </section>
-    </div>
-}
+                    </details>
+                }
+                else if (!_extracting && _approvedScript is null)
+                {
+                    <EmptyState Compact="true" HeadingLevel="3" Title="No saved scenes yet">
+                        <ChildContent>Write a scene in Script before extracting assets.</ChildContent>
+                        <Actions><MudButton Href="@(ProjectLink(Id, "/script"))" Variant="Variant.Outlined">Open Script</MudButton></Actions>
+                    </EmptyState>
+                }
+                else if (!_extracting && _approvedScript is { } selectedSource)
+                {
+                    <p>Saved source @selectedSource.CapturedUtc.ToLocalTime().ToString("g"). Choose scenes from this fixed version.</p>
+                    <ScriptCoveragePicker Source="selectedSource" Reviews="_library!.ExtractionReviews" Selected="_selectedScenes" SelectedChanged="value => _selectedScenes = value" Disabled="_extracting" />
+                    @if (_unapprovedScriptChanges) { <p class="extraction-notice">The script has newer edits. This review retains its captured source. <a href="@(ProjectLink(Id, "/script"))">Open Script</a></p> }
+                }
+                @if (_extractionJob is null && !_extracting) { <p class="context-estimate">@_selectedScenes.Count selected @(_selectedScenes.Count == 1 ? "scene" : "scenes") · Approximate input: ≈@ExtractionTokens.ToString("N0") tokens</p> }
+                @if (_extractionRaw.Length > 0) { <details class="extraction-raw-details"><summary>Raw response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
+            }
+            else if (_extractionResult.ValidationError is not null)
+            {
+                <section class="extraction-validation" aria-label="Extraction needs correction">
+                    <h3>Asset suggestions need correction</h3><p>Your library is unchanged. Fix the fields below, recheck the saved response, or start a new extraction.</p>
+                    @if (_extractionResult.ValidationIssues.Count > 0) { <ul>@foreach (var issue in _extractionResult.ValidationIssues) { <li>@issue</li> }</ul> }
+                    else { <p>@_extractionResult.ValidationError</p> }
+                    @if (_extractionJsonError is not null) { <p role="alert">@_extractionJsonError</p> }
+                </section>
+                <details class="extraction-source-scenes"><summary>Selected source scenes</summary>@foreach (var scene in ExtractionCoverage.Scenes(_reviewRequest!.Script).Where(s => _reviewRequest.SceneIds.Contains(s.SceneId))) { <p><strong>@scene.Title</strong><code>@scene.SceneId</code></p> }</details>
+                <details><summary>Saved model response</summary><pre class="raw-response">@_extractionResult.RawText</pre></details>
+                @if (_extractionJob is { } failedRequest) { <AiTextRequestDetails JobId="failedRequest.Id" /> }
+            }
+            else
+            {
+                @if (_extractionCorrected) { <p class="extraction-review-notice">Showing your saved JSON correction. The original model response is preserved.</p><details><summary>Original model response</summary><pre class="raw-response">@_extractionRaw</pre></details> }
+                @if (_approvedScript?.Id != _latestApprovalId)
+                { <p class="extraction-notice">A newer saved script is available. These suggestions retain their original source.</p><MudButton OnClick="StartNewExtractionAsync" Disabled="_finishingReview" Variant="Variant.Outlined">Use latest saved script</MudButton> }
+                @if (ExtractionFinished)
+                { <p class="extraction-review-notice" role="status">This extraction was already reviewed. These decisions will not be applied again, and later library changes are kept.</p> }
+                else
+                { <p class="extraction-review-notice">These are suggestions, not saved assets. Choose what to add, update, or skip, then apply your choices below.</p> }
+                @if (_extractionResult.Proposals.Count == 0) { <p>No reusable assets found. Finish review to record these scenes as reviewed.</p> }
+                <fieldset disabled="@(_finishingReview || ExtractionFinished)" class="extraction-review-fields">
+                    <div class="extraction-proposals">
+                        @foreach (var proposal in _extractionResult.Proposals)
+                        {
+                            <AssetExtractionProposalEditor @key="proposal.Id" Proposal="proposal" ExistingAssets="_library!.Assets" EvidenceStatus="EvidenceStatus" Changed="ReviewDraftChanged" InitiallyOpen="@(proposal == _extractionResult.Proposals[0])" />
+                        }
+                    </div>
+                </fieldset>
+                <p class="extraction-coverage-note">Applying also marks @_reviewRequest?.SceneIds.Count script scenes as reviewed, including suggestions you skip.</p>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <DialogFooter Status="ExtractionFooterStatus" Tools="ExtractionFooterTools">
+            @if (_editingExtractionJson)
+            {
+                <MudButton OnClick="() => _editingExtractionJson = false" Disabled="_savingExtractionJson">Cancel JSON edit</MudButton>
+                <MudButton OnClick="() => CorrectExtractionAsync(true)" Disabled="@(_savingExtractionJson || string.IsNullOrWhiteSpace(_extractionJson))" Color="Color.Primary" Variant="Variant.Filled">Review corrected JSON</MudButton>
+            }
+            else if (ExtractionReadyForReview)
+            {
+                <MudButton OnClick="CloseExtraction" Disabled="_finishingReview">Close</MudButton>
+                <MudButton OnClick="ApplyExtractionAsync" Class="apply-extraction" Disabled="@(_finishingReview || ExtractionFinished || _reviewDraftConflict)" Color="Color.Primary" Variant="Variant.Filled">@ApplyExtractionLabel</MudButton>
+            }
+            else if (_extracting)
+            {
+                <MudButton OnClick="CloseExtraction">Close</MudButton>
+            }
+            else if (_extractionResult is null)
+            {
+                <MudButton OnClick="CloseExtraction">Close</MudButton>
+                <MudButton Class="ai-assist-action" OnClick="ExtractAsync" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_pendingExtraction is not null || !_extractionReady || (_approvedScript is null || _selectedScenes.Count == 0) || string.IsNullOrWhiteSpace(ExtractionModel))"><AiAssistIcon />Find assets</MudButton>
+            }
+            else
+            {
+                <MudButton OnClick="CloseExtraction">Close</MudButton>
+                @if (CanCorrectExtraction) { <MudButton OnClick="EditExtractionJson" Color="Color.Primary" Variant="Variant.Filled">Edit JSON</MudButton> }
+            }
+        </DialogFooter>
+    </DialogActions>
+</InlineDialog>
 @code {
+    // The extraction footer's left side: errors and status first, then the secondary tools of the current step.
+    private RenderFragment ExtractionFooterStatus => @<text>
+        @if (_extractionError is not null)
+        {
+            <p class="generation-error" role="alert">@_extractionError</p>
+            @if (_conflict) { <p class="field-hint">Close and reload the library to review current update targets. Your suggestion draft stays available.</p> }
+        }
+        @if (_editingExtractionJson) { }
+        else if (ExtractionReadyForReview)
+        {
+            @if (!ExtractionFinished) { <p class="extraction-apply-summary">@ReviewSummary</p> }
+            <p class="field-hint" role="status">@(ExtractionFinished ? "Review complete" : _reviewDraftDirty ? "Saving review draft…" : "Review draft saved · Not applied")</p>
+        }
+        else if (_extracting) { <p class="field-hint">Your library changes only when you apply.</p> }
+    </text>;
+    private RenderFragment ExtractionFooterTools => @<text>
+        @if (_editingExtractionJson) { }
+        else if (ExtractionReadyForReview) { <MudButton OnClick="RetryExtraction" Disabled="_finishingReview" Variant="Variant.Outlined">Start over</MudButton> }
+        else if (_extracting) { @if (_activeExtraction is { CancelRequested: false }) { <MudButton OnClick="CancelExtraction" Variant="Variant.Outlined">Cancel request</MudButton> } }
+        else if (_extractionResult is null) { <div class="assist-composer-model assist-footer-model">@(_extractionAssist?.ModelControl)</div> }
+        else
+        {
+            @if (CanCorrectExtraction) { <MudButton OnClick="() => CorrectExtractionAsync(false)" Disabled="_savingExtractionJson" Variant="Variant.Outlined">Recheck saved response</MudButton> }
+            <MudButton OnClick="RetryExtraction" Variant="Variant.Outlined">New extraction</MudButton>
+        }
+    </text>;
     [Parameter] public Guid? RequestedAssetId { get; set; }
     [Parameter] public Guid? RequestedReelId { get; set; }
     private Guid? _handledKeyframeReel;
@@ -744,28 +779,35 @@ else
     private void RegisterReelFlush(Func<Task<bool>> flush) => _flushReelDraft = flush;
     private async Task RevealReelTools() { RememberMediaDraft(); _presentation.Selection = null; _presentation.Creation = AssetCreationKind.Reel; if (_workspace is not null) await _workspace.ShowToolsAsync(); }
     private Task RevealReelPrompts() => RevealReelTools();
-    private bool _loading = true, _dirty, _saving, _conflict, _showGenerator, _createOpen, _cropOpen;
+    private bool _loading = true, _dirty, _saving, _conflict, _showGenerator, _createOpen;
     private Exception? _loadError;
     private string? _saveError;
-    private string _saveStatus = "Saved", _search = "";
+    private string _saveStatus = SaveStatusText.Saved, _search = "";
     private AssetCategory? _categoryFilter;
     private CancellationTokenSource? _saveDelay;
     private readonly SemaphoreSlim _saveGate = new(1, 1);
     private long _editVersion;
     private IDisposable? _navigationHandler;
-    private ElementReference _cropStage;
     private ImageReviewSession? _latestEditBatch, _review;
     private AssetImageReference? _reviewInitial;
     private bool _focusLibrary;
     private Snackbar? _trashSnackbar;
     private bool _disposed, _reviewOpen;
     private IJSObjectReference? _assetsModule;
-    private DotNetObjectReference<AssetsStudio>? _assetsReference;
-    private bool _initializeCropGesture;
 
     private AssetCategory _newCategory = AssetCategory.Character;
     private string _newName = "", _newDescription = "";
     private string? _createError;
+    private const string ConflictNotice = "Another tab saved newer asset changes. Your local edits are still here.";
+    private string SaveProblemMessage => !_conflict ? _saveError ?? "" : _saveError is null ? ConflictNotice : $"{_saveError} {ConflictNotice}";
+    private InputFile? _imageImport;
+    // Import image… opens the browser's file chooser on the input that stays mounted outside the Import menu.
+    private async Task ChooseImageImport()
+    {
+        if (_imageImport?.Element is not { } input) return;
+        try { await JS.InvokeVoidAsync("HTMLElement.prototype.click.call", input); }
+        catch (Exception e) when (e is JSException or JSDisconnectedException) { }
+    }
 
     private string _imagePrompt = "", _imageTags = "", _aspect = "1:1", _fixedSeed = "";
     private string ImageAspect
@@ -776,9 +818,8 @@ else
     private int _candidateCount = 1;
     private float _referenceBoost = 4f;
     private int _groundingPixels = 768;
-    private string _cropAspect = "Original", _draftCropAspect = "Original";
+    private string _cropAspect = "Original";
     private double _cropZoom = 1, _cropFocusX = 50, _cropFocusY = 50;
-    private double _draftCropZoom = 1, _draftCropFocusX = 50, _draftCropFocusY = 50;
     private bool _checkingImages;
     private ImageWorkflow _imageWorkflow;
     private bool _resolveImageDefault;
@@ -790,8 +831,6 @@ else
     private readonly List<AssetImageReference> _additionalReferences = [];
     private sealed record CropSelection(string Aspect = "Original", double Zoom = 1, double X = 50, double Y = 50);
     private readonly Dictionary<AssetImageReference, CropSelection> _referenceCropSelections = [];
-    private AssetImageReference? _cropTarget;
-    private string? _cropReturnFocus;
     private float _baseReferenceBoost = 1f;
     private AssetImageReference? BaseReference => (_imageRecipeSourceAsset ?? _selectedAssetId) is { } asset && _editSourceImageId is { } image ? new(asset, image) : null;
     private AssetImage? FindImage(AssetImageReference reference) => _library?.Assets.FirstOrDefault(a => a.Id == reference.AssetId)?.Images.FirstOrDefault(i => i.Id == reference.ImageId);
@@ -902,7 +941,6 @@ else
     private string? _extractionError;
 
     private static readonly string[] AspectRatios = ["1:1", "4:3", "3:2", "16:9", "2:3", "3:4", "9:16"];
-    private static readonly string[] CropAspectRatios = ["Original", .. AspectRatios];
     private static readonly int[] GroundingSizes = [384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024];
     private ReferenceAsset? SelectedAsset => _library?.Assets.SingleOrDefault(asset => asset.Id == _selectedAssetId);
     private AssetImage? EditSource => BaseReference is { } source ? FindImage(source) : null;
@@ -969,7 +1007,6 @@ else
         if (firstRender)
         {
             _assetsModule = await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("assets-studio.js"));
-            _assetsReference = DotNetObjectReference.Create(this);
         }
         // The workspace exists during loading; defer navigation and focus until its content is ready.
         if (_loading || _loadError is not null || _library is null) return;
@@ -990,12 +1027,6 @@ else
             try { await _assetsModule.InvokeVoidAsync("restoreExtractionFocus"); } catch (JSException) { }
         }
         if (_showGenerator && _workspace is not null) { _showGenerator = false; await _workspace.ShowToolsAsync(); }
-        if (_cropReturnFocus is { } cropFocus)
-        {
-            _cropReturnFocus = null;
-            try { await JS.InvokeVoidAsync("lumibelleAssets.focusCropControl", cropFocus); }
-            catch (Exception e) when (e is JSException or JSDisconnectedException) { }
-        }
         if (_pendingCenterTab is { } centerTab && _workspace is not null) {
             _pendingCenterTab = null;
             if (centerTab == "Reels") { _presentation.Filter = "Reels"; await RevealReelTools(); }
@@ -1036,11 +1067,6 @@ else
             _focusMovedEdit = false;
             try { await JS.InvokeVoidAsync("lumibelleAssets.focusEditPrompt"); }
             catch (Exception e) when (e is JSException or JSDisconnectedException) { }
-        }
-        if (_initializeCropGesture && _cropOpen && _assetsModule is not null && _assetsReference is not null)
-        {
-            _initializeCropGesture = false;
-            await _assetsModule.InvokeVoidAsync("attachCropGestures", _cropStage, _assetsReference);
         }
         await ConsumeAssetNavigationAsync();
     }
@@ -1142,33 +1168,33 @@ else
             {
                 _saveDelay?.Cancel();
                 if (_library.Assets.Any(asset => string.IsNullOrWhiteSpace(asset.Name)))
-                { _saveError = "Every asset needs a name."; _saveStatus = "Failed"; return false; }
+                { _saveError = "Every asset needs a name."; _saveStatus = SaveStatusText.Failed; return false; }
                 // Progress notifications also reconcile the library. Only an actual
                 // author save should disable and dim the surrounding controls.
                 _saving = true;
                 var version = _editVersion; var local = _library;
-                _saveStatus = "Saving…"; _saveError = null;
+                _saveStatus = SaveStatusText.Saving; _saveError = null;
                 AssetLibrary saved;
                 try { saved = await AssetStore.SaveAsync(local, local.Revision); }
                 catch (WorkspaceConflictException) when (++conflicts < 3)
                 { await ReconcileLibraryLockedAsync(); continue; }
                 if (version == _editVersion)
-                { _library = saved; _dirty = false; _saveStatus = "Saved"; }
+                { _library = saved; _dirty = false; _saveStatus = SaveStatusText.Saved; }
                 else
-                { _library = AssetLibraryRebase.Merge(local, _library, saved); _saveStatus = "Unsaved"; }
+                { _library = AssetLibraryRebase.Merge(local, _library, saved); _saveStatus = SaveStatusText.Unsaved; }
                 _savedLibrary = saved.Copy();
                 _conflict = false;
             }
             return true;
         }
-        catch (WorkspaceConflictException e) { _saveError = e.Message; _saveStatus = "Conflict"; _conflict = true; return false; }
-        catch (WorkspaceStoreException e) { _saveError = e.Message; _saveStatus = "Failed"; return false; }
+        catch (WorkspaceConflictException e) { _saveError = e.Message; _saveStatus = SaveStatusText.Conflict; _conflict = true; return false; }
+        catch (WorkspaceStoreException e) { _saveError = e.Message; _saveStatus = SaveStatusText.Failed; return false; }
         finally { _saving = false; }
     }
 
     private void QueueSave()
     {
-        _dirty = true; _saveStatus = "Unsaved"; _saveError = null; _editVersion++;
+        _dirty = true; _saveStatus = SaveStatusText.Unsaved; _saveError = null; _editVersion++;
         _saveDelay?.Cancel(); _saveDelay?.Dispose(); _saveDelay = new();
         _ = DelayedSaveAsync(_saveDelay.Token);
     }
@@ -1194,7 +1220,7 @@ else
     private async Task ReloadAsync()
     {
         _library = await AssetStore.LoadAsync(Id); _savedLibrary = _library.Copy();
-        _dirty = false; _conflict = false; _saveError = null; _saveStatus = "Saved";
+        _dirty = false; _conflict = false; _saveError = null; _saveStatus = SaveStatusText.Saved;
         if (_library.Assets.All(asset => asset.Id != _selectedAssetId)) SwitchAsset(_library.Assets.FirstOrDefault()?.Id);
         else if (_presentation.Selection is { } selected && !AllGalleryItems.Any(i => i.Key == selected))
         { _reels?.ClearDetails(); _voices?.ClearEditing(); UseCreateMode(); }
@@ -1255,7 +1281,7 @@ else
             if (_selectedAssetId == assetId) SwitchAsset(_library.Assets.FirstOrDefault()?.Id);
             _presentations.Remove(assetId); _deleteAsset = null;
         }
-        catch (WorkspaceConflictException e) { _saveError = e.Message; _conflict = true; _saveStatus = "Conflict"; }
+        catch (WorkspaceConflictException e) { _saveError = e.Message; _conflict = true; _saveStatus = SaveStatusText.Conflict; }
         catch (WorkspaceStoreException e) { _saveError = e.Message; }
         finally { _saveGate.Release(); }
     }
@@ -1268,9 +1294,9 @@ else
             await using var stream = args.File.OpenReadStream(FileAssetStore.MaximumImageBytes);
             if (await AddImageSafelyAsync(_selectedAssetId.Value, stream,
                 new(args.File.Name, ParseTags(_imageTags), AssetImageOrigin.Imported, LookId: FilterLookId)) is null) return;
-            _saveStatus = "Saved"; Snackbar.Add("Image imported as an unapproved take.", Severity.Success);
+            _saveStatus = SaveStatusText.Saved; Snackbar.Add("Image imported as an unapproved take.", Severity.Success);
         }
-        catch (Exception e) when (e is WorkspaceStoreException or IOException) { _saveError = e.Message; _saveStatus = "Failed"; }
+        catch (Exception e) when (e is WorkspaceStoreException or IOException) { _saveError = e.Message; _saveStatus = SaveStatusText.Failed; }
     }
 
     private void ImageTagsChanged(Guid imageId, ChangeEventArgs args) => EditImage(imageId, image => image with { Tags = ParseTags(args.Value?.ToString()) });
@@ -1308,7 +1334,6 @@ else
         await OpenImageBatchAsync(batch);
     }
     private async Task ClosePreview() { _openImageDetails = false; _imageDetailsDirty = false; _reviewOpen = false; _reviewInitial = null; if (_imageReviewOwner is { } owner) { _imageReviewOwner = null; await AiReviews.CloseAsync(owner); } }
-    private static void KeepPreviewOpen() { }
 
     private async Task<ImageReviewDiscardResult> DiscardReviewTakeAsync(Guid imageId)
     {
@@ -1342,11 +1367,11 @@ else
             {
                 if (_editSourceImageId is { } source && ids.Contains(source)) UseCreateMode();
             }
-            _saveStatus = _dirty ? "Unsaved" : "Saved"; _saveError = null; _conflict = false;
+            _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved; _saveError = null; _conflict = false;
             await InvokeAsync(StateHasChanged);
             return null;
         }
-        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = "Conflict"; return e.Message + " Close the review and reload the saved library before retrying."; }
+        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = SaveStatusText.Conflict; return e.Message + " Close the review and reload the saved library before retrying."; }
         catch (WorkspaceStoreException e) { return e.Message; }
         finally { _saveGate.Release(); }
     }
@@ -1391,8 +1416,8 @@ else
             });
             _focusLibrary = true;
         }
-        catch (WorkspaceConflictException e) { _saveError = e.Message; _conflict = true; _saveStatus = "Conflict"; }
-        catch (WorkspaceStoreException e) { _saveError = e.Message; _saveStatus = "Failed"; }
+        catch (WorkspaceConflictException e) { _saveError = e.Message; _conflict = true; _saveStatus = SaveStatusText.Conflict; }
+        catch (WorkspaceStoreException e) { _saveError = e.Message; _saveStatus = SaveStatusText.Failed; }
         finally { _saveGate.Release(); }
     }
 
@@ -1416,7 +1441,7 @@ else
             await InvokeAsync(StateHasChanged);
             return null;
         }
-        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = "Conflict"; return e.Message; }
+        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = SaveStatusText.Conflict; return e.Message; }
         catch (WorkspaceStoreException e) { return e.Message; }
         finally { _saveGate.Release(); }
     }
@@ -1435,7 +1460,7 @@ else
             }).Concat(local.Assets.Where(a => saved.Assets.All(s => s.Id != a.Id))).ToList() };
         }
         _savedLibrary = saved.Copy();
-        _saveError = null; _conflict = false; _saveStatus = _dirty ? "Unsaved" : "Saved";
+        _saveError = null; _conflict = false; _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved;
     }
 
     private async Task<AssetImage?> AddImageSafelyAsync(Guid assetId, Stream content, AssetImageInput input,
@@ -1469,7 +1494,7 @@ else
                     }).ToList()
                 };
             }
-            _saveStatus = _dirty ? "Unsaved" : "Saved";
+            _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved;
             _conflict = false;
             return saved.Assets.Single(a => a.Id == assetId).Images.Single(i => !beforeIds.Contains(i.Id));
         }
@@ -1496,64 +1521,12 @@ else
     private void AddGenerationTag(string tag) { var tags = ParseTags(_imageTags); if (!tags.Contains(tag, StringComparer.OrdinalIgnoreCase)) tags.Add(tag); _imageTags = string.Join(", ", tags); }
     private static List<string> ParseTags(string? value) => (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     private string ImageUrl(Guid assetId, Guid imageId) => $"/media/projects/{Id:D}/assets/{assetId:D}/images/{imageId:D}";
-    private void OpenCrop() { if (BaseReference is { } reference) OpenReferenceCrop(reference); }
-    private void OpenReferenceCrop(AssetImageReference reference)
-    {
-        if (_composerLocked || FindImage(reference) is null) return;
-        _cropTarget = reference;
-        var state = _restoredCrops.TryGetValue(reference, out var restored) ? RestoreCropControls(reference, restored) : reference == BaseReference ? new CropSelection(_cropAspect, _cropZoom, _cropFocusX, _cropFocusY)
-            : _referenceCropSelections.GetValueOrDefault(reference) ?? new();
-        _draftCropAspect = state.Aspect; _draftCropZoom = state.Zoom;
-        _draftCropFocusX = state.X; _draftCropFocusY = state.Y;
-        _cropOpen = true; _initializeCropGesture = true;
-    }
-    private void ApplyCrop()
-    {
-        if (_composerLocked || _cropTarget is not { } target || FindImage(target) is null) return;
-        _restoredCrops.Remove(target);
-        if (target == BaseReference)
-        {
-            _cropAspect = _draftCropAspect; _cropZoom = _draftCropZoom;
-            _cropFocusX = _draftCropFocusX; _cropFocusY = _draftCropFocusY;
-        }
-        else if (_additionalReferences.Contains(target))
-            _referenceCropSelections[target] = new(_draftCropAspect, _draftCropZoom, _draftCropFocusX, _draftCropFocusY);
-        CancelCrop();
-    }
-    private void UseFullSource()
-    {
-        if (_composerLocked) return;
-        if (_cropTarget == BaseReference) ResetSourceCrop();
-        else if (_cropTarget is { } target) { _referenceCropSelections.Remove(target); _restoredCrops.Remove(target); }
-        CancelCrop();
-    }
-    private void CancelCrop()
-    {
-        _cropReturnFocus = _cropTarget == BaseReference ? "Crop source" : $"Crop reference image {_additionalReferences.IndexOf(_cropTarget!) + 2}";
-        _cropOpen = false; _initializeCropGesture = false; _cropTarget = null;
-    }
-    private void HandleCropKey(KeyboardEventArgs args) { if (args.Key == "Escape") CancelCrop(); }
-    private void CropZoomChanged(ChangeEventArgs args) => _draftCropZoom = ParseRange(args, _draftCropZoom, 1, 4);
-    private void CropHorizontalChanged(ChangeEventArgs args) => _draftCropFocusX = ParseRange(args, _draftCropFocusX, 0, 100);
-    private void CropVerticalChanged(ChangeEventArgs args) => _draftCropFocusY = ParseRange(args, _draftCropFocusY, 0, 100);
-    private static double ParseRange(ChangeEventArgs args, double current, double minimum, double maximum) =>
-        double.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var value) ? Math.Clamp(value, minimum, maximum) : current;
-    private static string Invariant(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-    [JSInvokable]
-    public void ApplyCropGesture(double zoom, double focusX, double focusY)
-    {
-        _draftCropZoom = Math.Clamp(zoom, 1, 4);
-        _draftCropFocusX = Math.Clamp(focusX, 0, 100);
-        _draftCropFocusY = Math.Clamp(focusY, 0, 100);
-        StateHasChanged();
-    }
     private void ResetSourceCrop()
     {
         if (BaseReference is { } reference) _restoredCrops.Remove(reference);
-        _cropAspect = _draftCropAspect = "Original";
-        _cropZoom = _draftCropZoom = 1;
-        _cropFocusX = _draftCropFocusX = _cropFocusY = _draftCropFocusY = 50;
+        _cropAspect = "Original";
+        _cropZoom = 1;
+        _cropFocusX = _cropFocusY = 50;
     }
     private static ImageCropRegion? CropRegion(AssetImage source, string aspect, double zoom, double focusX,
         double focusY)
@@ -1567,14 +1540,6 @@ else
         var x = (1 - width) * focusX / 100; var y = (1 - height) * focusY / 100;
         if (Math.Abs(x) < 0.000001 && Math.Abs(y) < 0.000001 && Math.Abs(width - 1) < 0.000001 && Math.Abs(height - 1) < 0.000001) return null;
         return new() { X = x, Y = y, Width = width, Height = height };
-    }
-    private static string CropStageStyle(AssetImage source) => FormattableString.Invariant(
-        $"--source-ratio:{source.Width / (double)source.Height:0.######};aspect-ratio:{source.Width}/{source.Height}");
-    private string DraftCropStyle(AssetImage source)
-    {
-        var crop = CropRegion(source, _draftCropAspect, _draftCropZoom, _draftCropFocusX, _draftCropFocusY) ??
-            new ImageCropRegion();
-        return FormattableString.Invariant($"left:{crop.X * 100:0.###}%;top:{crop.Y * 100:0.###}%;width:{crop.Width * 100:0.###}%;height:{crop.Height * 100:0.###}%");
     }
     private static double AspectValue(string ratio)
     {
@@ -1600,7 +1565,6 @@ else
         _reviewDraftDelay?.Dispose();
         if (_dirty) await SaveNowAsync();
         _saveDelay?.Dispose();
-        _assetsReference?.Dispose();
         if (_assetsModule is not null) try { await _assetsModule.DisposeAsync(); } catch (JSDisconnectedException) { }
     }
 }

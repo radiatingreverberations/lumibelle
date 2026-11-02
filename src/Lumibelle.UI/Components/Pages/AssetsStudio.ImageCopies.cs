@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using lumibelle.Models;
 using lumibelle.Services.Story;
 using Microsoft.AspNetCore.Components;
@@ -34,7 +35,7 @@ public partial class AssetsStudio
                         { Images = [.. a.Images, .. stored.Images.Where(i => a.Images.All(existing => existing.Id != i.Id))] } : a)
                         .Concat(saved.Assets.Where(a => _library.Assets.All(local => local.Id != a.Id))).ToList() };
             }
-            _saveStatus = _dirty ? "Unsaved" : "Saved";
+            _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved;
             return result;
         }
         catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; throw; }

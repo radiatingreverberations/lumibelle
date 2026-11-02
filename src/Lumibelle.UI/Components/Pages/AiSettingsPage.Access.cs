@@ -12,11 +12,10 @@ public partial class AiSettingsPage
     private string _accessDialogServer = "";
     private string? _accessReason, _comfyCheckedUrl;
     private ComfyAccessCheck? _comfyTransportCheck;
-    private static DialogOptions AccessDialogOptions => new()
-    {
-        MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false,
-        CloseOnEscapeKey = false, CloseButton = false
-    };
+    private lumibelle.Components.AI.ComfyAccessEditor? _accessEditor;
+    // The close button and Escape follow the editor's Cancel, which waits for a running save.
+    private Task CancelAccessDialogAsync() => _accessEditor is { } editor ? editor.CancelAsync() : Task.CompletedTask;
+    private Task AccessDialogVisibilityAsync(bool visible) => visible ? Task.CompletedTask : CancelAccessDialogAsync();
 
     private Task CheckComfyWithAccessAsync() => CheckComfyWithAccessAsync(allowCredentialPrompt: true);
 

@@ -2,7 +2,7 @@
 
 Use the **Source** tab before Script to adapt an existing story, treatment, or other text.
 Paste the original material or import a UTF-8 text/Markdown file, add a title and adaptation
-direction, and **Save source**. The original text remains separate from the screenplay.
+direction, and **Save**. The original text remains separate from the screenplay.
 
 Use adaptation direction to specify tone, style, audience, narration and deliberate changes
 to the source. The built-in prompts guide structure, evidence and continuity; they do not

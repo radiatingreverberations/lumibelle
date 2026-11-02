@@ -23,11 +23,15 @@
         </div>
     </fieldset>
     @if (_error is not null) { <p role="alert">@_error</p> }
-    <div class="dialog-actions">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
-        <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
-        @if (_captured is not null && !_busy) { <MudButton OnClick="ChangeInputs">Change inputs</MudButton> }
-        <MudButton Disabled="_busy" OnClick="Cancelled">Cancel</MudButton>
+    <div class="image-copy-footer">
+        <DialogFooter>
+            <Tools>@if (_captured is not null && !_busy) { <MudButton OnClick="ChangeInputs">Change inputs</MudButton> }</Tools>
+            <ChildContent>
+                <MudButton Disabled="_busy" OnClick="Cancelled">Cancel</MudButton>
+                <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
+            </ChildContent>
+        </DialogFooter>
     </div>
 </section>
 
@@ -59,6 +63,8 @@
     {
         if (firstRender) try { await _destinationInput.FocusAsync(); } catch (JSDisconnectedException) { }
     }
+    // Hosts that draw their own close button use this to wait for a running save.
+    public bool Busy => _busy;
     private bool _busy; private string? _error; private DerivedImageRequest? _captured; private ImageCropRegion _crop = new();
     private ReferenceAsset? DestinationAsset => Guid.TryParse(_destination, out var id) ? Library.Assets.FirstOrDefault(a => a.Id == id) : null;
     private bool Valid => _captured is not null || !string.IsNullOrWhiteSpace(_name) && (_destination != "new" || !string.IsNullOrWhiteSpace(_assetName));

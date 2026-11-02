@@ -18,7 +18,9 @@ public partial class ProductionStudio
     private DirectingStyle _directingStyle;
     private ShotPlanningResult? _planningOriginal;
     private Guid? _planningOriginJob, _planningAttempted, _planningLoadedJob, _planningRequestedJob, _planningReviewOwner;
-    private ElementReference _planningOriginElement, _planningDialogElement, _planningCloseElement;
+    private ElementReference _planningOriginElement, _planningDialogElement;
+    // Planning returns focus to its Close button after a review opens over it.
+    private MudBlazor.MudButton? _planningCloseElement;
     private bool _focusPlanningClose, _planningInitialized, _planningComposerPrepared;
     private bool _planningSubmitting, _planningRefreshing, _planningRefreshAgain, _planningSuppressed, _applyingProposal;
     private string _planningRaw = "";
@@ -273,7 +275,6 @@ public partial class ProductionStudio
         catch (WorkspaceStoreException e) { _planningError = e.Message; }
     }
     private Task PlanningVisibility(bool open) => open ? Task.CompletedTask : ClosePlanning();
-    private Task PlanningKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) => e.Key == "Escape" ? ClosePlanning() : Task.CompletedTask;
     private async Task ReleasePlanningReviewAsync()
     {
         if (_planningReviewOwner is { } id) await AiReviews.CloseAsync(id);

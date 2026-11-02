@@ -1,5 +1,19 @@
+@* A workspace pane. Title (with an optional count and header actions) gives every pane the same heading;
+   Header adds rows below it, such as tabs, search or filters. *@
 <section class="workspace-pane @Class" aria-label="@Label" @attributes="AdditionalAttributes">
-    @if (Header is not null) { <header class="workspace-pane-header">@Header</header> }
+    @if (Title is not null || Header is not null)
+    {
+        <header class="workspace-pane-header">
+            @if (Title is not null)
+            {
+                <div class="pane-heading">
+                    <h2 class="pane-title">@Title@if (Count is not null) { <span class="pane-count">@Count</span> }</h2>
+                    @if (HeaderActions is not null) { <div class="pane-heading-actions">@HeaderActions</div> }
+                </div>
+            }
+            @Header
+        </header>
+    }
     <div class="workspace-pane-body" tabindex="-1">@ChildContent</div>
     @if (Footer is not null) { <footer class="workspace-pane-footer">@Footer</footer> }
 </section>
@@ -8,6 +22,9 @@
     [Parameter] public string Class { get; set; } = "";
     [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
     [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Count { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter] public RenderFragment? Header { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? Footer { get; set; }

@@ -1,0 +1,12 @@
+@* Shown while a page or pane loads. Say what is opening: "Opening Shots…", "Loading takes…". *@
+<div class="loading-state @(Compact ? "compact" : null) @Class" role="status">
+    @if (Spinner) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-hidden="true" /> }
+    <span>@Text</span>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public bool Spinner { get; set; } = true;
+    // A compact state sits inside a pane or dialog instead of filling the page.
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

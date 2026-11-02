@@ -4,7 +4,7 @@
 
 Configure **Project settings → Languages and dubs** with an explicit master language, up to 16 distinct dub languages, and optional translation notes/glossary. Codes such as `en-GB`, `sv`, `zh-CN`, and `pt-BR` are accepted (stored lowercase); the language name is used in H3 dialogue instructions. Existing projects have no assumed master language. Configuring languages never translates existing script/shot content. Newly added manual dialogue rows use the configured master-language name; existing rows retain their authored language.
 
-Render a master shot in Shots using its composed H3 prompt. Open **Language versions** from the Shots header or from that shot's Dialogue section. Choose the rendered master take and target language. Either enter each translated line manually, or select a text model/profile and request **Suggest translated dialogue**. The AI receives text only: master prompt, source dialogue, scene excerpt, language pair, duration and notes. No image, video, voice, or RefMod data is sent to this translation request.
+Render a master shot in Shots using its composed H3 prompt. Open **Language versions** from the Shots header or from that shot's Dialogue section. The workspace lists master takes with dialogue on the left, with each take's saved version and rendered takes for the chosen dub language; the centre holds the dialogue editor and **Render <language> take**, and the right pane holds translation assistance. Choose the rendered master take and target language. Either enter each translated line manually, or select a text model/profile and request **Suggest translated dialogue**. The AI receives text only: master prompt, source dialogue, scene excerpt, language pair, duration and notes. No image, video, voice, or RefMod data is sent to this translation request.
 
 Inspect the suggestion and any timing/translation concerns. **Use suggestion in editor** stages it; **Save language version** persists it. Edits in the line editor become manual revisions rather than falsely attributing modified text to the AI response. The master script, master shot coverage, composed master prompt, media and selected take remain unchanged. An AI response arriving after a competing save cannot overwrite the newer version.
 
@@ -14,7 +14,7 @@ This is a new video/audio render, not audio replacement, lip-sync processing, or
 
 ## What changes in a prompt
 
-The H3 master prompt must already pass its normal structural/dialogue validation. The translator returns only:
+The H3 master prompt must contain exactly one `<d>` block per dialogue line, in order. The rest of the prompt is not validated again: the master take already rendered with it, and prompt authoring rules change over time, so a take rendered under older rules stays translatable. The translator returns only:
 
 ```json
 {"version":1,"lines":[{"id":"original-dialogue-uuid","text":"Translated speech"}],"notes":[]}

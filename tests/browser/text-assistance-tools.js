@@ -82,7 +82,8 @@ export async function closeComposer(page) {
   while (await page.locator('.ai-assist-dialog').last().isVisible()) {
     const id = await page.locator('.ai-assist-dialog').last().getAttribute('id');
     const dialog = page.locator(`[id="${id}"]`);
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    // The model picker's dismiss is Done; other assistance dialogs say Close.
+    await dialog.getByRole('button', { name: /^(Close|Done)$/ }).click();
     await expect(dialog).toBeHidden();
   }
 }

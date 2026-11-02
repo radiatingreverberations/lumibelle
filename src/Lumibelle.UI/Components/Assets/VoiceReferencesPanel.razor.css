@@ -1,8 +1,7 @@
-.voice-open { padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); color: var(--plum); font-size: var(--lumi-font-size-meta); background: transparent; }
-.voice-reference { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.voice-reference { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--lumi-border); }
 audio { width: 100%; margin: 8px 0; }
-.voice-reference small { color: var(--muted); }
-.voice-reference button, .voice-excerpt-actions button { margin-inline-end: 8px; padding: 5px 9px; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); font: inherit; font-size: var(--lumi-font-size-meta); }
+.voice-reference small { color: var(--lumi-text-muted); }
+.voice-reference button { margin-inline-end: 8px; }
 .voice-upload { display: inline-block; margin-top: 16px; }
 .voice-import-editor label { display: grid; gap: 5px; font-size: var(--lumi-font-size-meta); }
 .voice-import-editor input:not([type=checkbox]) { padding: 9px; min-width: 0; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); font: inherit; }

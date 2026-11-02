@@ -1,11 +1,10 @@
 @implements IAsyncDisposable
 @inject ReelReplacement Replacement
 
-<InlineDialog Visible="@(Reel is not null)" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="reel-replacement-dialog"
+<InlineDialog OnEscape="Close" Visible="@(Reel is not null)" VisibleChanged="async v => { if (!v) await Close(); }" Options="DialogSizes.Small" Class="reel-replacement-dialog"
               Title="Replace a reel in shots" Context="@Reel?.Name" CloseLabel="Close replace a reel in shots" CloseDisabled="_busy">
 <DialogContent>
     @if (Reel is { } reel) {
-    <DialogEscape Pressed="Close" />
     @if (Candidates.Count == 0) { <p>This asset has no other reel to replace.</p> }
     else {
         <label class="reel-replacement-field">Replace
@@ -30,10 +29,10 @@
     @if (_error is not null) { <p role="alert">@_error</p> }
     }
 </DialogContent>
-<DialogActions>
-    <MudButton OnClick="Close" Disabled="_busy">Close</MudButton>
+<DialogActions><DialogFooter>
+    <DialogDismiss Label="Cancel" OnDismiss="Close" Disabled="_busy" />
     <MudButton OnClick="Apply" Disabled="@(_busy || _plan?.Ready is not > 0)" Variant="Variant.Filled" Color="Color.Primary">@(_busy && _applying ? "Replacing…" : $"Replace in {Count(_plan?.Ready ?? 0)}")</MudButton>
-</DialogActions>
+</DialogFooter></DialogActions>
 </InlineDialog>
 
 @code {
@@ -42,7 +41,6 @@
     [Parameter] public AssetReferenceReel? Reel { get; set; }
     [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = default!;
     [Parameter] public EventCallback Closed { get; set; }
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
     private readonly CancellationTokenSource _lifetime = new();
     private Guid? _reelId;
     private Guid _from;

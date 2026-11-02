@@ -1,8 +1,8 @@
 @implements IAsyncDisposable
 <div class="script-assistant" @ref="_originElement">
-<TextAssistance Inline="true" @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Story" Title="Script assistance" Disabled="_applying" ModelLocked="ComposerLocked" SelectionChanged="ModelChanged" Opened="OpenComposerAsync">
-    <ExtraActions><button type="button" class="assist-requests" @onclick="() => _requestsOpen = true">Requests</button></ExtraActions>
-    <ChildContent>            @if (_loading) { <p role="status">Opening assistant…</p> }
+<TextAssistance Inline="true" ShowHeading="false" @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Story" Title="Script assistance" Disabled="_applying" ModelLocked="ComposerLocked" SelectionChanged="ModelChanged" Opened="OpenComposerAsync">
+    @* The pane heading carries Assistant and Requests…; see OpenRequestsAsync. *@
+    <ChildContent>            @if (_loading) { <LoadingState Compact="true" Text="Opening assistant…" /> }
             else
             {
                 <div class="script-assistant-compose">
@@ -26,7 +26,7 @@
                     }
                     @if (_sourcePlan is not null) {
                         <section class="script-source-plan" aria-label="Accepted source outline">
-                            <div class="script-source-heading"><strong>Source outline</strong><a href="@($"/projects/{ProjectId}/source")">Open Source</a><button type="button" @onclick="RefreshSourcePlan" disabled="@ComposerLocked" aria-label="Refresh source outline">↻</button></div>
+                            <div class="script-source-heading"><strong>Source outline</strong><a href="@($"/projects/{ProjectId}/source")">Open Source</a><MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" OnClick="RefreshSourcePlan" Disabled="@ComposerLocked" aria-label="Refresh source outline" title="Refresh source outline" /></div>
                             <label class="script-source-toggle"><input type="checkbox" checked="@_useSourceOutline" @onchange="e => UseSourceOutline(e.Value is true)" disabled="@ComposerLocked" />Use accepted outline</label>
                             @if (_useSourceOutline) {
                                 @if (!_batchDrafting) {
@@ -51,7 +51,7 @@
                                 @if (_draftOutlineScene && _outlineFocus.Contains(':')) { <p class="script-sequence-status" role="status">@(SelectedSequenceAdded ? "✓ Already in script" : "Not added yet")</p> }
                                 }
                                 <div class="script-source-progress"><span>@OutlineScenes.Count(s => s.InScript) of @OutlineScenes.Count() sequences added</span><HelpHint Label="Sequence progress" Text="Counts outline sequences applied to the script. One sequence can become several screenplay scenes. Drafts awaiting review are not counted. Earlier or manually written scenes are not matched automatically." /></div>
-                                @if (NeedsOutlineActs) { <button type="button" class="source-add-acts" @onclick="AddOutlineActsAsync" disabled="@ComposerLocked">Add outline acts to script</button> }
+                                @if (NeedsOutlineActs) { <button type="button" class="lumi-button source-add-acts" @onclick="AddOutlineActsAsync" disabled="@ComposerLocked">Add outline acts to script</button> }
                                 @if (_draftOutlineScene && HasScript && !OutlineScenes.Any(s => s.InScript)) { <p class="field-hint">Choose where to pick up the outline. Existing writing has no outline links yet.</p> }
                             }
                         </section>
@@ -68,7 +68,7 @@
                     </select></div>
                     @if (!_draftOutlineScene && !_batchDrafting) { <div><label for="script-scope">Work on</label><select id="script-scope" @bind:get="_scope" @bind:set="ChooseScopeAsync" disabled="@(_generating || WholeDocumentOperation)"><option value="Document">Whole script</option><option value="Scene">Current scene</option><option value="Act">Current act</option><option value="Passage">Selected passage</option></select></div> }
                     <p class="field-hint assistant-target" role="status">@(_batchDrafting ? $"Adds the {OutlineScenes.Count(s => !s.InScript)} remaining sequences directly to the script, one at a time in outline order. Existing writing is kept. A recovery copy is saved before the batch starts." : _draftOutlineScene ? _redraftOutlineScene ? "Creates a fresh draft from the source and your instructions. After review, it replaces only this sequence in place. The previous version remains in script history." : "Adds the selected sequence at the end of the script, after review. Act headings follow the accepted outline." : WholeDocumentOperation ? "Whole script" : TargetDescription)</p>
-                    @if (!WholeDocumentOperation) { <button class="capture-target" disabled="@_generating" @onclick="() => ChooseScopeAsync(_scope)">@(_scope == ScriptScope.Passage ? "Use selected passage" : _scope == ScriptScope.Document ? "Use whole script" : $"Use current {_scope.ToString().ToLowerInvariant()}")</button> }
+                    @if (!WholeDocumentOperation) { <button class="lumi-button small capture-target" disabled="@_generating" @onclick="() => ChooseScopeAsync(_scope)">@(_scope == ScriptScope.Passage ? "Use selected passage" : _scope == ScriptScope.Document ? "Use whole script" : $"Use current {_scope.ToString().ToLowerInvariant()}")</button> }
                     <label for="script-instructions">Instructions<textarea id="script-instructions" @bind="InstructionsValue" @bind:event="oninput" rows="5" disabled="@BatchActive" placeholder="@(_batchDrafting ? "Add direction for all remaining sequences (optional)…" : _draftOutlineScene ? "Add direction for this sequence (optional)…" : "Describe what you want to change…")"></textarea></label>
                     <ScriptProjectContextPicker ProjectId="ProjectId" Disabled="@(ComposerLocked || _modelPreparing)" SupportsImages="_supportsImages" Changed="ReferencesChanged" />
                     @if (!string.IsNullOrWhiteSpace(_projectContext)) { <p class="field-hint">@(_batchDrafting ? "Attached project details will guide each sequence." : "Attached project details will inform this proposal. Review the script changes before applying.")</p> }
@@ -81,7 +81,7 @@
                         </details>
                     }
                     @foreach (var attached in _runs.Where(r => _attachedDiscussion.Contains(r.Id)))
-                    { <button class="attached-context" @onclick="() => Attach(attached.Id, false)" aria-label="Remove attached discussion @attached.CreatedUtc.ToLocalTime().ToString("g")">Discussion · @attached.CreatedUtc.ToLocalTime().ToString("g") ×</button> }
+                    { <button class="attached-context" @onclick="() => Attach(attached.Id, false)" aria-label="Remove attached discussion @attached.CreatedUtc.ToLocalTime().ToString("g")">Discussion · @attached.CreatedUtc.ToLocalTime().ToString("g") <MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" /></button> }
                     @if (Operation is WritingOperation.Draft or WritingOperation.Outline && Document.Blocks.Any(b => !string.IsNullOrWhiteSpace(b.Text))) { <p class="field-hint">This proposes replacing the whole script. You review the result before applying it.</p> }
                 </div>
                 @if (HasScript && !BatchActive) { <details class="assistant-start-over"><summary>Start over…</summary><p>Drafting or accepting an outline replaces the entire script. You review it before applying.</p><button disabled="@_generating" @onclick="() => ChooseAction(nameof(WritingOperation.Draft))">Draft replacement</button><button disabled="@_generating" @onclick="() => ChooseAction(nameof(WritingOperation.Outline))">Outline replacement</button></details> }
@@ -114,7 +114,7 @@
                         <div class="run-heading"><strong>@(run.SourceScene is null ? run.Operation.ToString() : $"Sequence {run.SourceScene.Act + 1}.{run.SourceScene.Scene + 1}") · @RunStatus(run)</strong><span>@run.CreatedUtc.ToLocalTime().ToString("g")</span></div>
                         <p class="run-meta">@run.Target.Name@(run.CorrectedFromRunId is null ? "" : " · Pasted JSON")</p>
                         <p class="run-instructions">@(run.Instructions.Length > 160 ? run.Instructions[..160] + "…" : run.Instructions)</p>
-                        <MudButton OnClick="() => Review(run.Id)" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">@(RunStatus(run) == "Applied" ? "View changes" : "Open response")</MudButton>
+                        <MudButton OnClick="() => Review(run.Id)" Variant="Variant.Outlined" Size="Size.Small">@(RunStatus(run) == "Applied" ? "View changes" : "Open response")</MudButton>
                         <MudButton OnClick="() => Reuse(run)" Size="Size.Small" Disabled="_generating">Reuse instructions</MudButton>
                     </article>
                 }
@@ -123,16 +123,10 @@
             </div>
 </ChildContent></AiAssistDialog>
 
-<InlineDialog Visible="@(_reviewId is not null)" VisibleChanged="ReviewVisibilityChanged" Options="ReviewOptions"
-           Class="@(_scenePlanning || _twoStepSequence ? "script-review-dialog sequence-review-dialog" : "script-review-dialog")" TitleClass="script-review-title" ContentClass="script-review-content" ActionsClass="script-review-actions">
-    <TitleContent>
-        <div class="script-review-heading">
-            <div><p class="eyebrow">@(_scenePlanning ? "SEQUENCE PLANNING" : _twoStepSequence ? "SEQUENCE DRAFTING" : "ASSISTANT PROPOSAL")</p><h2>@(_scenePlanning ? "Review sequence brief" : _twoStepSequence && ReviewRun?.Status == AssistantRunStatus.Running ? _sequenceReview?.State == ScriptSequenceReviewState.Repairing ? "Repairing screenplay" : _sequenceReview is not null ? "Checking screenplay" : "Writing screenplay" : "Review script proposal")</h2></div>
-        </div>
-    </TitleContent>
+<InlineDialog Visible="@(_reviewId is not null)" VisibleChanged="ReviewVisibilityChanged" Options="DialogSizes.Large"
+           Class="@(_scenePlanning || _twoStepSequence ? "script-review-dialog sequence-review-dialog" : "script-review-dialog")" TitleClass="script-review-title" ContentClass="script-review-content" ActionsClass="script-review-actions"
+           Title="@ReviewTitle" Context="@ReviewContext" CloseLabel="Close review" CloseDisabled="@(_applying || _savingJson)" CloseOnEscape="@(!_applying && !_savingJson)">
     <DialogContent>
-        @* Keep the header control inside MudDialog's focus trap. *@
-        <MudIconButton Class="review-close dialog-close" Icon="@Icons.Material.Outlined.Close" OnClick="CloseReview" Disabled="@(_applying || _savingJson)" aria-label="Close review" />
         @if (ReviewRun is { } run)
         {
             <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedScriptJobs.Where(j => j.Id == run.JobId).ToArray())" />
@@ -254,66 +248,87 @@
             // An errored, failed, or interrupted response is never applicable, but the
             // author still needs to retire it instead of leaving Needs attention forever.
             var applicable = run.Status == AssistantRunStatus.Completed && run.Error is null && run.Proposal is not null;
+            var busy = _applying || _savingJson;
+            @* Footer anatomy: status and tools on the left, Close then the single filled primary on the right. *@
             @if (BatchActive && run.DraftBatchId == _batch!.Id && !(_scenePlanning && PlanningBatchPaused))
             {
-                <span class="review-save-hint">This sequence belongs to the screenplay batch. Use the batch controls in Assistant to pause, retry or stop it.</span>
-                <MudButton OnClick="CloseReview">Close</MudButton>
-                @if (CanRecheckSequenceReview && _batch.State == ScriptDraftBatchState.Paused) { <MudButton OnClick="RecheckSequenceReviewAsync" Disabled="@_applying" Variant="Variant.Outlined">Recheck saved review</MudButton> }
+                <DialogFooter>
+                    <Status><span class="review-save-hint">This sequence belongs to the screenplay batch. Use the batch controls in Assistant to pause, retry or stop it.</span></Status>
+                    <Tools>@if (CanRecheckSequenceReview && _batch.State == ScriptDraftBatchState.Paused) { <MudButton OnClick="RecheckSequenceReviewAsync" Disabled="@_applying" Variant="Variant.Outlined">Recheck saved review</MudButton> }</Tools>
+                    <ChildContent><MudButton OnClick="CloseReview">Close</MudButton></ChildContent>
+                </DialogFooter>
             }
             else if (_editingJson)
             {
-                <span class="review-save-hint">Your script changes only when you apply.</span>
-                <MudButton OnClick="CancelJsonEdit" Disabled="_savingJson">Cancel JSON edit</MudButton>
-                <MudButton OnClick="ReviewJsonAsync" Disabled="@(_savingJson || string.IsNullOrWhiteSpace(JsonDraft))" Color="Color.Primary" Variant="Variant.Filled">@(_savingJson ? "Saving proposal…" : "Review corrected JSON")</MudButton>
+                <DialogFooter>
+                    <Status><span class="review-save-hint">Your script changes only when you apply.</span></Status>
+                    <ChildContent>
+                        <MudButton OnClick="CancelJsonEdit" Disabled="_savingJson">Cancel JSON edit</MudButton>
+                        <MudButton OnClick="ReviewJsonAsync" Disabled="@(_savingJson || string.IsNullOrWhiteSpace(JsonDraft))" Color="Color.Primary" Variant="Variant.Filled">@(_savingJson ? "Saving proposal…" : "Review corrected JSON")</MudButton>
+                    </ChildContent>
+                </DialogFooter>
             }
             else if (_scenePlanning)
             {
-                <span class="review-save-hint">@(PlanningBatchPaused ? "The batch is paused. Continuing resumes drafting." : "Your script is unchanged.")</span>
-                <MudButton OnClick="CloseReview" Disabled="@(_applying || _savingJson)">Close</MudButton>
-                @if (_activeJob is { } planningJob && planningJob.Id == run.JobId) { <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancel request</MudButton> }
-                else {
-                    @if (unresolved) { <MudButton OnClick="() => RejectAsync(run)" Disabled="@(_applying || _savingJson)">Dismiss</MudButton> }
-                    <MudButton OnClick="EditJson" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">Paste / edit JSON</MudButton>
-                    @if (!BatchActive) { <MudButton OnClick="NewRequestAsync" Disabled="@(_applying || _savingJson)">Adjust request</MudButton> }
-                    @if (CanApprovePlanning) { <MudButton OnClick="ApprovePlanningAsync" Disabled="@_applying" Color="Color.Primary" Variant="Variant.Filled">@(PlanningBatchPaused ? "Use brief and resume batch" : "Use brief and continue")</MudButton> }
-                    else { <MudButton OnClick="RetryPlanningAsync" Disabled="@(_applying || _savingJson)" Color="Color.Primary" Variant="Variant.Filled">Retry planning</MudButton> }
-                }
+                var planningActive = _activeJob is { } planningJob && planningJob.Id == run.JobId;
+                <DialogFooter>
+                    <Status><span class="review-save-hint">@(PlanningBatchPaused ? "The batch is paused. Continuing resumes drafting." : "Your script is unchanged.")</span></Status>
+                    <Tools>
+                        @if (planningActive) { <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancel request</MudButton> }
+                        else {
+                            @if (!BatchActive) { <MudButton OnClick="NewRequestAsync" Disabled="busy">Adjust request</MudButton> }
+                            <MudButton OnClick="EditJson" Disabled="busy" Variant="Variant.Outlined">Paste / edit JSON</MudButton>
+                            @if (unresolved) { <MudButton OnClick="() => RejectAsync(run)" Disabled="busy">Dismiss</MudButton> }
+                        }
+                    </Tools>
+                    <ChildContent>
+                        <MudButton OnClick="CloseReview" Disabled="busy">Close</MudButton>
+                        @if (!planningActive)
+                        {
+                            @if (CanApprovePlanning) { <MudButton OnClick="ApprovePlanningAsync" Disabled="@_applying" Color="Color.Primary" Variant="Variant.Filled">@(PlanningBatchPaused ? "Use brief and resume batch" : "Use brief and continue")</MudButton> }
+                            else { <MudButton OnClick="RetryPlanningAsync" Disabled="busy" Color="Color.Primary" Variant="Variant.Filled">Retry planning</MudButton> }
+                        }
+                    </ChildContent>
+                </DialogFooter>
             }
             else
             {
-            <span class="review-save-hint">@(_applying ? "Applying proposal…" : run.DraftBatchId is not null && !unresolved ? "Added by the screenplay batch. Later edits may differ." : "Your script changes only when you apply.")</span>
-            <MudButton OnClick="CloseReview" Disabled="@(_applying || _savingJson)">Close</MudButton>
-            @if (run.Status != AssistantRunStatus.Running) { <MudButton OnClick="NewRequestAsync" Disabled="@(_applying || _savingJson)" Color="@(run.Edits is { Operations.Count: 0 } ? Color.Primary : Color.Default)" Variant="@(run.Edits is { Operations.Count: 0 } ? Variant.Filled : Variant.Text)">New request</MudButton> }
-            @if (run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss && unresolved)
-            {
-                @if (!_scenePlanning) { <MudButton OnClick="EditJson" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">Paste / edit JSON</MudButton> }
-                @if (CanReprocessSavedResponse(run))
-                {
-                    <MudButton OnClick="ReprocessSavedResponseAsync" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">@(_savingJson ? "Reprocessing…" : "Reprocess saved response")</MudButton>
-                    <span class="field-hint">Reprocessing checks the saved JSON locally and saves a separate proposal for review. No model request is sent.</span>
-                }
-            }
-            @if (_activeJob is { } active && active.Id == run.JobId) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
-            @if (CanRecheckSequenceReview && unresolved) {
-                <MudButton OnClick="RecheckSequenceReviewAsync" Disabled="@(_applying || _savingJson)" Color="Color.Primary" Variant="@(Jobs.View.Jobs.Any(j => j.Id == run.JobId && j.CanRetryCaptured) ? Variant.Outlined : Variant.Filled)">Recheck saved review</MudButton>
-                @if (CanManuallyReviewSequence) { <MudButton OnClick="ReviewSequenceManuallyAsync" Disabled="@(_applying || _savingJson)" Variant="Variant.Outlined">Review draft manually</MudButton> }
-            }
-            @if (_reviewedSequence && unresolved && Jobs.View.Jobs.Any(j => j.Id == run.JobId && j.CanRetryCaptured))
-            { <MudButton OnClick="ContinueSequenceReviewAsync" Color="Color.Primary" Variant="Variant.Filled">Continue review</MudButton> }
-            @if (applicable && unresolved)
-            {
-            <MudButton OnClick="() => RejectAsync(run)" Disabled="@(_applying || _savingJson)">Discard</MudButton>
-            @if (!matches)
-            {
-                <MudButton OnClick="RetargetAsync" Disabled="@(_applying || _savingJson || _retargeting)" Color="Color.Primary" Variant="Variant.Filled">@(_retargeting ? "Preparing review…" : run.EditFormat == 1 ? "Request fresh changes" : "Review with current script")</MudButton>
-            }
-            else if (run.Edits is not { Operations.Count: 0 })
-            {
-                <MudButton OnClick="() => ApplyAsync(run)" Disabled="@(_applying || _savingJson || _historyError)" Color="Color.Primary" Variant="Variant.Filled">@(ScriptAdaptation.IsRedraft(run) ? "Replace sequence" : run.Operation is WritingOperation.Draft or WritingOperation.Outline && TargetHasContent(run) ? "Replace entire script" : "Apply changes")</MudButton>
-            }
-            }
-            else if (unresolved && run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss)
-            { <MudButton OnClick="() => RejectAsync(run)" Disabled="@(_applying || _savingJson)">Dismiss</MudButton> }
+                var retryCaptured = Jobs.View.Jobs.Any(j => j.Id == run.JobId && j.CanRetryCaptured);
+                var recheck = CanRecheckSequenceReview && unresolved;
+                var continueReview = _reviewedSequence && unresolved && retryCaptured;
+                var retarget = applicable && unresolved && !matches;
+                var apply = applicable && unresolved && matches && run.Edits is not { Operations.Count: 0 };
+                // One filled primary: applying (or retargeting) the proposal, otherwise continuing or rechecking the review.
+                var recheckPrimary = recheck && !retryCaptured && !retarget && !apply;
+                var continuePrimary = continueReview && !retarget && !apply;
+                <DialogFooter>
+                    <Status><span class="review-save-hint">@(_applying ? "Applying proposal…" : run.DraftBatchId is not null && !unresolved ? "Added by the screenplay batch. Later edits may differ." : "Your script changes only when you apply.")</span></Status>
+                    <Tools>
+                        @if (run.Status != AssistantRunStatus.Running) { <MudButton OnClick="NewRequestAsync" Disabled="busy">New request</MudButton> }
+                        @if (run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss && unresolved)
+                        {
+                            <MudButton OnClick="EditJson" Disabled="busy" Variant="Variant.Outlined">Paste / edit JSON</MudButton>
+                            @if (CanReprocessSavedResponse(run))
+                            {
+                                <MudButton OnClick="ReprocessSavedResponseAsync" Disabled="busy" Variant="Variant.Outlined">@(_savingJson ? "Reprocessing…" : "Reprocess saved response")</MudButton>
+                                <span class="field-hint">Reprocessing checks the saved JSON locally and saves a separate proposal for review. No model request is sent.</span>
+                            }
+                        }
+                        @if (_activeJob is { } active && active.Id == run.JobId) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
+                        @if (recheck && !recheckPrimary) { <MudButton OnClick="RecheckSequenceReviewAsync" Disabled="busy" Variant="Variant.Outlined">Recheck saved review</MudButton> }
+                        @if (recheck && CanManuallyReviewSequence) { <MudButton OnClick="ReviewSequenceManuallyAsync" Disabled="busy" Variant="Variant.Outlined">Review draft manually</MudButton> }
+                        @if (continueReview && !continuePrimary) { <MudButton OnClick="ContinueSequenceReviewAsync" Variant="Variant.Outlined">Continue review</MudButton> }
+                        @if (applicable && unresolved) { <MudButton OnClick="() => RejectAsync(run)" Disabled="busy">Discard</MudButton> }
+                        else if (unresolved && run.Status != AssistantRunStatus.Running && run.Operation != WritingOperation.Discuss) { <MudButton OnClick="() => RejectAsync(run)" Disabled="busy">Dismiss</MudButton> }
+                    </Tools>
+                    <ChildContent>
+                        <MudButton OnClick="CloseReview" Disabled="busy">Close</MudButton>
+                        @if (recheckPrimary) { <MudButton OnClick="RecheckSequenceReviewAsync" Disabled="busy" Color="Color.Primary" Variant="Variant.Filled">Recheck saved review</MudButton> }
+                        @if (continuePrimary) { <MudButton OnClick="ContinueSequenceReviewAsync" Color="Color.Primary" Variant="Variant.Filled">Continue review</MudButton> }
+                        @if (retarget) { <MudButton OnClick="RetargetAsync" Disabled="@(busy || _retargeting)" Color="Color.Primary" Variant="Variant.Filled">@(_retargeting ? "Preparing review…" : run.EditFormat == 1 ? "Request fresh changes" : "Review with current script")</MudButton> }
+                        else if (apply) { <MudButton OnClick="() => ApplyAsync(run)" Disabled="@(busy || _historyError)" Color="Color.Primary" Variant="Variant.Filled">@(ScriptAdaptation.IsRedraft(run) ? "Replace sequence" : run.Operation is WritingOperation.Draft or WritingOperation.Outline && TargetHasContent(run) ? "Replace entire script" : "Apply changes")</MudButton> }
+                    </ChildContent>
+                </DialogFooter>
             }
         }
     </DialogActions>

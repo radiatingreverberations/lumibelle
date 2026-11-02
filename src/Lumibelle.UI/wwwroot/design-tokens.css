@@ -62,6 +62,12 @@
     --lumi-font-size-meta: 14px;
     --lumi-font-size-small: 13px;
     --lumi-font-size-subheading: 18px;
+    /* Heading roles: a page title outside the studios, the selected object's name in a studio,
+       dialog titles, and pane titles. */
+    --lumi-font-size-page-title: 28px;
+    --lumi-font-size-object-title: 22px;
+    --lumi-font-size-dialog-title: var(--lumi-font-size-subheading);
+    --lumi-font-size-pane-title: var(--lumi-font-size-compact);
     /* Compatibility aliases for existing production components. */
     --plum: var(--lumi-accent);
     --plum-wash: var(--lumi-surface-selected);

@@ -6,7 +6,7 @@ Open a project's **Script** tab to write directly or describe a draft in **Instr
 
 ## Structure
 
-The screenplay is one continuous document. Scene and optional act headings create the outline. **+ Scene** inserts after the selected scene or at the end of its act. **+ Act** inserts after the selected act and its contents; with no selection, both append.
+The screenplay is one continuous document. Scene and optional act headings create the outline. **Scene** beside the **Outline** heading inserts after the selected scene or at the end of its act. **Act** inserts after the selected act and its contents; with no selection, both append.
 
 Each outline row has a drag handle and a menu for insertion, rename, **Move to…** and deletion. Move scenes across acts or move an entire act with its contents. **Start new act here** groups a scene and subsequent scenes before the next act. New headings are revealed and selected for naming. Deleting an act that contains scenes confirms its scene count and remains recoverable.
 
@@ -20,11 +20,11 @@ Each outline row has a drag handle and a menu for insertion, rename, **Move to�
 
 Enter after a scene heading creates action, after a character creates dialogue, and after dialogue creates a character. **Split scene at cursor** is in the scene menu. Structural edits and proposal application form one Undo step.
 
-**Save** stays visible and is gray when the browser matches the saved script, including after Undo. Autosave preserves newer keystrokes during storage writes. The **Script** menu contains **Export Markdown** and **Recovery**.
+**Save** stays visible and is gray when the browser matches the saved script, including after Undo. Autosave preserves newer keystrokes during storage writes. The **Script options** menu (**…**) beside Save contains **Export Markdown** and **Recovery…**.
 
 ## Assistant
 
-Script keeps a dedicated **Assistant** panel with action, scope, Instructions, attached discussions and compact model options. **Requests** opens discussion and proposal history. On narrow screens the panel uses a drawer. Manual editing, outlining, saving and export work without a model.
+Script keeps a dedicated **Assistant** panel with action, scope, Instructions, attached discussions and compact model options. **Requests…** beside the panel heading opens discussion and proposal history. On narrow screens the panel uses a drawer. Manual editing, outlining, saving and export work without a model.
 
 **Revise** is a focused edit to **Whole script**, **Current scene**, **Current act** or **Selected passage**. Unmentioned text, order and emphasis are preserved. **Rewrite selected scope** explicitly permits a broad replacement. **Continue** inserts after the target.
 

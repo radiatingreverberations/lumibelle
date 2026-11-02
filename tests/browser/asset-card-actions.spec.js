@@ -25,7 +25,7 @@ for (const [size, viewport] of [['desktop', { width: 1173, height: 1272 }], ['mo
     await expect(async () => {
       await menu.getByRole('menuitem', { name: 'Rename', exact: true }).focus();
       await page.keyboard.press('ArrowDown');
-      await expect(menu.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeFocused({ timeout: 1000 });
+      await expect(menu.getByRole('menuitem', { name: 'Edit details…', exact: true })).toBeFocused({ timeout: 1000 });
     }).toPass({ timeout: 15000 });
     await page.screenshot({ path: `artifacts/asset-card-menu-${size}.png` });
     await page.keyboard.press('Escape');

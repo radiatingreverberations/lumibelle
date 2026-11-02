@@ -12,7 +12,7 @@
     @if (Take.RefinementPackage is not null) { <p class="field-hint">Full source latents retained. Refinement processes the full @((Take.Snapshot.FrameCount / Take.Fps).ToString("0.###")) s, then reapplies this trim.</p> }
     @if (Progress is not null) { <p role="status">@Progress</p> }
     @if (Error is not null) { <p role="alert">@Error</p> }
-    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel saving" : "Cancel")</button><button class="primary-action" disabled="@(Busy || EffectiveEnd <= _start || (_start == 0 && EffectiveEnd == Take.FrameCount))" @onclick="Save">Save trimmed version</button></div>
+    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel saving" : "Cancel")</button><button type="button" class="lumi-button primary" disabled="@(Busy || EffectiveEnd <= _start || (_start == 0 && EffectiveEnd == Take.FrameCount))" @onclick="Save">Save trimmed version</button></div>
 </section>
 @code {
     [Parameter, EditorRequired] public ShotTake Take { get; set; } = default!;

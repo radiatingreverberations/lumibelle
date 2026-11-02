@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using lumibelle.Models;
 using lumibelle.Services.Story;
 using MudBlazor;
@@ -40,7 +41,7 @@ public partial class AssetsStudio
             _lookImageSelection.Clear();
             return new(saved, destination.AssetId, ids[0], true);
         }
-        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = "Conflict"; throw; }
+        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = SaveStatusText.Conflict; throw; }
         finally { _movingImages = false; _saveGate.Release(); }
     }
     private async Task FinishImageMove(SavedAssetImage result, bool edit)

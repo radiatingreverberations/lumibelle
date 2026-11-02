@@ -38,6 +38,9 @@ public partial class AssetBatchPanel
     private Task ApproveViews(Guid item, Guid reel, int[] selected) => Act(async () => { await Workflow.ApproveReelViewsAsync(ProjectId, _run!.Id, item, reel, selected, _lifetime.Token); });
     private void ReviewKeyframes(Guid item, AssetReferenceReel reel) { _keyframeItem = item; _keyframeReel = reel; _open = false; }
     private async Task CloseKeyframes() { _keyframeReel = null; _open = true; await RefreshAsync(); }
+    private ReelKeyframeEditor? _keyframeEditor;
+    // The close button and Escape take the editor's own Cancel path, which stops its frame work first.
+    private Task CancelKeyframes() => _keyframeEditor?.RequestCancelAsync() ?? CloseKeyframes();
     private Task SaveKeyframes(ReelKeyframeSet frames) => Act(async () =>
     {
         await Workflow.SaveManualReelViewsAsync(ProjectId, _run!.Id, _keyframeItem, _keyframeReel!, frames, _lifetime.Token);

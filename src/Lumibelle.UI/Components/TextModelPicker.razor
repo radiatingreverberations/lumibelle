@@ -7,12 +7,13 @@
 
 <div class="text-model-picker" aria-label="Current AI configuration">
     @if (!HideTrigger) {
-    <button type="button" class="model-chip" @onclick="OpenAsync" disabled="@Disabled" aria-label="Text model options" aria-haspopup="dialog" title="@FullLabel" aria-describedby="@(Notice is null ? null : _inputId + "-notice")">@ShortLabel <span class="model-source">@SourceLabel</span>@if (Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> } ▾</button>
+    <button type="button" class="model-chip" @onclick="OpenAsync" disabled="@Disabled" aria-label="Text model options" aria-haspopup="dialog" title="@FullLabel" aria-describedby="@(Notice is null ? null : _inputId + "-notice")">@ShortLabel <span class="model-source">@SourceLabel</span>@if (Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> }<MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" aria-hidden="true" /></button>
     @if (Notice is { } notice) { <span id="@(_inputId + "-notice")" class="sr-only">@notice</span> }
     }
     @if (_error is not null && !_open) { <span class="model-notice" role="status">@_error</span> }
 </div>
-<AiAssistDialog Visible="_open" VisibleChanged="value => _open = value" Title="@(DefaultEditor ? "Project text model" : "Text model")">
+<AiAssistDialog Visible="_open" VisibleChanged="value => _open = value" Title="@(DefaultEditor ? "Project text model" : "Text model")"
+                CloseLabel="@(DefaultEditor ? "Close project text model" : "Close text model")" DismissLabel="@(DefaultEditor ? "Close" : "Done")">
     <ChildContent>
         <p class="field-hint">@(DefaultEditor ? "The default for every text assistant in this project." : "Choose a model for this request. Your project default stays in place unless you explicitly change it.")</p>
         <label for="@_inputId">Text model</label>
@@ -39,11 +40,10 @@
         else if (_session?.Issue is { } issue) { <p class="field-error" role="status">@issue</p> }
         <div class="assist-model-tools"><button type="button" @onclick="() => RefreshAsync()" disabled="@(_busy || _saving)">Refresh availability</button><a href="@ManageUrl">Manage models</a></div>
     </ChildContent>
-    <Actions>
-        @if (_session?.Preferences.TextDefault is not null || DefaultEditor) { <MudButton OnClick="() => SaveDefaultAsync(true)" Disabled="@(Disabled || _busy || _saving)">Use global default</MudButton> }
+    <Tools>
+        @if (_session?.Preferences.TextDefault is not null || DefaultEditor) { <MudButton OnClick="() => SaveDefaultAsync(true)" Disabled="@(Disabled || _busy || _saving)" Variant="Variant.Outlined">Use global default</MudButton> }
         <MudButton OnClick="() => SaveDefaultAsync(false)" Disabled="@(Disabled || _busy || _saving || _session?.Issue is not null)" Variant="Variant.Outlined">Set as project default</MudButton>
-        @if (!DefaultEditor) { <MudButton OnClick="() => _open = false" Color="Color.Primary" Variant="Variant.Filled">Done</MudButton> }
-    </Actions>
+    </Tools>
 </AiAssistDialog>
 
 @code {

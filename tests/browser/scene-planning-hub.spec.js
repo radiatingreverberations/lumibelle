@@ -89,7 +89,7 @@ for (const width of [1440, 430]) test(`scene setup, drafting and manual referenc
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   if (await page.getByRole('button', { name: 'Show Shot tools', exact: true }).isVisible()) await page.getByRole('button', { name: 'Show Shot tools', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Choose environment views', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Manage references', exact: true });
   const env = editor.locator('.scene-environment-browser');
@@ -110,7 +110,7 @@ for (const width of [1440, 430]) test(`scene setup, drafting and manual referenc
   expect(bound.videos[0].keyframes.frames).toHaveLength(1);
   expect(bound.videos[0].keyframes.frames[0].crop.width).toBe(.8);
   // Explicit None is saved without discarding manually attached pictures.
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   await editor.getByRole('combobox', { name: 'Reference environment' }).selectOption('');
   await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -119,7 +119,7 @@ for (const width of [1440, 430]) test(`scene setup, drafting and manual referenc
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   expect((await production()).shotContent.find(s => s.shotId === drafted.id).environmentInspectionDisabled).toBe(true);
   if (await page.getByRole('button', { name: 'Show Shot tools', exact: true }).isVisible()) await page.getByRole('button', { name: 'Show Shot tools', exact: true }).click();
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   await expect(editor.getByRole('combobox', { name: 'Reference environment' })).toHaveValue('');
   await editor.getByRole('combobox', { name: 'Reference environment' }).selectOption('scene');
@@ -134,7 +134,7 @@ for (const width of [1440, 430]) test(`scene setup, drafting and manual referenc
   await showEnvironment(page);
   await page.getByRole('button', { name: 'Choose environment views', exact: true }).click();
   await picker.getByLabel('Staging constraints').fill('An unaccepted edit.');
-  await picker.getByRole('button', { name: 'Back', exact: true }).click();
+  await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).sceneSetups).toEqual(accepted.sceneSetups);
   await page.getByRole('button', { name: 'Choose environment views', exact: true }).click();
   await picker.getByLabel('Staging constraints').fill('Keep the podium scale; the doorway is blocked.');

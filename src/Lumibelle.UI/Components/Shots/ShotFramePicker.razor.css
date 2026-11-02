@@ -5,4 +5,4 @@
 img { width:100%; max-height:220px; object-fit:contain; background:var(--lumi-surface-subtle); border-radius:var(--lumi-radius-control); }
 p { margin:0; }
 input[type=range] { width:100%; }
-.frame-take-shortcut { justify-self:start; padding:6px 10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--plum); background:var(--lumi-surface); font:inherit; font-size:var(--lumi-font-size-meta); cursor:pointer; }
+.frame-take-shortcut { justify-self:start; padding:6px 10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--lumi-text); background:var(--lumi-surface); font:inherit; font-size:var(--lumi-font-size-meta); cursor:pointer; }

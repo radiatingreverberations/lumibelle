@@ -9,7 +9,7 @@ for (const narrow of [false, true]) test(`review a prompt before setting duratio
   const composition = async () => (await (await request.get(`/fixtures/${id}/production`)).json()).compositions[0];
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  const add = page.getByRole('button', { name: '+ Shot', exact: true });
+  const add = page.getByRole('button', { name: 'Add shot', exact: true });
   if (!await add.isVisible()) await page.locator('[data-toggle-pane=left]').click();
   await add.click();
   await page.getByLabel('Shot title', { exact: true }).fill('Production test');
@@ -74,7 +74,7 @@ test('the outline review action selects the requested shot and opens its prompt'
   await request.post(`/fixtures/${id}/take-generation-setup`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(page.locator('.shot-list-row')).toHaveCount(2);
   await expect(page.locator('.shot-list-row').nth(1)).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Review prompt for shot 1: Production test', exact: true }).click();

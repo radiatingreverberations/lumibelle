@@ -1,0 +1,40 @@
+@* A short confirmation: what will happen in the body, Cancel, then one confirming action.
+   Destructive confirmations use the danger colour. While Busy, the dialog cannot be dismissed. *@
+<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="@(Options ?? DialogSizes.Small)" Class="@($"confirm-dialog {Class}".TrimEnd())"
+              ContentClass="dialog-prose" DefaultFocus="DefaultFocus.FirstChild" Title="@Title" Context="@Context" Summary="Summary"
+              CloseLabel="@(CloseLabel ?? $"Close {Title.TrimEnd('?').ToLowerInvariant()}")" CloseDisabled="Busy" CloseOnEscape="!Busy">
+    <DialogContent>@ChildContent</DialogContent>
+    <DialogActions>
+        <DialogFooter Status="Status">
+            <MudButton OnClick="CancelAsync" Disabled="Busy">@CancelLabel</MudButton>
+            <MudButton OnClick="ConfirmAsync" Disabled="@(Busy || ConfirmDisabled)" Variant="Variant.Filled" Color="@(Danger ? Color.Error : Color.Primary)">@(Busy && BusyLabel is not null ? BusyLabel : ConfirmLabel)</MudButton>
+        </DialogFooter>
+    </DialogActions>
+</InlineDialog>
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Context { get; set; }
+    [Parameter] public RenderFragment? Summary { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Status { get; set; }
+    [Parameter, EditorRequired] public string ConfirmLabel { get; set; } = "";
+    [Parameter] public string? BusyLabel { get; set; }
+    [Parameter] public string CancelLabel { get; set; } = "Cancel";
+    [Parameter] public string? CloseLabel { get; set; }
+    [Parameter] public bool Danger { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool ConfirmDisabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public DialogOptions? Options { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync();
+    private async Task CancelAsync()
+    {
+        if (OnCancel.HasDelegate) await OnCancel.InvokeAsync();
+        else await VisibleChanged.InvokeAsync(false);
+    }
+}

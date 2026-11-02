@@ -10,27 +10,64 @@
 else
 {
     <div class="design-gallery">
-        <header class="library-heading"><div><p class="eyebrow">DEVELOPMENT</p><h1>Lumibelle design system</h1><p>Production components, shared tokens, and deterministic states. No generation requests.</p></div>
-            <div class="design-actions"><MudButton OnClick="() => Appearance.SetAsync(ThemePreference.Light)">Light</MudButton><MudButton OnClick="() => Appearance.SetAsync(ThemePreference.Dark)">Dark</MudButton><MudButton OnClick="() => Appearance.SetAsync(ThemePreference.System)">System</MudButton></div>
-        </header>
+        <PageHeading Eyebrow="Development" Title="Lumibelle design system">
+            <Lead><p>Production components, shared tokens and deterministic states. No generation requests.</p></Lead>
+            <Actions>
+                <MudButton OnClick="() => Appearance.SetAsync(ThemePreference.Light)">Light</MudButton>
+                <MudButton OnClick="() => Appearance.SetAsync(ThemePreference.Dark)">Dark</MudButton>
+                <MudButton OnClick="() => Appearance.SetAsync(ThemePreference.System)">System</MudButton>
+            </Actions>
+        </PageHeading>
         <section aria-label="Palette" class="design-swatches">
             @foreach (var token in new[] { "canvas", "surface", "surface-subtle", "surface-selected", "text", "text-muted", "accent", "border", "control-border", "success", "warning", "danger" })
             { <div><span style="background:var(--lumi-@token)"></span><code>@token</code></div> }
         </section>
         <div class="design-grid">
-            <section class="design-example"><h2>Actions</h2><div class="design-actions">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary">Generate</MudButton>
-                <MudButton Variant="Variant.Outlined">Save draft</MudButton><MudButton>Cancel</MudButton>
-                <MudButton Color="Color.Error">Delete</MudButton><MudButton Disabled="true">Unavailable</MudButton>
-                <MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz" aria-label="More options" />
-                <MudLink Href="#design-fields">Edit details</MudLink>
-                <HelpHint Label="Actions" Text="Primary actions commit an intentional step. Secondary actions preserve or inspect work." />
-            </div></section>
+            <section class="design-example"><h2>Action hierarchy</h2>
+                <p class="field-hint">One filled primary per task area. Secondary actions are outlined, tertiary and dismiss actions are text. Destructive confirmations are filled in the danger colour.</p>
+                <div class="design-actions">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary">Generate takes</MudButton>
+                    <MudButton Variant="Variant.Outlined">Edit references…</MudButton>
+                    <MudButton>Cancel</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error">Delete permanently</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error">Empty Trash…</MudButton>
+                    <MudButton Disabled="true">Unavailable</MudButton>
+                </div>
+                <h3>Plain buttons</h3>
+                <div class="design-actions">
+                    <button type="button">Refresh takes</button>
+                    <button type="button" class="lumi-button primary">Choose takes…</button>
+                    <button type="button" class="lumi-button ghost">Show details</button>
+                    <button type="button" class="lumi-button danger">Remove clip</button>
+                    <button type="button" class="lumi-button small">Small</button>
+                    <button type="button" class="lumi-button icon" aria-label="Previous take" title="Previous take"><MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" /></button>
+                    <MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz" aria-label="More options" />
+                    <MudLink Href="#design-fields">Edit details</MudLink>
+                    <HelpHint Label="Actions" Text="Primary actions commit an intentional step. Secondary actions preserve or inspect work. A label ends with … when it opens a dialog or further choice." />
+                </div>
+            </section>
             <section class="design-example"><h2>AI assistance</h2><div class="design-actions">
                 <TextRequestAction Label="Assist" />
                 <MudButton Class="ai-assist-action" Variant="Variant.Filled" Color="Color.Primary"><AiAssistIcon />Enhance prompt</MudButton>
                 <TextRequestAction Label="Assist" Disabled="true" />
             </div><p class="field-hint">The ribbon and sparkle identify AI assistance. Request progress and attention states retain their own indicators.</p></section>
+            <section class="design-example"><h2>Menus and tabs</h2>
+                <div class="design-actions">
+                    <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Reference actions" Dense="true">
+                        <MudMenuItem role="menuitem">Rename</MudMenuItem>
+                        <MudMenuItem role="menuitem">Edit details…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Move to asset…</MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem role="menuitem" Class="danger-item">Move to Trash</MudMenuItem>
+                    </MudMenu>
+                    <MudMenu Label="Import" EndIcon="@Icons.Material.Outlined.ExpandMore" Variant="Variant.Outlined" Dense="true">
+                        <MudMenuItem role="menuitem">Image…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Reel…</MudMenuItem>
+                    </MudMenu>
+                </div>
+                <StudioToolTabs Label="Example views" Items="Tabs" Selected="@_tab" SelectedChanged="t => _tab = t" TabIdPrefix="design-tab-" PanelIdPrefix="design-panel-" />
+                <p class="field-hint" id="design-panel-@_tab" role="tabpanel" aria-labelledby="design-tab-@_tab">Selected view: @Tabs.First(t => t.Id == _tab).Label. Tabs switch a pane; mode selectors and actions look different.</p>
+            </section>
             <section class="design-example" id="design-fields"><h2>Fields</h2>
                 <MudTextField T="string" Label="Asset name" Value='@("Mira")' Variant="Variant.Outlined" Margin="Margin.Dense" />
                 <MudTextField T="string" Label="Required description" Error="true" ErrorText="Add a description before continuing." Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -40,10 +77,21 @@ else
             <section class="design-example"><h2>Feedback</h2><div class="design-feedback">
                 <MudAlert Severity="Severity.Success" Dense="true">Changes saved</MudAlert>
                 <MudAlert Severity="Severity.Warning" Dense="true">The source changed. Review before applying.</MudAlert>
-                <MudAlert Severity="Severity.Error" Dense="true">Couldn’t save. Your draft is still here.</MudAlert>
+                <SaveErrorNotice Message="Couldn’t save. Your draft is still here." OnRetry="() => { }" OnDownload="() => { }" OnReload="() => { }" />
                 <MudProgressLinear Color="Color.Primary" Value="45" aria-label="Generation 45 percent complete" />
                 <p class="field-hint">Waiting for a provider · queued</p>
             </div></section>
+            <section class="design-example"><h2>States</h2>
+                <LoadingState Text="Loading takes…" Compact="true" />
+                <EmptyState Compact="true" Title="No takes match these filters">
+                    <ChildContent>Clear the filters to see every take for this shot.</ChildContent>
+                    <Actions><button type="button">Clear filters</button></Actions>
+                </EmptyState>
+                <EmptyState Icon="@Icons.Material.Outlined.MovieCreation" Title="Assemble your cut">
+                    <ChildContent>No clips yet. Choose saved takes, then trim and arrange them.</ChildContent>
+                    <Actions><button type="button" class="lumi-button primary">Choose takes…</button></Actions>
+                </EmptyState>
+            </section>
             <section class="design-example"><h2>Review changes</h2><ComparedScreenplay Blocks="Before" Before="true" /><ComparedScreenplay Blocks="After" />
                 <p class="script-block"><span class="script-applied-change">The room fills with morning light.</span></p>
                 <p class="field-hint">Insertions, deletions, and applied changes use distinct treatments.</p>
@@ -52,19 +100,52 @@ else
                 @foreach (var selected in new[] { false, true })
                 { <article class="reference-card asset-media-card @(selected ? "selected" : "")"><button class="media-preview" aria-label="Preview reference"><img src="_content/Lumibelle.UI/branding/lumibelle-mark.png" alt="Lumibelle film ribbon reference" /></button><div class="reference-card-body"><button class="media-select" aria-label="Select reference" aria-pressed="@selected.ToString().ToLowerInvariant()"></button><div class="media-card-heading"><strong class="media-name">@(selected ? "Selected reference" : "Reference image")</strong><div class="reference-actions"><MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz" aria-label="Reference actions" /></div></div><small class="field-hint">Full image · preserved colors</small></div></article> }
             </div></section>
-            <section class="design-example"><h2>Dialog sizes</h2><p>Bounded content with a stable title, scrollable body, and action footer.</p><div class="design-actions">
-                @foreach (var size in new[] { MaxWidth.Small, MaxWidth.Medium, MaxWidth.Large })
-                { <MudButton OnClick="() => OpenDialog(size)">@size</MudButton> }
-            </div><h3>Empty state</h3><p class="field-hint">No takes yet. Choose a reference and generate your first take.</p></section>
-            <section class="design-example design-pane"><StudioPane Label="Example inspector"><Header><strong>Image tools</strong></Header><ChildContent><label class="design-field">Prompt<textarea rows="4">Soft morning light through a studio window.</textarea></label></ChildContent><Footer><MudButton Variant="Variant.Filled" Color="Color.Primary">Generate image</MudButton></Footer></StudioPane></section>
+            <section class="design-example"><h2>Project bar actions</h2>
+                <div class="design-studio-actions">
+                    <StudioActions Status="@SaveStatusText.Unsaved" OnSave="() => { }" CanSave="true" OnUndo="() => { }" CanUndo="true" OnRedo="() => { }" MenuLabel="Example options">
+                        <ChildContent><MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.FileDownload">Export MP4…</MudButton></ChildContent>
+                        <Menu><MudMenuItem role="menuitem">Recovery…</MudMenuItem></Menu>
+                    </StudioActions>
+                </div>
+                <p class="field-hint">Every studio: save status, Save, Undo and Redo where available, studio actions, then an options menu.</p>
+            </section>
+            <section class="design-example design-pane"><StudioPane Label="Example inspector" Title="Image tools" Count="3">
+                <HeaderActions><MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" aria-label="Clear selection" /></HeaderActions>
+                <ChildContent><label class="design-field">Prompt<textarea rows="4">Soft morning light through a studio window.</textarea></label></ChildContent>
+                <Footer><MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">Generate images</MudButton></Footer>
+            </StudioPane></section>
+            <section class="design-example"><h2>Dialogs</h2>
+                <p>Bounded content with a stable title, scrollable body, and action footer: status and tools on the left, dismiss and one primary on the right.</p>
+                <div class="design-actions">
+                    @foreach (var (label, size) in Sizes) { <MudButton OnClick="() => OpenDialog(size)">@label</MudButton> }
+                    <MudButton OnClick="() => _confirm = true">Confirmation</MudButton>
+                </div>
+                <dl class="design-rules">
+                    <dt>Cancel</dt><dd>Closing discards staged changes.</dd>
+                    <dt>Close</dt><dd>Nothing is pending.</dd>
+                    <dt>Done</dt><dd>Edits were saved as they were made.</dd>
+                </dl>
+            </section>
         </div>
-        <InlineDialog @bind-Visible="_dialog" Options="_options" Title="Reference details" Context="Development gallery" CloseLabel="Close reference details"><DialogContent><label class="design-field">Name<input value="Morning light" /></label><p class="field-hint">A deterministic example using the production dialog surface.</p>@for (var i = 0; i < 12; i++) { <p>Reference @(@i + 1) · preserve the composition and original colors.</p> }</DialogContent><DialogActions><span class="review-save-hint">Draft changes</span><MudButton OnClick="() => _dialog = false">Cancel</MudButton><MudButton OnClick="() => _dialog = false" Variant="Variant.Filled" Color="Color.Primary">Save changes</MudButton></DialogActions></InlineDialog>
+        <InlineDialog @bind-Visible="_dialog" Options="_options" Title="Reference details" Context="Development gallery" CloseLabel="Close reference details"
+                      Summary="@((RenderFragment)(b => b.AddContent(0, "A deterministic example using the production dialog surface.")))">
+            <DialogContent><label class="design-field">Name<input value="Morning light" /></label>@for (var i = 0; i < 12; i++) { <p>Reference @(@i + 1) · preserve the composition and original colors.</p> }</DialogContent>
+            <Status>Unsaved changes</Status>
+            <Tools><MudButton Variant="Variant.Outlined">Create similar</MudButton></Tools>
+            <Actions><MudButton OnClick="() => _dialog = false">Cancel</MudButton><MudButton OnClick="() => _dialog = false" Variant="Variant.Filled" Color="Color.Primary">Save changes</MudButton></Actions>
+        </InlineDialog>
+        <ConfirmDialog @bind-Visible="_confirm" Title="Delete this asset?" Context="Mira" ConfirmLabel="Delete asset" Danger="true" OnConfirm="() => _confirm = false">
+            <p>Its images, reels and voices move to Trash. Shots that use them keep their captured inputs.</p>
+        </ConfirmDialog>
     </div>
 }
 @code {
-    private bool _dialog;
-    private DialogOptions _options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
-    private void OpenDialog(MaxWidth width) { _options = _options with { MaxWidth = width }; _dialog = true; }
+    private bool _dialog, _confirm;
+    private string _tab = "shot";
+    private DialogOptions _options = DialogSizes.Small;
+    private static readonly StudioTab[] Tabs = [new("shot", "Shot"), new("takes", "Takes", 3), new("notes", "Notes", Issue: "Needs attention")];
+    private static readonly (string Label, DialogOptions Size)[] Sizes = [("Small", DialogSizes.Small), ("Medium", DialogSizes.Medium), ("Large", DialogSizes.Large)];
+    private void OpenDialog(DialogOptions size) { _options = size; _dialog = true; }
     private static readonly ComparedBlock[] Before = [new(ScriptBlockKind.Action, [new("The room is dark.", false, false, true)], "Removed")];
     private static readonly ComparedBlock[] After = [new(ScriptBlockKind.Action, [new("The room fills with morning light.", false, false, true)], "Added")];
 }

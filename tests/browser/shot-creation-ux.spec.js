@@ -25,13 +25,13 @@ for (const existing of [false, true]) {
       preset = await setup.inputValue();
     }
     const original = (await state()).shots;
-    await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+    await page.getByRole('button', { name: 'Add shot', exact: true }).click();
     await expect(page.getByLabel('Shot title', { exact: true })).toHaveValue('Untitled shot');
     await expect(page.locator('.shot-start-guide')).toContainText('compose the prompt');
     await expect.poll(async () => (await state()).shots.length).toBe(original.length + 1);
     // The production composition must exist: this is the case that used to leave
     // Undo pointing at the removed shot and make every subsequent save fail.
-    await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true })).toBeVisible();
     await expect(page.locator('.shots-heading [role=status]')).toHaveText('Saved');
     await page.locator('.shots-heading').getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(async () => (await state()).shots.map(s => s.id)).toEqual(original.map(s => s.id));
@@ -43,7 +43,7 @@ for (const existing of [false, true]) {
       await expect(page.getByRole('combobox', { name: 'Generation setup', exact: true })).toHaveValue(preset);
     }
     else await expect(page.getByRole('heading', { name: 'Add your first shot' })).toBeVisible();
-    await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+    await page.getByRole('button', { name: 'Add shot', exact: true }).click();
     await expect(page.getByLabel('Shot title', { exact: true })).toHaveValue('Untitled shot');
     await expect.poll(async () => (await state()).shots.length).toBe(original.length + 1);
     expect(await (await request.get('/fixtures/ai-jobs')).json()).toEqual([]);
@@ -57,12 +57,12 @@ test('new shots stay beside the current shot and remain visible through filters'
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   const state = async () => (await (await request.get(`/fixtures/${id}/shots`)).json());
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await page.getByLabel('Shot title', { exact: true }).fill('Current scene shot');
   await page.getByRole('combobox', { name: 'Scene', exact: true }).selectOption(scenes[1].id);
   await expect.poll(async () => (await state()).shots[0]?.sceneId).toBe(scenes[1].id);
   await page.getByRole('searchbox', { name: 'Search shots' }).fill('Current scene shot');
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(page.getByRole('searchbox', { name: 'Search shots' })).toHaveValue('');
   await expect(page.getByRole('combobox', { name: 'Scene', exact: true })).toHaveValue(scenes[1].id);
   await expect(page.locator('.shot-list [data-shot-row]')).toHaveCount(2);
@@ -74,7 +74,7 @@ test('single delete names one shot, supports cancel, deletion and undo without a
   const { state } = await openProject(page, request);
   const original = (await state()).shots[0];
   await page.getByRole('button', { name: /^Actions for shot 1:/ }).click();
-  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete shot?', exact: true });
   await expect(dialog).toContainText(original.title);
   await expect(dialog.locator('.shot-picker')).toHaveCount(0);
@@ -82,7 +82,7 @@ test('single delete names one shot, supports cancel, deletion and undo without a
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await state()).shots.map(s => s.id)).toEqual([original.id]);
   await page.getByRole('button', { name: /^Actions for shot 1:/ }).click();
-  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete…', exact: true }).click();
   await dialog.getByRole('button', { name: 'Delete 1 shot', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(async () => (await state()).shots.length).toBe(0);

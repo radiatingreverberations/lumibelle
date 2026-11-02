@@ -15,11 +15,15 @@
     </fieldset>
     <p class="field-hint">Keeps image quality, tags, and history. Existing shot references must be reselected from the destination before generating again.</p>
     @if (_error is not null) { <p role="alert">@_error</p> }
-    <div class="dialog-actions">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => Move(false)">@(_busy ? "Moving…" : _captured is not null ? "Retry move" : "Move")</MudButton>
-        @if (Images.Count == 1) { <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => Move(true)">Move and edit</MudButton> }
-        @if (_captured is not null && !_busy) { <MudButton OnClick="() => { _captured = null; _error = null; }">Change destination</MudButton> }
-        <MudButton Disabled="@_busy" OnClick="Cancelled">Cancel</MudButton>
+    <div class="image-move-footer">
+        <DialogFooter>
+            <Tools>@if (_captured is not null && !_busy) { <MudButton OnClick="() => { _captured = null; _error = null; }">Change destination</MudButton> }</Tools>
+            <ChildContent>
+                <MudButton Disabled="@_busy" OnClick="Cancelled">Cancel</MudButton>
+                @if (Images.Count == 1) { <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => Move(true)">Move and edit</MudButton> }
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => Move(false)">@(_busy ? "Moving…" : _captured is not null ? "Retry move" : "Move")</MudButton>
+            </ChildContent>
+        </DialogFooter>
     </div>
 </section>
 

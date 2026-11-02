@@ -35,7 +35,7 @@ test('queued extraction survives closing, reload and navigation, preserving its 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: 'test-results/extraction-request-actions-mobile.png' });
     await page.setViewportSize({ width: 1280, height: 720 });
-    await modal(page).locator('.dialog-actions').getByRole('button', { name: 'Close', exact: true }).click();
+    await modal(page).locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('button', { name: /^Queued.*View request$/ })).toBeVisible();
     await page.reload(); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
     await page.getByRole('button', { name: /^Queued.*View request$/ }).click();
@@ -44,7 +44,7 @@ test('queued extraction survives closing, reload and navigation, preserving its 
     await expect(captured.locator('.extraction-captured-scenes li')).toHaveCount(1);
     await expect(captured.locator('.extraction-captured-scenes')).not.toContainText('EMPTY FIELD');
     await expect(modal(page).locator('.coverage-scene input')).toHaveCount(0);
-    await modal(page).locator('.dialog-actions').getByRole('button', { name: 'Close', exact: true }).click();
+    await modal(page).locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.project-tabs').getByRole('link', { name: 'Script', exact: true }).click();
     await request.post(`/fixtures/${id}/coverage-script?mode=change`);
   } finally { await pause(page, false); }
@@ -88,7 +88,7 @@ test('review drafts reopen with author edits and concurrent tabs require an expl
   await modal(other).getByRole('button', { name: 'Load saved review', exact: true }).click();
   await expect(modal(other).getByLabel('Asset name', { exact: true })).toHaveValue('New saved decision');
   await other.setViewportSize({ width: 390, height: 844 });
-  await modal(other).locator('.dialog-actions').getByRole('button', { name: 'Close', exact: true }).focus();
+  await modal(other).locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).focus();
   await other.keyboard.press('Tab'); await expect.poll(() => modal(other).evaluate(el => el.contains(document.activeElement))).toBe(true);
   expect(await other.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await other.screenshot({ path: 'artifacts/validation/plan005-extraction-review-mobile.png' });

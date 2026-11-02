@@ -56,9 +56,19 @@ public static class ShotDubbing
         if (TakeDisplay.RegenerationIssue(take) is { } issue) return issue;
         if (take.Snapshot.Production is null || take.Snapshot.Profile != ProductionPolicy.Profile) return "Choose a rendered shot with a structured H3 composition prompt.";
         if (take.Snapshot.Shot.Dialogue.Count == 0) return "This take has no authored dialogue to translate. Review and reuse the master video instead.";
-        try { ProductionPolicy.ValidatePrompt(take.Snapshot.Prompt, take.Snapshot.Shot); }
-        catch (WorkspaceStoreException e) { return e.Message; }
-        return null;
+        return DialogueIssue(take.Snapshot.Prompt, take.Snapshot.Shot);
+    }
+    // A language version replaces only the <d> blocks of a prompt the master take was already rendered with.
+    // Prompt authoring rules change over time, so the rest of the master prompt is not checked again: a take
+    // rendered under older rules stays translatable. Translated lines cannot add markup (ValidateLines).
+    private static string? DialogueIssue(string prompt, Shot shot)
+    {
+        try
+        {
+            return DialogueTags.Matches(prompt).Count == shot.Dialogue.Count ? null
+                : "The master prompt must contain exactly one <d> block per dialogue line, in order. Generate a new master take in Shots.";
+        }
+        catch (RegexMatchTimeoutException) { return "The master dialogue markup could not be read safely."; }
     }
     // This deliberately excludes dialogue, prompt-revision identity and transport destination.
     // Every visual/audio reference, its crop/excerpt, and the generation configuration remain covered.
@@ -177,7 +187,7 @@ public static class ShotDubbing
         shot.Dialogue = shot.Dialogue.Select((l, i) => l with { Language = variant.Request.Target.Name, Text = variant.Translation.Lines[i].Text }).ToList();
         var prompt = Prompt(variant.Request, variant.Translation.Lines);
         if (prompt != variant.Prompt) throw new WorkspaceStoreException("The saved language prompt was changed outside its dialogue fields.");
-        ProductionPolicy.ValidatePrompt(prompt, shot);
+        if (DialogueIssue(prompt, shot) is { } issue) throw new WorkspaceStoreException(issue);
         var captured = ShotCopy.Of(source);
         var production = captured.Production!;
         var revision = production.Revision with { Id = Guid.NewGuid(), Prompt = prompt,

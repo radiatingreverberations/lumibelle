@@ -151,7 +151,7 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         page.Find("#ai-tab-connections").Click();
         page.Find("#comfy-url").Change("not a valid URL");
         page.Find("#ai-provider-openrouter").Click(); page.Find("#openrouter-key").Change("discard-this-key");
-        navigation.NavigateTo(page.Find(".writing-back").GetAttribute("href")!);
+        navigation.NavigateTo(page.Find(".page-back").GetAttribute("href")!);
         Assert.Equal(savedSettings, _settings.Value);
         Assert.Equal(savedKey, _settings.Key);
         Assert.Equal(fromStory ? $"http://localhost/projects/{projectId:D}/script" : "http://localhost/", navigation.Uri);
@@ -168,7 +168,7 @@ public sealed partial class AiSettingsComponentTests : BunitContext
         Assert.Equal(_settings.Value.ComfyImageModel, page.Find("#comfy-image-model").GetAttribute("value"));
         page.Find("#ai-image-defaults").Click(); page.Find("#image-timeout").Change("900"); page.Find("#image-defaults-form").Submit();
         Assert.Equal(900, _settings.Value.ImageTimeoutSeconds);
-        Assert.Equal($"/projects/{projectId:D}/assets", page.Find(".writing-back").GetAttribute("href"));
+        Assert.Equal($"/projects/{projectId:D}/assets", page.Find(".page-back").GetAttribute("href"));
         Assert.Contains("/settings/ai", navigation.Uri);
     }
 

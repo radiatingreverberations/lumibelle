@@ -177,7 +177,7 @@
             @if (FrameShots.Count == 0 && PreviousCopySource is { } previousShot && ContinuityFrameOf is not null && !HasPreviousLastFrame(previousShot))
             {
                 var available = ContinuityFrameOf(previousShot) is not null; var full = ResolvedReferences.For(_draft).Pictures.Count >= 9;
-                <button type="button" class="add-continuity-frame" disabled="@(_busy || !available || full)" @onclick="AddContinuityFrame">Add the last frame of @previousShot.Title</button>
+                <button type="button" class="lumi-button add-continuity-frame" disabled="@(_busy || !available || full)" @onclick="AddContinuityFrame">Add the last frame of @previousShot.Title</button>
                 @if (!available) { <p class="field-hint">Choose a production take for @previousShot.Title first, with Use this take in its take review.</p> }
                 else if (full) { <p class="field-hint">@ResolvedReferences.For(_draft).Pictures.Count/9 pictures. Remove some pictures or select fewer reel keyframes to add another.</p> }
             }
@@ -222,7 +222,7 @@
                                     </li>
                                 }
                                 </ul>
-                                <button type="button" class="reel-swap-browse" disabled="@_busy" @onclick="() => _selectedTab = false">Browse all reels</button>
+                                <button type="button" class="lumi-button small reel-swap-browse" disabled="@_busy" @onclick="() => _selectedTab = false">Browse all reels</button>
                             </section>
                         }
                         @if (v.EffectiveVisuals == ReelVisuals.FullReel && v.Media.Duration - ReferenceVideos.EffectiveSeconds(v.Media, _draft) > .001) { <p class="reference-issue">H3 uses the first @ReferenceVideos.EffectiveSeconds(v.Media, _draft).ToString("0.###") s. Later views, including part of a camera turn or route, may be excluded.</p> }
@@ -280,16 +280,16 @@
         @if (_copyNotice is { } copied) { <div class="reference-copy-notice" role="status">@foreach (var (text, warning) in copied) { <p class="@(warning ? "field-error" : "field-hint")">@text</p> }</div> }
         @if (_error is not null) { <p role="alert">@_error</p> }
         @if (ReviewSelectionIssue is { } selectionIssue && selectionIssue != _error) { <p role="alert">@selectionIssue</p> }
-        <span role="status">@ResolvedReferences.For(_draft).Pictures.Count/9 pictures @(AllowReels ? $"· {ReferenceVideos.ReelSlotCount(_draft)}/3 reels" : "") · @ResolvedReferences.For(_draft).Audio.Count/3 audio · @(_preparingFrames ? "Preparing reference images…" : _busy ? "Saving…" : "Changes apply together")</span>
-        <MudButton Disabled="@(_busy && !_preparingFrames)" OnClick="CancelDialog">Cancel</MudButton>
+        <span class="reference-editor-status" role="status">@ResolvedReferences.For(_draft).Pictures.Count/9 pictures @(AllowReels ? $"· {ReferenceVideos.ReelSlotCount(_draft)}/3 reels" : "") · @ResolvedReferences.For(_draft).Audio.Count/3 audio · @(_preparingFrames ? "Preparing reference images…" : _busy ? "Saving…" : "Changes apply together")</span>
         @if (ResolvedReferences.For(_draft).Pictures.Count > 9) { <span role="alert">Over picture budget: choose fewer reel keyframes or remove pictures before applying.</span> }
+        <MudButton Class="reference-editor-dismiss" Disabled="@(_busy && !_preparingFrames)" OnClick="CancelDialog">Cancel</MudButton>
         <MudButton Disabled="@(_busy || ResolvedReferences.For(_draft).Pictures.Count > 9 || ReviewSelectionIssue is not null)" OnClick="Apply" Color="Color.Primary" Variant="Variant.Filled">Apply changes</MudButton>
         </Footer>
     </ReferencePicker>
 </section>
 
-<InlineDialog Visible="_keyframeBinding is not null" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="reel-keyframes-dialog" Title="@($"Manage keyframes for this {(ReelAuthoring ? "reel" : "setup")}")"><DialogContent>
-@if (_keyframeBinding is { } editReel) { <ReelKeyframeEditor @key="editReel.Id" ProjectId="Library.ProjectId" Media="editReel.Media" Initial="editReel.Keyframes" Applied="ApplyKeyframes" Cancelled="() => _keyframeBinding = null" SaveLabel="Apply keyframes" SaveImage="SaveImage" ImageSaved="ImageSaved" /> }
+<InlineDialog Visible="_keyframeBinding is not null" VisibleChanged="v => v ? Task.CompletedTask : CancelKeyframesAsync()" Options="DialogSizes.Media" CloseOnEscape="false" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@(_keyframeBinding?.Name)" CloseLabel="Close manage keyframes"><DialogContent>
+@if (_keyframeBinding is { } editReel) { <ReelKeyframeEditor @ref="_keyframeEditor" @key="editReel.Id" ProjectId="Library.ProjectId" Media="editReel.Media" Initial="editReel.Keyframes" Applied="ApplyKeyframes" Cancelled="() => _keyframeBinding = null" SaveLabel="Apply keyframes" SaveImage="SaveImage" ImageSaved="ImageSaved" /> }
 </DialogContent></InlineDialog>
 
 @if (_draft.Images.FirstOrDefault(b => b.Id == _cropTarget) is { } cropTarget && Image(cropTarget) is { } cropMedia) {

@@ -19,15 +19,15 @@ async function fixture(page, request, narrow, options = '') {
 for (const narrow of [false, true]) test(`Manual environment choice preserves references and supports None (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   const { id, owner } = await fixture(page, request, narrow, 'selected=false');
   const before = await saved(request, id);
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   await expect(page.getByRole('button', { name: 'Choose environment views', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Manage references', exact: true });
   await editor.getByRole('combobox', { name: 'Reference environment' }).selectOption(owner.id);
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await saved(request, id)).shot).toEqual(before.shot);
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   await editor.getByRole('combobox', { name: 'Reference environment' }).selectOption(owner.id);
   await editor.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -37,7 +37,7 @@ for (const narrow of [false, true]) test(`Manual environment choice preserves re
   expect(after.shot.images).toEqual(before.shot.images);
   expect(after.prompt).toBe(before.prompt);
   await page.reload(); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   await expect(editor.getByRole('combobox', { name: 'Reference environment' })).toHaveValue(owner.id);
   await editor.getByRole('combobox', { name: 'Reference environment' }).selectOption('');
@@ -63,7 +63,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   await toolsTab(page, 'References');
   await page.locator('[data-shot-id]').nth(1).click();
   await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'copy');
-  await expect(page.locator('.shot-references .reference-next-step')).toHaveAttribute('aria-label', 'Copy from shot…');
+  await expect(page.locator('.shot-controls .reference-next-step')).toHaveAttribute('aria-label', 'Copy from shot…');
   await page.screenshot({ path: 'artifacts/reference-next-copy-desktop.png' });
   await page.getByRole('button', { name: 'Copy from shot…', exact: true }).click();
   const copying = page.getByRole('dialog', { name: 'Copy references from shot', exact: true });
@@ -76,7 +76,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await copiedEditor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(copiedEditor).toBeHidden();
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   let document = await (await request.get(`/fixtures/${id}/production`)).json();
   expect(document.shotContent).toHaveLength(2);
   expect(document.shotContent.every(c => c.environmentAssetId === environment.id)).toBe(true);
@@ -92,7 +92,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
     await preset.selectOption(otherPreset);
     await expect(preset).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Copy from shot…', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Edit references', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Edit references…', exact: true })).toBeDisabled();
   } finally {
     expect((await request.post(`/fixtures/${id}/production-save-paused?paused=false`)).ok()).toBe(true);
   }
@@ -114,7 +114,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   document = await (await request.get(`/fixtures/${id}/production`)).json();
   expect(document.shotContent[1].environmentAssetId ?? null).toBe(null);
   expect(document.shotContent[1].images).toHaveLength(1);
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   await page.setViewportSize({ width: 1152, height: 1000 });
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
 });
@@ -123,7 +123,7 @@ test('Picture 10 is displayed as over budget and cannot be applied', async ({ pa
   const { id } = await fixture(page, request, false);
   expect((await request.post(`/fixtures/${id}/picture-ten`)).ok()).toBe(true);
   await page.reload(); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
   const editor = page.locator('.manual-reference-dialog');
   await expect(editor).toContainText('10/9 pictures');

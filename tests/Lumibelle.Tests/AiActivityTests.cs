@@ -107,7 +107,7 @@ public sealed partial class AiActivityTests : BunitContext
         ui.WaitForAssertion(() => Assert.Equal(b.Id.ToString(), ui.FindAll(".ai-activity-job")[0].GetAttribute("data-job-id")));
         await ui.ClickCurrent(() => ui.Find("button[aria-label='Pause queue ComfyUI']")); ui.WaitForAssertion(() => Assert.Contains("This provider queue is paused", ui.Markup));
         Assert.Contains(AiBackend.ComfyUI, (await _store.ReadAsync(_ct)).Paused);
-        await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Cancel"));
+        await ui.ClickCurrent(() => ui.Find($"[data-job-id='{b.Id}']").QuerySelectorAll("button").Single(x => x.TextContent == "Cancel request"));
         ui.WaitForAssertion(() => Assert.Single(ui.FindAll(".ai-activity-job")));
         Assert.Equal(AiJobState.Cancelled, (await _store.ReadAsync(_ct)).Jobs.Single(j => j.Id == b.Id).State);
         await ui.InvokeAsync(() => Assert.Equal(a.Id.ToString(), ui.Find(".ai-activity-job").GetAttribute("data-job-id")));
@@ -122,16 +122,16 @@ public sealed partial class AiActivityTests : BunitContext
         await ui.InvokeAsync(() =>
         {
             Assert.Contains("ComfyUI is reserved", ui.Find(".ai-activity-job").TextContent);
-            Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
+            Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel request");
         });
         await Button(ui, "Needs attention");
-        await ui.InvokeAsync(() => ui.FindAll(".ai-job-actions button").Single(b => b.TextContent == "Cancel").ClickAsync(new()));
+        await ui.InvokeAsync(() => ui.FindAll(".ai-job-actions button").Single(b => b.TextContent == "Cancel request").ClickAsync(new()));
         Assert.True((await _store.ReadAsync(_ct)).Jobs.Single().CancelRequested);
         await Button(ui, "Active");
         await ui.InvokeAsync(() =>
         {
             Assert.Single(ui.FindAll(".ai-activity-job"));
-            Assert.DoesNotContain(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel");
+            Assert.DoesNotContain(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Cancel request");
             Assert.Contains(ui.FindAll(".ai-job-actions button"), b => b.TextContent == "Check status");
         });
         // Local cancellation alone must not claim that a remote workload has stopped.

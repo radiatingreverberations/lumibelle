@@ -51,14 +51,4 @@ public partial class AssetsStudio
         _freshComposer = null; _showGenerator = true; RevealImageDraftSelection();
         await CheckImageWorkflowAsync(); StateHasChanged(); return true;
     }
-
-    private CropSelection RestoreCropControls(AssetImageReference reference, ImageCropRegion crop)
-    {
-        var image = FindImage(reference)!;
-        var targetRatio = image.Width * crop.Width / (image.Height * crop.Height);
-        var aspect = CropAspectRatios.MinBy(a => Math.Abs(Math.Log((a == "Original" ? image.Width / (double)image.Height : AspectValue(a)) / targetRatio)))!;
-        var maximum = CropRegion(image, aspect, 1, 50, 50) ?? new ImageCropRegion();
-        return new(aspect, maximum.Width / crop.Width, crop.Width >= 1 ? 50 : crop.X / (1 - crop.Width) * 100,
-            crop.Height >= 1 ? 50 : crop.Y / (1 - crop.Height) * 100);
-    }
 }

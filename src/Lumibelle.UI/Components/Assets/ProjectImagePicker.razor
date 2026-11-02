@@ -12,7 +12,7 @@
     </div>
     @if (!BrowseOnly && _selected.Count > 0)
     {
-        <ol class="picker-selection" aria-label="Selected reference order">@foreach (var reference in _selected) { <li><span>@Label(reference)</span><button aria-label="Remove @Label(reference) from selection" @onclick="() => Toggle(reference)">×</button></li> }</ol>
+        <ol class="picker-selection" aria-label="Selected reference order">@foreach (var reference in _selected) { <li><span>@Label(reference)</span><button type="button" class="lumi-button icon small" aria-label="Remove @Label(reference) from selection" title="Remove from selection" @onclick="() => Toggle(reference)"><MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" /></button></li> }</ol>
     }
     <div class="picker-grid">
         @foreach (var choice in Gallery.Take(_limit))
@@ -41,7 +41,7 @@
                 <article class="picker-reel" @key="reel.Id" data-reel-id="@reel.Id">
                     <div class="reel-preview">
                     @if (_preview == reel.Id) { <video controls autoplay preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(Library.ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(Library.ProjectId, reel.Media.Id)" aria-label="Preview @reel.Name"></video> }
-                    else { <button type="button" class="reel-preview-button" aria-label="Preview @reel.Name" @onclick="() => _preview = reel.Id"><ReferenceVideoThumbnail ProjectId="Library.ProjectId" MediaId="reel.Media.Id" /><span class="reel-preview-label" aria-hidden="true">▶ Preview</span></button> }
+                    else { <button type="button" class="reel-preview-button" aria-label="Preview @reel.Name" @onclick="() => _preview = reel.Id"><ReferenceVideoThumbnail ProjectId="Library.ProjectId" MediaId="reel.Media.Id" /><span class="reel-preview-label" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Small" />Preview</span></button> }
                     <span class="reel-audio-badge" title="@soundtrack">@(!reel.Media.HasAudio ? "Silent" : reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent ? "Audio off" : "Audio")</span>
                     </div>
                     <div class="picker-reel-caption">
@@ -56,7 +56,7 @@
     </div>
     @if (!Gallery.Any()) { <p>No references match these filters.</p> }
     @if (Gallery.Count() > _limit) { <button @onclick="() => _limit += 48">Show more</button> }
-    @if (!BrowseOnly) { <div class="picker-actions"><span role="status">@_selected.Count selected · @Maximum available slots</span><button @onclick="Cancelled">Cancel</button><MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_selected.Count == 0 || _selected.Count > Maximum)" OnClick="Confirm">Add selected images</MudButton></div> }
+    @if (!BrowseOnly) { <div class="picker-actions"><span role="status">@_selected.Count selected · @Maximum available slots</span><MudButton OnClick="Cancelled">Cancel</MudButton><MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_selected.Count == 0 || _selected.Count > Maximum)" OnClick="Confirm">Add selected images</MudButton></div> }
     @if (_error is not null) { <p role="alert">@_error</p> }
 </section>
 @code {

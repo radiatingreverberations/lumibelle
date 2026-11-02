@@ -132,6 +132,8 @@ public sealed class ImageRegionEditorTests : BunitContext
         await component.InvokeAsync(() => component.Instance.Context(new() { X = 0, Y = 0, Width = .5, Height = 1 }));
         await component.InvokeAsync(() => component.Instance.Stroke(RegionalImageTests.Rect(true, .5, .5, .75, .75)));
         await Click("Cancel");
+        Assert.False(_cancelled);
+        await Click("Discard changes");
         Assert.True(_cancelled);
         Assert.False(_applied);
         Assert.Equal(1, initial.Context.Width);

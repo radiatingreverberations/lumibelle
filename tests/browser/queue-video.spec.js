@@ -78,7 +78,7 @@ test('video batches queue per shot and retain captured settings through edits, r
     await expect(page.getByRole('button', { name: 'View batch', exact: true })).toBeVisible();
     const footer = page.locator('.shot-generation-footer');
     await expect(footer.getByRole('button', { name: 'Review latest batch', exact: true })).toHaveCount(0);
-    await expect(footer.getByRole('button', { name: 'Cancel generation', exact: true })).toBeEnabled();
+    await expect(footer.getByRole('button', { name: 'Cancel request', exact: true })).toBeEnabled();
     await expect(footer.locator('.ai-batch-summary')).toHaveText('0 / 2 takes saved');
     await footer.getByRole('button', { name: 'View batch', exact: true }).click();
     await expect(review(page)).toBeVisible();
@@ -86,7 +86,7 @@ test('video batches queue per shot and retain captured settings through edits, r
     await expect(footer.getByRole('button', { name: 'View batch', exact: true })).toBeFocused();
     const [viewBounds, cancelBounds] = await Promise.all([
       footer.getByRole('button', { name: 'View batch', exact: true }).boundingBox(),
-      footer.getByRole('button', { name: 'Cancel generation', exact: true }).boundingBox()
+      footer.getByRole('button', { name: 'Cancel request', exact: true }).boundingBox()
     ]);
     expect(Math.abs(viewBounds.y - cancelBounds.y)).toBeLessThan(2);
     await page.screenshot({ path: 'test-results/shot-generation-footer-queued.png' });
@@ -138,7 +138,7 @@ test('waiting video cancellation needs no provider and Activity opens the exact 
     await toolsTab(page, 'References');
     const footer = page.locator('.shot-generation-footer');
     await expect(footer.getByRole('button', { name: 'View batch', exact: true })).toBeVisible();
-    await expect(footer.getByRole('button', { name: 'Cancel generation', exact: true })).toBeVisible();
+    await expect(footer.getByRole('button', { name: 'Cancel request', exact: true })).toBeVisible();
     expect(await footer.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: 'test-results/shot-generation-footer-mobile.png' });
     await page.goto(`/projects/${id}/assets`);

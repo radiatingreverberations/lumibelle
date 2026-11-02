@@ -4,8 +4,9 @@
 .comfy-access-token-form fieldset { display: grid; gap: 8px; border: 0; padding: 0; min-width: 0; }
 .comfy-access-token-form legend { font-weight: 600; margin-bottom: 8px; }
 .comfy-access-token-form label { margin-top: 8px; font-weight: 600; }
-.comfy-access-token-form input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--mud-default-borderradius); color: var(--mud-palette-text-primary); background: var(--mud-palette-surface); font: inherit; }
-.comfy-access-token-form input:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
+.comfy-access-token-form input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); color: var(--lumi-text); background: var(--lumi-surface); font: inherit; }
+.comfy-access-token-form input:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 2px; }
 .access-dialog-actions, .access-dialog-management { display: flex; flex-wrap: wrap; gap: 12px; }
-.access-remove-confirmation { display: flex; flex-wrap: wrap; gap: 12px; }
+.access-dialog-actions { justify-content: flex-end; }
+.access-remove-confirmation { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .access-remove-confirmation p { flex-basis: 100%; }

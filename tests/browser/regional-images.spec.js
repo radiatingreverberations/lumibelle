@@ -19,7 +19,7 @@ for (const narrow of [false, true]) test(`protected regional edits review before
   await page.getByLabel('Edit instruction',{exact:true}).fill('Change the background colour');
   await page.locator('#aspect').selectOption('1:1');
   // Edit area and protection are separate editors on Image 1 in Manage references.
-  await page.getByRole('button',{name:/^(?:Edit|Manage) references$/,exact:true}).click();
+  await page.getByRole('button',{name:/^(?:Edit|Manage) references…?$/,exact:true}).click();
   const manager=page.locator('.image-input-manager-dialog');
   await expect(manager).toBeVisible();
   const selected=manager.getByRole('tab',{name:/^Selected references/});
@@ -67,7 +67,7 @@ for (const narrow of [false, true]) test(`protected regional edits review before
   await expect(editor).not.toBeVisible();
   const protect=manager.getByRole('button',{name:'Image 1: Protect areas',exact:true});
   await protect.click();
-  await expect(editor).toContainText('Protect areas · Image 1');
+  await expect(editor).toContainText('Protect areas'); await expect(editor).toContainText('Image 1');
   await editor.getByText('Precise rectangle controls',{exact:true}).click();
   await editor.getByLabel('Width %',{exact:true}).fill('10');await editor.getByLabel('Height %',{exact:true}).fill('10');
   await editor.getByRole('button',{name:'Protect rectangle',exact:true}).click();

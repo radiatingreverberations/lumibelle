@@ -44,7 +44,6 @@ public partial class PromptEnhancementPanel
     private string? _resultText;
     private readonly CancellationTokenSource _lifetime = new();
     private ElementReference _origin;
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private AiJobHeader? InspectionJob => Jobs.View.Jobs.FirstOrDefault(j => j.Kind == AiJobKind.PromptEnhancement && j.Target.LockKey(j.Kind) == TargetKey && TextRequestPresentation.IsActive(j)) ?? _job;
     private Guid? _resolvedJob;
     private TextRequestPresentation? EnhancementPresentation => InspectionJob is { } job ? new(job, "Enhancing prompt…",
@@ -336,7 +335,6 @@ public partial class PromptEnhancementPanel
         _open = false; _restoreFocus = true;
         if (_reviewedJob is { } id) { await Reviews.CloseAsync(id); _reviewedJob = null; }
     }
-    private Task DialogKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
     private Task VisibilityChanged(bool visible) => visible ? Task.CompletedTask : Close();
     private async Task SetBusy(bool value) { if (_busy == value || _disposed) return; _busy = value; await BusyChanged.InvokeAsync(value); }
     private static string Failure(Exception e) => e is AiGenerationException or WorkspaceStoreException or ProjectStoreException ? e.Message : "This enhancement could not be read or saved. Your prompt is unchanged; retry when ready.";

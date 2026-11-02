@@ -8,28 +8,24 @@
 <PageTitle>Cut · Lumibelle</PageTitle>
 <NavigationLock ConfirmExternalNavigation="@(_dirty || _exporting)" OnBeforeInternalNavigation="BeforeNavigation" />
 <EditSessionRegistration Save="Save" />
-@if (_project is null) { <p role="status">@(_error ?? "Opening cut…")</p> }
+@if (_project is null)
+{
+    @if (_error is not null) { <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open the cut" HeadingLevel="1">@_error</EmptyState> }
+    else { <LoadingState Text="Opening Cut…" /> }
+}
 else
 {
     <ProjectNavigation Project="_project" CurrentStudio="cut" />
-    <StudioPageHeader Title="Cut studio">
-        <div data-interactive="@(_interactive ? "true" : "false")" class="cut-actions cut-heading"><span role="status">@_saveStatus</span>
-            <MudButton Disabled="@(_saving || !_dirty)" OnClick="Save">Save</MudButton>
-            <MudButton Disabled="@(_exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0)" OnClick="OpenExport">@(_exporting ? "Exporting…" : "Export MP4")</MudButton>
-            <MudButton Disabled="@(_undo.Count == 0)" OnClick="Undo">Undo</MudButton>
-            <MudButton Disabled="@(_redo.Count == 0)" OnClick="Redo">Redo</MudButton>
-        </div>
+    <StudioPageHeader Title="Cut">
+        <StudioActions Class="cut-heading" data-interactive="@(_interactive ? "true" : "false")" Status="@_saveStatus" Problem="_saveFailed"
+                       OnSave="Save" CanSave="@(!_saving && _dirty)" OnUndo="Undo" CanUndo="@(_undo.Count > 0)" OnRedo="Redo" CanRedo="@(_redo.Count > 0)">
+            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="@(_exporting || _downloadingExport || _doc.Clips.Count == 0 || UnavailableTakes.Length > 0)" OnClick="OpenExport">@(_exporting ? "Exporting…" : "Export MP4…")</MudButton>
+        </StudioActions>
     </StudioPageHeader>
     @if (_error is not null && _loadFailure is null)
     {
-        <div class="cut-error" role="alert">@_error
-            @if (_saveFailed)
-            {
-                <button type="button" disabled="@_saving" @onclick="Save">Retry save</button>
-                <button type="button" @onclick="DownloadDraft">Download unsaved copy</button>
-                <button type="button" disabled="@_saving" @onclick="() => _reloadOpen = true">Reload saved version…</button>
-            }
-        </div>
+        @if (_saveFailed) { <SaveErrorNotice Message="@_error" Busy="_saving" OnRetry="Save" OnDownload="DownloadDraft" OnReload="() => _reloadOpen = true" /> }
+        else { <p class="cut-error" role="alert">@_error</p> }
     }
     @if (_loadFailure is not null) { <LoadFailure Title="Couldn’t open the cut" Error="_loadFailure" Retry="RetryLoadAsync" /> }
     else {
@@ -38,7 +34,7 @@ else
     @if (_exportStatus is not null || readyExport is not null)
     {
         <div class="cut-export-notice @(_exporting ? "working" : null)">
-            @if (_exporting) { <span class="request-spinner" aria-hidden="true"></span> }
+            @if (_exporting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-hidden="true" /> }
             <span class="cut-export-status" role="status">@_exportStatus</span>
             @if (_exporting) { <button type="button" @onclick="CancelExport">Cancel export</button> }
             else if (readyExport is not null) { <button type="button" disabled="@_downloadingExport" @onclick="DownloadExport">Download revision @readyExport.Revision@(readyExport.Range is { } part ? ", " + part.Label : "") again</button> }
@@ -47,7 +43,7 @@ else
     @if (_exportError is not null) { <p class="cut-error" role="alert">@_exportError</p> }
     <div class="cut-workspace">
         <div class="cut-workspace-toolbar">
-            <button type="button" class="cut-add" @ref="_addButton" @onclick="OpenChooser">Choose takes</button>
+            <button type="button" class="lumi-button primary cut-add" @ref="_addButton" @onclick="OpenChooser">Choose takes…</button>
             <button type="button" disabled="@_refreshing" @onclick="RefreshTakes">Refresh takes</button>
             @if (_doc.Clips.Any(c => Issue(c) is not null)) { <span class="cut-source-issue">Some takes are unavailable. Restore them in <a href="/trash">Trash</a>, replace them, or remove their clips.</span> }
         </div>
@@ -58,12 +54,12 @@ else
             <div class="cut-take-switcher" aria-label="Selected clip take">
                 <strong title="@selectedClip.ShotTitle">@(_doc.Clips.IndexOf(selectedClip) + 1). @selectedClip.ShotTitle</strong>
                 <div class="cut-take-controls" title="Swap this clip in place. The new take uses its full frame range.">
-                    <button type="button" aria-label="Previous take" disabled="@(_swapping || takeIndex <= 0)" @onclick="() => CycleTake(-1)">‹</button>
+                    <button type="button" class="lumi-button icon" aria-label="Previous take" title="Previous take" disabled="@(_swapping || takeIndex <= 0)" @onclick="() => CycleTake(-1)"><MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" /></button>
                     <label>Take<select value="@selectedClip.TakeId" disabled="@_swapping" @onchange="ReplaceTake">
                         @if (takeIndex < 0) { <option value="@selectedClip.TakeId">@selectedClip.TakeLabel · unavailable</option> }
                         @foreach (var choice in takes) { <option value="@choice.Id">@Label(choice)</option> }
                     </select></label>
-                    <button type="button" aria-label="Next take" disabled="@(_swapping || takeIndex < 0 || takeIndex >= takes.Length - 1)" @onclick="() => CycleTake(1)">›</button>
+                    <button type="button" class="lumi-button icon" aria-label="Next take" title="Next take" disabled="@(_swapping || takeIndex < 0 || takeIndex >= takes.Length - 1)" @onclick="() => CycleTake(1)"><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></button>
                     <span class="cut-take-count">@(takeIndex < 0 ? "—" : (takeIndex + 1).ToString()) / @takes.Length</span>
                 </div>
             </div>
@@ -80,20 +76,20 @@ else
                     <button type="button" @onclick="ResetTrim">Reset trim</button>
                     <button type="button" disabled="@(_doc.Clips.IndexOf(clip) == 0)" @onclick="() => Move(clip.Id, -1)">Move earlier</button>
                     <button type="button" disabled="@(_doc.Clips.IndexOf(clip) == _doc.Clips.Count - 1)" @onclick="() => Move(clip.Id, 1)">Move later</button>
-                    <button type="button" @onclick="() => Remove(clip.Id)">Remove clip</button>
+                    <button type="button" class="lumi-button danger" @onclick="() => Remove(clip.Id)">Remove clip</button>
                 </div>
                 <div class="cut-trim-summary">Keeping frames @(clip.StartFrame + 1)–@clip.EndFrameExclusive · @Time(clip.Duration)</div>
                 @if (_trimError is not null) { <p role="alert" class="cut-source-issue">@_trimError</p> }
             </section>
         }
-        else { <p class="cut-empty">Add saved takes, then drag their edges to trim and their grips to rearrange.</p> }
+        else if (_doc.Clips.Count > 0) { <p class="cut-empty">Select a clip to trim, reorder or swap its take. Drag clip edges to trim and grips to rearrange.</p> }
     </div>
     }
 }
 
-<InlineDialog Visible="_chooserOpen" VisibleChanged="ChooserVisibility" Options="ChooserOptions" Class="cut-chooser" Title="Choose shots and takes" CloseLabel="Close choose shots and takes">
+<InlineDialog Visible="_chooserOpen" VisibleChanged="ChooserVisibility" Options="DialogSizes.Medium" Class="cut-chooser" Title="Choose shots and takes" CloseLabel="Close choose shots and takes"
+              CloseDisabled="_adding" Summary="ChooserSummary">
     <DialogContent>
-        <p>Swap existing clips in place, or add missing shots in shot order. Swapping resets the clip's trim to the full take.</p>
         @if (_shots.Shots.Count > 0)
         {
             var matchingShots = CutTakeSelection.LatestByShot(_shots, _latestResolution, _latestLanguage).Count;
@@ -136,10 +132,10 @@ else
         @if (_shots.Shots.Count == 0) { <p>No shots yet. Generate takes in Shots first.</p> }
         @if (_chooserError is not null) { <p role="alert">@_chooserError</p> }
     </DialogContent>
-    <DialogActions><MudButton Disabled="@_adding" OnClick="() => ChooserVisibility(false)">Cancel</MudButton><MudButton Disabled="@(ChoiceChanges == 0 || _adding)" OnClick="AddChosen" Color="Color.Primary" Variant="Variant.Filled">Apply changes (@ChoiceChanges)</MudButton></DialogActions>
+    <DialogActions><DialogFooter><MudButton Disabled="@_adding" OnClick="() => ChooserVisibility(false)">Cancel</MudButton><MudButton Disabled="@(ChoiceChanges == 0 || _adding)" OnClick="AddChosen" Color="Color.Primary" Variant="Variant.Filled">Apply changes (@ChoiceChanges)</MudButton></DialogFooter></DialogActions>
 </InlineDialog>
-<InlineDialog @bind-Visible="_exportOpen" Options="ChooserOptions" Class="cut-export-dialog" Title="Export MP4" CloseLabel="Close export"><DialogContent>
-    <p class="field-hint">Export the whole cut, or part of it, such as everything from the first clip of a new act.</p>
+<InlineDialog @bind-Visible="_exportOpen" Options="DialogSizes.Small" Class="cut-export-dialog" Title="Export MP4" CloseLabel="Close export"
+              Summary="ExportIntro"><DialogContent>
     <div class="cut-export-range">
         <label>From clip<select aria-label="From clip" value="@_exportFrom" @onchange="ExportFromChanged">@for (var i = 0; i < _doc.Clips.Count; i++) { <option value="@(i + 1)">@(i + 1). @_doc.Clips[i].ShotTitle</option> }</select></label>
         <label>To clip<select aria-label="To clip" value="@_exportTo" @onchange="ExportToChanged">@for (var i = 0; i < _doc.Clips.Count; i++) { <option value="@(i + 1)">@(i + 1). @_doc.Clips[i].ShotTitle</option> }</select></label>
@@ -149,7 +145,7 @@ else
         <button type="button" @onclick="ExportWhole" disabled="@ExportsWholeCut">Whole cut</button>
     </div>
     <p class="cut-export-summary" role="status">@ExportSummary</p>
-</DialogContent><DialogActions><MudButton OnClick="() => _exportOpen = false">Cancel</MudButton><MudButton OnClick="ConfirmExport" Color="Color.Primary" Variant="Variant.Filled">Export</MudButton></DialogActions></InlineDialog>
-<InlineDialog @bind-Visible="_reloadOpen" Options="ChooserOptions" Title="Reload saved cut?" CloseLabel="Close reload saved cut"><DialogContent>Your unsaved edits will be replaced. Download an unsaved copy first if you want to keep them.</DialogContent>
-    <DialogActions><MudButton OnClick="() => _reloadOpen = false">Cancel</MudButton><MudButton OnClick="Reload">Reload saved cut</MudButton></DialogActions>
-</InlineDialog>
+</DialogContent><DialogActions><DialogFooter><MudButton OnClick="() => _exportOpen = false">Cancel</MudButton><MudButton OnClick="ConfirmExport" Color="Color.Primary" Variant="Variant.Filled">Export</MudButton></DialogFooter></DialogActions></InlineDialog>
+<ConfirmDialog @bind-Visible="_reloadOpen" Title="Reload saved cut?" ConfirmLabel="Reload saved cut" Danger="true" OnConfirm="Reload">
+    <p>Your unsaved edits will be replaced. Download an unsaved copy first if you want to keep them.</p>
+</ConfirmDialog>

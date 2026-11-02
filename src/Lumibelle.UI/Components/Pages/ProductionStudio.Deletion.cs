@@ -16,7 +16,6 @@ public partial class ProductionStudio
     private long _deleteDraftVersion;
     private ElementReference _bulkDeleteButton, _addShotButton;
     private static string Counted(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
-    private DialogOptions DeleteShotsOptions => new() { MaxWidth = _singleDeleteShotId is null ? MaxWidth.Large : MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_deletingShots };
     private int DeleteTakeCount => _deleteSnapshot?.Takes.Count(t => _deleteShotIds.Contains(t.ShotId)) ?? 0;
     private int DeleteProductionCount => _deleteSnapshot?.Shots.Count(s => _deleteShotIds.Contains(s.Id) && s.SelectedTakeId is not null) ?? 0;
     private string? DeleteActivityIssue => AiJobs.View.Jobs.Any(j => j.Kind is (AiJobKind.Video or AiJobKind.PromptComposition) && j.Target.ProjectId == Id && j.Target.ShotId is { } shot && _deleteShotIds.Contains(shot) &&

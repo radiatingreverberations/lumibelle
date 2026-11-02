@@ -131,7 +131,7 @@ test('provider catalogs preserve filters, pages, aliases and keyboard focus acro
   await expect(page.getByText('Page 2 of 2', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Alias', { exact: true })).toHaveValue('Unfinished alias');
   await expect.poll(async () => (await snapshot(request)).checks.OpenRouter).toBe((before.checks.OpenRouter || 0) + 1);
-  await expect(page.locator('.writing-back')).toHaveAttribute('href', origin);
+  await expect(page.locator('.page-back')).toHaveAttribute('href', origin);
   await provider(page, 'Defaults & profiles').click();
   await expect(page.locator('#global-text-default')).toHaveValue(defaultBefore);
   await provider(page, 'OpenRouter').click();
@@ -145,7 +145,7 @@ test('provider catalogs preserve filters, pages, aliases and keyboard focus acro
   await expect(provider(page, 'ComfyUI')).toHaveAttribute('aria-selected', 'true');
   await provider(page, 'OpenRouter').click();
   await expect(page.locator('#model-sort')).toHaveValue('name');
-  await expect(page.locator('.writing-back')).toHaveAttribute('href', origin);
+  await expect(page.locator('.page-back')).toHaveAttribute('href', origin);
 });
 
 test('prices sort across pages and failed discovery keeps a stale catalog with one error', async ({ page, request }) => {

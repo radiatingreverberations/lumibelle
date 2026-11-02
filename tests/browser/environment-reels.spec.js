@@ -64,7 +64,7 @@ for (const narrow of [false, true]) test(`environment coverage choices preserve 
   await setup.getByRole('textbox', { name: 'H3 prompt', exact: true }).fill('');
   await setup.getByLabel('Use guidance', { exact: true }).fill('');
   await closeSetup(page);
-  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${asset.id}/${asset.images[0].id}"]`).click();
   await pictures.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -103,7 +103,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   await expect(setup.locator('.reel-voice-options')).toHaveCount(0);
   await expect(setup.getByLabel('Voice mode')).toHaveCount(0);
   await closeSetup(page);
-  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const pictures = page.locator('.reel-pictures-dialog');
   await pictures.locator(`[data-reference="${asset.id}/${asset.images[0].id}"]`).click();
   if (narrow) await pictures.getByRole('tab', { name: 'Selected references (1)', exact: true }).click();
@@ -157,7 +157,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   await expect.poll(() => player.evaluate(v => v.readyState)).toBeGreaterThan(0);
   await player.evaluate(async v => { v.muted = true; await v.play(); v.currentTime = 2; });
   await expect.poll(() => player.evaluate(v => v.currentTime)).toBeGreaterThanOrEqual(2);
-  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details', exact: true }).click();
+  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details…', exact: true }).click();
   const details = page.locator('.reel-details-dialog');
   await expect(details.getByLabel('Saved directions', { exact: true })).toHaveValue(directions);
   await expect(details.getByText(/Use keyframes to reference all angles/)).toBeVisible();
@@ -170,7 +170,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   expect((await (await request.get(`/fixtures/${id}/shots`)).json()).shots).toHaveLength(0);
   await request.post(`/fixtures/${id}/approved`); await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`); await tools(page);
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   const card = picker.locator(`[data-reel-id="${reel.id}"]`);
   await expect(card.locator('.media-kind')).toHaveAttribute('title', /^Environment reel ·/);
@@ -202,7 +202,7 @@ test('environment custom path keeps authored text and requires instructions only
   const asset = (await library(request, id)).assets[0];
   await page.goto(`/projects/${id}/assets?assetId=${asset.id}&view=reels`); await tools(page);
   const editor = reelTools(page), setup = reelSetup(page);
-  await editor.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await editor.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const picker = page.locator('.reel-pictures-dialog');
   for (const owner of (await library(request, id)).assets) await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();

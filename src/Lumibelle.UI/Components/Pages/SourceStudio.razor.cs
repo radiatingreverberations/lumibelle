@@ -28,7 +28,15 @@ public partial class SourceStudio
     private readonly Dictionary<SourceOutlineScene, string> _sourceEdits = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<SourceOutlineScene, string> _sourceErrors = new(ReferenceEqualityComparer.Instance);
     private StudioWorkspace? _workspace;
-    private ElementReference _materialTab, _outlineTab;
+    private static readonly StudioTab[] NavigationModes = [new("material", "Source"), new("outline", "Outline")];
+    // The source could not be opened; the studio is replaced by LoadFailure.
+    private Exception? _loadFailure;
+    // Save state of the source title, text and direction; outline review edits save separately.
+    private bool _savingSource, _saveFailed, _saveConflict;
+    private string SourceSaveStatus => _savingSource ? SaveStatusText.Saving
+        : _saveFailed && Dirty ? _saveConflict ? SaveStatusText.Conflict : SaveStatusText.Failed
+        : Dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved;
+    private bool OutlineReviewShown => _outline is not null && Run is { State: not SourceRunState.Discarded };
     private string _center = "source";
     private int? _selectedAct, _selectedScene, _selectedSection;
     private string CenterSelection => _center switch {
@@ -79,6 +87,7 @@ public partial class SourceStudio
     }
     private async Task Load()
     {
+        _loadFailure = null;
         try {
             _project = await Projects.GetAsync(Id, _life.Token);
             if (_project is null) throw new WorkspaceStoreException("Project not found.");
@@ -86,7 +95,7 @@ public partial class SourceStudio
             _title = _doc.Title; _text = _doc.Text; _direction = _doc.Direction; _sourceRevision = _doc.SourceRevision;
             _runId ??= _doc.Runs.LastOrDefault(r => JobId is not null && r.Jobs.Contains(JobId.Value))?.Id ?? _doc.Runs.LastOrDefault()?.Id;
             LoadOutline(); _error = null;
-        } catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+        } catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _loadFailure = e; }
     }
     private void LoadOutline()
     {
@@ -131,10 +140,22 @@ public partial class SourceStudio
     private async Task SaveCore()
     {
         if (_doc is null || !Dirty) return;
-        _doc = await Sources.SaveAsync(Id, _sourceRevision, _title, _text, _direction, _life.Token);
-        _sourceRevision = _doc.SourceRevision;
+        _savingSource = true;
+        try {
+            _doc = await Sources.SaveAsync(Id, _sourceRevision, _title, _text, _direction, _life.Token);
+            _sourceRevision = _doc.SourceRevision;
+            _saveFailed = _saveConflict = false;
+        } catch (Exception e) when (e is not OperationCanceledException) { _saveFailed = true; _saveConflict = e is WorkspaceConflictException; throw; }
+        finally { _savingSource = false; }
     }
     private Task Save() => Execute(SaveCore);
+    // Desktop close flushes the source like leaving the page does; it succeeds only when nothing is left unsaved.
+    private async Task<bool> SaveForCloseAsync()
+    {
+        if (Dirty) await Save();
+        if (_outlineDirty) await SaveOutline(false);
+        return !Dirty && !_outlineDirty;
+    }
     private Task Start() => Execute(async () => {
         if (_picker is null || !await _picker.PrepareSubmitAsync() || _selection is not { Ready: true } selection) return;
         await SaveCore();
@@ -202,6 +223,7 @@ public partial class SourceStudio
         _center = "source";
         return _workspace?.RevealCenterAsync() ?? Task.CompletedTask;
     }
+    private void SelectNavigationTab(string id) => SelectNavigationMode(id == "outline");
     private void SelectNavigationMode(bool outline)
     {
         if (outline == (_center == "outline")) return;
@@ -210,13 +232,6 @@ public partial class SourceStudio
             _selectedAct = _selectedScene = null;
             _editingOutline = Run?.State != SourceRunState.Discarded && _outlineDirty;
         }
-    }
-    private async Task NavigationModeKey(KeyboardEventArgs e, bool outline)
-    {
-        var next = e.Key switch { "ArrowLeft" or "ArrowRight" => !outline, "Home" => false, "End" => true, _ => outline };
-        if (next == outline) return;
-        SelectNavigationMode(next);
-        await (next ? _outlineTab : _materialTab).FocusAsync();
     }
     private Task ShowOutline(int? act = null, int? scene = null)
     {

@@ -17,7 +17,7 @@ test('a free crop drags its edges and corners independently and reopens free', a
   await openShotsAfterPlanning(page);
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   await page.locator('.project-image-picker .picker-grid button').first().click();
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await editShotReference(page);

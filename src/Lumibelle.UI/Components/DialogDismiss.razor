@@ -1,0 +1,20 @@
+@* The dialog's dismiss button. Say Cancel when closing discards staged changes, Close when nothing is
+   pending, and Done when edits were saved as they were made. While Confirming, it becomes the
+   unsaved-changes choice: Discard changes or Keep editing. *@
+@if (Confirming)
+{
+    <MudButton OnClick="OnDiscard" Disabled="Disabled">Discard changes</MudButton>
+    <MudButton OnClick="OnKeepEditing" Disabled="Disabled">Keep editing</MudButton>
+}
+else
+{
+    <MudButton OnClick="OnDismiss" Disabled="Disabled">@Label</MudButton>
+}
+@code {
+    [Parameter] public string Label { get; set; } = "Close";
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Confirming { get; set; }
+    [Parameter] public EventCallback OnDiscard { get; set; }
+    [Parameter] public EventCallback OnKeepEditing { get; set; }
+}

@@ -28,7 +28,8 @@
             </select>
             <p class="field-hint">Crops, video frames and images whose size is part of their generation details keep their size.</p>
         }
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || _project == Guid.Empty)" OnClick="Export">Prepare export</MudButton>
+        @* One principal action at a time: a staged import takes over from export preparation. *@
+        <MudButton Variant="@(_import is null ? Variant.Filled : Variant.Outlined)" Color="@(_import is null ? Color.Primary : Color.Default)" Disabled="@(_busy || _project == Guid.Empty)" OnClick="Export">Prepare export</MudButton>
         @if (_export is { } package) {
             <div role="status"><strong>Package ready · @Size(package.Bytes)</strong>
                 <p>@package.Manifest.Files.Count files · @package.Manifest.IncludedTrashImages referenced trash images · @package.Manifest.RemovedLoraSelections unused LoRA metadata entries removed</p>
@@ -64,10 +65,11 @@
     [Parameter] public IReadOnlyList<ProjectInfo> Projects { get; set; } = [];
     [Parameter] public EventCallback<ProjectInfo> Imported { get; set; }
     [Parameter] public EventCallback Closed { get; set; }
-    // A containing dialog shows Cancel transfer and Close in its footer.
+    // A containing dialog shows Cancel transfer (while a transfer runs) and Close in its footer.
     [Parameter] public object? ActionsSection { get; set; }
     [Parameter] public EventCallback<bool> BusyChanged { get; set; }
-    private RenderFragment Actions => @<text>@if (_busy) { <MudButton OnClick="Cancel">Cancel transfer</MudButton> }<MudButton Disabled="_busy" OnClick="Close">Close</MudButton></text>;
+    private RenderFragment Actions => @<DialogFooter Tools="@(_busy ? CancelTransfer : null)"><MudButton Disabled="_busy" OnClick="Close">Close</MudButton></DialogFooter>;
+    private RenderFragment CancelTransfer => @<MudButton Variant="Variant.Outlined" OnClick="Cancel">Cancel transfer</MudButton>;
     private Guid _project;
     private bool _trash = true, _leaveOutLossless, _compress, _busy, _disposed;
     private int _maxDimension = 2560;

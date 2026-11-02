@@ -7,7 +7,7 @@ test('Assets shares the crop and selection layout while retaining source-only ed
   await page.setViewportSize({ width: 1173, height: 1000 });
   await page.goto(`/projects/${id}/assets`);
   await page.locator('.asset-media-card[data-media-kind=Image] .media-select').first().click();
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const picker = page.locator('.image-input-manager-dialog');
   const donor = library.assets[1];
   await picker.locator(`[data-reference="${donor.id}/${donor.images[0].id}"]`).click();
@@ -38,7 +38,7 @@ test('Assets shares the crop and selection layout while retaining source-only ed
   await page.screenshot({ path: 'artifacts/shared-picker-assets-mobile.png' });
   await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.setViewportSize({ width: 1173, height: 1000 });
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   await expect(picker.locator('.reference-selection-row')).toHaveCount(1);
 });
 
@@ -50,7 +50,7 @@ for (const [width, height] of [[1010, 650], [390, 700]]) test(`a short window ke
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const grid = page.locator('.reference-browser .picker-grid');
   await expect(grid).toBeVisible();
   // The toolbar and filters must not squeeze the gallery to a sliver; the browse column scrolls instead.
@@ -71,7 +71,7 @@ test('Shots restores a trashed picture from Manage references and applies it', a
     await page.goto(`/projects/${id}/shots`);
     await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
     await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
-    await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+    await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
     return page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
   };
   let picker = await open();
@@ -107,14 +107,14 @@ for (const [width, height] of [[1150, 745], [1400, 1000], [390, 844]]) test(`Man
   await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
   await expect(async () => { if (!await page.locator('.workspace-right').isVisible()) await page.locator('[data-toggle-pane=right]').click({ timeout: 1000 }); }).toPass({ timeout: 10000 });
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   await picker.locator(`[data-reference="${owner.id}/${owner.images[0].id}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(picker).toBeHidden();
   const nextShot = page.locator('[data-shot-id]').nth(1);
   await nextShot.click();
   await expect(nextShot).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   await expect(picker.getByLabel('Copy references from')).toHaveCount(0);
   await page.setViewportSize({ width, height });
   const box = async selector => picker.locator(selector).first().boundingBox();

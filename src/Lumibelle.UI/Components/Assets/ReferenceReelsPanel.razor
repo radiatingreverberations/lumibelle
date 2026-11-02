@@ -27,7 +27,7 @@
                 <strong>@reel.Name</strong><small>@reel.Media.Duration.ToString("0.###") s · @reel.CreatedUtc.ToLocalTime().ToString("g") · @(EnvironmentReel ? "Environment" : PropReel ? "Prop" : Owner.Looks.FirstOrDefault(l => l.Id == reel.LookId)?.Name ?? "General")</small>
                 <small>@(reel.Generation?.Recipe.VoiceMode == ReelVoiceMode.Silent || !reel.Media.HasAudio ? "Visual reference · soundtrack off by default" : "Soundtrack available")</small>
                 <ReelKeyframeStatus Keyframes="reel.Keyframes" Disabled="_busy" Open="() => ManageKeyframes(reel)" />
-                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button><button disabled="@(_busy || MotionReferencePolicy.Issue(reel) is not null)" title="@MotionReferencePolicy.Issue(reel)" @onclick="() => RefineFromVideo(reel)">Refine from video…</button><button disabled="@_busy" @onclick="() => Refine(reel)">Upscale latents…</button>@if (CanRegenerate(reel)) { <button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> } }<button disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
+                <div class="reel-card-actions"><button @onclick="() => EditReel(reel)">Details…</button>@if (reel.Generation is not null) { <button disabled="@(!CanVary(reel))" title="@(CanVary(reel) ? null : VaryBusy)" @onclick="() => Variation(reel)">Create similar</button><button disabled="@(_busy || MotionReferencePolicy.Issue(reel) is not null)" title="@MotionReferencePolicy.Issue(reel)" @onclick="() => RefineFromVideo(reel)">Refine from video…</button><button disabled="@_busy" @onclick="() => Refine(reel)">Upscale latents…</button>@if (CanRegenerate(reel)) { <button disabled="@_busy" @onclick="() => Regenerate(reel)">Regenerate…</button> } }<button class="lumi-button danger" disabled="@_busy" @onclick="() => Trash(reel)">Move to Trash</button></div>
             </article>
         }
     </div>
@@ -67,7 +67,7 @@
                 var resolved = ResolvedReferences.For(inputs);
                 <section class="shot-references reel-pictures" aria-label="Reel visual references">
                     <h2 class="shot-references-title">References</h2>
-                    <button class="add-shot-references" disabled="@_busy" @onclick="() => OpenPictures()">Manage references</button>
+                    <button class="lumi-button add-shot-references" disabled="@_busy" @onclick="() => OpenPictures()">Manage references…</button>
                     <div class="shot-reference-counts"><span>Images <strong>@resolved.Pictures.Count/9</strong></span><span>Reels <strong>@ReferenceVideos.ReelSlotCount(inputs)</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(inputs).Count()/3</strong></span></div>
                     <div class="shot-reference-contact-sheet">
                         @foreach (var picture in resolved.Pictures) {
@@ -84,7 +84,7 @@
                         @foreach (var video in inputs.Videos.Where(v => ReferenceVideos.UsesReelSlot(v) || v.UseSoundtrack)) {
                             <button class="shot-reference-tile shot-reference-reel" @key="video.Id" title="@($"Reel · {video.Name} · {(video.EffectiveVisuals == ReelVisuals.None ? "Audio only" : ReelUsageDefaults.Label(video.EffectiveVisuals))}")" aria-label="@($"Preview reel {video.Name}")" disabled="@_busy" @onclick="() => _previewReferenceVideo = video">
                                 <CropThumbnail Url="@ReferenceVideos.ThumbnailUrl(ProjectId, video.Media.Id)" Label="@video.Name" Width="video.Media.Width" Height="video.Media.Height" />
-                                <span class="shot-reference-number" aria-hidden="true">▶</span><span class="shot-reference-name">@video.Name</span>
+                                <span class="shot-reference-number" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Small" /></span><span class="shot-reference-name">@video.Name</span>
                             </button>
                         }
                     </div>
@@ -153,7 +153,7 @@
             </fieldset>
             @* As in the shot panel: the prompt is written from the references above, so it is the step before generating. *@
             <div class="shot-setup-actions shot-prompt-step">
-                <button @ref="_setupPromptButton" disabled="@(_busy || _presetBusy)" class="@(SetupPromptStatus == "Review prompt" ? "next-step stale" : SetupPromptStatus == "Missing" ? "next-step" : null)" title="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-description="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
+                <button @ref="_setupPromptButton" disabled="@(_busy || _presetBusy)" class="@($"lumi-button {(SetupPromptStatus == "Review prompt" ? "next-step stale" : SetupPromptStatus == "Missing" ? "next-step" : null)}".TrimEnd())" title="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-description="@(SetupPromptStatus == "Review prompt" ? ReelPromptStale : null)" aria-label="Prompt" @onclick="@(() => OpenSetupDialog("Prompt"))">Prompt <small>@SetupPromptStatus</small></button>
             </div>
             @if (_preparing) { <p role="status">Preparing request…</p><button @onclick="CancelPreparation">Cancel preparation</button> }
             @if (!_loraValid) { <p class="field-error">Enter valid LoRA strengths before generating.</p> }
@@ -166,7 +166,7 @@
                         title="@(!HasPromptPair ? "Add a prompt and use guidance in Prompt." : null)" aria-label="@(!HasPromptPair ? "Generate reel unavailable: add a prompt and use guidance in Prompt." : null)">
                         <MudButton OnClick="Generate" Disabled="@(_busy || _presetBusy || ActivePreset?.Archived == true || _resettingDraft || ActiveVideo is not null || _enqueue is not null || !_loraValid || !HasPromptPair || ReferenceReels.NeedsEnvironmentReplacement(_draft))" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true">@GenerateLabel</MudButton>
                     </span>
-                    @if (videoJob is not null) { <MudButton Class="shot-review-latest" OnClick="() => ViewJob(videoJob)" Color="Color.Primary" Size="Size.Small" aria-label="@(ActiveVideo is null ? "Review latest batch" : "View request")" title="@(ActiveVideo is null ? "Review latest batch" : "View request")">Review</MudButton> }
+                    @if (videoJob is not null) { <MudButton Class="shot-review-latest" OnClick="() => ViewJob(videoJob)" Size="Size.Small" aria-label="@(ActiveVideo is null ? "Review latest batch" : "View request")" title="@(ActiveVideo is null ? "Review latest batch" : "View request")">Review</MudButton> }
                 </div>
             </div>
             @if (_error is not null) { <p role="alert" class="field-error">@_error</p><button @onclick="EditCurrentRecipe">Review prompt</button> }
@@ -175,9 +175,8 @@
     </StudioPane>;
 }
 
-<InlineDialog Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="SetupOptions" Class="shot-setup-dialog reel-setup-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="@(_setupTab == "Prompt" ? "Reel prompt" : "Reel preset")" Context="@Owner.Name" CloseLabel="@(_setupTab == "Prompt" ? "Close reel prompt" : "Close reel preset")" CloseDisabled="@(_busy || _closingSetupDialog)">
+<InlineDialog OnEscape="CloseSetupDialog" Visible="_setupDialogOpen" VisibleChanged="SetupDialogVisibility" Options="DialogSizes.Large" Class="shot-setup-dialog reel-setup-dialog" DefaultFocus="DefaultFocus.FirstChild" Title="@(_setupTab == "Prompt" ? "Reel prompt" : "Reel preset")" Context="@Owner.Name" CloseLabel="@(_setupTab == "Prompt" ? "Close reel prompt" : "Close reel preset")" CloseDisabled="@(_busy || _closingSetupDialog)">
     <DialogContent>
-        <DialogEscape Pressed="CloseSetupDialog" />
         @if (_draft is not null) {
             <section id="reel-setup-prompt-panel" hidden="@(_setupTab != "Prompt")">
                 <fieldset class="reel-form" disabled="@_busy">
@@ -224,12 +223,12 @@
                             @if (ReferenceReels.ShowKeyframeHint(_draft)) { <p class="field-hint reel-keyframe-hint">@ReferenceReels.LongReelKeyframeHint</p> }
                             <div class="reel-coverage-resources">
                             <details class="reel-camera-timeline"><summary>Camera timing</summary><p class="field-hint reel-framing-plan">@FramingPlan</p></details>
-                            @if (EnvironmentReel) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide ↗</a> }
+                            @if (EnvironmentReel) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide<MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" aria-hidden="true" /></a> }
                             </div>
                         } else if (ReferenceReels.IsCharacterCapture(_draft)) {
                             <details class="reel-camera-timeline"><summary>Capture timing</summary><p class="field-hint reel-framing-plan">@FramingPlan</p></details>
                         } else { <p class="field-hint reel-framing-plan" role="status">@FramingPlan</p> }
-                        @if (EnvironmentReel && ReferenceReels.CameraPreset(_draft) is null) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide ↗</a> }
+                        @if (EnvironmentReel && ReferenceReels.CameraPreset(_draft) is null) { <a class="reel-coverage-guide-link" href="help/environment-reels" target="_blank" rel="noopener">Illustrated guide<MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" aria-hidden="true" /></a> }
                         @if (ReusableDirections.Any()) {
                             <details class="reel-reuse-directions"><summary>Reuse directions from a reel</summary>
                                 <label>Saved reel<select aria-label="Saved reel" @bind="_directionSourceId" @bind:after="() => _directionsNotice = null" disabled="@_busy"><option value="">Choose a reel…</option>@foreach (var saved in ReusableDirections) { <option value="@saved.Id">@DirectionSourceLabel(saved)</option> }</select></label>
@@ -317,18 +316,19 @@
             @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }
         }
     </DialogContent>
-    <DialogActions><span role="status">@SaveStatus</span><MudButton OnClick="CloseSetupDialog" Disabled="@(_busy || _closingSetupDialog)" Variant="Variant.Outlined">Done</MudButton></DialogActions>
+    <Status><span role="status">@SaveStatus</span></Status>
+    <Actions><DialogDismiss Label="Done" OnDismiss="CloseSetupDialog" Disabled="@(_busy || _closingSetupDialog)" /></Actions>
 </InlineDialog>
 
-<InlineDialog Visible="_previewReferenceVideo is not null" VisibleChanged="v => { if (!v) _previewReferenceVideo = null; }" Options="EditorOptions" Title="@(_previewReferenceVideo?.Name ?? "Reference video")" Context="Reference video" CloseLabel="Close video preview">
+<InlineDialog Visible="_previewReferenceVideo is not null" VisibleChanged="v => { if (!v) _previewReferenceVideo = null; }" Options="DialogSizes.Medium" Title="@(_previewReferenceVideo?.Name ?? "Reference video")" Context="Reference video" CloseLabel="Close video preview">
     <DialogContent>@if (_previewReferenceVideo is { } video) {
-        <video controls preload="metadata" style="width:100%;max-height:65vh" src="@ReferenceVideos.Url(ProjectId, video.Media.Id)" aria-label="Reference video playback"></video>
+        <video class="reel-reference-preview" controls preload="metadata" src="@ReferenceVideos.Url(ProjectId, video.Media.Id)" aria-label="Reference video playback"></video>
         <p>@video.Description</p>
     }</DialogContent>
-    <DialogActions><MudButton OnClick="() => _previewReferenceVideo = null">Close</MudButton></DialogActions>
+    <Actions><DialogDismiss OnDismiss="() => _previewReferenceVideo = null" /></Actions>
 </InlineDialog>
 
-<InlineDialog Visible="_videoRequest is not null" VisibleChanged="v => { if (!v) _videoRequest = null; }" Options="EditorOptions" Title="Reference reel request" CloseLabel="Close reference reel request"><DialogContent>
+<InlineDialog Visible="_videoRequest is not null" VisibleChanged="v => { if (!v) _videoRequest = null; }" Options="DialogSizes.Medium" Title="Reference reel request" Context="@Owner.Name" CloseLabel="Close reference reel request"><DialogContent>
     @if (_videoJob is { } videoJob && _videoRequest is { } videoRequest) {
         <AiJobProgressView Job="videoJob" Queue="Jobs.View" Progress="Jobs.Progress(videoJob.Id)" />
         <p>@videoJob.State · @videoJob.Error</p>
@@ -336,11 +336,13 @@
         <details><summary>Request details</summary><p>H3 · @videoRequest.Snapshot.Settings.Model · @videoRequest.Snapshot.FrameCount frames</p><pre class="submitted-input">@videoRequest.Snapshot.Prompt</pre><details><summary>Captured inputs and settings</summary><pre class="submitted-input">@System.Text.Json.JsonSerializer.Serialize(videoRequest, AtomicJsonFile.Options)</pre></details><h3>Captured use guidance</h3><pre class="submitted-input">@videoRequest.Snapshot.Reel?.Recipe.UseGuidance</pre></details>
         @foreach (var reel in Library.Reels.Where(r => r.Generation?.BatchId == videoRequest.BatchId)) { <video class="reel-detail-player" controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, reel.Media.Id)" src="@ReferenceVideos.Url(ProjectId, reel.Media.Id)" aria-label="Play @reel.Name"></video> }
     }
-    </DialogContent><DialogActions><MudButton OnClick="() => _videoRequest = null">Close</MudButton>@if (_videoJob is { LocksTarget: true } working) { <MudButton OnClick="() => Run(() => Jobs.CancelAsync(working.Id))">Cancel</MudButton> }@if (_videoJob is { State: AiJobState.NeedsAttention } failed) { <MudButton OnClick="() => Run(() => Jobs.ResumeAsync(failed.Id))">Retry captured request</MudButton> }</DialogActions></InlineDialog>
+    </DialogContent>
+    <Tools>@if (_videoJob is { LocksTarget: true } working) { <MudButton OnClick="() => Run(() => Jobs.CancelAsync(working.Id))">Cancel request</MudButton> }@if (_videoJob is { State: AiJobState.NeedsAttention } failed) { <MudButton OnClick="() => Run(() => Jobs.ResumeAsync(failed.Id))" Variant="Variant.Outlined">Retry captured request</MudButton> }</Tools>
+    <Actions><DialogDismiss OnDismiss="() => _videoRequest = null" /></Actions></InlineDialog>
 
-<InlineDialog Visible="_picturesOpen" VisibleChanged="v => _picturesOpen = v" Options="WideOptions" Class="reel-pictures-dialog" Title="Reel references" CloseLabel="Close reel references"><DialogContent>@if (_pictureDraft is not null) { <ShotReferenceEditor @key="_pictureDraft" Shot="_pictureDraft" Library="Library" Expanded="_pictureExpanded" AllowInference="true" AllowReels="true" ReelAuthoring="true" SaveImage="SaveFrameImage" RestoreTrashedImage="RestoreTrashedImage" Applied="ApplyPictures" Cancelled="() => _picturesOpen = false" /> }</DialogContent></InlineDialog>
+<InlineDialog Visible="_picturesOpen" VisibleChanged="v => _picturesOpen = v" Options="DialogSizes.Media" Class="reel-pictures-dialog" Title="Reel references" Context="@(_draft?.Name is { Length: > 0 } reelName ? reelName : Owner.Name)" CloseLabel="Close reel references"><DialogContent>@if (_pictureDraft is not null) { <ShotReferenceEditor @key="_pictureDraft" Shot="_pictureDraft" Library="Library" Expanded="_pictureExpanded" AllowInference="true" AllowReels="true" ReelAuthoring="true" SaveImage="SaveFrameImage" RestoreTrashedImage="RestoreTrashedImage" Applied="ApplyPictures" Cancelled="() => _picturesOpen = false" /> }</DialogContent></InlineDialog>
 
-<InlineDialog Visible="_reviewOpen" VisibleChanged="ReviewVisibility" Options="WideOptions" Class="reel-review-dialog" Title="Review reel changes" Context="@_draft?.Name" CloseLabel="Close review reel changes" CloseDisabled="_busy">
+<InlineDialog Visible="_reviewOpen" VisibleChanged="ReviewVisibility" Options="DialogSizes.Media" Class="reel-review-dialog" Title="Review reel changes" Context="@_draft?.Name" CloseLabel="Close review reel changes" CloseDisabled="_busy">
     <Summary>Review the response. Apply it as written, or edit a copy before using it.</Summary>
     <DialogContent>
     <AiResultAcknowledgement Observed="@(_reviewJob is { } observed ? new[] { observed } : [])" />
@@ -363,19 +365,19 @@
         @if (_raw.Length > 0) { <details><summary>Raw response</summary><pre class="submitted-input">@_raw</pre></details> }
     </div>
     </DialogContent>
-    <DialogActions>
-        @if (_pairChanged is not null && _reviewError is null) { <AssistedApplyWarning Changed="_pairChanged" Retry="request a fresh pair with Assist" /> }
-        <MudButton OnClick="() => _reviewOpen = false" Disabled="_busy">Close</MudButton>
+    <Status>@if (_pairChanged is not null && _reviewError is null) { <AssistedApplyWarning Changed="_pairChanged" Retry="request a fresh pair with Assist" /> }</Status>
+    <Tools>
         @if (_reviewJob is { } running && TextRequestPresentation.IsActive(running)) {
             @if (!running.CancelRequested) { <MudButton OnClick="CancelComposition" Disabled="_busy">Cancel request</MudButton> }
         } else { <MudButton OnClick="NewPairFromReview" Disabled="_busy">New request</MudButton> }
         @if (ReviewPair is not null) { <MudButton OnClick="EditResponse" Disabled="_busy" Variant="Variant.Outlined">Edit response</MudButton> }
         else if (_reviewError is not null) { <MudButton OnClick="EditCurrentRecipe">Edit current recipe</MudButton> }
-        @if (_pair is not null) {
-            <MudButton OnClick="DiscardPair" Disabled="_busy">Discard</MudButton>
-            <MudButton OnClick="ApplyPair" Disabled="_busy" Color="Color.Primary" Variant="Variant.Filled">@(_pairChanged is not null || _reviewWarning is not null ? AssistedApplyWarning.ApplyAnyway : "Apply changes")</MudButton>
-        }
-    </DialogActions>
+        @if (_pair is not null) { <MudButton OnClick="DiscardPair" Disabled="_busy">Discard</MudButton> }
+    </Tools>
+    <Actions>
+        <DialogDismiss OnDismiss="() => _reviewOpen = false" Disabled="_busy" />
+        @if (_pair is not null) { <MudButton OnClick="ApplyPair" Disabled="_busy" Color="Color.Primary" Variant="Variant.Filled">@(_pairChanged is not null || _reviewWarning is not null ? AssistedApplyWarning.ApplyAnyway : "Apply changes")</MudButton> }
+    </Actions>
 </InlineDialog>
 
 @if (Embedded) {
@@ -384,7 +386,7 @@
         <video class="reel-detail-player" controls preload="metadata" poster="@ReferenceVideos.ThumbnailUrl(ProjectId, selected.Media.Id)" src="@ReferenceVideos.Url(ProjectId, selected.Media.Id)"></video>
         <ReelKeyframeStatus Keyframes="selected.Keyframes" Explain="true" Disabled="_busy" Open="() => ManageKeyframes(selected)" />
         <p class="field-hint">Create similar loads the saved recipe into Create for you to review and adjust.</p>
-        <MudButton OnClick="() => EditReel(selected)">Edit details</MudButton>
+        <MudButton OnClick="() => EditReel(selected)">Edit details…</MudButton>
         @if (selected.Generation is null) { <p class="field-hint">This imported clip has no generation recipe.</p> }
     }
     @if (_error is not null) { <p role="alert">@_error</p> }
@@ -396,9 +398,8 @@
     }
 </Footer></StudioPane></SectionContent>
 }
-<InlineDialog Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DetailOptions" Class="media-details-dialog reel-details-dialog" DefaultFocus="_detailsFocus">
-<TitleContent><DialogHeader Title="Reel details" CloseLabel="Close reel details" CloseDisabled="_busy" Close="CloseDetails" /></TitleContent><DialogContent>
-    <DialogEscape Pressed="() => { CloseDetails(); return Task.CompletedTask; }" />
+<InlineDialog OnEscape="() => { CloseDetails(); return Task.CompletedTask; }" Visible="_details is not null" VisibleChanged="v => { if (!v) CloseDetails(); }" Options="DialogSizes.Large" Class="media-details-dialog reel-details-dialog" DefaultFocus="_detailsFocus">
+<TitleContent><DialogHeader Title="Reel details" Context="@Owner.Name" CloseLabel="Close reel details" CloseDisabled="_busy" Close="CloseDetails" /></TitleContent><DialogContent>
     <MediaDetailsFocus NameId="@(_renameDetails ? _details?.Id : null)" Handled="() => _renameDetails = false" />
     @ReelDetailFields
 </DialogContent><DialogActions>
@@ -418,9 +419,7 @@
         @if (!CameraReel && detail.Media.HasAudio && SaveVoiceRequested.HasDelegate) { <MudButton OnClick="() => SaveVoiceRequested.InvokeAsync(detail)" Disabled="_busy">Save voice…</MudButton> }
     }
     </Tools><ChildContent>
-    @if (_confirmDetailsClose) {
-        <MudButton OnClick="ClearDetails" Disabled="_busy">Discard changes</MudButton><MudButton OnClick="() => _confirmDetailsClose = false" Disabled="_busy">Keep editing</MudButton>
-    } else { <MudButton OnClick="CloseDetails" Disabled="_busy" Variant="Variant.Outlined">Close</MudButton> }
+    <DialogDismiss Confirming="_confirmDetailsClose" OnDismiss="CloseDetails" OnDiscard="ClearDetails" OnKeepEditing="() => _confirmDetailsClose = false" Disabled="_busy" />
     <MudButton OnClick="SaveDetails" Disabled="@(_busy || !DetailsDirty || string.IsNullOrWhiteSpace(_detailName))" Variant="Variant.Filled" Color="Color.Primary">@(_busy ? "Saving…" : "Save details")</MudButton>
     </ChildContent></MediaDetailsActions>
 </DialogActions></InlineDialog>
@@ -468,14 +467,14 @@
     @if (_error is not null) { <p role="alert">@_error</p> }
 }</div>; }
 
-<InlineDialog Visible="_importOpen" VisibleChanged="v => { if (!_busy) _importOpen = v; }" Options="EditorOptions" Title="Import reference reel" CloseLabel="Close import reference reel" CloseDisabled="_busy"><DialogContent>
+<InlineDialog Visible="_importOpen" VisibleChanged="v => { if (!_busy) _importOpen = v; }" Options="DialogSizes.Medium" Title="Import reference reel" Context="@Owner.Name" CloseLabel="Close import reference reel" CloseDisabled="_busy"><DialogContent>
     <label>Import MP4<InputFile OnChange="Import" accept=".mp4,video/mp4" disabled="@_busy" /></label><label>Existing take<select @bind="_takeId"><option value="">Choose a take…</option>@foreach (var take in _takes) { <option value="@take.Id">@take.Snapshot.Shot.Title · @take.CreatedUtc.ToLocalTime().ToString("g")</option> }</select></label><button disabled="@(_busy || _takeId.Length == 0)" @onclick="CopyTake">Copy selected take</button>
-    @if (_imported is { } imported) { <video class="reel-detail-player reel-import-preview" width="@imported.Width" height="@imported.Height" style="aspect-ratio:@imported.Width / @imported.Height" controls poster="@ReferenceVideos.ThumbnailUrl(ProjectId, imported.Id)" src="@ReferenceVideos.Url(ProjectId, imported.Id)"></video><label>Reel name<input @bind="_importName" /></label><label>Use guidance<textarea rows="4" @bind="_importGuidance"></textarea></label> }
+    @if (_imported is { } imported) { <video class="reel-detail-player reel-import-preview" width="@imported.Width" height="@imported.Height" controls poster="@ReferenceVideos.ThumbnailUrl(ProjectId, imported.Id)" src="@ReferenceVideos.Url(ProjectId, imported.Id)"></video><label>Reel name<input @bind="_importName" /></label><label>Use guidance<textarea rows="4" @bind="_importGuidance"></textarea></label> }
     @if (_error is not null) { <p role="alert">@_error</p> }
-    </DialogContent><DialogActions><MudButton OnClick="() => _importOpen = false" Disabled="@_busy">Close</MudButton><MudButton OnClick="SaveImport" Disabled="@(_busy || _imported is null)" Variant="Variant.Filled" Color="Color.Primary">Save reel</MudButton></DialogActions></InlineDialog>
+    </DialogContent><DialogActions><DialogFooter><DialogDismiss Label="Cancel" OnDismiss="() => _importOpen = false" Disabled="_busy" /><MudButton OnClick="SaveImport" Disabled="@(_busy || _imported is null)" Variant="Variant.Filled" Color="Color.Primary">Save reel</MudButton></DialogFooter></DialogActions></InlineDialog>
 
-<InlineDialog Visible="_keyframeReel is not null" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@_keyframeReel?.Name"><DialogContent>
-@if (_keyframeReel is { } frameReel) { <ReelKeyframeEditor @key="frameReel.Id" ProjectId="ProjectId" Media="frameReel.Media" Initial="frameReel.Keyframes" RequestedJobId="RequestedJobId" SaveImage="SaveFrameImage" Applied="SaveKeyframes" Cancelled="() => _keyframeReel = null" /> }
+<InlineDialog Visible="_keyframeReel is not null" VisibleChanged="v => v ? Task.CompletedTask : CancelKeyframes()" Options="DialogSizes.Media" CloseOnEscape="false" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@_keyframeReel?.Name" CloseLabel="Close manage keyframes"><DialogContent>
+@if (_keyframeReel is { } frameReel) { <ReelKeyframeEditor @ref="_keyframeEditor" @key="frameReel.Id" ProjectId="ProjectId" Media="frameReel.Media" Initial="frameReel.Keyframes" RequestedJobId="RequestedJobId" SaveImage="SaveFrameImage" Applied="SaveKeyframes" Cancelled="() => _keyframeReel = null" /> }
 </DialogContent></InlineDialog>
 
 <ReelReplacementDialog ProjectId="ProjectId" Reel="_replaceReel" Library="Library" Closed="() => _replaceReel = null" />

@@ -31,7 +31,7 @@ test('take tools toggle, switch, and close around one shared player', async ({ p
     await expect(panel).toBeHidden();
     await expect(button).toHaveAttribute('aria-expanded', 'false');
     await button.click();
-    await panel.getByRole('button', { name: 'Close panel', exact: true }).click();
+    await panel.getByRole('button', { name: `Close ${name.toLowerCase()}`, exact: true }).click();
     await expect(panel).toBeHidden();
     await expect(button).toBeFocused();
   }
@@ -88,7 +88,7 @@ test('take tools toggle, switch, and close around one shared player', async ({ p
 
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await review.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  await panel.getByRole('button', { name: 'Close panel', exact: true }).click();
+  await panel.getByRole('button', { name: 'Close save frame', exact: true }).click();
   await expect(panel).toBeHidden();
   await expect(tools.getByRole('button', { name: 'Save frame', exact: true })).toBeFocused();
 });

@@ -40,7 +40,7 @@ public sealed class AiSettingsNavigationTests : BunitContext
     {
         var page = Open();
         Assert.Equal(new[] { "Connections", "Text models", "Image models", "Video models", "LoRAs" },
-            page.FindAll(".ai-settings-tabs button").Select(b => b.TextContent));
+            page.FindAll(".ai-settings-sections button").Select(b => b.TextContent));
         Assert.Equal("true", page.Find("#ai-tab-connections").GetAttribute("aria-selected"));
         Assert.Equal("true", page.Find("#ai-provider-comfyui").GetAttribute("aria-selected"));
         Assert.Empty(page.FindAll("#openrouter-key, #codex-executable"));
@@ -115,7 +115,7 @@ public sealed class AiSettingsNavigationTests : BunitContext
         Assert.Equal("text", query["tab"]); Assert.False(query.ContainsKey("provider"));
         Assert.Equal("true", page.Find("#ai-text-provider-claudecode").GetAttribute("aria-selected"));
         Assert.Equal(origin, query["returnUrl"]);
-        Assert.Equal(origin, page.Find(".writing-back").GetAttribute("href"));
+        Assert.Equal(origin, page.Find(".page-back").GetAttribute("href"));
         Navigation.NavigateTo("/settings/ai?tab=connections&provider=openrouter");
         Assert.Equal("true", page.Find("#ai-provider-openrouter").GetAttribute("aria-selected"));
         page.Find("#ai-provider-openrouter").KeyDown("Home");

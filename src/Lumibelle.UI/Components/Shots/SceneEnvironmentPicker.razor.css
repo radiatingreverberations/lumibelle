@@ -2,5 +2,5 @@
 .inspection-toolbar { display: flex; gap: .75rem; flex-wrap: wrap; align-items: baseline; margin-block: .75rem; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .inspection-constraints { display: grid; gap: .35rem; margin-block: .75rem; font-weight: 600; }
-.inspection-constraints textarea { width: 100%; box-sizing: border-box; min-height: 4.5rem; padding: .65rem; border: 1px solid var(--mud-palette-lines-inputs); border-radius: .45rem; background: var(--mud-palette-surface); color: var(--mud-palette-text-primary); font: inherit; font-weight: 400; resize: vertical; }
+.inspection-constraints textarea { width: 100%; box-sizing: border-box; min-height: 4.5rem; padding: .65rem; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); font: inherit; font-weight: 400; resize: vertical; }
 .inspection-reel-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }

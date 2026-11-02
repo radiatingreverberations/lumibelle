@@ -7,19 +7,16 @@
 .cut-transport output { margin-right:auto; font-size:var(--lumi-font-size-meta); font-variant-numeric:tabular-nums; }
 .cut-transport label { display:flex; align-items:center; gap:6px; font-size:var(--lumi-font-size-small); }
 .cut-transport label input { width:65px; }
-.cut-player button { border: 1px solid var(--line); border-radius: var(--lumi-radius-small); background: var(--lumi-surface); color: var(--plum); padding:5px 9px; cursor:pointer; font-size:var(--lumi-font-size-meta); }
-.cut-player button:disabled { opacity:.5; cursor:default; }
-.cut-player button:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
 .cut-player-messages { min-height:18px; font-size:var(--lumi-font-size-small); color: var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
-.cut-player [data-error] { color: var(--lumi-accent); }
+.cut-player [data-error] { color: var(--lumi-danger); }
 .cut-player:fullscreen { padding:16px; background: var(--lumi-media-stage); color: var(--lumi-media-text); display:flex; flex-direction:column; overflow:auto; }
 .cut-player:fullscreen .cut-player-stage { flex:1; min-height:150px; height:auto; }
 @media(max-width:759px) { .cut-player-stage { height:clamp(150px, 30dvh, 340px); } .cut-transport { gap:5px; } .cut-transport label { display:none; } }
 
 .cut-player-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; width: 100%; height: 100%; text-align: center; color: var(--lumi-text-muted); background: var(--lumi-surface-subtle); }
-.cut-player-empty h2 { font-size: 22px; margin-bottom: 8px; }
+.cut-player-empty h2 { font-size: var(--lumi-font-size-subheading); margin: 0 0 8px; color: var(--lumi-text); }
 .cut-player-empty p { max-width: 380px; font-size: var(--lumi-font-size-ui); }
-.cut-player-empty button { margin-top: 16px; background: var(--lumi-accent); border: 0; border-radius: var(--lumi-radius-control); color: var(--lumi-on-accent); padding: 10px 18px; }
+.cut-player-empty button { margin-top: 16px; }
 
 .cut-frame-tools { margin:0 0 8px; padding:8px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface); color:var(--ink); }
 .cut-frame-tools[hidden], .cut-frame-tools [hidden] { display:none; }

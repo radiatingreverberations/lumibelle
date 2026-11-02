@@ -3,7 +3,6 @@ using lumibelle.Services.Assets;
 using lumibelle.Services.AI;
 using lumibelle.Services.Story;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using MudBlazor;
 
 namespace lumibelle.Components.Pages;
@@ -38,10 +37,9 @@ public partial class AiSettingsPage
     private Task<bool> SaveVideoSettingsAsync(H3Settings video) => SaveChangeAsync(settings => settings with { H3 = ShotCopy.Of(video) }, "Video settings saved.");
     private string ReturnUrl => AiSettingsNavigation.Return(RequestedReturnUrl, ProjectId, ReturnTo).Url;
     private string ReturnLabel => AiSettingsNavigation.Return(RequestedReturnUrl, ProjectId, ReturnTo).Label;
-    private static readonly (string Key, string Label)[] Tabs =
-        [("connections", "Connections"), ("text", "Text models"), ("images", "Image models"),
-         ("video", "Video models"), ("loras", "LoRAs")];
-    private readonly ElementReference[] _tabElements = new ElementReference[Tabs.Length];
+    private static readonly StudioTab[] Tabs =
+        [new("connections", "Connections"), new("text", "Text models"), new("images", "Image models"),
+         new("video", "Video models"), new("loras", "LoRAs")];
     private readonly HashSet<string> _visitedProviders = [];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly CancellationToken _token;
@@ -142,12 +140,6 @@ public partial class AiSettingsPage
     private bool Busy => _saving || _checking || _dialogOpen;
     private void ResetPage() => _page = 0;
     private void FilterStars(bool value) { _starredOnly = value; ResetPage(); }
-    private async Task TabKeyAsync(KeyboardEventArgs args, int index)
-    {
-        var next = args.Key switch { "ArrowRight" => (index + 1) % Tabs.Length, "ArrowLeft" => (index + Tabs.Length - 1) % Tabs.Length, "Home" => 0, "End" => Tabs.Length - 1, _ => index };
-        if (next == index) return;
-        SelectTab(Tabs[next].Key); await _tabElements[next].FocusAsync();
-    }
     // The URL carries only the page and its tab. A provider in an incoming link opens
     // that pane once; later selections stay in page state and are not written back.
     private bool _parametersApplied;
@@ -156,7 +148,7 @@ public partial class AiSettingsPage
     {
         if (!_parametersApplied || InitialTab != _appliedTab)
         {
-            _tab = Tabs.Any(t => t.Key == InitialTab) ? InitialTab! : string.IsNullOrEmpty(InitialTab) && RequestedJobId.HasValue ? "text" : "connections";
+            _tab = Tabs.Any(t => t.Id == InitialTab) ? InitialTab! : string.IsNullOrEmpty(InitialTab) && RequestedJobId.HasValue ? "text" : "connections";
             // Advanced held the timeouts, which now live with their tabs; old links open Text defaults.
             if (InitialTab == "advanced") { _tab = "text"; _connectionProvider = AiProviderSidebar.DefaultsKey; }
         }
@@ -307,7 +299,7 @@ public partial class AiSettingsPage
                 [nameof(ComfyModelDialog.VerificationSaved)] = EventCallback.Factory.Create<ComfyTextModelVerification>(this, ReloadVerificationAsync),
                 [nameof(ComfyModelDialog.OpenRouterTestSaved)] = EventCallback.Factory.Create<TextModelBenchmark>(this, ReloadOpenRouterTestAsync),
                 [nameof(ComfyModelDialog.VllmTestSaved)] = EventCallback.Factory.Create<VllmTextModelBenchmark>(this, ReloadVllmTestAsync)
-            }, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true });
+            }, DialogSizes.Medium);
             await dialog.Result;
         }
         finally

@@ -23,7 +23,7 @@ export async function toolsTab(page, name) {
   if (name === 'Generate') { await openShotSetup(page, 'Generation settings'); return; }
   if (name === 'References') { await closeShotSetup(page); await showTools(page, 'Shots'); return; }
   if (name === 'Assistant') { await scriptAssist(page); return; }
-  if (name === 'Requests') { await scriptAssist(page); await page.getByRole('button', { name: 'Requests', exact: true }).click(); return; }
+  if (name === 'Requests') { await scriptAssist(page); await page.getByRole('button', { name: 'Requests…', exact: true }).click(); return; }
   const studio = ['References', 'Generate'].includes(name) ? 'Shots' : ['Assistant', 'Requests'].includes(name) ? 'Script' : 'Assets';
   const root = await showTools(page, studio);
   if (studio === 'Assets') return;
@@ -70,14 +70,14 @@ export async function shotAction(page, name) {
 }
 
 export async function addImageReference(page, key) {
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const picker = page.locator('.image-input-manager-dialog');
   await picker.locator(`[data-reference="${key}"]`).click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
 }
 export async function editShotReference(page, row = page.locator('.compact-reference').first()) {
   const id = await row.getAttribute('data-reference-id');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const editor = page.locator('.manual-reference-dialog');
   const expand = editor.locator(`[data-reference-id="${id}"] .reference-settings-button`);
   await expect(expand).toBeAttached();
@@ -89,7 +89,7 @@ export async function assetView(page, name) {
   const details = page.locator('.asset-details-dialog');
   if (await details.isVisible()) {
     if (name === 'Asset details') return;
-    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await details.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(details).not.toBeVisible();
   }
   const root = page.locator('.studio-workspace[data-studio=Assets]');
@@ -162,7 +162,7 @@ export async function cropReference(page, manager, index = 0, zoom = 2, x = 50, 
 }
 
 export async function cropImageInput(page, index, zoom, x, y) {
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const manager = page.locator('.image-input-manager-dialog');
   const selected = manager.getByRole('tab', { name: /^Selected references/ });
   if (await selected.isVisible()) await selected.click();

@@ -50,6 +50,7 @@ public partial class ContentProbePage
     private bool _editorReadOnly => _editing is not null && ContentProbeBuiltIns.IsBuiltIn(_editing.Id);
     private string EditorPrompt => _editPrompt + (_editMarker ? "\n\n" + ContentProbePolicy.RefusalInstruction : "");
     private bool SelectionLocked => _busy || _plan is not null;
+    private string? DeleteProbeName => Definitions.FirstOrDefault(p => p.Id == _deleteProbe)?.Name;
     private IReadOnlyList<ContentProbe> Definitions => _library is null ? [] : ContentProbeBuiltIns.All(_library);
     private IEnumerable<TextModelReference> ModelChoices => _settings is null ? [] : _settings.TextModelProfiles
         .Concat(_settings.StarredTextModels).Append(TextModelPolicy.Default(_settings))

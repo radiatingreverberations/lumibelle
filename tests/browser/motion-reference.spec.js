@@ -30,7 +30,7 @@ for (const narrow of [false, true]) test(`editable silent motion reference (${na
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await card.getByRole('button', { name: 'Refine from video…', exact: true }).click();
   await dialog.getByLabel('Motion-reference instructions', { exact: true }).fill('Keep the action order and camera. Generate clean new dialogue.');
-  await dialog.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Manage references…', exact: true }).click();
   const references = page.getByRole('dialog', { name: 'Manage references', exact: true });
   if (narrow) await references.getByRole('tab', { name: 'Selected references (1)', exact: true }).click();
   await references.getByRole('button', { name: 'Video 1: Reference settings', exact: true }).click();

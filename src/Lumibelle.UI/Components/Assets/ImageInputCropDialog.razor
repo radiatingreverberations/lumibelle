@@ -1,15 +1,19 @@
-<MudDialog @ref="_dialog" Visible="_visible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="image-input-crop-dialog">
-    <TitleContent><DialogHeader Title="@($"Crop {Label}")" CloseLabel="Cancel crop" Close="Cancel" /></TitleContent>
+@* One opening per crop, closed through its own reference, so it stays a MudDialog. Escape follows Cancel. *@
+<MudDialog @ref="_dialog" Visible="_visible" Options="Options" Class="image-input-crop-dialog">
+    <TitleContent><DialogHeader Title="Crop image" Context="@Label" CloseLabel="Close crop image" Close="Cancel" /></TitleContent>
     <DialogContent>
         <DialogEscape Pressed="Cancel" />
         <ImageCropEditor Url="@Url" Width="Width" Height="Height" InitialCrop="InitialCrop" CropChanged="crop => _draft = crop" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Apply">Apply crop</MudButton>
+        <DialogFooter>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Apply">Apply crop</MudButton>
+        </DialogFooter>
     </DialogActions>
 </MudDialog>
 @code {
+    private static readonly DialogOptions Options = DialogSizes.Medium with { CloseOnEscapeKey = false };
     [Parameter] public string Label { get; set; } = "image";
     [Parameter] public string Url { get; set; } = "";
     [Parameter] public int Width { get; set; }

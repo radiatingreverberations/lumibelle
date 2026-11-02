@@ -11,7 +11,7 @@ async function setup(page, request) {
   return { id, shots };
 }
 async function add(page, shots, second = true) {
-  await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes', exact: true }).click();
+  await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes…', exact: true }).click();
   const dialog = page.locator('.cut-chooser');
   if (!second) {
     await dialog.getByLabel('Action for Arrival', { exact:true }).selectOption('00000000-0000-0000-0000-000000000000');
@@ -69,7 +69,7 @@ test('timeline assembly, precision trims, one undo per drag, cancellation, repla
   await page.getByRole('button',{name:'Move later',exact:true}).focus(); await page.keyboard.press('Enter');
   await expect.poll(async()=> (await state(request,id)).clips[2]?.takeId).toBe(shots.takes[0].id);
   await page.getByRole('button',{name:'Remove clip',exact:true}).click();
-  await expect(page.locator('.cut-workspace-toolbar').getByRole('button',{name:'Choose takes',exact:true})).toBeFocused();
+  await expect(page.locator('.cut-workspace-toolbar').getByRole('button',{name:'Choose takes…',exact:true})).toBeFocused();
   await expect(page.locator('.timeline-clip')).toHaveCount(2);
   await page.getByRole('button',{name:'Undo',exact:true}).click();
   await expect.poll(async()=> (await state(request,id)).clips.length).toBe(3);
@@ -256,7 +256,7 @@ test('touch trim handles work on mobile and cancellation retains the range',asyn
 
 test('choose takes inserts earlier shots and swaps exact clips without moving existing edits',async({page,request})=>{
   const {id,shots}=await setup(page,request),dialog=page.locator('.cut-chooser');
-  const open=async()=>page.locator('.cut-workspace-toolbar').getByRole('button',{name:'Choose takes',exact:true}).click();
+  const open=async()=>page.locator('.cut-workspace-toolbar').getByRole('button',{name:'Choose takes…',exact:true}).click();
   const apply=async()=>{await dialog.getByRole('button',{name:/Apply changes/}).click();await expect(dialog).not.toBeVisible();};
   await open();await dialog.getByLabel('Take for Arrival',{exact:true}).selectOption('');
   await dialog.getByLabel('Take for '+shots.shots[1].title,{exact:true}).selectOption(shots.takes[2].id);await apply();

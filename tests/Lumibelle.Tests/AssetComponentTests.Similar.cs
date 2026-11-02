@@ -70,7 +70,7 @@ public sealed partial class AssetComponentTests
         await page.InvokeAsync(() => importedCard.QuerySelector(".reference-image-menu button")!.ClickAsync(new()));
 
         await ImageActionAsync(page, "Create similar", generated.Id);
-        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent));
+        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find(".asset-tool-shell .pane-title").TextContent));
         Assert.Equal(recipe.Prompt, page.Find("#image-prompt").GetAttribute("value"));
         Assert.Equal("77", page.Find("#fixed-seed").GetAttribute("value"));
         Assert.Equal(0, _generator.Calls);
@@ -89,7 +89,7 @@ public sealed partial class AssetComponentTests
         await ClickReview("Create similar");
         _dialogs.WaitForElement(".review-dirty-prompt");
         await ClickReview("Save and continue");
-        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent));
+        page.WaitForAssertion(() => Assert.Contains("Create image", page.Find(".asset-tool-shell .pane-title").TextContent));
         Assert.Empty(_dialogs.FindAll(".review-metadata-editor"));
         Assert.Equal("Noxian alley", _assets.Library.Assets[0].Images[0].Name);
         Assert.Equal(recipe.Prompt, page.Find("#image-prompt").GetAttribute("value"));
@@ -106,7 +106,7 @@ public sealed partial class AssetComponentTests
         var page = Page(); page.WaitForElement(".media-select");
         await page.Find(".media-select").ClickAsync(new()); page.Find("#image-prompt").Input("Separate edit instruction");
         await page.Find(".create-similar").ClickAsync(new());
-        Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Contains("Create image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Empty(page.FindAll(".media-select[aria-pressed='true']"));
         Assert.Equal(recipe.Prompt, page.Find("#image-prompt").GetAttribute("value"));
         Assert.Equal("4711", page.Find("#fixed-seed").GetAttribute("value"));
@@ -136,7 +136,7 @@ public sealed partial class AssetComponentTests
         var page = Page(); page.WaitForElement(".media-select");
         await page.Find(".media-select").ClickAsync(new());
         await page.Find(".create-similar").ClickAsync(new());
-        Assert.Contains("Create image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Contains("Create image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Equal("Blue coat", page.Find("#image-prompt").GetAttribute("value"));
         Assert.Contains("Original owner", page.Find(".compact-image-input").TextContent);
         Assert.Equal(0, _editor.Calls);

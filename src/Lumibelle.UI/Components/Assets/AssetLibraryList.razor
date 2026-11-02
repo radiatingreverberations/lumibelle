@@ -5,7 +5,7 @@
     var kept = asset.Images.Where(i => i.PendingReview != true).ToArray();
     var cover = kept.FirstOrDefault(i => i.IsCover) ?? kept.FirstOrDefault();
     <div class="asset-list-row @(asset.Id == SelectedId ? "selected" : "")" @key="asset.Id" data-asset-id="@asset.Id">
-        <button class="asset-drag" data-asset-drag disabled="@(Disabled || !_orderReady)" aria-label="Move @asset.Name" title="Drag to reorder; click for Move to…" @onclick="() => MoveRequested.InvokeAsync(asset.Id)">⠿</button>
+        <button class="asset-drag" data-asset-drag disabled="@(Disabled || !_orderReady)" aria-label="Move @asset.Name" title="Drag to reorder; click for Move to…" @onclick="() => MoveRequested.InvokeAsync(asset.Id)"><MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" /></button>
         <button class="asset-choice" aria-pressed="@(asset.Id == SelectedId ? "true" : "false")" @onclick="() => Selected.InvokeAsync(asset.Id)">
             @if (cover is not null) { <img src="@($"/media/projects/{ProjectId}/assets/{asset.Id}/images/{cover.Id}")" alt="" loading="lazy" /> }
             else { <span class="asset-choice-placeholder" aria-hidden="true">◇</span> }
@@ -14,7 +14,7 @@
         <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {asset.Name}")" Size="Size.Small" Dense="true">
             <MudMenuItem role="menuitem" OnClick="() => Rename.InvokeAsync(asset.Id)">Rename</MudMenuItem>
             <MudMenuItem role="menuitem" Disabled="Disabled" OnClick="() => MoveRequested.InvokeAsync(asset.Id)">Move to…</MudMenuItem>
-            <MudMenuItem role="menuitem" Disabled="Disabled" OnClick="() => Delete.InvokeAsync(asset.Id)" Class="danger-link">Delete</MudMenuItem>
+            <MudMenuItem role="menuitem" Disabled="Disabled" OnClick="() => Delete.InvokeAsync(asset.Id)" Class="danger-item">Delete…</MudMenuItem>
         </MudMenu>
         @if (ReviewReady.Contains(asset.Id)) {
             <button class="asset-prompt-review" data-prompt-state="ReviewReady" aria-label="@($"Review the enhanced prompt for {asset.Name}")" title="An enhanced prompt is ready. Review it, then apply or discard it." @onclick="() => ReviewRequested.InvokeAsync(asset.Id)">Review ready <span aria-hidden="true">→</span></button>

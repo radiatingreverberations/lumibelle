@@ -216,7 +216,7 @@ public sealed class ProjectComponentTests : BunitContext
     public void MissingProjectOffersReturnToLibrary()
     {
         var page = Render<ProjectHome>(parameters => parameters.Add(component => component.Id, Guid.NewGuid()));
-        Assert.Contains("Project not found", page.Find("h1").TextContent);
+        Assert.Contains("Project not found", page.Find(".empty-state-title").TextContent);
         Assert.NotEmpty(page.FindAll("a[href='/']"));
     }
 
@@ -228,10 +228,10 @@ public sealed class ProjectComponentTests : BunitContext
         var page = Render<ProjectHome>(parameters => parameters.Add(component => component.Id, project.Id));
         Assert.Equal(project.Name, page.Find("h1").TextContent);
         Assert.Contains("Second line", page.Find(".project-synopsis").TextContent);
-        Assert.Equal(new[] { "Source", "Script", "Assets", "Scenes", "Shots" }, page.FindAll(".project-areas h2").Select(h => h.TextContent));
+        Assert.Equal(new[] { "Source", "Script", "Assets", "Scenes", "Shots", "Cut" }, page.FindAll(".project-areas h2").Select(h => h.TextContent));
         Assert.Empty(page.FindAll($"a[href='/projects/{project.Id:D}/production']"));
         Assert.Equal(project.CreatedUtc.ToString("O"), page.Find("time").GetAttribute("datetime"));
-        foreach (var studio in new[] { "source", "script", "assets", "scenes", "shots" })
+        foreach (var studio in new[] { "source", "script", "assets", "scenes", "shots", "cut" })
             Assert.NotNull(page.Find($"a[href='/projects/{project.Id:D}/{studio}']"));
         Assert.NotNull(_navigation.Find($"a[href='/projects/{project.Id:D}/settings']"));
     }
@@ -246,7 +246,7 @@ public sealed class ProjectComponentTests : BunitContext
         Assert.Equal("page", _navigation.Find(".project-tabs a[href$='/settings']").GetAttribute("aria-current"));
         Assert.Equal("Project settings", page.Find("h1").TextContent);
         page.Find("#lora-hidden-tags").Input("nsfw");
-        page.FindAll("button").Single(b => b.TextContent.Trim() == "Edit project").Click();
+        page.FindAll("button").Single(b => b.TextContent.Trim() == "Edit project…").Click();
         dialogs.WaitForElement("input").Input("New project title"); dialogs.Find("form").Submit();
         page.WaitForAssertion(() => Assert.Contains("New project title", page.Find(".project-settings-name").TextContent));
         Assert.Equal("nsfw", page.Find("#lora-hidden-tags").GetAttribute("value"));

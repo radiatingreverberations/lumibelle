@@ -38,10 +38,14 @@
                 <p class="field-hint" role="status">@check.Message</p>
                 @if (check.Success) { <ul class="connection-models" aria-label="Served models">@foreach (var model in check.Models) { <li><strong>@model.Name</strong><span>@OpenAiImageInput.Label(model)@if (model.Catalog?.ContextLength is { } context) { <span> · @context.ToString("N0") context</span> }</span></li> }</ul> }
             }
-            <div class="settings-section-actions connection-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Locked" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="Cancel" Disabled="Locked">Cancel</MudButton>@if (Saved is not null) { <MudButton OnClick="Remove" Disabled="Locked" Color="Color.Error">Remove connection</MudButton> }</div>
+            <div class="settings-section-actions connection-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Locked" Color="Color.Primary" Variant="Variant.Filled">Save connection</MudButton><MudButton OnClick="Cancel" Disabled="Locked">Cancel</MudButton>@if (Saved is not null) { <MudButton OnClick="() => _confirmRemove = true" Disabled="Locked" Color="Color.Error" Variant="Variant.Outlined">Remove connection…</MudButton> }</div>
         </form>
     </div>
 </section>
+<ConfirmDialog Visible="@(_confirmRemove && Saved is not null)" VisibleChanged="visible => { if (!visible && !_working) _confirmRemove = false; }" Title="Remove connection?" Context="@Saved?.Name"
+               ConfirmLabel="Remove connection" BusyLabel="Removing…" Danger="true" Busy="_working" OnConfirm="ConfirmRemoveAsync">
+    <p>The connection is removed from AI settings. Saved model choices and captured requests keep their server identity.</p>
+</ConfirmDialog>
 
 @code {
     [Parameter, EditorRequired] public AiSettings Settings { get; set; } = null!;
@@ -103,6 +107,8 @@
         try { if (await SaveConnection(Draft, _key, _removeKey)) { _dirty = false; _key = ""; _removeKey = false; } }
         finally { _working = _saving = false; }
     }
+    private bool _confirmRemove;
+    private async Task ConfirmRemoveAsync() { await Remove(); _confirmRemove = false; }
     private async Task Remove()
     {
         if (Locked || Saved is null) return;

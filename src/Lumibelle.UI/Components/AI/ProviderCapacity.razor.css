@@ -1,7 +1,7 @@
-.provider-capacity { display: grid; gap: .6rem; font-size: var(--lumi-font-size-compact); min-width: 0; overflow-wrap: anywhere; }
+.provider-capacity { display: grid; gap: 10px; font-size: var(--lumi-font-size-compact); min-width: 0; overflow-wrap: anywhere; }
 .provider-capacity p { margin: 0; }
-.capacity-device { display: grid; gap: .3rem; }
-.capacity-device meter { width: 100%; height: .7rem; accent-color: var(--lumi-accent); }
-.capacity-usage { display: grid; grid-template-columns: 1fr auto; gap: .3rem .8rem; margin: 0; }
+.capacity-device { display: grid; gap: 5px; }
+.capacity-device meter { width: 100%; height: 11px; accent-color: var(--lumi-accent); }
+.capacity-usage { display: grid; grid-template-columns: 1fr auto; gap: 5px 13px; margin: 0; }
 .capacity-usage dd { margin: 0; text-align: right; }
 .provider-capacity > button { justify-self: start; }

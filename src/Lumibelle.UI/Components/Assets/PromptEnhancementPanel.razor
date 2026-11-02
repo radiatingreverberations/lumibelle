@@ -28,11 +28,10 @@
     @if (_inlineError is not null) { <p class="field-error" role="alert">@_inlineError</p> }
 </section>
 
-<InlineDialog Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="prompt-enhancement-dialog" DefaultFocus="DefaultFocus.FirstChild" OnKeyDown="DialogKeyDown">
-    <TitleContent><h2>Enhance prompt</h2></TitleContent>
+<InlineDialog Visible="_open" VisibleChanged="VisibilityChanged" Options="DialogSizes.Large" Class="prompt-enhancement-dialog" DefaultFocus="DefaultFocus.FirstChild"
+              Title="Enhance prompt" Context="@Context.AssetName" CloseLabel="Close prompt enhancement">
     <DialogContent>
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedResultJob is { } read && read.Id == _job?.Id ? new[] { read } : [])" />
-        <MudIconButton Class="review-close dialog-close" Icon="@Icons.Material.Outlined.Close" OnClick="Close" aria-label="Close prompt enhancement" />
         @if (_request is { } request)
         {
             @if (_job is { } capturedJob) { <AiTextRequestDetails JobId="capturedJob.Id" /> }
@@ -57,16 +56,18 @@
             { <details class="enhancement-response"><summary>Response details</summary><pre>@_raw</pre></details> }
         }
     </DialogContent>
-    <DialogActions>
-        @if (_request is not null && Superseded is null && Changed is { } changed) { <AssistedApplyWarning Changed="changed" Retry="enhance again" Consequence="Applying can be undone." /> }
+    <Status>@if (_request is not null && Superseded is null && Changed is { } changed) { <AssistedApplyWarning Changed="changed" Retry="enhance again" Consequence="Applying can be undone." /> }</Status>
+    <Tools>
         @if (!_busy && InspectionJob is { } inspected && !TextRequestPresentation.IsActive(inspected)) { <MudButton OnClick="NewRequestFromReview">New request</MudButton> }
         @if (CanDiscard) { <MudButton OnClick="DiscardSuggestion">Discard</MudButton> }
-        <MudButton OnClick="ApplySuggestion" Disabled="@(!CanApply)" Color="Color.Primary" Variant="Variant.Filled">@(Changed is null ? "Apply changes" : AssistedApplyWarning.ApplyAnyway)</MudButton>
         @if (!_busy && _error is not null && Changes.Count == 0 && _pending is null)
         { <MudButton OnClick="Retry" Disabled="@Blocked" Variant="Variant.Outlined">Retry</MudButton> }
         @if (_active is not null) { <MudButton OnClick="CancelRequest">Cancel enhancement</MudButton> }
+    </Tools>
+    <Actions>
         <MudButton OnClick="Close">@(_result is { Kind: not PromptEnhancementKind.Prompt } ? "Back to prompt" : "Close")</MudButton>
-    </DialogActions>
+        <MudButton OnClick="ApplySuggestion" Disabled="@(!CanApply)" Color="Color.Primary" Variant="Variant.Filled">@(Changed is null ? "Apply changes" : AssistedApplyWarning.ApplyAnyway)</MudButton>
+    </Actions>
 </InlineDialog>
 
 @* Request execution is application-owned; the code-behind only captures and reviews it. *@

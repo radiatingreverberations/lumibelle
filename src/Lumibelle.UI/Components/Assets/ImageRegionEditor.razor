@@ -1,10 +1,11 @@
 @implements IAsyncDisposable
 @inject IAssetStore AssetStore
 @inject IJSRuntime JS
-<MudDialog @ref="_dialog" Visible="_visible" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false })" Class="region-editor-dialog media-details-dialog">
-    <TitleContent><DialogHeader Title="@($"{(EditArea ? "Edit area" : "Protect areas")} · {Label}")" CloseLabel="Close details" Close="Cancel" CloseDisabled="_busy" /></TitleContent>
+@* A per-opening MudDialog: Escape goes through DialogEscape so painted strokes are guarded like the close button. *@
+<MudDialog @ref="_dialog" Visible="_visible" Options="Options" Class="region-editor-dialog media-details-dialog">
+    <TitleContent><DialogHeader Title="@Title" Context="@Label" CloseLabel="@($"Close {Title.ToLowerInvariant()}")" Close="RequestCancel" CloseDisabled="_busy" /></TitleContent>
     <DialogContent>
-        <DialogEscape Pressed="Cancel" />
+        <DialogEscape Pressed="RequestCancel" />
         @if (_selection is not null)
         {
             <div class="region-controls">
@@ -41,8 +42,13 @@
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </DialogContent>
     <DialogActions>
-        <button disabled="@_busy" @onclick="RemoveLayer">@(EditArea ? "Remove edit area" : "Remove protection")</button><button disabled="@_busy" @onclick="Cancel">Cancel</button>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || _selection is null)" OnClick="Apply">@(EditArea ? "Apply edit area" : "Apply protection")</MudButton>
+        <DialogFooter>
+            <Tools><button type="button" class="lumi-button danger" disabled="@_busy" @onclick="RemoveLayer">@(EditArea ? "Remove edit area" : "Remove protection")</button></Tools>
+            <ChildContent>
+                <DialogDismiss Label="Cancel" OnDismiss="RequestCancel" Disabled="_busy" Confirming="_confirmingDiscard" OnDiscard="Cancel" OnKeepEditing="() => _confirmingDiscard = false" />
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || _selection is null)" OnClick="Apply">@(EditArea ? "Apply edit area" : "Apply protection")</MudButton>
+            </ChildContent>
+        </DialogFooter>
     </DialogActions>
 </MudDialog>
 @code {
@@ -58,7 +64,9 @@
     [Parameter] public string Label { get; set; } = "Image 1";
     [Parameter] public EventCallback<RegionalImageSelection?> Applied { get; set; }
     [Parameter] public EventCallback Cancelled { get; set; }
-    private MudDialog? _dialog; private bool _visible = true;
+    private MudDialog? _dialog; private bool _visible = true, _confirmingDiscard;
+    private static readonly DialogOptions Options = DialogSizes.Media with { CloseOnEscapeKey = false };
+    private string Title => EditArea ? "Edit area" : "Protect areas";
     private RegionalImageSelection? _selection;
     private byte[]? _original;
     private IJSObjectReference? _module; private DotNetObjectReference<ImageRegionEditor>? _reference;
@@ -118,7 +126,7 @@
         catch (Exception e) { _error = e.Message; }
     }
     private async Task Change(RegionalImageSelection next)
-    { _undo.Push(_selection!); _redo.Clear(); _selection = next; _error = null; await Render(); }
+    { _undo.Push(_selection!); _redo.Clear(); _selection = next; _error = null; _confirmingDiscard = false; await Render(); }
     [JSInvokable] public async Task Stroke(MaskStroke stroke)
     {
         if (_disposed || _busy || _selection is null) return;
@@ -160,6 +168,13 @@
             else await Finish(_selection);
         }
         catch (Exception e) { _error = e.Message; } finally { _busy = false; }
+    }
+    // Painted or cropped changes since opening ask before they are discarded.
+    private Task RequestCancel()
+    {
+        if (_busy || _confirmingDiscard) return Task.CompletedTask;
+        if (_undo.Count > 0) { _confirmingDiscard = true; return Task.CompletedTask; }
+        return Cancel();
     }
     private async Task Cancel() { if (_busy) return; _visible = false; if (_dialog is not null) await _dialog.CloseAsync(); await Cancelled.InvokeAsync(); }
     private Task RemoveLayer() {

@@ -195,8 +195,10 @@ window.lumibelleAssets = {
         const attempt = () => {
             const dialog = document.querySelector('.image-review-dialog');
             const target = label.startsWith('Image ') ? [...document.querySelectorAll('.image-edit-reference-manager .reference-action-buttons button')].find(b => b.getAttribute('aria-label') === label) : [...(dialog?.querySelectorAll('button[aria-label],input[aria-label],textarea[aria-label]') || [])].find(b => b.getAttribute('aria-label') === label);
+            // Reference actions live in the reference manager's dialog; a move within it is the person's choice too.
+            const scope = label.startsWith('Image ') ? target?.closest('.mud-dialog') : dialog;
             const active = document.activeElement;
-            if (active !== target && dialog?.contains(active)) {
+            if (active !== target && scope?.contains(active)) {
                 // A delayed initial focus must not move typing into another field, or undo a move within the review.
                 if (focused || active.matches('input,textarea,select,[contenteditable=true]')) return;
             }

@@ -1,6 +1,6 @@
 # Lumibelle UX guidelines
 
-Version 2 · 2026-09-16 · Shared behavior baseline; visual foundations are specified in [Design system](design-system.md).
+Version 3 · 2026-11-02 · Shared behavior baseline; visual foundations and the shared components are specified in [Design system](design-system.md).
 
 These guidelines describe the intended experience, not a claim that the current UI already meets it. Apply them incrementally; preserve the existing production and recovery behavior.
 
@@ -10,7 +10,7 @@ The screenplay, asset images, shot description, or assembled cut is the main sur
 
 - Keep the warm neutral palette and plum accent in both light and dark appearances. Use the semantic tokens and locally bundled Geist typography defined in the design system; preserve screenplay monospace and original media colors.
 - Use the compact app/project bars for global context, project navigation, save state, and pane controls. Keep studio headings accessible, independent scrolling intact, and one horizontally scrollable project-tab row on narrow screens.
-- Use the center for the work, the left pane for finding/selecting it, and the right pane for the current assistance or generation task. Shots uses persistent Shot / Prompt / Takes tabs in the center pane header and References / Generation tools on the right. Coverage belongs only to Shot. Keep shot identity and setup selection compact above the tabs, with administrative actions in Shot options; each tab body scrolls independently. Cut keeps its viewer-and-timeline layout.
+- Use the center for the work, the left pane for finding/selecting it, and the right pane for the current assistance or generation task. Shots uses persistent Shot / Takes tabs in the center pane header, References in the right pane, and Prompt / Generation settings as two tabs of one dialog opened from the right pane's footer. Coverage belongs only to Shot. Language versions uses the same three panes: master takes on the left, the dialogue editor in the center and translation assistance on the right. Keep shot identity and setup selection compact above the tabs, with administrative actions in Shot options; each tab body scrolls independently. Cut keeps its viewer-and-timeline layout.
 - Keep independent pane scrolling and reachable action footers. Avoid scroll areas nested inside other scrolling panes, apart from editors and dedicated media controls.
 - Pin only what is needed while scrolling: identity, view navigation, and the active task's action. Long descriptions, help, administrative actions, and technical details belong in the body or a focused inspector.
 - Selected items, approved/production items, and items currently playing are different states. Give them different labels and indicators.
@@ -20,9 +20,9 @@ The screenplay, asset images, shot description, or assembled cut is the main sur
 | Meaning | Representation | Lumibelle examples |
 | --- | --- | --- |
 | Navigate to another page | Text link; active destination has an underline | Script, Assets, Shots, Cut |
-| Switch the contents of this pane | Tab row attached to the pane, with a shared baseline and a strong underline on the selected tab | Prompt / Inputs / Output; References / Generation |
+| Switch the contents of this pane | Tab row attached to the pane, with a shared baseline and a strong underline on the selected tab | Shot / Takes; Source / Outline; AI settings sections |
 | Choose a mutually exclusive operating mode | Joined segmented selector inside a single subtle track, with a visible selected state | Create / Edit |
-| Perform an action | Button labelled with a verb and object where needed | Generate takes, Add images, Apply changes |
+| Perform an action | Button labelled with a verb and object where needed; ends with … when it opens a dialog or further choice | Generate takes, Edit references…, Apply changes |
 | Filter a collection | Labelled select, search, or filter chips; show the current filter/count | Look, Characters, Starred |
 | Reveal optional detail | Text disclosure with a chevron and expanded state | Advanced, Generation details |
 | Show status | Non-interactive text or badge with a meaningful label | Saved, Approved, Queued, In Trash |
@@ -43,10 +43,15 @@ The screenplay, asset images, shot description, or assembled cut is the main sur
 
 - Use filled plum for the principal action in a task area. Other actions are neutral or text buttons. Multiple independent areas can have their own primary action; do not make every button equally prominent.
 - Mode selectors choose a state. Use proper radio-group or pressed-state semantics appropriate to their implementation, rather than giving them tab semantics solely to obtain tab styling.
-- Name pane visibility controls **Show tools / Hide tools**, or use a recognizable panel icon with that accessible name. Bare **Assistant** must not ambiguously mean both a pane toggle and a tab.
+- Name pane visibility controls after the pane they open, such as **Show Library / Hide Library** or **Show Asset tools**, with a recognizable panel icon. Bare **Assistant** must not ambiguously mean both a pane toggle and a tab.
 - Put **Reset layout** and infrequent layout controls in a labelled **Layout** menu. Keep opening a hidden pane easy on desktop and mobile.
 - Retain explicit, visible entry points for frequent tasks: Extract from script, Add images, Add voice, Add references, and Review results. Move administrative operations such as Duplicate, Archive, and Delete into object-specific menus where they are not the current task.
 - A disabled primary action needs a nearby reason and an actionable repair path. A tooltip on a disabled button is insufficient.
+- Every studio's project-bar actions follow one order: save status, **Save**, **Undo** and **Redo** where the studio has them, studio actions such as **Export MP4…**, then an options menu for infrequent commands such as **Recovery…** and **Export Markdown**.
+- Save status uses one vocabulary: **Saved**, **Unsaved**, **Saving…**, **Save failed · draft retained** and **Conflict · draft retained**. A failed save shows its repairs in one notice: **Retry save**, **Download unsaved copy** and **Reload saved version…** as the studio supports them.
+- A menu item or button that opens a dialog or a further choice ends with an ellipsis (**Delete…**, **Edit details…**, **Move to…**). Items that act immediately do not.
+- Recoverable media uses **Move to Trash**. Documents and objects use **Delete…**, which asks first. **Delete permanently** and **Remove permanently** appear only in Trash and storage management.
+- Multi-selection modes toggle between **Select multiple** and **Done selecting**.
 
 ## 3. Reduce repeated controls, not readability
 
@@ -141,7 +146,7 @@ After a Create image request successfully saves every candidate, clear its used 
 
 ### Shots
 
-Keep **Shot / Prompt / Takes** visible in the center header. Description, dialogue, and cast names belong in Shot; the prompt editor and take gallery have dedicated views. Keep **References / Generation** alongside them, with numbered image crops and advisory AI use hints.
+Keep **Shot / Takes** visible in the center header. Description, dialogue, and cast names belong in Shot; the take gallery has its own view. References stay in the right pane with numbered image crops and advisory AI use hints; the prompt editor and generation settings open as the **Prompt** and **Generation settings** tabs of one dialog from the pane's footer.
 
 Shot breakdown review is an editorial decision. Changed or omitted dialogue appears only in collapsed **Script comparison notes** and never disables **Add reviewed shots**. Preserve the proposed wording exactly; the author can keep it or edit it later. Previously blocked dialogue-only responses reopen from their saved output without another provider call.
 
@@ -185,7 +190,7 @@ Keep the viewer and timeline as the main surface. Distinguish selected clip cont
 ## Script writing
 
 - Put action, captured target, and Instructions in the Script Assistant panel. Keep model options one click away. Collapse reasoning. Author-selected discussion is visible and removable; no hidden creative brief or production profile enters requests.
-- Keep Save and its state visible. Disable it when the browser and saved script match; a failed save preserves the browser draft. Put Export Markdown and Recovery in Script.
+- Keep Save and its state visible. Disable it when the browser and saved script match; a failed save preserves the browser draft. Put Export Markdown and Recovery… in the Script options menu.
 - Outline insertion follows the selected section. Drag handles expose ordering; row menus provide equivalent keyboard/touch moves, rename, insertion, deletion, and scene splitting. New sections appear and focus their heading for naming.
 - Default existing writing to focused Revise. Broad Rewrite is explicit. Review shows changed text and a list of specified edits, including moves. Applying is complete only when storage and the editor agree.
 - Script has no production approval stage. New downstream work captures a saved script source; existing assets and coverage keep their original provenance.

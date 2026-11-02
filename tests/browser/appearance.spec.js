@@ -74,7 +74,7 @@ test('compact navigation and themed studios fit desktop, tablet, phone and zoom-
   await request.post(`/fixtures/${project.id}/reference-workspace`);
   test.setTimeout(180000);
   for (const appearance of ['Light', 'Dark']) {
-    await page.goto('/dev/design-system'); await choose(page, appearance);
+    await page.goto('/dev/design-system'); await choose(page, appearance); await theme(page, appearance.toLowerCase());
     for (const [width, height] of [[1440,900],[1280,720],[768,1024],[390,844],[720,450]]) {
       await page.setViewportSize({ width, height });
       for (const studio of ['script','assets','shots','cut']) {
@@ -116,7 +116,7 @@ test('project pages, provider drafts, activity and media dialogs share both pale
   await request.post(`/fixtures/${id}/images`);
   await request.post(`/fixtures/${id}/reference-workspace`);
   for(const appearance of ['Light','Dark']) {
-    await page.goto('/'); await choose(page, appearance);
+    await page.goto('/'); await choose(page, appearance); await theme(page, appearance.toLowerCase());
     for(const width of [1440,390]) {
       await page.setViewportSize({width,height:width===390?844:900});
       for(const [name,url] of [['library','/'],['overview',`/projects/${id}`],['settings',`/projects/${id}/settings`],['ai-settings','/settings/ai'],['trash','/trash']]) {
@@ -134,7 +134,7 @@ test('project pages, provider drafts, activity and media dialogs share both pale
       const card=page.locator('.asset-media-card[data-media-kind=Image]').first();
       await card.hover();
       await card.getByRole('button',{name:'Image actions',exact:true}).click();
-      await page.getByRole('menuitem',{name:'Edit details',exact:true}).click();
+      await page.getByRole('menuitem',{name:'Edit details…',exact:true}).click();
       const dialog=page.getByRole('dialog',{name:'Image details',exact:true});
       await expect(dialog.getByRole('button',{name:'Save details',exact:true})).toBeInViewport();
       await page.screenshot({animations:'disabled',path:`artifacts/design-image-details-${appearance.toLowerCase()}-${width}.png`});

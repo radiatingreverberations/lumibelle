@@ -5,7 +5,7 @@ test('a shot notes when its own script lines change, compares them and can be ma
   await request.post(`/fixtures/${id}/coverage-script`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(page.getByLabel('Action and camera')).toBeVisible();
   const note = page.locator('.shot-source-changed');
   await expect(note).toHaveCount(0);

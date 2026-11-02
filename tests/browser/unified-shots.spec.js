@@ -16,7 +16,7 @@ async function fixture(page, request) {
 }
 async function references(page) {
   await toolsTab(page, 'References');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const dialog = page.locator('.manual-reference-dialog');
   await dialog.locator('[data-reference]').first().click();
   await expect(dialog.getByLabel('Character', { exact: true })).toHaveCount(0);
@@ -148,7 +148,7 @@ test('planning, cast, coverage-only duplication, deletion and recovery in the sa
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await openShotSetup(page);
   await expect(page.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
-  await shotAction(page, 'Delete');
+  await shotAction(page, 'Delete…');
   const deletion = page.locator('.shot-delete-dialog');
   await deletion.getByRole('button', { name: /Delete 1 shot/ }).click();
   await expect(deletion).not.toBeVisible();
@@ -249,7 +249,7 @@ test('prompt undo stays with its shot and resets when leaving the workspace', as
   await editor.fill('First shot prompt.');
   await expect.poll(async () => (await setups(request, id))[0].prompt).toBe('First shot prompt.');
   await closeShotSetup(page);
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect.poll(async () => (await shots(request, id)).shots.length).toBe(2);
   await openShotSetup(page);
   await expect(editor).toBeEmpty(); await expect(undo).toBeDisabled();
@@ -281,7 +281,7 @@ test('new shots open Shot, existing shots keep the view, and hidden composition 
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await openShotSetup(page);
   await expect(page.getByRole('textbox', { name: 'H3 prompt', exact: true })).toContainText('Vision-composed staging');
-  await closeShotSetup(page); await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await closeShotSetup(page); await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect.poll(async () => (await shots(request, id)).shots.length).toBe(2);
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await page.getByLabel('Shot title').fill('Second shot');
