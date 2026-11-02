@@ -55,10 +55,10 @@ public sealed partial class ShotTests
         Assert.Equal("2", page.Find(".cut-trims input").GetAttribute("value"));
     }
 
-    // Export MP4 asks which clips; Export in that dialog starts it.
+    // Export MP4… asks which clips; Export in that dialog starts it.
     private static async Task StartExport(IRenderedComponent<CutStudio> page, IRenderedComponent<SectionOutlet> actions, IRenderedComponent<MudDialogProvider> dialogs)
     {
-        await page.InvokeAsync(() => actions.FindAll("button").Single(b => b.TextContent.Trim() == "Export MP4").ClickAsync(new()));
+        await page.InvokeAsync(() => actions.FindAll("button").Single(b => b.TextContent.Trim() == "Export MP4…").ClickAsync(new()));
         dialogs.WaitForElement(".cut-export-dialog");
         await page.InvokeAsync(() => dialogs.FindAll(".cut-export-dialog button").Single(b => b.TextContent.Trim() == "Export").ClickAsync(new()));
     }
