@@ -30,10 +30,10 @@ test('studio help stays compact and model selection explains its current scope',
   await picker.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(picker).not.toBeVisible();
   const help = page.getByRole('button', { name: 'Help: Outline', exact: true });
-  const heading = page.locator('.outline-heading');
+  const heading = page.locator('.script-outline .pane-heading');
   const rowHeight = await help.evaluate(el => el.getBoundingClientRect().height);
-  const labelHeight = await heading.locator('.eyebrow').evaluate(el => el.getBoundingClientRect().height);
-  expect(rowHeight).toBeLessThanOrEqual(labelHeight + 1);
+  const headingHeight = await heading.evaluate(el => el.getBoundingClientRect().height);
+  expect(rowHeight).toBeLessThanOrEqual(headingHeight);
   await page.keyboard.press('Tab');
   await help.focus();
   await expect(await visibleHelp(page)).toContainText('Add after the selected item.');
@@ -42,7 +42,7 @@ test('studio help stays compact and model selection explains its current scope',
   await expect(help).toBeFocused();
   await help.click(); await visibleHelp(page);
   await page.screenshot({ path: 'artifacts/validation/help-hints-desktop.png' });
-  await page.locator('.script-outline .outline-heading .eyebrow').click();
+  await page.locator('.script-outline .pane-title').click();
   await expect(page.locator('.help-hint-content:popover-open')).toHaveCount(0);
 });
 

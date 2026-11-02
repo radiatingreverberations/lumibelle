@@ -1,7 +1,7 @@
 <div class="text-assistance @(Inline ? "inline-assistance" : "")" @ref="_origin">
     @if (Inline) {
         <section class="assist-panel" aria-label="@Title" tabindex="-1" @ref="_trigger">
-            <header class="assist-panel-heading"><strong>Assistant</strong>@ExtraActions</header>
+            @if (ShowHeading) { <header class="assist-panel-heading"><strong>Assistant</strong>@ExtraActions</header> }
             @if (Status is not null) { <div class="text-assist-status">@Status</div> }
             <div class="assist-panel-body">
                 @ChildContent
@@ -59,6 +59,8 @@
     [Parameter] public string Title { get; set; } = "Text assistance";
     [Parameter] public string? Notice { get; set; }
     [Parameter] public bool Inline { get; set; }
+    // An inline panel inside a titled StudioPane leaves the heading (and its ExtraActions) to the pane.
+    [Parameter] public bool ShowHeading { get; set; } = true;
     // The studio owns one persistent dialog; model selection and capture stay shared.
     [Parameter] public bool ExternalComposer { get; set; }
     [Parameter] public bool Disabled { get; set; }

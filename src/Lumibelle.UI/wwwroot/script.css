@@ -25,7 +25,6 @@
 .script-canvas .tiptap > .script-block:first-child { margin-top: 0; }
 .script-assistant { overflow-wrap: anywhere; }
 /* Script's Assistant pane shows the shared pane heading with Requests…, so the inline composer's own heading is hidden. */
-.script-assistant-pane .script-assistant .assist-panel-heading { display: none; }
 .script-assistant .text-model-picker { margin-bottom: 16px; }
 .script-assistant-compose { display: grid; gap: 10px; }
 .script-assistant-compose .field-hint { margin: -4px 0 0; }

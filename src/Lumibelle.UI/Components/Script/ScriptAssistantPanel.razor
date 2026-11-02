@@ -1,6 +1,6 @@
 @implements IAsyncDisposable
 <div class="script-assistant" @ref="_originElement">
-<TextAssistance Inline="true" @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Story" Title="Script assistance" Disabled="_applying" ModelLocked="ComposerLocked" SelectionChanged="ModelChanged" Opened="OpenComposerAsync">
+<TextAssistance Inline="true" ShowHeading="false" @ref="_assist" ProjectId="ProjectId" Studio="TextAssistantStudio.Story" Title="Script assistance" Disabled="_applying" ModelLocked="ComposerLocked" SelectionChanged="ModelChanged" Opened="OpenComposerAsync">
     @* The pane heading carries Assistant and Requests…; see OpenRequestsAsync. *@
     <ChildContent>            @if (_loading) { <LoadingState Compact="true" Text="Opening assistant…" /> }
             else

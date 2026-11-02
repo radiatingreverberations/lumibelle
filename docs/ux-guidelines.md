@@ -190,7 +190,7 @@ Keep the viewer and timeline as the main surface. Distinguish selected clip cont
 ## Script writing
 
 - Put action, captured target, and Instructions in the Script Assistant panel. Keep model options one click away. Collapse reasoning. Author-selected discussion is visible and removable; no hidden creative brief or production profile enters requests.
-- Keep Save and its state visible. Disable it when the browser and saved script match; a failed save preserves the browser draft. Put Export Markdown and Recovery in Script.
+- Keep Save and its state visible. Disable it when the browser and saved script match; a failed save preserves the browser draft. Put Export Markdown and Recovery… in the Script options menu.
 - Outline insertion follows the selected section. Drag handles expose ordering; row menus provide equivalent keyboard/touch moves, rename, insertion, deletion, and scene splitting. New sections appear and focus their heading for naming.
 - Default existing writing to focused Revise. Broad Rewrite is explicit. Review shows changed text and a list of specified edits, including moves. Applying is complete only when storage and the editor agree.
 - Script has no production approval stage. New downstream work captures a saved script source; existing assets and coverage keep their original provenance.
