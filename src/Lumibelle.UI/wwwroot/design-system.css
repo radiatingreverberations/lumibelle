@@ -197,6 +197,11 @@ button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:n
 .studio-actions .save-status.failed { color: var(--lumi-danger); font-weight: 600; }
 .studio-actions .mud-button-root .mud-button-icon-start { margin-right: 4px; }
 .studio-actions .studio-actions-menu .mud-icon-button { padding: 6px; }
+/* Phones keep the save status readable: Undo and Redo show their icons only and keep their names. */
+@media (max-width: 759px) {
+    .studio-actions .studio-action-label { display: none; }
+    .studio-actions .mud-button-root:has(.studio-action-label) .mud-button-icon-start { margin-right: 0; }
+}
 .save-error-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 8px 12px; padding: 8px 12px; border: 1px solid var(--lumi-danger-border); border-radius: var(--lumi-radius-control); background: var(--lumi-danger-surface); color: var(--lumi-danger); font-size: var(--lumi-font-size-meta); }
 .save-error-notice > p { flex: 1 1 260px; margin: 0; }
 .save-error-actions { display: flex; flex-wrap: wrap; gap: 6px; }

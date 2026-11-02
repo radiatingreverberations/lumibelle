@@ -22,7 +22,7 @@
 .asset-workspace { background: var(--lumi-surface); border: 1px solid var(--line); border-radius: var(--lumi-radius-dialog); min-height: 690px; overflow: hidden; box-shadow: var(--lumi-shadow-popover); }
 .empty-state.asset-empty { margin-top: 64px; }
 .asset-editor { padding: 28px 32px 25px; border-bottom: 1px solid var(--line); }
-.asset-editor > label, .reference-card label, .generation-panel > label, .asset-dialog label, .extraction-proposal > label { display: block; color: var(--lumi-text-muted); font-size: var(--lumi-font-size-meta); font-weight: 600; margin: 17px 0 6px; }
+.asset-editor > label, .asset-reel-usage-default > label, .reference-card label, .generation-panel > label, .asset-dialog label, .extraction-proposal > label { display: block; color: var(--lumi-text-muted); font-size: var(--lumi-font-size-meta); font-weight: 600; margin: 17px 0 6px; }
 .asset-editor input, .asset-editor textarea, .generation-panel input, .generation-panel textarea, .generation-panel select, .asset-dialog input, .asset-dialog textarea, .asset-dialog select, .extraction-proposal input, .extraction-proposal textarea, .extraction-proposal select { width: 100%; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-surface); color: var(--ink); background: var(--lumi-surface); font: inherit; font-size: var(--lumi-font-size-meta); line-height: 1.65; padding: 9px 10px; }
 .asset-editor .asset-name { border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 4px 0; font: 27px Georgia, serif; }
 .asset-editor .asset-name:focus { border-bottom-color: var(--lumi-accent); }

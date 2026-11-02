@@ -3,8 +3,8 @@
 <div class="studio-actions @Class" @attributes="AdditionalAttributes">
     @if (Status is not null) { <span class="save-status @(Problem ? "failed" : null)" role="status">@Status</span> }
     @if (OnSave.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnSave" Disabled="@(!CanSave)">@SaveLabel</MudButton> }
-    @if (OnUndo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnUndo" Disabled="@(!CanUndo)" StartIcon="@Icons.Material.Outlined.Undo">Undo</MudButton> }
-    @if (OnRedo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnRedo" Disabled="@(!CanRedo)" StartIcon="@Icons.Material.Outlined.Redo">Redo</MudButton> }
+    @if (OnUndo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnUndo" Disabled="@(!CanUndo)" StartIcon="@Icons.Material.Outlined.Undo" aria-label="Undo"><span class="studio-action-label">Undo</span></MudButton> }
+    @if (OnRedo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnRedo" Disabled="@(!CanRedo)" StartIcon="@Icons.Material.Outlined.Redo" aria-label="Redo"><span class="studio-action-label">Redo</span></MudButton> }
     @ChildContent
     @if (Menu is not null)
     {

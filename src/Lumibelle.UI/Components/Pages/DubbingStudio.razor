@@ -121,8 +121,9 @@ else
                     }
                     else if (SelectionFailed)
                     {
-                        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="This take can’t be translated">
-                            @_error
+                        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="This take can’t be translated" role="alert">
+                            Lumibelle couldn’t prepare this take’s dialogue for translation. Choose another take, or generate a new take in Shots.<br />
+                            <small>Details: @_error</small>
                         </EmptyState>
                     }
                     else if (_request is not { } request)
