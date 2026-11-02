@@ -23,28 +23,30 @@
             </fieldset>
             <p class="field-hint">Saving protects the token on this installation, saves the ComfyUI connection URL, then repeats the connection check. No generation is submitted.</p>
             <div class="access-dialog-actions">
+                <MudButton OnClick="CancelAsync" Disabled="_busy">@(_tokenSaved ? "Close" : "Cancel")</MudButton>
                 <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_busy">@(_busy ? "Saving…" : _tokenSaved ? "Retry saving connection" : "Save connection and retry")</MudButton>
-                <MudButton OnClick="Cancel" Variant="Variant.Outlined" Disabled="_busy">@(_tokenSaved ? "Close" : "Cancel")</MudButton>
             </div>
         </form>
         <div class="access-dialog-management">
             <MudButton OnClick="Reload" Variant="Variant.Text" Disabled="_busy" Size="Size.Small">Reload saved credentials</MudButton>
             @if (_configured && !_tokenSaved)
-            { <MudButton OnClick="() => _confirmRemove = true" Color="Color.Error" Variant="Variant.Text" Disabled="_busy" Size="Size.Small">Remove saved credentials…</MudButton> }
+            { <MudButton OnClick="() => _confirmRemove = true" Color="Color.Error" Variant="Variant.Outlined" Disabled="_busy" Size="Size.Small">Remove saved credentials…</MudButton> }
         </div>
         @if (_confirmRemove)
         {
             <div class="access-remove-confirmation" role="group" aria-label="Confirm credential removal">
                 <p>Remove the saved token for @_origin? This does not revoke it in Cloudflare or cancel running generations.</p>
+                <MudButton OnClick="() => _confirmRemove = false" Disabled="_busy">Keep credentials</MudButton>
                 <MudButton OnClick="Remove" Color="Color.Error" Variant="Variant.Filled" Disabled="_busy">Confirm removal</MudButton>
-                <MudButton OnClick="() => _confirmRemove = false" Variant="Variant.Outlined" Disabled="_busy">Keep credentials</MudButton>
             </div>
         }
     }
     else
     {
-        <MudButton OnClick="Reload" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">Retry loading credentials</MudButton>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Disabled="_busy">Cancel</MudButton>
+        <div class="access-dialog-actions">
+            <MudButton OnClick="CancelAsync" Disabled="_busy">Cancel</MudButton>
+            <MudButton OnClick="Reload" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">Retry loading credentials</MudButton>
+        </div>
     }
 </div>
 
@@ -162,7 +164,8 @@
     }
 
     private void ClearFields() { _clientId = ""; _clientSecret = ""; }
-    private async Task Cancel() { if (_busy) return; ClearFields(); await Cancelled.InvokeAsync(); }
+    /// <summary>The editor's Cancel: ignored while a save or removal runs. The containing dialog's close button and Escape use it too.</summary>
+    public async Task CancelAsync() { if (_busy) return; ClearFields(); await Cancelled.InvokeAsync(); }
     private static string SafeError(Exception e) => e is ComfyAccessException ? e.Message :
         "Could not complete the operation. Check credential storage and retry; no token values are shown.";
     public void Dispose() { _disposed = true; ClearFields(); _lifetime.Cancel(); _lifetime.Dispose(); }

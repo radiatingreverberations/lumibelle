@@ -95,8 +95,8 @@ test('global settings links return to every project area and do not add tab hist
     await page.goto(origin);
     await expect(page.locator('h1')).toBeFocused();
     await headerLink(page).click();
-    await expect(page.locator('.writing-back')).toHaveText(`← Back to ${label}`);
-    await expect(page.locator('.writing-back')).toHaveAttribute('href', origin);
+    await expect(page.locator('.page-back')).toHaveText(`Back to ${label}`);
+    await expect(page.locator('.page-back')).toHaveAttribute('href', origin);
     await section(page, 'Image models').click();
     await section(page, 'Connections').click();
     await provider(page, 'Codex').click();
@@ -105,12 +105,12 @@ test('global settings links return to every project area and do not add tab hist
     const settingsUrl = page.url();
     await expect(headerLink(page)).toHaveAttribute('href', new URL(settingsUrl).pathname + new URL(settingsUrl).search);
     await headerLink(page).click();
-    await expect(page.locator('.writing-back')).toHaveAttribute('href', origin);
+    await expect(page.locator('.page-back')).toHaveAttribute('href', origin);
     await page.goBack();
     await expect(page).toHaveURL(new URL(origin, page.url()).href);
   }
   await page.goto('/'); await headerLink(page).click();
-  await expect(page.locator('.writing-back')).toHaveText('← All projects');
+  await expect(page.locator('.page-back')).toHaveText('All projects');
 });
 
 test('model links open the appropriate settings section with their project origin', async ({ page, request }) => {
@@ -121,15 +121,15 @@ test('model links open the appropriate settings section with their project origi
   await page.getByRole('button', { name: 'Text model options', exact: true }).click();
   await page.getByRole('link', { name: 'Manage models', exact: true }).first().click();
   await expect(section(page, 'Text models')).toHaveAttribute('aria-selected', 'true');
-  await page.locator('.writing-back').click();
+  await page.locator('.page-back').click();
   await expect(page).toHaveURL(`/projects/${slug}/script`);
   await page.goto(`/settings/ai?tab=video&projectId=${id}&returnTo=shots`);
   await expect(section(page, 'Video models')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.writing-back')).toHaveAttribute('href', `/projects/${slug}/shots`);
+  await expect(page.locator('.page-back')).toHaveAttribute('href', `/projects/${slug}/shots`);
   await page.goto('/settings/ai?tab=invalid&provider=invalid&returnUrl=https%3A%2F%2Foutside.test');
   await expect(section(page, 'Connections')).toHaveAttribute('aria-selected', 'true');
   await expect(provider(page, 'ComfyUI')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.writing-back')).toHaveAttribute('href', '/');
+  await expect(page.locator('.page-back')).toHaveAttribute('href', '/');
 });
 
 test('connection panels fit desktop and mobile with a scrollable section row', async ({ page }) => {

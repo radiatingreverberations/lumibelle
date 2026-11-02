@@ -132,7 +132,7 @@ public sealed partial class AiModelComponentTests : BunitContext
         Assert.Single(page.FindAll(".text-model-row"));
         page.Find(".model-star").Click(); Button(page, "Star anyway").Click(); Assert.Single(_settings.Value.StarredTextModels);
         Assert.Equal("true", page.Find(".model-star").GetAttribute("aria-pressed"));
-        page.Find("#model-search").Input(""); Button(page, "★ Starred 1").Click();
+        page.Find("#model-search").Input(""); Button(page, "Starred 1").Click();
         Assert.Single(page.FindAll(".text-model-row"));
         page.Find("#ai-tab-text").KeyDown("ArrowLeft"); Assert.Equal("true", page.Find("#ai-tab-connections").GetAttribute("aria-selected"));
         page.Find("#ai-tab-connections").KeyDown("End"); Assert.Equal("true", page.Find("#ai-tab-loras").GetAttribute("aria-selected"));

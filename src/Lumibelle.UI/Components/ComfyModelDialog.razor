@@ -4,9 +4,12 @@
 @inject IAiReviewGate Reviews
 @implements IAsyncDisposable
 <MudDialog DefaultFocus="@(AdvancedMode ? DefaultFocus.FirstChild : DefaultFocus.Element)">
+    <TitleContent>
+        <DialogHeader Title="@DialogTitle" Context="@TextModelPolicy.DisplayName(Model, SettingsSnapshot)" Close="Close" CloseLabel="@($"Close {DialogTitle.ToLowerInvariant()}")" />
+    </TitleContent>
     <DialogContent>
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="@(_observedTestJob is { } read && read.Id == _jobId ? new[] { read } : [])" />
-        <p class="field-hint model-dialog-name">@TextModelPolicy.DisplayName(Model, SettingsSnapshot) · @Model.Model</p>
+        <p class="field-hint model-dialog-name">Model ID: <code>@Model.Model</code></p>
         <div class="model-verification ai-settings-form">
             <p class="model-verification-status @(SelectedModelVerified ? "verified" : "untested")" role="status">@VerificationStatus</p>
             @if (IsOpenRouter)
@@ -56,7 +59,7 @@
             @if (CurrentJob is { } job)
             {
                 <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
-                @if (job.LocksTarget) { <button type="button" class="btn btn-secondary" @onclick="CancelVerification" disabled="@_commandBusy">Cancel test</button> }
+                @if (job.LocksTarget) { <MudButton Variant="Variant.Outlined" OnClick="CancelVerification" Disabled="_commandBusy">Cancel test</MudButton> }
                 @if (job.State == AiJobState.Cancelled) { <p role="status">Model test cancelled. Any completed response remains available.</p> }
                 @if (_result?.Saved == true) { <p role="status">Test result saved.@if (_result.OpenRouter is { HasReply: false, Refused: false }) { <span> No answer was produced.</span> }</p> }
                 @if (_result?.Recovered == true) { <p class="field-hint">Response recovered after interruption. Live speed and peak memory could not be measured.</p> }
@@ -67,7 +70,7 @@
         </div>
         @if (_pending is not null) { <MudButton OnClick="RetryEnqueueAsync" Disabled="_commandBusy" Variant="Variant.Outlined">Retry enqueue</MudButton> }
     </DialogContent>
-    <DialogActions><MudButton OnClick="Close">Close</MudButton></DialogActions>
+    <DialogActions><DialogFooter><MudButton OnClick="Close">Close</MudButton></DialogFooter></DialogActions>
 </MudDialog>
 @code {
     [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = null!;
@@ -191,6 +194,7 @@
         if (StartTest && !AdvancedMode && ActiveJob is null) await RunModelTestAsync();
     }
     private void Close() => Dialog.Close();
+    private string DialogTitle => Dialog.Title ?? (Advanced ? "Advanced model test" : "Model details & test");
     private void Changed()
     {
         if (!_disposed) _ = InvokeAsync(async () =>

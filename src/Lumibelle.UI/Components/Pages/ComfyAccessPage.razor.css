@@ -1,10 +1,10 @@
 .access-settings { max-width: 900px; display: grid; gap: 20px; }
 .access-settings > p { margin: 0; }
 .access-settings fieldset { display: grid; gap: 10px; border: 0; padding: 0; min-width: 0; }
-.access-settings legend { font-size: 1.15rem; font-weight: 600; margin-bottom: 12px; }
+.access-settings legend { font-size: var(--lumi-font-size-subheading); font-weight: 600; margin-bottom: 12px; }
 .access-settings input { width: 100%; min-width: 0; }
 .access-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
 .access-origin { padding-block: 14px; overflow-wrap: anywhere; }
-.access-origin h3 { font-size: 1rem; }
+.access-origin h3 { font-size: var(--lumi-font-size-ui); }
 .access-origin button { margin-right: 8px; margin-bottom: 8px; }
 .access-settings dd { margin: 4px 0 12px; }
