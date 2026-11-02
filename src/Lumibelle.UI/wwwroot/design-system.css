@@ -52,7 +52,6 @@ button, input, select, textarea { font-family: inherit; }
 .studio-page-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .studio-page-actions { margin-left: auto; min-width: 0; flex-shrink: 0; }
 .studio-page-actions > div { display: flex; flex-direction: row; align-items: center; flex-wrap: nowrap; gap: 6px; padding: 0; }
-.studio-content:has(.studio-workspace) .studio-page-actions > .shots-heading { padding: 0; gap: 6px; }
 .studio-page-actions :is(button, .mud-button-root) { min-height: 32px; padding: 4px 8px; font-size: var(--lumi-font-size-meta); white-space: nowrap; }
 .studio-page-actions [role=status] { font-size: var(--lumi-font-size-small); color: var(--lumi-text-muted); white-space: nowrap; }
 .studio-page-actions .failed { color: var(--lumi-danger); }
@@ -113,13 +112,11 @@ button, input, select, textarea { font-family: inherit; }
 .cut-workspace { border: 0 !important; border-radius: 0 !important; background: var(--lumi-surface); }
 
 /* Page rhythm and restrained cards for the library, settings, and overview. */
-.library-heading, .project-heading { padding: 32px 0 24px; }
-.library-heading h1, .project-heading h1 { font-family: var(--lumi-font-ui); font-size: var(--lumi-font-size-page-title); letter-spacing: -.6px; font-weight: 600; }
+
 .project-card, .project-areas article { border-radius: var(--lumi-radius-surface); box-shadow: none; background: var(--lumi-surface); }
 .project-card:hover { border-color: var(--lumi-control-border); box-shadow: none; transform: none; }
-.project-card-main { padding: 20px; }
 .project-areas h2 { font-size: var(--lumi-font-size-subheading); }
-.eyebrow, .asset-library-heading, .outline-heading { letter-spacing: .06em; font-size: var(--lumi-font-size-small); font-weight: 600; color: var(--lumi-text-muted); }
+.eyebrow { letter-spacing: .06em; font-size: var(--lumi-font-size-small); font-weight: 600; color: var(--lumi-text-muted); }
 .field-hint, .rail-hint { color: var(--lumi-text-muted); }
 
 /* Stable dialog chrome; feature-specific body layouts remain scrollable. */
@@ -130,7 +127,6 @@ button, input, select, textarea { font-family: inherit; }
 .mud-dialog-title { flex-shrink: 0; border-bottom: 1px solid var(--lumi-border); }
 .mud-dialog-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .mud-dialog-actions { border-top: 1px solid var(--lumi-border); flex-shrink: 0; background: var(--lumi-surface); }
-.mud-dialog .dialog-heading h2 { font-size: var(--lumi-font-size-dialog-title); }
 .mud-dialog .field-error, .writing-error { color: var(--lumi-danger); }
 .script-review-dialog.mud-dialog, .image-review-dialog.mud-dialog, .media-details-dialog.mud-dialog { width: min(1200px, calc(100vw - 48px)); max-width: 1200px; border-radius: var(--lumi-radius-dialog); }
 /* Buttons written as plain <button> share the secondary button look, so they match MudBlazor's outlined
@@ -254,4 +250,3 @@ button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:n
 
 /* Destructive menu items and inline destructive links. */
 .mud-menu-item.danger-item, .mud-menu-item.danger-item .mud-menu-item-text { color: var(--lumi-danger); }
-.danger-link, button.danger-link { color: var(--lumi-danger); }

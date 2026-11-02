@@ -21,7 +21,6 @@
 .model-notice { display:block; font-size:var(--lumi-font-size-meta); color: var(--lumi-accent); max-width:36ch; }
 .text-assist-status { font-size:var(--lumi-font-size-meta); margin-top:6px; }
 .text-assist-status:empty { display:none; }
-.text-assist-status .ai-job-progress { margin:4px 0; }
 /* The width follows the dialog's size option (DialogSizes.Small by default). */
 .ai-assist-dialog.mud-dialog { max-height:85dvh; }
 .ai-assist-dialog .mud-dialog-content { overflow:auto; display:flex; flex-direction:column; gap:12px; }
@@ -71,9 +70,7 @@
 .assist-panel-actions .assistant-target { flex-basis:100%; margin:0; }
 .assist-panel-actions .mud-button { width:100%; }
 .assist-panel > .text-assist-status:not(:empty) { padding:8px 16px; margin:0; border-bottom: 1px solid var(--lumi-border); }
-.assist-panel .assistant-latest { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0; padding:0; border: 0; }
-.assist-panel .assistant-latest strong { font-size:var(--lumi-font-size-small); font-weight:500; }
-.assist-panel .text-assist-status .mud-button, .assist-panel .dismiss-result { font-size:var(--lumi-font-size-small); min-width:0; padding:3px 6px; }
+.assist-panel .text-assist-status .mud-button { font-size:var(--lumi-font-size-small); min-width:0; padding:3px 6px; }
 .prompt-toolbar .text-assistance { flex:0 0 auto; }
 .prompt-toolbar .text-model-picker:empty { display:none; }
 .text-request-action { display:flex; align-items:stretch; min-width:0; max-width:100%; position:relative; }
