@@ -202,8 +202,8 @@ button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:n
 .save-error-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .save-error-actions .mud-button-root { color: var(--lumi-text); }
 
-.pane-heading { display: flex; align-items: center; gap: 8px; min-height: 32px; }
-.pane-title { flex: 1; min-width: 0; margin: 0; font-size: var(--lumi-font-size-pane-title); font-weight: 650; line-height: 1.3; color: var(--lumi-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 32px; }
+.pane-title { flex: 1 1 auto; min-width: 7ch; margin: 0; font-size: var(--lumi-font-size-pane-title); font-weight: 650; line-height: 1.3; color: var(--lumi-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pane-count { margin-left: 6px; color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); font-weight: 500; }
 .pane-heading-actions { display: flex; align-items: center; gap: 4px; flex: none; }
 .pane-heading + * { margin-top: 8px; }

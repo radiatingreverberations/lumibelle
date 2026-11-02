@@ -31,7 +31,7 @@ else
     <StudioPageHeader Title="@(ScenesMode ? "Scenes" : "Shots")">
         <StudioActions Class="shots-actions shots-heading" data-interactive="@(_interactive && _planningInitialized ? "true" : "false")" Status="@_saveStatus" Problem="_saveFailed"
                        OnSave="Save" CanSave="@(_dirty && !_saving)" OnUndo="UndoEdit" CanUndo="@(_undo.Count > 0)" MenuLabel="@(ScenesMode ? "Scenes options" : "Shots options")">
-            <Menu><MudMenuItem OnClick="() => _recoveryOpen = true">Recovery…</MudMenuItem></Menu>
+            <Menu><MudMenuItem role="menuitem" OnClick="() => _recoveryOpen = true">Recovery…</MudMenuItem></Menu>
         </StudioActions>
     </StudioPageHeader>
     @if (_error is not null && _loadFailure is null)

@@ -31,9 +31,9 @@ else
         <StudioActions Class="dubbing-heading" Status="@SaveStatus" Problem="@(_error is not null && _dirty)"
                        OnSave="SaveClick" CanSave="@(!_busy && _dirty && _request is not null && PreviewIssue is null)" MenuLabel="Language versions options">
             <Menu>
-                <MudMenuItem Href="@ProjectLink(Id, "/shots")">Back to Shots</MudMenuItem>
-                <MudMenuItem Href="@ProjectLink(Id, "/settings")">Configure languages</MudMenuItem>
-                <MudMenuItem OnClick="Reload" Disabled="Locked">Refresh saved takes</MudMenuItem>
+                <MudMenuItem role="menuitem" Href="@ProjectLink(Id, "/shots")">Back to Shots</MudMenuItem>
+                <MudMenuItem role="menuitem" Href="@ProjectLink(Id, "/settings")">Configure languages</MudMenuItem>
+                <MudMenuItem role="menuitem" OnClick="Reload" Disabled="Locked">Refresh saved takes</MudMenuItem>
             </Menu>
         </StudioActions>
     </StudioPageHeader>

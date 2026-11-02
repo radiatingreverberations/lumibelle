@@ -19,8 +19,8 @@ else
         <StudioActions Class="writing-header-actions" Status="@SaveStatus" Problem="@(_session.Conflict || _session.Error is not null)"
                        OnSave="SaveAsync" CanSave="@(!_syncing && !_saveRequested && (Unsaved || _session.Error is not null))" MenuLabel="Script options">
             <Menu>
-                <MudMenuItem OnClick="ExportAsync">Export Markdown</MudMenuItem>
-                <MudMenuItem OnClick="HistoryAsync">Recovery…</MudMenuItem>
+                <MudMenuItem role="menuitem" OnClick="ExportAsync">Export Markdown</MudMenuItem>
+                <MudMenuItem role="menuitem" OnClick="HistoryAsync">Recovery…</MudMenuItem>
             </Menu>
         </StudioActions>
     </StudioPageHeader>
@@ -75,15 +75,15 @@ else
                     <button class="outline-title" title="@section.Title" @onclick="() => JumpAsync(section.Id)"><span>@(section.Kind == ScriptBlockKind.Act ? "§" : section.Number.ToString("00"))</span>@section.Title</button>
                     <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {section.Title}")" Size="Size.Small" Dense="true" Class="outline-menu"
                              AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                        <MudMenuItem OnClick='() => InsertAsync(section.Kind, section.Id, "before")'>Add @kind before</MudMenuItem>
-                        <MudMenuItem OnClick='() => InsertAsync(section.Kind, section.Id, "after")'>Add @kind after</MudMenuItem>
-                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem OnClick='() => InsertAsync(ScriptBlockKind.Act, section.Id, "before")'>Start new act here</MudMenuItem> }
-                        else { <MudMenuItem OnClick='() => InsertAsync(ScriptBlockKind.Scene, section.Id, "after")'>Add scene at end</MudMenuItem> }
-                        <MudMenuItem OnClick="() => RenameSectionAsync(section.Id)">Rename</MudMenuItem>
-                        <MudMenuItem OnClick="() => OpenMove(section.Id)">Move to…</MudMenuItem>
-                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem OnClick="SplitAsync">Split scene at cursor</MudMenuItem> }
+                        <MudMenuItem role="menuitem" OnClick='() => InsertAsync(section.Kind, section.Id, "before")'>Add @kind before</MudMenuItem>
+                        <MudMenuItem role="menuitem" OnClick='() => InsertAsync(section.Kind, section.Id, "after")'>Add @kind after</MudMenuItem>
+                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem role="menuitem" OnClick='() => InsertAsync(ScriptBlockKind.Act, section.Id, "before")'>Start new act here</MudMenuItem> }
+                        else { <MudMenuItem role="menuitem" OnClick='() => InsertAsync(ScriptBlockKind.Scene, section.Id, "after")'>Add scene at end</MudMenuItem> }
+                        <MudMenuItem role="menuitem" OnClick="() => RenameSectionAsync(section.Id)">Rename</MudMenuItem>
+                        <MudMenuItem role="menuitem" OnClick="() => OpenMove(section.Id)">Move to…</MudMenuItem>
+                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem role="menuitem" OnClick="SplitAsync">Split scene at cursor</MudMenuItem> }
                         @* Deleting an act with scenes asks first; everything else can be undone or restored from Recovery. *@
-                        <MudMenuItem Class="danger-item" OnClick="() => DeleteAsync(section.Id)">@(ConfirmsDelete(section) ? "Delete…" : "Delete")</MudMenuItem>
+                        <MudMenuItem role="menuitem" Class="danger-item" OnClick="() => DeleteAsync(section.Id)">@(ConfirmsDelete(section) ? "Delete…" : "Delete")</MudMenuItem>
                     </MudMenu>
                 </div>
             }

@@ -54,15 +54,15 @@ else
             <section class="design-example"><h2>Menus and tabs</h2>
                 <div class="design-actions">
                     <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Reference actions" Dense="true">
-                        <MudMenuItem>Rename</MudMenuItem>
-                        <MudMenuItem>Edit details…</MudMenuItem>
-                        <MudMenuItem>Move to asset…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Rename</MudMenuItem>
+                        <MudMenuItem role="menuitem">Edit details…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Move to asset…</MudMenuItem>
                         <MudDivider />
-                        <MudMenuItem Class="danger-item">Move to Trash</MudMenuItem>
+                        <MudMenuItem role="menuitem" Class="danger-item">Move to Trash</MudMenuItem>
                     </MudMenu>
                     <MudMenu Label="Import" EndIcon="@Icons.Material.Outlined.ExpandMore" Variant="Variant.Outlined" Dense="true">
-                        <MudMenuItem>Image…</MudMenuItem>
-                        <MudMenuItem>Reel…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Image…</MudMenuItem>
+                        <MudMenuItem role="menuitem">Reel…</MudMenuItem>
                     </MudMenu>
                 </div>
                 <StudioToolTabs Label="Example views" Items="Tabs" Selected="@_tab" SelectedChanged="t => _tab = t" TabIdPrefix="design-tab-" PanelIdPrefix="design-panel-" />
@@ -104,7 +104,7 @@ else
                 <div class="design-studio-actions">
                     <StudioActions Status="@SaveStatusText.Unsaved" OnSave="() => { }" CanSave="true" OnUndo="() => { }" CanUndo="true" OnRedo="() => { }" MenuLabel="Example options">
                         <ChildContent><MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.FileDownload">Export MP4…</MudButton></ChildContent>
-                        <Menu><MudMenuItem>Recovery…</MudMenuItem></Menu>
+                        <Menu><MudMenuItem role="menuitem">Recovery…</MudMenuItem></Menu>
                     </StudioActions>
                 </div>
                 <p class="field-hint">Every studio: save status, Save, Undo and Redo where available, studio actions, then an options menu.</p>
