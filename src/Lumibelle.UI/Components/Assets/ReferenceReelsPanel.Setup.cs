@@ -8,7 +8,6 @@ namespace lumibelle.Components.Assets;
 
 public partial class ReferenceReelsPanel
 {
-    private static readonly DialogOptions SetupOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
     private readonly string _promptHistoryScope = $"reel:{Guid.NewGuid():N}";
     private bool _setupDialogOpen, _closingSetupDialog, _restoreSetupFocus;
     private string _setupTab = "Prompt";

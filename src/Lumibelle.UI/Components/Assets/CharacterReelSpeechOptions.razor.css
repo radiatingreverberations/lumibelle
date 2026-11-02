@@ -8,8 +8,7 @@
 .speech-suggestion { margin:10px 0; padding:10px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); background:var(--lumi-surface-subtle); }
 .speech-suggestion strong { font-size:var(--lumi-font-size-meta); }
 .speech-text { white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0; }
-.reel-speech button { padding:6px 9px; border:1px solid var(--line); border-radius:var(--lumi-radius-control); color:var(--plum); background:var(--lumi-surface); cursor:pointer; }
-.reel-speech button:disabled { cursor:default; opacity:.5; }
+
 .reel-speech :is(button,input,textarea,select):focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
 .speech-error { color:var(--lumi-danger); font-size:var(--lumi-font-size-meta); }
 @media(max-width:639px) { .reel-speech-controls { grid-template-columns:minmax(0,1fr); } }

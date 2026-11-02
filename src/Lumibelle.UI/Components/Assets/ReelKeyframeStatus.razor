@@ -1,5 +1,5 @@
 <div class="reel-keyframe-status @(Count == 0 ? "needs-keyframes" : "has-keyframes")">
-    <button type="button" disabled="@Disabled" @onclick="Open" title="@(Count == 0 ? "Choose useful viewpoints for later shots" : "Review or change the saved viewpoints")">@(Count == 0 ? "Needs keyframes" : $"{Count} keyframe{(Count == 1 ? "" : "s")}")</button>
+    <button type="button" class="lumi-button small" disabled="@Disabled" @onclick="Open" title="@(Count == 0 ? "Choose useful viewpoints for later shots" : "Review or change the saved viewpoints")">@(Count == 0 ? "Needs keyframes" : $"{Count} keyframe{(Count == 1 ? "" : "s")}")</button>
     @if (Explain && Count == 0) { <p>Choose views from across the reel for use in later shots. Direct video references use only the beginning.</p> }
 </div>
 

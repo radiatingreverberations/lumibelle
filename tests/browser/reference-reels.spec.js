@@ -148,7 +148,7 @@ for (const narrow of [false, true]) for (const outcome of ['success', 'edited', 
     await tools.getByRole('button', { name: 'View request', exact: true }).click();
     const requestDialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Reference reel request', exact: true }) });
     await expect(requestDialog).toBeVisible();
-    if (outcome === 'cancelled') await requestDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    if (outcome === 'cancelled') await requestDialog.getByRole('button', { name: 'Cancel request', exact: true }).click();
     await requestDialog.getByRole('button', { name: 'Close', exact: true }).click();
     if (outcome === 'edited') await (await openSetup(page)).getByLabel('Use guidance', { exact: true }).fill('My next reel guidance');
   } finally { await pause(false); }
@@ -304,7 +304,7 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   await expect.poll(() => player.evaluate(v => v.currentTime)).toBeGreaterThanOrEqual(2);
   await page.screenshot({ path: 'artifacts/reference-reels-desktop.png' });
   await expect(page.locator('.reel-details-tools')).toBeVisible();
-  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details', exact: true }).click();
+  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details…', exact: true }).click();
   const details = page.locator('.reel-details-dialog');
   const actions = details.locator('.mud-dialog-actions');
   for (const name of ['Manage keyframes…', 'Regenerate…', 'Create similar', 'Close', 'Save details']) {
@@ -321,7 +321,7 @@ for (const narrow of [false, true]) test(`preset generation saves independent re
   await details.locator('summary').getByText('Use guidance', { exact: true }).click();
   await details.getByRole('textbox', { name: 'Use guidance', exact: true }).fill('Reviewed appearance: use the face and hands.');
   await page.getByRole('button', { name: 'Save details' }).click();
-  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details', exact: true }).click();
+  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details…', exact: true }).click();
   await actions.getByRole('button', { name: 'Regenerate…', exact: true }).click();
   const confirmMore = page.locator('.repeat-generation-dialog');
   await expect(confirmMore).toBeVisible();
@@ -492,7 +492,7 @@ for (const narrow of [false, true]) test(`reel and voice details and moves betwe
   await move.getByLabel('Destination asset', { exact: true }).selectOption(target.id);
   await move.getByRole('button', { name: 'Move', exact: true }).click();
   await expect(move).not.toBeVisible();
-  await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details',exact:true}).click();
+  await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click();
   await expect(details.getByLabel('Use guidance', { exact: true })).toHaveValue('Retained guidance before moving');
   await details.getByRole('button',{name:'Close',exact:true}).click();
   let saved = await library(request, id);
@@ -528,7 +528,7 @@ for (const narrow of [false, true]) test(`reel and voice details and moves betwe
   await move.getByLabel('Destination asset').selectOption(target.id);
   await move.getByRole('button', { name: 'Move', exact: true }).click();
   await expect(move).not.toBeVisible();
-  await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details',exact:true}).click();
+  await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click();
   await expect(editor.getByLabel('Name', { exact: true })).toHaveValue('Moved recording');
   const movedVoice = (await library(request, id)).voices[0];
   expect(movedVoice.id).toBe(voice.id); expect(movedVoice.assetId).toBe(target.id);
@@ -1058,7 +1058,7 @@ for (const narrow of [false, true]) {
     await expect.poll(async () => (await library(request, id)).reels.length, { timeout: 45000 }).toBe(2);
     expect((await library(request, id)).reels.every(r => JSON.stringify(r.generation.snapshot.appliedLoras) === JSON.stringify(original.generation.snapshot.appliedLoras))).toBe(true);
     const card = page.locator(`[data-media-id="${original.id}"]`);
-    await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details',exact:true}).click();
+    await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click();
     const detail = page.locator('.reel-details-dialog');
     await detail.getByText('Applied LoRAs · 1', { exact: true }).click();
     await expect(detail.locator('.video-lora-details')).toContainText(name);

@@ -5,7 +5,7 @@
 @inject IAiSettingsStore Settings
 @inject IVideoGenerator Generator
 
-<InlineDialog OnEscape="Close" Visible="@(Reel is not null)" VisibleChanged="async visible => { if (!visible) await Close(); }" Options="Options"
+<InlineDialog OnEscape="Close" Visible="@(Reel is not null)" VisibleChanged="async visible => { if (!visible) await Close(); }" Options="DialogSizes.Medium" Actions="@(FooterDismiss ? Dismiss : null)"
               Class="reel-refinement-dialog" Title="Refine reel" Context="@Reel?.Name" CloseLabel="Close refine reel" CloseDisabled="_busy">
     <DialogContent>
         @if (Reel is { Generation: not null } reel) {
@@ -26,7 +26,6 @@
             }
         }
     </DialogContent>
-    <DialogActions><MudButton OnClick="Close" Disabled="_busy">Close</MudButton></DialogActions>
 </InlineDialog>
 
 @code {
@@ -35,7 +34,9 @@
     [Parameter] public EventCallback Closed { get; set; }
     [Parameter] public EventCallback<AssetReferenceReel> PrepareWithLatents { get; set; }
     [Parameter] public EventCallback<AiJobSubmission> Submitted { get; set; }
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
+    // The refinement form brings its own dismiss (Back to review); the footer offers Close only while that form is absent or locked.
+    private bool FooterDismiss => Reel?.RefinementPackage is null || _submission is not null;
+    private RenderFragment Dismiss => @<DialogDismiss OnDismiss="Close" Disabled="_busy" />;
     private readonly CancellationTokenSource _lifetime = new();
     private Guid? _source;
     private bool _busy;

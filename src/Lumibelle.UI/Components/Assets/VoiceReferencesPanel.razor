@@ -8,21 +8,21 @@
 @if (Inline && !Embedded)
 {
     <div class="voice-library"><h2>Voice references</h2><p class="field-hint">Recordings guide voice identity in Shots. Choose a 1–15 second excerpt to use for this character.</p>
-    <button class="voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">Add voice reference</button>
+    <button class="lumi-button voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">Add voice reference</button>
     @if (Voices.Count == 0) { <p>No recordings yet.</p> }
     @foreach (var voice in Voices) {
         <article class="voice-reference" @key="voice.Id"><strong>@voice.Name</strong><small>@voice.ExcerptDuration.ToString("0.##") second excerpt</small>
             <audio data-excerpt-start="@N(voice.Start)" data-excerpt-end="@N(voice.Start + voice.ExcerptDuration)" controls preload="none" src="@SavedUrl(voice.Id)" aria-label="@($"Play {voice.Name}")"></audio>
-            <div><button disabled="@(_busy || Disabled)" @onclick="() => Edit(voice)">Edit excerpt</button><button disabled="@(_busy || Disabled)" @onclick="() => Discard(voice)">Move to Trash</button></div>
+            <div><button disabled="@(_busy || Disabled)" @onclick="() => Edit(voice)">Edit excerpt</button><button class="lumi-button danger" disabled="@(_busy || Disabled)" @onclick="() => Discard(voice)">Move to Trash</button></div>
         </article>
     }
     @if (!_open && _undo is not null) { <p role="status">Voice moved to Trash. <button disabled="@_busy" @onclick="Undo">Undo</button></p> }
     @if (!_open && _error is not null) { <p role="alert">@_error</p> }
     </div>
 }
-else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">@(Voices.Count == 0 ? "Add voice reference" : $"Voice · {Voices.Count}")</button> }
-<InlineDialog OnEscape="RequestCloseAsync" Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="voice-dialog media-details-dialog" DefaultFocus="_dialogFocus">
-    <TitleContent><DialogHeader Title="@(_editing is not null ? "Voice details" : _draft is not null ? "Save voice" : $"{CharacterName} · Voice references")" CloseLabel="Close voice details" CloseDisabled="_busy" Close="RequestCloseAsync" /></TitleContent>
+else if (!Embedded) { <button class="lumi-button voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">@(Voices.Count == 0 ? "Add voice reference" : $"Voice · {Voices.Count}")</button> }
+<InlineDialog OnEscape="RequestCloseAsync" Visible="_open" VisibleChanged="VisibilityChanged" Options="DialogSizes.Large" Class="voice-dialog media-details-dialog" DefaultFocus="_dialogFocus">
+    <TitleContent><DialogHeader Title="@DialogTitle" Context="@CharacterName" CloseLabel="@($"Close {DialogTitle.ToLowerInvariant()}")" CloseDisabled="_busy" Close="RequestCloseAsync" /></TitleContent>
     <DialogContent>
         <MediaDetailsFocus NameId="@(_rename ? _editing?.Id : null)" Handled="() => _rename = false" />
         @if (_draft is not null || _editing is not null)
@@ -36,7 +36,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true;
                 <article class="voice-reference" @key="voice.Id">
                     <strong>@voice.Name</strong><small>@voice.ExcerptDuration.ToString("0.##") second excerpt · @voice.Start.ToString("0.##")–@((voice.Start + voice.ExcerptDuration).ToString("0.##"))</small>
                     <audio data-excerpt-start="@N(voice.Start)" data-excerpt-end="@N(voice.Start + voice.ExcerptDuration)" controls preload="none" src="@SavedUrl(voice.Id)" aria-label="@($"Play {voice.Name}")"></audio>
-                    <div><button disabled="@(_busy || Disabled)" @onclick="() => Edit(voice)">Edit excerpt</button><button disabled="@(_busy || Disabled)" @onclick="() => Discard(voice)">Move to Trash</button></div>
+                    <div><button disabled="@(_busy || Disabled)" @onclick="() => Edit(voice)">Edit excerpt</button><button class="lumi-button danger" disabled="@(_busy || Disabled)" @onclick="() => Discard(voice)">Move to Trash</button></div>
                 </article>
             }
             <label class="import-button voice-upload">Choose file<InputFile OnChange="Upload" accept=".wav,.mp3,.flac,.m4a,.ogg" disabled="@(_busy || Disabled)" /></label>
@@ -56,12 +56,11 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true;
         </Tools><ChildContent>
         @if (_draft is not null || _editing is not null)
         {
-            @if (_confirmClose) { <MudButton OnClick="CloseAsync" Disabled="_busy">Discard changes</MudButton><MudButton OnClick="() => _confirmClose = false" Disabled="_busy">Keep editing</MudButton> }
-            else { <MudButton OnClick="RequestCloseAsync" Disabled="_busy" Variant="Variant.Outlined">@(_draft is not null ? "Cancel" : "Close")</MudButton> }
+            <DialogDismiss Label="@(_draft is not null ? "Cancel" : "Close")" Confirming="_confirmClose" OnDismiss="RequestCloseAsync" OnDiscard="CloseAsync" OnKeepEditing="() => _confirmClose = false" Disabled="_busy" />
             <MudButton OnClick="SaveExcerpt" Disabled="@(_busy || Disabled || !ValidExcerpt || string.IsNullOrWhiteSpace(_name) || _draft is null && !EditingDirty)" Color="Color.Primary" Variant="Variant.Filled">@(_busy ? "Saving…" : _draft is not null ? "Save voice reference" : "Save details")</MudButton>
         }
         else if (_uploading) { <MudButton OnClick="() => _cancellation?.Cancel()">Cancel import</MudButton> }
-        else { <MudButton OnClick="CloseAsync" Disabled="_busy" Variant="Variant.Outlined">Close</MudButton> }
+        else { <DialogDismiss OnDismiss="CloseAsync" Disabled="_busy" /> }
         </ChildContent></MediaDetailsActions>
     </DialogActions>
 </InlineDialog>
@@ -72,7 +71,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true;
     @if (SelectedVoice is { } selected) {
         <audio controls preload="metadata" src="@SavedUrl(selected.Id)" aria-label="Listen to recording"></audio>
         <p class="field-hint">@selected.ExcerptDuration.ToString("0.##") second excerpt. Open details to rename the recording or change its excerpt.</p>
-        <MudButton OnClick="() => Edit(selected)">Edit details</MudButton>
+        <MudButton OnClick="() => Edit(selected)">Edit details…</MudButton>
     }
     @if (_error is not null) { <p role="alert">@_error</p> }
 </ChildContent></StudioPane></SectionContent>
@@ -114,7 +113,7 @@ else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true;
     [Parameter] public bool Inline { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter, EditorRequired] public Func<Func<long, Task<AssetLibrary>>, Task> Mutate { get; set; } = default!;
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
+    private string DialogTitle => _editing is not null ? "Voice details" : _draft is not null ? "Save voice" : "Voice references";
     private string _name = ""; private double _start, _end = 5; private bool _busy, _open, _uploading, _disposed; private string? _error;
     private VoiceReference? _editing; private VoiceImportDraft? _draft; private Guid? _undo;
     private IJSObjectReference? _module; private ElementReference _player; private CancellationTokenSource? _cancellation; private Task? _upload;

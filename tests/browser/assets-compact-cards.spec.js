@@ -75,7 +75,7 @@ for (const narrow of [false,true]) test(`compact cards preview thumbnails, selec
  await changeLook(reel,look.id); await expect(lookDialog).not.toBeVisible();
  await expect.poll(async()=>{const r=(await state(request,id)).reels.find(r=>r.id===reel.id); return [r.lookId,r.useGuidance];}).toEqual([look.id,'Keep the reviewed rear silhouette.']);
  await expect(card(reel.id).locator('.media-look-badge')).toHaveText(look.name);
- await tools(page); await details.getByRole('button',{name:'Edit details',exact:true}).click(); await expect(modal.getByRole('combobox',{name:'Look',exact:true})).toHaveValue(look.id); await modal.getByRole('button',{name:'Close',exact:true}).click();
+ await tools(page); await details.getByRole('button',{name:'Edit details…',exact:true}).click(); await expect(modal.getByRole('combobox',{name:'Look',exact:true})).toHaveValue(look.id); await modal.getByRole('button',{name:'Close',exact:true}).click();
  await gallery(page); await page.getByLabel('Gallery look',{exact:true}).selectOption(look.id);
  await changeLook(reel,''); await expect(lookDialog).not.toBeVisible(); await expect(card(reel.id)).toHaveCount(0);
  await expect(page.getByLabel('Gallery look',{exact:true})).toBeFocused();

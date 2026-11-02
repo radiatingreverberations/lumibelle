@@ -134,7 +134,7 @@ for (const narrow of [false, true]) test(`mixed references keep selection indepe
   await expect(page.locator(`[data-media-id="${voice.id}"] .media-preview`)).toHaveAccessibleDescription(/Voice.*excerpt/);
   await expect(page.locator(`[data-media-id="${reel.id}"] .media-preview`)).toHaveAccessibleDescription(/Reel.* s/);
   const card=key=>page.locator(`[data-media-id="${key}"] .media-select`);
-  await card(voice.id).click(); await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details',exact:true}).click(); const editor=page.locator('.voice-dialog'); await expect(editor).toBeVisible();
+  await card(voice.id).click(); await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click(); const editor=page.locator('.voice-dialog'); await expect(editor).toBeVisible();
   await editor.getByLabel('Name', { exact: true }).fill('My revised voice');
   await editor.getByLabel('End (seconds)').fill('0');
   await expect(editor.getByRole('button',{name:'Save details',exact:true})).toBeDisabled();
@@ -147,11 +147,11 @@ for (const narrow of [false, true]) test(`mixed references keep selection indepe
   await expect(editor.getByLabel('Name', { exact: true })).toHaveValue('My revised voice');
   await editor.getByRole('button',{name:'Save details',exact:true}).click();
   await expect.poll(async()=>(await state(request,id)).voices[0].name).toBe('My revised voice');
-  await expect(editor).not.toBeVisible(); await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details',exact:true}).click();
+  await expect(editor).not.toBeVisible(); await page.locator('.voice-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click();
   const audio=editor.locator('audio'); await expect.poll(()=>audio.evaluate(a=>a.readyState)).toBeGreaterThan(0);
   await editor.getByRole('button',{name:'Play excerpt',exact:true}).click(); await expect.poll(()=>audio.evaluate(a=>a.currentTime)).toBeGreaterThan(0);
   await editor.getByRole('button',{name:'Close',exact:true}).click();
-  await gallery(page); await card(reel.id).click(); await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details',exact:true}).click(); const details=page.locator('.reel-details-dialog'); await expect(details).toBeVisible();
+  await gallery(page); await card(reel.id).click(); await page.locator('.reel-details-tools').getByRole('button',{name:'Edit details…',exact:true}).click(); const details=page.locator('.reel-details-dialog'); await expect(details).toBeVisible();
   await details.getByLabel('Name',{exact:true}).fill('My reviewed reel');
   await details.locator('summary').getByText('Use guidance',{exact:true}).click();
   await details.getByLabel('Use guidance',{exact:true}).fill('My retained guidance');
