@@ -23,6 +23,9 @@ public static class DialogSizes
         FullWidth = true,
         CloseOnEscapeKey = true,
         BackdropClick = false,
-        CloseOnNavigation = true,
+        // Pages update their URL while dialogs are open (selection, remembered positions). MudBlazor would treat
+        // that as navigation and lose track of an inline dialog, which then can no longer be closed. Dialogs close
+        // with their page instead.
+        CloseOnNavigation = false,
     };
 }

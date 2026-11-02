@@ -37,7 +37,8 @@
     private int _opening;
     private bool _closedRendered;
 
-    private DialogOptions EffectiveOptions => (Options ?? DialogSizes.Medium) with { CloseOnEscapeKey = false };
+    // Escape is handled here; navigation never closes an inline dialog (see DialogSizes).
+    private DialogOptions EffectiveOptions => (Options ?? DialogSizes.Medium) with { CloseOnEscapeKey = false, CloseOnNavigation = false };
     private bool EscapeHandled => CloseOnEscape && (OnEscape.HasDelegate || VisibleChanged.HasDelegate && Options?.CloseOnEscapeKey != false);
 
     private RenderFragment Content => @<text>@if (EscapeHandled) { <DialogEscape Pressed="EscapeAsync" /> }@DialogContent</text>;
