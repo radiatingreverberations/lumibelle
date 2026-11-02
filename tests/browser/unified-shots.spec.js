@@ -148,7 +148,7 @@ test('planning, cast, coverage-only duplication, deletion and recovery in the sa
   await expect(shotTab(page, 'Shot')).toHaveAttribute('aria-selected', 'true');
   await openShotSetup(page);
   await expect(page.getByRole('textbox', { name: 'H3 prompt', exact: true })).toBeEmpty();
-  await shotAction(page, 'Delete');
+  await shotAction(page, 'Delete…');
   const deletion = page.locator('.shot-delete-dialog');
   await deletion.getByRole('button', { name: /Delete 1 shot/ }).click();
   await expect(deletion).not.toBeVisible();

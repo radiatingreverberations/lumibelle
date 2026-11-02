@@ -1,7 +1,7 @@
 import { openShotSetup, closeShotSetup, toolsTab, assetView } from './workspace-tools.js';
 import { scriptAssist, modelOptions, closeComposer, submitPlanning, submitExtraction, extractionComposer, openPlanning } from './text-assistance-tools.js';
 import { test, expect } from './fixtures.js';
-const assist = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('button', { name: 'Close', exact: true }) }).last();
+const assist = page => page.locator('.ai-assist-dialog').filter({ has: page.getByRole('button', { name: /^(Close|Done)$/ }) }).last();
 const jobs = async (request, id) => (await (await request.get('/fixtures/ai-jobs')).json()).filter(j => j.target.projectId === id);
 const selection = async (request, job) => (await (await request.get(`/fixtures/ai-jobs/${job.id}/text-selection`)).json());
 async function fresh(page, request, route = 'script', shots = false) {

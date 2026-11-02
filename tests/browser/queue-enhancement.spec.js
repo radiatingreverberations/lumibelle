@@ -101,7 +101,7 @@ test('reloaded edit enhancement restores the exact reference crops and crop canc
   await page.locator('#image-prompt').fill(original);
   await modelOptions(page, page.locator('.prompt-enhancement'));
   await page.getByRole('combobox', { name: 'Text model', exact: true }).selectOption({ label: 'OpenRouter · Alternate mock model' });
-  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.ai-assist-dialog').last().getByRole('button', { name: 'Done', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Inspect reference images' }).check();
   await closeComposer(page);
   await togglePause(page, true);
