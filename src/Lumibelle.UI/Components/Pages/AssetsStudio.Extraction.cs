@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Story;
@@ -163,7 +164,6 @@ public partial class AssetsStudio
         _extractOpen = false; _restoreExtractionFocus = true; _extractionReviewSuppressed = true; _extractionCloses++;
         await ReleaseExtractionReviewAsync();
     }
-    private Task HandleExtractionKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args) => args.Key == "Escape" ? CloseExtraction() : Task.CompletedTask;
     private async Task ApplyExtractionAsync()
     {
         if (_finishingReview || _extracting || ExtractionFinished || _library is null || _reviewRequest is null || _extractionResult is null || _extractionResult.ValidationError is not null || _extractionJob?.State != AiJobState.Completed) return;
@@ -178,7 +178,7 @@ public partial class AssetsStudio
             var saved = await AssetStore.FinishExtractionAsync(Id, input, _library.Revision);
             ApplyStoredMutation(saved, version, []);
             _selectedAssetId ??= _library.Assets.FirstOrDefault()?.Id;
-            _extractOpen = false; _restoreExtractionFocus = true; _saveStatus = _dirty ? "Unsaved" : "Saved"; _reviewDraftDirty = false;
+            _extractOpen = false; _restoreExtractionFocus = true; _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved; _reviewDraftDirty = false;
             await ReleaseExtractionReviewAsync();
             Snackbar.Add($"Reviewed {input.SceneIds.Count} saved scenes.", Severity.Success);
             try { await RefreshCoverageAsync(); }

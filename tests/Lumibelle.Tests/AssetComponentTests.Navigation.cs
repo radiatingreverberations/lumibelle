@@ -30,7 +30,7 @@ public sealed partial class AssetComponentTests
             .Add(x => x.EditRequestedImage, editImage)));
         page.WaitForAssertion(() => Assert.Equal(destination, new Uri(navigation.Uri).PathAndQuery + new Uri(navigation.Uri).Fragment));
         Assert.Contains("Mira", page.Find(".asset-list-row.selected").TextContent);
-        if (editImage) Assert.Equal("Edit image", page.Find("#assets-tool-heading").TextContent);
+        if (editImage) Assert.Equal("Edit image", page.Find(".asset-tool-shell .pane-title").TextContent);
 
         // Supply the cleaned query as the router does, without remounting the page.
         await page.InvokeAsync(() => page.Render(p => p.Add(x => x.RequestedAssetId, (Guid?)null)
@@ -42,7 +42,7 @@ public sealed partial class AssetComponentTests
         navigation.NavigateTo(navigation.ToAbsoluteUri($"/projects/{_projectId:D}/assets").AbsoluteUri);
         page = Page(false);
         page.WaitForAssertion(() => Assert.Contains("Mira", page.Find(".asset-list-row.selected").TextContent));
-        if (editImage) Assert.Equal("Edit image", page.Find("#assets-tool-heading").TextContent);
+        if (editImage) Assert.Equal("Edit image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Equal(0, _assets.SaveCalls);
         Assert.Empty(_queue.View.Jobs);
     }

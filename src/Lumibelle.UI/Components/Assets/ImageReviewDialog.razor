@@ -67,10 +67,10 @@ else
                                 <span><strong>@entry.Label</strong><small title="@Description(entry, image)">@Description(entry, image)</small></span>
                             </button>
                             <div class="review-row-actions">
-                                <button class="review-compare-button" aria-label="Compare with @entry.Label" aria-pressed="@Pressed(_secondary == entry.Reference)" disabled="@(_primary == entry.Reference || image is null)" @onclick="() => Compare(entry)">@(_secondary == entry.Reference ? "Stop comparing" : "Compare with")</button>
+                                <button class="lumi-button small review-compare-button" aria-label="Compare with @entry.Label" aria-pressed="@Pressed(_secondary == entry.Reference)" disabled="@(_primary == entry.Reference || image is null)" @onclick="() => Compare(entry)">@(_secondary == entry.Reference ? "Stop comparing" : "Compare with")</button>
                                 @if (Session.IsBatch && entry.IsTake)
                                 {
-                                    <button class="review-discard-button" aria-label="Discard @entry.Label" disabled="@(_busy || !CanDiscard(entry))" @onclick="() => LeaveDetails(() => DiscardAsync(entry))">Discard</button>
+                                    <button class="lumi-button small danger review-discard-button" aria-label="Discard @entry.Label" disabled="@(_busy || !CanDiscard(entry))" @onclick="() => LeaveDetails(() => DiscardAsync(entry))">Discard</button>
                                     @if (image is { IsReference: true } or { IsCover: true }) { <small>Manage approved images in the library.</small> }
                                 }
                                 @if (Resolution(entry).Trash is { } trash)

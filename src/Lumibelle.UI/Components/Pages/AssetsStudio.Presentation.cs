@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using System.Text.Json;
 using lumibelle.Components.Assets;
 using lumibelle.Models;
@@ -99,8 +100,6 @@ public partial class AssetsStudio
     {
         if (await SaveNowAsync()) _assetDetailsOpen = false;
     }
-    private Task AssetDetailsKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) =>
-        e.Key == "Escape" ? CloseAssetDetails() : Task.CompletedTask;
     private void RememberMediaDraft()
     {
         RememberImageComposer();
@@ -314,7 +313,7 @@ public partial class AssetsStudio
             _orderUndo = (before, order.ToArray()); _moveAssetId = null; _orderError = null;
         } catch (WorkspaceConflictException) {
             _orderError = _saveError = "The library order changed in another editor. Review the latest order before moving this asset.";
-            _conflict = true; _saveStatus = "Conflict";
+            _conflict = true; _saveStatus = SaveStatusText.Conflict;
         } catch (WorkspaceStoreException e) { _orderError = _saveError = e.Message; }
         finally { _ordering = false; _saveGate.Release(); }
     }
@@ -334,7 +333,7 @@ public partial class AssetsStudio
             var order = undo.Before.Where(current.Contains).Concat(current.Where(id => !known.Contains(id))).ToArray();
             var baseline = _library.Copy(); var saved = await AssetStore.ReorderAssetsAsync(Id, order, _library.Revision);
             _library = AssetLibraryRebase.Merge(baseline, _library, saved); _savedLibrary = saved.Copy(); _orderUndo = null;
-        } catch (WorkspaceConflictException) { _conflict = true; _saveStatus = "Conflict"; _saveError = "The library order changed. Reload the saved order before undoing the move."; }
+        } catch (WorkspaceConflictException) { _conflict = true; _saveStatus = SaveStatusText.Conflict; _saveError = "The library order changed. Reload the saved order before undoing the move."; }
         catch (WorkspaceStoreException e) { _saveError = e.Message; }
         finally { _ordering = false; _saveGate.Release(); }
     }

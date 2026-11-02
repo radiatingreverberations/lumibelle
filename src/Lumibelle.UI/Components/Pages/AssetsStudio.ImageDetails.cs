@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Story;
@@ -48,7 +49,7 @@ public partial class AssetsStudio
                     var saved = await AssetStore.SaveAsync(candidate, latest.Revision);
                     _library = AssetLibraryRebase.Merge(baseline, _library, saved);
                     _savedLibrary = saved.Copy();
-                    _saveStatus = _dirty ? "Unsaved" : "Saved";
+                    _saveStatus = _dirty ? SaveStatusText.Unsaved : SaveStatusText.Saved;
                     return null;
                 }
                 catch (WorkspaceConflictException) when (attempt < 2) { /* Recheck each intended field against the next snapshot. */ }

@@ -12,7 +12,6 @@ public partial class AssetsStudio
     private long _deleteAssetsDraftVersion;
     private string? _deleteAssetsError;
     private string _deleteAssetsProgress = "";
-    private DialogOptions DeleteAllAssetsOptions => new() { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !_deletingAllAssets };
     private string? AssetDeletionActivityIssue => _imageSubmittingAsset is not null || _enhancing || _finishingReview ||
         AiJobs.View.Jobs.Any(j => j.Target.ProjectId == Id && (j.Target.AssetId is not null || j.Kind == AiJobKind.AssetExtraction) &&
             (j.LocksTarget || j.RemoteUnconfirmed))
