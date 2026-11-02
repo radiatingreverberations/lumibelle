@@ -108,14 +108,16 @@ public sealed partial class ScriptComponentTests : BunitContext
             SessionId = Services.GetRequiredService<ApplicationSession>().Id
         }, _ct);
         var panel = Panel();
-        await Click(panel, "Requests");
+        await panel.InvokeAsync(() => panel.Instance.OpenRequestsAsync());
         _dialogs.WaitForElement(".assistant-run");
         await Click(panel, "Open response");
         Reviewed();
         _dialogs.WaitForAssertion(() => {
             Assert.Contains("No changes proposed. Your script is unchanged.", _dialogs.Markup);
             Assert.DoesNotContain(_dialogs.FindAll("button"), b => b.TextContent.Trim() == "Apply changes");
-            Assert.Contains("mud-button-filled-primary", _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "New request").ClassName);
+            // New request is a footer tool; with nothing to apply the review has no filled primary.
+            Assert.DoesNotContain("mud-button-filled-primary", _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "New request").ClassName);
+            Assert.NotNull(_dialogs.Find(".script-review-dialog .dialog-tools").QuerySelectorAll("button").SingleOrDefault(b => b.TextContent.Trim() == "New request"));
         });
         Assert.Empty(_applications);
         Assert.Equal(0, _assistant.Calls);

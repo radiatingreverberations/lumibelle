@@ -2,15 +2,14 @@
 @inject IProjectStore Projects
 
 <PageTitle>Script · @(_project?.Name ?? "Lumibelle")</PageTitle>
+@* The workspace shows the same loading text while it opens the script, so loading reads as one state. *@
 @if (_loading)
 {
-    <p role="status" class="loading-state">Opening your writing workspace…</p>
+    <LoadingState Text="Opening Script…" />
 }
-else if (_error is not null)
+else if (_loadFailure is not null)
 {
-    <h1>Couldn’t open this project</h1>
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    <MudButton OnClick="LoadAsync">Try again</MudButton>
+    <LoadFailure Title="Couldn’t open this project" Error="_loadFailure" Retry="LoadAsync" />
 }
 else if (_project is null)
 {
@@ -26,7 +25,7 @@ else
     [Parameter] public Guid Id { get; set; }
     [Parameter] public Guid? JobId { get; set; }
     private ProjectInfo? _project;
-    private string? _error;
+    private ProjectStoreException? _loadFailure;
     private bool _loading = true;
     private Guid? _loadedProject;
     protected override Task OnParametersSetAsync() => _loadedProject == Id ? Task.CompletedTask : LoadAsync();
@@ -34,9 +33,9 @@ else
     {
         var requested = Id;
         _loading = true;
-        _error = null;
+        _loadFailure = null;
         try { var project = await Projects.GetAsync(requested); if (requested == Id) { _project = project; _loadedProject = requested; } }
-        catch (ProjectStoreException e) { if (requested == Id) _error = e.Message; }
+        catch (ProjectStoreException e) { if (requested == Id) _loadFailure = e; }
         finally { if (requested == Id) _loading = false; }
     }
 }

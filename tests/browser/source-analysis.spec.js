@@ -41,8 +41,8 @@ test('source analysis persists across navigation, pauses, and produces an editab
   await page.getByLabel('Source title', { exact: true }).fill('The river key');
   await page.getByLabel('Original text', { exact: true }).fill(source);
   await page.getByLabel('Adaptation direction', { exact: true }).fill('Keep Eira’s point of view. Choose acts around the reveal.');
-  await page.getByRole('button', { name: 'Save source', exact: true }).click();
-  await expect(page.getByText('Source saved', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.source-actions .save-status')).toHaveText('Saved');
   await page.getByRole('button', { name: 'Analyze source', exact: true }).click();
   await expect(right.getByText('Reading source', { exact: true })).toBeVisible();
   await expect.poll(async () => (await (await request.get(`/fixtures/${id}/source`)).json()).runs[0].notes.length).toBeGreaterThan(0);
@@ -115,7 +115,7 @@ test('source analysis persists across navigation, pauses, and produces an editab
   expect((await (await request.get(`/fixtures/${id}`)).json()).script).toEqual(script);
   await page.screenshot({ path: 'artifacts/source-outline-desktop.png', fullPage: true });
   await page.getByLabel('Adaptation direction', { exact: true }).fill('Use a different point of view.');
-  await page.getByRole('button', { name: 'Save source', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText(/This analysis uses an earlier version/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Accept outline', exact: true })).toBeDisabled();
 });
@@ -139,7 +139,7 @@ test('source import and analysis remain usable on a narrow screen', async ({ pag
   await page.locator('.workspace-left').getByRole('button', { name: '1.1 A key in the rain', exact: true }).click();
   await expect(page.locator('.workspace-left')).toBeHidden();
   await page.getByLabel('Act 1 sequence 1 summary').fill('Eira finds the key and decides to investigate.');
-  await page.getByRole('button', { name: 'Save or accept outline →', exact: true }).click();
+  await page.getByRole('button', { name: 'Save or accept outline', exact: true }).click();
   await page.getByRole('button', { name: 'Accept outline', exact: true }).click();
   await openOutline(page);
   await expect(page.getByRole('heading', { name: 'Accepted plan' })).toBeVisible();
@@ -151,8 +151,8 @@ test('a large Unicode source saves intact without exceeding the editor connectio
   const text = '森の物語。'.repeat(80000);
   await page.goto(`/projects/${id}/source`);
   await page.getByLabel('Original text', { exact: true }).fill(text);
-  await page.getByRole('button', { name: 'Save source', exact: true }).click();
-  await expect(page.getByText('Source saved', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.source-actions .save-status')).toHaveText('Saved');
   const saved = await (await request.get(`/fixtures/${id}/source`)).json();
   expect(saved.text).toBe(text);
   await page.reload();

@@ -98,7 +98,13 @@ public partial class ScriptAssistantPanel
     private ScriptTarget? _reviewTarget;
     private bool _compare, _retargeting;
     private AssistantRun? ReviewRun => _runs.FirstOrDefault(r => r.Id == _reviewId);
-    private static readonly DialogOptions ReviewOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+    private string ReviewContext => _scenePlanning ? "Sequence planning" : _twoStepSequence ? "Sequence drafting" : "Assistant proposal";
+    private string ReviewTitle => _scenePlanning ? "Review sequence brief"
+        : _twoStepSequence && ReviewRun?.Status == AssistantRunStatus.Running
+            ? _sequenceReview?.State == ScriptSequenceReviewState.Repairing ? "Repairing screenplay" : _sequenceReview is not null ? "Checking screenplay" : "Writing screenplay"
+            : "Review script proposal";
+    /// <summary>Opens the request history; the Assistant pane heading owns the Requests… button.</summary>
+    public Task OpenRequestsAsync() { _requestsOpen = true; return InvokeAsync(StateHasChanged); }
     private lumibelle.Components.AI.TextRequestAction? _primaryAction;
     // Starts over in the composer while this result stays as it is, to apply or discard later.
     private async Task NewRequestAsync()

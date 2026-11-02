@@ -23,7 +23,7 @@ export async function toolsTab(page, name) {
   if (name === 'Generate') { await openShotSetup(page, 'Generation settings'); return; }
   if (name === 'References') { await closeShotSetup(page); await showTools(page, 'Shots'); return; }
   if (name === 'Assistant') { await scriptAssist(page); return; }
-  if (name === 'Requests') { await scriptAssist(page); await page.getByRole('button', { name: 'Requests', exact: true }).click(); return; }
+  if (name === 'Requests') { await scriptAssist(page); await page.getByRole('button', { name: 'Requests…', exact: true }).click(); return; }
   const studio = ['References', 'Generate'].includes(name) ? 'Shots' : ['Assistant', 'Requests'].includes(name) ? 'Script' : 'Assets';
   const root = await showTools(page, studio);
   if (studio === 'Assets') return;

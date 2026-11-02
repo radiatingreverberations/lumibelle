@@ -21,14 +21,14 @@ test('outline insertion, move menu, drag, rename and Undo preserve screenplay bl
   const p = await project(page, request, true); const before = (await p.state()).script.blocks;
   const scenes = before.filter(b => b.kind === 'Scene'), acts = before.filter(b => b.kind === 'Act');
   await page.locator(`[data-outline-id="${scenes[0].id}"] .outline-title`).click();
-  await page.getByRole('button', { name: '+ Scene', exact: true }).click();
+  await page.getByRole('button', { name: 'Add scene', exact: true }).click();
   await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('INT. LOCATION — DAY');
   await page.keyboard.type('INT. INSERTED — DAY');
   await expect(page.locator('.script-canvas [data-kind=Scene]')).toHaveCount(scenes.length + 1);
   const firstTwo = await page.locator('.script-canvas [data-kind=Scene]').allTextContents();
   expect(firstTwo.slice(0, 2)).toEqual([text(scenes[0]), 'INT. INSERTED — DAY']);
   const row = page.locator('.script-outline-item').filter({ has: page.locator('.outline-title', { hasText: 'INT. INSERTED — DAY' }) });
-  await row.locator('summary').click(); await row.getByRole('button', { name: 'Move to…', exact: true }).click();
+  await row.getByRole('button', { name: /^Actions for / }).click(); await page.getByRole('menuitem', { name: 'Move to…', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('combobox').first().selectOption(acts[1].id);
   await dialog.getByRole('combobox').nth(1).selectOption('start');
@@ -129,14 +129,14 @@ test('writing, outline and export work when model discovery is unavailable', asy
   await request.post('/fixtures/text-catalog?enabled=false&failed=true');
   try {
     const p = await project(page, request);
-    await page.getByRole('button', { name: '+ Scene', exact: true }).click();
+    await page.getByRole('button', { name: 'Add scene', exact: true }).click();
     await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('INT. LOCATION — DAY');
     await page.keyboard.type('INT. QUIET ROOM — DAY'); await page.keyboard.press('Enter'); await page.keyboard.type('Mira opens a book.');
     await page.keyboard.press('Control+s');
     await expect.poll(async () => JSON.stringify((await p.state()).script.blocks)).toContain('Mira opens a book.');
     await assist(page);
     await expect(page.getByRole('button', { name: 'Revise', exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'Script', exact: true }).click();
+    await page.getByRole('button', { name: 'Script options', exact: true }).click();
     const download = page.waitForEvent('download');
     await page.getByText('Export Markdown', { exact: true }).click();
     expect((await download).suggestedFilename()).toMatch(/\.md$/);

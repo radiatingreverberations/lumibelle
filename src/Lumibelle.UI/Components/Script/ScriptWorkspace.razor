@@ -8,34 +8,32 @@
 @if (_session?.Document is null)
 {
     @if (_loadFailure is not null) { <LoadFailure Title="Couldn’t open the script" Error="_loadFailure" Retry="LoadAsync" /> }
-    else { <h1>Script studio</h1><p role="status">Opening your script…</p> }
+    else { <LoadingState Text="Opening Script…" /> }
 }
 else
 {
     <NavigationLock ConfirmExternalNavigation="_session.Dirty" OnBeforeInternalNavigation="BeforeNavigationAsync" />
     <EditSessionRegistration Save="SaveForCloseAsync" />
     <ProjectNavigation Project="Project" CurrentStudio="script" />
-    <StudioPageHeader Title="Script studio">
-        <div class="writing-header-actions"><span role="status" class="save-status">@SaveStatus</span>
-            <MudButton OnClick="SaveAsync" Disabled="@(_syncing || _saveRequested || !Unsaved && _session.Error is null)" Size="Size.Small">Save</MudButton>
-            <MudMenu Label="Script" Size="Size.Small" Dense="true">
+    <StudioPageHeader Title="Script">
+        <StudioActions Class="writing-header-actions" Status="@SaveStatus" Problem="@(_session.Conflict || _session.Error is not null)"
+                       OnSave="SaveAsync" CanSave="@(!_syncing && !_saveRequested && (Unsaved || _session.Error is not null))" MenuLabel="Script options">
+            <Menu>
                 <MudMenuItem OnClick="ExportAsync">Export Markdown</MudMenuItem>
-                <MudMenuItem OnClick="HistoryAsync">Recovery</MudMenuItem>
-            </MudMenu>
-        </div>
+                <MudMenuItem OnClick="HistoryAsync">Recovery…</MudMenuItem>
+            </Menu>
+        </StudioActions>
     </StudioPageHeader>
-    @if (_error is not null || _session.Error is not null)
+    @if (_session.Error is not null || _error is not null && Unsaved)
     {
-        <div class="writing-error" role="alert"><p>@(_error ?? _session.Error)</p>
-            @if (_session.Conflict) { <MudButton OnClick="DownloadAsync">Download unsaved copy</MudButton><MudButton OnClick="() => _confirmReload = true">Reload saved version</MudButton> }
-            else { <MudButton OnClick="SaveAsync">Retry save</MudButton> }
-        </div>
+        @* A failed save keeps the draft in the editor: retry it, or after a conflict keep a copy and reload. *@
+        <SaveErrorNotice Message="@(_error ?? _session.Error!)" Busy="@(_syncing || _saveRequested)"
+                         OnRetry="@(_session.Conflict ? default : EventCallback.Factory.Create(this, SaveAsync))"
+                         OnDownload="@(_session.Conflict ? EventCallback.Factory.Create(this, DownloadAsync) : default)"
+                         OnReload="@(_session.Conflict ? EventCallback.Factory.Create(this, () => _confirmReload = true) : default)" />
     }
-    @if (_confirmReload)
-    {
-        <div class="writing-notice" role="alert"><p>Reloading replaces the unsaved draft in this tab. Download it first to keep a copy.</p><MudButton OnClick="ReloadAsync">Replace with saved version</MudButton><MudButton OnClick="() => _confirmReload = false">Keep editing</MudButton></div>
-    }
-<InlineDialog Visible="_historyOpen" VisibleChanged="value => _historyOpen = value" Options="RecoveryOptions" Class="script-history-dialog"
+    else if (_error is not null) { <p class="writing-error" role="alert">@_error</p> }
+<InlineDialog Visible="_historyOpen" VisibleChanged="value => _historyOpen = value" Options="DialogSizes.Medium" Class="script-history-dialog"
               Title="Draft recovery" CloseLabel="Close draft recovery">
     <Summary>Versions are kept before proposals, section deletion, and restoring an earlier draft.</Summary>
     <DialogContent>
@@ -43,7 +41,7 @@ else
             @if (_recoveries.Count == 0) { <p>No recovery versions yet.</p> }
             @foreach (var version in _recoveries)
             {
-                <details><summary>@version.Reason · @version.CreatedUtc.ToLocalTime().ToString("g")</summary><ScriptPreview Blocks="version.Document.Blocks" /><MudButton OnClick="() => RestoreAsync(version.Id)" Disabled="_syncing">Restore this draft</MudButton></details>
+                <details><summary>@version.Reason · @version.CreatedUtc.ToLocalTime().ToString("g")</summary><ScriptPreview Blocks="version.Document.Blocks" /><MudButton Variant="Variant.Outlined" OnClick="() => RestoreAsync(version.Id)" Disabled="_syncing">Restore this draft</MudButton></details>
             }
         </section>
     </DialogContent>
@@ -51,59 +49,79 @@ else
 </InlineDialog>
     <StudioWorkspace @ref="_workspace" Studio="Script" ProjectId="Project.Id" LeftLabel="Outline" RightLabel="Assistant">
         <Status>@_assistantStatus</Status>
-        <Left><StudioPane Class="script-outline" Label="Script outline"><Header>            <div class="outline-heading"><span class="eyebrow">OUTLINE</span><HelpHint Label="Outline" Text="Add after the selected item. Drag to rearrange, or use each item’s menu to choose an exact destination." /></div>
-            <div class="outline-add"><button @onclick="AddSceneAsync" disabled="@_syncing">+ Scene</button><button @onclick="AddActAsync" disabled="@_syncing" title="Add an act after the selected act">+ Act</button></div>
-</Header><ChildContent>            @if (Sections.Count == 0) { <p class="rail-hint">Ask the assistant to draft a script, or add a scene to write by hand.</p> }
-            @if (Sections.Any(s => s.Kind == ScriptBlockKind.Act)) { <div class="outline-fold-actions"><button @onclick="() => FoldAll(true)">Collapse all</button><button @onclick="() => FoldAll(false)">Expand all</button></div> }
+        <Left><StudioPane Class="script-outline" Label="Script outline" Title="Outline" Count="@Sections.Count(s => s.Kind == ScriptBlockKind.Scene).ToString()">
+            <HeaderActions>
+                <HelpHint Label="Outline" Text="Add after the selected item. Drag to rearrange, or use each item’s menu to choose an exact destination." />
+                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddSceneAsync" Disabled="_syncing" aria-label="Add scene" title="Add a scene after the selected item">Scene</MudButton>
+                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddActAsync" Disabled="_syncing" aria-label="Add act" title="Add an act after the selected act">Act</MudButton>
+            </HeaderActions>
+            <ChildContent>
+            @if (Sections.Count == 0) { <EmptyState Compact="true" Title="No scenes yet" HeadingLevel="3">Ask the assistant to draft a script, or add a scene to write by hand.</EmptyState> }
+            @if (Sections.Any(s => s.Kind == ScriptBlockKind.Act))
+            {
+                <div class="outline-fold-actions">
+                    <MudIconButton Icon="@Icons.Material.Outlined.UnfoldLess" Size="Size.Small" aria-label="Collapse all" title="Collapse all" OnClick="() => FoldAll(true)" />
+                    <MudIconButton Icon="@Icons.Material.Outlined.UnfoldMore" Size="Size.Small" aria-label="Expand all" title="Expand all" OnClick="() => FoldAll(false)" />
+                </div>
+            }
             @foreach (var section in Sections)
             {
                 if (section.ActId is { } actId && _foldedActs.Contains(actId)) { continue; }
+                var folded = _foldedActs.Contains(section.Id);
+                var kind = section.Kind.ToString().ToLowerInvariant();
                 <div class="script-outline-item @(section.Kind == ScriptBlockKind.Act ? "is-act" : section.ActId is not null ? "in-act" : "") @(ActiveSection(section) ? "active" : "")" @key="section.Id" data-outline-id="@section.Id" data-outline-kind="@section.Kind" data-outline-act="@section.ActId">
-                    <button class="outline-drag" aria-label="Drag @section.Title" title="Drag to move">⠿</button>
-                    @if (section.Kind == ScriptBlockKind.Act) { <button class="outline-fold" aria-label="@($"{(_foldedActs.Contains(section.Id) ? "Expand" : "Collapse")} {section.Title}")" aria-expanded="@(!_foldedActs.Contains(section.Id) ? "true" : "false")" @onclick="() => ToggleAct(section.Id)">@(_foldedActs.Contains(section.Id) ? "▸" : "▾") <span>@Sections.Count(s => s.ActId == section.Id) scenes</span></button> }
+                    <button class="outline-drag" aria-label="Drag @section.Title" title="Drag to move"><MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" /></button>
+                    @if (section.Kind == ScriptBlockKind.Act) { <button class="outline-fold" aria-label="@($"{(folded ? "Expand" : "Collapse")} {section.Title}")" aria-expanded="@(!folded ? "true" : "false")" @onclick="() => ToggleAct(section.Id)"><MudIcon Icon="@(folded ? Icons.Material.Outlined.ChevronRight : Icons.Material.Outlined.ExpandMore)" Size="Size.Small" /><span>@Sections.Count(s => s.ActId == section.Id) scenes</span></button> }
                     <button class="outline-title" title="@section.Title" @onclick="() => JumpAsync(section.Id)"><span>@(section.Kind == ScriptBlockKind.Act ? "§" : section.Number.ToString("00"))</span>@section.Title</button>
-                    <details class="outline-menu"><summary aria-label="Options for @section.Title">⋯</summary><div class="outline-menu-items">
-                        <button @onclick='() => InsertAsync(section.Kind, section.Id, "before")'>Add @(section.Kind.ToString().ToLowerInvariant()) before</button>
-                        <button @onclick='() => InsertAsync(section.Kind, section.Id, "after")'>Add @(section.Kind.ToString().ToLowerInvariant()) after</button>
-                        @if (section.Kind == ScriptBlockKind.Scene) { <button @onclick='() => InsertAsync(ScriptBlockKind.Act, section.Id, "before")'>Start new act here</button> }
-                        else { <button @onclick='() => InsertAsync(ScriptBlockKind.Scene, section.Id, "after")'>Add scene at end</button> }
-                        <button @onclick="() => RenameSectionAsync(section.Id)">Rename</button>
-                        <button @onclick="() => OpenMove(section.Id)">Move to…</button>
-                        @if (section.Kind == ScriptBlockKind.Scene) { <button @onclick="SplitAsync">Split scene at cursor</button> }
-                        <button @onclick="() => DeleteAsync(section.Id)">Delete</button>
-                    </div></details>
+                    <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@($"Actions for {section.Title}")" Size="Size.Small" Dense="true" Class="outline-menu"
+                             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        <MudMenuItem OnClick='() => InsertAsync(section.Kind, section.Id, "before")'>Add @kind before</MudMenuItem>
+                        <MudMenuItem OnClick='() => InsertAsync(section.Kind, section.Id, "after")'>Add @kind after</MudMenuItem>
+                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem OnClick='() => InsertAsync(ScriptBlockKind.Act, section.Id, "before")'>Start new act here</MudMenuItem> }
+                        else { <MudMenuItem OnClick='() => InsertAsync(ScriptBlockKind.Scene, section.Id, "after")'>Add scene at end</MudMenuItem> }
+                        <MudMenuItem OnClick="() => RenameSectionAsync(section.Id)">Rename</MudMenuItem>
+                        <MudMenuItem OnClick="() => OpenMove(section.Id)">Move to…</MudMenuItem>
+                        @if (section.Kind == ScriptBlockKind.Scene) { <MudMenuItem OnClick="SplitAsync">Split scene at cursor</MudMenuItem> }
+                        @* Deleting an act with scenes asks first; everything else can be undone or restored from Recovery. *@
+                        <MudMenuItem Class="danger-item" OnClick="() => DeleteAsync(section.Id)">@(ConfirmsDelete(section) ? "Delete…" : "Delete")</MudMenuItem>
+                    </MudMenu>
                 </div>
             }
-</ChildContent></StudioPane></Left>
+            </ChildContent>
+        </StudioPane></Left>
         <Center><StudioPane Class="script-paper" Label="Screenplay editor" aria-busy="@(_syncing ? "true" : "false")"><Header>            <div class="script-toolbar" role="toolbar" aria-label="Screenplay formatting">
                 <label class="sr-only" for="script-block-type">Element type</label><select id="script-block-type" value="@CurrentKind" @onchange="KindChanged" disabled="@_syncing">@foreach (var kind in Enum.GetValues<ScriptBlockKind>()) { <option value="@kind">@(kind is ScriptBlockKind.Act or ScriptBlockKind.Scene ? $"{kind} heading" : kind)</option> }</select>
-                <button @onclick="BoldAsync" disabled="@_syncing" aria-label="Bold" aria-pressed="@(_bold ? "true" : "false")"><b>B</b></button><button @onclick="ItalicAsync" disabled="@_syncing" aria-label="Italic" aria-pressed="@(_italic ? "true" : "false")"><i>I</i></button>
-                <button @onclick="UndoAsync" disabled="@_syncing" aria-label="Undo">↶</button><button @onclick="RedoAsync" disabled="@_syncing" aria-label="Redo">↷</button>
-
-
-
+                <button @onclick="BoldAsync" disabled="@_syncing" aria-label="Bold" title="Bold" aria-pressed="@(_bold ? "true" : "false")"><MudIcon Icon="@Icons.Material.Outlined.FormatBold" Size="Size.Small" /></button><button @onclick="ItalicAsync" disabled="@_syncing" aria-label="Italic" title="Italic" aria-pressed="@(_italic ? "true" : "false")"><MudIcon Icon="@Icons.Material.Outlined.FormatItalic" Size="Size.Small" /></button>
+                <button @onclick="UndoAsync" disabled="@_syncing" aria-label="Undo" title="Undo"><MudIcon Icon="@Icons.Material.Outlined.Undo" Size="Size.Small" /></button><button @onclick="RedoAsync" disabled="@_syncing" aria-label="Redo" title="Redo"><MudIcon Icon="@Icons.Material.Outlined.Redo" Size="Size.Small" /></button>
             </div>
 </Header><ChildContent>
             @if (_batchSyncNotice is { } batchNotice) { <p class="source-notice" role="status">@batchNotice</p> }
             <ScriptCanvas @ref="_canvas" InitialBlocks="_initialBlocks" InitialSelection="_selection" Changed="EditorChanged" Pending="BrowserDirty" Save="SaveAsync" />
 </ChildContent><Footer><div class="script-editor-footer"><span class="script-word-count">@WordCount words</span><span class="field-hint">Ctrl/⌘ + Alt + 1–7 changes element type.</span>@if (_hasHighlights) { <button @onclick="HideHighlightsAsync">Hide highlights</button><span class="sr-only" role="status">Applied changes are highlighted in the screenplay.</span> }</div></Footer></StudioPane></Center>
 
-        <Right><StudioPane Class="script-assistant-pane" Label="Script assistant"><ChildContent><ScriptAssistantPanel ProjectId="Project.Id" RequestedJobId="RequestedJobId" Document="Document" Selection="_selection" RequestedTarget="_requestedTarget" SelectTarget="SelectTargetAsync" Capture="CaptureAsync" Apply="ApplyAsync" AddOutlineActs="AddOutlineActsAsync" ActivityChanged="value => _assistantStatus = value" /></ChildContent></StudioPane></Right>
+        <Right><StudioPane Class="script-assistant-pane" Label="Script assistant" Title="Assistant">
+            <HeaderActions><MudButton Size="Size.Small" Class="assist-requests" OnClick="OpenRequestsAsync">Requests…</MudButton></HeaderActions>
+            <ChildContent><ScriptAssistantPanel @ref="_assistant" ProjectId="Project.Id" RequestedJobId="RequestedJobId" Document="Document" Selection="_selection" RequestedTarget="_requestedTarget" SelectTarget="SelectTargetAsync" Capture="CaptureAsync" Apply="ApplyAsync" AddOutlineActs="AddOutlineActsAsync" ActivityChanged="value => _assistantStatus = value" /></ChildContent>
+        </StudioPane></Right>
     </StudioWorkspace>
 }
 
 @if (_session is not null)
 {
-<InlineDialog Visible="@(_deleteSection is not null)" VisibleChanged="value => { if (!value) _deleteSection = null; }" Options="@(RecoveryOptions with { MaxWidth = MudBlazor.MaxWidth.Small })" Title="Delete act?" CloseLabel="Close delete act"><DialogContent><p>This deletes the act and @Sections.Count(s => s.ActId == _deleteSection) scenes. You can Undo or restore them from Recovery.</p></DialogContent>
-    <DialogActions><MudButton OnClick="() => _deleteSection = null">Cancel</MudButton><MudButton OnClick="ConfirmDeleteAsync" Color="Color.Error">Delete act and scenes</MudButton></DialogActions>
-</InlineDialog>
-<InlineDialog Visible="@(_movingSection is not null)" VisibleChanged="value => { if (!value) _movingSection = null; }" Options="@(RecoveryOptions with { MaxWidth = MudBlazor.MaxWidth.Small })" Title="Move section" CloseLabel="Close move section"><DialogContent>
+<ConfirmDialog Visible="@(_deleteSection is not null)" VisibleChanged="value => { if (!value) _deleteSection = null; }" Title="Delete act?" ConfirmLabel="Delete act and scenes"
+               Danger="true" Busy="_syncing" OnConfirm="ConfirmDeleteAsync">
+    <p>This deletes the act and @Sections.Count(s => s.ActId == _deleteSection) scenes. You can Undo or restore them from Recovery.</p>
+</ConfirmDialog>
+<ConfirmDialog Visible="@(_movingSection is not null)" VisibleChanged="value => { if (!value) _movingSection = null; }" Title="Move section" ConfirmLabel="Move section"
+               Busy="_syncing" OnConfirm="MoveToAsync">
         <label>Destination<select @bind="_moveDestination"><option value="">Outside acts / script boundary</option>
             @foreach (var item in Sections.Where(s => s.Id != _movingSection && (Sections.FirstOrDefault(x => x.Id == _movingSection)?.Kind != ScriptBlockKind.Act || s.Kind == ScriptBlockKind.Act)))
             { <option value="@item.Id">@(item.Kind == ScriptBlockKind.Act ? "Act: " : "Scene: ")@item.Title</option> }
         </select></label>
         <label>Position<select @bind="_movePosition"><option value="before">Before destination</option><option value="after">After destination / end of act</option><option value="start">Start of act</option></select></label>
-    </DialogContent><DialogActions><MudButton OnClick="() => _movingSection = null">Cancel</MudButton><MudButton OnClick="MoveToAsync" Color="Color.Primary">Move section</MudButton></DialogActions>
-</InlineDialog>
-
+</ConfirmDialog>
+<ConfirmDialog @bind-Visible="_confirmReload" Title="Reload saved version?" ConfirmLabel="Replace with saved version" CancelLabel="Keep editing"
+               Danger="true" Busy="_syncing" OnConfirm="ReloadAsync">
+    <p>Reloading replaces the unsaved draft in this tab. Download it first to keep a copy.</p>
+</ConfirmDialog>
 }

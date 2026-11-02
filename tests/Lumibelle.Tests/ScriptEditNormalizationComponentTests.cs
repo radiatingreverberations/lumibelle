@@ -74,7 +74,7 @@ public sealed class ScriptEditNormalizationComponentTests : BunitContext
             .Add(c => c.Capture, target => Task.FromResult(new ScriptRequestContext(doc.Copy(), target.Capture(doc))))
             .Add(c => c.Apply, run => { _applications.Add(run); return Task.FromResult(true); }));
         panel.WaitForElement("#script-operation");
-        await Click(panel, "Requests");
+        await panel.InvokeAsync(() => panel.Instance.OpenRequestsAsync());
         _dialogs.WaitForElement(".assistant-run");
         await Click(panel, "Open response");
         _dialogs.WaitForElement(".script-review-dialog");

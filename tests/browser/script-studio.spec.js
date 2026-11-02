@@ -42,7 +42,7 @@ test('reviewed draft, passage revision, reorder, extraction and further writing'
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(action).toContainText('politely bows');
   const sceneMenu = page.locator('.script-outline-item').filter({ has: page.locator('.outline-title[title="EXT. GARDEN — DAWN"]') });
-  await sceneMenu.locator('summary').click(); await sceneMenu.getByRole('button', { name: 'Move to…', exact: true }).click();
+  await sceneMenu.getByRole('button', { name: /^Actions for / }).click(); await page.getByRole('menuitem', { name: 'Move to…', exact: true }).click();
   const move = page.getByRole('dialog');
   await move.getByRole('combobox').first().selectOption('');
   await move.getByRole('combobox').nth(1).selectOption('before');
@@ -75,14 +75,14 @@ test('reviewed draft, passage revision, reorder, extraction and further writing'
 
 test('formatting, stable ids, split, delete and undo survive reopening', async ({ page, request }) => {
   const id = await openProject(page, request);
-  await page.getByRole('button', { name: '+ Scene', exact: true }).click();
+  await page.getByRole('button', { name: 'Add scene', exact: true }).click();
   const heading = page.locator('.script-canvas [data-kind=Scene]');
   await heading.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End'); await page.keyboard.type('INT. 森 — DAY');
   await page.keyboard.press('Enter'); await page.keyboard.type('A door opens.');
   await page.keyboard.press('Control+b'); await page.keyboard.type(' Quietly.'); await page.keyboard.press('Control+b');
   await expect(page.locator('.script-canvas strong')).toHaveText(' Quietly.');
-  await page.locator('.outline-menu summary').first().click();
-  await page.getByRole('button', { name: 'Split scene at cursor', exact: true }).click();
+  await page.locator('.outline-menu').first().getByRole('button', { name: /^Actions for / }).click();
+  await page.getByRole('menuitem', { name: 'Split scene at cursor', exact: true }).click();
   await expect(page.locator('.script-canvas [data-kind=Scene]')).toHaveCount(2);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   // Split is a single undoable author action.
@@ -203,7 +203,7 @@ test('another tab saving raises a conflict and keeps the unsaved draft', async (
   await expect(secondAction).toContainText('Second tab keeps its draft.');
   await expect(second.getByRole('button', { name: 'Download unsaved copy' })).toBeVisible();
   expect(JSON.stringify((await state(request, id)).script.blocks)).not.toContain('Second tab keeps its draft.');
-  await second.getByRole('button', { name: 'Reload saved version', exact: true }).click();
+  await second.getByRole('button', { name: 'Reload saved version…', exact: true }).click();
   await second.getByRole('button', { name: 'Replace with saved version', exact: true }).click();
   await expect(secondAction).toContainText('First tab saves.'); await second.close();
 });
@@ -244,7 +244,10 @@ test('proposal dialog supports reading, comparison, close and mobile focus', asy
   await page.setViewportSize({ width: 390, height: 844 });
   await scriptAssist(page);
   await reviewButton.click(); await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close review', exact: true }).focus();
+  // The close button sits in the shared dialog header, outside MudBlazor's focus trap; the trap wraps
+  // from the first control in the body back to the primary action at the end of the footer.
+  await expect(dialog.getByRole('button', { name: 'Close review', exact: true })).toBeVisible();
+  await dialog.locator('.request-details > summary').focus();
   await page.keyboard.press('Shift+Tab');
   await expect(dialog.getByRole('button', { name: 'Apply changes', exact: true })).toBeFocused();
   await expect.poll(async () => (await dialog.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(320);
@@ -262,8 +265,8 @@ test('proposal dialog supports reading, comparison, close and mobile focus', asy
 test('start an act around existing scenes without changing their content', async ({ page, request }) => {
   const id = await openProject(page, request); await draft(page);
   const original = (await state(request, id)).script.blocks;
-  await page.locator('.outline-menu summary').first().click();
-  await page.getByRole('button', { name: 'Start new act here', exact: true }).click();
+  await page.locator('.outline-menu').first().getByRole('button', { name: /^Actions for / }).click();
+  await page.getByRole('menuitem', { name: 'Start new act here', exact: true }).click();
   await expect(page.locator('.script-canvas [data-kind=Act]')).toHaveText('ACT 1');
   await expect(page.locator('.script-outline-item.in-act')).toHaveCount(2);
   await page.keyboard.press('Control+s');
@@ -273,8 +276,8 @@ test('start an act around existing scenes without changing their content', async
   await expect(page.locator('.script-canvas [data-kind=Act]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect(page.locator('.script-canvas [data-kind=Act]')).toHaveCount(1);
-  await page.locator('.outline-menu summary').last().click();
-  await page.getByRole('button', { name: 'Start new act here', exact: true }).click();
+  await page.locator('.outline-menu').last().getByRole('button', { name: /^Actions for / }).click();
+  await page.getByRole('menuitem', { name: 'Start new act here', exact: true }).click();
   await expect(page.locator('.script-canvas [data-kind=Act]')).toHaveCount(2);
   await expect(page.locator('.script-outline-item')).toHaveCount(4);
   expect(await page.locator('.script-canvas [data-kind=Act], .script-canvas [data-kind=Scene]').allTextContents()).toEqual(['ACT 1', 'INT. KITCHEN — NIGHT', 'ACT 2', 'EXT. GARDEN — DAWN']);

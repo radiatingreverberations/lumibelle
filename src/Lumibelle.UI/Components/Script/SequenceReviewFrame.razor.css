@@ -40,10 +40,10 @@
 .planning-stages strong { font-size:var(--lumi-font-size-compact); font-weight:600; }
 .planning-stages li div > span { color:var(--muted); font-size:var(--lumi-font-size-small); }
 .planning-request-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
-.planning-request-heading h3 { margin:0; font-size:18px; font-weight:600; }
+.planning-request-heading h3 { margin:0; font-size:var(--lumi-font-size-subheading); font-weight:600; }
 .planning-request-heading p { margin:4px 0 0; color:var(--muted); font-size:var(--lumi-font-size-meta); overflow-wrap:anywhere; }
 .planning-stopped { display:flex; gap:12px; align-items:flex-start; margin-bottom:20px; padding:14px 16px; background:var(--lumi-warning-surface); border:1px solid var(--lumi-warning-border); border-radius:var(--lumi-radius-surface); color:var(--lumi-warning); font-size:var(--lumi-font-size-compact); }
-.planning-stopped-icon { display:grid; place-items:center; flex:none; width:23px; height:23px; border:1px solid currentColor; border-radius:50%; font-size:14px; font-weight:600; }
+.planning-stopped-icon { display:grid; place-items:center; flex:none; width:23px; height:23px; border:1px solid currentColor; border-radius:50%; font-size:var(--lumi-font-size-meta); font-weight:600; }
 .planning-stopped strong { font-weight:600; }
 .planning-stopped p { margin:3px 0 0; font-size:var(--lumi-font-size-meta); }
 .planning-stopped .planning-error-detail { margin-top:8px; font-size:var(--lumi-font-size-compact); font-weight:500; overflow-wrap:anywhere; }
@@ -76,5 +76,5 @@
     .stage-number { width:24px; height:24px; }
     .planning-stages strong { font-size:var(--lumi-font-size-meta); }
     .planning-request-heading { gap:10px; }
-    .planning-request-heading h3 { font-size:16px; }
+    .planning-request-heading h3 { font-size:var(--lumi-font-size-ui); }
 }
