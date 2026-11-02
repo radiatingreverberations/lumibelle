@@ -134,7 +134,7 @@ test('project pages, provider drafts, activity and media dialogs share both pale
       const card=page.locator('.asset-media-card[data-media-kind=Image]').first();
       await card.hover();
       await card.getByRole('button',{name:'Image actions',exact:true}).click();
-      await page.getByRole('menuitem',{name:'Edit details',exact:true}).click();
+      await page.getByRole('menuitem',{name:'Edit details…',exact:true}).click();
       const dialog=page.getByRole('dialog',{name:'Image details',exact:true});
       await expect(dialog.getByRole('button',{name:'Save details',exact:true})).toBeInViewport();
       await page.screenshot({animations:'disabled',path:`artifacts/design-image-details-${appearance.toLowerCase()}-${width}.png`});

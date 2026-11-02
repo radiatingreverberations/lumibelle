@@ -43,7 +43,7 @@ for (const narrow of [false, true]) test(`promote a reel with editable video gui
   await dialog.getByText('Reel use guidance', { exact: true }).click();
   await dialog.getByLabel('Use guidance', { exact: true }).fill('Use selected final frames for the room layout and fine set details.');
   await dialog.getByLabel('Motion-reference instructions', { exact: true }).fill('Keep the camera route and held views.');
-  await dialog.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Manage references…', exact: true }).click();
   const references = page.getByRole('dialog', { name: 'Manage references', exact: true });
   if (narrow) await references.getByRole('tab', { name: 'Selected references (2)', exact: true }).click();
   await references.getByRole('button', { name: 'Video 1: Reference settings', exact: true }).click();

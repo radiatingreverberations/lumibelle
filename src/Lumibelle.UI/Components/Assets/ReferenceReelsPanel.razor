@@ -67,7 +67,7 @@
                 var resolved = ResolvedReferences.For(inputs);
                 <section class="shot-references reel-pictures" aria-label="Reel visual references">
                     <h2 class="shot-references-title">References</h2>
-                    <button class="lumi-button add-shot-references" disabled="@_busy" @onclick="() => OpenPictures()">Manage references</button>
+                    <button class="lumi-button add-shot-references" disabled="@_busy" @onclick="() => OpenPictures()">Manage references…</button>
                     <div class="shot-reference-counts"><span>Images <strong>@resolved.Pictures.Count/9</strong></span><span>Reels <strong>@ReferenceVideos.ReelSlotCount(inputs)</strong></span><span>Audio <strong>@ReferenceVideos.AudioMappings(inputs).Count()/3</strong></span></div>
                     <div class="shot-reference-contact-sheet">
                         @foreach (var picture in resolved.Pictures) {

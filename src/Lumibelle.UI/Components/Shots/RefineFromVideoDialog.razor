@@ -59,7 +59,7 @@
                             <video controls muted preload="metadata" src="@ReferenceVideos.Url(ProjectId, draft.Source.Media.Id)" aria-label="Motion reference clip for @row.Source.Name"></video>
                             <span class="refine-video-only">Video only · soundtrack excluded</span>
                             <p class="field-hint">@References(draft)</p>
-                            <MudButton OnClick="() => OpenReferences(row)" Disabled="_queueing" Variant="Variant.Outlined" Size="Size.Small">Manage references</MudButton>
+                            <MudButton OnClick="() => OpenReferences(row)" Disabled="_queueing" Variant="Variant.Outlined" Size="Size.Small">Manage references…</MudButton>
                             @if (row.Source.Edited) { <p class="field-hint">Check timing and dialogue against this visible clip.</p> }
                             @if (ReferenceVideos.EffectiveFrames(draft.Source.Media, draft.Shot) < draft.Source.VisibleFrames) {
                                 <p class="field-hint">H3 uses the first @ReferenceVideos.EffectiveSeconds(draft.Source.Media, draft.Shot).ToString("0.###") s on its reference frame grid.</p>

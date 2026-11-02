@@ -286,7 +286,7 @@ else
 </section>
                     <section class="image-reference-fields">
                     @if (IsEditMode) {
-                        <button class="lumi-button manage-image-inputs" @onclick="OpenImageInputs" disabled="@_composerLocked">Manage references</button>
+                        <button class="lumi-button manage-image-inputs" @onclick="OpenImageInputs" disabled="@_composerLocked">Manage references…</button>
                         @foreach (var input in CurrentImageInputs) { var number = CurrentImageInputs.ToList().IndexOf(input) + 1; var picture = FindImage(input);
                             <button class="compact-image-input" @onclick="OpenImageInputs" disabled="@_composerLocked"><CropThumbnail Url="@ImageUrl(input.AssetId, input.ImageId)" Width="@(picture?.Width ?? 1)" Height="@(picture?.Height ?? 1)" Crop="@(input == BaseReference ? SourceCrop : ReferenceCrop(input))" Label="@($"Image {number}")" /><span><strong>Image @number · @(number == 1 ? "Source" : "Reference")</strong><small>@ReferenceLabel(input) · @((input == BaseReference ? SourceCrop : ReferenceCrop(input)) is null ? "Full image" : "Cropped")@(_regions.TryGetValue(input, out var region) ? $" · {region.Mode} active" : "")</small></span></button>
                         }

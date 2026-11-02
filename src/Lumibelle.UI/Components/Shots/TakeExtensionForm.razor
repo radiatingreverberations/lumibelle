@@ -20,7 +20,7 @@
             else { <small role="alert">Duration exceeds the 362-frame limit.</small> }
         </div>
         <div class="extension-references" aria-label="Extension references">
-            <div class="extension-reference-heading"><strong>References</strong><button type="button" disabled="@(Busy || _composing)" @onclick="OpenReferences">Manage references</button></div>
+            <div class="extension-reference-heading"><strong>References</strong><button type="button" disabled="@(Busy || _composing)" @onclick="OpenReferences">Manage references…</button></div>
             <span>@ReferenceSummary</span>
             <small class="field-hint">@(_references is null ? "From the original take" : "Customized for this extension")@if (_references is not null) { <button type="button" class="text-button" disabled="@(Busy || _composing)" @onclick="ResetReferences">Reset</button> }</small>
         </div>
