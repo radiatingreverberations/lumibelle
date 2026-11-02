@@ -14,88 +14,218 @@
 <PageTitle>Language versions · Lumibelle</PageTitle>
 <NavigationLock ConfirmExternalNavigation="@(_dirty || _busy || Pending is not null)" OnBeforeInternalNavigation="BeforeNavigation" />
 <EditSessionRegistration Save="SaveForClose" />
-@if (_project is not null)
+@if (_project is null)
+{
+    @if (_error is not null)
+    {
+        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open language versions">
+            @_error
+        </EmptyState>
+    }
+    else { <LoadingState Text="Opening language versions…" /> }
+}
+else
 {
     <ProjectNavigation Project="_project" CurrentStudio="shots" />
-    <StudioPageHeader Title="Language versions"><a href="@ProjectLink(Id, "/shots")">Back to Shots</a><a href="@ProjectLink(Id, "/settings")">Configure languages</a></StudioPageHeader>
-    <div class="dubbing-studio">
-        <p>Keep the master script and rendered take unchanged. Translate its spoken dialogue, review it, then render a separate language version using the same captured images, reels, voices, crops, duration, model settings and seed.</p>
-        <p class="field-hint"><strong>This renders new video and audio, not an audio-only dub of the existing frames.</strong> Identical references do not guarantee identical motion, lip sync, voice accent or timing. Visual directions remain in the master prompt's wording.</p>
-        @if (_languages?.Main is null || _languages.Dubs.Count == 0)
-        { <p role="status">Set the master language and at least one dub language in Project settings.</p> }
-        else
-        {
-            <div class="dub-selectors">
-                <label>Rendered master take<select value="@_takeId" @onchange="SelectTake" disabled="@Locked">
-                    <option value="">Choose a master take</option>
-                    @foreach (var take in MasterTakes) { <option value="@take.Id">@take.Snapshot.Shot.Title · @TakeDisplay.Label(take)</option> }
-                </select></label>
-                <label>Dub language<select value="@_target" @onchange="SelectLanguage" disabled="@Locked">
-                    @foreach (var language in _languages.Dubs) { <option value="@language.Code">@language.Name (@language.Code)</option> }
-                </select></label>
-                <button disabled="@Locked" @onclick="Reload">Refresh saved takes</button>
-            </div>
-            @if (MasterTakes.Count == 0) { <p>Render a master take with dialogue in Shots first.</p> }
-            @if (_request is { } request)
-            {
-                <p class="dub-source-summary">Master: @request.Main.Name → @request.Target.Name · @request.Duration.ToString("0.###") seconds · frozen take @(request.SourceTakeId.ToString()[..8])</p>
-                <section aria-label="Translation assistance" class="dub-assistance">
-                    <TextModelPicker ProjectId="Id" Studio="TextAssistantStudio.Production" Disabled="@(_busy || Pending is not null)" SelectionChanged="state => _model = state" />
-                    <label>Instructions for this translation<textarea rows="3" maxlength="12000" @bind="_instructions" @bind:event="oninput" disabled="@(_busy || Pending is not null)"></textarea></label>
-                    <MudButton OnClick="Translate" Disabled="@(_busy || _dirty || Pending is not null || _model?.Ready != true || ActiveTranslation is not null)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />Suggest translated dialogue</MudButton>
-                    <p class="field-hint">Text-only assistance: no images, video, audio or RefMods are sent to the translating model. Review meaning and timing before saving.</p>
-                </section>
-                @if (ActiveTranslation is { } otherTranslation && otherTranslation.Id != _translationJobId)
-                { <p role="status">Another translation of this master take is active. Open it from AI activity or wait for it to finish.</p> }
-                @if (TranslationJob is { } translationJob)
-                {
-                    <AiJobProgressView Job="translationJob" Queue="Jobs.View" Progress="Jobs.Progress(translationJob.Id)" />
-                    @if (translationJob.LocksTarget) { <button disabled="@_busy" @onclick="() => Cancel(translationJob.Id)">Cancel translation</button> }
-                    @if (_rawResult is not null) { <details><summary>Inspect translation response</summary><pre tabindex="0">@_rawResult.Raw</pre>@if (_rawResult.Error is not null) { <p role="alert">@_rawResult.Error</p> }</details> }
-                    @if (_suggestion is not null && _suggestionRequest is not null)
+    <StudioPageHeader Title="Language versions">
+        <StudioActions Class="dubbing-heading" Status="@SaveStatus" Problem="@(_error is not null && _dirty)"
+                       OnSave="SaveClick" CanSave="@(!_busy && _dirty && _request is not null && PreviewIssue is null)" MenuLabel="Language versions options">
+            <Menu>
+                <MudMenuItem Href="@ProjectLink(Id, "/shots")">Back to Shots</MudMenuItem>
+                <MudMenuItem Href="@ProjectLink(Id, "/settings")">Configure languages</MudMenuItem>
+                <MudMenuItem OnClick="Reload" Disabled="Locked">Refresh saved takes</MudMenuItem>
+            </Menu>
+        </StudioActions>
+    </StudioPageHeader>
+    @if (Pending is not null)
+    {
+        <SaveErrorNotice Message="Queue acknowledgement is missing. Retry this exact captured request; do not start another one.">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="RetryEnqueue">Retry saving request</MudButton>
+        </SaveErrorNotice>
+    }
+    @if (_error is not null && !SelectionFailed)
+    {
+        <SaveErrorNotice Message="@_error">
+            @if (_dirty) { <MudButton Size="Size.Small" Disabled="_busy" OnClick="Discard">Discard edits</MudButton> }
+        </SaveErrorNotice>
+    }
+    <StudioWorkspace Studio="Languages" ProjectId="Id" LeftLabel="Master takes" RightLabel="Translation" Busy="_busy"
+                     SelectionKey="@($"{_takeId}:{_target}")" ShowRight="Configured">
+        <Status>@(TranslationJob is { LocksTarget: true } ? "Translation in progress" : ActiveVideo is not null ? "Rendering language take" : null)</Status>
+        <Left>
+            <StudioPane Class="dub-takes" Label="Master takes" Title="Master takes" Count="@(Configured ? MasterTakes.Count.ToString() : null)">
+                <Header>
+                    @if (Configured)
                     {
-                        <section class="dub-suggestion" aria-label="Translation suggestion"><h2>Suggested dialogue</h2>
-                            @for (var i = 0; i < _suggestion.Lines.Count; i++) { <p dir="auto"><strong>@_suggestionRequest.Dialogue[i].Speaker:</strong> @_suggestion.Lines[i].Text</p> }
-                            @foreach (var note in _suggestion.Notes) { <p class="field-hint">@note</p> }
-                            <button disabled="@(_dirty || _busy)" @onclick="UseSuggestion">Use suggestion in editor</button>
-                        </section>
+                        <label class="dub-language-field">Dub language
+                            <select value="@_target" @onchange="SelectLanguage" disabled="@Locked">
+                                @foreach (var language in _languages!.Dubs) { <option value="@language.Code">@language.Name (@language.Code)</option> }
+                            </select>
+                        </label>
+                        @if (Locked && _dirty) { <p class="field-hint">Save or discard the dialogue draft to switch takes or languages.</p> }
                     }
-                }
-                <section aria-label="Dub dialogue editor"><h2>@request.Target.Name dialogue</h2>
-                    @for (var i = 0; i < request.Dialogue.Count; i++)
+                </Header>
+                <ChildContent>
+                    @if (!Configured)
                     {
-                        var index = i; var line = request.Dialogue[i];
-                        <div class="dub-dialogue-row" @key="line.Id">
-                            <div><strong>@(i + 1). @line.Speaker</strong><small> @line.Language · source</small><p dir="auto">@line.Text</p></div>
-                            <label>@request.Target.Name<textarea rows="3" dir="auto" value="@_lines[index].Text" @oninput="e => EditLine(index, e.Value?.ToString() ?? string.Empty)" disabled="@_busy"></textarea></label>
+                        <EmptyState Compact="true" Title="No dub languages">Set the master language and at least one dub language for this project.</EmptyState>
+                    }
+                    else if (MasterTakes.Count == 0)
+                    {
+                        <EmptyState Compact="true" Title="No master takes with dialogue">
+                            <ChildContent>Render a master take with dialogue in Shots first.</ChildContent>
+                            <Actions><MudButton Variant="Variant.Outlined" Href="@ProjectLink(Id, "/shots")">Open Shots</MudButton></Actions>
+                        </EmptyState>
+                    }
+                    else
+                    {
+                        <ul class="dub-take-list" aria-label="Master takes">
+                            @foreach (var take in MasterTakes)
+                            {
+                                var selected = take.Id == _takeId;
+                                var saved = SavedVersion(take.Id);
+                                var rendered = RenderedCount(take.Id);
+                                <li @key="take.Id">
+                                    <button type="button" class="dub-take-row @(selected ? "selected" : null)" aria-pressed="@(selected ? "true" : "false")"
+                                            disabled="@(Locked && !selected)" @onclick="() => SelectTakeAsync(take.Id)">
+                                        <strong>@take.Snapshot.Shot.Title</strong>
+                                        <small>@TakeDisplay.Label(take)</small>
+                                        <span class="dub-take-state">@(saved is { } version ? $"Saved version {version}" : "No translation")@(rendered > 0 ? $" · {rendered} rendered" : "")</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </ChildContent>
+            </StudioPane>
+        </Left>
+        <Center>
+            <StudioPane Class="dub-editor" Label="Dialogue" Title="@(_request is { } titled ? $"{titled.Target.Name} dialogue" : "Dialogue")">
+                <HeaderActions>
+                    <HelpHint Label="Language versions" Text="Translate a master take's spoken dialogue, review it, then render a separate language version from the same captured images, reels, voices, crops, duration, model settings and seed. The master script and take stay unchanged; visual directions keep the master prompt's wording." />
+                </HeaderActions>
+                <Header>
+                    @if (_request is { } identity)
+                    {
+                        <p class="dub-source-summary">Master take in @identity.Main.Name · @identity.Duration.ToString("0.###") seconds · @(_saved is { } current ? $"saved version {current.Version}" : "not saved yet")</p>
+                    }
+                    @if (_notice is not null) { <p class="dub-notice" role="status">@_notice</p> }
+                </Header>
+                <ChildContent>
+                    @if (!Configured)
+                    {
+                        <EmptyState Icon="@Icons.Material.Outlined.Translate" Title="Set up project languages">
+                            <ChildContent>Language versions need a master language and at least one dub language. Configuring languages never edits the script.</ChildContent>
+                            <Actions><MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@ProjectLink(Id, "/settings")">Configure languages</MudButton></Actions>
+                        </EmptyState>
+                    }
+                    else if (SelectionFailed)
+                    {
+                        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="This take can’t be translated">
+                            @_error
+                        </EmptyState>
+                    }
+                    else if (_request is not { } request)
+                    {
+                        <EmptyState Icon="@Icons.Material.Outlined.RecordVoiceOver" Title="Choose a master take">
+                            Select a rendered master take with dialogue to translate its lines.
+                        </EmptyState>
+                    }
+                    else
+                    {
+                        <ol class="dub-dialogue" aria-label="@($"{request.Target.Name} dialogue")">
+                            @for (var i = 0; i < request.Dialogue.Count; i++)
+                            {
+                                var index = i; var line = request.Dialogue[i];
+                                <li class="dub-dialogue-row" @key="line.Id">
+                                    <div class="dub-source-line"><strong>@line.Speaker</strong><small>@line.Language · source</small><p dir="auto">@line.Text</p></div>
+                                    <label>@request.Target.Name<textarea rows="3" dir="auto" value="@_lines[index].Text" @oninput="e => EditLine(index, e.Value?.ToString() ?? string.Empty)" disabled="@_busy"></textarea></label>
+                                </li>
+                            }
+                        </ol>
+                        @if (PreviewIssue is { } issue) { <p class="field-hint">@issue</p> }
+                        @foreach (var note in _notes) { <p class="field-hint">@note</p> }
+                        <details class="dub-prompt"><summary>Language prompt · only dialogue and language labels changed</summary><pre tabindex="0">@Preview</pre></details>
+                    }
+                </ChildContent>
+                <Footer>
+                    @if (_request is { } rendering)
+                    {
+                        <div class="dub-render">
+                            @if (ActiveVideo is { } video)
+                            {
+                                <AiJobProgressView Job="video" Queue="Jobs.View" Progress="Jobs.Progress(video.Id)" />
+                                <button type="button" @onclick="() => Cancel(video.Id)">Cancel request</button>
+                            }
+                            else
+                            {
+                                <div class="dub-render-actions">
+                                    <button type="button" disabled="@(_busy || !_dirty)" @onclick="Discard">Discard edits</button>
+                                    <MudButton OnClick="RenderDub" Disabled="@(RenderBlocker is not null)" Variant="Variant.Filled" Color="Color.Primary">Render @rendering.Target.Name take</MudButton>
+                                </div>
+                                <p class="field-hint">@(RenderBlocker ?? "Renders new video and audio from the master take's captured inputs. Motion, lip sync, accent and timing can differ from the master.")</p>
+                            }
+                            @if (_renderError is not null) { <p role="alert" class="field-error">@_renderError</p> }
+                            @if (_renderJobId is { } render && Jobs.View.Jobs.FirstOrDefault(j => j.Id == render) is { Error: not null } failed) { <p role="alert" class="field-error">@failed.Error</p> }
                         </div>
                     }
-                    <div class="dub-actions"><MudButton OnClick="SaveClick" Disabled="@(_busy || !_dirty || PreviewIssue is not null)" Color="Color.Primary" Variant="Variant.Filled">Save language version</MudButton><button disabled="@_busy" @onclick="Discard">Discard edits</button><span role="status">@(_dirty ? "Unsaved dialogue" : _saved is null ? "No saved translation" : "Saved language version " + _saved.Version)</span></div>
-                    @if (PreviewIssue is { } issue) { <p class="field-hint">@issue</p> }
-                    @foreach (var note in _notes) { <p class="field-hint">@note</p> }
-                    <details><summary>Language prompt · only dialogue and language labels changed</summary><pre tabindex="0">@Preview</pre></details>
-                </section>
-                <section aria-label="Render language version" class="dub-render">
-                    <h2>Render language take</h2>
-                    <p>Uses the master take's captured input files, not the current asset library. Missing captured files stop the request rather than substituting different references.</p>
-                    <MudButton OnClick="RenderDub" Disabled="@(_busy || _dirty || _saved is null || Pending is not null || ActiveVideo is not null)" Variant="Variant.Filled" Color="Color.Primary">Render @request.Target.Name take</MudButton>
-                    @if (_renderError is not null) { <p role="alert" class="field-error">@_renderError</p> }
-                    @if (ActiveVideo is { } video) { <AiJobProgressView Job="video" Queue="Jobs.View" Progress="Jobs.Progress(video.Id)" /><button @onclick="() => Cancel(video.Id)">Cancel video request</button> }
-                    @if (_renderJobId is { } render && Jobs.View.Jobs.FirstOrDefault(j => j.Id == render) is { Error: not null } failed) { <p role="alert">@failed.Error</p> }
-                </section>
-                <section aria-label="Rendered dub takes"><h2>Rendered language takes</h2>
-                    @foreach (var take in DubTakes)
+                </Footer>
+            </StudioPane>
+        </Center>
+        <Right>
+            <StudioPane Class="dub-translation" Label="Translation" Title="Translation">
+                <ChildContent>
+                    @if (_request is not null)
                     {
-                        <article class="dub-take" @key="take.Id"><strong>@TakeDisplay.Label(take)</strong><span> · language version @take.Snapshot.Dub!.VariantVersion</span><a href="@ProjectLink(Id, $"/shots?shotId={take.ShotId}&view=Takes")">Review in Shots</a></article>
+                        <TextModelPicker ProjectId="Id" Studio="TextAssistantStudio.Production" Disabled="@(_busy || Pending is not null)" SelectionChanged="state => _model = state" />
+                        <label class="dub-instructions">Instructions for this translation<textarea rows="4" maxlength="12000" @bind="_instructions" @bind:event="oninput" disabled="@(_busy || Pending is not null)"></textarea></label>
+                        <p class="field-hint">Text only: no images, video, audio or RefMods are sent to the translating model. Review meaning and timing before saving.</p>
+                        @if (ActiveTranslation is { } otherTranslation && otherTranslation.Id != _translationJobId)
+                        { <p role="status" class="field-hint">Another translation of this master take is active. Open it from AI activity or wait for it to finish.</p> }
+                        @if (TranslationJob is { } translationJob)
+                        {
+                            <AiJobProgressView Job="translationJob" Queue="Jobs.View" Progress="Jobs.Progress(translationJob.Id)" />
+                            @if (translationJob.LocksTarget) { <button type="button" disabled="@_busy" @onclick="() => Cancel(translationJob.Id)">Cancel request</button> }
+                            @if (_rawResult is not null)
+                            {
+                                <details class="dub-response"><summary>Response details</summary><pre tabindex="0">@_rawResult.Raw</pre>@if (_rawResult.Error is not null) { <p role="alert" class="field-error">@_rawResult.Error</p> }</details>
+                            }
+                        }
+                        @if (_suggestion is not null && _suggestionRequest is not null)
+                        {
+                            <section class="dub-suggestion" aria-label="Translation suggestion">
+                                <h3>Suggested dialogue</h3>
+                                @for (var i = 0; i < _suggestion.Lines.Count; i++) { <p dir="auto"><strong>@_suggestionRequest.Dialogue[i].Speaker:</strong> @_suggestion.Lines[i].Text</p> }
+                                @foreach (var note in _suggestion.Notes) { <p class="field-hint">@note</p> }
+                                <button type="button" disabled="@(_dirty || _busy)" @onclick="UseSuggestion">Use suggestion in editor</button>
+                                @if (_dirty) { <p class="field-hint">Save or discard your edits before using the suggestion.</p> }
+                            </section>
+                        }
+                        <details class="dub-rendered">
+                            <summary>Rendered language takes · @DubTakes.Count</summary>
+                            @if (DubTakes.Count == 0) { <p class="field-hint">No saved takes for this language and master take yet.</p> }
+                            <ul>
+                                @foreach (var take in DubTakes)
+                                {
+                                    <li @key="take.Id"><a href="@ProjectLink(Id, $"/shots?shotId={take.ShotId}&view=Takes")">@TakeDisplay.Label(take) · language version @take.Snapshot.Dub!.VariantVersion</a></li>
+                                }
+                            </ul>
+                            <p class="field-hint">Use the Language filter in Shots or Cut's latest-take chooser. Master latest-take selection excludes dubs.</p>
+                        </details>
                     }
-                    @if (DubTakes.Count == 0) { <p>No saved takes for this language and master take yet.</p> }
-                    <p class="field-hint">Use the Language filter in Shots or Cut's latest-take chooser. Master latest-take selection excludes dubs.</p>
-                </section>
-            }
-        }
-        @if (Pending is not null) { <p role="alert">Queue acknowledgement is missing. Retry this exact captured request; do not start another one.</p><button disabled="@_busy" @onclick="RetryEnqueue">Retry saving request</button> }
-        @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }
-        @if (_notice is not null) { <p role="status">@_notice</p> }
-    </div>
+                    else
+                    {
+                        <EmptyState Compact="true">Choose a master take to request a translation.</EmptyState>
+                    }
+                </ChildContent>
+                <Footer>
+                    @if (_request is not null)
+                    {
+                        <MudButton Class="ai-assist-action" FullWidth="true" OnClick="Translate" Disabled="@(SuggestBlocker is not null)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />Suggest translated dialogue</MudButton>
+                        @if (SuggestBlocker is { } blocker) { <p class="field-hint">@blocker</p> }
+                    }
+                </Footer>
+            </StudioPane>
+        </Right>
+    </StudioWorkspace>
 }
-else { <p role="status">@(_error ?? "Opening language versions…")</p> }

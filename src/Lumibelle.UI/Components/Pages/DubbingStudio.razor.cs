@@ -1,4 +1,5 @@
 using System.Text.Json;
+using lumibelle.Components.Layout;
 using lumibelle.Models;
 using lumibelle.Services;
 using lumibelle.Services.AI;
@@ -97,10 +98,26 @@ public partial class DubbingStudio
         { _dirty = true; _notice = "Language settings changed. Review and save this translation against the current settings, or request a new suggestion."; }
         if (_translationJobId is { } jobId) await LoadResponse(jobId);
     }
-    private async Task SelectTake(ChangeEventArgs e)
+    // The selected take could not be captured for translation; the centre explains why instead of a banner.
+    private bool SelectionFailed => _error is not null && _request is null && _takeId is not null && Configured;
+    private bool Configured => _languages?.Main is not null && _languages.Dubs.Count > 0;
+    private string SaveStatus => _request is null ? "" : _dirty ? SaveStatusText.Unsaved : _saved is null ? "Not saved" : SaveStatusText.Saved;
+    private long? SavedVersion(Guid takeId) => _variants.Variants.Where(v => v.Request.SourceTakeId == takeId && v.Request.Target.Code == _target).Select(v => (long?)v.Version).Max();
+    private int RenderedCount(Guid takeId) => _shots.Takes.Count(t => t.Snapshot.Dub is { } d && d.SourceTakeId == takeId && d.Target.Code == _target);
+    // A disabled action explains itself beside the button.
+    private string? RenderBlocker =>
+        _busy ? "Working…" : Pending is not null ? "Retry the missing queue acknowledgement first." :
+        _dirty ? "Save the dialogue before rendering." : _saved is null ? "Save a language version before rendering." :
+        ActiveVideo is not null ? "A language take is already rendering." : null;
+    private string? SuggestBlocker =>
+        _busy ? "Working…" : Pending is not null ? "Retry the missing queue acknowledgement first." :
+        _dirty ? "Save or discard your edits before requesting a new suggestion." :
+        ActiveTranslation is not null ? "A translation of this master take is already active." :
+        _model?.Ready != true ? "Choose an available text model." : null;
+    private async Task SelectTakeAsync(Guid takeId)
     {
-        if (Locked) return;
-        _takeId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; _translationJobId = null; await ChangeSelection();
+        if (Locked || takeId == _takeId) return;
+        _takeId = takeId; _translationJobId = null; await ChangeSelection();
     }
     private async Task SelectLanguage(ChangeEventArgs e)
     {
