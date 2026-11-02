@@ -6,13 +6,12 @@
 @implements IDisposable
 
 <div class="ai-activity-shell">
-<button class="ai-activity-trigger" @onclick="Open" @ref="_trigger" aria-controls="ai-activity-panel" aria-expanded="@_open.ToString().ToLowerInvariant()">
+<button type="button" class="ai-activity-trigger" @onclick="Open" @ref="_trigger" aria-controls="ai-activity-panel" aria-expanded="@_open.ToString().ToLowerInvariant()" aria-label="@TriggerLabel" title="@TriggerLabel">
     <AiAssistIcon />
     <span>AI activity</span>
     @if (ActiveCount > 0) { <span class="ai-activity-count">@ActiveCount active</span> }
     @if (BlockedCount > 0) { <span class="ai-activity-count">@BlockedCount blocked</span> }
     @if (AttentionCount > 0) { <span class="ai-activity-unread" data-ai-attention-count="@AttentionCount">@AttentionLabel</span> }
-    <span class="visually-hidden">@RunningCount running, @WaitingCount waiting, @AttentionLabel</span>
 </button>
 @if (_open)
 {
@@ -20,13 +19,13 @@
     @if (_open)
     {
         <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
-        <section id="ai-activity-panel" class="ai-activity-panel" role="dialog" aria-modal="true" aria-label="AI activity" aria-labelledby="ai-activity-title" @onkeydown="KeyDown">
+        <section id="ai-activity-panel" class="ai-activity-panel" role="dialog" aria-modal="true" aria-labelledby="ai-activity-title" @onkeydown="KeyDown">
             <header class="ai-activity-header">
                 <div><h2 id="ai-activity-title">AI activity</h2><p>
                     <span>@RunningCount running · @WaitingCount waiting</span>
                     @if (BlockedCount > 0) { <span> · @BlockedCount blocked</span> }
                     <span> · @AttentionLabel</span>
-                </p></div><button @onclick="Close" aria-label="Close AI activity">×</button>
+                </p></div><MudIconButton Icon="@Icons.Material.Outlined.Close" aria-label="Close AI activity" title="Close AI activity" OnClick="Close" Class="ai-activity-close" />
             </header>
             <div class="ai-provider-controls">
                 @foreach (var provider in new[] { AiBackend.ComfyUI, AiBackend.Vllm, AiBackend.OpenRouter, AiBackend.Codex, AiBackend.ClaudeCode })
@@ -35,7 +34,7 @@
                     var expanded = _expandedProviders.Contains(provider);
                     <section class="ai-provider-control" aria-label="@(TextModelPolicy.ProviderName(provider) + " queue")">
                         <div class="ai-provider-row">
-                            <button class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><span aria-hidden="true">@(expanded ? "▾" : "▸")</span> <strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.Vllm ? "Server" : provider == AiBackend.ClaudeCode ? "Limits" : "Allowance")</span></button>
+                            <button type="button" class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)" Size="Size.Small" aria-hidden="true" /><strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.Vllm ? "Server" : provider == AiBackend.ClaudeCode ? "Limits" : "Allowance")</span></button>
                             @if (provider == AiBackend.ComfyUI) { <ComfyPauseControl Jobs="Jobs" /> }
                             else { <button disabled="@_changingProvider" aria-label="@((paused ? "Resume queue " : "Pause queue ") + TextModelPolicy.ProviderName(provider))" @onclick="() => Pause(provider, !paused)">@(paused ? "Resume" : "Pause queue")</button> }
                         </div>
@@ -58,10 +57,7 @@
                 }
             </div>
             <div class="ai-activity-filters">
-                <div class="ai-activity-tabs" role="tablist" aria-label="AI activity views">
-                    @foreach (var view in Views)
-                    { <button role="tab" aria-selected="@((_view == view).ToString().ToLowerInvariant())" tabindex="@(_view == view ? 0 : -1)" @ref="_tabs[Array.IndexOf(Views, view)]" @onkeydown="e => TabKey(view, e)" @onclick="() => ChangeView(view)">@view</button> }
-                </div>
+                <StudioToolTabs Items="ViewTabs" Selected="@ViewKey(_view)" SelectedChanged="SelectView" TabIdPrefix="ai-activity-tab-" PanelIdPrefix="ai-activity-view-" Label="AI activity views" Class="ai-activity-views" />
                 <div class="ai-project-filter"><label for="ai-activity-project">Project</label><select id="ai-activity-project" value="@_project" @onchange="ProjectChanged"><option value="">All projects</option>@foreach (var project in Projects) { <option value="@project.Id">@project.Name</option> }</select></div>
             </div>
             <div class="ai-activity-tools">
@@ -77,7 +73,7 @@
             { <p class="field-hint">Unseen errors and unconfirmed remote requests. Successful results stay in their studios and History. Acknowledged errors remain in History; unconfirmed work stays here until its status is resolved.</p> }
             @if (_notice is not null) { <div class="ai-activity-notice" role="status">@_notice @if (_undoCleared.Count > 0) { <button disabled="@_bulkBusy" @onclick="UndoClear">Undo</button> }</div> }
             @if ((_error ?? Jobs.Error) is { } error) { <p class="field-error" role="alert">@error</p> }
-            <div class="ai-activity-list" role="region" aria-label="@(_view + " AI requests")" tabindex="0" @ref="_list">
+            <div class="ai-activity-list" id="@("ai-activity-view-" + ViewKey(_view))" role="tabpanel" aria-labelledby="@("ai-activity-tab-" + ViewKey(_view))" tabindex="0" @ref="_list">
                 @if (!Filtered.Any()) { <p class="ai-activity-empty">@EmptyMessage</p> }
                 @foreach (var job in Paged)
                 {
@@ -92,7 +88,7 @@
                         @if (job.Error is not null) { <p class="field-error">@job.Error</p> }
                         <div class="ai-job-actions">
                             <a href="@ProjectLink(job.ReviewUrl)" @onclick="() => Review(job)" @onclick:preventDefault>@(active ? "View" : "Review")</a>
-                            @if ((active || job.RemoteUnconfirmed || job.ComfyControl is not null) && !job.CancelRequested) { <button disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.CancelAsync(job.Id))">Cancel</button> }
+                            @if ((active || job.RemoteUnconfirmed || job.ComfyControl is not null) && !job.CancelRequested) { <button type="button" disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.CancelAsync(job.Id))">Cancel request</button> }
                             @if ((job.Recovery is AiJobRecovery.CheckStatus or AiJobRecovery.RetryOutput or AiJobRecovery.ContinueRequest || job.CanRecoverCancelledOutputs) && !active)
                             { <button disabled="@pending" @onclick="() => Act(job.Id, () => Jobs.ResumeAsync(job.Id))">@(job.CanRecoverCancelledOutputs ? "Recover completed takes" : job.Recovery == AiJobRecovery.ContinueRequest ? "Continue review" : job.Recovery == AiJobRecovery.RetryOutput ? "Retry download/save" : "Check status")</button> }
                             @if (job.Unread) { <button disabled="@pending" @onclick="() => Act(job.Id, async () => { await Jobs.ChangeActivityAsync([job], AiActivityChange.Read); })">Mark read</button> }
@@ -102,8 +98,8 @@
                         @if (AiQueueOrder.IsWaiting(job))
                         {
                             <div class="ai-job-order" aria-label="Queue order">
-                                <button disabled="@(pending || First(job))" @onclick="() => Act(job.Id, () => Jobs.MoveAsync(job.Id, -1))" aria-label="Move request up" title="Move within this priority group">↑</button>
-                                <button disabled="@(pending || Last(job))" @onclick="() => Act(job.Id, () => Jobs.MoveAsync(job.Id, 1))" aria-label="Move request down" title="Move within this priority group">↓</button>
+                                <button type="button" class="lumi-button icon" disabled="@(pending || First(job))" @onclick="() => Act(job.Id, () => Jobs.MoveAsync(job.Id, -1))" aria-label="Move request up" title="Move up within this priority group"><MudIcon Icon="@Icons.Material.Outlined.ArrowUpward" /></button>
+                                <button type="button" class="lumi-button icon" disabled="@(pending || Last(job))" @onclick="() => Act(job.Id, () => Jobs.MoveAsync(job.Id, 1))" aria-label="Move request down" title="Move down within this priority group"><MudIcon Icon="@Icons.Material.Outlined.ArrowDownward" /></button>
                                 <button disabled="@(pending || job.Priority && AiQueueOrder.IsNext(Jobs.View.Jobs, job))" @onclick="() => Act(job.Id, async () => { await Jobs.MoveAsync(job.Id, 0, first: true); PriorityChanged(job.Id); })" title="Mark priority and move first on this provider. Does not interrupt running work.">Run next</button>
                             </div>
                         }
@@ -138,7 +134,6 @@
     private bool _open, _disposed, _changingProvider, _restoreFocus, _focusList; private string _view = "Active", _project = ""; private int _page;
     private readonly HashSet<Guid> _pending = []; private Guid? _inspect; private AiTextJobResult? _response; private string? _error;
     private ElementReference _trigger, _list;
-    private readonly ElementReference[] _tabs = new ElementReference[3];
     private int RunningCount => Jobs.View.Jobs.Count(j => j.State == AiJobState.Running);
     private int WaitingCount => Jobs.View.Jobs.Count(j => j.State == AiJobState.Waiting);
     private int ActiveCount => RunningCount + WaitingCount;
@@ -197,12 +192,11 @@
     private Task SetOpen(bool open) { if (open) return Open(); return Close(); }
     private Task KeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
     private void ChangeView(string view) { _view = view; _page = 0; CollapseInspection(); }
-    private async Task TabKey(string view, KeyboardEventArgs e)
-    {
-        var index = Array.IndexOf(Views, view);
-        var next = e.Key switch { "ArrowRight" => (index + 1) % Views.Length, "ArrowLeft" => (index + Views.Length - 1) % Views.Length, "Home" => 0, "End" => Views.Length - 1, _ => -1 };
-        if (next < 0) return; ChangeView(Views[next]); await _tabs[next].FocusAsync();
-    }
+    private static readonly StudioTab[] ViewTabs = Views.Select(view => new StudioTab(ViewKey(view), view)).ToArray();
+    private static string ViewKey(string view) => view.Replace(' ', '-').ToLowerInvariant();
+    private void SelectView(string key) => ChangeView(Views.First(view => ViewKey(view) == key));
+    // The trigger names its counts so the summary is read even when only the icon is visible.
+    private string TriggerLabel => $"AI activity: {RunningCount} running, {WaitingCount} waiting{(BlockedCount > 0 ? $", {BlockedCount} blocked" : "")}, {AttentionLabel}";
     private void ProjectChanged(ChangeEventArgs e) { _project = e.Value?.ToString() ?? ""; ResetPage(); CollapseInspection(); }
     private void Previous() => _page = Math.Max(0, _page - 1);
     private void Next() => _page = Math.Min(PageCount - 1, _page + 1);

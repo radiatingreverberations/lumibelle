@@ -3,7 +3,7 @@
 @implements IAsyncDisposable
 
 <div class="text-request-action @(Primary ? "primary-request-action" : "") @(Ready ? "request-ready" : "")">
-    <button type="button" class="assist-trigger request-action-button @ButtonClass" @ref="_button" disabled="@ButtonDisabled" @onclick="Activate" @onmousedown:preventDefault="true"
+    <button type="button" class="assist-trigger request-action-button @(Primary || Ready ? "lumi-button primary" : null) @ButtonClass" @ref="_button" disabled="@ButtonDisabled" @onclick="Activate" @onmousedown:preventDefault="true"
             aria-label="@AccessibleLabel" aria-describedby="@(Notice is null ? null : _noticeId)" aria-haspopup="@(Primary && !Inspecting ? null : "dialog")">
         @if (Spinning) { <span aria-hidden="true" class="request-spinner"></span> }
         else if (StatusIcon is { } statusIcon) { <span aria-hidden="true" class="request-icon">@statusIcon</span> }

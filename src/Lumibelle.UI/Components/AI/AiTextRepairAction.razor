@@ -12,12 +12,12 @@
         @if (_pending is not null)
         {
             <p class="field-hint">The repair request is captured. Retrying uses this same request, not another model call.</p>
-            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined" Color="Color.Primary">@(_queued ? "Retry connecting repair" : "Retry repair submission")</MudButton>
+            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined">@(_queued ? "Retry connecting repair" : "Retry repair submission")</MudButton>
         }
         else if (offer.ExistingRepair is null && offer.Issue is null)
         {
             <p class="field-hint">New text-only request · @offer.ModelName. Sends the failed response, validation error and output contract; no images, audio or video. Review is required before applying. Normal provider charges apply.</p>
-            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.AutoFixHigh">@(_busy ? "Preparing repair…" : "Fix validation")</MudButton>
+            <MudButton Disabled="_busy" OnClick="Fix" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.AutoFixHigh">@(_busy ? "Preparing repair…" : "Fix validation")</MudButton>
         }
         else if (offer.ExistingRepair is null && !(offer.IsRepair && offer.Source.State == AiJobState.Completed))
         {
@@ -44,7 +44,7 @@
                 <AiJobProgressView Job="child" Queue="Jobs.View" Progress="Jobs.Progress(child.Id)" />
             }
             <div class="repair-actions">
-                <MudButton Disabled="_busy" OnClick="() => OpenRepair(child.Id)" Variant="@(Ready ? Variant.Filled : Variant.Outlined)" Color="Color.Primary">Review repair</MudButton>
+                <MudButton Disabled="_busy" OnClick="() => OpenRepair(child.Id)" Variant="@(Ready ? Variant.Filled : Variant.Outlined)" Color="@(Ready ? Color.Primary : Color.Default)">Review repair</MudButton>
                 @if (_pending is null && AiTextRepairs.CanRepeat(child))
                 { <MudButton Disabled="_busy" OnClick="() => FixAgain(child.Id)" Variant="Variant.Outlined">Try another text-only repair</MudButton> }
             </div>
@@ -61,7 +61,7 @@
         else if (offer.IsRepair && offer.Source.State == AiJobState.Completed)
         {
             <p class="field-hint">Text-only correction. The original response is unchanged; this result is not automatically applied.</p>
-            <MudButton Disabled="_busy" OnClick="() => OpenRepair(offer.Source.Id)" Variant="Variant.Outlined" Color="Color.Primary">Connect correction for review</MudButton>
+            <MudButton Disabled="_busy" OnClick="() => OpenRepair(offer.Source.Id)" Variant="Variant.Outlined">Connect correction for review</MudButton>
         }
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </section>

@@ -1,9 +1,9 @@
 .ai-provider-sidebar { display: flex; flex-direction: column; gap: 6px; }
-.ai-provider-sidebar button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; font: inherit; color: var(--ink); border: 1px solid transparent; border-radius: var(--lumi-radius-surface); background: transparent; padding: 14px 16px; cursor: pointer; }
+.ai-provider-sidebar button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; font: inherit; color: var(--lumi-text); border: 1px solid transparent; border-radius: var(--lumi-radius-surface); background: transparent; padding: 14px 16px; cursor: pointer; }
 .ai-provider-sidebar button:hover { background: var(--lumi-surface-selected); }
-.ai-provider-sidebar button[aria-selected="true"] { background: var(--lumi-surface-selected); border-color: var(--lumi-accent); color: var(--plum); }
+.ai-provider-sidebar button[aria-selected="true"] { background: var(--lumi-surface-selected); border-color: var(--lumi-accent); color: var(--lumi-accent); }
 .ai-provider-sidebar strong { font-size: var(--lumi-font-size-ui); font-weight: 600; }
-.ai-provider-sidebar span { font-size: var(--lumi-font-size-meta); color: var(--muted); }
+.ai-provider-sidebar span { font-size: var(--lumi-font-size-meta); color: var(--lumi-text-muted); }
 @media (max-width: 650px) {
     .ai-provider-sidebar { gap: 4px; }
     .ai-provider-sidebar button { flex-direction: row; align-items: center; justify-content: space-between; padding: 12px; }
@@ -11,5 +11,5 @@
     .ai-provider-sidebar span { font-size: var(--lumi-font-size-small); }
 }
 /* Settings for every provider sit apart, below the providers. */
-.ai-provider-sidebar .ai-provider-defaults { margin-top: 8px; border-top-color: var(--line); border-radius: 0 0 var(--lumi-radius-surface) var(--lumi-radius-surface); }
+.ai-provider-sidebar .ai-provider-defaults { margin-top: 8px; border-top-color: var(--lumi-border); border-radius: 0 0 var(--lumi-radius-surface) var(--lumi-radius-surface); }
 .ai-provider-sidebar .ai-provider-defaults[aria-selected="true"] { border-radius: var(--lumi-radius-surface); }
