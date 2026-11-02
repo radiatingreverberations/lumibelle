@@ -473,7 +473,7 @@
     @if (_error is not null) { <p role="alert">@_error</p> }
     </DialogContent><DialogActions><DialogFooter><DialogDismiss Label="Cancel" OnDismiss="() => _importOpen = false" Disabled="_busy" /><MudButton OnClick="SaveImport" Disabled="@(_busy || _imported is null)" Variant="Variant.Filled" Color="Color.Primary">Save reel</MudButton></DialogFooter></DialogActions></InlineDialog>
 
-<InlineDialog Visible="_keyframeReel is not null" VisibleChanged="v => v ? Task.CompletedTask : CancelKeyframes()" Options="DialogSizes.Media" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@_keyframeReel?.Name" CloseLabel="Close manage keyframes"><DialogContent>
+<InlineDialog Visible="_keyframeReel is not null" VisibleChanged="v => v ? Task.CompletedTask : CancelKeyframes()" Options="DialogSizes.Media" CloseOnEscape="false" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@_keyframeReel?.Name" CloseLabel="Close manage keyframes"><DialogContent>
 @if (_keyframeReel is { } frameReel) { <ReelKeyframeEditor @ref="_keyframeEditor" @key="frameReel.Id" ProjectId="ProjectId" Media="frameReel.Media" Initial="frameReel.Keyframes" RequestedJobId="RequestedJobId" SaveImage="SaveFrameImage" Applied="SaveKeyframes" Cancelled="() => _keyframeReel = null" /> }
 </DialogContent></InlineDialog>
 

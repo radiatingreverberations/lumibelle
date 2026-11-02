@@ -14,10 +14,8 @@
     private bool _saving;
     private void Saved(ProjectInfo project) => Dialog.Close(DialogResult.Ok(project));
     private void Cancel() { if (!_saving) Dialog.Cancel(); }
-    // Escape follows the close button: it cannot dismiss the dialog while the project is being saved.
-    private async Task SavingChangedAsync(bool saving)
-    {
-        _saving = saving;
-        if (Dialog.Options is { } options) await Dialog.SetOptionsAsync(options with { CloseOnEscapeKey = !saving });
-    }
+    // The form is staged without an unsaved-changes prompt, so callers open it with Escape off
+    // (ProjectDialog.Options); the close button waits while the project is being saved.
+    public static DialogOptions Options { get; } = DialogSizes.Small with { CloseOnEscapeKey = false };
+    private Task SavingChangedAsync(bool saving) { _saving = saving; StateHasChanged(); return Task.CompletedTask; }
 }

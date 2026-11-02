@@ -203,6 +203,6 @@
 @if (_viewer is not null && _library is not null) {
     <ImageReviewDialog Session="_viewer" Library="_library" Visible="true" InitialSelection="_viewInitial" Closed="CloseViewer" AllowDiscard="false" />
 }
-<InlineDialog Visible="@(_keyframeReel is not null)" VisibleChanged="value => value ? Task.CompletedTask : CancelKeyframes()" Title="Review reel keyframes" Context="@_keyframeReel?.Name" CloseLabel="Close review reel keyframes" Class="bulk-reel-keyframe-dialog" Options="DialogSizes.Media">
+<InlineDialog Visible="@(_keyframeReel is not null)" VisibleChanged="value => value ? Task.CompletedTask : CancelKeyframes()" Title="Review reel keyframes" Context="@_keyframeReel?.Name" CloseLabel="Close review reel keyframes" Class="bulk-reel-keyframe-dialog" Options="DialogSizes.Media" CloseOnEscape="false">
     <DialogContent>@if (_keyframeReel is { } edited) { @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }<ReelKeyframeEditor @ref="_keyframeEditor" ProjectId="ProjectId" Media="edited.Media" Initial="edited.Keyframes" Applied="SaveKeyframes" Cancelled="CloseKeyframes" /> }</DialogContent>
 </InlineDialog>

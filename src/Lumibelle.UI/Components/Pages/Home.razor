@@ -157,7 +157,7 @@
         _dialogOpen = true;
         try
         {
-            var dialog = await DialogService.ShowAsync<ProjectDialog>("New project", DialogSizes.Small);
+            var dialog = await DialogService.ShowAsync<ProjectDialog>("New project", ProjectDialog.Options);
             var result = await dialog.Result;
             if (result is { Canceled: false, Data: ProjectInfo project }) { if (ProjectRoutes is not null) await ProjectRoutes.RefreshAsync(); Navigation.NavigateTo(ProjectLink(project.Id)); }
         }

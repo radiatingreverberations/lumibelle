@@ -288,8 +288,8 @@
     </ReferencePicker>
 </section>
 
-<InlineDialog Visible="_keyframeBinding is not null" VisibleChanged="v => { if (!v) _keyframeBinding = null; }" Options="DialogSizes.Media" CloseOnEscape="false" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@(_keyframeBinding?.Name)" CloseLabel="Close manage keyframes"><DialogContent>
-@if (_keyframeBinding is { } editReel) { <ReelKeyframeEditor @key="editReel.Id" ProjectId="Library.ProjectId" Media="editReel.Media" Initial="editReel.Keyframes" Applied="ApplyKeyframes" Cancelled="() => _keyframeBinding = null" SaveLabel="Apply keyframes" SaveImage="SaveImage" ImageSaved="ImageSaved" /> }
+<InlineDialog Visible="_keyframeBinding is not null" VisibleChanged="v => v ? Task.CompletedTask : CancelKeyframesAsync()" Options="DialogSizes.Media" CloseOnEscape="false" Class="reel-keyframes-dialog" Title="Manage keyframes" Context="@(_keyframeBinding?.Name)" CloseLabel="Close manage keyframes"><DialogContent>
+@if (_keyframeBinding is { } editReel) { <ReelKeyframeEditor @ref="_keyframeEditor" @key="editReel.Id" ProjectId="Library.ProjectId" Media="editReel.Media" Initial="editReel.Keyframes" Applied="ApplyKeyframes" Cancelled="() => _keyframeBinding = null" SaveLabel="Apply keyframes" SaveImage="SaveImage" ImageSaved="ImageSaved" /> }
 </DialogContent></InlineDialog>
 
 @if (_draft.Images.FirstOrDefault(b => b.Id == _cropTarget) is { } cropTarget && Image(cropTarget) is { } cropMedia) {

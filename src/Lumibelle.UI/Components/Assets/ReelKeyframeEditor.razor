@@ -74,11 +74,11 @@
     </footer>
 </section>
 
-<InlineDialog Visible="_exportFrame is not null" VisibleChanged="v => { if (!v) CloseExport(); }" Options="DialogSizes.Medium" Class="reel-frame-export-dialog" Title="Save reel frame to Assets" Context="@_exportReel?.Name" CloseLabel="Close save reel frame"><DialogContent>
+<InlineDialog Visible="_exportFrame is not null" VisibleChanged="v => { if (!v && _exportPanel?.Busy != true) CloseExport(); }" Options="DialogSizes.Medium" Class="reel-frame-export-dialog" Title="Save reel frame to Assets" Context="@_exportReel?.Name" CloseLabel="Close save reel frame"><DialogContent>
 @if (_exportFrame is { } export && _exportReel is { } exportReel && _exportLibrary is { } exportLibrary) {
     <div class="reel-frame-export">
         <img src="@ReferenceVideos.FrameUrl(ProjectId, export.Frame)" alt="Frame @(export.Frame.Index + 1) from @exportReel.Name" />
-        <ImageCopyPanel @key="export" ProjectId="ProjectId" Library="exportLibrary" ReelFrame="export" ShowHeading="false"
+        <ImageCopyPanel @ref="_exportPanel" @key="export" ProjectId="ProjectId" Library="exportLibrary" ReelFrame="export" ShowHeading="false"
             InitialAssetId="exportReel.AssetId" InitialLookId="exportReel.LookId"
             InitialName="@(_draft.Frames.FirstOrDefault(f => f.Frame == export.Frame)?.Name is { Length: > 0 } name ? $"{exportReel.Name} · {name}" : $"{exportReel.Name} · {export.Frame.Seconds.ToString("0.###")} s")"
             InitialNotes="@(_draft.Frames.FirstOrDefault(f => f.Frame == export.Frame)?.Notes ?? "")"
@@ -99,6 +99,7 @@
     [Parameter] public Func<DerivedImageRequest, Task<SavedAssetImage>>? SaveImage { get; set; }
     [Parameter] public EventCallback<SavedAssetImage> ImageSaved { get; set; }
     private ReelFrameExport? _exportFrame;
+    private ImageCopyPanel? _exportPanel;
     private AssetLibrary? _exportLibrary;
     private AssetReferenceReel? _exportReel;
     private SavedAssetImage? _savedImage;

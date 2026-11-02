@@ -6,7 +6,7 @@
 @inject IAiJobStore JobStore
 @inject IAiReviewGate Reviews
 
-<InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="DialogSizes.Media" CloseOnEscape="@(!_working && !_applying)"
+<InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="DialogSizes.Media" CloseOnEscape="false"
     Class="environment-view-dialog" Title="Choose environment views" Context="@_request?.AssetName" CloseLabel="Close choose environment views" CloseDisabled="@(_working || _applying)">
 <DialogContent>
     @if (HistoryOnly) { <p>This saved selection is read-only. Use Edit references to change the pictures attached to a shot.</p> }

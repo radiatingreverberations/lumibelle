@@ -71,7 +71,7 @@ else
         {
             var dialog = await DialogService.ShowAsync<ProjectDialog>("Edit project",
                 new DialogParameters { [nameof(ProjectDialog.Project)] = original },
-                DialogSizes.Small);
+                ProjectDialog.Options);
             var result = await dialog.Result;
             if (Id == original.Id && result is { Canceled: false, Data: ProjectInfo updated }) _project = updated;
         }

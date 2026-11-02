@@ -63,6 +63,8 @@
     {
         if (firstRender) try { await _destinationInput.FocusAsync(); } catch (JSDisconnectedException) { }
     }
+    // Hosts that draw their own close button use this to wait for a running save.
+    public bool Busy => _busy;
     private bool _busy; private string? _error; private DerivedImageRequest? _captured; private ImageCropRegion _crop = new();
     private ReferenceAsset? DestinationAsset => Guid.TryParse(_destination, out var id) ? Library.Assets.FirstOrDefault(a => a.Id == id) : null;
     private bool Valid => _captured is not null || !string.IsNullOrWhiteSpace(_name) && (_destination != "new" || !string.IsNullOrWhiteSpace(_assetName));

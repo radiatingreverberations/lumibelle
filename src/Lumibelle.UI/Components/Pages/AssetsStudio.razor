@@ -482,7 +482,7 @@ else
     <Actions><DialogDismiss Label="Done" OnDismiss="CloseAssetDetails" Disabled="_saving" /></Actions>
 </InlineDialog>
 
-<InlineDialog Visible="_createOpen" VisibleChanged="v => { if (!v) CloseCreate(); }" Class="asset-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="DialogSizes.Small"
+<InlineDialog Visible="_createOpen" VisibleChanged="v => { if (!v) CloseCreate(); }" Class="asset-dialog" DefaultFocus="DefaultFocus.FirstChild" Options="DialogSizes.Small" CloseOnEscape="@(string.IsNullOrWhiteSpace(_newName) && string.IsNullOrWhiteSpace(_newDescription))"
               Title="Create an asset" CloseLabel="Close create an asset">
     <DialogContent><form id="create-asset-form" @onsubmit="CreateAssetAsync" @onsubmit:preventDefault><label for="new-asset-kind">Kind</label><select id="new-asset-kind" @bind="_newCategory">@foreach (var category in Enum.GetValues<AssetCategory>()) { <option value="@category">@CategoryName(category)</option> }</select><label for="new-asset-name">Name</label><input id="new-asset-name" @bind="_newName" @bind:event="oninput" /><label for="new-asset-description">Visual notes</label><textarea id="new-asset-description" rows="4" @bind="_newDescription" @bind:event="oninput"></textarea>@if (_createError is not null) { <p class="generation-error">@_createError</p> }</form></DialogContent>
     <Actions><MudButton OnClick="CloseCreate">Cancel</MudButton><MudButton ButtonType="ButtonType.Submit" form="create-asset-form" Color="Color.Primary" Variant="Variant.Filled">Create asset</MudButton></Actions>

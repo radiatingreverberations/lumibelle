@@ -322,6 +322,9 @@ public partial class ShotReferenceEditor
     }
     private void SwapElsewhere(ShotVideoBinding v, bool value) { if (_swaps.TryGetValue(v.Id, out var swap)) _swaps[v.Id] = swap with { OtherShots = value }; }
     private ShotVideoBinding? _keyframeBinding;
+    private lumibelle.Components.Assets.ReelKeyframeEditor? _keyframeEditor;
+    // The dialog's close button is the editor's Cancel, which waits while keyframes are being saved.
+    private Task CancelKeyframesAsync() { if (_keyframeEditor is { } editor) return editor.RequestCancelAsync(); _keyframeBinding = null; return Task.CompletedTask; }
     private Task ApplyKeyframes(ReelKeyframeSet frames) { _keyframeBinding!.Keyframes = ShotCopy.Of(frames); _keyframeBinding = null; return Task.CompletedTask; }
     private async Task ChangeVisuals(ShotVideoBinding reel, ChangeEventArgs e)
     {

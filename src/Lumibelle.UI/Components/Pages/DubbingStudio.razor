@@ -155,16 +155,14 @@ else
                             @if (ActiveVideo is { } video)
                             {
                                 <AiJobProgressView Job="video" Queue="Jobs.View" Progress="Jobs.Progress(video.Id)" />
-                                <button type="button" @onclick="() => Cancel(video.Id)">Cancel request</button>
                             }
-                            else
-                            {
-                                <div class="dub-render-actions">
-                                    <button type="button" disabled="@(_busy || !_dirty)" @onclick="Discard">Discard edits</button>
-                                    <MudButton OnClick="RenderDub" Disabled="@(RenderBlocker is not null)" Variant="Variant.Filled" Color="Color.Primary">Render @rendering.Target.Name take</MudButton>
-                                </div>
-                                <p class="field-hint">@(RenderBlocker ?? "Renders new video and audio from the master take's captured inputs. Motion, lip sync, accent and timing can differ from the master.")</p>
-                            }
+                            <div class="dub-render-actions">
+                                @* Discard also reloads the saved translation for this take and language. *@
+                                <button type="button" disabled="@_busy" @onclick="Discard">Discard edits</button>
+                                @if (ActiveVideo is { } running) { <button type="button" @onclick="() => Cancel(running.Id)">Cancel request</button> }
+                                else { <MudButton OnClick="RenderDub" Disabled="@(RenderBlocker is not null)" Variant="Variant.Filled" Color="Color.Primary">Render @rendering.Target.Name take</MudButton> }
+                            </div>
+                            @if (ActiveVideo is null) { <p class="field-hint">@(RenderBlocker ?? "Renders new video and audio from the master take's captured inputs. Motion, lip sync, accent and timing can differ from the master.")</p> }
                             @if (_renderError is not null) { <p role="alert" class="field-error">@_renderError</p> }
                             @if (_renderJobId is { } render && Jobs.View.Jobs.FirstOrDefault(j => j.Id == render) is { Error: not null } failed) { <p role="alert" class="field-error">@failed.Error</p> }
                         </div>
