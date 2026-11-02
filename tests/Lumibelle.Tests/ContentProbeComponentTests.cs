@@ -7,6 +7,7 @@ using lumibelle.Services.AI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
@@ -18,6 +19,7 @@ public sealed class ContentProbeComponentTests
     private static AiJobCoordinator Register(BunitContext context, ContentProbeFixture f)
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddMudServices();
         var handler = new ContentProbeJobHandler(f.Providers,
             new TestHttpFactory(new ScriptedHttpHandler((_, _) => throw new InvalidOperationException("Unexpected HTTP"))),
             new ComfyJobExecution(TestComfy.Monitor()), TimeProvider.System);

@@ -1,9 +1,9 @@
-.codex-image-timing { margin-top: .45rem; min-width: 0; }
+.codex-image-timing { margin-top: 7px; min-width: 0; }
 .codex-image-timing > summary { cursor: pointer; font-size: var(--lumi-font-size-compact); }
-.codex-timing-breakdown { margin-top: .5rem; }
+.codex-timing-breakdown { margin-top: 8px; }
 .codex-timing-breakdown { flex: 1; min-width: 0; }
-.codex-timing-values { display: flex; flex-wrap: wrap; gap: .5rem .75rem; margin: 0; }
-.codex-timing-values > div { display: grid; gap: .1rem; }
+.codex-timing-values { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0; }
+.codex-timing-values > div { display: grid; gap: 2px; }
 .codex-timing-values dt { font-size: var(--lumi-font-size-small); color: var(--text-muted, var(--lumi-text-muted)); }
 .codex-timing-values dd { margin: 0; font-size: var(--lumi-font-size-compact); font-variant-numeric: tabular-nums; }
-.codex-timing-note { margin: .35rem 0 0; font-size: var(--lumi-font-size-small); color: var(--text-muted, var(--lumi-text-muted)); overflow-wrap: anywhere; }
+.codex-timing-note { margin: 6px 0 0; font-size: var(--lumi-font-size-small); color: var(--text-muted, var(--lumi-text-muted)); overflow-wrap: anywhere; }

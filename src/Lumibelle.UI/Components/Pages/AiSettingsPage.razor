@@ -8,22 +8,19 @@
 @implements IDisposable
 
 <PageTitle>AI settings · Lumibelle</PageTitle>
-<div class="settings-heading ai-settings-heading"><a class="writing-back" href="@ProjectLink(ReturnUrl)">← @ReturnLabel</a><h1>AI settings</h1></div>
-@if (_loading) { <p role="status">Loading AI settings…</p> }
+<PageHeading Title="AI settings" BackHref="@ProjectLink(ReturnUrl)" BackLabel="@ReturnLabel" />
+@if (_loading) { <LoadingState Text="Loading AI settings…" /> }
 else if (_settings is null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert><MudButton OnClick="LoadAsync">Try again</MudButton>
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="AI settings couldn’t be opened" role="alert">
+        <ChildContent>@_error</ChildContent>
+        <Actions><MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton></Actions>
+    </EmptyState>
 }
 else
 {
     <div class="ai-settings-workspace ai-settings-form">
-        <div class="ai-settings-tabs" role="tablist" aria-label="AI settings sections">
-            @for (var i = 0; i < Tabs.Length; i++)
-            {
-                var index = i; var item = Tabs[index];
-                <button type="button" role="tab" id="ai-tab-@item.Key" aria-controls="ai-panel-@item.Key" aria-selected="@(_tab == item.Key ? "true" : "false")" tabindex="@(_tab == item.Key ? 0 : -1)" @ref="_tabElements[index]" @onclick="() => SelectTab(item.Key)" @onkeydown="args => TabKeyAsync(args, index)">@item.Label</button>
-            }
-        </div>
+        <StudioToolTabs Items="Tabs" Selected="@_tab" SelectedChanged="SelectTab" TabIdPrefix="ai-tab-" PanelIdPrefix="ai-panel-" Label="AI settings sections" Class="ai-settings-sections" />
         @if (_error is not null)
         {
             <div class="settings-error" role="alert">@_error @if (_conflict) { <MudButton OnClick="ReloadSnapshotAsync" Disabled="Busy">Reload saved settings</MudButton> }</div>
@@ -169,10 +166,10 @@ else
                     }
                     <div class="text-catalog-toolbar">
                         <div class="text-catalog-search"><label class="sr-only" for="model-search">Search text models</label><input id="model-search" type="search" placeholder="Search models…" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></div>
-                        <div class="model-list-filter" role="group" aria-label="Show models"><button type="button" aria-pressed="@(!_starredOnly ? "true" : "false")" @onclick="() => FilterStars(false)">All</button><button type="button" aria-pressed="@(_starredOnly ? "true" : "false")" @onclick="() => FilterStars(true)">★ Starred <span>@_settings.StarredTextModels.Count(m => m.Backend == TextBackend)</span></button></div>
+                        <div class="model-list-filter" role="group" aria-label="Show models"><button type="button" aria-pressed="@(!_starredOnly ? "true" : "false")" @onclick="() => FilterStars(false)">All</button><button type="button" aria-pressed="@(_starredOnly ? "true" : "false")" @onclick="() => FilterStars(true)"><MudIcon Icon="@Icons.Material.Outlined.Star" Size="Size.Small" aria-hidden="true" />Starred <span>@_settings.StarredTextModels.Count(m => m.Backend == TextBackend)</span></button></div>
                         <div class="text-catalog-sort mobile-model-sort"><label for="model-sort">Sort</label><select id="model-sort" @bind="TextState.Sort" @bind:after="MobileSortChanged">
                             @foreach (var column in ModelColumns) { <option value="@column.Key">@column.Label</option> }
-                        </select><button type="button" class="model-sort-direction" aria-label="@(TextState.Descending ? "Switch to ascending order" : "Switch to descending order")" @onclick="ReverseSort">@(TextState.Descending ? "↓ Desc" : "↑ Asc")</button></div>
+                        </select><button type="button" class="model-sort-direction" aria-label="@(TextState.Descending ? "Switch to ascending order" : "Switch to descending order")" @onclick="ReverseSort"><MudIcon Icon="@(TextState.Descending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward)" Size="Size.Small" aria-hidden="true" />@(TextState.Descending ? "Desc" : "Asc")</button></div>
                     </div>
                     @if (TextBackend == AiBackend.OpenRouter) { <p class="text-pricing-caption">Input/output prices are USD per million tokens. Conditional rates may apply. <a href="https://openrouter.ai/docs/api_reference/limits" target="_blank" rel="noopener noreferrer">Free-model limits ↗</a><br />Added is the OpenRouter listing date. Popularity follows its weekly usage ordering. <a href="https://openrouter.ai/rankings" target="_blank" rel="noopener noreferrer">OpenRouter rankings ↗</a></p> }
                     <p class="text-model-count">@FilteredModels.Count model@(FilteredModels.Count == 1 ? "" : "s")</p>
@@ -466,11 +463,12 @@ else
 }
 
 
-<InlineDialog Visible="_accessDialogOpen" Options="AccessDialogOptions" Class="comfy-access-dialog" Title="ComfyUI authentication" Context="@_accessDialogServer">
+<InlineDialog Visible="_accessDialogOpen" VisibleChanged="AccessDialogVisibilityAsync" OnEscape="CancelAccessDialogAsync" Options="DialogSizes.Small" Class="comfy-access-dialog"
+              Title="ComfyUI authentication" Context="@_accessDialogServer" CloseLabel="Close ComfyUI authentication">
     <DialogContent>
         @if (_accessDialogOpen)
         {
-            <lumibelle.Components.AI.ComfyAccessEditor @key="_accessDialogServer" ServerUrl="@_accessDialogServer" Reason="@_accessReason"
+            <lumibelle.Components.AI.ComfyAccessEditor @ref="_accessEditor" @key="_accessDialogServer" ServerUrl="@_accessDialogServer" Reason="@_accessReason"
                 SaveConnection="SaveAccessConnectionAsync" Completed="AccessConnectionSavedAsync" Cancelled="CloseAccessDialog" CredentialsChanged="AccessCredentialsChanged" />
         }
     </DialogContent>

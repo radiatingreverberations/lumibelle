@@ -1,4 +1,4 @@
-.ai-queue-wait { display: grid; gap: .25rem; font-size: var(--lumi-font-size-compact); color: var(--lumi-text-muted); padding: .45rem 0; }
+.ai-queue-wait { display: grid; gap: 4px; font-size: var(--lumi-font-size-compact); color: var(--lumi-text-muted); padding: 7px 0; }
 .ai-queue-wait strong { font-weight: 600; color: var(--lumi-accent); }
 .ai-queue-wait span { overflow-wrap: anywhere; }
-.ai-batch-summary { margin:0 0 .35rem; color:var(--lumi-text-muted); font-size:var(--lumi-font-size-small); }
+.ai-batch-summary { margin:0 0 6px; color:var(--lumi-text-muted); font-size:var(--lumi-font-size-small); }

@@ -23,7 +23,7 @@ test('a project moves to a folder, is edited there, and opens again after remova
     expect(JSON.parse(await readFile(path.join(folder, 'project.json'), 'utf8')).id).toBe(id);
 
     // Every edit is saved in the outside folder.
-    await page.getByRole('button', { name: 'Edit project', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit project…', exact: true }).click();
     await page.getByLabel('Project name').fill('Juniper, on the road');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect(page.locator('.project-settings-name')).toHaveText('Juniper, on the road');

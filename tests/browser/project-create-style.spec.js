@@ -22,7 +22,7 @@ for (const width of [1280, 390]) test(`a new project starts with its selected vi
   await expect(page.locator('.project-settings-grid > *').nth(1)).toHaveClass(/project-visual-style/);
   await page.reload();
   await expect(style.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveValue('Photographic');
-  await page.getByRole('button', { name: 'Edit project', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit project…', exact: true }).click();
   const edit = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Save changes', exact: true }) });
   await expect(edit.getByRole('combobox', { name: 'Project visual style', exact: true })).toHaveCount(0);
   await edit.getByLabel('Project name', { exact: true }).fill(`Renamed photographic story ${width}`);

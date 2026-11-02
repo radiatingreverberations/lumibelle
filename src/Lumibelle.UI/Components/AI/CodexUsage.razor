@@ -31,7 +31,7 @@
             @if (Usage is { } usage) { <p class="field-hint">@(usage.Error is null ? "Last checked:" : "Last reading · stale:") @usage.CheckedUtc.ToLocalTime().ToString("g") · local time</p> }
         }
         @if (_error is not null || Usage?.Error is not null) { <p role="status" class="field-error">@(_error ?? Usage?.Error)</p> }
-        <button type="button" class="small-button" disabled="@_busy" @onclick="() => RefreshAsync(true)">@(_busy ? "Refreshing allowance…" : "Refresh allowance")</button>
+        <button type="button" class="lumi-button small" disabled="@_busy" @onclick="() => RefreshAsync(true)">@(_busy ? "Refreshing allowance…" : "Refresh allowance")</button>
     </section>
 }
 @code {

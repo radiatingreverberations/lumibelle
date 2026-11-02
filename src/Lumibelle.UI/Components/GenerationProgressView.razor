@@ -39,7 +39,7 @@
         {
             var values = new List<string>();
             if (Candidate is not null && CandidateTotal is > 1)
-                values.Add($"Candidate {Candidate} of {CandidateTotal}");
+                values.Add($"Take {Candidate} of {CandidateTotal}");
             if (Progress.IsDeterminate)
                 values.Add($"{FormatNumber(Progress.Current!.Value)} / {FormatNumber(Progress.Maximum!.Value)}{(string.IsNullOrWhiteSpace(Progress.Unit) ? "" : " " + Progress.Unit)}");
             else if (Progress.Current is { } received)

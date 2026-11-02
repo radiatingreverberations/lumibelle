@@ -119,7 +119,7 @@
     private readonly string _modelNoticeId = $"model-notice-{Guid.NewGuid():N}";
     /// <summary>The shared model control for a studio-owned composer footer.</summary>
     public RenderFragment ModelControl => ModelChip;
-    private RenderFragment ModelChip => @<text><button type="button" class="model-chip" aria-label="Text model options" aria-describedby="@(_picker?.Notice is null ? null : _modelNoticeId)" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel @if (_picker?.Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> } ▾</button>@if (_picker?.Notice is { } notice) { <span id="@_modelNoticeId" class="sr-only">@notice</span> }</text>;
+    private RenderFragment ModelChip => @<text><button type="button" class="model-chip" aria-label="Text model options" aria-describedby="@(_picker?.Notice is null ? null : _modelNoticeId)" @onclick="OpenModel" disabled="@ModelLocked">@ModelLabel @if (_picker?.Notice is { } issue) { <span class="request-notice-badge" aria-hidden="true" title="@issue">!</span> }<MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" aria-hidden="true" /></button>@if (_picker?.Notice is { } notice) { <span id="@_modelNoticeId" class="sr-only">@notice</span> }</text>;
     private async Task Changed(TextModelSelectionState value) { _state = value; await SelectionChanged.InvokeAsync(value); }
     private async Task StartOrResumeAsync() { if (HasError && !ExternalComposer) { _open = !Inline; await InvokeAsync(StateHasChanged); } else await OpenAsync(); }
     public async Task OpenAsync()

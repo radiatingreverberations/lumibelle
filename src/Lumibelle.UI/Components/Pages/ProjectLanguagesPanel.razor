@@ -24,8 +24,8 @@
         <p class="field-hint">These are project preferences, not a claim that every voice or video model supports every language. Changing them does not rewrite existing scripts, prompts or takes.</p>
         <div class="settings-section-actions"><MudButton OnClick="SaveClick" Disabled="@(_busy || !_dirty)" Variant="Variant.Filled" Color="Color.Primary">Save languages</MudButton><MudButton OnClick="Reload" Disabled="_busy">Discard draft and reload</MudButton></div>
     }
-    else if (_error is null) { <p role="status">Loading languages…</p> }
-    @if (_error is not null) { <p role="alert" class="field-error">@_error</p>@if (_saved is null) { <button @onclick="Reload" disabled="@_busy">Retry reading languages</button> } }
+    else if (_error is null) { <LoadingState Text="Loading languages…" Compact="true" /> }
+    @if (_error is not null) { <p role="alert" class="field-error">@_error</p>@if (_saved is null) { <button type="button" @onclick="Reload" disabled="@_busy">Retry reading languages</button> } }
     @if (_notice is not null) { <p role="status">@_notice</p> }
 </section>
 

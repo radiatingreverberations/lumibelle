@@ -103,7 +103,7 @@ test('OpenRouter benchmarks and custom tests retain replies, metrics and the cor
     await expect(page.locator('#ai-text-provider-openrouter')).toHaveAttribute('aria-selected', 'true');
     await expect(page).not.toHaveURL(/provider=/);
     await expect(modelDialog(page).getByRole('button', { name: 'Run benchmark · 2,048 total tokens', exact: true })).toBeEnabled();
-    await expect(page.locator('.writing-back')).toHaveAttribute('href', origin);
+    await expect(page.locator('.page-back')).toHaveAttribute('href', origin);
     await expect(modelDialog(page).locator('.advanced-model-test-result pre')).toHaveText(`Mock reply to: ${prompt}`);
     await expect(modelDialog(page).locator('script')).toHaveCount(0);
     await expect(modelDialog(page)).toContainText('1024-token custom test');

@@ -3,7 +3,7 @@
 @implements IDisposable
 
 <div class="image-default-picker">
-    <button type="button" class="model-chip" @onclick="OpenAsync" disabled="@(Disabled || _busy || !_interactive)" aria-label="Project image model default" aria-haspopup="dialog" title="@Summary">@ModelLabel <span class="model-source">@SourceLabel</span> ▾</button>
+    <button type="button" class="model-chip" @onclick="OpenAsync" disabled="@(Disabled || _busy || !_interactive)" aria-label="Project image model default" aria-haspopup="dialog" title="@Summary">@ModelLabel <span class="model-source">@SourceLabel</span><MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" aria-hidden="true" /></button>
     @if (_error is not null && !_open) { <p role="alert">@_error</p> }
 </div>
 <AiAssistDialog Visible="_open" VisibleChanged="Close" Title="Project image model">

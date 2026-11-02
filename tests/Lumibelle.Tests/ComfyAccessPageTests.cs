@@ -3,6 +3,8 @@ using lumibelle.Components.Pages;
 using lumibelle.Models;
 using lumibelle.Services.AI;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
+using MudBlazor.Services;
 
 namespace Lumibelle.Tests;
 
@@ -15,6 +17,7 @@ public sealed class ComfyAccessPageTests
     {
         var ui = new BunitContext();
         ui.JSInterop.Mode = JSRuntimeMode.Loose;
+        ui.Services.AddMudServices();
         ui.Services.AddSingleton<IComfyAccessCredentialStore>(fixture.Store);
         ui.Services.AddSingleton<IAiSettingsStore>(new AccessSettingsFake());
         ui.Services.AddSingleton<IComfyAccessProbe>(probe ?? new AccessProbeFake());
@@ -79,14 +82,18 @@ public sealed class ComfyAccessPageTests
         var first = await f.Store.SaveAsync("https://comfy.example", "id", "secret", 0, Ct);
         await f.Store.SaveAsync("https://other.example", "other", "other-secret", first.Revision, Ct);
         await using var ui = Context(f);
+        var dialogs = ui.Render<MudDialogProvider>();
         var page = ui.Render<ComfyAccessPage>();
         page.WaitForElement(".access-origin");
-        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials"));
+        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials…"));
         Assert.Equal(2, (await f.Store.LoadAsync(Ct)).Entries.Count);
-        await Click(page, "Cancel removal");
+        dialogs.WaitForElement(".confirm-dialog");
+        await dialogs.ClickCurrent(() => dialogs.Find(".confirm-dialog").QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Cancel"));
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll(".confirm-dialog")));
         Assert.Equal(2, (await f.Store.LoadAsync(Ct)).Entries.Count);
-        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials"));
-        await Click(page, "Confirm removal");
+        await page.ClickCurrent(() => page.FindAll("button").First(b => b.TextContent == "Remove credentials…"));
+        dialogs.WaitForElement(".confirm-dialog");
+        await dialogs.ClickCurrent(() => dialogs.Find(".confirm-dialog").QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Remove credentials"));
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".access-origin")));
         Assert.Equal("https://other.example", Assert.Single((await f.Store.LoadAsync(Ct)).Entries).Origin);
     }

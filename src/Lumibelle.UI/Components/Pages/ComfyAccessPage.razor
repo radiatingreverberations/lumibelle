@@ -5,15 +5,21 @@
 @inject IAiSettingsStore Settings
 @implements IDisposable
 
-<PageTitle>ComfyUI Access · Lumibelle</PageTitle>
-<div class="settings-heading"><a href="/settings/ai?tab=connections&amp;provider=comfyui">← AI connections</a><h1>ComfyUI Access</h1></div>
+<PageTitle>ComfyUI access · Lumibelle</PageTitle>
+<PageHeading Title="ComfyUI access" BackHref="/settings/ai?tab=connections&provider=comfyui" BackLabel="AI connections" />
 <div class="access-settings ai-settings-form">
     <p>For a ComfyUI server protected by Cloudflare Access, create a service token and allow it with a <strong>Service Auth</strong> policy. Servers without Cloudflare Access need no credentials.</p>
     <p>Credentials apply only to the exact HTTPS origin (host and port), across text, image, and video requests and live progress. They are protected using this Lumibelle installation's credential protector, not stored in projects or take snapshots.</p>
-    @if (_error is not null) { <p role="alert" class="settings-error">@_error</p> }
+    @if (_error is not null && (_loading || _snapshot is not null)) { <MudAlert Severity="Severity.Error" role="alert">@_error</MudAlert> }
     @if (_message is not null) { <p role="status">@_message</p> }
-    @if (_loading) { <p role="status">Loading Access settings…</p> }
-    else if (_snapshot is null) { <button type="button" @onclick="Reload">Retry loading</button> }
+    @if (_loading) { <LoadingState Text="Loading Access settings…" /> }
+    else if (_snapshot is null)
+    {
+        <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Access settings couldn’t be loaded" role="alert">
+            <ChildContent>@(_error ?? "Saved credentials are unavailable.")</ChildContent>
+            <Actions><button type="button" disabled="@_busy" @onclick="Reload">Try again</button></Actions>
+        </EmptyState>
+    }
     else
     {
         <form class="settings-card" @onsubmit="Save" @onsubmit:preventDefault>
@@ -27,7 +33,7 @@
                 <label for="comfy-access-client-secret">Cloudflare Access Client Secret</label>
                 <input id="comfy-access-client-secret" type="password" @bind="_clientSecret" @bind:event="oninput" maxlength="4096" required autocomplete="new-password" autocapitalize="none" spellcheck="false" />
                 <p class="field-hint">Enter both fields to add or rotate a token. Saved values are never loaded into these fields. These are Access service-token credentials, not a Cloudflare account API token.</p>
-                <div class="access-actions"><button type="submit">Save credentials</button><button type="button" @onclick="ClearDraft">Clear entered token</button></div>
+                <div class="access-actions"><button type="button" @onclick="ClearDraft">Clear entered token</button><button type="submit" class="lumi-button primary">Save credentials</button></div>
             </fieldset>
         </form>
         <section class="settings-card" aria-label="Test saved Access connection">
@@ -48,18 +54,17 @@
                 <article @key="entry.Origin" class="access-origin">
                     <h3>@entry.Origin</h3><p>Last updated @entry.UpdatedUtc.ToLocalTime().ToString("g")</p>
                     <button type="button" disabled="@_busy" @onclick="() => SelectOrigin(entry.Origin)">Use this origin</button>
-                    <button type="button" disabled="@_busy" @onclick="() => _removeOrigin = entry.Origin">Remove credentials</button>
-                    @if (_removeOrigin == entry.Origin)
-                    {
-                        <p>Stop authenticating new requests to this origin? Running downloads or WebSockets are not closed. This does not revoke the token in Cloudflare.</p>
-                        <button type="button" disabled="@_busy" @onclick="Remove">Confirm removal</button>
-                        <button type="button" disabled="@_busy" @onclick="() => _removeOrigin = null">Cancel removal</button>
-                    }
+                    <button type="button" class="lumi-button danger" disabled="@_busy" @onclick="() => _removeOrigin = entry.Origin">Remove credentials…</button>
                 </article>
             }
         </section>
     }
 </div>
+<ConfirmDialog Visible="@(_removeOrigin is not null)" VisibleChanged="visible => { if (!visible && !_busy) _removeOrigin = null; }" Title="Remove credentials?" Context="@_removeOrigin"
+               ConfirmLabel="Remove credentials" BusyLabel="Removing…" Danger="true" Busy="_busy" OnConfirm="Remove">
+    <ChildContent><p>Stop authenticating new requests to this origin? Running downloads or WebSockets are not closed. This does not revoke the token in Cloudflare.</p></ChildContent>
+    <Status>@if (_error is not null) { <span class="field-error">@_error</span> }</Status>
+</ConfirmDialog>
 
 @code {
     private readonly CancellationTokenSource _lifetime = new();
