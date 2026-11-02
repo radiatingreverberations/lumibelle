@@ -14,7 +14,7 @@ This is a new video/audio render, not audio replacement, lip-sync processing, or
 
 ## What changes in a prompt
 
-The H3 master prompt must already pass its normal structural/dialogue validation. The translator returns only:
+The H3 master prompt must contain exactly one `<d>` block per dialogue line, in order. The rest of the prompt is not validated again: the master take already rendered with it, and prompt authoring rules change over time, so a take rendered under older rules stays translatable. The translator returns only:
 
 ```json
 {"version":1,"lines":[{"id":"original-dialogue-uuid","text":"Translated speech"}],"notes":[]}

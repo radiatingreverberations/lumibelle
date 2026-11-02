@@ -179,6 +179,23 @@ public sealed class ShotDubbingTests
         Assert.Throws<WorkspaceStoreException>(() => ShotDubbing.ValidateSnapshot(result));
     }
     [Fact]
+    public void TakesRenderedUnderOlderPromptRulesStayTranslatable()
+    {
+        // The master already rendered with this prompt; only its dialogue blocks are replaced, so newer
+        // authoring rules elsewhere in the prompt do not block a language version.
+        var (source, r) = Fixture();
+        var older = source with { Prompt = source.Prompt.Replace("[Shot 1] ", "") };
+        Assert.NotNull(ProductionPolicy.PromptWarning(older.Prompt, older.Shot));
+        Assert.Null(ShotDubbing.SourceIssue(new() { AiJobId = Guid.NewGuid(), Snapshot = older }));
+        var request = r with { SourcePrompt = older.Prompt, SourceFingerprint = ShotDubbing.Hash(older) };
+        var dub = ShotDubbing.Apply(older, Variant(request));
+        Assert.Contains("<d>[Swedish] Nu åker vi.</d>", dub.Prompt);
+        Assert.Equal(OutsideDialogue(older.Prompt), OutsideDialogue(dub.Prompt));
+        // A prompt whose dialogue blocks do not match the lines still cannot be translated.
+        var missing = source with { Prompt = source.Prompt.Replace("Alice (S1): <d>[English] Are you ready?</d>\n", "") };
+        Assert.Contains("<d> block per dialogue line", ShotDubbing.SourceIssue(new() { AiJobId = Guid.NewGuid(), Snapshot = missing }));
+    }
+    [Fact]
     public void ChangedMasterCannotReceiveAnOldTranslationAndDubsCannotBecomeTranslationSources()
     {
         var (source, r) = Fixture(); var variant = Variant(r); var changed = source with { Prompt = source.Prompt + " " };
