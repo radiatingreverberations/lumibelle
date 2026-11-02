@@ -2,8 +2,8 @@
 @layout MainLayout
 
 <PageTitle>Page not found · Lumibelle</PageTitle>
-<section class="empty-library mt-12">
-    <h1 class="state-title">This page isn’t here</h1>
-    <p>Return to your project library to pick up where you left off.</p>
-    <MudButton Href="/" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.ArrowBack">Back to your projects</MudButton>
-</section>
+<PageHeading Title="This page isn’t here" />
+<EmptyState Icon="@Icons.Material.Outlined.SearchOff">
+    <ChildContent>Return to your project library to pick up where you left off.</ChildContent>
+    <Actions><MudButton Href="/" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ArrowBack">Back to your projects</MudButton></Actions>
+</EmptyState>

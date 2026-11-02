@@ -7,21 +7,25 @@
 @inject IProjectRoutes Routes
 @inject AiJobCoordinator Jobs
 @inject IAiJobStore JobStore
+@inject IProjectStore Projects
 
 <PageTitle>RefMod build · Lumibelle</PageTitle>
-<h1>Selected-keyframe RefMod build</h1>
-@if (_error is not null) { <p role="alert">@_error</p> }
+@if (_project is { } project) { <ProjectNavigation Project="project" CurrentStudio="shots" /> }
+<PageHeading Title="Selected-keyframe RefMod build" BackHref="@(_project is { } back ? ProjectLink(back.Id, "/shots") : null)" BackLabel="Back to Shots" />
+@if (_loading && _job is null && _error is null) { <LoadingState Text="Opening RefMod build…" /> }
+@if (_error is not null) { <MudAlert Severity="Severity.Error" role="alert">@_error</MudAlert> }
 @if (_job is { } job) {
     <p>@job.TargetName · @job.State</p>
     <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
     @if (job.Error is not null) { <p role="status">@job.Error</p> }
-    @if (job.CanRetryCaptured) { <button disabled="@_busy" @onclick="() => Command(() => Jobs.ResumeAsync(job.Id, _lifetime.Token))">Retry saved output / check status</button> }
-    @if (job.LocksTarget || job.RemoteUnconfirmed) { <button disabled="@_busy" @onclick="() => Command(() => Jobs.CancelAsync(job.Id, _lifetime.Token))">Cancel build</button> }
+    <div class="refmod-job-actions d-flex flex-wrap gap-2">
+        @if (job.CanRetryCaptured) { <button type="button" disabled="@_busy" @onclick="() => Command(() => Jobs.ResumeAsync(job.Id, _lifetime.Token))">Retry saved output / check status</button> }
+        @if (job.LocksTarget || job.RemoteUnconfirmed) { <button type="button" disabled="@_busy" @onclick="() => Command(() => Jobs.CancelAsync(job.Id, _lifetime.Token))">Cancel build</button> }
+    </div>
     @if (_result is { } result) {
         <p>Saved Full visual RefMod: @result.Reference.Recipe.LatentFrames frames · @result.Reference.Recipe.Width × @result.Reference.Recipe.Height · @result.Reference.Recipe.Tokens.ToString("N0") visual reference tokens.</p>
         <p>The RefMod is stored on @result.Reference.ComfyUrl as @result.Reference.FileName<text>.safetensors</text>. The exact source images and recipe are stored in this project; the remote file is only a cache. Reopen the shot's reference editor, choose the same frames and canvas, and Prepare previews to attach this reference. Once attached, generation automatically rebuilds a missing cache on its execution server without changing the accepted reference or prompt.</p>
     }
-    @if (job.Target.ProjectId is { } project) { <p><a href="@ProjectLink(project, "/shots")">Return to Shots</a></p> }
 }
 
 @code {
@@ -31,7 +35,8 @@
     private AiJobHeader? _job;
     private RefModBuildResult? _result;
     private string? _error;
-    private bool _disposed, _busy;
+    private ProjectInfo? _project;
+    private bool _disposed, _busy, _loading = true;
     protected override void OnInitialized() => Jobs.Changed += Refresh;
     protected override Task OnParametersSetAsync() => Load();
     private async Task Load()
@@ -42,11 +47,19 @@
             var queue = await JobStore.ReadAsync(_lifetime.Token);
             var job = queue.Jobs.FirstOrDefault(j => route is not null && j.Id == id && j.Kind == AiJobKind.RefModBuild && j.Target.ProjectId == route.ProjectId);
             var result = job is null ? null : await JobStore.ReadArtifactAsync<RefModBuildResult>(id, AiJobArtifact.Result, _lifetime.Token);
+            // The project only supplies the navigation and the way back to Shots; the build stays readable without it.
+            var project = _project;
+            if (route is not null && project?.Id != route.ProjectId)
+            {
+                try { project = await Projects.GetAsync(route.ProjectId, _lifetime.Token); }
+                catch (ProjectStoreException) { project = null; }
+            }
             if (_disposed || ProjectKey != key || JobId != id) return;
-            _job = job; _result = result; _error = job is null ? "This build request is unavailable in this project." : null;
+            _job = job; _result = result; _project = project; _error = job is null ? "This build request is unavailable in this project." : null;
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception e) { if (!_disposed && ProjectKey == key && JobId == id) _error = e.Message; }
+        finally { if (ProjectKey == key && JobId == id) _loading = false; }
     }
     private void Refresh() { if (!_disposed) _ = InvokeAsync(async () => { await Load(); if (!_disposed) StateHasChanged(); }); }
     private async Task Command(Func<Task> action)

@@ -4,7 +4,7 @@
 @inject TimeProvider Clock
 
 <PageTitle>@(Archives ? "Lossless archives" : "Trash") · Lumibelle</PageTitle>
-<div class="library-heading"><div><p class="eyebrow">STORAGE CLEANUP</p><h1 tabindex="-1">@(Archives ? "Lossless archives" : "Trash")</h1></div></div>
+<PageHeading Title="@(Archives ? "Lossless archives" : "Trash")" Eyebrow="Storage cleanup" />
 <nav class="cleanup-views" aria-label="Storage cleanup"><a href="/trash" aria-current="@(!Archives ? "page" : null)">Discarded media</a><a href="/trash?view=archives" aria-current="@(Archives ? "page" : null)">Lossless archives</a></nav>
 @if (Archives)
 {
@@ -20,17 +20,30 @@ else
     <span>@Filtered.Count item@(Filtered.Count == 1 ? "" : "s") · @StorageSize.Format(Filtered.Sum(r => r.Bytes)) in this scope</span>
     <button disabled="@(_busy || _loading || Filtered.Count == 0 || Filtered.All(r => _selected.Contains(r.Id)))" @onclick="SelectAllInScope">@(_project.Length == 0 ? "Select all projects" : "Select all in this project")</button>
     <button disabled="@(_busy || _loading || _selected.Count == 0)" @onclick="() => _selected.Clear()">Clear selection</button>
-    <MudButton Disabled="@(_busy || _selected.Count == 0)" OnClick="() => RestoreAsync(SelectedRows)">Restore selected (@_selected.Count)</MudButton>
-    <MudButton Disabled="@(_busy || _selected.Count == 0)" Color="Color.Error" OnClick="() => Confirm(SelectedRows, false)">Delete selected permanently</MudButton>
-    <MudButton Disabled="@(_busy || Filtered.Count == 0)" Color="Color.Error" Variant="Variant.Outlined" OnClick="() => Confirm(Filtered, true)">Empty Trash</MudButton>
+    <MudButton Disabled="@(_busy || _selected.Count == 0)" Variant="Variant.Outlined" OnClick="() => RestoreAsync(SelectedRows)">Restore selected (@_selected.Count)</MudButton>
+    <MudButton Disabled="@(_busy || _selected.Count == 0)" Color="Color.Error" Variant="Variant.Outlined" OnClick="() => Confirm(SelectedRows, false)">Delete selected permanently…</MudButton>
+    <MudButton Disabled="@(_busy || Filtered.Count == 0)" Color="Color.Error" Variant="Variant.Outlined" OnClick="() => Confirm(Filtered, true)">Empty Trash…</MudButton>
     <span class="trash-selection-count" role="status">@_selected.Count selected · selection spans all pages @(_project.Length == 0 ? "across all projects" : "in this project")</span>
 </div>
-@if (_loading) { <p role="status">Opening Trash…</p> }
-@if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+@if (_loading) { <LoadingState Text="Opening Trash…" /> }
+@if (_error is not null && _loadFailed && _library.Items.Count == 0)
+{
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Trash couldn’t be opened" role="alert">
+        <ChildContent>@_error</ChildContent>
+        <Actions><MudButton Variant="Variant.Outlined" Disabled="@(_busy || _loading)" OnClick="RefreshAsync">Try again</MudButton></Actions>
+    </EmptyState>
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" role="alert">@_error @if (_loadFailed) { <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="ml-2" Disabled="@(_busy || _loading)" OnClick="RefreshAsync">Try again</MudButton> }</MudAlert>
+}
 @foreach (var issue in _library.Issues) { <MudAlert Severity="Severity.Warning">@issue.Message</MudAlert> }
 @if (_notice is not null) { <p role="status" class="trash-notice">@_notice</p> }
 @if (_busy) { <p role="status">@_progress</p> }
-@if (!_loading && Filtered.Count == 0) { <div class="empty-library"><h2>Nothing in Trash@(_project.Length > 0 ? " for this project" : "")</h2><p>Discarded media will appear here.</p></div> }
+@if (!_loading && !(_loadFailed && _library.Items.Count == 0) && Filtered.Count == 0)
+{
+    <EmptyState Icon="@Icons.Material.Outlined.DeleteOutline" Title="@($"Nothing in Trash{(_project.Length > 0 ? " for this project" : "")}")">Discarded media will appear here.</EmptyState>
+}
 <div class="trash-grid">
 @foreach (var row in Paged)
 {
@@ -46,7 +59,7 @@ else
             <p>@StorageSize.Format(entry.Bytes)</p>
             <p><time datetime="@entry.DeletedUtc.ToString("O")">Deleted @entry.DeletedUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm")</time><br /><strong>@entry.Remaining(Clock.GetUtcNow())</strong></p>
             @if (entry.Error is not null) { <p role="alert">@entry.Error</p> }
-            <div class="trash-card-actions"><button disabled="@(_busy || !entry.CanRestore(Clock.GetUtcNow()) || _missing.Contains(entry.Id))" @onclick="() => RestoreAsync([row])">Restore</button><button class="danger-link" disabled="@_busy" @onclick="() => Confirm([row], false)">Delete permanently</button></div>
+            <div class="trash-card-actions"><button disabled="@(_busy || !entry.CanRestore(Clock.GetUtcNow()) || _missing.Contains(entry.Id))" @onclick="() => RestoreAsync([row])">Restore</button><button type="button" class="lumi-button ghost danger" disabled="@_busy" @onclick="() => Confirm([row], false)">Delete permanently…</button></div>
         </div>
     </article>
 }
@@ -55,17 +68,15 @@ else
 {
     <nav class="trash-pagination" aria-label="Trash pages"><button disabled="@(_page == 0 || _busy)" @onclick="() => _page--">Previous</button><span>Page @(_page + 1) of @PageCount</span><button disabled="@(_page + 1 >= PageCount || _busy)" @onclick="() => _page++">Next</button></nav>
 }
-<InlineDialog Visible="_confirmOpen" VisibleChanged="ConfirmVisibility" Options="ConfirmOptions" CloseLabel="Close delete confirmation"
-              Title="@(_emptyAll ? (_project.Length == 0 ? "Empty Trash for all projects?" : "Empty Trash for this project?") : "Delete media permanently?")">
-    <DialogContent><p>This permanently removes @_pending.Count saved media item@(_pending.Count == 1 ? "" : "s") and their metadata, freeing approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>. Deleting a video take also removes its remaining frame archives and refinement data. A reel's video stays while a shot, take or saved image still uses it. This cannot be undone.</p>
-        @if (_emptyAll) { <p>@(_project.Length == 0 ? "All projects are included." : "Only the selected project is included.") Media discarded after this confirmation opened is excluded.</p> }
-        <div class="trash-confirm-thumbnails">@foreach (var row in _pending.Take(12)) { <figure>@if (row.ThumbnailUrl is { } thumb) { <img src="@thumb" alt="@row.OwnerName" /> }<figcaption>@row.ProjectName · @row.OwnerName</figcaption></figure> }</div>
-    </DialogContent>
-    <DialogActions><MudButton OnClick="() => _confirmOpen = false">Cancel</MudButton><MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="PurgeConfirmedAsync">Delete permanently</MudButton></DialogActions>
-</InlineDialog>
+<ConfirmDialog Visible="_confirmOpen" VisibleChanged="ConfirmVisibility" CloseLabel="Close delete confirmation" Danger="true" ConfirmLabel="Delete permanently" OnConfirm="PurgeConfirmedAsync"
+               Title="@(_emptyAll ? (_project.Length == 0 ? "Empty Trash for all projects?" : "Empty Trash for this project?") : "Delete media permanently?")">
+    <p>This permanently removes @_pending.Count saved media item@(_pending.Count == 1 ? "" : "s") and their metadata, freeing approximately <strong>@StorageSize.Format(_pending.Sum(r => r.Bytes))</strong>. Deleting a video take also removes its remaining frame archives and refinement data. A reel's video stays while a shot, take or saved image still uses it. This cannot be undone.</p>
+    @if (_emptyAll) { <p>@(_project.Length == 0 ? "All projects are included." : "Only the selected project is included.") Media discarded after this confirmation opened is excluded.</p> }
+    <div class="trash-confirm-thumbnails">@foreach (var row in _pending.Take(12)) { <figure>@if (row.ThumbnailUrl is { } thumb) { <img src="@thumb" alt="@row.OwnerName" /> }<figcaption>@row.ProjectName · @row.OwnerName</figcaption></figure> }</div>
+</ConfirmDialog>
 @if (_preview is { } preview)
 {
-    <InlineDialog Visible="_previewOpen" VisibleChanged="value => _previewOpen = value" Class="trash-preview" Options="PreviewOptions" Title="@preview.OwnerName" Context="In Trash" CloseLabel="Close Trash preview">
+    <InlineDialog Visible="_previewOpen" VisibleChanged="value => _previewOpen = value" Class="trash-preview" Options="DialogSizes.Media" Title="@preview.OwnerName" Context="In Trash" CloseLabel="Close Trash preview">
         <DialogContent>
             @if (preview.Kind == MediaTrashKind.Image && preview.Image is { } image)
             {
@@ -82,7 +93,7 @@ else
             <details><summary>Media details</summary><pre class="shot-source">@System.Text.Json.JsonSerializer.Serialize(preview, AtomicJsonFile.Options)</pre></details>
 
         </DialogContent>
-        <DialogActions><MudButton OnClick="() => _previewOpen = false">Close</MudButton></DialogActions>
+        <Actions><MudButton OnClick="() => _previewOpen = false">Close</MudButton></Actions>
     </InlineDialog>
 }
 
@@ -97,13 +108,13 @@ else
     private IReadOnlyList<MediaTrashRow> _pending = [];
     private MediaTrashRow? _preview;
     private bool _interactive;
+    // A failed read leaves the previous list in place; the page offers Try again instead of an empty Trash.
+    private bool _loadFailed;
     private bool _loading, _busy, _confirmOpen, _emptyAll, _previewOpen, _focusRefresh, _previewMissing;
     private string _project = "", _progress = "";
     private string? _error, _notice;
     private int _page;
     private ElementReference _refreshButton;
-    private DialogOptions ConfirmOptions => new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
-    private DialogOptions PreviewOptions => new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true };
     private IReadOnlyList<MediaTrashRow> Filtered => _library.Items.Where(r => _project.Length == 0 || r.ProjectId.ToString() == _project).ToArray();
     private IEnumerable<MediaTrashRow> Paged => Filtered.Skip(_page * PageSize).Take(PageSize);
     private int PageCount => Math.Max(1, (Filtered.Count + PageSize - 1) / PageSize);
@@ -120,10 +131,11 @@ else
         try
         {
             _library = await Store.ListAsync();
+            if (_loadFailed) { _loadFailed = false; _error = null; }
             _selected.IntersectWith(_library.Items.Select(r => r.Id));
             _missing.Clear(); _page = Math.Min(_page, PageCount - 1);
         }
-        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; _loadFailed = true; }
         finally { _loading = false; }
     }
     private void FilterChanged(ChangeEventArgs args) { _project = args.Value?.ToString() ?? ""; _page = 0; _selected.Clear(); }

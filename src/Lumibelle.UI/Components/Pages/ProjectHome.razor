@@ -5,42 +5,42 @@
 <PageTitle>@(_project is null ? "Project" : _project.Name) · Lumibelle</PageTitle>
 @if (_loading)
 {
-    <div class="loading-state" role="status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />Opening your project…</div>
+    <LoadingState Text="Opening your project…" />
 }
 else if (_error is not null)
 {
-    <h1 class="state-title">This project couldn’t be opened</h1>
-    <MudButton Href="/" Class="back-link">All projects</MudButton>
-    <MudAlert Severity="Severity.Error" role="alert">@_error</MudAlert>
-    <MudButton OnClick="LoadAsync" Variant="Variant.Outlined" Class="mt-4">Try again</MudButton>
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="This project couldn’t be opened" role="alert">
+        <ChildContent>@_error</ChildContent>
+        <Actions><MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton><MudButton Href="/">All projects</MudButton></Actions>
+    </EmptyState>
 }
 else if (_project is null)
 {
-    <div class="empty-library">
-        <span class="empty-icon"><MudIcon Icon="@Icons.Material.Outlined.FolderOff" Size="Size.Large" /></span>
-        <h1 class="state-title">Project not found</h1><p>This project may have moved or is no longer in your library.</p>
-        <MudButton Href="/" Color="Color.Primary">Back to your projects</MudButton>
-    </div>
+    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found">
+        <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
+        <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to your projects</MudButton></Actions>
+    </EmptyState>
 }
 else
 {
     <PagePosition ProjectId="Id" Studio="overview" />
     <ProjectNavigation Project="_project" />
-    <section class="project-heading">
-        <div class="project-heading-copy"><p class="eyebrow">PROJECT OVERVIEW</p><h1>@_project.Name</h1>
-        @if (!string.IsNullOrWhiteSpace(_project.Description)) { <p class="project-synopsis">@_project.Description</p> }
-        </div>
-        <div class="project-heading-actions">
-            <MudButton OnClick="EditProjectAsync" Disabled="_dialogOpen" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Edit" Size="Size.Small">Edit project</MudButton>
-            <p class="project-date"><MudIcon Icon="@Icons.Material.Outlined.CalendarToday" Size="Size.Small" />Created <time datetime="@_project.CreatedUtc.ToString("O")">@_project.CreatedUtc.ToLocalTime().ToString("d MMMM yyyy")</time></p>
-        </div>
-    </section>
+    <PageHeading Title="@_project.Name" Eyebrow="Project overview">
+        <Lead>
+            @if (!string.IsNullOrWhiteSpace(_project.Description)) { <p class="project-synopsis">@_project.Description</p> }
+            <p class="project-date mt-2"><MudIcon Icon="@Icons.Material.Outlined.CalendarToday" Size="Size.Small" />Created <time datetime="@_project.CreatedUtc.ToString("O")">@_project.CreatedUtc.ToLocalTime().ToString("d MMMM yyyy")</time></p>
+        </Lead>
+        <Actions>
+            <MudButton OnClick="EditProjectAsync" Disabled="_dialogOpen" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Edit">Edit project…</MudButton>
+        </Actions>
+    </PageHeading>
     <div class="project-areas">
-        <article><span class="area-icon story-area"><MudIcon Icon="@Icons.Material.Outlined.MenuBook" /></span><h2>Source</h2><p>Analyze original material in sections and review an adaptation outline for the whole story.</p><MudButton Href="@(ProjectLink(Id, "/source"))" Color="Color.Primary" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open source</MudButton></article>
-        <article><span class="area-icon story-area"><MudIcon Icon="@Icons.Material.Outlined.EditNote" /></span><h2>Script</h2><p>Turn an idea into a screenplay. Write, revise, and develop it with your chosen text model.</p><MudButton Href="@(ProjectLink(Id, "/script"))" Color="Color.Primary" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open script studio</MudButton></article>
-        <article><span class="area-icon assets-area"><MudIcon Icon="@Icons.Material.Outlined.Landscape" /></span><h2>Assets</h2><p>Develop characters, environments, and props. Build their reference libraries.</p><MudButton Href="@(ProjectLink(Id, "/assets"))" Color="Color.Primary" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open assets studio</MudButton></article>
-        <article><span class="area-icon shots-area"><MudIcon Icon="@Icons.Material.Outlined.ViewList" /></span><h2>Scenes</h2><p>Prepare each scene's environment, plan coverage, and review its shots.</p><MudButton Href="@(ProjectLink(Id, "/scenes"))" Color="Color.Primary" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open scene planning</MudButton></article>
-        <article><span class="area-icon shots-area"><MudIcon Icon="@Icons.Material.Outlined.Movie" /></span><h2>Shots</h2><p>Choose references, compose prompts, and generate takes. Start from planned coverage or a standalone visual idea.</p><MudButton Href="@(ProjectLink(Id, "/shots"))" Color="Color.Primary" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open shots studio</MudButton></article>
+        <article><span class="area-icon story-area"><MudIcon Icon="@Icons.Material.Outlined.MenuBook" /></span><h2>Source</h2><p>Analyze original material in sections and review an adaptation outline for the whole story.</p><MudButton Href="@(ProjectLink(Id, "/source"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Source</MudButton></article>
+        <article><span class="area-icon story-area"><MudIcon Icon="@Icons.Material.Outlined.EditNote" /></span><h2>Script</h2><p>Turn an idea into a screenplay. Write, revise, and develop it with your chosen text model.</p><MudButton Href="@(ProjectLink(Id, "/script"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Script</MudButton></article>
+        <article><span class="area-icon assets-area"><MudIcon Icon="@Icons.Material.Outlined.Landscape" /></span><h2>Assets</h2><p>Develop characters, environments, and props. Build their reference libraries.</p><MudButton Href="@(ProjectLink(Id, "/assets"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Assets</MudButton></article>
+        <article><span class="area-icon shots-area"><MudIcon Icon="@Icons.Material.Outlined.ViewList" /></span><h2>Scenes</h2><p>Prepare each scene's environment, plan coverage, and review its shots.</p><MudButton Href="@(ProjectLink(Id, "/scenes"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Scenes</MudButton></article>
+        <article><span class="area-icon shots-area"><MudIcon Icon="@Icons.Material.Outlined.Movie" /></span><h2>Shots</h2><p>Choose references, compose prompts, and generate takes. Start from planned coverage or a standalone visual idea.</p><MudButton Href="@(ProjectLink(Id, "/shots"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Shots</MudButton></article>
+        <article><span class="area-icon shots-area"><MudIcon Icon="@Icons.Material.Outlined.ContentCut" /></span><h2>Cut</h2><p>Assemble saved takes into a sequence, trim each clip, and export the result.</p><MudButton Href="@(ProjectLink(Id, "/cut"))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ArrowForward">Open Cut</MudButton></article>
     </div>
 }
 @code {
@@ -60,7 +60,7 @@ else
         {
             var dialog = await DialogService.ShowAsync<ProjectDialog>("Edit project",
                 new DialogParameters { [nameof(ProjectDialog.Project)] = original },
-                new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false });
+                DialogSizes.Small);
             var result = await dialog.Result;
             if (Id == original.Id && result is { Canceled: false, Data: ProjectInfo updated })
                 _project = updated;

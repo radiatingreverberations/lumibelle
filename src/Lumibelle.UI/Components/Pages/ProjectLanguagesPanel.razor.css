@@ -1,5 +1,5 @@
-.language-row { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; margin: .6rem 0; }
-.language-row label { display: flex; flex: 1; min-width: 8rem; flex-direction: column; gap: .25rem; }
-.language-row input, .language-notes textarea { width: 100%; padding: .5rem; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); }
-.language-notes { display: flex; flex-direction: column; gap: .4rem; margin-top: 1rem; }
+.language-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 10px 0; }
+.language-row label { display: flex; flex: 1; min-width: 128px; flex-direction: column; gap: 4px; }
+.language-row input, .language-notes textarea { width: 100%; padding: 8px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); }
+.language-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
 fieldset { border: 0; padding: 0; margin: 0; }
