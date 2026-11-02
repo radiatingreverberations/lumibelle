@@ -10,7 +10,7 @@ public static class StudioTheme
         {
             Primary = "#7D4F78",
             PrimaryContrastText = "#FFFFFF",
-            Secondary = "#427557",
+            Secondary = "#2F6847",
             Background = "#F7F6F7",
             Surface = "#FFFFFF",
             TextPrimary = "#252127",

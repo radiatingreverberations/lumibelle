@@ -248,18 +248,18 @@ h1:focus { outline: none !important; }
 .prompt-enhancement .enhance-button { margin-bottom: 18px; flex-shrink: 0; }
 .prompt-enhancement .inspection-toggle, .ai-assist-dialog .inspection-toggle { display: flex; align-items: center; gap: .75rem; margin-top: 8px; font-size: var(--lumi-font-size-meta); }
 .inspection-toggle input { flex: 0 0 auto; width: auto; margin: 0; }
-.prompt-undo { background: none; border: 0; color: var(--mud-palette-primary); font-size: var(--lumi-font-size-meta); padding: 4px 0; cursor: pointer; }
+.prompt-undo { background: none; border: 0; color: var(--lumi-accent); font-size: var(--lumi-font-size-meta); padding: 4px 0; cursor: pointer; }
 .enhancement-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 16px 0; }
 .enhancement-comparison.with-current { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .enhancement-comparison section { min-width: 0; }
 .enhancement-comparison label { display: block; font-size: var(--lumi-font-size-meta); font-weight: 600; margin-bottom: 6px; }
-.enhancement-comparison textarea { width: 100%; min-height: 220px; resize: vertical; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--lumi-radius-surface); padding: 12px; font: inherit; font-size: var(--lumi-font-size-ui); line-height: 1.6; background: var(--mud-palette-background); color: inherit; }
-.enhancement-comparison textarea[readonly] { background: var(--mud-palette-background-gray); }
+.enhancement-comparison textarea { width: 100%; min-height: 220px; resize: vertical; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-surface); padding: 12px; font: inherit; font-size: var(--lumi-font-size-ui); line-height: 1.6; background: var(--lumi-surface); color: inherit; }
+.enhancement-comparison textarea[readonly] { background: var(--lumi-surface-subtle); }
 .enhancement-attribution { font-size: var(--lumi-font-size-meta); overflow-wrap: anywhere; opacity: .8; }
 .enhancement-direction-used { margin: 4px 0 10px; font-size: var(--lumi-font-size-meta); color: var(--lumi-text-muted); overflow-wrap: anywhere; white-space: pre-line; }
 .enhancement-response { margin-top: 12px; font-size: var(--lumi-font-size-meta); }
 .enhancement-response pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
-.enhancement-clarification { padding: 12px; background: var(--mud-palette-background-gray); border-radius: var(--lumi-radius-surface); }
+.enhancement-clarification { padding: 12px; background: var(--lumi-surface-subtle); border-radius: var(--lumi-radius-surface); }
 @media (max-width: 600px) {
     .mud-dialog.prompt-enhancement-dialog { margin: 0 !important; width: 100%; max-width: 100%; max-height: 100dvh; border-radius: 0; }
     .enhancement-comparison, .enhancement-comparison.with-current { grid-template-columns: 1fr; gap: 12px; }
