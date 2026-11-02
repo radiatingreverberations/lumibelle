@@ -251,3 +251,7 @@ button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:n
     .save-error-notice { margin: 8px 0; }
     .dialog-footer-end { flex: 1 1 100%; }
 }
+
+/* Destructive menu items and inline destructive links. */
+.mud-menu-item.danger-item, .mud-menu-item.danger-item .mud-menu-item-text { color: var(--lumi-danger); }
+.danger-link, button.danger-link { color: var(--lumi-danger); }
