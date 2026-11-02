@@ -33,7 +33,7 @@
     @if (_pendingPublish is not null) { <button type="button" disabled="@_busy" @onclick="RetryPublishAsync">Retry shared publication</button><button type="button" disabled="@_busy" @onclick="() => _pendingPublish = null">Dismiss retry</button> }
 </div>
 
-<InlineDialog Visible="_transferOpen" VisibleChanged="v => { if (!_busy) _transferOpen = v; }" Options="DialogOptions"
+<InlineDialog Visible="_transferOpen" VisibleChanged="v => { if (!_busy) _transferOpen = v; }" Options="DialogSizes.Medium" CloseOnEscape="!_busy"
               Title="@($"Copy or move {_capturedSource?.Kind.ToString().ToLowerInvariant()}")" CloseLabel="Close copy or move" CloseDisabled="_busy">
     <DialogContent>
         <fieldset disabled="@_busy" class="asset-reuse-fields">
@@ -49,14 +49,20 @@
         </fieldset>
         @if (_error is not null) { <p class="field-error" role="alert">@_error</p> }
     </DialogContent>
-    <DialogActions>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }@if (_pending is not null) { <MudButton Disabled="_busy" OnClick="RetryAsync">Retry transfer</MudButton> }<MudButton Disabled="_busy" OnClick="() => _transferOpen = false">Cancel</MudButton><MudButton Disabled="@(_busy || _pending is not null || _targetLoading || _targetProject == Guid.Empty || string.IsNullOrWhiteSpace(_name) || _mode == "move" && _capturedSource?.ProjectId == _targetProject)" OnClick="ConfirmTransferAsync" Variant="Variant.Filled" Color="Color.Primary">@(_mode == "move" ? "Move to project" : "Copy to project")</MudButton></DialogActions>
+    <DialogActions><DialogFooter>
+        <Tools>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }@if (_pending is not null) { <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="RetryAsync">Retry transfer</MudButton> }</Tools>
+        <ChildContent><MudButton Disabled="_busy" OnClick="() => _transferOpen = false">Cancel</MudButton><MudButton Disabled="@(_busy || _pending is not null || _targetLoading || _targetProject == Guid.Empty || string.IsNullOrWhiteSpace(_name) || _mode == "move" && _capturedSource?.ProjectId == _targetProject)" OnClick="ConfirmTransferAsync" Variant="Variant.Filled" Color="Color.Primary">@(_mode == "move" ? "Move to project" : "Copy to project")</MudButton></ChildContent>
+    </DialogFooter></DialogActions>
 </InlineDialog>
-<InlineDialog Visible="_publishOpen" VisibleChanged="v => { if (!_busy) _publishOpen = v; }" Options="DialogOptions"
+<InlineDialog Visible="_publishOpen" VisibleChanged="v => { if (!_busy) _publishOpen = v; }" Options="DialogSizes.Medium" CloseOnEscape="!_busy"
               Title="Publish shared snapshot" CloseLabel="Close publish shared snapshot" CloseDisabled="_busy">
     <DialogContent><label>Snapshot name<input maxlength="240" @bind="_name" disabled="@_busy" /></label><p>This stores an independent, immutable media snapshot outside the source project. Publish another named snapshot for a later character version.</p>@if (_error is not null) { <p role="alert">@_error</p> }</DialogContent>
-    <DialogActions>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }@if (_pendingPublish is not null) { <MudButton Disabled="_busy" OnClick="RetryPublishAsync">Retry publication</MudButton> }<MudButton Disabled="_busy" OnClick="() => _publishOpen = false">Cancel</MudButton><MudButton Disabled="@(_busy || _pendingPublish is not null || string.IsNullOrWhiteSpace(_name))" OnClick="ConfirmPublishAsync" Variant="Variant.Filled" Color="Color.Primary">Publish snapshot</MudButton></DialogActions>
+    <DialogActions><DialogFooter>
+        <Tools>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }@if (_pendingPublish is not null) { <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="RetryPublishAsync">Retry publication</MudButton> }</Tools>
+        <ChildContent><MudButton Disabled="_busy" OnClick="() => _publishOpen = false">Cancel</MudButton><MudButton Disabled="@(_busy || _pendingPublish is not null || string.IsNullOrWhiteSpace(_name))" OnClick="ConfirmPublishAsync" Variant="Variant.Filled" Color="Color.Primary">Publish snapshot</MudButton></ChildContent>
+    </DialogFooter></DialogActions>
 </InlineDialog>
-<InlineDialog Visible="_sharedOpen" VisibleChanged="v => { if (!_busy) _sharedOpen = v; }" Options="DialogOptions"
+<InlineDialog Visible="_sharedOpen" VisibleChanged="v => { if (!_busy) _sharedOpen = v; }" Options="DialogSizes.Medium" CloseOnEscape="!_busy"
               Title="Shared asset library" CloseLabel="Close shared asset library" CloseDisabled="_busy">
     <DialogContent>
         <p>Use a snapshot to create a local copy. Images, reels and voices are pasted into the selected compatible asset; whole assets always create a new asset.</p>
@@ -71,6 +77,9 @@
         }
         @if (_error is not null) { <p role="alert">@_error</p> }
     </DialogContent>
-    <DialogActions>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }<MudButton Disabled="_busy" OnClick="OpenSharedAsync">Refresh</MudButton><MudButton Disabled="_busy" OnClick="() => _sharedOpen = false">Close</MudButton></DialogActions>
+    <DialogActions><DialogFooter>
+        <Tools>@if (_busy) { <MudButton OnClick="CancelTransfer">Cancel transfer</MudButton> }<MudButton Disabled="_busy" OnClick="OpenSharedAsync" StartIcon="@Icons.Material.Outlined.Refresh">Refresh</MudButton></Tools>
+        <ChildContent><MudButton Disabled="_busy" OnClick="() => _sharedOpen = false">Close</MudButton></ChildContent>
+    </DialogFooter></DialogActions>
 </InlineDialog>
 }

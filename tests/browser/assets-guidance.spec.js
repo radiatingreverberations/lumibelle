@@ -61,7 +61,7 @@ test('guidance uses the project model, explicit vision, reviewed application and
 
 test('image guidance names targets changed elsewhere before applying anyway and preserves invalid responses for retry', async ({ page, request, context }) => {
   const { id, asset, state } = await fixture(page, request);
-  await assetView(page, 'Images'); await imageAction(page, 'Edit details');
+  await assetView(page, 'Images'); await imageAction(page, 'Edit details…');
   let editor = page.locator('.image-review-inspector .media-details-disclosure');
   await editor.getByText('Use guidance', { exact: true }).first().click();
   await editor.getByLabel('Use guidance', { exact: true }).fill('SLOW original guidance');
@@ -75,7 +75,7 @@ test('image guidance names targets changed elsewhere before applying anyway and 
   await expect.poll(async () => (await state()).assets[0].images[0].preservationGuidance).toBe('SLOW original guidance');
   await other.goto(`/projects/${id}/assets?assetId=${asset.id}`);
   await expect(other.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
-  await assetView(other, 'Images'); await imageAction(other, 'Edit details');
+  await assetView(other, 'Images'); await imageAction(other, 'Edit details…');
   const otherEditor = other.locator('.image-review-inspector .media-details-disclosure');
   await otherEditor.getByText('Use guidance', { exact: true }).first().click();
   await otherEditor.getByLabel('Use guidance', { exact: true }).fill('Changed in another tab.');
@@ -110,7 +110,7 @@ test('look suggestions stay in the edit draft until Save, and cancelling preserv
   await editor.getByRole('button', { name: 'Save look', exact: true }).click();
   await expect.poll(async () => (await state()).assets[0].looks.length).toBe(1);
   await page.getByRole('button', { name: 'Look actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit look', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit look…', exact: true }).click();
   await editor.getByText('Keep consistent in shots', { exact: true }).click();
   await editor.getByLabel('Look description', { exact: true }).fill('Soft gray hoodie with blue cuffs.');
   await editor.getByRole('button', { name: 'Suggest guidance', exact: true }).click();

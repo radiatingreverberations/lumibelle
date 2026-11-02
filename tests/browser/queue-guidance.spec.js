@@ -41,7 +41,7 @@ test('guidance queues per field, survives navigation and reviews the exact image
   await expect(review(page)).toContainText('Queued in Lumibelle');
   await page.keyboard.press('Escape'); await expect(review(page)).toBeHidden();
   await expect(identity(page).getByRole('button', { name: /View request/ })).toBeFocused();
-  await assetView(page, 'Images'); await imageAction(page, 'Edit details');
+  await assetView(page, 'Images'); await imageAction(page, 'Edit details…');
   await page.locator('.image-review-inspector .media-details-disclosure').filter({ has: page.getByText('Use guidance', { exact: true }) }).locator('summary').click();
   await page.locator('.image-review-inspector .media-details-disclosure').getByRole('button', { name: 'Suggest guidance', exact: true }).click();
   await submitGuidance(page, page.locator('.image-review-inspector .media-details-disclosure'));
@@ -119,7 +119,7 @@ test('look guidance reopens inline from activity on mobile without changing note
   await editor.getByRole('button', { name: 'Save look', exact: true }).click();
   await expect.poll(async () => (await state(request, id)).assets[0].looks.length).toBe(1);
   await page.getByRole('button', { name: 'Look actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit look', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit look…', exact: true }).click();
   await editor.getByText('Keep consistent in shots', { exact: true }).click();
   await editor.getByRole('button', { name: 'Suggest guidance', exact: true }).click();
   await expect(page.locator('.ai-assist-dialog')).toBeVisible();

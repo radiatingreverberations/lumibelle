@@ -173,7 +173,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await expect(page.locator('.asset-list-row.selected .asset-choice')).toContainText(assets.assets[0].name);
     const frameCard = page.locator('.reference-card').filter({ has: page.locator(`img[src$="/${frame.id}"]`) });
     await frameCard.getByRole('button', { name: 'Image actions', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Crop image', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Crop image…', exact: true }).click();
     const crop = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Crop image', exact: true }) });
     await crop.getByLabel('Crop shape').selectOption('1:1');
     await crop.getByLabel('Destination asset').selectOption(assets.assets[0].id);

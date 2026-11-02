@@ -16,7 +16,7 @@
                 <div role="menu" aria-label="Look actions" @onkeydown="MenuKeyDown">
                 @if (Selected is { } current)
                 {
-                    <MudMenuItem role="menuitem" Icon="@Icons.Material.Outlined.Edit" AutoClose="false" OnClick="() => OpenFromMenuAsync(current)">Edit look</MudMenuItem>
+                    <MudMenuItem role="menuitem" Icon="@Icons.Material.Outlined.Edit" AutoClose="false" OnClick="() => OpenFromMenuAsync(current)">Edit look…</MudMenuItem>
                     <MudMenuItem role="menuitem" Icon="@Icons.Material.Outlined.ContentCopy" OnClick="() => Duplicate(current)">Duplicate look</MudMenuItem>
                     <MudMenuItem role="menuitem" Icon="@(current.Archived ? Icons.Material.Outlined.Unarchive : Icons.Material.Outlined.Archive)" OnClick="() => Archive(current)">@(current.Archived ? "Unarchive look" : "Archive look")</MudMenuItem>
                 }
@@ -47,8 +47,8 @@
     }
     @if (_error is not null) { <p role="alert">@_error</p> }
 </section>
-<InlineDialog Class="look-editor-dialog" Visible="_open" VisibleChanged="v => _open = v" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false })"
-              Title="@(_new ? "Add look" : "Edit look")" CloseLabel="Close look editor">
+<InlineDialog Class="look-editor-dialog" Visible="_open" VisibleChanged="v => { if (!v) RequestClose(); }" Options="DialogSizes.Small"
+              Title="@(_new ? "Add look" : "Edit look")" Context="@Asset.Name" CloseLabel="Close look editor">
     <DialogContent>
         <label>Look name<input maxlength="200" @bind="_name" @bind:event="oninput" /></label>
         <label>Look description<textarea rows="5" maxlength="12000" @bind="_description" @bind:event="oninput"></textarea></label>
@@ -59,7 +59,10 @@
         </details>
         @if (_error is not null) { <p role="alert">@_error</p> }
     </DialogContent>
-    <DialogActions><MudButton OnClick="() => _open = false">Cancel</MudButton><MudButton OnClick="Save" Disabled="Disabled" Color="Color.Primary">Save look</MudButton></DialogActions>
+    <DialogActions><DialogFooter>
+        <DialogDismiss Label="Cancel" OnDismiss="RequestClose" Confirming="_confirmingDiscard" OnDiscard="Discard" OnKeepEditing="() => _confirmingDiscard = false" />
+        <MudButton OnClick="Save" Disabled="Disabled" Variant="Variant.Filled" Color="Color.Primary">Save look</MudButton>
+    </DialogFooter></DialogActions>
 </InlineDialog>
 @code {
     [Parameter, EditorRequired] public ReferenceAsset Asset { get; set; } = default!;
@@ -85,11 +88,17 @@
     private GuidanceContext? LookGuidance => Library is null ? null : GuidanceContext.From(new(Library.ProjectId, Asset.Id, GuidanceScope.Look, _id), Asset with { Looks = Asset.Looks.Select(l => l.Id == _id ? l with { Name = _name, Description = _description, PreservationGuidance = _preserve } : l).ToArray() });
     private ElementReference _section;
     private IJSObjectReference? _module;
-    private bool _open, _new, _showArchived, _menuOpen; private Guid _id; private string _name = "", _description = "", _preserve = ""; private string? _error;
+    private bool _open, _new, _showArchived, _menuOpen, _confirmingDiscard; private Guid _id; private string _name = "", _description = "", _preserve = ""; private string? _error;
     private CharacterLook? Selected => Asset.Looks.FirstOrDefault(l => l.Id.ToString() == Filter);
     private Task FilterInput(ChangeEventArgs e) => FilterChanged.InvokeAsync(e.Value?.ToString() ?? "all");
-    private void Add() { _guidanceJob = null; _id = Guid.NewGuid(); _name = _description = _preserve = ""; _new = true; _error = null; _open = true; }
-    private void Open(CharacterLook look) { _guidanceJob = null; _id = look.Id; _name = look.Name; _description = look.Description; _preserve = look.PreservationGuidance; _new = false; _error = null; _open = true; }
+    private void Add() { _guidanceJob = null; _id = Guid.NewGuid(); _name = _description = _preserve = ""; _new = true; _error = null; _confirmingDiscard = false; _open = true; }
+    private void Open(CharacterLook look) { _guidanceJob = null; _id = look.Id; _name = look.Name; _description = look.Description; _preserve = look.PreservationGuidance; _new = false; _error = null; _confirmingDiscard = false; _open = true; }
+    // The editor stages its fields; closing with changes asks before discarding them.
+    private bool EditorDirty => Asset.Looks.FirstOrDefault(l => l.Id == _id) is { } saved && !_new
+        ? saved.Name != _name || saved.Description != _description || saved.PreservationGuidance != _preserve
+        : _name.Length > 0 || _description.Length > 0 || _preserve.Length > 0;
+    private void RequestClose() { if (EditorDirty) _confirmingDiscard = true; else Discard(); }
+    private void Discard() { _confirmingDiscard = false; _open = false; }
     private async Task OpenFromMenuAsync(CharacterLook look)
     {
         if (_actionsMenu is not null) await _actionsMenu.CloseMenuAsync();
@@ -117,7 +126,7 @@
         var edited = old with { Name = _name.Trim(), Description = _description, PreservationGuidance = _preserve };
         var next = Asset with { Looks = _new ? [.. Asset.Looks, edited] : Asset.Looks.Select(l => l.Id == _id ? edited : l).ToArray() };
         if (LookPolicy.Invalid(next)) { _error = "Give the look a unique name and keep notes within their limits."; return; }
-        await Changed.InvokeAsync(next); await FilterChanged.InvokeAsync(_id.ToString()); _open = false; _error = null;
+        await Changed.InvokeAsync(next); await FilterChanged.InvokeAsync(_id.ToString()); _open = false; _confirmingDiscard = false; _error = null;
     }
     private async Task Duplicate(CharacterLook look)
     {

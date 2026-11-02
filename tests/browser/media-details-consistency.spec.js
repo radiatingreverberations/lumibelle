@@ -19,7 +19,7 @@ for (const narrow of [false, true]) test(`media details share layout, actions an
     const trigger = card.getByRole('button',{name:/^(Actions for|Image actions)/});
     async function open() {
       await trigger.click();
-      await page.getByRole('menuitem',{name:'Edit details',exact:true}).click();
+      await page.getByRole('menuitem',{name:'Edit details…',exact:true}).click();
       await expect(page.getByRole('dialog',{name:`${kind} details`,exact:true})).toBeVisible();
     }
     await open();
