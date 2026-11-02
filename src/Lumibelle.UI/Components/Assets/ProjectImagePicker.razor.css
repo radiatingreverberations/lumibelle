@@ -15,7 +15,7 @@
 .picker-image-preview { position:relative; display:block; width:100%; height:110px; flex:none; background:var(--lumi-surface-subtle); }
 .picker-grid .picker-image-preview img { position:absolute; inset:0; height:100%; width:100%; object-fit:contain; }
 .picker-image-caption { display:block; padding:7px 8px; min-width:0; width:100%; }
-.picker-image-action { display:block; margin-top:auto; padding:7px 10px; width:100%; text-align:center; border-top:1px solid var(--line); color:var(--plum); font-size:var(--lumi-font-size-meta); font-weight:600; }
+.picker-image-action { display:block; margin-top:auto; padding:7px 10px; width:100%; text-align:center; border-top:1px solid var(--lumi-border); color:var(--lumi-accent); font-size:var(--lumi-font-size-meta); font-weight:600; }
 .picker-grid .picker-image-caption strong { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin:0; }
 .picker-grid .picker-image-caption small { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .picker-image-badge { position:absolute; top:6px; right:6px; padding:2px 6px; border-radius:var(--lumi-radius-small); background:var(--lumi-accent); color:var(--lumi-on-accent); font-size:var(--lumi-font-size-small); }
@@ -23,10 +23,9 @@
 .picker-grid .picker-image:hover:not(:disabled) { border-color:var(--lumi-accent); background:var(--lumi-surface-subtle); }
 .picker-selection { display: flex; flex-wrap: wrap; gap: 6px 20px; padding-left: 24px; font-size: var(--lumi-font-size-meta); max-height: 90px; overflow: auto; }
 .picker-selection li { padding: 3px 6px; background: var(--lumi-surface-subtle); border-radius: var(--lumi-radius-small); }
-.picker-selection button { border: 0; background: none; padding: 4px 8px; }
+.picker-selection li { display: inline-flex; align-items: center; gap: 4px; }
 .picker-actions { display: flex; align-items: center; justify-content: end; gap: 8px; flex-wrap: wrap; }
 .picker-actions span { flex: 1; font-size: var(--lumi-font-size-meta); }
-.picker-actions > button { padding: 8px 12px; border: 1px solid var(--lumi-border); border-radius: var(--lumi-radius-control); }
 button:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 2px; }
 @media(max-width:600px) { .picker-filters { grid-template-columns: 1fr 1fr; } .picker-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } button { min-height: 44px; } }
 
@@ -34,8 +33,8 @@ button:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 2p
 .reel-preview { position:relative; flex:none; height:110px; background: var(--wash); display:flex; align-items:center; justify-content:center; }
 .reel-preview video { width:100%; height:110px; object-fit:contain; }
 .picker-grid .reel-preview-button { position:relative; height:100%; width:100%; padding:0; border:0; border-radius:0; overflow:hidden; align-items:center; justify-content:center; background: var(--wash); }
-.reel-preview-label { position:absolute; right:4px; bottom:4px; padding:3px 7px; border-radius: var(--lumi-radius-small); background: var(--lumi-accent); color: var(--lumi-on-accent); font-size:var(--lumi-font-size-small); }
-.picker-grid .add-reel { margin-top:auto; align-items:center; min-height:36px; border:0; border-top:1px solid var(--line); border-radius:0; padding:7px 8px; font-size:var(--lumi-font-size-meta); color:var(--plum); font-weight:600; }
+.reel-preview-label { display:inline-flex; align-items:center; gap:2px; position:absolute; right:4px; bottom:4px; padding:3px 7px; border-radius: var(--lumi-radius-small); background: var(--lumi-accent); color: var(--lumi-on-accent); font-size:var(--lumi-font-size-small); }
+.picker-grid .add-reel { margin-top:auto; align-items:center; min-height:36px; border:0; border-top:1px solid var(--lumi-border); border-radius:0; padding:7px 8px; font-size:var(--lumi-font-size-meta); color:var(--lumi-accent); font-weight:600; }
 .picker-reel-caption { min-width:0; padding:7px 8px; }
 .picker-grid .picker-reel-caption strong, .picker-grid .picker-reel-caption small { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .picker-grid .picker-reel-caption small { margin-top:3px; }

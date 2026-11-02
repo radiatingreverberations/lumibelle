@@ -1,6 +1,6 @@
 .image-copy-crop { display: grid; gap: .75rem; margin-bottom: 1rem; }
 .image-copy-crop > label { display: flex; align-items: center; gap: .75rem; font-size: var(--lumi-font-size-compact); }
-.image-copy-crop select, .image-copy-crop button { border: 1px solid var(--mud-palette-divider, var(--lumi-control-border)); border-radius: var(--lumi-radius-control); padding: .45rem .65rem; color: inherit; background: var(--mud-palette-surface, var(--lumi-surface)); }
+.image-copy-crop select { border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); padding: .45rem .65rem; color: inherit; background: var(--lumi-surface); }
 .image-copy-crop select { min-width: 8rem; }
 .image-copy-crop summary { cursor: pointer; font-size: var(--lumi-font-size-compact); }
 .crop-size { display: flex; align-items: center; gap: .75rem; }
