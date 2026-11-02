@@ -12,7 +12,7 @@ test('selected shot and asset details inform a reviewed script proposal without 
   await scriptAssist(page);
   await page.locator('#script-scope').selectOption('Document');
   await page.getByLabel('Instructions', { exact: true }).fill('Reflect the attached shot action and asset descriptions in this script.');
-  await page.getByRole('button', { name: 'Manage references', exact: true }).click();
+  await page.getByRole('button', { name: 'Manage references…', exact: true }).click();
   const context = page.locator('.writing-reference-dialog');
   await context.getByRole('button', { name: 'Shots', exact: true }).click();
   await context.getByRole('checkbox', { name: `Select shot 1: ${shot.title}`, exact: true }).check();
@@ -46,7 +46,7 @@ for (const width of [1440, 390]) test(`writing reference images use the shared p
   await scriptAssist(page);
   await page.locator('#script-scope').selectOption('Document');
   await page.getByLabel('Instructions', { exact: true }).fill('Revise the scene using image 1.');
-  const open = page.getByRole('button', { name: 'Manage references', exact: true });
+  const open = page.getByRole('button', { name: 'Manage references…', exact: true });
   const dialog = page.locator('.writing-reference-dialog');
   await open.click();
   const images = dialog.locator('.picker-image');

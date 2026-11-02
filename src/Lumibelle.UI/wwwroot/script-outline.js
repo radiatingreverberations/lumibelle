@@ -33,10 +33,9 @@ export function mount(reference) {
     finish(); if (id && to && moved) void reference.invokeMethodAsync('MoveOutline', id, to, side);
   };
   const key = event => { if (event.key === 'Escape') finish(); };
-  const click = event => { if (event.target.closest('.outline-menu-items button')) event.target.closest('details').open = false; };
   document.addEventListener('pointerdown', down); document.addEventListener('pointermove', move);
-  document.addEventListener('pointerup', up); document.addEventListener('pointercancel', finish); document.addEventListener('keydown', key); document.addEventListener('click', click);
-  cleanup = () => { finish(); document.removeEventListener('pointerdown', down); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', finish); document.removeEventListener('keydown', key); document.removeEventListener('click', click); };
+  document.addEventListener('pointerup', up); document.addEventListener('pointercancel', finish); document.addEventListener('keydown', key);
+  cleanup = () => { finish(); document.removeEventListener('pointerdown', down); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', finish); document.removeEventListener('keydown', key); };
 }
 export function dispose() { cleanup?.(); cleanup = null; }
 

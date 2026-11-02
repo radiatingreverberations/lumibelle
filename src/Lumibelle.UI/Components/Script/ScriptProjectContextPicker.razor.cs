@@ -35,7 +35,6 @@ public partial class ScriptProjectContextPicker
     private bool Busy => Disabled || _loading;
     private bool ImageIssue => !SupportsImages && _applied.Any(e => e.Image is not null);
     private IEnumerable<Entry> MatchingAssets => _entries.Where(e => e.Kind == "Assets" && (e.Label + " " + e.Category).Contains(_search, StringComparison.OrdinalIgnoreCase));
-    private static readonly DialogOptions PickerOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false };
 
     protected override async Task OnParametersSetAsync()
     {

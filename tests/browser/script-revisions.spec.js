@@ -60,7 +60,7 @@ test('folded acts select stable targets, revisions highlight actual changes, and
   await page.getByRole('button', { name: 'Expand all', exact: true }).click();
   await expect(page.locator('.outline-title')).toHaveCount(9);
   const actMenu = page.locator('.script-outline-item').filter({ has: page.locator('.outline-title[title="ACT 3"]') });
-  await actMenu.locator('summary').click(); await actMenu.getByRole('button', { name: 'Delete', exact: true }).click();
+  await actMenu.getByRole('button', { name: /^Actions for / }).click(); await page.getByRole('menuitem', { name: 'Delete…', exact: true }).click();
   await page.getByRole('button', { name: /Delete act/ }).click();
   await scriptAssist(page);
   await expect(page.locator('.assistant-target').first()).toContainText('deleted');

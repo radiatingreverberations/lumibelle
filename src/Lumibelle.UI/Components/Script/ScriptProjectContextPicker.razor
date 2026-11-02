@@ -1,5 +1,5 @@
 <section class="script-project-context" aria-label="Writing references">
-    <div class="context-heading"><strong>References</strong><button type="button" disabled="@(Disabled || _loading)" @onclick="Open">@(_loading ? "Loading…" : "Manage references")</button></div>
+    <div class="context-heading"><strong>References</strong><button type="button" disabled="@(Disabled || _loading)" @onclick="Open">@(_loading ? "Loading…" : "Manage references…")</button></div>
     @if (_applied.Count == 0) { <p>Add images, shots, or asset details to guide the writing.</p> }
     else {
         <ul class="context-summary">
@@ -12,7 +12,7 @@
     @if (_error is not null && !_open) { <p role="alert">@_error</p> }
 </section>
 
-<InlineDialog Visible="_open" VisibleChanged="Close" Options="@(PickerOptions with { CloseOnEscapeKey = !Busy })"
+<InlineDialog Visible="_open" VisibleChanged="Close" Options="DialogSizes.Large" CloseOnEscape="!Busy"
     Class="manual-reference-dialog writing-reference-dialog" Title="Manage references" Context="Script assistance" CloseLabel="Close manage references" CloseDisabled="Busy">
     <DialogContent>
         @if (_open) {

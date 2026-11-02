@@ -94,7 +94,7 @@ public sealed partial class ScriptComponentTests
         var batch = (await DraftWorkflow.LoadAsync(_store.Document.ProjectId, _ct)).Runs.Last();
         await DraftWorkflow.AdvanceAsync(_store.Document.ProjectId, _ct);
         await WaitForBatchJob(batch.Pending!.Id);
-        await Click(panel, "Requests");
+        await panel.InvokeAsync(() => panel.Instance.OpenRequestsAsync());
         _dialogs.WaitForElement(".assistant-run");
         await Click(panel, "Open response");
         _dialogs.WaitForElement(".script-review-dialog");
