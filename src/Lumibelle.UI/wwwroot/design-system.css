@@ -135,10 +135,10 @@ button, input, select, textarea { font-family: inherit; }
 .script-review-dialog.mud-dialog, .image-review-dialog.mud-dialog, .media-details-dialog.mud-dialog { width: min(1200px, calc(100vw - 48px)); max-width: 1200px; border-radius: var(--lumi-radius-dialog); }
 /* Buttons written as plain <button> share the secondary button look, so they match MudBlazor's outlined
    buttons without per-studio recipes. `.lumi-button` names the same look explicitly and adds the
-   modifiers: primary (filled accent), ghost (text), danger, and small. Specificity stays at zero for
-   unclassed buttons so components with their own treatment (tabs, players, cards) keep it. */
-:where(button:not([class]):not([role=tab]):not([hidden])), .lumi-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--lumi-control-height); padding: 5px 12px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); font: inherit; font-size: var(--lumi-font-size-compact); font-weight: 500; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
-:where(button:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:not(:disabled):hover { background: var(--lumi-surface-selected); }
+   modifiers: primary (filled accent), ghost (text), danger, and small. Unclassed buttons get element
+   specificity, enough to replace MudBlazor's reset, so any contextual rule (tabs, players, cards) still wins. */
+button:where(:not([class]):not([role=tab]):not([hidden])), .lumi-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--lumi-control-height); padding: 5px 12px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); color: var(--lumi-text); font: inherit; font-size: var(--lumi-font-size-compact); font-weight: 500; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
+button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:not(:disabled):hover { background: var(--lumi-surface-selected); }
 .lumi-button.primary { min-height: var(--lumi-action-height); background: var(--lumi-accent); color: var(--lumi-on-accent); border-color: transparent; font-weight: 600; }
 .lumi-button.primary:not(:disabled):hover { background: var(--lumi-accent-hover); }
 .lumi-button.ghost { border-color: transparent; background: transparent; color: var(--lumi-accent); }

@@ -4,7 +4,7 @@
 <section class="cut-player" @ref="_element" aria-label="Cut preview">
     @if (_loadError is not null) { <p role="alert">@_loadError</p> }
     <div class="cut-player-stage">
-        @if (Clips.Count == 0) { <div class="cut-player-empty"><h2>Assemble your cut</h2><p>Choose saved takes from your shots, then trim and arrange them here.</p><button @onclick="ChooseTakes">Choose takes</button></div> }
+        @if (Clips.Count == 0) { <div class="cut-player-empty"><h2>Assemble your cut</h2><p>No clips yet. Choose saved takes from your shots, then trim and arrange them here.</p><button type="button" class="lumi-button primary" @onclick="ChooseTakes">Choose takes…</button></div> }
         <video playsinline preload="metadata" aria-label="Cut playback" hidden></video>
         <video playsinline preload="metadata" aria-hidden="true" hidden></video>
         <img class="cut-paused-frame" alt="" hidden />
@@ -13,8 +13,8 @@
     <div class="cut-transport">
         <button type="button" data-action="play" disabled="@(!CanPlay)">Play</button>
         <button type="button" data-action="beginning" disabled="@(!CanPlay)">Play from beginning</button>
-        <button type="button" data-action="previous" disabled="@(Clips.Count == 0)" aria-label="Previous frame">‹</button>
-        <button type="button" data-action="next" disabled="@(Clips.Count == 0)" aria-label="Next frame">›</button>
+        <button type="button" data-action="previous" disabled="@(Clips.Count == 0)" aria-label="Previous frame" title="Previous frame"><MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" Size="Size.Small" /></button>
+        <button type="button" data-action="next" disabled="@(Clips.Count == 0)" aria-label="Next frame" title="Next frame"><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" /></button>
         <output data-position aria-label="Cut position">0:00</output>
         <button type="button" data-action="mute" disabled="@(Clips.Count == 0)" aria-pressed="false">Mute</button>
         <label>Volume<input type="range" data-action="volume" disabled="@(Clips.Count == 0)" min="0" max="1" step="0.05" value="1" /></label>

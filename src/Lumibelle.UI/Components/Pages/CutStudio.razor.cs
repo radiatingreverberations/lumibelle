@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using lumibelle.Components.Layout;
 using lumibelle.Components.Shots;
 using lumibelle.Models;
 using lumibelle.Services.Story;
@@ -18,7 +19,7 @@ public partial class CutStudio
     private CutDocument _doc = new();
     private ShotDocument _shots = new();
     private Guid? _selected;
-    private string _saveStatus = "Saved";
+    private string _saveStatus = SaveStatusText.Saved;
     private string? _error, _trimError, _chooserError;
     private bool _dirty, _saving, _exporting, _disposed, _interactive, _chooserOpen, _reloadOpen, _adding, _refreshing, _swapping;
     // Retry, download and reload only help after a failed save that retained the draft.
@@ -42,7 +43,8 @@ public partial class CutStudio
     private CutPlayer? _sequence;
     private CutClip? Selected => _doc.Clips.FirstOrDefault(c => c.Id == _selected);
     private Guid[] UnavailableTakes => _doc.Clips.Where(c => Issue(c) is not null).Select(c => c.TakeId).Distinct().ToArray();
-    private static DialogOptions ChooserOptions => new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+    private static readonly RenderFragment ChooserSummary = builder => builder.AddContent(0, "Swap existing clips in place, or add missing shots in shot order. Swapping resets the clip's trim to the full take.");
+    private static readonly RenderFragment ExportIntro = builder => builder.AddContent(0, "Export the whole cut, or part of it, such as everything from the first clip of a new act.");
     private static string Time(double seconds) => $"{seconds:0.###} s";
     private static string Label(ShotTake take) => TakeDisplay.Label(take);
     private ShotTake? Take(CutClip c) => _shots.Takes.FirstOrDefault(t => t.Id == c.TakeId);
@@ -79,7 +81,7 @@ public partial class CutStudio
             if (_disposed || Id != projectId) return;
             _doc = document; _shots = shots; _selected = _doc.Clips.FirstOrDefault(c => c.Id == Place<Guid?>(Id, "cut", "clip"))?.Id ?? _doc.Clips.FirstOrDefault()?.Id;
             _undo.Clear(); _redo.Clear(); _choices.Clear(); _version++;
-            _dirty = false; _saveStatus = "Saved"; _error = _trimError = null; _saveFailed = false; _reloadOpen = _chooserOpen = false;
+            _dirty = false; _saveStatus = SaveStatusText.Saved; _error = _trimError = null; _saveFailed = false; _reloadOpen = _chooserOpen = false;
         }
         catch (Exception e) when (e is WorkspaceStoreException or lumibelle.Services.ProjectStoreException) { _loadFailure = e; }
         catch (Exception e) { _error = e.Message; }
@@ -105,23 +107,23 @@ public partial class CutStudio
             while (_dirty && !_disposed)
             {
                 var projectId = _doc.ProjectId; var version = _version; var clips = ShotCopy.Of(_doc.Clips);
-                _saveStatus = "Saving…"; StateHasChanged();
+                _saveStatus = SaveStatusText.Saving; StateHasChanged();
                 var saved = await Store.SaveAsync(projectId, clips, _doc.Revision, _lifetime.Token);
                 if (_disposed || _doc.ProjectId != projectId) return false;
                 // Acknowledgements only advance metadata; they must never replace newer edits.
                 _doc.Revision = saved.Revision; _doc.UpdatedUtc = saved.UpdatedUtc;
                 if (version == _version) _dirty = false;
             }
-            _saveStatus = "Saved"; _error = null; _saveFailed = false; return true;
+            _saveStatus = SaveStatusText.Saved; _error = null; _saveFailed = false; return true;
         }
         catch (Exception e) when (!_disposed)
-        { _error = e.Message; _saveFailed = true; _saveStatus = e is WorkspaceConflictException ? "Conflict · draft retained" : "Save failed · draft retained"; return false; }
+        { _error = e.Message; _saveFailed = true; _saveStatus = e is WorkspaceConflictException ? SaveStatusText.Conflict : SaveStatusText.Failed; return false; }
         catch (OperationCanceledException) { return false; }
         finally { _saving = false; _saveGate.Release(); }
     }
     private void Changed()
     {
-        _dirty = true; _version++; _saveStatus = "Unsaved";
+        _dirty = true; _version++; _saveStatus = SaveStatusText.Unsaved;
         _saveDelay?.Cancel(); _saveDelay?.Dispose(); _saveDelay = new();
         _ = DelayedSave(_saveDelay.Token);
     }

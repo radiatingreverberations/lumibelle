@@ -1,11 +1,5 @@
-.studio-page-actions .cut-heading { padding:0; }
-.cut-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; }
-.cut-heading h1 { font-size:24px; margin:0; } .cut-heading .eyebrow { margin:0 0 3px; }
-.cut-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
-.cut-actions [role=status] { font-size:var(--lumi-font-size-meta); color: var(--muted); }
 .cut-workspace { min-height:0; min-width:0; flex:1; overflow:auto; background: var(--lumi-surface); border: 1px solid var(--line); border-radius: var(--lumi-radius-surface); padding:12px 16px; }
 .cut-workspace-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
-.cut-workspace-toolbar .cut-add { background: var(--plum); color: var(--lumi-on-accent); }
 .cut-inspector { border-top: 1px solid var(--line); padding-top:10px; margin-top:4px; }
 .cut-take-switcher { display:flex; align-items:center; gap:14px; justify-content:space-between; margin-bottom:10px; min-width:0; }
 .cut-take-switcher strong { font-size:var(--lumi-font-size-compact); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
@@ -13,13 +7,11 @@
 .cut-take-controls label { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
 .cut-take-controls select { flex:1; }
 .cut-take-count { font-size:var(--lumi-font-size-small); white-space:nowrap; color: var(--muted); }
-.cut-take-controls > button { font-size:17px; padding:3px 9px; }
 .cut-trims { display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin-top:8px; }
 .cut-trims label { width:95px; }
 .cut-trim-summary { margin-top:6px; font-size:var(--lumi-font-size-small); color: var(--muted); }
 .cut-source-issue { font-size:var(--lumi-font-size-meta); color: var(--lumi-danger); margin:4px 0; }
-.cut-error { padding:10px; background: var(--lumi-danger-surface); border: 1px solid var(--lumi-danger-border); border-radius: var(--lumi-radius-surface); margin-bottom:10px; }
-.cut-error button { margin-left:8px; }
+.cut-error { margin: 8px 12px; padding: 8px 12px; background: var(--lumi-danger-surface); border: 1px solid var(--lumi-danger-border); border-radius: var(--lumi-radius-control); color: var(--lumi-danger); font-size: var(--lumi-font-size-meta); }
 .cut-export-notice { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:8px 12px; margin:8px 16px; border:1px solid var(--lumi-border); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface); font-size:var(--lumi-font-size-meta); }
 .cut-export-notice.working { border-color:var(--lumi-accent); color:var(--lumi-accent); }
 .cut-export-notice .cut-export-status { flex:1 1 20rem; min-width:0; }
@@ -35,10 +27,7 @@
 .cut-choice-hint { display:block; margin-top:5px; font-size:var(--lumi-font-size-small); color: var(--muted); }
 label { display:block; font-size:var(--lumi-font-size-meta); color: var(--muted); }
 select, input[type=number] { display:block; width:100%; min-width:0; padding:6px 8px; border: 1px solid var(--lumi-control-border); border-radius: var(--lumi-radius-control); color: var(--ink); background: var(--lumi-surface); }
-button { cursor:pointer; border: 1px solid var(--line); border-radius: var(--lumi-radius-control); background: var(--lumi-surface); padding:6px 9px; color: var(--plum); font-size:var(--lumi-font-size-meta); }
-button:disabled { cursor:default; opacity:.5; }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
-@media(max-width:759px) { .cut-heading { padding:10px 0; flex-wrap:wrap; } .cut-workspace { padding:8px; } .cut-take-switcher { flex-wrap:wrap; gap:6px; } .cut-take-controls { flex-basis:100%; } .cut-trims { gap:6px; } }
+@media(max-width:759px) { .cut-workspace { padding:8px; } .cut-take-switcher { flex-wrap:wrap; gap:6px; } .cut-take-controls { flex-basis:100%; } .cut-trims { gap:6px; } }
 .cut-export-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px; margin: 12px 0; }
 .cut-export-range label { display: grid; gap: 4px; min-width: 0; }
 .cut-export-range select { min-width: 0; }
