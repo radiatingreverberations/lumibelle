@@ -19,7 +19,7 @@ async function fixture(page, request, narrow, options = '') {
 for (const narrow of [false, true]) test(`Manual environment choice preserves references and supports None (${narrow ? 'narrow' : 'desktop'})`, async ({ page, request }) => {
   const { id, owner } = await fixture(page, request, narrow, 'selected=false');
   const before = await saved(request, id);
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   await expect(page.getByRole('button', { name: 'Choose environment views', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await page.getByRole('group', { name: 'Reference sources', exact: true }).getByRole('button', { name: 'Environment', exact: true }).click();
@@ -76,7 +76,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await copiedEditor.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(copiedEditor).toBeHidden();
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   let document = await (await request.get(`/fixtures/${id}/production`)).json();
   expect(document.shotContent).toHaveLength(2);
   expect(document.shotContent.every(c => c.environmentAssetId === environment.id)).toBe(true);
@@ -114,7 +114,7 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   document = await (await request.get(`/fixtures/${id}/production`)).json();
   expect(document.shotContent[1].environmentAssetId ?? null).toBe(null);
   expect(document.shotContent[1].images).toHaveLength(1);
-  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'edit');
+  await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'none');
   await page.setViewportSize({ width: 1152, height: 1000 });
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
 });

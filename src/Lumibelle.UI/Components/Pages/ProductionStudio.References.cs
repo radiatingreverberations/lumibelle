@@ -13,7 +13,9 @@ public partial class ProductionStudio
     private (Shot Shot, ProductionComposition Composition)? SuggestedReferenceCopy =>
         SourceShot?.SceneId is { } scene && PreviousReferenceSource is { } previous && previous.Shot.SceneId == scene &&
         (HasAttachedReferences(previous.Composition.Shot) || previous.Composition.Shot.EnvironmentAssetId is not null || previous.Shot.SelectedTakeId is not null) ? previous : null;
-    private string NextReferenceAction => Selected is { } shot && !HasAttachedReferences(shot) && SuggestedReferenceCopy is not null ? "copy" : "edit";
+    // The next reference step is highlighted only until the shot has references: copying from a suggested shot
+    // when one is available, otherwise editing. A shot with references has no next step to point at.
+    private string NextReferenceAction => Selected is not { } shot || HasAttachedReferences(shot) ? "none" : SuggestedReferenceCopy is not null ? "copy" : "edit";
     private int AttachedEnvironmentViews(Shot shot) => shot.EnvironmentAssetId is { } environment
         ? shot.Images.Count(i => i.AssetId == environment) + shot.Videos
             .Where(v => v.OwnerAssetId == environment || _assets.Reels.Any(r => r.AssetId == environment && r.Media.Id == v.Media.Id))
