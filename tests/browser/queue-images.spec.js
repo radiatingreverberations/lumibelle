@@ -66,7 +66,7 @@ test('activity opens a waiting image batch on a freshly loaded Assets page', asy
     await expect(review(page).locator('.review-pending-row')).toContainText('Queued');
     await review(page).getByRole('button', { name: 'Close image review', exact: true }).click();
     await expect(page.locator('.prompt-enhancement')).not.toContainText('AI settings could not be loaded');
-    await page.locator('.generation-panel').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.locator('.generation-panel').getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect.poll(async () => (await jobs(request, id))[0].state).toBe('Cancelled');
   } finally { await pause(page, false); }
 });

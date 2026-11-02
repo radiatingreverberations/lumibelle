@@ -87,7 +87,7 @@ public partial class GuidanceSuggestion
         if (_restoreFocus && !_open)
         {
             _restoreFocus = false;
-            try { if (_assist is not null) await _assist.FocusAsync(); } catch (Exception e) when (e is JSException or JSDisconnectedException) { }
+            try { if (_assist is not null) { if (Embedded) await _assist.FocusAsync(); else await _assist.RestoreFocusAsync(); } } catch (Exception e) when (e is JSException or JSDisconnectedException) { }
         }
     }
     private Task Open() => _assist?.OpenAsync() ?? Task.CompletedTask;

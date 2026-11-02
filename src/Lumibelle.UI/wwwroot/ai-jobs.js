@@ -15,15 +15,24 @@ export function tabId() { return id; }
 // Let the closing dialog's own focus trap finish restoring its prior element
 // before returning to the request action. Never steal focus from a new dialog.
 export function restoreRequestFocus(origin) {
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // A request inside the topmost remaining dialog (a review stacked over asset details, say) gets
+    // focus back once the review has gone. Removal can lag a frame or two behind the close, so wait a
+    // little while another dialog is on top, then give up rather than steal focus from it.
+    let frames = 30;
+    const attempt = () => {
         const button = origin?.querySelector('.request-action-button');
-        const dialog = [...document.querySelectorAll('.mud-dialog')].some(d => d.getClientRects().length && getComputedStyle(d).visibility !== 'hidden');
+        const open = [...document.querySelectorAll('.mud-dialog')].filter(d => d.getClientRects().length && getComputedStyle(d).visibility !== 'hidden');
+        if (open.length > 0 && open[open.length - 1] !== button?.closest('.mud-dialog')) {
+            if (--frames > 0) requestAnimationFrame(attempt);
+            return;
+        }
         const active = document.activeElement;
         // The page heading only holds focus from arriving on the page. A review opened
         // from a link returns there on close, which is not a choice to keep focus away.
         const moved = active && active !== document.body && active !== button && !active.matches('main h1') && active.isConnected && active.getClientRects().length && !active.closest('[inert]');
-        if (!dialog && !moved && button?.isConnected && button.getClientRects().length && !button.closest('[inert]')) button.focus({ preventScroll: true });
-    }));
+        if (!moved && button?.isConnected && button.getClientRects().length && !button.closest('[inert]')) button.focus({ preventScroll: true });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(attempt));
 }
 
 export function isReviewVisible(marker) {

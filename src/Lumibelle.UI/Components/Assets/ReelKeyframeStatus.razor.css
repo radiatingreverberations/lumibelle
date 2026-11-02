@@ -1,4 +1,6 @@
 .reel-keyframe-status { position:relative; z-index:2; font-size:var(--lumi-font-size-small); }
+/* One line at card width: the card's select overlay must stay reachable above the button. */
+.reel-keyframe-status .lumi-button { min-height:26px; padding:2px 7px; font-size:var(--lumi-font-size-small); white-space:nowrap; }
 /* A reel without keyframes asks for them: the same small button, marked as the next step. */
 .needs-keyframes .lumi-button { background:var(--lumi-surface-selected); border-color:var(--lumi-accent); color:var(--lumi-accent); font-weight:600; }
 .reel-keyframe-status p { margin:.4rem 0 .75rem; color:var(--lumi-text-muted); line-height:1.5; }

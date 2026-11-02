@@ -477,6 +477,9 @@
 .workspace-pane:is(.shot-controls, .reel-tools) .shot-setup-actions > button { font-size:var(--lumi-font-size-meta); }
 .workspace-pane:is(.shot-controls, .reel-tools) .shot-references { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; gap:12px 8px; }
 .workspace-pane:is(.shot-controls, .reel-tools) .add-shot-references { margin:0; width:auto; font-size:var(--lumi-font-size-small); }
+.workspace-pane.reel-tools .shot-references { grid-template-columns:minmax(0,1fr) auto; }
+.workspace-pane.reel-tools .shot-references > :not(.shot-references-title):not(.add-shot-references) { grid-column:1 / -1; }
+.shot-references-title { margin:0; font-size:var(--lumi-font-size-pane-title); font-weight:650; }
 .workspace-pane.shot-controls button.reference-next-step { border-color:var(--lumi-accent); box-shadow:inset 0 0 0 1px var(--lumi-accent); background:var(--lumi-surface-selected); color:var(--lumi-accent); font-weight:600; }
 .workspace-pane.shot-controls button.shot-environment-staging { display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; width:100%; font-size:var(--lumi-font-size-meta); }
 .environment-staging-content { display:grid; gap:20px; max-width:70ch; margin-inline:auto; }
