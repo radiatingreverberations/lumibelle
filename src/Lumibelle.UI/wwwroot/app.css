@@ -10,7 +10,6 @@ button, a, input, textarea, summary { -webkit-tap-highlight-color: transparent; 
 h1:focus { outline: none !important; }
 /* MudBlazor draws the focus border around the full outlined field. */
 .mud-input-control input:focus-visible, .mud-input-control textarea:focus-visible { outline: none !important; }
-.mud-button-root { border-radius: var(--lumi-radius-surface); }
 .mud-button-filled, .mud-button-filled:hover, .mud-button-filled:focus { box-shadow: none; }
 
 /* Shared application frame. */
@@ -42,8 +41,8 @@ h1:focus { outline: none !important; }
 .library-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 36px 0 28px; }
 .library-heading .mud-button { flex-shrink: 0; }
 .library-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.eyebrow { font-size: var(--lumi-font-size-small); font-weight: 650; letter-spacing: 1.5px; color: var(--plum); margin: 0 0 8px; }
-.library-heading h1, .project-heading h1 { font-size: 30px; line-height: 1.25; letter-spacing: -.9px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.eyebrow { font-size: var(--lumi-font-size-small); font-weight: 650; letter-spacing: 1.5px; text-transform: uppercase; color: var(--plum); margin: 0 0 8px; }
+.library-heading h1, .project-heading h1 { font-size: var(--lumi-font-size-page-title); line-height: 1.25; letter-spacing: -.9px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
 .intro-copy { font-size: var(--lumi-font-size-ui); line-height: 1.6; color: var(--muted); margin: 9px 0 0; }
 .library-section { margin-bottom: 24px; }
 .section-heading, .section-title { display: flex; align-items: center; }
@@ -72,7 +71,7 @@ h1:focus { outline: none !important; }
 .project-issues .mud-button-root { margin: -4px 0 12px; }
 .empty-library { text-align: center; padding: 44px 20px; border: 1px dashed var(--lumi-border); background: var(--lumi-surface); border-radius: var(--lumi-radius-surface); }
 .empty-icon { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 16px; color: var(--lumi-text-muted); background: var(--lumi-surface-subtle); border-radius: var(--lumi-radius-dialog); }
-.empty-library h3 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+.empty-library h3 { font-size: var(--lumi-font-size-subheading); font-weight: 600; margin: 0 0 8px; }
 .empty-library p { color: var(--muted); font-size: var(--lumi-font-size-compact); line-height: 1.7; margin-bottom: 12px; }
 
 /* One project context and navigation in every studio. */
@@ -101,7 +100,7 @@ h1:focus { outline: none !important; }
 .story-area { background: var(--lumi-surface-subtle); color: var(--lumi-text-muted); }
 .assets-area { background: var(--lumi-success-surface); color: var(--lumi-success); }
 .shots-area { background: var(--lumi-warning-surface); color: var(--lumi-warning); }
-.project-areas h2 { font-size: 20px; margin: 16px 0 8px; font-weight: 600; }
+.project-areas h2 { font-size: var(--lumi-font-size-subheading); margin: 16px 0 8px; font-weight: 600; }
 .project-areas p { font-size: var(--lumi-font-size-compact); line-height: 1.7; color: var(--muted); margin-bottom: 24px; max-width: 360px; }
 .project-areas .mud-button, .project-areas .coming-next { margin-top: auto; }
 .project-areas .mud-button { font-size: var(--lumi-font-size-meta); }
@@ -183,14 +182,13 @@ h1:focus { outline: none !important; }
 .dialog-form > :first-child { margin-top:0; }
 .dialog-form > :last-child { margin-bottom:0; }
 .dialog-form :focus-visible { outline:2px solid var(--lumi-accent); outline-offset:3px; }
-.mud-dialog { border: 1px solid var(--line); }
 .mud-input-control input, .mud-input-control textarea { font-size: var(--lumi-font-size-ui); }
 .loading-state { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 20px; color: var(--muted); }
 .project-issues { margin-top: 12px; }
 .project-issues p { margin-top: 12px; }
 .project-issues code { overflow-wrap: anywhere; }
 .back-link.mud-button { margin: 20px 0; margin-left: -8px; }
-.state-title { font-size: 28px; margin: 24px 0 16px; }
+.state-title { font-size: var(--lumi-font-size-page-title); margin: 24px 0 16px; }
 .compact-generation-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; align-items: center; margin-top: 16px; }
 .generation-progress-copy { display: flex; min-width: 0; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: var(--lumi-font-size-small); }
 .generation-progress-label { color: var(--ink); font-weight: 600; }
@@ -228,11 +226,9 @@ h1:focus { outline: none !important; }
     .global-navigation a { padding: 8px 10px; font-size: var(--lumi-font-size-meta); }
     .library-heading { align-items: flex-start; flex-direction: column; padding: 28px 0 24px; gap: 20px; }
     .library-actions { justify-content: flex-start; }
-    .library-heading h1, .project-heading h1 { font-size: 27px; }
     .project-grid { grid-template-columns: 1fr; }
     .project-tabs > a, .unavailable-studio { font-size: var(--lumi-font-size-meta); padding: 0 10px; }
     .unavailable-studio > span { display: none; }
-    .mud-dialog { margin: 16px !important; }
     .mud-dialog :is(.mud-dialog-title, .mud-dialog-content) { padding: 16px; }
     .mud-dialog .mud-dialog-actions { padding: 12px 16px; }
 }

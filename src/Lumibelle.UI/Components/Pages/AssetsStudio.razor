@@ -488,10 +488,9 @@ else
     <DialogContent><p>Its images will stay in Trash for 30 days. Restoring an image can recreate this asset.</p></DialogContent>
     <Actions><MudButton OnClick="() => _deleteAsset = null">Cancel</MudButton><MudButton OnClick="DeleteAssetAsync" Color="Color.Error" Variant="Variant.Filled">Delete asset</MudButton></Actions>
 </InlineDialog>
-<InlineDialog Visible="_deleteAllAssetsOpen" VisibleChanged="CloseAllAssetDeletion" Options="DeleteAllAssetsOptions" Class="asset-delete-all-dialog" ContentClass="dialog-prose"
+<InlineDialog OnEscape="() => CloseAllAssetDeletion(false)" Visible="_deleteAllAssetsOpen" VisibleChanged="CloseAllAssetDeletion" Options="DeleteAllAssetsOptions" Class="asset-delete-all-dialog" ContentClass="dialog-prose"
               Title="Delete all assets?" CloseLabel="Close delete all assets" CloseDisabled="_deletingAllAssets">
     <DialogContent>
-        <DialogEscape Pressed="() => CloseAllAssetDeletion(false)" />
         @if (_deleteAssetsSnapshot is { } snapshot)
         {
             <p>Delete all @snapshot.Assets.Count assets in this project, including assets hidden by search or category filters.</p>

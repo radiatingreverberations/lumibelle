@@ -1,11 +1,10 @@
 @implements IAsyncDisposable
 @inject ReelReplacement Replacement
 
-<InlineDialog Visible="@(Reel is not null)" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="reel-replacement-dialog"
+<InlineDialog OnEscape="Close" Visible="@(Reel is not null)" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="reel-replacement-dialog"
               Title="Replace a reel in shots" Context="@Reel?.Name" CloseLabel="Close replace a reel in shots" CloseDisabled="_busy">
 <DialogContent>
     @if (Reel is { } reel) {
-    <DialogEscape Pressed="Close" />
     @if (Candidates.Count == 0) { <p>This asset has no other reel to replace.</p> }
     else {
         <label class="reel-replacement-field">Replace

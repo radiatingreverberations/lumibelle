@@ -1,0 +1,15 @@
+@* The shared dialog footer: status and secondary tools on the left, then the dismiss action and
+   the single primary action on the right (ChildContent, dismiss first, primary last). *@
+@if (Status is not null || Tools is not null)
+{
+    <div class="dialog-footer-start">
+        @if (Status is not null) { <div class="dialog-status">@Status</div> }
+        @if (Tools is not null) { <div class="dialog-tools">@Tools</div> }
+    </div>
+}
+@if (ChildContent is not null) { <div class="dialog-footer-end">@ChildContent</div> }
+@code {
+    [Parameter] public RenderFragment? Status { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

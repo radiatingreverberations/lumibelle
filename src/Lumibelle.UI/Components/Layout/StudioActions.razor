@@ -1,0 +1,30 @@
+@* The project bar's studio actions, identical in every studio: save status, Save, Undo and Redo when the
+   studio has them, any studio-specific actions, then an options menu for infrequent commands. *@
+<div class="studio-actions @Class" @attributes="AdditionalAttributes">
+    @if (Status is not null) { <span class="save-status @(Problem ? "failed" : null)" role="status">@Status</span> }
+    @if (OnSave.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnSave" Disabled="@(!CanSave)">@SaveLabel</MudButton> }
+    @if (OnUndo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnUndo" Disabled="@(!CanUndo)" StartIcon="@Icons.Material.Outlined.Undo">Undo</MudButton> }
+    @if (OnRedo.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnRedo" Disabled="@(!CanRedo)" StartIcon="@Icons.Material.Outlined.Redo">Redo</MudButton> }
+    @ChildContent
+    @if (Menu is not null)
+    {
+        <MudMenu Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="@MenuLabel" Size="Size.Small" Dense="true" Class="studio-actions-menu"
+                 AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">@Menu</MudMenu>
+    }
+</div>
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public bool Problem { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public bool CanSave { get; set; }
+    [Parameter] public string SaveLabel { get; set; } = "Save";
+    [Parameter] public EventCallback OnUndo { get; set; }
+    [Parameter] public bool CanUndo { get; set; }
+    [Parameter] public EventCallback OnRedo { get; set; }
+    [Parameter] public bool CanRedo { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Menu { get; set; }
+    [Parameter] public string MenuLabel { get; set; } = "More options";
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

@@ -1,13 +1,62 @@
-<div class="workspace-tool-tabs" role="tablist" aria-label="@Label" data-workspace-group="@GroupId">
-    @foreach (var tab in Items)
-    {
-        <button type="button" role="tab" data-workspace-tab="@tab.Id" aria-label="@tab.Label" aria-description="@((tab.Count is { } n ? $"{n} items. " : "") + (tab.New > 0 ? $"{tab.New} new. " : "") + tab.Issue)" aria-selected="@(tab == Items[0] ? "true" : "false")" tabindex="@(tab == Items[0] ? 0 : -1)">
-            @tab.Label@if (tab.Count is { } count) { <span class="tab-count">@count</span> }@if (tab.New > 0) { <span class="tab-new" aria-hidden="true">@tab.New new</span> }@if (tab.Issue is { } issue) { <span class="tab-issue" aria-label="@issue" title="@issue">!</span> }
-        </button>
-    }
-</div>
+@* The shared tab row. Inside a StudioWorkspace the workspace script switches panels and remembers the
+   selection (GroupId). Elsewhere, pass Selected and SelectedChanged and the row is driven by Blazor:
+   arrow keys, Home and End move and activate, and TabIdPrefix/PanelIdPrefix link each tab to its panel. *@
+@if (Controlled)
+{
+    <div class="workspace-tool-tabs @Class" role="tablist" aria-label="@Label">
+        @for (var i = 0; i < Items.Count; i++)
+        {
+            var index = i; var tab = Items[i]; var selected = tab.Id == Selected;
+            <button type="button" role="tab" id="@($"{TabIdPrefix}{tab.Id}")" aria-controls="@(PanelIdPrefix is null ? null : $"{PanelIdPrefix}{tab.Id}")"
+                    aria-selected="@(selected ? "true" : "false")" tabindex="@(selected ? 0 : -1)" aria-description="@Description(tab)"
+                    @ref="_buttons[index]" @onclick="() => SelectAsync(tab.Id)" @onkeydown="e => KeyAsync(e, index)">
+                @Body(tab)
+            </button>
+        }
+    </div>
+}
+else
+{
+    <div class="workspace-tool-tabs @Class" role="tablist" aria-label="@Label" data-workspace-group="@GroupId">
+        @foreach (var tab in Items)
+        {
+            <button type="button" role="tab" data-workspace-tab="@tab.Id" aria-label="@tab.Label" aria-description="@Description(tab)" aria-selected="@(tab == Items[0] ? "true" : "false")" tabindex="@(tab == Items[0] ? 0 : -1)">
+                @Body(tab)
+            </button>
+        }
+    </div>
+}
 @code {
     [Parameter] public string Label { get; set; } = "Tools";
     [Parameter] public string GroupId { get; set; } = "tools";
     [Parameter, EditorRequired] public IReadOnlyList<StudioTab> Items { get; set; } = [];
+    [Parameter] public string? Selected { get; set; }
+    [Parameter] public EventCallback<string> SelectedChanged { get; set; }
+    [Parameter] public string TabIdPrefix { get; set; } = "tab-";
+    [Parameter] public string? PanelIdPrefix { get; set; }
+    [Parameter] public string? Class { get; set; }
+    private ElementReference[] _buttons = [];
+    private bool Controlled => SelectedChanged.HasDelegate;
+
+    protected override void OnParametersSet() { if (_buttons.Length != Items.Count) _buttons = new ElementReference[Items.Count]; }
+
+    private static string Description(StudioTab tab) => (tab.Count is { } n ? $"{n} items. " : "") + (tab.New > 0 ? $"{tab.New} new. " : "") + tab.Issue;
+    private static RenderFragment Body(StudioTab tab) => @<text>@tab.Label@if (tab.Count is { } count) { <span class="tab-count">@count</span> }@if (tab.New > 0) { <span class="tab-new" aria-hidden="true">@tab.New new</span> }@if (tab.Issue is { } issue) { <span class="tab-issue" aria-label="@issue" title="@issue">!</span> }</text>;
+
+    private Task SelectAsync(string id) => id == Selected ? Task.CompletedTask : SelectedChanged.InvokeAsync(id);
+
+    private async Task KeyAsync(KeyboardEventArgs e, int index)
+    {
+        var target = e.Key switch
+        {
+            "ArrowRight" => (index + 1) % Items.Count,
+            "ArrowLeft" => (index - 1 + Items.Count) % Items.Count,
+            "Home" => 0,
+            "End" => Items.Count - 1,
+            _ => -1,
+        };
+        if (target < 0) return;
+        await SelectAsync(Items[target].Id);
+        try { await _buttons[target].FocusAsync(); } catch (InvalidOperationException) { }
+    }
 }

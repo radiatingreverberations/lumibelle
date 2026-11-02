@@ -1,7 +1,7 @@
 @inject IAiJobStore Jobs
 @inject IAssetStore AssetStore
 @inject IJSRuntime JS
-<InlineDialog Visible="Visible" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false })" Class="image-review-dialog media-details-dialog regional-review-dialog" ContentClass="image-review-content" ActionsClass="image-review-actions">
+<InlineDialog OnEscape="Close" Visible="Visible" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false })" Class="image-review-dialog media-details-dialog regional-review-dialog" ContentClass="image-review-content" ActionsClass="image-review-actions">
     <TitleContent><DialogHeader Title="Review regional edits" Context="IMAGE BATCH" CloseLabel="Close details" CloseDisabled="_busy" Close="Close">
         <div class="region-review-switches image-review-toolbar" role="group" aria-label="Result view">
             @foreach (var view in new[] { "Original", "Model result", "Combined" }) { <button disabled="@(view == "Combined" && _combined is null)" aria-pressed="@(_view == view ? "true" : "false")" @onclick="() => _view = view">@view</button> }
@@ -11,7 +11,6 @@
     </DialogHeader></TitleContent>
     <DialogContent>
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="Session.ObservedJobs" MediaByJob="@(Session.ObservedJobs.ToDictionary(j => j.Id, j => j.Batch!.Candidates.Where(c => Session.CompletedCandidates.Contains(c.Number)).Select(c => c.Id).ToArray()))" />
-        <DialogEscape Pressed="Close" />
         @if (Session.IsRunning) { <p role="status">@(Session.Progress?.Label ?? "Waiting for the next result…") <button @onclick="() => CancelRequested.InvokeAsync()">Cancel remaining</button></p> }
         @if (Session.Status is not null) { <p role="status">@Session.Status</p> }
         @if (Session.Job?.Recovery is AiJobRecovery.RetryOutput or AiJobRecovery.CheckStatus) { <button @onclick="() => RetryOutput.InvokeAsync()">Retry download / check status</button> }

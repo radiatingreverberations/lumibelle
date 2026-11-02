@@ -1,16 +1,33 @@
-<InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="Options" Class="@($"ai-assist-dialog {Class}".TrimEnd())" DefaultFocus="DefaultFocus.FirstChild" Title="@Title" CloseLabel="Close assistance">
-    <DialogContent><DialogEscape Pressed="Close" />@ChildContent</DialogContent>
-    <DialogActions>@Leading<MudButton OnClick="Close">Close</MudButton>@Actions</DialogActions>
+@* The assistance dialog: the standard dialog anatomy with a built-in dismiss button. Leading (or Status)
+   and Tools sit on the left of the footer; Actions follow the dismiss button, so the primary stays last. *@
+<InlineDialog OnEscape="Close" Visible="Visible" VisibleChanged="VisibleChanged" Options="EffectiveOptions" Class="@($"ai-assist-dialog {Class}".TrimEnd())" DefaultFocus="DefaultFocus.FirstChild"
+              Title="@Title" Context="@Context" Summary="Summary" CloseLabel="@CloseLabel">
+    <DialogContent>@ChildContent</DialogContent>
+    <DialogActions>
+        <DialogFooter Status="@(Status ?? Leading)" Tools="Tools">
+            @if (!HideClose) { <MudButton OnClick="Close">@DismissLabel</MudButton> }
+            @Actions
+        </DialogFooter>
+    </DialogActions>
 </InlineDialog>
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
     [Parameter] public string Title { get; set; } = "Text assistance";
+    [Parameter] public string? Context { get; set; }
+    [Parameter] public RenderFragment? Summary { get; set; }
+    [Parameter] public string CloseLabel { get; set; } = "Close assistance";
     [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
-    // Left-aligned footer content that stays visible however long the dialog's content is.
+    [Parameter] public RenderFragment? Status { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    // Left-aligned footer content that stays visible however long the dialog's content is (same slot as Status).
     [Parameter] public RenderFragment? Leading { get; set; }
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false, CloseOnNavigation = true };
+    // The dialog's own dismiss button. Hide it when Actions supply their own dismiss (Cancel or Done).
+    [Parameter] public bool HideClose { get; set; }
+    [Parameter] public string DismissLabel { get; set; } = "Close";
+    [Parameter] public DialogOptions? Options { get; set; }
+    private DialogOptions EffectiveOptions => Options ?? DialogSizes.Small;
     private Task Close() => VisibleChanged.InvokeAsync(false);
 }

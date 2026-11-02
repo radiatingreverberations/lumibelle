@@ -1,0 +1,20 @@
+@* A failed or conflicting save: the message, then the repairs the studio supports. The draft stays in the browser. *@
+<div class="save-error-notice @Class" role="alert">
+    <p>@Message</p>
+    <div class="save-error-actions">
+        @if (OnRetry.HasDelegate) { <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="OnRetry" Disabled="Busy">Retry save</MudButton> }
+        @if (OnDownload.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnDownload">Download unsaved copy</MudButton> }
+        @if (OnReload.HasDelegate) { <MudButton Size="Size.Small" OnClick="OnReload" Disabled="Busy">@ReloadLabel</MudButton> }
+        @ChildContent
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Message { get; set; } = "";
+    [Parameter] public EventCallback OnRetry { get; set; }
+    [Parameter] public EventCallback OnDownload { get; set; }
+    [Parameter] public EventCallback OnReload { get; set; }
+    [Parameter] public string ReloadLabel { get; set; } = "Reload saved version…";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

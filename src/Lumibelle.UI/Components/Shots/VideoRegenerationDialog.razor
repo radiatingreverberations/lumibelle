@@ -28,11 +28,10 @@
     </ChildContent>
 </RepeatGenerationDialog>
 
-<InlineDialog Visible="Take is not null" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="video-regeneration-dialog"
+<InlineDialog OnEscape="Close" Visible="Take is not null" VisibleChanged="async v => { if (!v) await Close(); }" Options="Options" Class="video-regeneration-dialog"
               Title="@($"Regenerate {Kind}")" CloseLabel="@($"Close regenerate {Kind}")" CloseDisabled="_busy">
 <DialogContent>
     @if (Snapshot is { } snapshot) {
-    <DialogEscape Pressed="Close" />
     <p><strong>@Name</strong> · @Width × @Height</p>
     <p>Source seed <strong class="video-seed">@SourceSeed</strong></p>
     <label class="video-regeneration-field">Seed

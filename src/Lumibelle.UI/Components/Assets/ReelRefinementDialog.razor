@@ -5,11 +5,10 @@
 @inject IAiSettingsStore Settings
 @inject IVideoGenerator Generator
 
-<InlineDialog Visible="@(Reel is not null)" VisibleChanged="async visible => { if (!visible) await Close(); }" Options="Options"
+<InlineDialog OnEscape="Close" Visible="@(Reel is not null)" VisibleChanged="async visible => { if (!visible) await Close(); }" Options="Options"
               Class="reel-refinement-dialog" Title="Refine reel" Context="@Reel?.Name" CloseLabel="Close refine reel" CloseDisabled="_busy">
     <DialogContent>
         @if (Reel is { Generation: not null } reel) {
-            <DialogEscape Pressed="Close" />
             <p class="field-hint">Saves a separate reel version. The original reel and references in existing shots stay unchanged.</p>
             @if (reel.RefinementPackage is null) {
                 <p role="status">@ReferenceReels.NoRefinementLatents</p>

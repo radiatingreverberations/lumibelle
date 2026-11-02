@@ -7,7 +7,7 @@
 }
 else
 {
-<InlineDialog Visible="Visible" VisibleChanged="VisibilityChanged" Options="Options" Class="image-review-dialog media-details-dialog"
+<InlineDialog OnEscape="EscapeReview" Visible="Visible" VisibleChanged="VisibilityChanged" Options="Options" Class="image-review-dialog media-details-dialog"
            TitleClass="image-review-title" ContentClass="image-review-content" ActionsClass="image-review-actions">
     <TitleContent>
         <div @onkeydown="ReviewKeyDown">
@@ -31,7 +31,6 @@ else
     <DialogContent>
         <ImageReviewFocus Target="@_focusAfterRender" Handled="() => _focusAfterRender = null" />
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="Session.ObservedJobs" MediaByJob="@(Session.ObservedJobs.ToDictionary(j => j.Id, j => j.Batch!.Candidates.Where(c => Session.CompletedCandidates.Contains(c.Number)).Select(c => c.Id).ToArray()))" />
-        <DialogEscape Pressed="EscapeReview" />
         <div class="review-key-scope" style="display: contents" @onkeydown="ReviewKeyDown">
         @if (Session.Job is { } job && Queue is not null && (job.LocksTarget || job.State == AiJobState.Running || job.Recovery is AiJobRecovery.RetryOutput or AiJobRecovery.CheckStatus))
         {

@@ -21,10 +21,9 @@
     </div>
 }
 else if (!Embedded) { <button class="voice-open" @onclick="() => { _open = true; _dialogFocus = null; }" disabled="@Disabled">@(Voices.Count == 0 ? "Add voice reference" : $"Voice · {Voices.Count}")</button> }
-<InlineDialog Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="voice-dialog media-details-dialog" DefaultFocus="_dialogFocus">
+<InlineDialog OnEscape="RequestCloseAsync" Visible="_open" VisibleChanged="VisibilityChanged" Options="Options" Class="voice-dialog media-details-dialog" DefaultFocus="_dialogFocus">
     <TitleContent><DialogHeader Title="@(_editing is not null ? "Voice details" : _draft is not null ? "Save voice" : $"{CharacterName} · Voice references")" CloseLabel="Close voice details" CloseDisabled="_busy" Close="RequestCloseAsync" /></TitleContent>
     <DialogContent>
-        <DialogEscape Pressed="RequestCloseAsync" />
         <MediaDetailsFocus NameId="@(_rename ? _editing?.Id : null)" Handled="() => _rename = false" />
         @if (_draft is not null || _editing is not null)
         {

@@ -104,6 +104,7 @@ export function attach(root, toolbarId) {
         if (changing && body) body.scrollTop = tabScroll.get(`${group}:${selected}`) ?? 0;
         if (changing) position?.restore();
     }
+    function resetLayout() { prefs = defaults(root.dataset.studio); closeDrawer(false); syncTabs(); paint(); save(); }
     function syncTabs() { for (const list of root.querySelectorAll('[data-workspace-group]')) tabs(undefined, false, list.dataset.workspaceGroup); }
     const listeners = [];
     const on = (node, name, callback, capture = false) => { node.addEventListener(name, callback, capture); listeners.push(() => node.removeEventListener(name, callback, capture)); };
@@ -111,7 +112,7 @@ export function attach(root, toolbarId) {
         const button = e.target.closest('button'); if (!button) return;
         if (button.hasAttribute('data-toggle-pane')) toggle(button.dataset.togglePane);
         if (button.hasAttribute('data-close-pane')) closeDrawer();
-        if (button.hasAttribute('data-reset-layout')) { prefs = defaults(root.dataset.studio); closeDrawer(false); syncTabs(); paint(); save(); button.closest('details')?.removeAttribute('open'); }
+        if (button.hasAttribute('data-reset-layout')) resetLayout();
         if (button.hasAttribute('data-workspace-tab')) { tabs(button.dataset.workspaceTab, false, button.closest('[data-workspace-group]').dataset.workspaceGroup); save(); }
         if (button.hasAttribute('data-workspace-open-tab') || button.hasAttribute('data-workspace-focus')) {
             const name = button.dataset.workspaceOpenTab;
@@ -202,6 +203,7 @@ export function attach(root, toolbarId) {
     return {
         showCenter(tab) { if (drawer) closeDrawer(false); tabs(tab, false, 'center'); save(); },
         revealCenter() { if (drawer) closeDrawer(false); },
+        resetLayout() { resetLayout(); },
         showTools(tab, group = 'tools') { if (isDrawer('right')) { if (drawer !== 'right') toggle('right'); } else { prefs.rightCollapsed = false; paint(); } if (tab) tabs(tab, false, group); save(); },
         dispose() { position?.dispose(); disposed = true; listeners.forEach(off => off()); size.disconnect(); selectionObserver.disconnect(); modalObserver.disconnect(); center.inert = toolbar.inert = false; }
     };

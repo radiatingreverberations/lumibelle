@@ -46,7 +46,7 @@
         <button type="button" data-toggle-pane="left" data-pane-label="@LeftLabel" aria-controls="@LeftId" aria-expanded="true"><svg class="pane-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg><span data-toggle-label>Hide @LeftLabel</span></button>
         <div class="workspace-status" role="status">@Status</div>
         <button type="button" data-toggle-pane="right" data-pane-label="@RightLabel" aria-controls="@RightId" aria-expanded="true"><svg class="pane-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></svg><span data-toggle-label>Hide @RightLabel</span></button>
-        <details class="workspace-layout-menu"><summary>Layout</summary><button type="button" data-reset-layout>Reset layout</button></details>
+        <MudMenu Label="Layout" Size="Size.Small" Dense="true" EndIcon="@Icons.Material.Outlined.ExpandMore" Class="workspace-layout-menu" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"><MudMenuItem OnClick="ResetLayoutAsync">Reset layout</MudMenuItem></MudMenu>
     </div>;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -59,6 +59,8 @@
     }
     public async Task ShowToolsAsync(string? tab = null, string group = "tools")
     { if (_workspace is not null) await _workspace.InvokeVoidAsync("showTools", tab, group); else { _pendingTools = true; _pendingTab = tab; _pendingGroup = group; } }
+    private async Task ResetLayoutAsync()
+    { if (_workspace is not null) await _workspace.InvokeVoidAsync("resetLayout"); }
     public async Task RevealCenterAsync()
     { if (_workspace is not null) await _workspace.InvokeVoidAsync("revealCenter"); }
     public async Task ShowCenterAsync(string tab)

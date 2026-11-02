@@ -9,10 +9,9 @@
 @inject IAiReviewGate Reviews
 @implements IAsyncDisposable
 
-<InlineDialog Visible="@(Sources.Count > 0 || Revise is not null)" VisibleChanged="async v => { if (!v) await Close(); }"
+<InlineDialog OnEscape="Close" Visible="@(Sources.Count > 0 || Revise is not null)" VisibleChanged="async v => { if (!v) await Close(); }"
     Options="DialogOptions" Class="refine-dialog" Title="Refine from video" CloseDisabled="_queueing">
 <DialogContent>
-    <DialogEscape Pressed="Close" />
     <p class="refine-intro">Each clip guides a fresh Standard generation: its action, timing and camera movement carry over, with new audio from the prompt and enabled voices. Source clips stay selected.</p>
     <section class="refine-shared" aria-label="Shared settings">
         <div class="refine-shared-heading"><h3>@(_rows.Count == 1 ? "Settings" : "Shared settings")</h3><span>Ordinary H3 model · Standard sampling · one result · random seed</span></div>

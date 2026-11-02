@@ -3,9 +3,9 @@
    (MudBlazor 9.9 MudDialog.ShowAsync). A fast close then reopen of the same instance
    lets the late continuation hide the new opening. Each opening therefore gets a fresh
    MudDialog; the closed instance's continuation then finds it already hidden. *@
-<MudDialog @key="_opening" Visible="Visible" VisibleChanged="VisibleChanged" Options="Options" Class="@Class"
+<MudDialog @key="_opening" Visible="Visible" VisibleChanged="VisibleChanged" Options="EffectiveOptions" Class="@Class"
            DefaultFocus="DefaultFocus" TitleClass="@TitleClass" ContentClass="@ContentClass" ActionsClass="@ActionsClass"
-           OnKeyDown="OnKeyDown" TitleContent="@(TitleContent ?? StandardTitle)" DialogContent="DialogContent" DialogActions="@(DialogActions ?? StandardActions)" />
+           OnKeyDown="OnKeyDown" TitleContent="@(TitleContent ?? StandardTitle)" DialogContent="Content" DialogActions="@(DialogActions ?? StandardActions)" />
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
@@ -26,15 +26,32 @@
     [Parameter] public string CloseLabel { get; set; } = "Close dialog";
     [Parameter] public bool CloseDisabled { get; set; }
     [Parameter] public RenderFragment? Status { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+    // Escape follows the same path as the close button: OnEscape when given, otherwise VisibleChanged(false).
+    // The key is handled on the dialog element, so it also works while focus is on the focus-trap sentinels.
+    // A busy dialog turns Escape off with CloseOnEscape="false" (or CloseOnEscapeKey = false in its options);
+    // CloseDisabled also blocks it, matching the disabled close button.
+    [Parameter] public bool CloseOnEscape { get; set; } = true;
+    [Parameter] public EventCallback OnEscape { get; set; }
     private int _opening;
     private bool _closedRendered;
 
+    private DialogOptions EffectiveOptions => (Options ?? DialogSizes.Medium) with { CloseOnEscapeKey = false };
+    private bool EscapeHandled => CloseOnEscape && (OnEscape.HasDelegate || VisibleChanged.HasDelegate && Options?.CloseOnEscapeKey != false);
+
+    private RenderFragment Content => @<text>@if (EscapeHandled) { <DialogEscape Pressed="EscapeAsync" /> }@DialogContent</text>;
     private RenderFragment? StandardTitle => Title is null ? null :
         @<DialogHeader Title="@Title" Context="@Context" Summary="Summary" CloseLabel="@CloseLabel" CloseDisabled="CloseDisabled"
                        Close="@(VisibleChanged.HasDelegate ? EventCallback.Factory.Create(this, () => VisibleChanged.InvokeAsync(false)) : default)" />;
-    private RenderFragment? StandardActions => Status is null && Actions is null ? null :
-        @<text><div class="dialog-status">@Status</div>@Actions</text>;
+    private RenderFragment? StandardActions => Status is null && Tools is null && Actions is null ? null :
+        @<DialogFooter Status="Status" Tools="Tools">@Actions</DialogFooter>;
+
+    private Task EscapeAsync()
+    {
+        if (!CloseOnEscape || CloseDisabled) return Task.CompletedTask;
+        return OnEscape.HasDelegate ? OnEscape.InvokeAsync() : VisibleChanged.InvokeAsync(false);
+    }
 
     // Only replace an instance after it has rendered closed, so its own after-render
     // step has already closed its dialog rather than leaving it orphaned.
