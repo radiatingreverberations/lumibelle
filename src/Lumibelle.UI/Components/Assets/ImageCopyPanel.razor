@@ -23,11 +23,15 @@
         </div>
     </fieldset>
     @if (_error is not null) { <p role="alert">@_error</p> }
-    <div class="dialog-actions">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
-        <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
-        @if (_captured is not null && !_busy) { <MudButton OnClick="ChangeInputs">Change inputs</MudButton> }
-        <MudButton Disabled="_busy" OnClick="Cancelled">Cancel</MudButton>
+    <div class="image-copy-footer">
+        <DialogFooter>
+            <Tools>@if (_captured is not null && !_busy) { <MudButton OnClick="ChangeInputs">Change inputs</MudButton> }</Tools>
+            <ChildContent>
+                <MudButton Disabled="_busy" OnClick="Cancelled">Cancel</MudButton>
+                <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
+            </ChildContent>
+        </DialogFooter>
     </div>
 </section>
 

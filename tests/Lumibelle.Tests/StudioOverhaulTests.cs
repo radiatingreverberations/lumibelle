@@ -43,7 +43,7 @@ public sealed partial class AssetComponentTests
         _dialogs.WaitForElement(".review-metadata-editor input");
         _dialogs.Find(".review-metadata-editor input").Input("Revised name");
         Assert.Equal("Original", _assets.Library.Assets[0].Images[0].Name);
-        await _dialogs.Find(".review-key-scope").TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+        await _dialogs.InvokeAsync(() => _dialogs.Find(".image-review-dialog [data-dialog-escape]").ClickAsync(new()));
         _dialogs.WaitForElement(".review-dirty-prompt");
         await ClickReview("Keep editing");
         Assert.Equal("Revised name", _dialogs.Find(".review-metadata-editor input").GetAttribute("value"));
@@ -59,7 +59,7 @@ public sealed partial class AssetComponentTests
         await ClickReview("Reset details");
         Assert.Equal("Revised name", _assets.Library.Assets[0].Images[0].Name);
         Assert.Equal("Revised name", _dialogs.Find(".review-metadata-editor input").GetAttribute("value"));
-        await _dialogs.Find(".review-key-scope").TriggerEventAsync("onkeydown", new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+        await _dialogs.InvokeAsync(() => _dialogs.Find(".image-review-dialog [data-dialog-escape]").ClickAsync(new()));
         _dialogs.WaitForAssertion(() => Assert.Empty(_dialogs.FindAll(".image-review-dialog")));
     }
 }
