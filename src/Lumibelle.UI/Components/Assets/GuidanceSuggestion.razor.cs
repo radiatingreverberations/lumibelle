@@ -23,7 +23,6 @@ public partial class GuidanceSuggestion
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public Guid? RequestedJobId { get; set; }
     [Parameter] public EventCallback<string> Apply { get; set; }
-    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Large, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = true };
     private bool _open, _inspect, _disposed, _applying, _submitting, _refreshing, _refreshAgain, _restoreFocus, _initialized, _focusClose;
     private string _imageKey = "", _raw = "", _suggestion = "";
     private string? _error, _inlineError, _baseline;
@@ -246,7 +245,6 @@ public partial class GuidanceSuggestion
         if (_reserved is { } id) { await Reviews.CloseAsync(id); _reserved = null; }
         // Closing a preview never cancels application-owned work or reopens it later.
     }
-    private Task DialogKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
     private Task VisibleChanged(bool visible) => visible ? Task.CompletedTask : Close();
     private static string Failure(Exception e) => e is AiGenerationException or WorkspaceStoreException or ProjectStoreException ? e.Message : "Guidance could not be read or saved. Your notes are unchanged; retry when ready.";
     public async ValueTask DisposeAsync()

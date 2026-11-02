@@ -3,15 +3,14 @@
 @inject IJSRuntime JS
 @if (Session.IsRegional)
 {
-    <RegionalImageReviewDialog Session="Session" Visible="Visible" Closed="Closed" Saved="RegionalSaved" OneMore="OneMore" OneMoreLabel="@OneMoreLabel" OneMoreUnavailable="@OneMoreUnavailable" CancelRequested="CancelRequested" RetryOutput="RetryOutput" />
+    <RegionalImageReviewDialog Session="Session" Visible="Visible" Context="@(Library.Assets.FirstOrDefault(a => a.Id == Session.AssetId)?.Name)" Closed="Closed" Saved="RegionalSaved" OneMore="OneMore" OneMoreLabel="@OneMoreLabel" OneMoreUnavailable="@OneMoreUnavailable" CancelRequested="CancelRequested" RetryOutput="RetryOutput" />
 }
 else
 {
 <InlineDialog OnEscape="EscapeReview" Visible="Visible" VisibleChanged="VisibilityChanged" Options="Options" Class="image-review-dialog media-details-dialog"
            TitleClass="image-review-title" ContentClass="image-review-content" ActionsClass="image-review-actions">
     <TitleContent>
-        <div @onkeydown="ReviewKeyDown">
-        <DialogHeader Title="@(Session.IsBatch ? Session.IsEditBatch ? "Review edited takes" : "Review generated takes" : "Image details")" Context="@(Session.IsBatch ? "IMAGE BATCH" : null)" CloseLabel="Close image review" CloseDisabled="_busy" Close="Close">
+        <DialogHeader Title="@(Session.IsBatch ? Session.IsEditBatch ? "Review edited takes" : "Review generated takes" : "Image details")" Context="@HeaderContext" CloseLabel="Close image review" CloseDisabled="_busy" Close="Close">
             @if (Secondary is not null || Primary?.SourceCrop is not null)
             {
                 <div class="image-review-toolbar">
@@ -26,12 +25,10 @@ else
                 </div>
             }
         </DialogHeader>
-        </div>
     </TitleContent>
     <DialogContent>
         <ImageReviewFocus Target="@_focusAfterRender" Handled="() => _focusAfterRender = null" />
         <lumibelle.Components.AI.AiResultAcknowledgement Observed="Session.ObservedJobs" MediaByJob="@(Session.ObservedJobs.ToDictionary(j => j.Id, j => j.Batch!.Candidates.Where(c => Session.CompletedCandidates.Contains(c.Number)).Select(c => c.Id).ToArray()))" />
-        <div class="review-key-scope" style="display: contents" @onkeydown="ReviewKeyDown">
         @if (Session.Job is { } job && Queue is not null && (job.LocksTarget || job.State == AiJobState.Running || job.Recovery is AiJobRecovery.RetryOutput or AiJobRecovery.CheckStatus))
         {
             <div class="review-live-progress"><AiJobProgressView Job="job" Queue="Queue" Progress="JobProgress" />
@@ -70,10 +67,10 @@ else
                                 <span><strong>@entry.Label</strong><small title="@Description(entry, image)">@Description(entry, image)</small></span>
                             </button>
                             <div class="review-row-actions">
-                                <button class="review-compare-button" aria-label="Compare with @entry.Label" aria-pressed="@Pressed(_secondary == entry.Reference)" disabled="@(_primary == entry.Reference || image is null)" @onclick="() => Compare(entry)">@(_secondary == entry.Reference ? "Stop comparing" : "Compare with")</button>
+                                <button class="lumi-button small review-compare-button" aria-label="Compare with @entry.Label" aria-pressed="@Pressed(_secondary == entry.Reference)" disabled="@(_primary == entry.Reference || image is null)" @onclick="() => Compare(entry)">@(_secondary == entry.Reference ? "Stop comparing" : "Compare with")</button>
                                 @if (Session.IsBatch && entry.IsTake)
                                 {
-                                    <button class="review-discard-button" aria-label="Discard @entry.Label" disabled="@(_busy || !CanDiscard(entry))" @onclick="() => LeaveDetails(() => DiscardAsync(entry))">Discard</button>
+                                    <button class="lumi-button small danger review-discard-button" aria-label="Discard @entry.Label" disabled="@(_busy || !CanDiscard(entry))" @onclick="() => LeaveDetails(() => DiscardAsync(entry))">Discard</button>
                                     @if (image is { IsReference: true } or { IsCover: true }) { <small>Manage approved images in the library.</small> }
                                 }
                                 @if (Resolution(entry).Trash is { } trash)
@@ -203,10 +200,8 @@ else
         {
             <div class="review-undo" role="status">@_undoLabel moved to Trash. <button disabled="@_busy" @onclick="() => RestoreAsync(undo)">Undo</button> <a href="/trash">Open Trash</a></div>
         }
-        </div>
     </DialogContent>
     <DialogActions>
-        <div style="display: contents" @onkeydown="ReviewKeyDown">
         <MediaDetailsActions><Status>
         @if (_afterDetails is not null) {
             <span class="review-dirty-prompt" role="alert" aria-label="Unsaved image details">Save your image details before continuing?</span>
@@ -232,10 +227,9 @@ else
         </Tools><ChildContent>
         @if (_afterDetails is not null) {
             <MudButton OnClick="DiscardDetailsAndLeave" Disabled="_busy">Discard changes</MudButton><MudButton OnClick="() => _afterDetails = null" Disabled="_busy">Keep editing</MudButton>
-        } else { <MudButton OnClick="Close" Disabled="_busy" Variant="Variant.Outlined">Close</MudButton> }
+        } else { <MudButton OnClick="Close" Disabled="_busy">Close</MudButton> }
         @if (_detailsOpen) { <MudButton OnClick="SaveDetails" Disabled="@(_busy || !DetailsAvailable || !DetailsDirty)" Variant="Variant.Filled" Color="Color.Primary">@(_busy ? "Saving…" : _afterDetails is not null ? "Save and continue" : "Save details")</MudButton> }
         </ChildContent></MediaDetailsActions>
-        </div>
     </DialogActions>
 </InlineDialog>
 
@@ -272,9 +266,11 @@ else
     private readonly HashSet<AssetImageReference> _unavailable = [];
     private bool _sideBySide, _useCrop, _busy, _wasVisible;
     private string? _error;
-    // Inline MudDialog captures its options when opened. Route Escape through our
-    // current draft state instead of letting the original options dismiss it.
-    private DialogOptions Options => new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
+    // InlineDialog routes Escape through EscapeReview, so the current draft state decides the dismissal.
+    private static DialogOptions Options => DialogSizes.Media;
+    // The asset concerned: the batch's asset, or the owner of the image being viewed.
+    private string? HeaderContext => Session.IsBatch ? Library.Assets.FirstOrDefault(a => a.Id == Session.AssetId)?.Name
+        : Primary is { } viewed && Image(viewed) is not null ? Resolution(viewed).AssetName : null;
     private IEnumerable<ImageReviewEntry> VisibleEntries => Session.Entries.Where(e => !e.IsTake || !Session.HiddenTakeIds.Contains(e.Reference.ImageId));
     private ImageReviewEntry? Primary => VisibleEntries.FirstOrDefault(e => e.Reference == _primary);
     private ImageReviewEntry? Secondary => VisibleEntries.FirstOrDefault(e => e.Reference == _secondary);
@@ -355,7 +351,6 @@ else
         Session.CancellationRequested ? "Cancelling…" : Session.Job?.State == AiJobState.Waiting ? "Queued" : candidate == Session.CurrentCandidate ? "Generating…" : "Waiting…";
     private Task Close() => LeaveDetails(() => Closed.InvokeAsync());
     private Task EscapeReview() => DetailsDirty ? Close() : Closed.InvokeAsync();
-    private Task ReviewKeyDown(KeyboardEventArgs e) => e.Key != "Escape" ? Task.CompletedTask : EscapeReview();
     // Keep programmatic provider dismissal and the parent synchronized as well.
     private Task VisibilityChanged(bool visible) => visible ? Task.CompletedTask : DetailsDirty ? Close() : Closed.InvokeAsync();
     private static string Pressed(bool value) => value ? "true" : "false";

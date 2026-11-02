@@ -173,7 +173,7 @@ for (const workflow of ['Krea2', 'Flux2Klein9bKv']) {
     await expect(page.locator('.asset-list-row.selected .asset-choice')).toContainText(assets.assets[0].name);
     const frameCard = page.locator('.reference-card').filter({ has: page.locator(`img[src$="/${frame.id}"]`) });
     await frameCard.getByRole('button', { name: 'Image actions', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Crop image', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Crop image…', exact: true }).click();
     const crop = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Crop image', exact: true }) });
     await crop.getByLabel('Crop shape').selectOption('1:1');
     await crop.getByLabel('Destination asset').selectOption(assets.assets[0].id);
@@ -406,9 +406,8 @@ test('character voice upload, excerpt selection and shot assignment', async ({ p
   await expect(page.locator('.asset-list-row.selected')).toHaveCount(1);
   await assetView(page, 'Voices');
   const importVoice = async () => {
-    if (!await page.getByRole('button', { name: 'Import voice', exact: true }).isVisible())
-      await page.locator('.asset-import-menu > summary').click();
-    await page.getByRole('button', { name: 'Import voice', exact: true }).click();
+    await page.locator('.asset-import-menu').getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Import voice…', exact: true }).click();
   };
   await importVoice();
   const voices = page.locator('.voice-dialog');
@@ -508,7 +507,7 @@ test('shared preservation defaults, local overrides and captured take guidance r
   await page.getByLabel('Character identity', { exact: true }).fill('Preserve her face and dark hair.');
   await assetView(page, 'Images');
   await expect.poll(async () => (await library()).assets.find(a => a.id === person.id).preservationGuidance).toBe('Preserve her face and dark hair.');
-  await imageAction(page, 'Edit details');
+  await imageAction(page, 'Edit details…');
   const imageReview = page.locator('.image-review-dialog');
   await imageReview.locator('.media-details-disclosure').filter({ has: page.getByText('Use guidance', { exact: true }) }).locator('summary').click();
   await imageReview.getByLabel('Use guidance', { exact: true }).fill('Preserve the gray hoodie.');

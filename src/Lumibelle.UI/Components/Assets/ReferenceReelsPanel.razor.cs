@@ -22,7 +22,6 @@ public partial class ReferenceReelsPanel
     private AssetReferenceReel? SelectedReel => Library.Reels.FirstOrDefault(r => r.Id == SelectedReelId && r.AssetId == AssetId);
     private bool _renameDetails, _confirmDetailsClose;
     private bool DetailsDirty => _details is { } d && (d.Name != _detailName || d.UseGuidance != _detailGuidance || d.LookId != _detailLook);
-    private static readonly DialogOptions DetailOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
     private Guid? _detailLook;
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid AssetId { get; set; }
@@ -36,8 +35,6 @@ public partial class ReferenceReelsPanel
     [Parameter] public Action<Func<Task<bool>>>? RegisterFlush { get; set; }
     [Parameter, EditorRequired] public AssetLibrary Library { get; set; } = null!;
     [Parameter, EditorRequired] public Func<Func<long, Task<AssetLibrary>>, Task> Mutate { get; set; } = null!;
-    private static readonly DialogOptions EditorOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
-    private static readonly DialogOptions WideOptions = new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private readonly SemaphoreSlim _saveGate = new(1);
     private readonly CancellationTokenSource _lifetime = new();
     private ReferenceReelDraft? _draft, _saved;
@@ -98,6 +95,9 @@ public partial class ReferenceReelsPanel
     public static bool CanRegenerate(AssetReferenceReel reel) => reel.Refinement is null && reel.Generation is { } generation && !ReferenceReels.NeedsEnvironmentReplacement(generation.Recipe);
     public void Regenerate(AssetReferenceReel reel) { if (_busy || !CanRegenerate(reel)) return; _prepareRefinement = false; _regenerateReel = reel; StateHasChanged(); }
     public Task ManageKeyframes(AssetReferenceReel reel) { _keyframeReel = reel; StateHasChanged(); return Task.CompletedTask; }
+    private ReelKeyframeEditor? _keyframeEditor;
+    // The close button and Escape take the editor's own Cancel path.
+    private Task CancelKeyframes() { if (_keyframeEditor is { } editor) return editor.RequestCancelAsync(); _keyframeReel = null; return Task.CompletedTask; }
     private AssetReferenceReel? _replaceReel;
     public bool CanReplace(AssetReferenceReel reel) => Library.Reels.Any(r => r.AssetId == reel.AssetId && r.Media.Id != reel.Media.Id);
     public void ReplaceInShots(AssetReferenceReel reel) { if (_busy) return; _replaceReel = reel; StateHasChanged(); }

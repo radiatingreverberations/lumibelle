@@ -10,7 +10,7 @@
         HasError="@(_pending is not null)" ReviewRequested="ShowReview" SelectionChanged="value => _model = value">
         <ExtraActions>@ToolbarActions</ExtraActions>
         <ChildContent>
-            <p>Choose clear, complementary views and name what each shows. Uses candidate frames, available original images and the reel's saved instructions.</p>
+            <p>Choose clear, complementary views and name what each shows. Uses sampled frames, available original images and the reel's saved instructions.</p>
             @if (_model is { SupportsImages: false }) { <p role="status">Choose a vision model using the model selector below.</p> }
             <label>Selection instructions (optional)<textarea rows="3" maxlength="12000" @bind="_instructions" @bind:event="oninput" placeholder="Focus on different angles and important details. Skip blurry or repetitive views."></textarea></label>
             <p class="field-hint">Choose enough complementary views for useful coverage, up to @Count. Review them before adding them or replacing your picks.</p>
@@ -60,10 +60,10 @@
             <details class="view-request-details"><summary>Request and response</summary><AiTextRequestDetails JobId="job.Id" />
                 @if (_request is { } captured) {
                     <h4>Pictures the AI reviewed</h4>
-                    <p class="field-hint">All candidate pictures supplied to this request, including views that weren't suggested.</p>
+                    <p class="field-hint">All sampled frames supplied to this request, including views that weren't suggested.</p>
                     <div class="view-candidates">
                         @foreach (var candidate in captured.Candidates) {
-                            <figure><img src="@ReferenceVideos.FrameUrl(ProjectId, candidate.Keyframe.Frame)" alt="Candidate @candidate.Number at @candidate.Keyframe.Frame.Seconds.ToString("0.###") seconds" loading="lazy" /><figcaption>Candidate @candidate.Number · @candidate.Keyframe.Frame.Seconds.ToString("0.###") s</figcaption></figure>
+                            <figure><img src="@ReferenceVideos.FrameUrl(ProjectId, candidate.Keyframe.Frame)" alt="Sample @candidate.Number at @candidate.Keyframe.Frame.Seconds.ToString("0.###") seconds" loading="lazy" /><figcaption>Sample @candidate.Number · @candidate.Keyframe.Frame.Seconds.ToString("0.###") s</figcaption></figure>
                         }
                     </div>
                 }

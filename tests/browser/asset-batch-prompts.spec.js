@@ -12,10 +12,10 @@ for (const width of [1280, 390]) test(`bulk enhances each prompt before generati
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
   await page.locator('.bulk-assets-launch').click();
   const dialog = page.locator('.asset-batch-dialog');
-  await dialog.getByLabel('Candidates per item').selectOption('1');
+  await dialog.getByLabel('Takes per item').selectOption('1');
   await dialog.getByLabel('Aspect', { exact: true }).selectOption('9:16');
   await dialog.getByRole('checkbox', { name: 'Enhance prompts with AI', exact: true }).check();
-  await expect(dialog.getByRole('checkbox', { name: /Evaluate candidates/ })).not.toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: /Evaluate takes/ })).not.toBeChecked();
   await dialog.locator('.bulk-instructions summary').click();
   await dialog.getByLabel('Instructions for this batch').fill('Keep the entire subject visible.');
   await dialog.getByRole('button', { name: 'Select all ready items', exact: true }).click();

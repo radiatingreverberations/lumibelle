@@ -42,7 +42,6 @@ public partial class AssetReuseTools
     private IJSObjectReference? _module;
     private DotNetObjectReference<AssetReuseTools>? _reference;
     private bool _attached;
-    private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false };
     private AssetReuseSelection? Source => AssetId is not { } asset || Library.Assets.All(a => a.Id != asset) ? null :
         MediaId is { } media && Enum.TryParse<AssetReuseKind>(MediaKind, out var kind) && kind != AssetReuseKind.Asset
             ? new(Library.ProjectId, asset, kind, media) : new(Library.ProjectId, asset);

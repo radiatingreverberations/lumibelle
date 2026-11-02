@@ -1,7 +1,8 @@
-<InlineDialog Visible="Visible" VisibleChanged="VisibilityChanged" Options="Options" DefaultFocus="DefaultFocus.FirstChild" Class="repeat-generation-dialog" Title="@Title" CloseLabel="Close regenerate">
+<InlineDialog Visible="Visible" VisibleChanged="VisibilityChanged" Options="Options" DefaultFocus="DefaultFocus.FirstChild" Class="repeat-generation-dialog" Title="@Title" Context="@Destination" CloseLabel="@($"Close {Title.ToLowerInvariant()}")"
+              CloseOnEscape="!Busy" CloseDisabled="Busy">
     <DialogContent>
         <p>@Description</p>
-        <dl class="repeat-generation-summary"><dt>Save to</dt><dd>@Destination</dd><dt>Settings</dt><dd>@Summary</dd></dl>
+        <dl class="repeat-generation-summary"><dt>Settings</dt><dd>@Summary</dd></dl>
         <div class="repeat-generation-options">
             <label class="repeat-count">Takes
                 <select aria-label="Take count" @bind="_count" disabled="@(Locked || Busy || _sameSeed)">
@@ -19,8 +20,10 @@
         @if (Error is not null) { <p class="field-error" role="alert">@Error</p> }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Disabled="Busy" Variant="Variant.Outlined">Cancel</MudButton>
-        <MudButton OnClick="Confirm" Disabled="Busy" Variant="Variant.Filled" Color="Color.Primary" Style="min-width:9rem">@(Busy ? "Queueing…" : $"Queue {_count} {Kind}{(_count == 1 ? "" : "s")}")</MudButton>
+        <DialogFooter>
+            <MudButton OnClick="Cancel" Disabled="Busy">Cancel</MudButton>
+            <MudButton OnClick="Confirm" Disabled="Busy" Variant="Variant.Filled" Color="Color.Primary">@(Busy ? "Queueing…" : $"Queue {_count} {Kind}{(_count == 1 ? "" : "s")}")</MudButton>
+        </DialogFooter>
     </DialogActions>
 </InlineDialog>
 
@@ -42,7 +45,7 @@
     [Parameter] public string? Error { get; set; }
     [Parameter] public EventCallback<Choices> Confirmed { get; set; }
     [Parameter] public EventCallback Closed { get; set; }
-    private DialogOptions Options => new() { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = !Busy };
+    private static DialogOptions Options => DialogSizes.Small;
     private int _count = 1, _randomCount = 1;
     private bool _sameSeed, _wasVisible;
     public sealed record Choices(int Count, bool KeepSeed);

@@ -17,7 +17,7 @@
                     <label>Frame timeline<input type="range" min="0" max="@(_catalog.Timestamps.Count - 1)" value="@_index" @onchange="Timeline" disabled="@_busy" /></label>
                     <div class="keyframe-step-controls"><button @onclick="() => Step(-1)" disabled="@_busy">Previous frame</button><button @onclick="() => Step(1)" disabled="@_busy">Next frame</button></div>
                     <div class="keyframe-preview-actions">
-                        <button class="add-frame" @onclick="AddCurrent" disabled="@(_busy || _draft.Frames.Count >= 9 && _replace is null)">@(_replace is null ? "Add current frame" : "Replace with current frame")</button>
+                        <button class="lumi-button add-frame" @onclick="AddCurrent" disabled="@(_busy || _draft.Frames.Count >= 9 && _replace is null)">@(_replace is null ? "Add current frame" : "Replace with current frame")</button>
                         <button @ref="_exportButton" @onclick="OpenExport" disabled="@_busy">Save frame to Assets…</button>
                     </div>
                     @if (_replace is { } replacing) { <div class="keyframe-replacing" role="status"><span>Choose a frame to replace @ReelViewSuggestions.Label(_draft.Frames.Single(p => p.Id == replacing), _draft.Frames.FindIndex(p => p.Id == replacing) + 1).</span><button @onclick="() => _replace = null">Cancel replacement</button></div> }
@@ -40,7 +40,7 @@
                             <li @key="pick.Id">
                                 <div class="keyframe-card-heading">
                                     <button class="keyframe-pick" aria-label="Inspect keyframe @(position + 1)" @onclick="() => Inspect(pick)"><CropThumbnail MeasureImage="true" Url="@ReferenceVideos.FrameUrl(ProjectId, pick.Frame)" Label="@ReelViewSuggestions.Label(pick, position + 1)" Width="Media.Width" Height="Media.Height" Crop="pick.Crop" /><span><strong>@ReelViewSuggestions.Label(pick, position + 1)</strong><small>@pick.Frame.Seconds.ToString("0.###") s</small></span></button>
-                                    <div class="keyframe-order"><button disabled="@(_busy || position == 0)" aria-label="Move keyframe @(position + 1) up" @onclick="() => Move(pick, -1)">↑</button><button disabled="@(_busy || position == _draft.Frames.Count - 1)" aria-label="Move keyframe @(position + 1) down" @onclick="() => Move(pick, 1)">↓</button></div>
+                                    <div class="keyframe-order"><button class="lumi-button icon" disabled="@(_busy || position == 0)" aria-label="Move keyframe @(position + 1) up" title="Move up" @onclick="() => Move(pick, -1)"><MudIcon Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" /></button><button class="lumi-button icon" disabled="@(_busy || position == _draft.Frames.Count - 1)" aria-label="Move keyframe @(position + 1) down" title="Move down" @onclick="() => Move(pick, 1)"><MudIcon Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" /></button></div>
                                 </div>
                                 <div class="keyframe-fields">
                                     <label>View name (optional)<input maxlength="160" @bind="pick.Name" @bind:event="oninput" disabled="@_busy" /></label>
@@ -70,11 +70,11 @@
         @if (_error is not null) { <p role="alert">@_error</p> }
         @if (_savedImage is { } savedImage) { <p role="status">Frame saved as an image. <a href="@(ProjectLink(ProjectId, $"/assets?assetId={savedImage.AssetId}&imageId={savedImage.ImageId}"))">View in Assets</a></p> }
         <span role="status">@(_busy ? "Preparing keyframes…" : $"{_draft.Frames.Count}/9 selected frames")</span>
-        <button disabled="@_saving" @onclick="Cancel">Cancel</button><button class="primary" disabled="@(_busy || _catalog is null || _draft.Frames.Count == 0)" @onclick="Save">@SaveLabel</button>
+        <MudButton Disabled="_saving" OnClick="Cancel">Cancel</MudButton><MudButton Class="keyframe-save" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || _catalog is null || _draft.Frames.Count == 0)" OnClick="Save">@SaveLabel</MudButton>
     </footer>
 </section>
 
-<InlineDialog Visible="_exportFrame is not null" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })" Class="reel-frame-export-dialog" Title="Save reel frame to Assets"><DialogContent>
+<InlineDialog Visible="_exportFrame is not null" VisibleChanged="v => { if (!v) CloseExport(); }" Options="DialogSizes.Medium" Class="reel-frame-export-dialog" Title="Save reel frame to Assets" Context="@_exportReel?.Name" CloseLabel="Close save reel frame"><DialogContent>
 @if (_exportFrame is { } export && _exportReel is { } exportReel && _exportLibrary is { } exportLibrary) {
     <div class="reel-frame-export">
         <img src="@ReferenceVideos.FrameUrl(ProjectId, export.Frame)" alt="Frame @(export.Frame.Index + 1) from @exportReel.Name" />
@@ -198,6 +198,8 @@
         try { await Applied.InvokeAsync(ShotCopy.Of(_draft)); } finally { _saving = false; }
     });
     private async Task Cancel() { await _lifetime.CancelAsync(); await Cancelled.InvokeAsync(); }
+    // The hosting dialog's close button and Escape: the same path as Cancel, unavailable while the keyframes save.
+    public Task RequestCancelAsync() => _saving ? Task.CompletedTask : Cancel();
     private static string N(double n) => n.ToString(System.Globalization.CultureInfo.InvariantCulture);
     private static string CropStyle(ReelKeyframe f) { var c = f.Crop ?? new(); return $"left:{N(c.X*100)}%;top:{N(c.Y*100)}%;width:{N(c.Width*100)}%;height:{N(c.Height*100)}%"; }
     private static string CropMax(ReelKeyframe f, string field) => N(field == "Horizontal" ? 1 - (f.Crop?.Width ?? 1) : field == "Vertical" ? 1 - (f.Crop?.Height ?? 1) : 1);

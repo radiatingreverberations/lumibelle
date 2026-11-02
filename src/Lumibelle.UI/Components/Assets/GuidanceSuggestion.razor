@@ -17,14 +17,14 @@
 </div>
 @if (Embedded)
 {
-    @if (_open) { <section class="guidance-dialog guidance-inline" role="region" aria-label="Guidance suggestion"><h3>@AssistanceTitle · @Context?.Label</h3>@ReviewContent<div class="guidance-actions">@ReviewActions</div></section> }
+    @if (_open) { <section class="guidance-dialog guidance-inline" role="region" aria-label="Guidance suggestion"><h3>@AssistanceTitle · @Context?.Label</h3>@ReviewContent<div class="guidance-actions">@ReviewFooter</div></section> }
 }
 else
 {
-    <InlineDialog Visible="_open" VisibleChanged="VisibleChanged" Options="Options" Class="guidance-dialog" OnKeyDown="DialogKeyDown"
+    <InlineDialog Visible="_open" VisibleChanged="VisibleChanged" Options="DialogSizes.Large" Class="guidance-dialog"
                   Title="@AssistanceTitle" Context="@Context?.Label" CloseLabel="Close guidance review">
         <DialogContent>@ReviewContent</DialogContent>
-        <DialogActions>@ReviewActions</DialogActions>
+        <DialogActions>@ReviewFooter</DialogActions>
     </InlineDialog>
 }
 @code {
@@ -45,13 +45,17 @@ else
         }
         @if (_error is not null) { <p role="alert" class="field-error">@_error</p> }
     </div>;
-    private RenderFragment ReviewActions => @<text>
-        @if (_request is not null && Superseded is null && Changed is { } changed) { <AssistedApplyWarning Changed="changed" Retry="request a new suggestion" /> }
+    // Status and the request tools on the left; Close, then Apply as the one primary action, on the right.
+    private RenderFragment ReviewFooter => @<DialogFooter Status="ReviewStatus" Tools="ReviewTools">
+        <button type="button" class="lumi-button ghost" @ref="_closeButton" @onclick="Close" disabled="@_applying">Close</button>
         @if (_request is not null) { <MudButton OnClick="ApplySuggestion" Disabled="@(!CanApply)" Color="Color.Primary" Variant="Variant.Filled">@(Changed is null ? "Apply changes" : AssistedApplyWarning.ApplyAnyway)</MudButton> }
+    </DialogFooter>;
+    private RenderFragment? ReviewStatus => _request is not null && Superseded is null && Changed is { } changed
+        ? @<AssistedApplyWarning Changed="changed" Retry="request a new suggestion" /> : null;
+    private RenderFragment ReviewTools => @<text>
         @if (_active is not null) { <MudButton OnClick="CancelRequest">Cancel suggestion</MudButton> }
         @if (_pending is not null) { <MudButton OnClick="RetryEnqueue" Disabled="_submitting">Retry saving request</MudButton> }
         else if (!_busy && _error is not null && Changes.Count == 0 && _job is not null) { <MudButton OnClick="RetryCaptured" Disabled="Disabled">Retry</MudButton> }
-        else if (!_busy) { <MudButton OnClick="Open" Disabled="@(!CanStart)" Variant="Variant.Outlined" Color="Color.Primary">@(_request is null ? "Suggest" : _error is not null && Changes.Count == 0 ? "Retry" : "New suggestion")</MudButton> }
-        <button class="btn-secondary" @ref="_closeButton" @onclick="Close" disabled="@_applying">Close</button>
+        else if (!_busy) { <MudButton OnClick="Open" Disabled="@(!CanStart)" Variant="Variant.Outlined">@(_request is null ? "Suggest" : _error is not null && Changes.Count == 0 ? "Retry" : "New suggestion")</MudButton> }
     </text>;
 }

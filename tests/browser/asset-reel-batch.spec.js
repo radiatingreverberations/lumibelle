@@ -17,7 +17,7 @@ for (const [width, kind] of [[1280, 'CharacterReels'], [390, 'EnvironmentReels']
   await expect(dialog.locator('.bulk-select-actions')).toContainText('0 items');
   await dialog.locator('.bulk-plan-card').first().getByRole('checkbox').first().check();
   await expect(dialog.locator('.bulk-select-actions')).toContainText('1 items');
-  await dialog.getByRole('checkbox', { name: 'Evaluate candidates with a vision model' }).check();
+  await dialog.getByRole('checkbox', { name: 'Evaluate takes with a vision model' }).check();
   await dialog.getByRole('button', { name: 'Review generation plan' }).click();
   await expect(dialog.getByLabel('Generation prompt')).not.toBeEmpty();
   await expect(dialog.getByRole('button', { name: 'Start batch', exact: true })).toBeEnabled();

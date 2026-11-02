@@ -157,7 +157,7 @@ for (const narrow of [false, true]) test(`environment reel composes, saves and s
   await expect.poll(() => player.evaluate(v => v.readyState)).toBeGreaterThan(0);
   await player.evaluate(async v => { v.muted = true; await v.play(); v.currentTime = 2; });
   await expect.poll(() => player.evaluate(v => v.currentTime)).toBeGreaterThanOrEqual(2);
-  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details', exact: true }).click();
+  await page.locator('.reel-details-tools').getByRole('button', { name: 'Edit details…', exact: true }).click();
   const details = page.locator('.reel-details-dialog');
   await expect(details.getByLabel('Saved directions', { exact: true })).toHaveValue(directions);
   await expect(details.getByText(/Use keyframes to reference all angles/)).toBeVisible();

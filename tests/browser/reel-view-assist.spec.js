@@ -56,10 +56,10 @@ for (const narrow of [false, true]) test(`AI reel views are reviewed, editable a
   await expect(review.getByText('Complementary views of the set', { exact: true })).not.toBeVisible();
   await review.locator('.view-analysis > summary').click();
   await expect(review.getByText('Complementary views of the set', { exact: true })).toBeVisible();
-  await expect(review.getByRole('img', { name: /^Candidate 1 at / })).not.toBeVisible();
+  await expect(review.getByRole('img', { name: /^Sample 1 at / })).not.toBeVisible();
   await review.locator('.view-analysis > summary').click();
   await review.locator('.view-request-details > summary').click();
-  await expect(review.getByRole('img', { name: /^Candidate 1 at / })).toBeVisible();
+  await expect(review.getByRole('img', { name: /^Sample 1 at / })).toBeVisible();
   await review.locator('.view-request-details > summary').click();
   await expect(editor.getByLabel('View name (optional)').first()).toHaveValue('My authored view');
   expect((await library(request, id)).reels.find(r => r.id === reel.id).keyframes.frames[0].notes).toBe('Keep my authored notes');

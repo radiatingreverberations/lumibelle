@@ -31,15 +31,15 @@ for (const narrow of [false, true]) test(`a reel replaces another in the shots t
   expect(binding.media.id).toBe(next.media.id);
   // The shot keeps its own name and guidance for the reel.
   expect([binding.name, binding.description]).toEqual([old.name, 'Shot guidance']);
-  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toBeHidden();
   if (narrow) return;
   // Reel details offers the same action, above the details dialog.
   await page.locator(`[data-media-id="${next.id}"]`).getByRole('button', { name: `Actions for ${next.name}`, exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit details', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit details…', exact: true }).click();
   await page.getByRole('button', { name: 'Replace in shots…', exact: true }).click();
   await expect(dialog.getByText('No shots use this reel.', { exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Reel details', exact: true }) })).toBeVisible();
 });

@@ -89,7 +89,7 @@ export async function assetView(page, name) {
   const details = page.locator('.asset-details-dialog');
   if (await details.isVisible()) {
     if (name === 'Asset details') return;
-    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await details.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(details).not.toBeVisible();
   }
   const root = page.locator('.studio-workspace[data-studio=Assets]');

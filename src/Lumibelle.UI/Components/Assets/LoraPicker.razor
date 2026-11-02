@@ -28,8 +28,8 @@
                     @if (definition is not null) { <div class="lora-tags">@foreach (var tag in definition.Tags) { <span>@tag</span> }</div> }
                     <label>Strength<input type="number" aria-label="Strength for @name" min="@(Check?.MinimumStrength ?? -100)" max="@(Check?.MaximumStrength ?? 100)" step="0.01" value="@(_invalidStrengths.GetValueOrDefault(LoraPolicy.Key(item.Reference)) ?? item.Strength.ToString(CultureInfo.InvariantCulture))" disabled="@Disabled" @oninput="e => Strength(item, e)" /></label>
                     <div class="lora-actions">
-                        <button type="button" aria-label="Move @name up" @onclick="() => Move(item, -1)" disabled="@(Disabled || index == 0)">↑</button>
-                        <button type="button" aria-label="Move @name down" @onclick="() => Move(item, 1)" disabled="@(Disabled || index == Latest.Count - 1)">↓</button>
+                        <button type="button" class="lumi-button icon" aria-label="Move @name up" title="Move up" @onclick="() => Move(item, -1)" disabled="@(Disabled || index == 0)"><MudIcon Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" /></button>
+                        <button type="button" class="lumi-button icon" aria-label="Move @name down" title="Move down" @onclick="() => Move(item, 1)" disabled="@(Disabled || index == Latest.Count - 1)"><MudIcon Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" /></button>
                         <button type="button" aria-label="Remove @name" @onclick="() => Remove(item)" disabled="@Disabled">Remove</button>
                         @if (!string.IsNullOrWhiteSpace(definition?.TriggerText))
                         { <button type="button" disabled="@Disabled" @onclick="() => InsertTrigger.InvokeAsync(definition.TriggerText)">@TriggerButtonText</button> }

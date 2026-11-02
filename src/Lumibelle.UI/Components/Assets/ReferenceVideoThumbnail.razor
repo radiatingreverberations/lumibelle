@@ -2,7 +2,7 @@
     @if (!_failed) {
         <img src="@ReferenceVideos.ThumbnailUrl(ProjectId, MediaId)" alt="" loading="lazy" decoding="async" @onerror="() => _failed = true" />
     } else {
-        <span class="thumbnail-unavailable" aria-hidden="true">▶</span>
+        <span class="thumbnail-unavailable" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.PlayArrow" /></span>
     }
 </span>
 @code {

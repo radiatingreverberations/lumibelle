@@ -1,5 +1,12 @@
-.region-controls{display:flex;flex-wrap:wrap;gap:.65rem;align-items:end;margin-bottom:.75rem}.region-controls label{display:flex;flex-direction:column;gap:.25rem;font-size:var(--lumi-font-size-ui);max-width:100%}.region-controls input[type=number]{width:6rem}.region-controls input[type=range]{width:8rem}.region-controls select{max-width:100%}.region-stage{height:min(52vh,620px);overflow:auto;background: var(--lumi-media-overlay);border-radius: var(--lumi-radius-surface);overscroll-behavior:contain}.region-stage canvas{display:block;margin:auto;touch-action:none;max-width:none}.region-precise{margin-top:.75rem}.region-precise summary{cursor:pointer;margin-bottom:.5rem}.field-error{color: var(--mud-palette-error)}
-@media(max-width:600px){.region-stage{height:36vh}.region-controls{gap:.4rem}.region-controls label{flex:1 1 40%}.region-controls button{min-height:36px}}
-
-.region-controls button{padding:.4rem .65rem;border: 1px solid var(--line);border-radius: var(--lumi-radius-control);min-height:36px}.region-controls input[type=range]{accent-color: var(--mud-palette-primary)}
-.region-input-crop{align-items:center;padding:.65rem;background: var(--mud-palette-background-grey);border-radius: var(--lumi-radius-control)}.region-input-crop span{font-size:var(--lumi-font-size-ui);margin-right:auto}
+.region-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; }
+.region-controls label { display: flex; flex-direction: column; gap: 4px; font-size: var(--lumi-font-size-ui); max-width: 100%; }
+.region-controls input[type=number] { width: 6rem; }
+.region-controls input[type=range] { width: 8rem; accent-color: var(--lumi-accent); }
+.region-controls select { max-width: 100%; }
+.region-stage { height: min(52vh, 620px); overflow: auto; background: var(--lumi-media-overlay); border-radius: var(--lumi-radius-surface); overscroll-behavior: contain; }
+.region-stage canvas { display: block; margin: auto; touch-action: none; max-width: none; }
+.region-precise { margin-top: 12px; }
+.region-precise summary { cursor: pointer; margin-bottom: 8px; }
+.region-input-crop { align-items: center; padding: 10px; background: var(--lumi-surface-subtle); border-radius: var(--lumi-radius-control); }
+.region-input-crop span { font-size: var(--lumi-font-size-ui); margin-right: auto; }
+@media(max-width:600px) { .region-stage { height: 36vh; } .region-controls { gap: 6px; } .region-controls label { flex: 1 1 40%; } }

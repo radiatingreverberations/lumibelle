@@ -1,3 +1,4 @@
+using lumibelle.Components.Layout;
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services;
@@ -166,7 +167,7 @@ public partial class AssetsStudio
             } while (_imageRefreshAgain && !_disposed);
         }
         catch (OperationCanceledException) when (_disposed) { }
-        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = "Conflict"; }
+        catch (WorkspaceConflictException e) { _conflict = true; _saveError = e.Message; _saveStatus = SaveStatusText.Conflict; }
         catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or JsonException) { _generationError = e.Message; }
         finally { _imageRefreshing = false; if (!_disposed) StateHasChanged(); }
     }

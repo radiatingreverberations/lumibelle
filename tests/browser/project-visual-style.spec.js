@@ -22,7 +22,7 @@ for (const width of [1280, 390]) test(`project style, asset inheritance and batc
   const details = page.locator('.asset-details-dialog');
   await details.getByRole('combobox', { name: 'Asset visual style', exact: true }).selectOption('Illustration');
   await details.getByLabel('Asset visual style direction', { exact: true }).fill('Ink wash on textured paper.');
-  await details.getByRole('button', { name: 'Close', exact: true }).click();
+  await details.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(details).not.toBeVisible();
   const toggle = page.locator('[data-toggle-pane=left]');
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
@@ -43,7 +43,7 @@ for (const width of [1280, 390]) test(`project style, asset inheritance and batc
   await expect(batch.locator('.bulk-select-actions')).toContainText('0 items');
   await batch.locator('.bulk-plan-card').first().getByRole('checkbox').first().check();
   await expect(batch.locator('.bulk-select-actions')).toContainText('1 items');
-  await batch.getByRole('checkbox', { name: 'Evaluate candidates with a vision model' }).check();
+  await batch.getByRole('checkbox', { name: 'Evaluate takes with a vision model' }).check();
   await batch.getByRole('button', { name: 'Review generation plan', exact: true }).click();
   await expect(batch.locator('.bulk-style-direction')).toContainText('Photographic');
   await batch.getByRole('button', { name: 'Start batch', exact: true }).click();

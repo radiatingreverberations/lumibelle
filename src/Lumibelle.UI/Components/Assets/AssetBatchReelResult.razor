@@ -19,9 +19,9 @@
                 <span><input type="checkbox" @bind:get="_selected.Contains(view.Candidate)" @bind:set="value => Toggle(view.Candidate, value)" disabled="@(Busy || Reviewed)" /> @view.Name · @frame.Seconds.ToString("0.##") s</span><small>@view.Notes</small></label>
         }
         </div>
-        @if (review.Result.Selection.Views.Count > 0) { <button type="button" class="bulk-approve-views" disabled="@(Busy || Reviewed || _selected.Count == 0)" @onclick="() => Approve.InvokeAsync(_selected.Order().ToArray())">Save selected keyframes</button> }
+        @if (review.Result.Selection.Views.Count > 0) { <button type="button" class="lumi-button bulk-approve-views" disabled="@(Busy || Reviewed || _selected.Count == 0)" @onclick="() => Approve.InvokeAsync(_selected.Order().ToArray())">Save selected keyframes</button> }
     } else { <p class="field-hint">@((Reel.Keyframes?.Frames.Count ?? 0) > 0 ? $"{Reel.Keyframes!.Frames.Count} keyframes saved" : "Needs keyframe review")</p> }
-    <button type="button" class="bulk-keyframe-review" disabled="@Busy" @onclick="() => Open.InvokeAsync()">Review video &amp; keyframes</button>
+    <button type="button" class="lumi-button bulk-keyframe-review" disabled="@Busy" @onclick="() => Open.InvokeAsync()">Review video &amp; keyframes</button>
 </section>
 @code {
     [Parameter] public Guid ProjectId { get; set; }

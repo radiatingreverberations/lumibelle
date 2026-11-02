@@ -105,7 +105,7 @@ public sealed partial class AssetComponentTests
         _dialogs.WaitForElement(".repeat-generation-dialog");
         await InReview(() =>
         {
-            Assert.Contains("Mira", _dialogs.Find(".repeat-generation-summary").TextContent);
+            Assert.Contains("Mira", _dialogs.Find(".repeat-generation-dialog .dialog-header .eyebrow").TextContent);
             Assert.Contains(original.Prompt, _dialogs.Find(".repeat-generation-dialog pre").TextContent);
         });
         Assert.Equal(1, _editor.Calls);

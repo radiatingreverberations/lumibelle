@@ -2,10 +2,11 @@
 @implements IAsyncDisposable
 <div class="reference-image-menu" @ref="_element" @onkeydown="KeyDownAsync">
     <MudMenu @ref="_menu" @bind-Open="_open" PopoverClass="reference-image-menu-popover" Icon="@Icons.Material.Outlined.MoreHoriz" AriaLabel="Image actions" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+        @* MudBlazor 9.9 renders the menu list as role="listbox" with unroled items, so the menu and item roles are supplied here. *@
         <div role="menu" aria-label="Image actions" @onkeydown="KeyDownAsync">
             @if (Rename.HasDelegate) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Rename)">Rename</MudMenuItem> }
-            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(EditDetails)">Edit details</MudMenuItem>
-            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Crop)" Disabled="CropDisabled">Crop image</MudMenuItem>
+            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(EditDetails)">Edit details…</MudMenuItem>
+            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Crop)" Disabled="CropDisabled">Crop image…</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Move)" Disabled="MoveDisabled">Move to asset…</MudMenuItem>
             @if (CreateSimilar.HasDelegate && Image.Generation is not null) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(CreateSimilar)" Disabled="CreateSimilarDisabled">Create similar</MudMenuItem> }
             @if (ChangeLook.HasDelegate) { <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ChangeLook)" Disabled="ChangeLookDisabled">Change look…</MudMenuItem> }
@@ -13,7 +14,7 @@
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(ToggleReference)">@(Image.IsReference ? "Unapprove reference" : "Approve reference")</MudMenuItem>
             <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(MakeCover)" Disabled="Image.IsCover">Make cover</MudMenuItem>
             <MudDivider />
-            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Trash)" Disabled="DeleteDisabled" Class="danger-link">Move to Trash</MudMenuItem>
+            <MudMenuItem role="menuitem" AutoClose="false" OnClick="() => ActivateAsync(Trash)" Disabled="DeleteDisabled" Class="danger-item">Move to Trash</MudMenuItem>
         </div>
     </MudMenu>
 </div>

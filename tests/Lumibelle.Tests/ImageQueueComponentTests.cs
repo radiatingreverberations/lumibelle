@@ -130,7 +130,7 @@ public sealed partial class AssetComponentTests
             Assert.True(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled"));
             Assert.Contains(lumibelle.Models.AiJobLocks.ImageLimitMessage, page.Markup);
         });
-        await page.InvokeAsync(() => page.FindAll(".asset-image-request")[0].QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Cancel").ClickAsync(new()));
+        await page.InvokeAsync(() => page.FindAll(".asset-image-request")[0].QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Cancel request").ClickAsync(new()));
         page.WaitForAssertion(() => Assert.False(page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").HasAttribute("disabled")));
     }
 }

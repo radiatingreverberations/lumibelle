@@ -21,7 +21,8 @@ public sealed partial class AssetComponentTests
             Assert.Single(page.FindAll(".workspace-left"));
             Assert.Single(page.FindAll(".workspace-center"));
             Assert.Single(page.FindAll(".workspace-right"));
-            Assert.Empty(page.FindAll(".loading-state, .asset-empty, #asset-name, #image-prompt"));
+            Assert.Empty(page.FindAll(".asset-empty, #asset-name, #image-prompt"));
+            Assert.Single(page.FindAll(".workspace-center .loading-state"));
             Assert.Contains("Loading assets", page.Markup);
             Assert.Contains("Overview", _navigation.Markup);
             Assert.True(_actions.Find("button").HasAttribute("disabled"));

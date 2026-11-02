@@ -103,7 +103,7 @@ test('a finished review uses the captured script source and conflicts retain edi
   await dialog.locator('.apply-extraction').click();
   await expect(dialog.getByRole('alert')).toBeVisible();
   expect((await state()).assets.extractionReviews).toHaveLength(0);
-  await dialog.locator('.dialog-actions').getByRole('button', { name: 'Close', exact: true }).click();
+  await dialog.locator('.extraction-footer').getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Reload saved version', exact: true }).click();
   await page.getByRole('button', { name: /^(Extract assets from script|Review changes)$/ }).click();
   await expect(dialog.getByLabel('Asset name', { exact: true })).toHaveValue('Reviewed character');

@@ -39,7 +39,7 @@ for (const narrow of [false, true]) test(`regenerate reel with captured seed (${
   expect((await library(request, id)).reels).toHaveLength(1);
   // Reopen from the saved reel's details footer, including keyboard submission.
   await card.getByRole('button', { name: `Actions for ${source.name}`, exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit details', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit details…', exact: true }).click();
   const details = page.getByRole('dialog', { name: 'Reel details', exact: true });
   await details.getByRole('button', { name: 'Regenerate…', exact: true }).click();
   await expect(dialog.getByLabel('Resolution', { exact: true })).toHaveValue(source.generation.recipe.resolution?.toLowerCase() ?? (source.generation.recipe.nativeResolution ? 'native' : 'preview'));

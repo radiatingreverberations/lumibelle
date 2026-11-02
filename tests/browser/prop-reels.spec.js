@@ -9,7 +9,9 @@ for (const narrow of [false, true]) test(`prop camera presets orbit, turn and ho
   await page.setViewportSize({ width: narrow ? 390 : 1173, height: narrow ? 844 : 1000 });
   await page.goto(`/projects/${id}/assets?assetId=${asset.id}&view=reels`);
   await expect(page.getByLabel('Filter media', { exact: true })).toHaveValue('Reels');
-  await expect(page.locator('.asset-import-menu button', { hasText: 'Import reel' })).toHaveCount(1);
+  await page.locator('.asset-import-menu').getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Import reel…', exact: true })).toHaveCount(1);
+  await page.keyboard.press('Escape');
   await tools(page);
   const editor = reelTools(page), setup = reelSetup(page), requested = editor.getByLabel('Requested seconds', { exact: true });
   await expect(editor.getByRole('combobox', { name: 'Aspect', exact: true })).toHaveValue('1:1');

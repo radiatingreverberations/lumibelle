@@ -116,7 +116,7 @@ public sealed partial class AssetComponentTests : BunitContext
             Assert.False(page.Find("#asset-image-workflow").HasAttribute("disabled"));
             Assert.Contains("Image 1", Assert.Single(page.FindAll(".compact-image-input")).TextContent);
         });
-        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await run;
+        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel request")); await run;
         page.WaitForAssertion(() => Assert.False(page.Find("#asset-image-workflow").HasAttribute("disabled")));
     }
 
@@ -126,7 +126,7 @@ public sealed partial class AssetComponentTests : BunitContext
         var page = Page(); page.WaitForElement(".asset-empty");
         page.Find(".asset-empty button").Click(); _dialogs.WaitForElement("#create-asset-form").Submit(); Assert.Contains("Give the asset a name", _dialogs.Markup);
         _dialogs.FindAll(".asset-dialog button").Single(button => button.TextContent.Trim() == "Cancel").Click(); Assert.Equal(0, _assets.SaveCalls);
-        page.Find(".asset-library-heading button").Click(); _dialogs.WaitForElement("#new-asset-name").Input("  Mira 光  "); _dialogs.Find("#new-asset-description").Input("  Red coat\n"); _dialogs.Find("#create-asset-form").Submit();
+        page.Find(".asset-library .asset-create").Click(); _dialogs.WaitForElement("#new-asset-name").Input("  Mira 光  "); _dialogs.Find("#new-asset-description").Input("  Red coat\n"); _dialogs.Find("#create-asset-form").Submit();
         page.WaitForAssertion(() => Assert.Equal("Mira 光", Assert.Single(_assets.Library.Assets).Name));
         Assert.Equal("  Red coat\n", _assets.Library.Assets[0].Description); Assert.Contains("Mira 光", page.Markup);
     }
@@ -143,7 +143,7 @@ public sealed partial class AssetComponentTests : BunitContext
         await _dialogs.InvokeAsync(() => _dialogs.Find("#asset-description").Input("Keep this visual note 🌲"));
         page.WaitForAssertion(() => Assert.Contains("Disk unavailable", page.Markup), BunitDefaults.WaitTimeout(2));
         await _dialogs.InvokeAsync(() => Assert.Equal("Keep this visual note 🌲", _dialogs.Find("#asset-description").GetAttribute("value")));
-        _assets.SaveError = null; await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Retry"));
+        _assets.SaveError = null; await page.ClickCurrent(() => page.FindAll("button").Single(button => button.TextContent.Trim() == "Retry save"));
         Assert.Equal("Keep this visual note 🌲", _assets.Library.Assets[0].Description); _actions.WaitForAssertion(() => Assert.Contains("Saved", _actions.Markup));
     }
 
@@ -175,23 +175,23 @@ public sealed partial class AssetComponentTests : BunitContext
         var page = Page(); page.WaitForElement(".reference-card");
 
         Assert.Empty(page.FindAll(".asset-tools-header [role=tab]"));
-        Assert.Equal("Create image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Equal("Create image", page.Find(".asset-tool-shell .pane-title").TextContent);
         page.Find("#image-prompt").Input("Keep the creation draft");
         await page.Find(".media-select").ClickAsync(new());
 
-        Assert.Equal("Edit image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Equal("Edit image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Equal("face, outfit: red coat", page.Find("#image-tags").GetAttribute("value"));
         Assert.Equal(ImageAspectPolicy.FromImage1, page.Find("#aspect").GetAttribute("value"));
         Assert.Contains("Image 1 · Source", page.Markup);
         page.Find("#image-prompt").Input("Keep this image edit");
         await page.Find("[aria-label='Clear selection']").ClickAsync(new());
-        Assert.Equal("Create image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Equal("Create image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Equal("Keep the creation draft", page.Find("#image-prompt").GetAttribute("value"));
         Assert.Equal("false", page.Find(".media-select").GetAttribute("aria-pressed"));
         await page.Find(".media-select").ClickAsync(new());
         Assert.Equal("Keep this image edit", page.Find("#image-prompt").GetAttribute("value"));
         await page.Find(".media-select").ClickAsync(new());
-        Assert.Equal("Create image", page.Find("#assets-tool-heading").TextContent);
+        Assert.Equal("Create image", page.Find(".asset-tool-shell .pane-title").TextContent);
         Assert.Equal("Keep the creation draft", page.Find("#image-prompt").GetAttribute("value"));
     }
 
@@ -209,7 +209,7 @@ public sealed partial class AssetComponentTests : BunitContext
         JSInterop.Setup<string?>("localStorage.getItem", WorkspacePositions.Key(_projectId, "assets")).SetResult(saved);
         await Services.GetRequiredService<WorkspacePositions>().LoadAsync(_projectId, "assets");
         var page = Page();
-        page.WaitForAssertion(() => Assert.Equal(selected ? "Edit image" : "Create image", page.Find("#assets-tool-heading").TextContent));
+        page.WaitForAssertion(() => Assert.Equal(selected ? "Edit image" : "Create image", page.Find(".asset-tool-shell .pane-title").TextContent));
         Assert.Equal(selected ? "true" : "false", page.Find(".media-select").GetAttribute("aria-pressed"));
         Assert.Equal(selected ? "Edit instruction" : "Image prompt", page.Find("label[for='image-prompt']").TextContent);
         if (selected) await page.Find("[aria-label='Clear selection']").ClickAsync(new());
@@ -370,7 +370,7 @@ public sealed partial class AssetComponentTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("7 / 10 steps", page.Markup));
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".asset-image-request")));
         await page.InvokeAsync(() => { Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); });
-        await page.InvokeAsync(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel").ClickAsync(new()));
+        await page.InvokeAsync(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel request").ClickAsync(new()));
         await editing;
         Assert.Equal(1, _editor.Calls); page.WaitForAssertion(() => Assert.Contains("cancel", page.Markup, StringComparison.OrdinalIgnoreCase));
     }
@@ -477,10 +477,10 @@ public sealed partial class AssetComponentTests : BunitContext
         var providers = (FakeProviders)Services.GetRequiredService<IAiProviderRegistry>();
         providers.Models = [new(cloud.Model, cloud.Name), new("test/model", "Default")];
         var page = Page(); await ExtractionClick(page, "Extract from script");
-        await page.InvokeAsync(() => page.Find(".extraction-footer .model-chip").ClickAsync(new()));
+        await page.InvokeAsync(() => _dialogs.Find(".extraction-footer .model-chip").ClickAsync(new()));
         await _dialogs.InvokeAsync(() => _dialogs.Find("select[id^=text-model]").Change(TextModelPolicy.Key(cloud)));
         providers.Success = false; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
-        await page.InvokeAsync(() => Assert.True(page.FindAll("button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled")));
+        await page.InvokeAsync(() => Assert.True(_dialogs.FindAll(".extraction-footer button").Single(button => button.TextContent.Trim() == "Find assets").HasAttribute("disabled")));
         Assert.Equal(0, _extractor.Calls);
         providers.Success = true; await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Refresh availability"));
         await _dialogs.ClickCurrent(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Done"));
@@ -496,11 +496,11 @@ public sealed partial class AssetComponentTests : BunitContext
     {
         _extractor.Result = new([new() { Category = AssetCategory.Character, Name = "Mira", Description = "Short hair and a red coat.", SuggestedTags = ["face", "full body"], Evidence = [new("Story", null, "Mira enters")] }], "[]");
         var page = Page(); page.WaitForElement(".asset-empty");
-        await ExtractionClick(page, "Extract from script"); page.WaitForElement(".extraction-dialog");
-        Assert.Contains("Approximate input", page.Markup); Assert.Empty(_assets.Library.Assets);
-        await ExtractionClick(page, "Find assets"); page.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
+        await ExtractionClick(page, "Extract from script"); _dialogs.WaitForElement(".extraction-dialog");
+        Assert.Contains("Approximate input", _dialogs.Markup); Assert.Empty(_assets.Library.Assets);
+        await ExtractionClick(page, "Find assets"); _dialogs.WaitForElement(".extraction-proposal", BunitDefaults.WaitTimeout(5));
         Assert.Empty(_assets.Library.Assets);
-        await page.InvokeAsync(() => page.Find(".apply-extraction").ClickAsync(new()));
+        await page.InvokeAsync(() => _dialogs.Find(".apply-extraction").ClickAsync(new()));
         await _assets.Until(() => Assert.Equal("Mira", Assert.Single(_assets.Library.Assets).Name));
         Assert.Equal(new[] { "face", "full body" }, _assets.Library.Assets[0].SuggestedImageTags); Assert.Single(_assets.Library.Assets[0].Evidence);
     }
@@ -511,11 +511,11 @@ public sealed partial class AssetComponentTests : BunitContext
         _extractor.WaitForRelease = true;
         var page = Page(); page.WaitForElement(".asset-empty");
         await ExtractionClick(page, "Extract from script");
-        page.WaitForElement(".extraction-dialog");
+        _dialogs.WaitForElement(".extraction-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
-        Assert.Contains("Cancel request", page.Markup);
+        _dialogs.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", _dialogs.Markup), BunitDefaults.WaitTimeout(5));
+        Assert.Contains("Cancel request", _dialogs.Markup);
         _extractor.Release();
         await extracting;
     }
@@ -526,15 +526,15 @@ public sealed partial class AssetComponentTests : BunitContext
         _extractor.WaitForRelease = true;
         var page = Page(); page.WaitForElement(".asset-empty");
         await ExtractionClick(page, "Extract from script");
-        page.WaitForElement(".extraction-dialog");
+        _dialogs.WaitForElement(".extraction-dialog");
 
         var extracting = ExtractionClick(page, "Find assets");
-        page.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", page.Markup), BunitDefaults.WaitTimeout(5));
-        await page.InvokeAsync(() => page.FindAll(".extraction-dialog button").Single(button => button.TextContent.Trim() == "Cancel request").ClickAsync(new()));
+        _dialogs.WaitForAssertion(() => Assert.Contains("400 / 2,048 tokens", _dialogs.Markup), BunitDefaults.WaitTimeout(5));
+        await page.InvokeAsync(() => _dialogs.FindAll(".extraction-dialog button").Single(button => button.TextContent.Trim() == "Cancel request").ClickAsync(new()));
         await extracting;
 
-        page.WaitForAssertion(() => Assert.Contains("cancelled", page.Markup));
-        Assert.Contains("partial extraction", page.Markup); Assert.Empty(_assets.Library.Assets);
+        _dialogs.WaitForAssertion(() => Assert.Contains("cancelled", _dialogs.Markup));
+        Assert.Contains("partial extraction", _dialogs.Markup); Assert.Empty(_assets.Library.Assets);
     }
 
     [Fact]
@@ -568,7 +568,7 @@ public sealed partial class AssetComponentTests : BunitContext
         // The running request is listed on its own; the composer is clear and ready for the next one.
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".asset-image-request")));
         await page.InvokeAsync(() => { Assert.Equal("", page.Find("#image-prompt").GetAttribute("value")); Assert.False(page.Find("#image-prompt").HasAttribute("disabled")); });
-        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel")); await running;
+        await page.ClickCurrent(() => page.Find(".asset-image-request").QuerySelectorAll("button").Single(button => button.TextContent.Trim() == "Cancel request")); await running;
         Assert.Equal(1, _generator.Calls); page.WaitForAssertion(() => Assert.Contains("cancel", page.Markup, StringComparison.OrdinalIgnoreCase));
     }
 

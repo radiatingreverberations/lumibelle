@@ -30,7 +30,7 @@ for (const width of [1280, 390]) test(`bulk batches select one asset type and ca
   await dialog.locator('.bulk-instructions summary').click();
   const characterDirection = 'Full-body view. Keep the entire figure visible, including the feet.';
   await dialog.getByLabel('Instructions for this batch').fill(characterDirection);
-  await dialog.getByRole('checkbox', { name: 'Evaluate candidates with a vision model' }).check();
+  await dialog.getByRole('checkbox', { name: 'Evaluate takes with a vision model' }).check();
   await dialog.getByRole('button', { name: 'Review generation plan', exact: true }).click();
   await expect(dialog.locator('.bulk-plan-card')).toHaveCount(1);
   await expect(dialog.locator('.bulk-plan-summary')).toContainText('Characters · 1 items · 9:16');
