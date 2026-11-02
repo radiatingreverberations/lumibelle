@@ -1,33 +1,7 @@
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-
-<button hidden tabindex="-1" aria-hidden="true" @ref="_button" @onclick="Pressed" data-dialog-escape></button>
+@* Marks a dialog whose close path runs on Escape. The page-wide listener in dialog-escape.js clicks this
+   button for the dialog that has focus, or for the topmost dialog when focus has fallen back to the page. *@
+<button hidden tabindex="-1" aria-hidden="true" @onclick="Pressed" data-dialog-escape></button>
 
 @code {
     [Parameter] public EventCallback Pressed { get; set; }
-    private ElementReference _button;
-    private IJSObjectReference? _module, _binding;
-    private bool _disposed;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender) return;
-        try
-        {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", lumibelle.UiAssets.Module("dialog-escape.js"));
-            if (!_disposed && _module is not null) _binding = await _module.InvokeAsync<IJSObjectReference>("attach", _button);
-        }
-        catch (Exception e) when (e is JSDisconnectedException or OperationCanceledException) { }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        _disposed = true;
-        try
-        {
-            if (_binding is not null) { await _binding.InvokeVoidAsync("dispose"); await _binding.DisposeAsync(); }
-            if (_module is not null) await _module.DisposeAsync();
-        }
-        catch (Exception e) when (e is JSDisconnectedException or OperationCanceledException) { }
-    }
 }
