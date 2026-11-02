@@ -36,7 +36,7 @@ for (const narrow of [false, true]) test(`a reel replaces another in the shots t
   if (narrow) return;
   // Reel details offers the same action, above the details dialog.
   await page.locator(`[data-media-id="${next.id}"]`).getByRole('button', { name: `Actions for ${next.name}`, exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Edit details', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit details…', exact: true }).click();
   await page.getByRole('button', { name: 'Replace in shots…', exact: true }).click();
   await expect(dialog.getByText('No shots use this reel.', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();

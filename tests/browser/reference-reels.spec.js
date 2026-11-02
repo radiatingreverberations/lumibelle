@@ -196,7 +196,7 @@ for (const narrow of [false, true]) test(`saved reel directions can be copied an
   expect(saved.generation.recipe.instructions).toBe(directions);
   await close(page);
   await page.locator(`[data-media-id="${saved.id}"]`).getByRole('button', { name: `Actions for ${saved.name}` }).click();
-  await page.getByRole('menuitem', { name: 'Edit details', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit details…', exact: true }).click();
   const details = page.locator('.reel-details-dialog');
   await expect(details.getByLabel('Saved directions', { exact: true })).toHaveValue(directions);
   const preview = details.locator('.media-details-preview');
@@ -469,7 +469,7 @@ for (const narrow of [false, true]) test(`reel and voice details and moves betwe
     await card(item).getByRole('button', { name: /^Actions for/ }).click();
     await page.getByRole('menuitem', { name: label, exact: true }).click();
     await expect(page.getByRole('menuitem', { name: label, exact: true })).not.toBeVisible();
-    if (label === 'Edit details' || label === 'Rename') await expect(page.locator('.media-details-dialog')).toBeVisible();
+    if (label === 'Edit details…' || label === 'Rename') await expect(page.locator('.media-details-dialog')).toBeVisible();
   }
   await action(reel, 'Rename');
   const details = page.locator('.reel-details-dialog'); await expect(details).toBeVisible();
@@ -1078,8 +1078,8 @@ for (const narrow of [false, true]) {
 async function openImport(page) {
   const close = page.locator('.workspace-right .workspace-drawer-heading [data-close-pane]');
   if (await close.isVisible()) await close.click();
-  const menu = page.locator('.asset-import-menu'); if (!await menu.evaluate(d => d.open)) await menu.locator('summary').click();
-  await menu.getByRole('button', {name:'Import reel',exact:true}).click();
+  await page.locator('.asset-import-menu').getByRole('button', { name: 'Import', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Import reel…', exact: true }).click();
 }
 
 test('a reel keeps its own LoRAs beside its references, apart from the preset', async ({ page, request }) => {

@@ -22,7 +22,7 @@ for (const narrow of [false, true]) test(`look descriptions and identity-backed 
   await expect(notes).toContainText(look.description);
   expect(await page.locator('#image-prompt').inputValue()).toContain(look.description);
   await expect(page.locator('.compact-image-input img')).toHaveAttribute('src', new RegExp(owner.images[0].id));
-  await expect(page.locator('#assets-tool-heading')).toHaveText('Create image');
+  await expect(page.locator('.asset-tool-shell .pane-title')).toHaveText('Create image');
   await page.locator('#image-prompt').fill('My authored raincoat direction.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
   await page.screenshot({ path: `test-results/asset-look-composer-${narrow ? 'narrow' : 'desktop'}.png`, fullPage: true });

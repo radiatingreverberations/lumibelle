@@ -90,7 +90,7 @@ test('queued guidance cancels explicitly and preserves a newer local draft when 
   } finally {
     if (await review(page).isVisible()) { await review(page).getByRole('button', { name: 'Close', exact: true }).click(); await expect(review(page)).toBeHidden(); }
     const details = page.locator('.asset-details-dialog');
-    if (await details.isVisible()) await details.getByRole('button', { name: 'Close', exact: true }).click();
+    if (await details.isVisible()) await details.getByRole('button', { name: 'Done', exact: true }).click();
     const closeTools = page.getByRole('button', { name: 'Close Asset tools', exact: true });
     if (await closeTools.isVisible()) await closeTools.click();
     await pause(page, false);

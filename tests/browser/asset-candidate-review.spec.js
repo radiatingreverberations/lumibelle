@@ -24,7 +24,7 @@ for (const width of [1280, 390]) test(`candidate review keeps, discards and undo
   await expect(dialog.getByRole('button', { name: 'Discard all remaining takes (4)', exact: true })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.locator('.asset-media-gallery .asset-media-card')).toHaveCount(0);
-  await expect(page.locator('.asset-pending-review')).toContainText('4 candidates');
+  await expect(page.locator('.asset-pending-review')).toContainText('4 takes');
   await launch.click();
   await dialog.getByRole('button', { name: 'Keep as take', exact: true }).first().click();
   await expect(dialog.locator('.bulk-candidate')).toHaveCount(3);

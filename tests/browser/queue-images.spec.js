@@ -124,7 +124,7 @@ test('image jobs release the page and keep other asset drafts and cancellation i
     await page.locator('#image-prompt').fill('Keep this other asset draft');
     await chooseAsset(page, 0);
     await expect(page.locator('#image-prompt')).toHaveValue('');
-    await page.locator('.asset-image-request').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.locator('.asset-image-request').getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect(page.locator('#image-prompt')).toBeEnabled();
     await expect(page.locator('.generation-panel')).toContainText('Generation cancelled');
     await chooseAsset(page, 1);
@@ -193,7 +193,7 @@ test('the same asset queues another image request while the first waits', async 
     await expect(page.locator('.workspace-status')).toContainText('2 queued image requests');
     expect((await jobs(request, id)).map(j => j.state)).toEqual(['Waiting', 'Waiting']);
     await page.screenshot({ path: 'artifacts/queued-image-requests.png' });
-    await page.locator('.asset-image-request').first().getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.locator('.asset-image-request').first().getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect(page.locator('.asset-image-request')).toHaveCount(1);
     await expect(page.locator('.asset-image-request .ai-queue-wait')).toBeVisible(); // A single request shows its full progress again.
     await expect(page.locator('.workspace-status')).toContainText('Queued');

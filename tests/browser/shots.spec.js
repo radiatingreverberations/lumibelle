@@ -406,9 +406,8 @@ test('character voice upload, excerpt selection and shot assignment', async ({ p
   await expect(page.locator('.asset-list-row.selected')).toHaveCount(1);
   await assetView(page, 'Voices');
   const importVoice = async () => {
-    if (!await page.getByRole('button', { name: 'Import voice', exact: true }).isVisible())
-      await page.locator('.asset-import-menu > summary').click();
-    await page.getByRole('button', { name: 'Import voice', exact: true }).click();
+    await page.locator('.asset-import-menu').getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Import voice…', exact: true }).click();
   };
   await importVoice();
   const voices = page.locator('.voice-dialog');
@@ -508,7 +507,7 @@ test('shared preservation defaults, local overrides and captured take guidance r
   await page.getByLabel('Character identity', { exact: true }).fill('Preserve her face and dark hair.');
   await assetView(page, 'Images');
   await expect.poll(async () => (await library()).assets.find(a => a.id === person.id).preservationGuidance).toBe('Preserve her face and dark hair.');
-  await imageAction(page, 'Edit details');
+  await imageAction(page, 'Edit details…');
   const imageReview = page.locator('.image-review-dialog');
   await imageReview.locator('.media-details-disclosure').filter({ has: page.getByText('Use guidance', { exact: true }) }).locator('summary').click();
   await imageReview.getByLabel('Use guidance', { exact: true }).fill('Preserve the gray hoodie.');

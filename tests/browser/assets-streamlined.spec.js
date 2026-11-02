@@ -29,10 +29,10 @@ for (const narrow of [false, true]) test(`asset details modal keeps the gallery 
   await expect(look).not.toBeVisible(); await expect(editor).toBeVisible();
   await expect.poll(async () => (await state(request, id)).assets[0].looks.some(l => l.name === 'Raincoat')).toBe(true);
   await editor.getByLabel('Asset name', { exact: true }).fill('');
-  await editor.getByRole('button', { name: 'Close', exact: true }).click();
+  await editor.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(editor).toBeVisible(); await expect(editor.getByRole('alert')).toContainText('Every asset needs a name');
   await editor.getByLabel('Asset name', { exact: true }).fill(library.assets[0].name);
-  await expect(editor.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
+  await expect(editor.getByRole('button', { name: 'Done', exact: true })).toBeInViewport();
   await page.screenshot({ path: `artifacts/asset-details-${narrow ? 'narrow' : 'desktop'}.png` });
   await editor.getByLabel('Asset name', { exact: true }).focus(); await page.keyboard.press('Escape');
   await expect(editor).not.toBeVisible(); await expect(open).toBeFocused();

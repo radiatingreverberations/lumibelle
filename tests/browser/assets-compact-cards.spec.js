@@ -67,7 +67,7 @@ for (const narrow of [false,true]) test(`compact cards preview thumbnails, selec
  // Keyboard selection keeps follow-up tools separate from metadata editing.
  await card(reel.id).locator('.media-select').focus(); await page.keyboard.press('Enter');
  const details=page.locator('.reel-details-tools'); await expect(details).toBeVisible();
- await details.getByRole('button',{name:'Edit details',exact:true}).click();
+ await details.getByRole('button',{name:'Edit details…',exact:true}).click();
  const modal=page.locator('.reel-details-dialog');
  await modal.locator('summary').getByText('Use guidance',{exact:true}).click();
  await modal.getByLabel('Use guidance',{exact:true}).fill('Keep the reviewed rear silhouette.');
