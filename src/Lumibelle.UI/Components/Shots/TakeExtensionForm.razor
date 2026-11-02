@@ -41,14 +41,14 @@
     </fieldset>
     <p class="field-hint">Standard sampling · fresh latents retained. Review the result, then explicitly select it for production.</p>
     @if ((Error ?? _error) is { } error) { <p role="alert">@error</p> }
-    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel preparing" : "Cancel")</button><button class="primary-action" disabled="@(Busy || _composing || Generation is null || string.IsNullOrWhiteSpace(_action) || _referenceReview && !_promptReviewed)" @onclick="() => Queue.InvokeAsync(Options)">@(Leading ? "Queue lead-in" : "Queue extension")</button></div>
+    <div class="shots-actions"><button @onclick="Cancel">@(Busy ? "Cancel preparing" : "Cancel")</button><button type="button" class="lumi-button primary" disabled="@(Busy || _composing || Generation is null || string.IsNullOrWhiteSpace(_action) || _referenceReview && !_promptReviewed)" @onclick="() => Queue.InvokeAsync(Options)">@(Leading ? "Queue lead-in" : "Queue extension")</button></div>
 </section>
-<InlineDialog Visible="_referencesOpen" VisibleChanged="v => _referencesOpen = v" Options="ReferenceDialogOptions" Class="shot-reference-dialog" Title="Manage references" Context="@(Leading ? "This lead-in only" : "This extension only")" CloseLabel="Close extension references"><DialogContent>
+<InlineDialog Visible="_referencesOpen" VisibleChanged="v => _referencesOpen = v" Options="DialogSizes.Media" Class="shot-reference-dialog" Title="Manage references" Context="@(Leading ? "This lead-in only" : "This extension only")" CloseLabel="Close extension references"><DialogContent>
     @if (_referenceDraft is not null && _referenceLibrary is not null) {
         <ShotReferenceEditor @key="_referenceDraft" Shot="_referenceDraft" Library="_referenceLibrary" AllowReels="true" AllowOtherShotSwaps="false" ReferencesApplied="ApplyReferences" ImageSaved="s => _referenceLibrary = s.Library" Cancelled="() => _referencesOpen = false" />
     }
 </DialogContent></InlineDialog>
-<AiAssistDialog Visible="_compositionOpen" VisibleChanged="v => _compositionOpen = v" Title="@(Leading ? "Lead-in prompt response" : "Extension prompt response")" Class="text-request-dialog"><ChildContent>
+<AiAssistDialog Visible="_compositionOpen" VisibleChanged="v => _compositionOpen = v" Title="@(Leading ? "Lead-in prompt response" : "Extension prompt response")" Context="@Source.Snapshot.Shot.Title" CloseLabel="Close prompt response" Class="text-request-dialog"><ChildContent>
     @if (CompositionJob is { } job) {
         <AiResultAcknowledgement Observed="@(_compositionResult is not null ? new[] { job } : [])" />
         <AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
@@ -76,7 +76,6 @@
     private TakeExtensionReferences? _references;
     private Shot? _referenceDraft;
     private AssetLibrary? _referenceLibrary;
-    private static readonly DialogOptions ReferenceDialogOptions = new() { FullWidth = true, MaxWidth = MaxWidth.ExtraLarge, CloseButton = false, BackdropClick = false };
     private string _action = "", _dialogue = "", _destination = "";
     private string? _prompt, _error, _compositionError;
     private TextModelSelectionState? _model;

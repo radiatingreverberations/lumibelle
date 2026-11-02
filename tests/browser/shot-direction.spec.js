@@ -85,7 +85,7 @@ for (const width of [1440, 430]) {
     await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
     if (await page.getByRole('button', { name: 'Show Shots', exact: true }).isVisible())
       await page.getByRole('button', { name: 'Show Shots', exact: true }).click();
-    await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+    await page.getByRole('button', { name: 'Add shot', exact: true }).click();
     if (width === 430) {
       await page.getByRole('button', { name: 'Appearance', exact: true }).click();
       await page.getByLabel(/^Dark appearance/).click();
@@ -121,7 +121,7 @@ test('a changed authored target blocks a captured single-shot redraft and expose
   await request.post(`/fixtures/${id}/production-shot`);
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await page.locator('.shot-draft-assist').getByRole('button', { name: 'Draft this shot', exact: true }).click();
   await page.locator('.ai-assist-dialog').getByRole('button', { name: 'Draft shot', exact: true }).click();
   const review = page.locator('.shot-draft-dialog');

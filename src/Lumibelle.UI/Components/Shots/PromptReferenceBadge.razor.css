@@ -4,10 +4,10 @@
     width: fit-content;
     margin-top: .25rem;
     padding: .1rem .4rem;
-    border: 1px solid var(--mud-palette-warning, #b56b12);
+    border: 1px solid var(--lumi-warning-border);
     border-radius: var(--lumi-radius-control);
-    color: var(--mud-palette-text-primary, #302d33);
-    font-size: .75rem;
+    color: var(--lumi-text);
+    font-size: var(--lumi-font-size-small);
     font-weight: 600;
     line-height: 1.4;
     white-space: normal;

@@ -77,7 +77,6 @@ public partial class ProductionStudio
     private SavedAssetImage? _savedFrameImage;
     private readonly HashSet<Guid> _missing = [], _autoReviewed = [];
     private ShotTake? ReviewTake => _doc.Takes.FirstOrDefault(t => t.Id == _reviewTakeId);
-    private DialogOptions LargeDialog => new() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
     private string SettingsUrl => AiSettingsNavigation.Link(Navigation, "video", Id, "shots");
     private string EffectiveAspect(Shot s) => _project is null ? s.Aspect : ShotVideoDefaults.Aspect(s, _project);
     private string LatentsSize(Shot s)
@@ -314,7 +313,7 @@ public partial class ProductionStudio
             catch (Exception e) when (e is JSDisconnectedException or JSException) { }
         }
         if (_focusAfterShotDeletion) { _focusAfterShotDeletion = false; try { await JS.InvokeVoidAsync("lumibelleShots.focusAfterDeletion", _doc.Shots.Count > 0 ? _bulkDeleteButton : _addShotButton); } catch (JSDisconnectedException) { } }
-        if (_focusPlanningClose && _planningOpen) { _focusPlanningClose = false; try { await _planningCloseElement.FocusAsync(); } catch (JSDisconnectedException) { } }
+        if (_focusPlanningClose && _planningOpen) { _focusPlanningClose = false; try { if (_planningCloseElement is not null) await _planningCloseElement.FocusAsync(); } catch (JSDisconnectedException) { } }
         await HandleRequestedPlanningAsync();
         await HandleRequestedVideoAsync();
         await HandleRequestedAssetPickAsync();

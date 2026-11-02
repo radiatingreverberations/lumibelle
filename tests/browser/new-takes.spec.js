@@ -21,10 +21,10 @@ test('review distinguishes the chosen take from the take being viewed', async ({
   const firstId = await first.locator('[data-shot-take]').getAttribute('data-shot-take');
   await first.getByRole('button', { name: 'Use this take', exact: true }).click();
   await second.locator('[data-shot-take]').click();
-  await expect(first.locator('.take-selected-badge')).toHaveText('Selected');
+  await expect(first.locator('.selected-take-badge')).toHaveText('Selected');
   await expect(first.locator('.take-viewing-badge')).toHaveCount(0);
   await expect(second.locator('.take-viewing-badge')).toHaveText('Viewing');
-  await expect(second.locator('.take-selected-badge')).toHaveCount(0);
+  await expect(second.locator('.selected-take-badge')).toHaveCount(0);
   await expect(first.getByRole('button', { name: 'Discard', exact: true })).toBeDisabled();
   await expect(second.getByRole('button', { name: 'Discard', exact: true })).toBeEnabled();
   expect((await state()).shots[0].selectedTakeId).toBe(firstId);
@@ -45,9 +45,9 @@ test('review distinguishes the chosen take from the take being viewed', async ({
   // Viewing the chosen take can show both states; browsing never adopts a take.
   await first.locator('[data-shot-take]').click();
   await expect(first.locator('.take-viewing-badge')).toHaveText('Viewing');
-  await expect(first.locator('.take-selected-badge')).toHaveText('Selected');
+  await expect(first.locator('.selected-take-badge')).toHaveText('Selected');
   await first.getByRole('button', { name: 'Deselect take', exact: true }).click();
-  await expect(review.locator('.take-selected-badge')).toHaveCount(0);
+  await expect(review.locator('.selected-take-badge')).toHaveCount(0);
   await expect(first.locator('.take-viewing-badge')).toHaveText('Viewing');
 });
 

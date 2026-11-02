@@ -60,7 +60,7 @@ test('refine selected takes as a held background batch', async ({ page, request,
 
   await reopened.getByRole('button', { name: 'Start batch', exact: true }).click();
   // A batch that finishes unseen marks Batches as new; showing its clips clears the mark.
-  await reopened.getByRole('button', { name: 'Done', exact: true }).click();
+  await reopened.getByRole('button', { name: 'Close', exact: true }).click();
   await returned.locator('[data-workspace-group=center]').getByRole('tab', { name: 'Shot', exact: true }).click();
   const batchesButton = returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
   await expect(batchesButton.locator('.tab-new')).toHaveText('1', { timeout: 60000 });
@@ -106,7 +106,7 @@ test('refinement batches close from the header, Done and Escape, and reopen', as
   const open = page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true });
   const dialog = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
   for (const close of [() => page.getByRole('button', { name: 'Close refinement batches', exact: true }).click(),
-    () => dialog.getByRole('button', { name: 'Done', exact: true }).click(), () => page.keyboard.press('Escape')]) {
+    () => dialog.getByRole('button', { name: 'Close', exact: true }).click(), () => page.keyboard.press('Escape')]) {
     await open.click();
     await expect(dialog).toContainText('No refinement batches yet');
     await close();

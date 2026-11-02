@@ -6,8 +6,8 @@
 @inject IAiJobStore JobStore
 @inject IAiReviewGate Reviews
 
-<InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false })"
-    Class="environment-view-dialog" Title="Choose environment views" Context="@_request?.AssetName" CloseDisabled="@(_working || _applying)">
+<InlineDialog Visible="_open" VisibleChanged="visible => visible ? Task.CompletedTask : Close()" Options="DialogSizes.Media" CloseOnEscape="@(!_working && !_applying)"
+    Class="environment-view-dialog" Title="Choose environment views" Context="@_request?.AssetName" CloseLabel="Close choose environment views" CloseDisabled="@(_working || _applying)">
 <DialogContent>
     @if (HistoryOnly) { <p>This saved selection is read-only. Use Edit references to change the pictures attached to a shot.</p> }
     @if (_open && !HistoryOnly) {
@@ -82,27 +82,34 @@
     @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre class="environment-response">@_raw</pre></details> }
 </DialogContent>
 <DialogActions>
-    @if (_request is not null && StageIssue is { } issue) { <p class="environment-apply-issue" role="status">@issue</p> }
-    <div class="environment-review-actions">
+    <DialogFooter Status="@(_request is not null && StageIssue is not null ? ApplyIssue : null)" Tools="@(HistoryOnly ? null : ComposerTools)">
     @if (HistoryOnly) { <MudButton OnClick="Close">Close</MudButton> }
-    else if (_working) { <MudButton OnClick="CancelRequest">Cancel request</MudButton> }
-    else {
+    else if (!_working) {
         <MudButton OnClick="Close" Disabled="@_applying">Cancel</MudButton>
         @if (_request is null && _assetId is not null) {
-            <MudButton OnClick="ApplyLibrary" Disabled="@(_preparing || _applying || !Library.Assets.Any(a => a.Id == _assetId && a.Category == AssetCategory.Environment))" Variant="Variant.Outlined">Use environment</MudButton>
-            <MudButton OnClick="PrepareManual" Disabled="@(_preparing || _applying)">Browse views</MudButton>
             <MudButton Class="ai-assist-action environment-apply" OnClick="PrepareSelection" Disabled="@(_preparing || _applying || _model?.Ready != true || !_model.SupportsImages)" Color="Color.Primary" Variant="Variant.Filled"><AiAssistIcon />Choose views with AI</MudButton>
         }
         @if (_assetId is null) { <MudButton Class="environment-apply" OnClick="ApplyLibrary" Disabled="@(_preparing || _applying)" Color="Color.Primary" Variant="Variant.Filled">Use no environment</MudButton> }
-        @if (_request is not null && _capture is null) { <MudButton OnClick="PrepareSelection" Disabled="@(_preparing || _applying || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views again</MudButton> }
-        @if (_capture is not null) { <MudButton Class="ai-assist-action environment-choose" OnClick="Run" Disabled="@(EnvironmentViews.Available(_request!.Shot, _removed) == 0 || _request.Pool.Count == 0 || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views</MudButton> }
         @if (_request is not null) { <MudButton Class="environment-apply" OnClick="Apply" Disabled="@(StageIssue is not null || _preparing || _applying)" Color="Color.Primary" Variant="Variant.Filled">Apply views</MudButton> }
     }
-    </div>
+    </DialogFooter>
 </DialogActions>
 </InlineDialog>
 
 @code {
+    private RenderFragment ApplyIssue => @<p class="environment-apply-issue" role="status">@StageIssue</p>;
+    // Secondary steps sit on the left of the footer; the one primary for the current state is last on the right.
+    private RenderFragment ComposerTools => @<text>
+        @if (_working) { <MudButton OnClick="CancelRequest" StartIcon="@Icons.Material.Outlined.StopCircle">Cancel request</MudButton> }
+        else {
+            @if (_request is null && _assetId is not null) {
+                <MudButton OnClick="ApplyLibrary" Disabled="@(_preparing || _applying || !Library.Assets.Any(a => a.Id == _assetId && a.Category == AssetCategory.Environment))" Variant="Variant.Outlined">Use environment</MudButton>
+                <MudButton OnClick="PrepareManual" Disabled="@(_preparing || _applying)" Variant="Variant.Outlined">Browse views</MudButton>
+            }
+            @if (_request is not null && _capture is null) { <MudButton OnClick="PrepareSelection" Variant="Variant.Outlined" Disabled="@(_preparing || _applying || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views again</MudButton> }
+            @if (_capture is not null) { <MudButton Class="ai-assist-action environment-choose" Variant="Variant.Outlined" OnClick="Run" Disabled="@(EnvironmentViews.Available(_request!.Shot, _removed) == 0 || _request.Pool.Count == 0 || _model?.Ready != true || !_model.SupportsImages)"><AiAssistIcon />Choose views</MudButton> }
+        }
+    </text>;
     [Parameter] public bool HistoryOnly { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid CompositionId { get; set; }

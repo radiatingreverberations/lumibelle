@@ -99,7 +99,7 @@ test('copying references from the previous shot adds its production take\'s last
   await shotAction(page, 'Duplicate');
   await expect.poll(async () => (await shots(request, project)).shots.length).toBe(2);
   const picker = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Manage references', exact: true }) });
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   // The last frame can be added on its own, after the images, without copying the other references.
   await picker.getByRole('group', { name: 'Reference sources' }).getByRole('button', { name: 'Shot frames', exact: true }).click();
   await picker.getByRole('button', { name: 'Add picture', exact: true }).click();

@@ -48,12 +48,13 @@ test('bulk delete includes explicitly acknowledged production takes, preserves A
   await dialog.getByRole('button', { name: 'Delete 2 shots', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect.poll(async () => (await state()).shots.length).toBe(0);
-  await expect(page.getByRole('button', { name: '+ Shot', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add shot', exact: true })).toBeFocused();
   let saved = await state(); expect(saved.takes).toHaveLength(0); expect(saved.trash).toHaveLength(1);
   expect(saved.trash[0].take.id).toBe(original.selectedTakeId);
   expect((await (await request.get(`/fixtures/${id}`)).json()).assets).toEqual(assetsBefore);
   await page.reload();
-  await page.getByRole('button', { name: 'Recovery', exact: true }).click();
+  await page.getByRole('button', { name: 'Shots options', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Recovery…', exact: true }).click();
   const recovery = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Shot recovery' }) });
   await recovery.getByRole('button', { name: 'Restore draft', exact: true }).first().click();
   await expect.poll(async () => (await state()).shots.length).toBe(2);

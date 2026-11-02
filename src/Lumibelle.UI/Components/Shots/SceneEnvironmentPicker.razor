@@ -8,8 +8,8 @@
 @inject IAiJobStore JobStore
 @inject IAiReviewGate Reviews
 
-<InlineDialog Visible="_open" VisibleChanged="v => v ? Task.CompletedTask : Back()" Title="Environment for drafting" Context="@_title" CloseDisabled="@(_working || _preparing)"
-    Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, BackdropClick = false })" Class="scene-environment-dialog">
+<InlineDialog Visible="_open" VisibleChanged="v => v ? Task.CompletedTask : Back()" Title="Environment for drafting" Context="@_title" CloseDisabled="@(_working || _preparing)" CloseLabel="Close environment for drafting"
+    Options="DialogSizes.Media" CloseOnEscape="@(!_working && !_preparing)" Class="scene-environment-dialog">
 <DialogContent>
     <EnvironmentAssetSelect ProjectId="ProjectId" Library="Library" AssetId="_asset" AssetIdChanged="ChangeAsset" Disabled="@(HistoryOnly || _working || _preparing)" Purpose="Choose inspection views for drafting; generation references stay separate." />
     <p class="field-hint">These views help plan the scene. Each shot chooses its generation references separately.</p>
@@ -51,19 +51,21 @@
     }</details> }
     @if (_job is not null) { <details><summary>Request and response</summary><AiTextRequestDetails JobId="_job.Id" /><pre>@_raw</pre></details> }
 </DialogContent>
-<DialogActions>
-    @if (HistoryOnly) { <MudButton OnClick="Back">Close</MudButton> }
-    else if (_working) { <MudButton OnClick="Cancel">Cancel request</MudButton> }
-    else {
-        <MudButton OnClick="Back" Disabled="_preparing">Back</MudButton>
-        @if (_asset is null) { <MudButton OnClick="UseNone" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton> }
-        else {
-            @if (_pool is null) { <MudButton OnClick="Browse" Disabled="_preparing">Browse views</MudButton> }
-            <MudButton Class="ai-assist-action" OnClick="Run" Disabled="@(_preparing || _model?.Ready != true || !_model.SupportsImages)" Variant="Variant.Outlined"><AiAssistIcon />Choose views with AI</MudButton>
-            <MudButton OnClick="Apply" Disabled="@(_preparing || _selected.Count > ComfyTextVision.MaximumImages)" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton>
-        }
+<Tools>
+    @if (!HistoryOnly && _working) { <MudButton OnClick="Cancel" StartIcon="@Icons.Material.Outlined.StopCircle">Cancel request</MudButton> }
+    else if (!HistoryOnly && _asset is not null) {
+        @if (_pool is null) { <MudButton OnClick="Browse" Disabled="_preparing" Variant="Variant.Outlined">Browse views</MudButton> }
+        <MudButton Class="ai-assist-action" OnClick="Run" Disabled="@(_preparing || _model?.Ready != true || !_model.SupportsImages)" Variant="Variant.Outlined"><AiAssistIcon />Choose views with AI</MudButton>
     }
-</DialogActions>
+</Tools>
+<Actions>
+    @if (HistoryOnly) { <MudButton OnClick="Back">Close</MudButton> }
+    else if (!_working) {
+        <MudButton OnClick="Back" Disabled="_preparing">Cancel</MudButton>
+        @if (_asset is null) { <MudButton OnClick="UseNone" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton> }
+        else { <MudButton OnClick="Apply" Disabled="@(_preparing || _selected.Count > ComfyTextVision.MaximumImages)" Color="Color.Primary" Variant="Variant.Filled">Save scene setup</MudButton> }
+    }
+</Actions>
 </InlineDialog>
 
 @code {
@@ -177,7 +179,7 @@
                 Inspection = new(_operation, _inspected.ToArray(), _pool.Candidates.Where(c => !_inspected.Contains(c.Id)).Select(c => c.Id).ToArray(), _pool.Unavailable,
                     _result is not null && _pool.Candidates.All(c => _inspected.Contains(c.Id))) };
             var current = await Requests.CaptureEnvironmentSourcesAsync(ProjectId, _pool.AssetId, _life.Token);
-            if (_pool.Guidance != current.Guidance) throw new WorkspaceStoreException("Environment guidance changed. Go Back and review a fresh selection.");
+            if (_pool.Guidance != current.Guidance) throw new WorkspaceStoreException("Environment guidance changed. Cancel and review a fresh selection.");
             _ = DraftingEnvironments.Snapshot(_scene, setup, current);
             await Applied.InvokeAsync(setup);
             _open = false; await Closed.InvokeAsync();

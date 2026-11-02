@@ -1,17 +1,17 @@
 @inherits ProjectAwareComponent
 <StudioWorkspace @ref="_workspace" Studio="Scenes" ProjectId="ProjectId" LeftLabel="Scenes" RightLabel="Scene environment" SelectionKey="@SceneId?.ToString()" Busy="Busy">
-    <Left><StudioPane Label="Scenes" Class="scenes-outline"><Header><h2>Scenes <small>@Scenes.Count</small></h2></Header><ChildContent>
+    <Left><StudioPane Label="Scenes" Class="scenes-outline" Title="Scenes" Count="@Scenes.Count.ToString()"><ChildContent>
         @foreach (var entry in Scenes.Select((scene, index) => (Scene: scene, Number: index + 1))) {
             var count = Document.Shots.Count(s => s.SceneId == entry.Scene.Id);
             <button data-scene-id="@entry.Scene.Id" @key="entry.Scene.Id" class="scene-outline-item @(entry.Scene.Id == SceneId ? "selected" : null)" aria-pressed="@(entry.Scene.Id == SceneId)" @onclick="() => Select(entry.Scene.Id)">
                 <strong>@entry.Number. @entry.Scene.Title</strong><small>@count @(count == 1 ? "shot" : "shots")</small>
             </button>
         }
-        @if (Scenes.Count == 0 && !Busy) { <p>Add scene headings in <a href="@ProjectLink(ProjectId, "/script")">Script</a> to begin planning.</p> }
+        @if (Scenes.Count == 0 && !Busy) { <EmptyState Compact="true" HeadingLevel="3" Title="No scenes yet">Add scene headings in <a href="@ProjectLink(ProjectId, "/script")">Script</a> to begin planning.</EmptyState> }
         @if (MissingSetups.Any()) { <details><summary>Unavailable script scenes</summary>@foreach (var setup in MissingSetups) { <p>@setup.SceneTitle · saved setup retained</p> }</details> }
     </ChildContent></StudioPane></Left>
     <Center><StudioPane Label="Scene planning" Class="scene-planning"><Header>
-        @if (Current is { } scene) { <div class="scene-hub-heading"><h1>@scene.Title</h1></div><div class="scene-hub-actions"><a href="@ProjectLink(ProjectId, "/script")">Edit in Script</a></div> }
+        @if (Current is { } scene) { <div class="scene-hub-heading"><h2 class="scene-hub-title">@scene.Title</h2></div><div class="scene-hub-actions"><a href="@ProjectLink(ProjectId, "/script")">Edit in Script</a></div> }
     </Header><ChildContent>
         @if (Current is { } selected) {
             <details class="scene-hub-section" open><summary>Script excerpt</summary><pre class="shot-source">@Excerpt</pre></details>
@@ -44,14 +44,14 @@
         }
     </ChildContent></StudioPane></Center>
     @* The scene's main action sits at the foot of its tools, as Generate does in Shots. *@
-    <Right><StudioPane Label="Scene environment" Class="scene-environment" Footer="@(Current is null ? null : Planning)"><Header><h2>Environment</h2></Header><ChildContent>
+    <Right><StudioPane Label="Scene environment" Class="scene-environment" Title="Environment" Footer="@(Current is null ? null : Planning)"><ChildContent>
         @if (Current is { } environmentScene) {
             var setup = Document.SceneSetups.FirstOrDefault(s => s.SceneId == environmentScene.Id)?.Environment;
             <div class="scene-environment-summary">
                 <strong>@(setup is null ? "No environment" : Library.Assets.FirstOrDefault(a => a.Id == setup.AssetId)?.Name ?? "Unavailable environment")</strong>
                 <small>@(setup is null ? "Script only" : $"{setup.Views.Count} inspection views")</small>
             </div>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="() => EditEnvironment.InvokeAsync(environmentScene.Id)">Choose environment views</MudButton>
+            <MudButton Variant="Variant.Outlined" FullWidth="true" OnClick="() => EditEnvironment.InvokeAsync(environmentScene.Id)">Choose environment views</MudButton>
             @if (setup is not null) {
                 @if (!string.IsNullOrWhiteSpace(setup.Constraints)) { <details class="scene-staging-constraints"><summary>Staging constraints</summary><p>@setup.Constraints</p></details> }
                 <div class="scene-inspection-thumbnails">@foreach (var view in setup.Views) {

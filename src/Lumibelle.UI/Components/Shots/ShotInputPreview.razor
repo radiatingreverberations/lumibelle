@@ -30,7 +30,7 @@
         <p>@ResolvedReferences.For(Shot).Label(video) · @video.Name</p>
         @if (video.EffectiveVisuals == ReelVisuals.RefMod) { <p>Full visual RefMod · @ReelRefMods.Summary(video)</p><p class="field-hint">Selected still views, not the full source reel. Voice is separate.</p> }
         @if (video.EffectiveVisuals == ReelVisuals.FullReel) {
-            <video controls preload="none" style="width:100%;max-height:260px" src="@ReferenceVideos.Url(ProjectId, video.Media.Id)"></video>
+            <video class="shot-input-video" controls preload="none" src="@ReferenceVideos.Url(ProjectId, video.Media.Id)"></video>
             <small>Preview of original clip; generation uses its first @ReferenceVideos.EffectiveSeconds(video.Media, Shot).ToString("0.###") s.</small>
         } else if (video.UseSoundtrack) {
             var excerpt = ResolvedReferences.Excerpt(video);

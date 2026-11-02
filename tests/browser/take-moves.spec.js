@@ -16,7 +16,7 @@ test('move selected takes to another shot with provenance and regeneration intac
   await expect.poll(async () => (await state()).takes.length, { timeout: 45000 }).toBe(2);
   await page.locator('.shot-review-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   const original = await state();
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect.poll(async () => (await state()).shots.length).toBe(2);
   const destination = (await state()).shots[1];
   await page.locator(`[data-shot-id='${original.shots[0].id}']`).click();
