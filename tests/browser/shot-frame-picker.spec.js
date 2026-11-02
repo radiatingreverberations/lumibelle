@@ -28,7 +28,7 @@ async function setup(page, request, width) {
   await page.goto(`/projects/${id}/shots?shotId=${target.id}`);
   await toolsTab(page, 'References');
   const editor = page.getByRole('dialog', { name: 'Manage references', exact: true });
-  await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
   await editor.getByRole('button', { name: 'Juniper General · Juniper Add image', exact: true }).click();
   if (width < 600) await editor.getByRole('tab', { name: /Selected references/ }).click();
   await expect(editor.getByRole('heading', { name: 'Pictures · 1/9', exact: true })).toBeVisible();
@@ -39,7 +39,7 @@ async function setup(page, request, width) {
   await expect(page.getByText('References saved.', { exact: true })).toBeVisible();
   await expect(page.getByText(/Check prompt · References changed/)).toHaveCount(0);
   const open = async () => {
-    await page.getByRole('button', { name: 'Edit references', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit references…', exact: true }).click();
     await editor.getByRole('group', { name: 'Reference sources' }).getByRole('button', { name: 'Shot frames', exact: true }).click();
     await expect(editor.getByRole('button', { name: 'Shot frames', exact: true })).toHaveAttribute('aria-pressed', 'true');
   };

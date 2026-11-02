@@ -127,7 +127,7 @@ for (const narrow of [false, true]) test(`keyframe defaults and setup overrides 
   await expect(page.getByRole('button', { name: `Actions for ${reel.name}`, exact: true })).toBeFocused();
 
   await page.goto(`/projects/${id}/shots`); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   await refs.locator(`[data-reel-id="${reel.id}"] .add-reel`).click();
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
@@ -161,7 +161,7 @@ for (const narrow of [false, true]) test(`keyframe defaults and setup overrides 
   await reelTile.click();
   await expect(page.getByLabel('Reference video playback', { exact: true })).toHaveAttribute('src', new RegExp(`/reference-videos/${reel.media.id}$`));
   await page.getByRole('button', { name: 'Close video preview', exact: true }).click();
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   if (narrow) await refs.getByRole('tab', { name: /Selected references/ }).click();
   await refs.locator('.video-reference-list .reference-settings-button').click();
   await refs.getByLabel('Visuals', { exact: true }).selectOption('None');
@@ -179,7 +179,7 @@ test('Compose sees exact keyframes and generation captures no video input', asyn
   test.setTimeout(90000);
   const { id, reel } = await fixture(page, request, false);
   await page.reload(); await toolsTab(page, 'References');
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const refs = page.locator('.manual-reference-dialog');
   await refs.locator('[data-reference]').first().click();
   await refs.locator(`[data-reel-id="${reel.id}"] .add-reel`).click();

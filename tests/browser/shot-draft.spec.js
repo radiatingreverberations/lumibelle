@@ -7,7 +7,7 @@ test('an added shot is drafted from its scene with directions, reviewed, applied
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/projects/${id}/shots`);
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(page.getByLabel('Shot title', { exact: true })).toHaveValue('Untitled shot');
   const shots = async () => (await (await request.get(`/fixtures/${id}/shots`)).json()).shots;
 

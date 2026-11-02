@@ -30,7 +30,7 @@ test('archive cleanup confirms exact selections and preserves videos, provenance
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'test-results/storage-cleanup-mobile.png', fullPage: true });
   await page.getByRole('button', { name: 'Remove selected archives (1)', exact: true }).click();
-  await confirm.getByRole('button', { name: 'Remove archives permanently' }).click();
+  await confirm.getByRole('button', { name: 'Remove permanently' }).click();
   await expect(page.locator('.archive-cleanup-row')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Refresh archives' })).toBeFocused();
   const doc = await state(request, first.project.id); const removed = doc.takes.find(t => t.candidate === 1);
@@ -60,7 +60,7 @@ test('select all includes every page in the selected project only', async ({ pag
   await expect(page.locator('.archive-cleanup-row')).toHaveCount(2);
   await page.getByRole('button', { name: 'Select all in this project scope', exact: true }).click();
   await page.getByRole('button', { name: 'Remove selected archives (26)', exact: true }).click();
-  await page.locator('.archive-cleanup-confirm').getByRole('button', { name: 'Remove archives permanently' }).click();
+  await page.locator('.archive-cleanup-confirm').getByRole('button', { name: 'Remove permanently' }).click();
   await expect(page.getByText('No lossless archives to remove', { exact: true })).toBeVisible({ timeout: 45000 });
   expect((await state(request, first.project.id)).takes.every(t => t.frameArchiveRemoval?.completedUtc)).toBeTruthy();
   expect((await state(request, other.project.id)).takes[0].frames).toHaveLength(39);

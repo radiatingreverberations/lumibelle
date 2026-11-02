@@ -22,7 +22,7 @@ test('global generation presets follow shots and projects while prompts and refe
   const editor = page.getByRole('textbox', { name: 'H3 prompt', exact: true });
   await editor.fill('First shot only.');
   await closeShotSetup(page);
-  await page.getByRole('button', { name: /^(?:Edit|Manage) references$/, exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Edit|Manage) references…?$/, exact: true }).click();
   const picker = page.locator('.manual-reference-dialog');
   await picker.locator('[data-reference]').first().click();
   await picker.getByRole('button', { name: 'Apply changes', exact: true }).click();
@@ -81,7 +81,7 @@ test('global generation presets follow shots and projects while prompts and refe
   const current = await setups(id);
   expect(current.filter(c => c.shotId === current[0].shotId).every(c => c.prompt === 'First shot only.' && c.inputs.images.length === 1)).toBe(true);
   expect(current.filter(c => c.shotId === current[1].shotId).every(c => c.prompt === 'Second shot only.' && c.inputs.images.length === 0)).toBe(true);
-  await page.getByRole('button', { name: '+ Shot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shot', exact: true }).click();
   await expect(page.locator('.shot-list-row')).toHaveCount(3);
   await expect(page.locator('.shot-setup-summary select.generation-preset-select option:checked')).toHaveText('Seed Hunter');
   await openShotSetup(page);
