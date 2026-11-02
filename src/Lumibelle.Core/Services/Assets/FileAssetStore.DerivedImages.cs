@@ -16,12 +16,14 @@ public sealed partial class FileAssetStore
         long expectedRevision, CancellationToken cancellationToken = default)
     {
         var ct = cancellationToken;
+        // A frame saved with the whole picture selected is the same save as one without a crop, receipt included.
+        if (request is { Parent: null, Crop: { X: 0, Y: 0, Width: 1, Height: 1 } }) request = request with { Crop = null };
         if (request is null || request.ImageId == Guid.Empty || request.Destination is null ||
             request.Destination.AssetId == Guid.Empty || string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 240 ||
             request.Notes is null || request.Notes.Length > 12000 ||
             (request.TakeId is not null ? 1 : 0) + (request.Parent is not null ? 1 : 0) + (request.ReelFrame is not null ? 1 : 0) != 1 ||
-            request.ReelFrame is { } reel && (reel.ReelId == Guid.Empty || reel.Frame is null || request.FrameIndex is not null || request.Crop is not null) ||
-            request.TakeId is not null && (request.TakeId == Guid.Empty || request.FrameIndex is null or < 0 || request.Crop is not null) ||
+            request.ReelFrame is { } reel && (reel.ReelId == Guid.Empty || reel.Frame is null || request.FrameIndex is not null) ||
+            request.TakeId is not null && (request.TakeId == Guid.Empty || request.FrameIndex is null or < 0) ||
             request.Parent is not null && (request.Parent.AssetId == Guid.Empty || request.Parent.ImageId == Guid.Empty || request.Crop is null || request.FrameIndex is not null))
             throw new WorkspaceStoreException("Choose an exact source, destination, and image name.");
         if (request.Crop is { } crop && InvalidCrop(crop)) throw new WorkspaceStoreException("Choose a crop inside the source image.");
@@ -58,15 +60,16 @@ public sealed partial class FileAssetStore
             await using var source = await OpenDerivedSource(dir, current, request, ct);
             using var image = await Image.LoadAsync(source.Content, ct);
             image.Mutate(c => c.AutoOrient());
+            // Provenance records the full source size; the crop, when there is one, is applied after it.
             AssetImageSource provenance;
-            if (source.Frame is { } frame) provenance = new(Frame: frame);
-            else if (source.ReelFrame is { } reelFrame) provenance = new() { ReelFrame = reelFrame with { Width = image.Width, Height = image.Height } };
+            if (source.Frame is { } frame) provenance = new(Frame: frame with { Crop = request.Crop });
+            else if (source.ReelFrame is { } reelFrame) provenance = new() { ReelFrame = reelFrame with { Width = image.Width, Height = image.Height, Crop = request.Crop } };
             else
             {
                 var parent = request.Parent!;
                 provenance = new(Crop: new(projectId, parent.AssetId, parent.ImageId, request.Crop!, image.Width, image.Height));
-                image.Mutate(c => c.Crop(ImageGeometry.CropPixels(image.Width, image.Height, request.Crop!)));
             }
+            if (request.Crop is { } selection) image.Mutate(c => c.Crop(ImageGeometry.CropPixels(image.Width, image.Height, selection)));
             var added = new AssetImage { Id = request.ImageId, Name = request.Name.Trim(), PreservationGuidance = request.Notes.Trim(),
                 LookId = destination.LookId, FileName = request.ImageId.ToString("N") + ".png", ContentType = "image/png",
                 Width = image.Width, Height = image.Height, Origin = request.Parent is not null ? AssetImageOrigin.Cropped : AssetImageOrigin.VideoFrame,
@@ -137,13 +140,23 @@ public sealed partial class FileAssetStore
         if (source.ReelFrame is { } r) return image.Origin != AssetImageOrigin.VideoFrame || r.ProjectId == Guid.Empty || r.ReelId == Guid.Empty ||
             string.IsNullOrWhiteSpace(r.ReelName) || r.Frame is null || r.Frame.MediaId == Guid.Empty || r.Frame.Index < 0 ||
             !double.IsFinite(r.Frame.Seconds) || r.Frame.Seconds < 0 || r.Frame.Source is not { Length: 64 } || r.Frame.Source.Any(c => !Uri.IsHexDigit(c)) ||
-            r.Width != image.Width || r.Height != image.Height;
+            FrameSizeMismatch(r.Width, r.Height, r.Crop, image);
         if (source.Frame is { } f) return image.Origin != AssetImageOrigin.VideoFrame || f.ProjectId == Guid.Empty || f.ShotId == Guid.Empty || f.TakeId == Guid.Empty ||
             f.FrameIndex is < 0 or >= 362 || !double.IsFinite(f.Fps) || f.Fps != 24 || !double.IsFinite(f.Timestamp) || Math.Abs(f.Timestamp - f.FrameIndex / f.Fps) > 0.000001 ||
-            f.Width != image.Width || f.Height != image.Height;
+            FrameSizeMismatch(f.Width, f.Height, f.Crop, image);
         var c = source.Crop!;
         if (image.Origin != AssetImageOrigin.Cropped || c.ProjectId == Guid.Empty || c.AssetId == Guid.Empty || c.ImageId == Guid.Empty || c.SourceWidth <= 0 || c.SourceHeight <= 0 || c.Crop is null || InvalidCrop(c.Crop)) return true;
         var rect = ImageGeometry.CropPixels(c.SourceWidth, c.SourceHeight, c.Crop);
+        return image.Width != rect.Width || image.Height != rect.Height;
+    }
+
+    // A frame image is the whole frame, or exactly the recorded crop of it. The crop is checked before
+    // CropPixels, which throws on an invalid one, so a damaged record is reported rather than thrown.
+    private static bool FrameSizeMismatch(int width, int height, ImageCropRegion? crop, AssetImage image)
+    {
+        if (crop is null) return width != image.Width || height != image.Height;
+        if (width <= 0 || height <= 0 || InvalidCrop(crop)) return true;
+        var rect = ImageGeometry.CropPixels(width, height, crop);
         return image.Width != rect.Width || image.Height != rect.Height;
     }
 }

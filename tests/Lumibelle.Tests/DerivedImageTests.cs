@@ -176,6 +176,68 @@ public sealed partial class ShotTests
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.SaveDerivedImageAsync(f.Project.Id, request with { ImageId = Guid.NewGuid(), Crop = invalid }, saved.Library.Revision, _ct));
     }
 
+    [Fact]
+    public async Task CroppedTakeFrameKeepsTakeProvenanceAndStaysAContinuityFrame()
+    {
+        var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var d = await AddTake(f.Project.Id, f.Shots, shot); var take = d.Takes[0];
+        var crop = new ImageCropRegion { X = .2, Y = .1, Width = .5, Height = .6 };
+        var saved = await f.Assets.SaveDerivedImageAsync(f.Project.Id, FrameCopy(take) with { Crop = crop }, 0, _ct);
+        var image = Assert.Single(Assert.Single(saved.Library.Assets).Images);
+        Assert.Equal(AssetImageOrigin.VideoFrame, image.Origin); Assert.Equal((17, 20), (image.Width, image.Height));
+        Assert.Equal(new VideoFrameSource(f.Project.Id, shot.Id, take.Id, 5, 5 / 24d, 24, 32, 32) { Lossless = true, Crop = crop }, image.Source!.Frame);
+        Assert.True(ReferenceSetups.IsContinuity(saved.AssetId, image.Id, saved.Library));
+        await using (var original = await f.Shots.OpenAsync(f.Project.Id, take.Id, ShotTrashKind.Take, 5, ct: _ct))
+        await using (var copy = await f.Assets.OpenImageAsync(f.Project.Id, saved.AssetId, image.Id, _ct))
+        {
+            using var a = await Image.LoadAsync<Rgb24>(original!.Content, _ct);
+            a.Mutate(c => c.Crop(new Rectangle(6, 3, 17, 20)));
+            using var b = await Image.LoadAsync<Rgb24>(copy!.Content, _ct); AssertPixels(a, b);
+        }
+    }
+
+    [Fact]
+    public async Task AFullFrameCropSavesExactlyLikeAnUncroppedFrameAndSharesItsReceipt()
+    {
+        var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var d = await AddTake(f.Project.Id, f.Shots, shot);
+        var request = FrameCopy(d.Takes[0]);
+        var saved = await f.Assets.SaveDerivedImageAsync(f.Project.Id, request with { Crop = new() { X = 0, Y = 0, Width = 1, Height = 1 } }, 0, _ct);
+        var image = Assert.Single(saved.Library.Assets[0].Images);
+        Assert.Null(image.Source!.Frame!.Crop); Assert.Equal((32, 32), (image.Width, image.Height));
+        // An uncropped retry matches the same receipt rather than counting as different inputs.
+        var retry = await f.Assets.SaveDerivedImageAsync(f.Project.Id, request, 0, _ct);
+        Assert.Equal(image.Id, retry.ImageId); Assert.Single(retry.Library.Assets[0].Images);
+    }
+
+    [Fact]
+    public void UncroppedFrameSourcesSerializeExactlyAsBefore()
+    {
+        var frame = new VideoFrameSource(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 5, 5 / 24d, 24, 32, 32) { Lossless = true };
+        var reel = new ReelImageSource(Guid.NewGuid(), Guid.NewGuid(), "Turn", new(Guid.NewGuid(), new('A', 64), 3, .125), true, 32, 32);
+        foreach (var json in new[] { System.Text.Json.JsonSerializer.Serialize(frame, AtomicJsonFile.Options), System.Text.Json.JsonSerializer.Serialize(reel, AtomicJsonFile.Options) })
+            Assert.DoesNotContain("crop", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task FrameImagesWithACropMustMatchTheCroppedPixelSize()
+    {
+        var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var d = await AddTake(f.Project.Id, f.Shots, shot);
+        var crop = new ImageCropRegion { X = .2, Y = .1, Width = .5, Height = .6 };
+        var saved = await f.Assets.SaveDerivedImageAsync(f.Project.Id, FrameCopy(d.Takes[0]) with { Crop = crop }, 0, _ct);
+        var image = saved.Library.Assets[0].Images[0];
+        foreach (var damaged in new ImageCropRegion?[] { null, crop with { Width = .25 }, crop with { Width = double.NaN }, crop with { X = .9 } })
+        {
+            var tampered = saved.Library.Copy();
+            tampered.Assets[0].Images[0] = image with { Source = image.Source! with { Frame = image.Source.Frame! with { Crop = damaged } } };
+            await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Assets.SaveAsync(tampered, saved.Library.Revision, _ct));
+        }
+        // The recorded crop of the full frame is what makes the smaller image valid.
+        var unchanged = saved.Library.Copy();
+        Assert.Equal(saved.Library.Revision + 1, (await f.Assets.SaveAsync(unchanged, saved.Library.Revision, _ct)).Revision);
+    }
+
     private static void AssertPixels(Image<Rgb24> a, Image<Rgb24> b)
     {
         Assert.Equal(a.Size, b.Size);

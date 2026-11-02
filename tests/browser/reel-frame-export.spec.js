@@ -33,6 +33,8 @@ for (const narrow of [false, true]) test(`save a reel frame as an ordinary image
   await exportButton.click();
   await dialog.getByLabel('Image name',{exact:true}).fill('Chosen reel angle');
   await dialog.getByLabel('What to keep consistent (optional)',{exact:true}).fill('Preserve this viewpoint.');
+  await dialog.getByText('Precise crop controls',{exact:true}).click();
+  await dialog.getByRole('slider',{name:'Crop zoom',exact:true}).fill('2');
   const save = dialog.getByRole('button',{name:'Save',exact:true});
   await dialog.getByRole('button',{name:'Cancel',exact:true}).focus();
   await expect(dialog.getByRole('button',{name:'Cancel',exact:true})).toBeInViewport();
@@ -44,7 +46,24 @@ for (const narrow of [false, true]) test(`save a reel frame as an ordinary image
   expect(image).toBeTruthy(); expect(image.source.reelFrame.frame.index).toBe(24);
   expect(image.source.reelFrame.lossless).toBe(true); expect(image.isReference).toBe(false);
   expect(image.preservationGuidance).toBe('Preserve this viewpoint.');
+  // The provenance keeps the full frame and the crop; the image holds only the cropped pixels.
+  expect(image.source.reelFrame.crop.width).toBe(.5);
+  expect(image.source.reelFrame.width).toBe(reel.media.width);
+  expect(image.width).toBeLessThan(reel.media.width);
   expect(saved.reels[0].keyframes ?? null).toEqual(reel.keyframes ?? null);
+
+  // A pick saves with its own crop, name and notes, and Cancel returns to it. The mock reel is a still, so pick by hand.
+  await editor.getByRole('button',{name:'Add current frame',exact:true}).click();
+  const pick = editor.locator('.keyframe-list > li').first();
+  await pick.getByLabel('Frame notes (optional)').fill('The doorway side');
+  const pickSave = pick.getByRole('button',{name:/^Save keyframe 1 as an image…$/});
+  await pickSave.click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('What to keep consistent (optional)',{exact:true})).toHaveValue('The doorway side');
+  await expect(dialog.locator('.crop-selection')).toBeVisible();
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(pickSave).toBeFocused();
   await editor.getByRole('button',{name:'Cancel',exact:true}).click();
   await expect(editor).not.toBeVisible();
   await page.goto(`/projects/${id}/assets?assetId=${owner.id}&imageId=${image.id}`);
@@ -52,5 +71,27 @@ for (const narrow of [false, true]) test(`save a reel frame as an ordinary image
   await expect(review).toBeVisible();
   await review.getByText(/^Saved metadata/).click();
   await expect(review).toContainText('Reel frame'); await expect(review).toContainText('Lossless archive source');
+  await expect(review).toContainText(/Frame crop.*of the \d+ × \d+ frame/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+
+  // Edit frame saves the frame and opens it in the image editor, out of the keyframe dialog's way.
+  await page.goto(`/projects/${id}/assets?assetId=${owner.id}&view=reels`);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready','true');
+  if (narrow) await page.getByRole('button',{name:'Close Asset tools',exact:true}).click();
+  await page.getByRole('button',{name:`Actions for ${reel.name}`,exact:true}).click();
+  await page.getByRole('menuitem',{name:'Manage keyframes…',exact:true}).click();
+  await editor.getByRole('button',{name:'Edit frame…',exact:true}).click();
+  const edit = page.getByRole('dialog',{name:'Edit reel frame',exact:true});
+  await expect(edit).toBeVisible();
+  const actions = await edit.locator('.image-copy-footer button').allTextContents();
+  expect(actions.map(a=>a.trim()).filter(a=>a!=='Cancel')).toEqual(['Save and edit']);
+  const before = (await library(request,id)).assets[0].images.length;
+  await edit.getByRole('button',{name:'Save and edit',exact:true}).click();
+  await expect(editor).not.toBeVisible();
+  await expect(edit).not.toBeVisible();
+  await expect(page.locator('.mud-dialog')).toHaveCount(0);
+  const edited = (await library(request,id)).assets[0].images;
+  expect(edited).toHaveLength(before + 1);
+  expect(edited.at(-1).source.reelFrame.reelId).toBe(reel.id);
+  await page.screenshot({path:`artifacts/reel-frame-edit-${narrow?'narrow':'desktop'}.png`});
 });

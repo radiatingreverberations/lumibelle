@@ -1,6 +1,6 @@
 @* One opening per crop, closed through its own reference, so it stays a MudDialog. Escape follows Cancel. *@
 <MudDialog @ref="_dialog" Visible="_visible" Options="Options" Class="image-input-crop-dialog">
-    <TitleContent><DialogHeader Title="Crop image" Context="@Label" CloseLabel="Close crop image" Close="Cancel" /></TitleContent>
+    <TitleContent><DialogHeader Title="@Title" Context="@Label" CloseLabel="@($"Close {Title.ToLowerInvariant()}")" Close="Cancel" /></TitleContent>
     <DialogContent>
         <DialogEscape Pressed="Cancel" />
         <ImageCropEditor Url="@Url" Width="Width" Height="Height" InitialCrop="InitialCrop" CropChanged="crop => _draft = crop" />
@@ -14,6 +14,7 @@
 </MudDialog>
 @code {
     private static readonly DialogOptions Options = DialogSizes.Medium with { CloseOnEscapeKey = false };
+    [Parameter] public string Title { get; set; } = "Crop image";
     [Parameter] public string Label { get; set; } = "image";
     [Parameter] public string Url { get; set; } = "";
     [Parameter] public int Width { get; set; }

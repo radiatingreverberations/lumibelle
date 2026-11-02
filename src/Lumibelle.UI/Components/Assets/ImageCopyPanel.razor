@@ -2,11 +2,15 @@
 @inject NavigationManager Navigation
 
 <section class="image-copy-panel" aria-label="Save image to Assets">
-    @if (ShowHeading) { <div class="take-panel-heading"><h3>@(Parent is null ? "Save frame to Assets" : "Save cropped copy")</h3>@HeaderActions</div> }
-    @if (Parent is null) { <p class="field-hint">@(FrameDescription ?? $"Frame {(_captured?.FrameIndex ?? FrameIndex) + 1} · saved from the take as an independent image.")</p> }
+    @if (ShowHeading) { <div class="take-panel-heading"><h3>@(Parent is not null ? "Save cropped copy" : EditFirst ? "Edit frame" : "Save frame to Assets")</h3>@HeaderActions</div> }
+    @if (Parent is null) { <p class="field-hint">@(FrameDescription ?? $"Frame {(_captured?.FrameIndex ?? FrameIndex) + 1} · saved from the take as an independent image.")@(EditFirst ? " It opens in the image editor once saved." : "")</p> }
     @if (_captured?.FrameIndex is { } capturedFrame && capturedFrame != FrameIndex) { <p class="field-hint">Retry keeps frame @(capturedFrame + 1). Choose Change inputs to use the current frame @(FrameIndex + 1).</p> }
     <fieldset disabled="@(_busy || _captured is not null)">
-        @if (Parent is not null) { <ImageCropEditor Disabled="@(_busy || _captured is not null)" Url="@SourceUrl" Width="SourceWidth" Height="SourceHeight" CropChanged="c => _crop = c" /> }
+        @if (CanCrop)
+        {
+            <ImageCropEditor Disabled="@(_busy || _captured is not null)" Url="@SourceUrl" Width="SourceWidth" Height="SourceHeight" InitialCrop="InitialCrop" CropChanged="c => _crop = c"
+                Hint="@(Parent is null ? "Optional. Choose the part of the frame to keep; Full image saves the whole frame." : ImageCropEditor.DefaultHint)" />
+        }
         <div class="image-copy-fields">
             <label>Destination asset<select @ref="_destinationInput" @bind="_destination" @bind:after="() => _look = null"><option value="new">Create a new asset…</option>@foreach (var asset in Library.Assets.OrderBy(a => a.Name)) { <option value="@asset.Id">@asset.Name</option> }</select></label>
             @if (_destination == "new")
@@ -28,8 +32,15 @@
             <Tools>@if (_captured is not null && !_busy) { <MudButton OnClick="ChangeInputs">Change inputs</MudButton> }</Tools>
             <ChildContent>
                 <MudButton Disabled="_busy" OnClick="Cancelled">Cancel</MudButton>
-                <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
+                @if (EditFirst)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">@(_busy ? "Saving…" : _captured is not null ? "Retry save and edit" : "Save and edit")</MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(true)">Save and edit</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !Valid)" OnClick="() => SaveAsync(false)">@(_busy ? "Saving…" : _captured is not null ? "Retry save" : "Save")</MudButton>
+                }
             </ChildContent>
         </DialogFooter>
     </div>
@@ -52,8 +63,14 @@
     [Parameter] public ReelFrameExport? ReelFrame { get; set; }
     [Parameter] public Guid? InitialAssetId { get; set; }
     [Parameter] public Guid? InitialLookId { get; set; }
+    // A frame's crop starts here, for instance from a keyframe pick; a copy of an image always starts uncropped.
+    [Parameter] public ImageCropRegion? InitialCrop { get; set; }
+    // Opened to edit a frame: saving it and opening the image editor is the one action.
+    [Parameter] public bool EditFirst { get; set; }
     [Parameter, EditorRequired] public Func<DerivedImageRequest, Task<SavedAssetImage>> Save { get; set; } = default!;
     [Parameter] public EventCallback<SavedAssetImage> Saved { get; set; }
+    // After Saved, just before the image editor opens, so a host can step out of its way.
+    [Parameter] public EventCallback<SavedAssetImage> Editing { get; set; }
     [Parameter] public EventCallback Cancelled { get; set; }
     private string _destination = "new", _assetName = "", _name = "", _notes = "";
     private string? _previousInitialName;
@@ -68,8 +85,13 @@
     private bool _busy; private string? _error; private DerivedImageRequest? _captured; private ImageCropRegion _crop = new();
     private ReferenceAsset? DestinationAsset => Guid.TryParse(_destination, out var id) ? Library.Assets.FirstOrDefault(a => a.Id == id) : null;
     private bool Valid => _captured is not null || !string.IsNullOrWhiteSpace(_name) && (_destination != "new" || !string.IsNullOrWhiteSpace(_assetName));
+    // Frames can be cropped when the host supplies the frame picture; an image copy always is.
+    private bool CanCrop => Parent is not null || SourceUrl.Length > 0 && SourceWidth > 0 && SourceHeight > 0;
+    // The whole frame is saved without a crop, exactly as the store records it.
+    private ImageCropRegion? FrameCrop => !CanCrop || _crop is { X: 0, Y: 0, Width: 1, Height: 1 } ? null : _crop;
     protected override void OnInitialized()
     {
+        if (Parent is null && InitialCrop is { } crop) _crop = crop;
         _name = InitialName;
         _notes = InitialNotes;
         _assetName = InitialName;
@@ -101,14 +123,18 @@
         if (_busy || !Valid) return;
         _captured ??= new(Guid.NewGuid(), new(_destination == "new" ? Guid.NewGuid() : Guid.Parse(_destination), _look,
             _destination == "new" ? _assetName : null, _category), _name, _notes, TakeId,
-            TakeId is null ? null : FrameIndex, Parent, Parent is null ? null : _crop) { ReelFrame = ReelFrame };
+            TakeId is null ? null : FrameIndex, Parent, Parent is null ? FrameCrop : _crop) { ReelFrame = ReelFrame };
         _busy = true; _error = null;
         try
         {
             var result = await Save(_captured);
             if (!result.Available) { _error = "This copy was already saved, then removed. Restore it from Trash if available."; return; }
             await Saved.InvokeAsync(result);
-            if (edit) Navigation.NavigateTo(ProjectLink(ProjectId, $"/assets?assetId={result.AssetId}&imageId={result.ImageId}&edit=true"));
+            if (edit)
+            {
+                await Editing.InvokeAsync(result);
+                Navigation.NavigateTo(ProjectLink(ProjectId, $"/assets?assetId={result.AssetId}&imageId={result.ImageId}&edit=true"));
+            }
         }
         catch (Exception e) when (e is WorkspaceStoreException or IOException) { _error = e.Message; }
         finally { _busy = false; }

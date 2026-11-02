@@ -28,17 +28,24 @@ public sealed record ReferenceImageSource(Guid AssetId, Guid ImageId, Stream Con
 public enum AssetCategory { Character, Environment, Prop, Reference }
 public enum AssetImageOrigin { Imported, Generated, Edited, VideoFrame, Cropped }
 
+// Width and Height are the full frame; a saved crop of it is CropPixels(Width, Height, Crop).
 public sealed record VideoFrameSource(Guid ProjectId, Guid ShotId, Guid TakeId, int FrameIndex,
     double Timestamp, double Fps, int Width, int Height)
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? Lossless { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImageCropRegion? Crop { get; init; }
 }
 public sealed record CroppedImageSource(Guid ProjectId, Guid AssetId, Guid ImageId, ImageCropRegion Crop,
     int SourceWidth, int SourceHeight);
 public sealed record ReelFrameExport(Guid ReelId, ReelFrameIdentity Frame);
 public sealed record ReelImageSource(Guid ProjectId, Guid ReelId, string ReelName, ReelFrameIdentity Frame,
-    bool Lossless, int Width, int Height);
+    bool Lossless, int Width, int Height)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImageCropRegion? Crop { get; init; }
+}
 public sealed record AssetImageSource(VideoFrameSource? Frame = null, CroppedImageSource? Crop = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

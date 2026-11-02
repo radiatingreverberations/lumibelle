@@ -756,6 +756,7 @@ else
                         else if (_frameDestination is { } destination && destination.TakeId == take.Id)
                         {
                             <ImageCopyPanel @key="destination.TakeId" ProjectId="Id" Library="_assets" TakeId="take.Id" FrameIndex="destination.Index" HeaderActions="CloseTakePanelButton"
+                                SourceUrl="@TakeUrl(take.Id, destination.Index)" SourceWidth="take.Width" SourceHeight="take.Height"
                                 InitialName="@($"{take.Snapshot.Shot.Title} · frame {destination.Index + 1}")" Save="SaveFrameImage" Saved="FrameImageSaved" Cancelled="CloseFrameDestination" />
                         }
                     </div>

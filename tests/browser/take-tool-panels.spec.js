@@ -82,6 +82,8 @@ test('take tools toggle, switch, and close around one shared player', async ({ p
   await panel.getByLabel('What to keep consistent (optional)', { exact: true }).fill('Keep the glasses.');
   await position.fill('10');
   await expect(panel).toContainText('Frame 11 · saved from the take');
+  // The crop shows the frame that will be saved, and follows the player.
+  await expect(panel.locator('.image-copy-crop img')).toHaveAttribute('src', /\/frames\/10$/);
   await expect(panel.getByLabel('Image name', { exact: true })).toHaveValue('Chosen expression');
   await expect(panel.getByLabel('New asset name', { exact: true })).toHaveValue('Riley study');
   await expect(panel.getByLabel('What to keep consistent (optional)', { exact: true })).toHaveValue('Keep the glasses.');

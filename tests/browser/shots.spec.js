@@ -70,6 +70,8 @@ test('approved script to reviewed shots, background takes, independent continuit
   await destination.getByLabel('New asset name').fill('Arrival state');
   await destination.getByLabel('Image name', { exact: true }).fill('Mouse after arrival');
   await destination.getByLabel('What to keep consistent (optional)').fill('Keep the hand position');
+  await destination.getByText('Precise crop controls', { exact: true }).click();
+  await destination.getByRole('slider', { name: 'Crop zoom', exact: true }).fill('2');
   await destination.getByRole('button', { name: 'Save', exact: true }).click();
   const assetState = async () => (await (await request.get(`/fixtures/${project.id}`)).json()).assets;
   await expect.poll(async () => (await assetState()).assets.flatMap(a => a.images).filter(i => i.source?.frame).length).toBe(1);
@@ -78,6 +80,7 @@ test('approved script to reviewed shots, background takes, independent continuit
   expect(frame.preservationGuidance).toBe('Keep the hand position');
   expect((await assetState()).assets.find(a => a.images.some(i => i.id === frame.id)).name).toBe('Arrival state');
   expect(frame.source.frame.frameIndex).toBe(37); expect(frame.source.frame.timestamp).toBeCloseTo(37 / 24);
+  expect(frame.source.frame.crop.width).toBe(.5); expect(frame.width).toBeLessThan(frame.source.frame.width);
   await page.screenshot({ path: 'test-results/shots-frame-desktop.png' });
   const source = (await state()).shots[0].images[0];
   await request.post(`/fixtures/${project.id}/trash/${source.mediaId}`);

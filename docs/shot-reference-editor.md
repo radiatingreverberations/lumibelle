@@ -8,7 +8,7 @@ Each selected reel shows its resolution in MP. Its ⇄ **Replace reel** button l
 
 **Cancel** and **Apply changes** stay visible at the bottom while an expanded **Assist · choose references** and its suggestions scroll inside the dialog. Add checked suggestions to the draft, then use **Apply changes** to save the selection.
 
-On narrow screens, switch between **Browse** and **Selected**. Filters and edits survive these switches. The nine-picture limit includes frame anchors and reel keyframes. [Reel keyframes](h3/reel-keyframes.md) stay inside their reel; setup overrides do not change library defaults. Ordinary take frames can still be saved to Assets through the take player.
+On narrow screens, switch between **Browse** and **Selected**. Filters and edits survive these switches. The nine-picture limit includes frame anchors and reel keyframes. [Reel keyframes](h3/reel-keyframes.md) stay inside their reel; setup overrides do not change library defaults. The setup's **Manage keyframes…** offers the same frame actions as Assets: crop a pick, save a frame or pick as an image, or **Edit frame…**. Ordinary take frames can still be saved to Assets, optionally cropped, through the take player.
 
 The References panel summarizes the submitted order and purposes. Reordering, editing, and removal live in the dialog; row actions appear only when a reference needs repair or restoration.
 

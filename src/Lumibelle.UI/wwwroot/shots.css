@@ -97,6 +97,8 @@
 .take-review-tool-panel { padding:16px; border:1px solid var(--line); border-radius:var(--lumi-radius-surface); }
 .shot-review-dialog .take-review-tool-panel > section { padding:0; margin:0; border:0; }
 .shot-review-dialog .take-review-tool-panel .take-panel-heading h3 { margin:0; }
+/* The player stays above this panel; keep the frame crop short enough that the fields remain in view. */
+.take-review-tool-panel .crop-stage { width:min(100%, calc(30vh * var(--source-ratio))); }
 .take-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .take-panel-heading h3 { margin:0; }
 .shot-review-dialog .take-extension-form { display:flex; flex-direction:column; gap:12px; }

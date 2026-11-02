@@ -35,7 +35,8 @@
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public int MaxZoom { get; set; } = 4;
     [Parameter] public string SelectionLabel { get; set; } = "Crop";
-    [Parameter] public string Hint { get; set; } = "Drag the selection to position it, or use the shape and precise controls. The original image stays unchanged.";
+    public const string DefaultHint = "Drag the selection to position it, or use the shape and precise controls. The original image stays unchanged.";
+    [Parameter] public string Hint { get; set; } = DefaultHint;
     [Parameter] public string Url { get; set; } = "";
     [Parameter] public int Width { get; set; }
     [Parameter] public int Height { get; set; }

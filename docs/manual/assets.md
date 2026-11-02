@@ -144,6 +144,8 @@ Character reference reels live in Assets, optionally under a look. Use the right
 
 Expand **LoRAs** under a reel's references to choose H3 LoRAs for that reel alone. They apply on top of the LoRAs in the reel's preset; for a LoRA in both, the reel's strength is used.
 
+A reel frame can become an ordinary image. In **Manage keyframes…**, **Save frame to Assets…** saves the current frame and **Save as image…** saves a pick, each optionally cropped, for example to keep one character out of a changing scene. **Edit frame…** saves the frame and opens it in the image editor, for example to make a lit room dark before it opens a scene. **Crop keyframe…** crops a pick itself, which keeps following the reel when it is replaced in shots. See [reel keyframes](../h3/reel-keyframes.md#storage-and-extraction).
+
 ## Environment reference reels
 
 An **Environment** asset is a library of possible backgrounds: stills and saved keyframes across all its reels. Prepare a reusable inspection set in **Scenes → Choose environment views**, manually or with AI, and save authored staging constraints with **Save scene setup**. Scene drafting uses these pictures to understand the set; they are not attached to generated shots automatically.

@@ -99,10 +99,12 @@ else
                             {
                                 <dt>Video frame</dt><dd>Frame @(frameSource.FrameIndex + 1) · @frameSource.Timestamp.ToString("0.000") s · @frameSource.Fps fps · @frameSource.Width × @frameSource.Height · @(frameSource.Lossless == false ? "Compressed MP4 source" : "Lossless archive source")</dd>
                                 <dt>Original take</dt><dd>@frameSource.TakeId · shot @frameSource.ShotId</dd>
+                                @if (frameSource.Crop is { } takeCrop) { <dt>Frame crop</dt><dd>@FrameCropText.Describe(frameSource.Width, frameSource.Height, takeCrop)</dd> }
                             }
                             @if (selectedImage.Source?.ReelFrame is { } reelFrame)
                             {
                                 <dt>Reel frame</dt><dd>@reelFrame.ReelName · Frame @(reelFrame.Frame.Index + 1) · @reelFrame.Frame.Seconds.ToString("0.###") s · @(reelFrame.Lossless ? "Lossless archive source" : "Compressed MP4 source")</dd>
+                                @if (reelFrame.Crop is { } reelCrop) { <dt>Frame crop</dt><dd>@FrameCropText.Describe(reelFrame.Width, reelFrame.Height, reelCrop)</dd> }
                             }
                             @if (selectedImage.Source?.Crop is { } cropSource)
                             {

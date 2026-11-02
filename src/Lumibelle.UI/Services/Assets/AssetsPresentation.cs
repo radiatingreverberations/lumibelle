@@ -2,6 +2,13 @@ using lumibelle.Models;
 
 namespace lumibelle.Services.Assets;
 
+public static class FrameCropText
+{
+    // A saved frame crop as people check it: the kept pixels, where they start, and the full frame they came from.
+    public static string Describe(int frameWidth, int frameHeight, ImageCropRegion crop) =>
+        ImageGeometry.CropPixels(frameWidth, frameHeight, crop) is var r ? $"{r.Width} × {r.Height} at {r.X}, {r.Y} of the {frameWidth} × {frameHeight} frame" : "";
+}
+
 public enum AssetMediaKind { Image, Reel, Voice }
 public enum AssetCreationKind { Image, Reel }
 public sealed record AssetMediaSelection(AssetMediaKind Kind, Guid Id);

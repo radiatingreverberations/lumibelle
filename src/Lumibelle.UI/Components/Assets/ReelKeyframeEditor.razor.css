@@ -39,18 +39,15 @@
 .keyframe-list label { display:block;margin:0 0 .6rem; }
 .keyframe-list label input:not([type=range]) { display:block;margin-top:.25rem; }
 .keyframe-list input { width:100%; }
-.keyframe-card-footer { position:relative; }
-.keyframe-card-actions { position:absolute;right:0;top:0; }
-.keyframe-card-footer summary { min-height:34px;align-content:center;margin-right:10rem;font-size:var(--lumi-font-size-compact); }
-.keyframe-card-footer details[open] .crop-preview { margin-top:.75rem; }
-.crop-preview { position:relative;width:100%; }
-.crop-preview img { display:block;width:100%; }
-.crop-preview span { position:absolute;border: 2px solid var(--lumi-border);pointer-events:none; }
+.keyframe-card-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem; }
+.keyframe-crop-status { color:var(--lumi-text-muted);font-size:var(--lumi-font-size-compact);font-variant-numeric:tabular-nums; }
+.keyframe-card-actions { flex-wrap:wrap;justify-content:flex-end; }
 .keyframe-footer { display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.65rem;padding:.75rem .25rem 0;border-top: 1px solid var(--lumi-border); }
 .keyframe-footer>span { margin-right:auto; }.keyframe-footer p { flex-basis:100%;margin:0; }
 .reel-frame-export { min-width:0; }
-.reel-frame-export > img { display:block;max-width:100%;max-height:25dvh;margin:0 auto;object-fit:contain; }
-.reel-frame-export ::deep .image-copy-panel { margin:.75rem 0 0;padding:0;border: 0; }
+.reel-frame-export ::deep .image-copy-panel { margin:0;padding:0;border: 0; }
+/* The crop stage shows the exact frame; cap its height so the fields and footer stay in view. */
+.reel-frame-export ::deep .crop-stage { width:min(100%, calc(35dvh * var(--source-ratio)));margin-inline:auto; }
 @media(max-width:1000px) { .keyframe-fields { grid-template-columns:1fr;gap:0; } }
 @media(max-width:700px) {
     .keyframe-columns { grid-template-columns:1fr;gap:1.5rem; }
@@ -58,6 +55,5 @@
     .keyframe-player video,.exact-frame { max-height:25vh; }
     .keyframe-preview-actions { align-items:stretch; }
     .keyframe-preview-actions > button { flex:1; }
-    .keyframe-card-footer summary { margin-right:9rem; }
     .keyframe-footer > span { flex-basis:100%; }
 }

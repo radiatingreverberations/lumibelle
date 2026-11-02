@@ -86,6 +86,12 @@ else if (_error is not null)
             else if (preview.Kind == MediaTrashKind.Voice) { <audio controls preload="metadata" src="@Url(preview)"></audio> }
             else { <img src="@Url(preview)" alt="@preview.Title" /> }
             @if (preview.Image?.Source?.Frame is { } frame) { <p>Saved from video frame @(frame.FrameIndex + 1) · @frame.Timestamp.ToString("0.000") s · @frame.Width × @frame.Height · @frame.Fps fps</p><p>Shot @frame.ShotId · take @frame.TakeId</p> }
+            @if (preview.Image?.Source?.ReelFrame is { } reelFrame) { <p>Saved from reel @reelFrame.ReelName · frame @(reelFrame.Frame.Index + 1) · @reelFrame.Frame.Seconds.ToString("0.###") s · @reelFrame.Width × @reelFrame.Height</p> }
+            @if ((preview.Image?.Source?.Frame?.Crop ?? preview.Image?.Source?.ReelFrame?.Crop) is { } frameCrop && preview.Image?.Source is { } frameSource)
+            {
+                var (frameWidth, frameHeight) = frameSource.Frame is { } f ? (f.Width, f.Height) : (frameSource.ReelFrame!.Width, frameSource.ReelFrame.Height);
+                <p>Frame crop: @FrameCropText.Describe(frameWidth, frameHeight, frameCrop)</p>
+            }
             @if (preview.Image?.Source?.Crop is { } crop) { <p>Cropped copy of image @crop.ImageId · source @crop.SourceWidth × @crop.SourceHeight</p><p>@System.Text.Json.JsonSerializer.Serialize(crop.Crop)</p> }
             @if (preview.Image?.Generation?.Look is { } look) { <p>Submitted look: @look.AssetName · @look.LookName</p><p class="preservation-text">@look.Description @look.PreservationGuidance</p> }
             @if (preview.Take is { } take) { <ShotAppearanceDetails Appearances="take.Snapshot.Appearances" /><RefinementDetails Take="take" /><VideoLoraDetails Snapshot="take.Snapshot" /> }
