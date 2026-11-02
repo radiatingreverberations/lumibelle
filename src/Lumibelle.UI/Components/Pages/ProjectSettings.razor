@@ -10,14 +10,14 @@
 }
 else if (_error is not null)
 {
-    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Project settings couldn’t be opened" role="alert">
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Project settings couldn’t be opened" HeadingLevel="1" role="alert">
         <ChildContent>@_error</ChildContent>
         <Actions><MudButton OnClick="LoadAsync" Variant="Variant.Outlined">Try again</MudButton><MudButton Href="@(ProjectLink(Id, ""))">Back to project</MudButton></Actions>
     </EmptyState>
 }
 else if (_project is null)
 {
-    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found">
+    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found" HeadingLevel="1">
         <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
         <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to your projects</MudButton></Actions>
     </EmptyState>

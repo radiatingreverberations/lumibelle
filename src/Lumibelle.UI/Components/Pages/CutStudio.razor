@@ -10,7 +10,7 @@
 <EditSessionRegistration Save="Save" />
 @if (_project is null)
 {
-    @if (_error is not null) { <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open the cut">@_error</EmptyState> }
+    @if (_error is not null) { <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open the cut" HeadingLevel="1">@_error</EmptyState> }
     else { <LoadingState Text="Opening Cut…" /> }
 }
 else

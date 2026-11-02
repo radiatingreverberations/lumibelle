@@ -6,14 +6,14 @@
 
 @if (_error is not null)
 {
-    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open project" role="alert">
+    <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open project" HeadingLevel="1" role="alert">
         <ChildContent>@_error</ChildContent>
         <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to projects</MudButton></Actions>
     </EmptyState>
 }
 else if (_missing)
 {
-    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found">
+    <EmptyState Icon="@Icons.Material.Outlined.FolderOff" Title="Project not found" HeadingLevel="1">
         <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
         <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to projects</MudButton></Actions>
     </EmptyState>

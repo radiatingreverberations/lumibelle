@@ -28,7 +28,7 @@
 .workspace-drawer-heading { display: none; }
 .workspace-scrim { position: fixed; inset: 0; z-index: 1190; background: var(--lumi-overlay); border: 0; }
 .workspace-tool-tabs { display: flex; gap: 4px; }
-.workspace-tool-tabs button { flex: 1; min-width: 0; border: 0; border-radius: var(--lumi-radius-control); padding: 8px 4px; color: var(--muted); background: transparent; font: inherit; font-size: var(--lumi-font-size-meta); }
+.studio-workspace .workspace-tool-tabs button { flex: 1; min-width: 0; border: 0; border-radius: var(--lumi-radius-control); padding: 8px 4px; color: var(--muted); background: transparent; font: inherit; font-size: var(--lumi-font-size-meta); }
 .studio-workspace .workspace-tool-tabs { gap: 0; border-bottom: 1px solid var(--line); margin: 8px -2px -1px; }
 .studio-workspace .workspace-tool-tabs > button[role=tab] { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; margin: 0; padding: 8px 7px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--muted); font-size: var(--lumi-font-size-compact); font-weight: 400; }
 .studio-workspace .workspace-tool-tabs > button[role=tab][aria-selected=true] { color: var(--plum); border-bottom-color: var(--plum); background: transparent; font-weight: 650; }

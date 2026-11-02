@@ -39,6 +39,6 @@ test('shared UI assets, source routes, ranged videos, frames and missing resourc
  }
  await page.goto(`/projects/${id}/script`); await expect(page.getByRole('textbox',{name:'Screenplay',exact:true})).toBeVisible();
  await page.goto(`/projects/${id}/shots`); await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready','true');
- await page.goto(`/projects/${id}/cut`); await expect(page.getByRole('heading',{name:'Cut studio',exact:true})).toBeVisible();
+ await page.goto(`/projects/${id}/cut`); await expect(page.getByRole('heading',{name:'Cut',exact:true})).toBeVisible();
  await page.goto('/Error'); await expect(page.getByRole('heading',{name:'We couldn’t open that page',exact:true})).toBeVisible();
 });
