@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using lumibelle.Models;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
@@ -160,6 +161,13 @@ public static partial class PromptComposer
         };
         if (value.ValueKind is not (JsonValueKind.Array or JsonValueKind.String or JsonValueKind.Undefined or JsonValueKind.Null))
             notes.Add("detailed_description was not a list of passages; its text is used as one passage.");
+        var speakers = SpeakerNames(shot);
+        var echoed = texts.Select(t => WithoutEchoedDialogue(t, speakers)).ToList();
+        if (!echoed.SequenceEqual(texts))
+        {
+            notes.Add("The response repeated dialogue tags in the action; they were removed so each saved line is spoken once.");
+            texts = echoed;
+        }
         // Trailing empty passages carry nothing and cannot shift dialogue, so extras there are dropped.
         while (texts.Count > expected && string.IsNullOrWhiteSpace(texts[^1])) texts.RemoveAt(texts.Count - 1);
         if (texts.Count > expected)
@@ -178,7 +186,6 @@ public static partial class PromptComposer
         if (texts.All(string.IsNullOrWhiteSpace)) notes.Add("The response left out detailed_description. Describe the action before generating.");
         var duration = H3Policy.Seconds(shot.Duration.Value).ToString("0.###", CultureInfo.InvariantCulture);
         var passages = new List<string> { $"[Shot 1] One continuous camera take lasting {duration} seconds, without camera cuts or scene transitions." };
-        var speakers = SpeakerNames(shot);
         var index = 0;
         foreach (var passage in texts)
         {
@@ -191,6 +198,20 @@ public static partial class PromptComposer
             index++;
         }
         return string.Join("\n\n", passages);
+    }
+
+    // Lumibelle inserts every saved line itself. A model that echoes one into an action passage, tag and speaker
+    // prefix included, would have it spoken twice and leave a prompt that Language versions cannot translate.
+    private static string WithoutEchoedDialogue(string passage, string[] speakers)
+    {
+        var prefix = speakers.Length == 0 ? "" : $@"(?:(?:{string.Join("|", speakers.Select(Regex.Escape))})\s*(?:\(S\d+\)\s*)?says:?\s*)?";
+        try
+        {
+            var cleaned = Regex.Replace(passage, prefix + @"<d>.*?</d>(?:\s*<br\s*/?>)*", "",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+            return cleaned == passage ? passage : cleaned.Trim();
+        }
+        catch (RegexMatchTimeoutException) { return passage; }
     }
 
     private static string Plural(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";

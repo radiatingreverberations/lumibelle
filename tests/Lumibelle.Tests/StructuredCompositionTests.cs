@@ -84,6 +84,21 @@ public sealed partial class ShotTests
         Assert.Contains("one block of action", Assert.Single(block.Notes));
     }
 
+    [Fact]
+    public void DialogueEchoedIntoTheActionIsSpokenOnce()
+    {
+        // From a real response: the model repeated the saved line, tag and speaker included, at the start of the next passage.
+        var shot = Ready() with { Duration = 6, Dialogue = [new() { Speaker = "JAN (V.O.)", Language = "en", Text = "I had never been bound so tightly." }] };
+        var raw = SectionedReply("The Man tapes her wrists.",
+            "JAN (V.O.) (S1) says <d>[en] I had never been bound so tightly.</d><br><br>The camera pushes in.").ToJsonString();
+        var parsed = PromptComposer.Parse(raw, SoundRequest(shot));
+        Assert.Equal(["[en] I had never been bound so tightly."], Regex.Matches(parsed.Prompt, @"<d>(.*?)</d>").Select(m => m.Groups[1].Value));
+        Assert.Single(Regex.Matches(parsed.Prompt, @"JAN \(V\.O\.\) \(S1\) says"));
+        Assert.Contains("</d>\n\nThe camera pushes in.", parsed.Prompt);
+        // The only note is the removal: the prompt passes the dialogue checks that Language versions relies on.
+        Assert.Contains("repeated dialogue tags", Assert.Single(parsed.Notes));
+    }
+
     [Theory]
     [InlineData("missing-section", "left out summary")] [InlineData("unknown-section", "Ignored an unexpected response field, extra.")]
     [InlineData("empty-section", "left out summary")] [InlineData("no-passages", "left out detailed_description")]
