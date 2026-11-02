@@ -37,7 +37,7 @@ test('long scripts scroll inside the paper and retain pane sizes, text and undo'
   await page.reload();
   await expect(splitter).toHaveAttribute('aria-valuenow', '210');
   await expect.poll(() => paper.evaluate(el => el.scrollTop)).toBeGreaterThan(scroll / 2);
-  await page.locator('.workspace-layout-menu summary').click(); await page.getByRole('button', { name: 'Reset layout', exact: true }).click();
+  await page.getByRole('button', { name: 'Layout', exact: true }).click(); await page.getByRole('menuitem', { name: 'Reset layout', exact: true }).click();
   await expect(splitter).toHaveAttribute('aria-valuenow', '200');
   await expect(page.getByRole('region', { name: 'Script assistant', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/workspace-script-desktop.png' });

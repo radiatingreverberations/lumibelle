@@ -6,14 +6,14 @@ test('exporting from the selected clip renders only that part and names the file
   const shots = await (await request.post(`/fixtures/${id}/cut-takes`)).json();
   await page.goto(`/projects/${id}/cut`);
   await expect(page.locator('.cut-heading')).toHaveAttribute('data-interactive', 'true');
-  await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes', exact: true }).click();
+  await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes…', exact: true }).click();
   const chooser = page.locator('.cut-chooser');
   await chooser.getByLabel(`Take for ${shots.shots[1].title}`, { exact: true }).selectOption(shots.takes[2].id);
   await chooser.getByRole('button', { name: /Apply changes/ }).click();
   await expect(chooser).not.toBeVisible();
   await page.locator('.timeline-select').nth(1).focus(); await page.keyboard.press('Enter');
 
-  await page.getByRole('button', { name: 'Export MP4', exact: true }).click();
+  await page.getByRole('button', { name: 'Export MP4…', exact: true }).click();
   const dialog = page.locator('.cut-export-dialog');
   // The whole cut by default; a shortcut starts from the selected clip.
   await expect(dialog.getByLabel('From clip', { exact: true })).toHaveValue('1');
@@ -29,6 +29,6 @@ test('exporting from the selected clip renders only that part and names the file
   await expect(page.getByRole('button', { name: /^Download revision \d+, clip 2 again$/ })).toBeVisible();
 
   // The choice is kept for the next export.
-  await page.getByRole('button', { name: 'Export MP4', exact: true }).click();
+  await page.getByRole('button', { name: 'Export MP4…', exact: true }).click();
   await expect(dialog.getByLabel('From clip', { exact: true })).toHaveValue('2');
 });

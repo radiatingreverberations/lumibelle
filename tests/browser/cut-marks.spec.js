@@ -8,7 +8,7 @@ async function setup(page, request) {
     const shots = await response.json();
     await page.goto(`/projects/${id}/cut`);
     await expect(page.locator('.cut-heading')).toHaveAttribute('data-interactive', 'true');
-    await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes', exact: true }).click();
+    await page.locator('.cut-workspace-toolbar').getByRole('button', { name: 'Choose takes…', exact: true }).click();
     const chooser = page.locator('.cut-chooser');
     await chooser.getByLabel(`Take for ${shots.shots[1].title}`, { exact: true }).selectOption(shots.takes[2].id);
     await chooser.getByRole('button', { name: /Apply changes/ }).click();
