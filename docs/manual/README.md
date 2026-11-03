@@ -1,6 +1,6 @@
 # Lumibelle manual
 
-Lumibelle is a personal video studio for growing an idea into a film. You write a screenplay, turn its characters, environments and props into reference images, compose and generate shots, and assemble the takes into a cut.
+Lumibelle is a personal video studio for growing an idea into a film. You adapt a story or write a screenplay, turn its characters, environments and props into reference images, compose and generate shots, and assemble the takes into a cut.
 
 The saved screenplay is the dramatic source. Assets and Shots capture saved revisions while keeping their own work independently revisable. The script format has no dependency on a particular video model.
 
@@ -13,7 +13,9 @@ Lumibelle runs on your own computer, and projects are ordinary files in a folder
 - [Source](source.md): analyze original material and review an adaptation outline.
 - [Script studio](script.md): write and revise the screenplay.
 - [Assets studio](assets.md): characters, environments and props, with reference images.
-- [Shots](shots.md): coverage, references, prompts and takes.
+- [Environment reels](environment-reels.md): generate missing angles of a location and pick keyframes.
+- [Scenes](scenes.md): set up each scene's environment and draft its shots.
+- [Shots](shots.md): references, prompts, takes and refinement.
 - [Cut studio](cut.md): assemble takes into a sequence and export it.
 - [AI setup](ai-setup.md): connect ComfyUI, OpenRouter and other providers.
 - [Install ComfyUI](comfyui.md): run ComfyUI for local generation and download its models.

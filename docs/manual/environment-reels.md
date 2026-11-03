@@ -2,7 +2,7 @@
 
 An environment reel generates missing reference angles from a location image in one continuous journey. Save useful frames as asset images or select keyframes for later shots, rather than generating every angle separately and trying to reconcile different layouts.
 
-Use **Scenes** to save a reviewed inspection set and authored staging constraints for drafting. Each shot then uses **Edit references…** or **Copy...** to attach the pictures needed for generation. Compose uses those attachments and applicable accepted direction. Historical shot-level environment selections and their staging remain readable in request history.
+Use [Scenes](scenes.md) to save a reviewed inspection set and authored staging constraints for drafting. Each shot then uses **Edit references…** or **Copy...** to attach the pictures needed for generation. Compose uses those attachments and applicable accepted direction. Historical shot-level environment selections and their staging remain readable in request history.
 
 Open a location image’s review/details dialog and choose **Create reel from this image** in its footer. This opens a fresh reel recipe with that image selected and preserves any earlier recipe. The same action is available for character and prop images. You can also choose **Reference reel** from the Assets tools’ **Create** selector.
 
