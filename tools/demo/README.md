@@ -88,3 +88,13 @@ node tools/demo/record-demo.mjs --assemble-only --text-label "Gemma 4" `
 ```
 
 Clicks right after a page loads can be lost before Blazor wires the button, so phases that start jobs confirm the job started and retry. Some assistants finish behind **Review changes** or **Apply anyway** rather than applying directly; the waits treat that as finished.
+
+## Manual media
+
+`record-manual-media.mjs` re-records the manual's clips and screenshot from a Lumibelle running on a copy of the finished demo library, so the manual shows the public-domain "The Open Window" project:
+
+```powershell
+node tools/demo/record-manual-media.mjs --url http://127.0.0.1:5192 --route the-open-window --out artifacts/manual-media
+```
+
+It records `shots-take-review`, `assets-create-prop` and `assets-edit-image` in parts at 1856×1028 (the prop and edit clips queue one Krea 2 job each and leave the wait out), and `ai-settings-comfyui-connection.png` at 2×. Join and scale the parts with lumibelle-web's `scripts/cut-clip.sh`, using `CLIP_CROP=1856:1028:0:0` since the recordings have no browser chrome, then publish them with DVC as that repository's README describes. Run it on a copy of the library: creating the prop and editing the room change the project.
