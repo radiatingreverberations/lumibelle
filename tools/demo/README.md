@@ -57,6 +57,18 @@ Phases come in pairs: one starts an AI job and waits for it, the next reviews th
 
 `create`, `switch` (the text model switched mid-project, recorded on its own) and `cut` stand alone.
 
+## Finishing the film
+
+A run limited with `--scenes` and `--film-shots` can be extended later. Copy a checkpoint's library and `state.json` into a new `--out` folder, so the earlier run stays as it was, then draft the missing scenes. With no checkpoint for the first phase, the recorder continues from that library. Shots that already have a take keep their references, prompt and take.
+
+```powershell
+node tools/demo/record-demo.mjs --serve web --out artifacts/film --from scenes --until takes --scenes 1,2,3,5
+node tools/demo/record-demo.mjs --serve web --out artifacts/film --from cut --until cut
+node tools/demo/record-demo.mjs --serve web --out artifacts/film --from refine --until cut
+```
+
+The second command exports a rough cut of the Quick takes to check before the long renders. The third refines every selected take in one batch at Native size (1 MP), selects the results and exports the film. A clip that fails does not hold up the others: the phase reports it once the batch has settled, and after **Retry failed clips** in **Refinement batches**, `--from refine --continue` rejoins the wait.
+
 ## Fitting two minutes
 
 `demo.mp4` is assembled from cached parts, so only clips that changed are encoded again, and `--assemble-only` rebuilds it in seconds without running any phase. Every assembly prints how long each part is.
