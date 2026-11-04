@@ -316,6 +316,42 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task SharedCoordinatorRechecksADroppedVideoAndSavesItsFinishedTakeWithoutARestart()
+    {
+        using var f = await QueuedVideoFixture.Create(this); var submission = await f.Capture();
+        f.UseMonitor(new DroppedConnectionMonitor()); f.HoldExecution = true;
+        var clock = new ManualClock(DateTimeOffset.UtcNow);
+        using var coordinator = new AiJobCoordinator(f.Jobs, f.Settings, [f.Worker], clock, NullLogger<AiJobCoordinator>.Instance);
+        await coordinator.StartAsync(_ct);
+        try
+        {
+            await coordinator.EnqueueAsync(submission, _ct);
+            await Until(() => coordinator.View.Jobs.Any(j => j.State == AiJobState.NeedsAttention && j.RemoteUnconfirmed));
+            Assert.Equal("ComfyUI connection failed.", coordinator.View.Jobs.Single().Error);
+            Assert.Empty((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes);
+
+            // ComfyUI finishes on its own. The next scheduled check needs no click or restart.
+            f.HoldExecution = false; clock.Advance(TimeSpan.FromSeconds(6));
+            await Until(() => coordinator.View.Jobs.Any(j => j.State == AiJobState.Completed));
+            Assert.False(coordinator.View.Jobs.Single().RemoteUnconfirmed);
+            Assert.Single(f.Graphs); Assert.Single((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes);
+        }
+        finally { await coordinator.StopAsync(_ct); }
+    }
+    private sealed class DroppedConnectionMonitor : IComfyExecutionMonitor
+    {
+        public async IAsyncEnumerable<ComfyExecutionUpdate> ObserveAsync(HttpClient http, string promptId, string clientId, ComfyExecutionOptions options, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.Yield();
+            throw new AiGenerationException("ComfyUI connection failed.");
+#pragma warning disable CS0162 // An iterator needs a yield; this connection always drops.
+            yield break;
+#pragma warning restore CS0162
+        }
+        public IAsyncEnumerable<ComfyExecutionUpdate> ExecuteAsync(HttpClient http, Func<string, object> workflowFactory, ComfyExecutionOptions options, CancellationToken operationToken, CancellationToken callerToken) => throw new NotSupportedException();
+    }
+
+    [Fact]
     public async Task AShotRemovedDuringVideoGenerationReceivesItsCompletedTakeInTrash()
     {
         using var f = await QueuedVideoFixture.Create(this); var submission = await f.Capture(); var context = await f.Claim(submission);
@@ -469,6 +505,8 @@ public sealed partial class ShotTests
             result.Worker = new(result.Shots, result.Generator, result.Adapter, new TestHttpFactory(result._http), new(TestComfy.Monitor()), TimeProvider.System);
             return result;
         }
+        public void UseMonitor(IComfyExecutionMonitor monitor) =>
+            Worker = new(Shots, Generator, Adapter, new TestHttpFactory(_http), new(monitor), TimeProvider.System);
         public ReelTestMedia ReelMedia { get; } = new();
         public async Task<AiJobSubmission> CaptureReel(IReadOnlyList<LoraSelection>? loras = null, bool environment = false, bool? keepFrames = null, bool existingRecording = false,
             VideoResolution? resolution = null, bool keepLatents = false, string? preset = null)

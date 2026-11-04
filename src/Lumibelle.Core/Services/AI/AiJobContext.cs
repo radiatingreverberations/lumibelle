@@ -49,6 +49,9 @@ public sealed partial class AiJobContext
     public AiJobHeader Job { get; }
     public bool Recovering { get; }
     internal bool RecoveringCancelledOutputs { get; }
+    // Set when a readable ComfyUI queue and history had no record of this operation.
+    // Kept here because handlers may catch or replace the exception that reports it.
+    internal string? MissingRemoteOperation { get; set; }
     public CancellationToken Cancellation { get; }
     internal TimeProvider Clock => _clock;
     public string Directory => _store.DirectoryFor(Job.Id);
