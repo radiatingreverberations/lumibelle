@@ -5,7 +5,7 @@ namespace lumibelle.Services.Assets;
 
 public static class ImageWorkflowLimits
 {
-    public static int MaximumPreparedImageBytes(ImageWorkflow workflow) => workflow is ImageWorkflow.QwenImage21 or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2
+    public static int MaximumPreparedImageBytes(ImageWorkflow workflow) => workflow is ImageWorkflow.QwenImage21 or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2 or ImageWorkflow.MiniMaxH3
         ? QwenImage21Policy.MaximumEncodedSourceBytes : ComfyReferenceImageEditor.MaximumEncodedSourceBytes;
     // Used only before the exact workflow has been resolved; validate that workflow afterwards.
     public const int MaximumAnyReferences = 10;
@@ -22,6 +22,7 @@ public static class ImageWorkflowLimits
         ImageWorkflow.Flux3ImageKlein => Flux3ImagePolicy.MaximumReferences,
         ImageWorkflow.Fibo2 => CaptionImagePolicy.MaximumFiboReferences,
         ImageWorkflow.ZImage => 0,
+        ImageWorkflow.MiniMaxH3 => H3ImagePolicy.MaximumReferences,
         _ => throw new AiGenerationException("This image workflow is unavailable.")
     };
 }

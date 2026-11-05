@@ -13,6 +13,8 @@ internal static class AiImageJobPolicy
         (ImageWorkflow.Flux3ImageKlein, false) => "flux3-klein-create-v1", (ImageWorkflow.Flux3ImageKlein, true) => "flux3-klein-edit-v1",
         (ImageWorkflow.Fibo2, false) => "fibo2-create-v1", (ImageWorkflow.Fibo2, true) => "fibo2-edit-v1",
         (ImageWorkflow.ZImage, false) => "z-image-create-v1",
+        (ImageWorkflow.MiniMaxH3, true) => "h3-image-edit-v1",
+        (ImageWorkflow.MiniMaxH3, false) => throw new AiGenerationException(H3ImagePolicy.EditOnlyMessage),
         (ImageWorkflow.Flux2Klein9bKv, false) => "klein-create-v1", (ImageWorkflow.Flux2Klein9bKv, true) => "klein-edit-v1",
         (ImageWorkflow.CodexImages, false) => "codex-create-v1", (ImageWorkflow.CodexImages, true) => "codex-edit-v1",
         _ => throw new AiGenerationException("This image workflow is unavailable.")
@@ -40,6 +42,13 @@ internal static class AiImageJobPolicy
         if (request.Workflow == ImageWorkflow.MossImage && (request.Settings.MossImage is null ||
             request.Edit is not null && string.IsNullOrWhiteSpace(request.Settings.MossImage.EditLora)))
             throw new AiGenerationException("Capture the MOSS-Image settings and choose an edit LoRA before editing.");
+        if (request.Workflow == ImageWorkflow.MiniMaxH3)
+        {
+            lumibelle.Services.Shots.H3Policy.ValidateSettings(request.Settings.H3);
+            if (request.Edit is null) throw new AiGenerationException(H3ImagePolicy.EditOnlyMessage);
+            if (H3ImagePolicy.PresetIssue(H3ImagePolicy.Preset(request.Edit)) is { } presetIssue) throw new AiGenerationException(presetIssue);
+        }
+        else if (request.Edit?.H3Preset is not null) throw new AiGenerationException("A MiniMax H3 preset only applies to the MiniMax H3 workflow.");
         var resolution = request.Create?.Resolution ?? request.Edit!.Resolution;
         if (request.Workflow == ImageWorkflow.Flux3ImageKlein && request.Settings.Flux3Image is null)
             throw new AiGenerationException("Capture the FLUX 3 model files and variant before queueing.");
@@ -90,6 +99,7 @@ internal static class AiImageJobPolicy
         if (request.Workflow == ImageWorkflow.MossImage) return MossImagePolicy.Metadata(request, jobId, candidate);
         if (request.Workflow == ImageWorkflow.Flux3ImageKlein) return Flux3ImagePolicy.Metadata(request, jobId, candidate);
         if (CaptionImagePolicy.Supports(request.Workflow)) return CaptionImagePolicy.Metadata(request, jobId, candidate);
+        if (request.Workflow == ImageWorkflow.MiniMaxH3) return H3ImagePolicy.Metadata(request, jobId, candidate);
         var klein = request.Workflow == ImageWorkflow.Flux2Klein9bKv; var settings = request.Settings;
         return new()
         {

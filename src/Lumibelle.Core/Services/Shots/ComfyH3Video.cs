@@ -161,9 +161,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             : Path.GetFileName(s.Encoder).Contains("generation_tail", StringComparison.OrdinalIgnoreCase) ? "Choose an H3 conditioning encoder. A generation tail is not a standalone encoder."
             : !installedEncoders.Contains(s.Encoder) || !installedVaes.Contains(s.VideoVae) || !installedVaes.Contains(s.AudioVae)
                 ? "Select installed H3 encoder, video VAE, and audio VAE files." : null;
-        var ordinaryModelIssue = IsFl2VaOnly(s.Model) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
-            : H3AcceleratedCheckpoints.IsBakedFile(s.Model) ? "Select ordinary H3 weights for Standard, or choose this checkpoint's dedicated preset."
-            : !installedModels.Contains(s.Model) ? "Select an installed H3 Ref2VA model." : null;
+        var ordinaryModelIssue = OrdinaryModelFileIssue(s.Model) ?? (!installedModels.Contains(s.Model) ? "Select an installed H3 Ref2VA model." : null);
         var baseIssue = sharedIssue ?? ordinaryModelIssue;
         var standardIssue = baseIssue ?? (!Options(root, "KSamplerSelect", "sampler_name").Contains("res_multistep") ? "Update ComfyUI: missing res_multistep sampler." : null);
         string? LoraIssue(string file, int steps) => H3Policy.TurboFileIssue(file, steps) ??
@@ -195,6 +193,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
     }
     // Official Ref2VA files, finetunes such as Singularity and FL2VA/Ref2VA merges all name ref2va after a minimax_h3 prefix.
     internal static bool IsRef2VaModel(string file) => ModelStem(file) is var stem && stem.StartsWith("minimax_h3_", StringComparison.Ordinal) && stem.Contains("ref2va", StringComparison.Ordinal);
+    internal static string? OrdinaryModelFileIssue(string file) => IsFl2VaOnly(file) ? "Choose Ref2VA diffusion weights; FL2VA weights use a different workflow."
+        : H3AcceleratedCheckpoints.IsBakedFile(file) ? "Select ordinary H3 weights for Standard, or choose this checkpoint's dedicated preset." : null;
     private static bool IsFl2VaOnly(string file) => ModelStem(file) is var stem && stem.Contains("fl2va", StringComparison.Ordinal) && !stem.Contains("ref2va", StringComparison.Ordinal);
     private static string ModelStem(string file) => Path.GetFileName(file.Replace('\\', '/')).ToLowerInvariant().Replace('-', '_');
     private static bool SupportsStartFrame(JsonElement root) =>
@@ -445,27 +445,8 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         }
         // A refinement pass always uses Standard sampling, whatever preset made the take.
         var key = refine is null ? H3Presets.Key(s.Shot) : "standard";
-        var model = "1";
         if (H3Presets.Retired(key)) throw new WorkspaceStoreException(H3Presets.RemovedIssue(key));
-        if (key == "turbo4") { Node("16", "LoraLoaderModelOnly", new { model = Link("1"), lora_name = sampling.Lora, strength_model = sampling.LoraStrength }); model = "16"; }
-        if (key == H3SmdRecipe.Key) {
-            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture SMD's selected pruned INT8 base before submission.");
-            model = H3SmdRecipe.Apply(model, s.Settings, Node);
-        }
-        if (key == H3PikaFlexRecipe.Key) {
-            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture Pika H3 Flex's selected pruned INT8 base before submission.");
-            model = H3PikaFlexRecipe.Apply(model, s.Settings, Node);
-        }
-        if (key == H3PtdRecipe.Key) {
-            if (!H3SmdRecipe.IsBase(s.Settings.Model)) throw new WorkspaceStoreException("Capture PTD's selected pruned INT8 base before submission.");
-            model = H3PtdRecipe.Apply(model, s.Settings, Node);
-        }
-        if (key is "larry" or "pdd")
-        {
-            if (key == "pdd") { Node("50", "MiniMaxH3SigmaShift", new { model = Link(model), shift_video = 12.0, shift_audio = 3.0 }); model = "50"; }
-            var presetInputs = H3Presets.Inputs(key, s.Settings); presetInputs["model"] = Link(model);
-            Node("51", H3Presets.Node(key), presetInputs); model = "51";
-        }
+        var model = H3PresetGraph.Adapters(key, s.Settings, sampling, "1", Node);
         model = LoraPolicy.AddNodes(nodes, model, H3Loras.Applied(s));
         var scheduleModel = "1";
         if (H3AcceleratedCheckpoints.Full(key)) {
@@ -475,14 +456,9 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
         if (key == "larry") scheduleModel = model;
         Node("6", "BasicGuider", new { model = Link(model), conditioning = Link(guided) });
         Node("7", "RandomNoise", new { noise_seed = seed });
-        if (key == "larry") Node("8", "MiniMaxH3TurboSampler", new { });
-        else if (key == H3PtdRecipe.Key) Node("8", H3PtdRecipe.Sampler, new { model = Link(model) });
-        else Node("8", "KSamplerSelect", new { sampler_name = refine is null ? sampling.Sampler : "res_multistep" });
+        H3PresetGraph.Sampler(key, refine is null ? sampling.Sampler : "res_multistep", model, Node);
         if (refine is not null) Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = "simple", steps = refine.Refinement.Steps, denoise = refine.Refinement.Denoise });
-        else if (key == H3SmdRecipe.Key) Node("9", "ManualSigmas", new { sigmas = H3SmdRecipe.Sigmas });
-        else if (key == H3PikaFlexRecipe.Key) Node("9", "ManualSigmas", new { sigmas = H3PikaFlexRecipe.Sigmas });
-        else if (key == H3PtdRecipe.Key) Node("9", H3PtdRecipe.Sigmas, new { model = Link(model) });
-        else if (key != "pdd") Node("9", "BasicScheduler", new { model = Link(scheduleModel), scheduler = sampling.Scheduler, steps = sampling.Steps, denoise = 1.0 });
+        else H3PresetGraph.Schedule(key, sampling, model, scheduleModel, Node);
         var source = motionLatent ?? Link("5", latent);
         if (refine is { Refinement: var r })
         {
@@ -496,7 +472,7 @@ public sealed partial class ComfyH3Video(IHttpClientFactory clients, IComfyExecu
             } else Node("33", "LTXVConcatAVLatent", new { video_latent = Link("32"), audio_latent = Link("31") });
             source = Link("33");
         }
-        var sigmas = key == "pdd" ? Link("51", 1) : Link("9");
+        var sigmas = H3PresetGraph.Sigmas(key);
         H3GenerationRecipes.CheckNativeRequest(recipe);
         Node("10", "SamplerCustomAdvanced", new { noise = Link("7"), guider = Link("6"), sampler = Link("8"), sigmas, latent_image = source });
         var output = H3PreviewUpscaling.Apply(s, Node);

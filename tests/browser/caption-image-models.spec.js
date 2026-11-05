@@ -49,6 +49,44 @@ for (const width of [1280, 390]) {
   });
 }
 
+test('MiniMax H3 edits with Video model files and refuses creation', async ({ page, request }) => {
+  await page.goto('/settings/ai?tab=images'); await expect(page.locator('h1')).toBeFocused();
+  await page.locator('#ai-image-MiniMaxH3').click();
+  await expect(page.locator('#image-workflow-form')).toContainText('one frame');
+  await expect(page.locator('#comfy-image-model')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save MiniMax H3', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Refresh image models', exact: true }).click();
+  await expect(page.locator('#image-availability-status')).toContainText('Mock MiniMax H3 editing ready.');
+  await page.locator('#image-workflow-form').getByRole('button', { name: 'Video models', exact: true }).click();
+  await expect(page.locator('#ai-tab-video')).toHaveAttribute('aria-selected', 'true');
+  const project = await (await request.get('/fixtures/new')).json();
+  await request.post(`/fixtures/${project.id}/images`);
+  await page.goto(`/projects/${project.id}/assets`);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  await toolsTab(page, 'Prompt');
+  const workflow = page.getByLabel('Image workflow', { exact: true });
+  await workflow.selectOption('MiniMaxH3');
+  await expect(page.locator('.image-workflow-issue')).toContainText('edits an existing image');
+  await page.locator('.asset-media-card[data-media-kind=Image] .media-select').click();
+  await toolsTab(page, 'Prompt');
+  await workflow.selectOption('MiniMaxH3');
+  await page.getByLabel('Edit instruction', { exact: true }).fill('The coat becomes blue and the framing stays the same.');
+  await expect(page.getByRole('button', { name: 'Generate edited images', exact: true })).toBeEnabled();
+  await expect(page.locator('#reference-boost')).toHaveCount(0);
+  await page.locator('.image-generation-settings > summary').click();
+  await expect(page.locator('.image-workflow-help')).toContainText('124');
+  const preset = page.getByLabel('Generation preset', { exact: true });
+  await expect(preset).toHaveValue('standard');
+  await expect(preset.locator('option[value=turbo8]')).toHaveCount(0);
+  await preset.selectOption('10eros-compact');
+  await expect(page.locator('.qwen-image-options')).toContainText('embedded eight-step Turbo');
+  await expect(page.locator('.qwen-image-options')).not.toContainText('motion reference');
+  await expect(page.getByRole('button', { name: 'Generate edited images', exact: true })).toBeEnabled();
+  await preset.selectOption('pdd');
+  await expect(page.locator('.qwen-image-options [role=alert]')).toContainText('Mock PDD issue');
+  await expect(page.getByRole('button', { name: 'Generate edited images', exact: true })).toBeDisabled();
+});
+
 test('Qwen Turbo uses eight steps in Assets and Z-Image explains its editing limitation', async ({ page, request }) => {
   await page.goto('/settings/ai?tab=images'); await expect(page.locator('h1')).toBeFocused();
   await page.locator('#ai-image-QwenImage21').click();
