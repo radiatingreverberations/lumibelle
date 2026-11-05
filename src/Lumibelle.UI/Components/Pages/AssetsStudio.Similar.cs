@@ -46,7 +46,7 @@ public partial class AssetsStudio
                 edit?.References.Where(r => r != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId)).ToArray() ?? [], crops,
                 edit?.ReferenceBoost ?? 4, edit?.BaseReferenceBoost ?? 1, edit?.GroundingPixels ?? 768, edit?.Regions,
                 recipe.QwenImage21?.Options, true, edit?.SourceAssetId,
-                recipe.Loras.Select(l => new LoraSelection(l.Reference, l.Strength)).ToArray(), recipe.Resolution, recipe.VisualStyle);
+                recipe.Loras.Select(l => new LoraSelection(l.Reference, l.Strength)).ToArray(), recipe.Resolution, recipe.VisualStyle, recipe.H3Image?.Preset);
             ApplyImageComposer(draft);
             _presentation.Selection = null; _presentation.Creation = AssetCreationKind.Image;
             _lookPromptDrafts[(_selectedAssetId!.Value, _targetLookId)] = _imagePrompt;

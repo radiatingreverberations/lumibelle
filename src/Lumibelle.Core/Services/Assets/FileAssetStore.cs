@@ -281,6 +281,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             MossImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             Flux3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             CaptionImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
+            H3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             image.Generation is { } resolutionMetadata && !ImageWorkflowLimits.SupportsResolution(resolutionMetadata.Workflow, resolutionMetadata.Resolution) ||
             image.LookId is not null && LookPolicy.Find(asset, image.LookId) is null ||
             Path.GetFileName(image.FileName) != image.FileName || image.Width <= 0 || image.Height <= 0 ||
@@ -333,6 +334,11 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             return edit.References.Count is < 1 or > CaptionImagePolicy.MaximumFiboReferences ||
                 edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
                 edit.FitMode != "fibo2-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null ||
+                edit.Lora != "" || edit.LoraStrength != 0;
+        if (generation.Workflow == ImageWorkflow.MiniMaxH3)
+            return edit.References.Count is < 1 or > H3ImagePolicy.MaximumReferences ||
+                edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
+                edit.FitMode != H3ImagePolicy.FitMode || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null ||
                 edit.Lora != "" || edit.LoraStrength != 0;
         if (generation!.Workflow == ImageWorkflow.MossImage)
             return edit.References.Count is < 1 or > MossImagePolicy.MaximumReferences ||

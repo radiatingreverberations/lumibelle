@@ -110,7 +110,7 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
             }
             else png = configured.DefaultImageWorkflow == ImageWorkflow.QwenImage21
                 ? await QwenImage21Inputs.PrepareAsync(media.Content, crop, ct)
-                : configured.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein || CaptionImagePolicy.Supports(configured.DefaultImageWorkflow)
+                : configured.DefaultImageWorkflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.MiniMaxH3 || CaptionImagePolicy.Supports(configured.DefaultImageWorkflow)
                 ? await NativeImageInputs.PrepareAsync(media.Content, crop, ct, configured.DefaultImageWorkflow.Label())
                 : await ComfyReferenceImageEditor.PrepareSourcePngAsync(media.Content, crop, ct);
             inputs.Add(new(reference.Reference, crop, reference.Context, png));

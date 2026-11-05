@@ -33,10 +33,19 @@ public static class H3Presets
         "turbo4" => "Turbo · 4 steps", TurboLight => "Turbo · 4 steps · 0.75", "turbo8" => "Turbo · 8 steps",
         H3HyperFlow.Key => "HyperFlow · 8 steps", _ => "Unknown preset"
     };
-    // What each preset is, as fact.
-    public static string Help(string key) => key switch
+    // The file a preset runs on: its own selection, or the model chosen in Video models.
+    public static string Model(string key, H3Settings settings) => key switch
     {
-        H3AcceleratedCheckpoints.Compact => "A complete Beta7 Compact checkpoint with embedded eight-step Turbo. Uses its companion attention recipe. Use as motion reference for a fresh Standard final.",
+        H3AcceleratedCheckpoints.Compact or H3AcceleratedCheckpoints.Fast => H3AcceleratedCheckpoints.Model(settings, key),
+        H3SmdRecipe.Key => H3SmdRecipe.Model(settings), H3PikaFlexRecipe.Key => H3PikaFlexRecipe.Model(settings), H3PtdRecipe.Key => H3PtdRecipe.Model(settings),
+        _ => settings.Model
+    };
+    public static bool OwnModel(string key) => H3AcceleratedCheckpoints.Full(key) || key is H3SmdRecipe.Key or H3PikaFlexRecipe.Key or H3PtdRecipe.Key;
+    public static string Help(string key) => About(key) + (key == H3AcceleratedCheckpoints.Compact ? " Use as motion reference for a fresh Standard final." : "");
+    // What each preset is, as fact, whichever workflow runs it.
+    public static string About(string key) => key switch
+    {
+        H3AcceleratedCheckpoints.Compact => "A complete Beta7 Compact checkpoint with embedded eight-step Turbo. Uses its companion attention recipe.",
         H3SmdRecipe.Key => "The SMD Ref2VA adapter at strength 1 on its separately selected official pruned INT8 base, using Euler and published fixed sigmas.",
         H3PikaFlexRecipe.Key => "Pika's H3 Flex Ref2VA LoRA, distilled from a 50-step generator to six steps, at strength 1 on its separately selected official pruned INT8 base. Uses lcm and the fixed sigmas from ComfyUI's template.",
         H3AcceleratedCheckpoints.Fast => "A complete OmniRef checkpoint with eight Euler/simple steps, shifts 12/3 and native VSA at 10%.",

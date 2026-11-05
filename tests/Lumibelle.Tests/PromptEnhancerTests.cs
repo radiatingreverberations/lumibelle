@@ -27,6 +27,7 @@ public sealed class PromptEnhancerTests
     [InlineData(ImageWorkflow.Krea2, true, "krea-edit-v1", "ref")]
     [InlineData(ImageWorkflow.Flux2Klein9bKv, false, "klein-create-v1", "40-70")]
     [InlineData(ImageWorkflow.Flux2Klein9bKv, true, "klein-edit-v1", "Klein")]
+    [InlineData(ImageWorkflow.MiniMaxH3, true, "h3-image-edit-v1", "one still frame")]
     public void ProfilesAreBundledAndRouteByOperation(ImageWorkflow workflow, bool edit, string id, string content)
     { Assert.Equal(id, PromptProfiles.Id(workflow, edit)); Assert.Contains(content, PromptProfiles.Read(workflow, edit), StringComparison.OrdinalIgnoreCase); }
 

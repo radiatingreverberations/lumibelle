@@ -13,6 +13,7 @@ public sealed partial class AssetStoreTests
     [Theory]
     [InlineData(ImageWorkflow.Krea2, false)] [InlineData(ImageWorkflow.Krea2, true)]
     [InlineData(ImageWorkflow.Flux2Klein9bKv, false)] [InlineData(ImageWorkflow.Flux2Klein9bKv, true)]
+    [InlineData(ImageWorkflow.MiniMaxH3, true)]
     public async Task QueuedLoraOrderAndStrengthsRemainExactAcrossCandidates(ImageWorkflow workflow, bool editing)
     {
         using var f = await ImageJobFixture.Create(this, workflow, editing); var ct = TestContext.Current.CancellationToken;

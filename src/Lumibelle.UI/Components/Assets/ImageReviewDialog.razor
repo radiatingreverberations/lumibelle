@@ -131,6 +131,7 @@ else
                                 }
                                 @if (generation.Codex is null) { <dt>Diffusion model</dt><dd>@generation.DiffusionModel</dd><dt>Text encoder</dt><dd>@generation.TextEncoder</dd><dt>VAE</dt><dd>@generation.Vae</dd> }
                                 @foreach (var lora in generation.Loras) { <dt>LoRA · @lora.Reference.Name</dt><dd>@lora.Reference.FileName · strength @lora.Strength</dd> }
+                                @if (generation.H3Image is { } h3) { <dt>Generation preset</dt><dd>@lumibelle.Services.Shots.H3Presets.Label(h3.Preset)</dd> }
                                 @if (generation.QwenImage21 is { } qwen) { <dt>Checkpoint variant</dt><dd>@qwen.Variant@(qwen.Variant == QwenImage21Variant.Turbo ? " · fixed 8-step schedule" : "")</dd> }
                                 @if (generation.CaptionImage is { } caption) {
                                     <dt>Checkpoint variant</dt><dd>@caption.Settings.Variant</dd>

@@ -61,7 +61,7 @@ public partial class AiSettingsPage
     private bool _imageDefaultsSelected, _imageEntryChosen;
     private string _videoSection = lumibelle.Components.Shots.VideoSettingsPanel.H3Section;
     private static readonly (string Key, string Label, string Kind)[] ImageEntries =
-        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.Flux3ImageKlein, ImageWorkflow.QwenImage21, ImageWorkflow.MossImage, ImageWorkflow.Fibo2, ImageWorkflow.ZImage, ImageWorkflow.CodexImages }
+        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.Flux3ImageKlein, ImageWorkflow.QwenImage21, ImageWorkflow.MossImage, ImageWorkflow.Fibo2, ImageWorkflow.ZImage, ImageWorkflow.MiniMaxH3, ImageWorkflow.CodexImages }
         .Select(w => (w.ToString(), w.Label(), w == ImageWorkflow.CodexImages ? "Local CLI" : "ComfyUI")).ToArray();
     private string ImageEntry => _imageDefaultsSelected ? AiProviderSidebar.DefaultsKey : _imageWorkflow.ToString();
     private void SelectImageEntry(string key)
@@ -91,6 +91,7 @@ public partial class AiSettingsPage
             CancelTextEffort(backend);
     }
     private bool IsCodex => _imageWorkflow == ImageWorkflow.CodexImages;
+    private bool IsH3 => _imageWorkflow == ImageWorkflow.MiniMaxH3;
     private string _fluxModel = "", _fluxEncoder = "", _fluxVae = "";
     private bool IsKlein => _imageWorkflow == ImageWorkflow.Flux2Klein9bKv;
     private bool IsQwen => _imageWorkflow == ImageWorkflow.QwenImage21;
@@ -388,6 +389,7 @@ public partial class AiSettingsPage
             case ImageWorkflow.Flux3ImageKlein: _flux3 = _settings!.Flux3Image ?? new(); break;
             case ImageWorkflow.Fibo2: _fibo = CaptionImagePolicy.Settings(_settings!, workflow); break;
             case ImageWorkflow.ZImage: _zimage = CaptionImagePolicy.Settings(_settings!, workflow); break;
+            case ImageWorkflow.MiniMaxH3: break; // Its files belong to Video models.
             case ImageWorkflow.CodexImages: _codexImageModel = _settings!.Codex.ImageModel; _codexImageEffort = _settings.Codex.ImageEffort ?? ""; break;
             case ImageWorkflow.Flux2Klein9bKv: _fluxModel = _settings!.FluxKleinModel; _fluxEncoder = _settings.FluxKleinTextEncoder; _fluxVae = _settings.FluxKleinVae; break;
             default:
@@ -430,6 +432,7 @@ public partial class AiSettingsPage
     // Each workflow saves only its own fields; the default workflow is saved from Defaults.
     private AiSettings ApplyImageWorkflowDraft(AiSettings settings, ImageWorkflow workflow) => workflow switch
     {
+        ImageWorkflow.MiniMaxH3 => settings,
         ImageWorkflow.CodexImages => settings with { Codex = settings.Codex with { ImageModel = _codexImageModel, ImageEffort = string.IsNullOrEmpty(_codexImageEffort) ? null : _codexImageEffort } },
         ImageWorkflow.QwenImage21 => settings with { QwenImage21 = _qwen },
         ImageWorkflow.MossImage => settings with { MossImage = _moss },
@@ -463,6 +466,11 @@ public partial class AiSettingsPage
             {
                 var check = await Providers.CheckAsync(AiBackend.Codex, _settings!, cancellationToken: _token);
                 _checks[AiBackend.Codex] = check; _imageModels = check.Models; _imageEditCheck = check.Message; return;
+            }
+            if (IsH3)
+            {
+                var h3Edits = await ImageEditor.CheckAsync(ImageDraft, _token);
+                _imageEditCheck = h3Edits.Message; return;
             }
             var images = await ImageGenerator.CheckAsync(ImageDraft, _token);
             var edits = await ImageEditor.CheckAsync(ImageDraft, _token);

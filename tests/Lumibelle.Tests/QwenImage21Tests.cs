@@ -318,7 +318,8 @@ public sealed partial class QwenImage21Tests
     public void LegacyJsonDoesNotAcquireQwenFieldsAndEnumsKeepTheirValues()
     {
         Assert.Equal(0, (int)ImageWorkflow.Krea2); Assert.Equal(1, (int)ImageWorkflow.Flux2Klein9bKv); Assert.Equal(2, (int)ImageWorkflow.CodexImages);
-        Assert.Equal(2, (int)LoraWorkflow.MiniMaxH3Ref2VA);
+        Assert.Equal(2, (int)LoraWorkflow.MiniMaxH3Ref2VA); Assert.Equal(8, (int)ImageWorkflow.MiniMaxH3);
+        Assert.DoesNotContain("h3Image", JsonSerializer.Serialize(new AssetGenerationMetadata(), AtomicJsonFile.Options));
         Assert.DoesNotContain("qwenImage21", JsonSerializer.Serialize(new AiSettings(), AtomicJsonFile.Options));
         Assert.DoesNotContain("qwenImage21", JsonSerializer.Serialize(new AssetGenerationMetadata(), AtomicJsonFile.Options));
         Assert.DoesNotContain("qwenImage21", JsonSerializer.Serialize(new ReferenceGenerationRequest { Prompt = "old", AspectRatio = "1:1" }, AtomicJsonFile.Options));

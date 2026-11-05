@@ -80,6 +80,8 @@ public static class QwenImage21Policy
 
     public static (int Width, int Height) OutputSize(AiImageJobRequest request)
     {
+        // Regional inputs are already fitted to the captured canvas; recomputing from that PNG can drift by a grid step.
+        if (request.Workflow != ImageWorkflow.QwenImage21 && request.Regional is { } fitted) return (fitted.Canvas.CanvasWidth, fitted.Canvas.CanvasHeight);
         if (request.Workflow != ImageWorkflow.QwenImage21) return ImageAspectPolicy.Size(request.AspectRatio, request.Inputs.FirstOrDefault()?.Png, request.Create?.Resolution ?? request.Edit!.Resolution);
         var options = Options(request); ValidateOptions(options, request.Edit is not null);
         if (request.Edit is null) return CreateSize(request.AspectRatio, options.Resolution);

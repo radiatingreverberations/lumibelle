@@ -46,6 +46,7 @@ public static class LumibelleServices
         services.AddSingleton<ComfyFluxKleinImages>();
         services.AddSingleton<ComfyQwenImage21>();
         services.AddSingleton<ComfyMossImages>();
+        services.AddSingleton<ComfyH3Images>();
         services.AddSingleton<ComfyFlux3Images>();
         services.AddSingleton<ComfyCaptionImages>();
         services.AddSingleton<ComfyImageService>();

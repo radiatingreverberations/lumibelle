@@ -307,12 +307,20 @@ else
                             @if (IsQwenTurbo) { <p class="field-hint">Turbo uses its fixed eight-step sampling schedule.</p> }
                         </fieldset>
                     }
+                    @if (IsH3) {
+                        <fieldset class="qwen-image-options" disabled="@_composerLocked" aria-label="MiniMax H3 image settings">
+                            <label for="h3-image-preset">Generation preset</label>
+                            <select id="h3-image-preset" value="@_h3Preset" @onchange="ChangeH3Preset">@foreach (var key in H3Presets.Offered) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }</select>
+                            <p class="field-hint">@H3Presets.About(_h3Preset)</p>
+                            @if (H3PresetIssue is { } presetIssue) { <p class="field-error" role="alert">@presetIssue</p> }
+                        </fieldset>
+                    }
                     @if (!IsCodex)
                     {
                         <div class="generation-advanced">
                             <label for="fixed-seed">Seed <span>(blank for fresh)</span></label>
                             <input id="fixed-seed" disabled="@_composerLocked" inputmode="numeric" @bind="_fixedSeed" @bind:event="oninput" />
-                            @if (IsEditMode && !IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption)
+                            @if (IsEditMode && !IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption && !IsH3)
                             {
                                 @if (_additionalReferences.Count > 0)
                                 {
@@ -336,6 +344,11 @@ else
                             <details class="image-workflow-help"><summary>Workflow notes</summary>
                                 <p class="field-hint">FLUX 3 edits with up to ten ordered references. Use Enhance to turn your instruction into a full caption of the desired result, or write that caption directly. Reference images anchor appearance; describe the composition and what should stay consistent.</p>
                                 <p class="field-hint">The selected Base or Distilled variant and sampling defaults come from AI settings. Crop and Edit/Protect remain available for the captured inputs.</p>
+                            </details>
+                        }
+                        @if (IsH3) {
+                            <details class="image-workflow-help"><summary>Workflow notes</summary>
+                                <p class="field-hint">MiniMax H3 is a video model. This workflow cuts its latent to one frame before sampling, using the files selected in Video models and the same generation presets as video. The encoder node's own tooltip gives the trained range as about 124–362 frames, and the presets were published for video. It edits with up to nine ordered references, and does not create images from nothing. Say what each reference shows and what comes from it.</p>
                             </details>
                         }
                         @if (IsMoss) {
@@ -827,6 +840,15 @@ else
     private bool IsKlein => _imageWorkflow == ImageWorkflow.Flux2Klein9bKv;
     private bool IsMoss => _imageWorkflow == ImageWorkflow.MossImage;
     private bool IsFlux3 => _imageWorkflow == ImageWorkflow.Flux3ImageKlein;
+    private bool IsH3 => _imageWorkflow == ImageWorkflow.MiniMaxH3;
+    private string _h3Preset = H3ImagePolicy.StandardPreset;
+    private string? CaptureH3Preset() => IsH3 ? _h3Preset : null;
+    private string? H3PresetIssue => !IsH3 ? null : H3ImagePolicy.PresetIssue(_h3Preset) ?? _editConfiguration?.H3Presets.FirstOrDefault(p => p.Key == _h3Preset)?.Issue;
+    private void ChangeH3Preset(ChangeEventArgs e)
+    {
+        if (_composerLocked || e.Value?.ToString() is not { } key || !H3Presets.Offered.Contains(key)) return;
+        _h3Preset = key; RememberImageComposer();
+    }
     private bool IsCaption => CaptionImagePolicy.Supports(_imageWorkflow);
     private readonly List<AssetImageReference> _additionalReferences = [];
     private sealed record CropSelection(string Aspect = "Original", double Zoom = 1, double X = 50, double Y = 50);
@@ -950,14 +972,14 @@ else
     private string SourceCropLabel => SourceCrop is null ? "Full image" : BaseReference is { } key && _restoredCrops.ContainsKey(key) ? "Captured crop" : $"{(_cropAspect == "Original" ? "Original ratio" : _cropAspect)} · {_cropZoom:0.##}× crop";
     private bool IsFiboEditTurbo => _imageWorkflow == ImageWorkflow.Fibo2 && CaptionImagePolicy.Settings(_settings ?? new(), _imageWorkflow).Variant == CaptionImageVariant.Turbo;
     private bool CurrentImageConfigurationReady => IsEditMode
-        ? (_imageConfiguration?.Success == true || IsFiboEditTurbo) && _editConfiguration?.Success == true
+        ? (_imageConfiguration?.Success == true || IsFiboEditTurbo || IsH3) && _editConfiguration?.Success == true
         : _imageConfiguration?.Success == true;
     private string CurrentImageConfigurationLabel => _checkingImages ? "Checking workflow…" :
         CurrentImageConfigurationReady ? "Ready" : "Needs attention";
-    private string? CurrentImageConfigurationMessage => IsEditMode && (_imageConfiguration?.Success == true || IsFiboEditTurbo)
+    private string? CurrentImageConfigurationMessage => IsEditMode && (_imageConfiguration?.Success == true || IsFiboEditTurbo || IsH3)
         ? _editConfiguration?.Message
         : _imageConfiguration?.Message;
-    private bool CanRunImageOperation => QwenOptionsIssue is null && LookIssue is null && !_composerLocked && PendingImage is null && !ImageQueueFull && !_checkingImages && !_refreshingLoras && (IsCodex || (_visibilityReady && LoraError is null)) && (!IsEditMode || ReferenceInputError is null) && !string.IsNullOrWhiteSpace(_imagePrompt) &&
+    private bool CanRunImageOperation => QwenOptionsIssue is null && H3PresetIssue is null && LookIssue is null && !_composerLocked && PendingImage is null && !ImageQueueFull && !_checkingImages && !_refreshingLoras && (IsCodex || (_visibilityReady && LoraError is null)) && (!IsEditMode || ReferenceInputError is null) && !string.IsNullOrWhiteSpace(_imagePrompt) &&
         CurrentImageConfigurationReady && (!IsEditMode || EditSource is not null);
     private IEnumerable<ReferenceAsset> FilteredAssets => (_library?.Assets ?? []).Where(asset =>
         (_categoryFilter is null || asset.Category == _categoryFilter) && (string.IsNullOrWhiteSpace(_search) || asset.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)));
