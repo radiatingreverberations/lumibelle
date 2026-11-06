@@ -82,8 +82,6 @@ public static class TextModelProfiles
             throw new WorkspaceStoreException("The output limit must exceed the thinking budget to leave room for the answer.");
         if (TextModelPolicy.UsesNamedEffort(model.Backend) && (model.Temperature is not null || model.MaxOutputTokens is not null))
             throw new WorkspaceStoreException($"{TextModelPolicy.ProviderName(model.Backend)} text profiles support reasoning effort, not temperature or output-limit overrides.");
-        if (model.Backend == AiBackend.ClaudeCode && model.ReasoningEffort is { } claudeEffort && !ClaudeCodeClient.Efforts.Contains(claudeEffort))
-            throw new WorkspaceStoreException("Choose a supported Claude Code reasoning effort or leave it at the model default.");
         if (model.Backend != AiBackend.OpenRouter && model.ReasoningMaxTokens is not null)
             throw new WorkspaceStoreException("Thinking token budgets are available only for OpenRouter text profiles.");
         if (model.Backend == AiBackend.ComfyUI && !string.IsNullOrEmpty(model.ReasoningEffort))

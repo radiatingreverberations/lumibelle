@@ -302,6 +302,7 @@ public sealed partial class AiTextJobCapture(IAiSettingsStore settings, IProject
         IReadOnlyList<AiTextMessage>? scenePlan = null, TextModelReference? selectedModel = null, JsonElement? responseSchema = null, string? responseGrammar = null,
         int? scenePlanReplyTokens = null, JsonElement? scenePlanResponseSchema = null, string? scenePlanResponseGrammar = null)
     {
+        if (TextModelPolicy.Retired(model.Backend)) throw new WorkspaceStoreException(TextModelPolicy.RetiredIssue);
         selectedModel = TextModelPolicy.WithDefaultEffort(selectedModel ?? model, configured);
         model = TextModelPolicy.WithDefaultEffort(model, configured);
         model = VllmTextSettings.Apply(model, configured);

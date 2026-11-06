@@ -81,12 +81,6 @@ else
                                 <lumibelle.Components.AI.CodexSettingsPanel Settings="_settings.Codex" Busy="Busy" SaveSettings="SaveCodexAsync" Active='@(_tab == "connections" && ConnectionProvider == "codex")' />
                             </section>
                         }
-                        @if (_visitedProviders.Contains("claudecode"))
-                        {
-                            <section id="ai-connection-claudecode" role="tabpanel" aria-labelledby="ai-provider-claudecode" hidden='@(ConnectionProvider != "claudecode")'>
-                                <lumibelle.Components.AI.ClaudeCodeSettingsPanel Settings="_settings.ClaudeCode" Busy="Busy" SaveSettings="SaveClaudeCodeAsync" />
-                            </section>
-                        }
                     </div>
                 </div>
             </section>
@@ -108,6 +102,7 @@ else
                             @foreach (var model in DefaultChoices) { <option value="@TextModelProfiles.ChoiceKey(model)">@DefaultChoiceLabel(model)</option> }
                         </select>
                     </div>
+                    @if (TextModelPolicy.Retired(TextModelPolicy.Default(_settings).Backend)) { <p id="global-text-default-issue" class="field-error" role="alert">@TextModelPolicy.RetiredIssue</p> }
                     <lumibelle.Components.AI.TextModelProfilesPanel SettingsSnapshot="_settings" Models="AllModels" CatalogModel="CatalogModel" Busy="Busy" SaveProfiles="SaveTextProfilesAsync" />
                     <p class="field-hint"><a href="/settings/ai/probes">Test models and profiles →</a> Compare writing responses and record your own 1–5 fulfillment ratings.</p>
                     <form id="text-timeout-form" class="settings-card" @onsubmit="SaveTextTimeoutAsync" @onsubmit:preventDefault>
@@ -147,14 +142,12 @@ else
                         </form>
                         </details>
                     }
-                    @if (TextBackend == AiBackend.Codex && _settings.Codex.Enabled || TextBackend == AiBackend.ClaudeCode && _settings.ClaudeCode.Enabled)
+                    @if (TextBackend == AiBackend.Codex && _settings.Codex.Enabled)
                     {
                         var provider = TextModelPolicy.ProviderName(TextBackend); var effortId = _connectionProvider + "-text-effort";
                         <details class="text-generation-fallback" open="@_providerDefaultsOpen"><summary @onclick="() => _providerDefaultsOpen = !_providerDefaultsOpen" @onclick:preventDefault>@provider defaults</summary>
                         <form class="codex-text-default" @onsubmit="SaveTextEffortAsync" @onsubmit:preventDefault>
-                            <div><div class="field-label-help"><label for="@effortId">Default @provider reasoning effort</label><HelpHint Label="@($"Default {provider} reasoning effort")" Text="@(TextBackend == AiBackend.Codex
-                                    ? "Used by Codex text assistance across projects, unless a project default or request override specifies an effort. Model default uses each model's reported default. Image generation has its own setting under Image models."
-                                    : "Used by Claude Code text assistance across projects, unless a project default or request override specifies an effort. Model default lets Claude Code choose; unsupported levels fall back to the highest level the model supports.")" /></div>
+                            <div><div class="field-label-help"><label for="@effortId">Default @provider reasoning effort</label><HelpHint Label="@($"Default {provider} reasoning effort")" Text="Used by Codex text assistance across projects, unless a project default or request override specifies an effort. Model default uses each model's reported default. Image generation has its own setting under Image models." /></div>
                                 <select id="@effortId" @bind="TextEffortDraft" disabled="@Busy"><option value="">Model default</option>
                                     @foreach (var effort in TextEfforts) { <option value="@effort">@effort</option> }
                                     @if (TextEffortDraft.Length > 0 && !TextEfforts.Contains(TextEffortDraft)) { <option value="@TextEffortDraft">@TextEffortDraft · refresh @provider to check</option> }

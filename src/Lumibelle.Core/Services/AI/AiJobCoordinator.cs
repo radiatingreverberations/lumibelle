@@ -7,7 +7,7 @@ using lumibelle.Services.Story;
 namespace lumibelle.Services.AI;
 
 public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore settings, IEnumerable<IAiJobHandler> handlers,
-    TimeProvider clock, ILogger<AiJobCoordinator> logger, ICodexClient? codex = null, IClaudeCodeClient? claude = null) : BackgroundService
+    TimeProvider clock, ILogger<AiJobCoordinator> logger, ICodexClient? codex = null) : BackgroundService
 {
     private readonly IReadOnlyDictionary<AiJobKind, IAiJobHandler> _handlers = IndexHandlers(handlers);
     private readonly Channel<bool> _wake = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
@@ -68,13 +68,6 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             // Resuming only confirms Codex is still connected; the next request shows
             // whether a usage limit has reset.
             var check = await codex.CheckAsync((await settings.LoadAsync(ct)).Codex, ct);
-            if (!check.Success) throw new AiGenerationException(check.Message);
-        }
-        if (provider == AiBackend.ClaudeCode && !paused && claude is not null)
-        {
-            // Claude Code does not report its allowance. Resuming only confirms the CLI
-            // is still signed in; the next request shows whether the limit has reset.
-            var check = await claude.CheckAsync((await settings.LoadAsync(ct)).ClaudeCode, ct);
             if (!check.Success) throw new AiGenerationException(check.Message);
         }
         await store.SetPausedAsync(provider, paused, ct);
@@ -183,7 +176,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         {
             foreach (var entry in _workers.Where(w => w.Value.Task.IsCompleted).ToArray())
                 if (_workers.TryRemove(entry.Key, out var finished)) finished.Cancellation.Dispose();
-            var document = await store.ReadAsync(ct);
+            var document = await RetireRemovedProviderAsync(await store.ReadAsync(ct), ct);
             foreach (var job in document.Jobs.Where(j => j.CancelRequested || j.ComfyControl?.PauseRequested == true))
                 if (_workers.TryGetValue(job.Id, out var active)) active.Cancellation.Cancel();
             ForgetSettledRechecks(document);
@@ -232,16 +225,27 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
                 if (!configured.Enabled) { if (!document.Jobs.Any(j => j.Backend == AiBackend.Codex && j.State == AiJobState.Running)) await codex.StopAsync(); }
                 else await DispatchAsync(AiBackend.Codex, configured.Concurrency, ct);
             }
-            if (claude is not null)
-            {
-                var configured = (await settings.LoadAsync(ct)).ClaudeCode;
-                if (!configured.Enabled) { if (!document.Jobs.Any(j => j.Backend == AiBackend.ClaudeCode && j.State == AiJobState.Running)) await claude.StopAsync(); }
-                else await DispatchAsync(AiBackend.ClaudeCode, configured.Concurrency, ct);
-            }
             await RefreshAsync(ct);
             ClearError("queue");
         }
         finally { _commands.Release(); }
+    }
+    // Requests an earlier build queued for the removed Claude Code provider can never run. Say so once, instead of
+    // leaving them waiting or handing an interrupted one to a recovery that has no provider to ask.
+    private async Task<AiQueueDocument> RetireRemovedProviderAsync(AiQueueDocument document, CancellationToken ct)
+    {
+        static bool Stranded(AiJobHeader job) => TextModelPolicy.Retired(job.Backend) && job.State is AiJobState.Waiting or AiJobState.Running;
+        var paused = document.Paused.Where(TextModelPolicy.Retired).ToArray();
+        var stranded = document.Jobs.Where(Stranded).ToArray();
+        if (paused.Length == 0 && stranded.Length == 0) return document;
+        foreach (var provider in paused) await store.SetPausedAsync(provider, false, ct);
+        foreach (var job in stranded)
+            await store.UpdateAsync(job.Id, j => !Stranded(j) ? j : j with
+            {
+                State = j.CancelRequested ? AiJobState.Cancelled : AiJobState.NeedsAttention, Recovery = AiJobRecovery.None, LeaseId = null,
+                FinishedUtc = clock.GetUtcNow(), Unread = !j.CancelRequested, Error = j.CancelRequested ? null : TextModelPolicy.RetiredRequest
+            }, ct);
+        return await store.ReadAsync(ct);
     }
     private async Task DispatchAsync(AiBackend backend, int concurrency, CancellationToken ct)
     {
@@ -314,7 +318,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         var context = new AiJobContext(job, recovering, store, clock, OnProgress,
             e => { if (e is null) ClearError($"progress/{job.Id}"); else Failed("Live AI progress could not be checkpointed. The provider request is still being observed.", e, $"progress/{job.Id}"); }, ct);
         AiJobOutcome outcome;
-        var codexAllowanceExceeded = false; var claudeLimitReached = false;
+        var codexAllowanceExceeded = false;
         JsonElement snapshot = default;
         _handlers.TryGetValue(job.Kind, out var handler);
         try
@@ -326,7 +330,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             ObserveLateFailure(task);
             // Owned ComfyUI observers and CLI processes must finish unwinding before
             // a paused request can be claimed again under a new lease.
-            outcome = job.Backend is AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.ComfyUI ? await task : await task.WaitAsync(ct);
+            outcome = job.Backend is AiBackend.Codex or AiBackend.ComfyUI ? await task : await task.WaitAsync(ct);
             if (outcome.State is not (AiJobState.Completed or AiJobState.Cancelled or AiJobState.NeedsAttention)) throw new AiGenerationException("The AI handler returned an invalid completion state.");
             if (job.Batch is not null && outcome.State == AiJobState.Completed && outcome.CompletedCandidates is null or < 0)
                 throw new AiGenerationException("The batch handler did not account for its candidates.");
@@ -339,7 +343,6 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         { outcome = new(AiJobState.Cancelled); }
         catch (AiJobRecoveryException e) { outcome = AiJobOutcome.Attention(e.Message, e.Recovery); }
         catch (CodexAllowanceException e) { codexAllowanceExceeded = true; outcome = AiJobOutcome.Attention(e.Message, AiJobRecovery.GenerateAgain); }
-        catch (ClaudeCodeLimitException e) { claudeLimitReached = true; outcome = AiJobOutcome.Attention(e.Message, AiJobRecovery.GenerateAgain); }
         catch (Exception e)
         { outcome = AiJobOutcome.Attention(e.Message, recovering ? AiJobRecovery.CheckStatus : AiJobRecovery.GenerateAgain); }
         if (_stopping.IsCancellationRequested) return false;
@@ -422,7 +425,6 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             {
                 var extended = false;
                 if (codexAllowanceExceeded) await store.SetPausedAsync(AiBackend.Codex, true, _stopping);
-                if (claudeLimitReached) await store.SetPausedAsync(AiBackend.ClaudeCode, true, _stopping);
                 if (!published) await store.UpdateAsync(job.Id, j =>
                 {
                     if (j.LeaseId != job.LeaseId) return j;

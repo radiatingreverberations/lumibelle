@@ -19,12 +19,6 @@ public partial class AiSettingsPage
         StateHasChanged();
         try { var saved = await save; if (saved) InvalidateTextCatalog(AiBackend.Codex); return saved; } finally { StateHasChanged(); }
     }
-    private async Task<bool> SaveClaudeCodeAsync(ClaudeCodeSettings draft)
-    {
-        var save = SaveChangeAsync(settings => settings with { ClaudeCode = settings.ClaudeCode with { Enabled = draft.Enabled, ExecutablePath = draft.ExecutablePath, Concurrency = draft.Concurrency } }, "Claude Code connection saved.");
-        StateHasChanged();
-        try { var saved = await save; if (saved) InvalidateTextCatalog(AiBackend.ClaudeCode); return saved; } finally { StateHasChanged(); }
-    }
     private async Task<bool> SaveLoraLibraryAsync(IReadOnlyList<LoraDefinition> library)
     {
         var save = SaveChangeAsync(settings => settings with { LoraLibrary = library.ToArray() }, "LoRA library saved.");
@@ -72,22 +66,21 @@ public partial class AiSettingsPage
         { _imageWorkflow = workflow; ImageWorkflowChanged(); }
     }
     private string _codexImageModel = "", _codexImageEffort = "";
-    // Drafts of the global text effort for each subscription CLI.
+    // Draft of the global Codex text effort, kept per provider tab.
     private readonly Dictionary<AiBackend, string> _textEfforts = [];
     private string TextEffortDraft { get => _textEfforts.GetValueOrDefault(TextBackend, ""); set => _textEfforts[TextBackend] = value; }
-    private IReadOnlyList<string> TextEfforts => TextBackend == AiBackend.ClaudeCode ? ClaudeCodeClient.Efforts : (_checks.GetValueOrDefault(TextBackend)?.Models ?? [])
+    private IReadOnlyList<string> TextEfforts => (_checks.GetValueOrDefault(TextBackend)?.Models ?? [])
         .SelectMany(model => model.ReasoningEfforts ?? []).Distinct(StringComparer.Ordinal).ToArray();
-    private void CancelTextEfforts() { foreach (var backend in new[] { AiBackend.Codex, AiBackend.ClaudeCode }) CancelTextEffort(backend); }
+    private void CancelTextEfforts() => CancelTextEffort(AiBackend.Codex);
     private void CancelTextEffort(AiBackend backend) => _textEfforts[backend] = TextModelPolicy.DefaultEffort(backend, _settings!) ?? "";
     private async Task SaveTextEffortAsync()
     {
-        if (Busy) return;
+        if (Busy || TextBackend != AiBackend.Codex) return;
         var backend = TextBackend; var name = TextModelPolicy.ProviderName(backend);
         if (TextEffortDraft.Length > 0 && !TextEfforts.Contains(TextEffortDraft))
         { _error = $"Refresh {name} and choose a reported reasoning effort."; return; }
         var effort = TextEffortDraft.Length == 0 ? null : TextEffortDraft;
-        if (await SaveChangeAsync(settings => backend == AiBackend.Codex ? settings with { Codex = settings.Codex with { TextEffort = effort } }
-                : settings with { ClaudeCode = settings.ClaudeCode with { TextEffort = effort } }, $"Default {name} reasoning effort saved."))
+        if (await SaveChangeAsync(settings => settings with { Codex = settings.Codex with { TextEffort = effort } }, $"Default {name} reasoning effort saved."))
             CancelTextEffort(backend);
     }
     private bool IsCodex => _imageWorkflow == ImageWorkflow.CodexImages;

@@ -73,7 +73,7 @@ test('provider details are collapsed, show separate capacity and key allowance, 
   const checks = async () => (await (await request.get('/fixtures/capacity')).json());
   const initial = await checks();
   const toggles = drawer(page).locator('.ai-provider-toggle');
-  await expect(toggles).toHaveText([/ComfyUI.*VRAM/, /OpenAI-compatible.*Server/, /OpenRouter.*Allowance/, /Codex.*Allowance/, /Claude Code.*Limits/]);
+  await expect(toggles).toHaveText([/ComfyUI.*VRAM/, /OpenAI-compatible.*Server/, /OpenRouter.*Allowance/, /Codex.*Allowance/]);
   for (const button of await toggles.all()) await expect(button).toHaveAttribute('aria-expanded', 'false');
   await toggles.nth(0).click();
   const comfy = drawer(page).locator('#activity-capacity-ComfyUI');

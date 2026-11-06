@@ -19,20 +19,22 @@ public partial class AiSettingsPage
     private readonly Dictionary<AiBackend, TextCatalogState> _textCatalogs = Enum.GetValues<AiBackend>().ToDictionary(b => b, _ => new TextCatalogState());
     private readonly Dictionary<string, string> _aliasDrafts = new(StringComparer.Ordinal);
     private string _openAiModelServer = "";
-    private AiBackend TextBackend => _connectionProvider switch { "vllm" => AiBackend.Vllm, "openrouter" => AiBackend.OpenRouter, "codex" => AiBackend.Codex, "claudecode" => AiBackend.ClaudeCode, _ => AiBackend.ComfyUI };
+    private AiBackend TextBackend => _connectionProvider switch { "vllm" => AiBackend.Vllm, "openrouter" => AiBackend.OpenRouter, "codex" => AiBackend.Codex, _ => AiBackend.ComfyUI };
     private TextCatalogState TextState => _textCatalogs[TextBackend];
     private IEnumerable<TextModelReference> AllModels => _textCatalogs.SelectMany(pair => (pair.Value.Catalog?.Models ?? [])
             .Select(model => TextModelPolicy.Reference(pair.Key, model, _settings!)))
         .Concat(_settings!.StarredTextModels).Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .Where(model => !string.IsNullOrWhiteSpace(model.Model)).DistinctBy(TextModelPolicy.Key);
-    private TextModelReference[] DefaultChoices => _settings!.TextModelProfiles.Concat(_settings.StarredTextModels).Append(TextModelPolicy.Default(_settings))
-        .Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
+    // A saved default for the removed Claude Code provider stays listed so the select shows it; its profiles are not offered.
+    private TextModelReference[] DefaultChoices => _settings!.TextModelProfiles.Concat(_settings.StarredTextModels).Where(model => !TextModelPolicy.Retired(model.Backend))
+        .Append(TextModelPolicy.Default(_settings)).Append(TextModelProfiles.ModelOnly(TextModelPolicy.Default(_settings)))
         .DistinctBy(TextModelProfiles.ChoiceKey).OrderBy(ModelName, StringComparer.OrdinalIgnoreCase).ToArray();
     private AiModel? CatalogModel(TextModelReference model) => model.Backend == AiBackend.ComfyUI && !TextModelPolicy.SameServer(model.ComfyUrl, _settings!.ComfyUrl) ? null
         : TextModelPolicy.CatalogModel(model, _textCatalogs[model.Backend].Catalog);
     private string? CatalogName(TextModelReference model) => CatalogModel(model)?.Name;
     private string ModelName(TextModelReference model) => TextModelPolicy.DisplayName(model, _settings!, CatalogName(model));
-    private string DefaultChoiceLabel(TextModelReference model) => string.IsNullOrWhiteSpace(model.Model) ? $"{TextModelPolicy.ProviderName(model.Backend)} · No model selected"
+    private string DefaultChoiceLabel(TextModelReference model) => string.IsNullOrWhiteSpace(model.Model)
+            ? $"{TextModelPolicy.ProviderName(model.Backend)} · {(TextModelPolicy.Retired(model.Backend) ? "No longer available" : "No model selected")}"
         : TextModelPolicy.PickerLabel(model, _settings!, DefaultChoices, CatalogName);
     private string DefaultKey => TextModelProfiles.ChoiceKey(TextModelPolicy.Default(_settings!));
     private bool IsStarred(TextModelReference model) => _settings!.StarredTextModels.Any(item => TextModelPolicy.Same(item, model));
@@ -139,7 +141,6 @@ public partial class AiSettingsPage
         AiBackend.ComfyUI => _settings!.ComfyUrl,
         AiBackend.Vllm => System.Text.Json.JsonSerializer.Serialize(OpenAiConnections.All(_settings!)),
         AiBackend.Codex => $"{_settings!.Codex.Enabled}\n{_settings.Codex.ExecutablePath}",
-        AiBackend.ClaudeCode => $"{_settings!.ClaudeCode.Enabled}\n{_settings.ClaudeCode.ExecutablePath}",
         _ => _settings!.HasOpenRouterKey.ToString()
     };
     private void InvalidateTextCatalog(AiBackend backend)
@@ -163,7 +164,6 @@ public partial class AiSettingsPage
         {
             var check = backend == AiBackend.OpenRouter && !settings.HasOpenRouterKey ? new AiConnectionCheck(false, "Add an OpenRouter key in Connections to load models.", [])
                 : backend == AiBackend.Codex && !settings.Codex.Enabled ? new(false, "Enable Codex in Connections to load models.", [])
-                : backend == AiBackend.ClaudeCode && !settings.ClaudeCode.Enabled ? new(false, "Enable Claude Code in Connections to load models.", [])
                 : await Providers.CheckAsync(backend, settings, cancellationToken: _token);
             if (state.Epoch != epoch || identity != ConnectionIdentity(backend)) return;
             _checks[backend] = check;
@@ -191,12 +191,12 @@ public partial class AiSettingsPage
         try
         {
             await RefreshTextAsync(model.Backend);
+            if (TextModelPolicy.Retired(model.Backend)) { _error = TextModelPolicy.RetiredIssue; return; }
             if (ModelIssue(TextModelPolicy.WithDefaultEffort(model, _settings!)) is { } issue) { _error = issue; return; }
             await PersistAsync(settings => model.Backend switch
             {
                 AiBackend.ComfyUI => settings with { DefaultBackend = model.Backend, ComfyModel = model.Model, TextDefault = model.ProfileId is not null ? model : null },
                 AiBackend.Codex => settings with { DefaultBackend = model.Backend, Codex = settings.Codex with { TextModel = model.Model }, TextDefault = model.ProfileId is not null ? model : null },
-                AiBackend.ClaudeCode => settings with { DefaultBackend = model.Backend, ClaudeCode = settings.ClaudeCode with { TextModel = model.Model }, TextDefault = model.ProfileId is not null ? model : null },
                 AiBackend.Vllm => settings with { DefaultBackend = model.Backend, TextDefault = model },
                 _ => settings with { DefaultBackend = model.Backend, OpenRouterModel = model.Model, TextDefault = model.ProfileId is not null ? model : null }
             }, "Global default updated.");

@@ -24,8 +24,6 @@ test('connections sidebar preserves drafts, supports keyboard navigation and res
   await expect(page.locator('#openrouter-key')).toBeFocused();
   await page.locator('#openrouter-key').fill('draft-key');
   await provider(page, 'OpenRouter').focus(); await page.keyboard.press('End');
-  await expect(provider(page, 'Claude Code')).toBeFocused();
-  await page.keyboard.press('ArrowUp');
   await expect(provider(page, 'Codex')).toBeFocused();
   await page.locator('#codex-executable').fill('C:/draft/codex.exe');
   await section(page, 'Image models').click();

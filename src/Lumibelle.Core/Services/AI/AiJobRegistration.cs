@@ -13,8 +13,6 @@ public static class AiJobRegistration
             : new FileAiJobStore(rootDirectory, s.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<ICodexTransportFactory, CodexTransportFactory>();
         services.TryAddSingleton<ICodexClient, CodexClient>();
-        services.TryAddSingleton<IClaudeCodeProcessFactory, ClaudeCodeProcessFactory>();
-        services.TryAddSingleton<IClaudeCodeClient, ClaudeCodeClient>();
         services.AddSingleton<ComfyJobExecution>();
         services.AddSingleton<AiTextJobCapture>();
         services.AddSingleton<FileSourceStore>();
@@ -40,7 +38,6 @@ public static class AiJobRegistration
         services.AddHostedService<ScriptDraftWorkflowWorker>();
         services.AddHostedService<AssetBatchWorker>();
         services.AddHostedService<CodexLaunch>();
-        services.AddHostedService<ClaudeCodeLaunch>();
         services.AddSingleton<FileAssistantHistoryStore>();
         services.Replace(ServiceDescriptor.Singleton<IAssistantHistoryStore, QueuedAssistantHistoryStore>());
         return services;

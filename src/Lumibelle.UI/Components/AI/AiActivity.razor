@@ -28,13 +28,13 @@
                 </p></div><MudIconButton Icon="@Icons.Material.Outlined.Close" aria-label="Close AI activity" title="Close AI activity" OnClick="Close" Class="ai-activity-close" />
             </header>
             <div class="ai-provider-controls">
-                @foreach (var provider in new[] { AiBackend.ComfyUI, AiBackend.Vllm, AiBackend.OpenRouter, AiBackend.Codex, AiBackend.ClaudeCode })
+                @foreach (var provider in new[] { AiBackend.ComfyUI, AiBackend.Vllm, AiBackend.OpenRouter, AiBackend.Codex })
                 {
                     var paused = Jobs.View.Paused.Contains(provider);
                     var expanded = _expandedProviders.Contains(provider);
                     <section class="ai-provider-control" aria-label="@(TextModelPolicy.ProviderName(provider) + " queue")">
                         <div class="ai-provider-row">
-                            <button type="button" class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)" Size="Size.Small" aria-hidden="true" /><strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.Vllm ? "Server" : provider == AiBackend.ClaudeCode ? "Limits" : "Allowance")</span></button>
+                            <button type="button" class="ai-provider-toggle" aria-expanded="@expanded.ToString().ToLowerInvariant()" aria-controls="@("activity-capacity-" + provider)" @onclick="() => ToggleProvider(provider)"><MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)" Size="Size.Small" aria-hidden="true" /><strong>@TextModelPolicy.ProviderName(provider)</strong><span class="ai-provider-summary">@(paused ? "Paused" : provider == AiBackend.ComfyUI ? "VRAM" : provider == AiBackend.Vllm ? "Server" : "Allowance")</span></button>
                             @if (provider == AiBackend.ComfyUI) { <ComfyPauseControl Jobs="Jobs" /> }
                             else { <button disabled="@_changingProvider" aria-label="@((paused ? "Resume queue " : "Pause queue ") + TextModelPolicy.ProviderName(provider))" @onclick="() => Pause(provider, !paused)">@(paused ? "Resume" : "Pause queue")</button> }
                         </div>
@@ -46,8 +46,6 @@
                                     @if (_codexSettings is { Enabled: true }) { <CodexUsage Settings="_codexSettings" RefreshOnOpen="true" ObserveVisibility="true" /> }
                                     else { <p class="field-hint">Enable Codex in Connections to see its allowance.</p> }
                                 }
-                                else if (provider == AiBackend.ClaudeCode)
-                                { <p class="field-hint">Claude Code does not report remaining usage to other apps. If a usage or rate limit ends a request, this queue pauses; resume it when the limit resets.</p> }
                                 else if (provider == AiBackend.Vllm)
                                 { <p class="field-hint">Each enabled server has its own request limit in Connections → OpenAI-compatible. Pausing this queue pauses all of those connections.</p> }
                                 else { <ProviderCapacity Backend="provider" /> }

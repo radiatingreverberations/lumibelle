@@ -17,13 +17,12 @@ parameter overrides so settings for one model are not accidentally applied to an
 | --- | --- |
 | OpenRouter | Optional temperature (0–2), output limit, and either reasoning effort (including `none`) or a thinking-token budget. |
 | Codex | The chosen model's advertised reasoning effort, or **Model default**. This does not inherit the global Codex effort. |
-| Claude Code | `low`–`max` reasoning effort, or **Model default**. Haiku has no effort levels. This does not inherit the global Claude Code effort. |
 | ComfyUI | Optional temperature (0.01–2) and output limit (1–32,768). The existing text workflow still disables thinking. |
 
 Blank OpenRouter fields are **omitted**, not filled with the application's ComfyUI
 fallback settings. Blank ComfyUI fields use per-model settings, falling back to the
 existing global ComfyUI defaults. Asset extraction retains its 0.2 temperature unless
-an explicit profile temperature overrides it. Ordinary unprofiled Codex and Claude Code
+an explicit profile temperature overrides it. Ordinary unprofiled Codex
 selections keep their global-effort inheritance.
 
 OpenRouter effort and token budget are mutually exclusive. The application permits
@@ -32,7 +31,7 @@ application validation ceiling, **not** a promise that a model supports that man
 Explicit output limits must exceed the thinking budget. Reported model capabilities and
 output ceilings are checked; when metadata is absent, the provider remains authoritative.
 A requested budget may be interpreted or adapted by the selected provider. Unsupported
-Codex/Claude Code/ComfyUI controls are rejected rather than silently ignored.
+Codex/ComfyUI controls are rejected rather than silently ignored.
 
 ## Snapshot semantics
 

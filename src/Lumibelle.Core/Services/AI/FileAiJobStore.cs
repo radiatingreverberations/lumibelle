@@ -111,6 +111,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
             request.Kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest && request.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter or AiBackend.Vllm) ||
             request.Kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit && request.Backend is not (AiBackend.ComfyUI or AiBackend.Codex))
             throw new WorkspaceStoreException("The AI request is incomplete or has the wrong provider.");
+        if (TextModelPolicy.Retired(request.Backend)) throw new WorkspaceStoreException(TextModelPolicy.RetiredIssue);
         request.Target.Validate(request.Kind);
         if (captured.Batch is { } batch && (batch.RootId != request.Id || batch.Candidates.Count is < 1 or > 4 ||
             batch.Candidates.Where((c, index) => c.Number != index + 1 || c.AppendCommandId is not null).Any()))
