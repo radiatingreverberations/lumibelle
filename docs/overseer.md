@@ -12,7 +12,7 @@ An overseer is an AI agent that reviews a project's shots and takes, finds conti
 - **The built-in overseer is a guided workflow, not an agent loop.** No provider path in Lumibelle has tool calling today, and all of them accept still images only. App code holds the loop and asks one narrow, checkable question at a time. The free-form agent is the MCP route, where the client brings its own loop.
 - **Many useful checks need no model.** They come first in the build order.
 - **Expect it to shorten the rounds, not to replace watching the cut.** On this film the director's 13 notes on two rough cuts were almost all problems the frame review had not raised, and the voices problem was only audible.
-- **A Claude subscription can drive this from Claude Code.** Lumibelle itself must not sign in to Claude or hold its tokens. Details and quotes are in [Claude subscription](#7-using-a-claude-subscription).
+- **A Claude subscription drives this from Claude Code, not from inside Lumibelle.** The built-in Claude Code provider is to be removed, so Lumibelle runs no Claude itself. The reasons and the quoted terms are in [Claude subscription](#7-using-a-claude-subscription).
 
 ## 1. Tool set
 
@@ -129,7 +129,7 @@ Claude Code shows PNG, JPEG, GIF and WebP tool results to the model inline, and 
 
 ### What the code supports today
 
-Checked in `Services/AI/`:
+Checked in `Services/AI/`. The Claude Code provider appears below because it exists today; this design assumes it is removed ([section 7](#7-using-a-claude-subscription)), which leaves four backends.
 
 | Capability | State |
 | --- | --- |
@@ -173,7 +173,7 @@ Each stage is a new text job kind handled like `AssetImageEvaluation`: captured 
 - **Gate by tests that exist.** A model must have passed the image test, as the evaluators already require (`requireTest`). Sheet sizes come from the measured capacity, so a request that will not fit is refused before it is queued.
 - **Measure before trusting.** *The Open Window* has known answers: 22 shots retaken for stated reasons, and 13 director notes with causes. Turn those takes and their expected findings into a fixture, and report hits and false alarms per question type for a model before its findings are shown as anything but unverified. No such measurement exists yet, so this design makes no claim about how any self-hosted model will do.
 - **Run reviews as a block.** On one GPU the review and the renders share the ComfyUI lane. Run the questions between render waves, started by the director with the request count shown first, as **Prepare run** and **Run** work for [writing probes](content-probes.md).
-- **Keep stronger models on the same path.** The same jobs run through OpenRouter, an OpenAI-compatible server, Codex or the Claude Code provider. Nothing in the workflow is specific to a weak model, so a better self-hosted model later needs no redesign.
+- **Keep stronger models on the same path.** The same jobs run through OpenRouter, an OpenAI-compatible server or Codex. Nothing in the workflow is specific to a weak model, so a better self-hosted model later needs no redesign.
 
 New `AiJobKind` values make the queue unreadable to older builds, as the probes document notes for its own kind.
 
@@ -314,26 +314,38 @@ Checked on 2026-11-06 against Anthropic's published terms. This is a reading of 
 - With a plan sign-in, "the Claude Agent SDK and `claude -p` still draw from your subscription limits." The same article says a previously announced change to this is paused. ([Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan); its latest dated notice is 2026-10-07)
 - The Consumer Terms forbid accessing the services "through automated or non-human means, whether through a bot, script, or otherwise", with this exception: "Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it". ([Consumer Terms](https://www.anthropic.com/legal/consumer-terms), effective 2025-10-08)
 
-**What that means here**
+**Decision: Lumibelle will not run Claude itself.** The [Claude Code provider](claude-code-provider.md) is to be removed. A director with a Claude plan uses it by running Claude Code against the MCP endpoint.
 
 | Route | Verdict |
 | --- | --- |
 | The director runs Claude Code, signed in with their plan, and Claude Code calls Lumibelle's MCP endpoint | Fine. This is ordinary use of Claude Code. Lumibelle is a tool server and never sees a Claude credential |
-| Lumibelle runs the installed `claude` CLI for the guided review, as the [Claude Code provider](claude-code-provider.md) already does for text | The pages above describe this case and do not forbid it: the user signs in to the unmodified binary themself, Lumibelle reads no credentials, and usage is the user's own. Two cautions follow |
+| Lumibelle runs the installed `claude` CLI, as the existing provider does | Not forbidden by the pages above, but on uncertain ground. To be removed, for the reasons below |
 | Lumibelle offers "Sign in with Claude", stores a plan token, or calls Claude with plan credentials | Not permitted |
-| Lumibelle calls Claude directly | Needs an API key from the Claude Console or a cloud provider. Lumibelle has no such connection today |
+| Lumibelle calls Claude directly | Needs an API key from the Claude Console or a cloud provider. Lumibelle has no such connection, and this design adds none |
 
-Cautions on the second route:
+Why remove the provider:
 
-1. **The Commercial Terms line.** Lumibelle is distributed to other people, and the page says running Claude Code in a product requires agreeing to the Commercial Terms. Whether that applies to an app that starts a CLI its user installed is not something the page settles. This question already applies to the existing provider. The page's own route for it is Anthropic's sales contact.
-2. **Volume.** A guided review of a 59-shot film is a few hundred requests. Plan limits assume ordinary individual use, so each run should be started by the director with the request count shown, and never scheduled. The Claude Code lane already pauses when a usage limit is reached.
+1. **The Commercial Terms line.** Lumibelle is distributed to other people, and the page says running Claude Code in a product requires agreeing to the Commercial Terms. Whether that applies to an app that starts a CLI its user installed is not something the page settles.
+2. **Plan sign-in under `-p` is documented to change.** The CLI's documentation says `--bare` "will become the default for `-p` in a future release", and that bare mode "doesn't use your subscription login" ([run Claude Code programmatically](https://code.claude.com/docs/en/headless)). The provider uses `-p` without `--bare`, so its plan sign-in depends on a default that is announced to go away.
+3. **Volume.** A guided review of a 59-shot film is a few hundred requests, and plan limits assume ordinary individual use.
+4. **The MCP route covers the reason to have it.** A director who wants Claude on their plan gets the stronger arrangement there: Claude's own agent loop, in Anthropic's own application.
 
-Two further points:
+What removal costs:
 
-- **Do not run an agent loop through the provider.** `claude -p --mcp-config` could point the CLI at Lumibelle's own endpoint. That would undo the provider's isolation, which gives the CLI no tools and rejects a session that has any. A director who wants Claude's agent loop runs Claude Code themself.
-- **A change to watch.** The CLI's documentation says `--bare` "will become the default for `-p` in a future release", and that bare mode "doesn't use your subscription login" ([run Claude Code programmatically](https://code.claude.com/docs/en/headless)). The existing provider uses `-p` without `--bare`. When that default changes, plan sign-in through the provider will need retesting.
+- **In-app text assistance loses Claude as a backend.** Script help, prompt composition, enhancement and guidance are buttons in the studios; the MCP route does not serve them. A director who used Claude for those picks another backend.
+- **Saved data has to stay readable.** Settings, LLM profiles, project preferences and old jobs name the Claude Code backend. They must keep loading, and a saved choice that points at it must show as unavailable.
 
-The same reasoning applies to Codex: Lumibelle uses the installed CLI's own sign-in and reads no tokens ([Codex provider](codex-provider.md)). Its terms were not checked for this design.
+### Codex
+
+The Codex provider stays. OpenAI's position, read on 2026-11-06, is more permissive, though it does not describe exactly what Lumibelle does:
+
+- OpenAI documents a way for an app to use its user's ChatGPT plan: "ChatGPT plan usage is available to all open-source partners and selected private clients." ([Sign in with ChatGPT quickstart](https://developers.openai.com/siwc/quickstart))
+- "These docs explain ChatGPT plan usage for open-source and locally hosted apps." A paid or remotely hosted app is pointed to an interest form. ([ChatGPT plan usage overview](https://developers.openai.com/siwc/token-sharing-open-source)) Lumibelle is AGPL and runs locally.
+- That documented route has the app register its own client, complete the sign-in, and pass the token to Codex app-server ([Codex app-server](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)). Lumibelle instead uses the sign-in already present in the user's installed CLI and reads no tokens ([Codex provider](codex-provider.md)). The pages read do not address that arrangement either way.
+- Codex's own authentication page says "Use API key authentication for programmatic Codex CLI workflows, such as CI/CD jobs." ([Codex authentication](https://learn.chatgpt.com/docs/auth))
+- OpenAI's help article on using a ChatGPT plan in other apps could not be read (it refused the request), so it is not relied on here.
+
+So Codex is on firmer ground than the Claude Code provider. Moving it to the documented open-source sign-in would put it squarely on that ground; that is outside this design.
 
 ## 8. Build order
 
@@ -348,12 +360,14 @@ Each step is useful without the ones after it.
 
 Steps 1 and 2 together replace the read half of the hand-run scripts. Steps 3 and 4 replace the write half.
 
+Removing the Claude Code provider is separate from these steps and depends on none of them. Done before step 2, Claude users have no route into Lumibelle until step 2 lands; done with step 2, the MCP route replaces the provider in the same release.
+
 ## Decisions for the director
 
 1. **Where approval happens.** This design puts it in Lumibelle only. Approving in the Claude Code conversation, as on this film, would be an option added later and would hold only for clients that honour the per-tool mark.
 2. **Where plans live.** In the project database, so they travel with a package, or in application data, so they do not.
 3. **The name.** "Overseer" in this document. The page the director uses is closer to "Continuity review".
-4. **Whether to ask Anthropic** about the Commercial Terms line before the guided review uses the Claude Code provider at volume.
+4. **When to remove the Claude Code provider:** at once, or in the release that adds the read-only MCP endpoint.
 
 ## Sources
 
@@ -365,6 +379,8 @@ Read on 2026-11-06:
 - [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview)
 - [Claude Help Center: use the Claude Agent SDK with your Claude plan](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)
 - [Anthropic Consumer Terms of Service](https://www.anthropic.com/legal/consumer-terms)
+- [OpenAI: Sign in with ChatGPT quickstart](https://developers.openai.com/siwc/quickstart), [ChatGPT plan usage overview](https://developers.openai.com/siwc/token-sharing-open-source) and [Codex app-server](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
+- [Codex authentication](https://learn.chatgpt.com/docs/auth)
 - [MCP specification 2025-11-25: transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) and [tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
 - [ModelContextProtocol.AspNetCore on NuGet](https://www.nuget.org/packages/ModelContextProtocol.AspNetCore)
 
