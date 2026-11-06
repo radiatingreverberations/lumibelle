@@ -112,6 +112,15 @@ Base defaults to 25 `res_multistep`/simple steps, CFG 4 and shift 3. Turbo defau
 
 Each family saves its own files and sampling settings. Refresh never substitutes a missing file, availability checks do not execute models, and settings changes affect future requests only.
 
+### MiniMax H3 images
+
+MiniMax H3 is a video model. This image workflow asks its encoder node for the shortest length it accepts, 5 frames, and cuts the latent to one frame with stock ComfyUI nodes before sampling. The node's tooltip gives the trained range as about 124-362 frames, so this is outside it. The workflow is community practice, not a publisher feature.
+
+- It edits existing images with up to nine ordered references. It does not create images from nothing.
+- It uses the encoder and VAE files selected in **Video models**. Choose a generation preset for each run under **Image settings** in Assets: Standard (20 steps) runs the model selected in Video models, and the others are the same recipes as video, set up in Video models. They were published for video.
+- Write `Image 1`, `Image 2` and so on as with other workflows. Lumibelle sends them to the model as `<Picture 1>`, `<Picture 2>`. Say what each reference shows and what comes from it.
+- It needs the same comfyui-tooling-nodes as the other local edit workflows. Sizes run up to 2K (~4 MP).
+
 ### LoRAs
 
 In **AI settings → LoRAs**, refresh installed files and register an exact file with a friendly name, workflow assignment, default strength and optional trigger text. Registrations belong to their ComfyUI server; they organize installed files without downloading them or testing compatibility. Krea's required identity-edit LoRA stays separate.

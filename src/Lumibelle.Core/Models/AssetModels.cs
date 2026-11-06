@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace lumibelle.Models;
 
-public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage }
+public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage, MiniMaxH3 }
 
 public static class ImageWorkflowNames
 {
@@ -14,6 +14,7 @@ public static class ImageWorkflowNames
         ImageWorkflow.Flux3ImageKlein => "FLUX 3 Image Klein",
         ImageWorkflow.Fibo2 => "Fibo 2.0",
         ImageWorkflow.ZImage => "Z-Image",
+        ImageWorkflow.MiniMaxH3 => "MiniMax H3",
         ImageWorkflow.CodexImages => "Codex Images",
         ImageWorkflow.Flux2Klein9bKv => "FLUX.2 Klein 9B KV",
         _ => "Unknown image workflow"
@@ -74,6 +75,8 @@ public sealed record AssetGenerationMetadata
     public Flux3ImageOutput? Flux3Image { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CaptionImageOutput? CaptionImage { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public H3ImageOutput? H3Image { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CodexImageDetails? Codex { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -311,6 +314,9 @@ public sealed record ReferenceEditRequest
     public int Resolution { get; init; } = 1024;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public QwenImage21Options? QwenImage21 { get; init; }
+    // A MiniMax H3 generation preset key; null runs Standard.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? H3Preset { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<RegionalImageSelection>? Regions { get; init; }
 
@@ -357,4 +363,8 @@ public sealed record ComfyImageEditConfiguration(
     string Message,
     IReadOnlyList<AiModel> Loras,
     int MaximumReferences = 1,
-    string? ReferenceCapabilityMessage = null);
+    string? ReferenceCapabilityMessage = null)
+{
+    // Whether each MiniMax H3 generation preset can run; empty for other workflows.
+    public IReadOnlyList<H3PresetSetup> H3Presets { get; init; } = [];
+}

@@ -288,6 +288,8 @@ public static class PromptProfiles
         ImageWorkflow.ZImage when !edit => "z-image-create-v1",
         ImageWorkflow.ZImage => throw new AiGenerationException("Z-Image Base and Turbo support creation here. Choose an editing workflow to use references."),
         ImageWorkflow.Flux2Klein9bKv => edit ? "klein-edit-v1" : "klein-create-v1",
+        ImageWorkflow.MiniMaxH3 when edit => "h3-image-edit-v1",
+        ImageWorkflow.MiniMaxH3 => throw new AiGenerationException(H3ImagePolicy.EditOnlyMessage),
         _ => throw new AiGenerationException("No enhancement guide is available for this workflow.")
     };
     public static string Read(ImageWorkflow workflow, bool edit)

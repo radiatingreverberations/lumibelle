@@ -7,12 +7,13 @@ namespace lumibelle.Services.Assets;
 // Capture settings once for the entire run, including all candidates.
 public sealed class ComfyImageService(IAiSettingsStore settingsStore,
     ComfyReferenceImageGenerator kreaGenerator, ComfyReferenceImageEditor kreaEditor,
-    ComfyFluxKleinImages klein, IProjectAiPreferencesStore preferencesStore, IAssetStore assets, ICodexClient? codex = null, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null) : IReferenceImageGenerator, IReferenceImageEditor
+    ComfyFluxKleinImages klein, IProjectAiPreferencesStore preferencesStore, IAssetStore assets, ICodexClient? codex = null, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null, ComfyH3Images? h3 = null) : IReferenceImageGenerator, IReferenceImageEditor
 {
     public async Task<ComfyImageConfiguration> CheckAsync(AiSettings? settings = null, CancellationToken cancellationToken = default)
     {
         settings ??= await settingsStore.LoadAsync(cancellationToken);
         FileAiSettingsStore.Validate(settings);
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3) return await H3.CheckAsync(settings, false, cancellationToken);
         if (CaptionImagePolicy.Supports(settings.DefaultImageWorkflow)) return await Caption.CheckAsync(settings, settings.DefaultImageWorkflow, false, cancellationToken);
         if (settings.DefaultImageWorkflow == ImageWorkflow.CodexImages) return await CheckCodexAsync(settings, cancellationToken);
         if (settings.DefaultImageWorkflow == ImageWorkflow.MossImage) return await Moss.CheckAsync(settings, false, cancellationToken);
@@ -29,6 +30,7 @@ public sealed class ComfyImageService(IAiSettingsStore settingsStore,
         settings ??= await settingsStore.LoadAsync(cancellationToken);
         FileAiSettingsStore.Validate(settings);
         if (settings.DefaultImageWorkflow == ImageWorkflow.CodexImages) { var c = await CheckCodexAsync(settings, cancellationToken, true); return new(c.Success, c.Message, [], 8); }
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3) return await H3.CheckEditAsync(settings, cancellationToken);
         if (CaptionImagePolicy.Supports(settings.DefaultImageWorkflow))
         {
             var captionCheck = await Caption.CheckAsync(settings, settings.DefaultImageWorkflow, true, cancellationToken);
@@ -58,6 +60,7 @@ public sealed class ComfyImageService(IAiSettingsStore settingsStore,
         var settings = await SnapshotAsync(request.ProjectId, request.Workflow, cancellationToken);
         if (!ImageWorkflowLimits.SupportsResolution(settings.DefaultImageWorkflow, request.Resolution)) throw new AiGenerationException("This workflow does not support the selected image resolution.");
         if (settings.DefaultImageWorkflow == ImageWorkflow.CodexImages) throw new AiGenerationException("Submit Codex images through the background AI queue.");
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3) throw new AiGenerationException(H3ImagePolicy.EditOnlyMessage);
         await ValidateProjectLorasAsync(request.ProjectId, request.Loras, settings, cancellationToken);
         var updates = CaptionImagePolicy.Supports(settings.DefaultImageWorkflow)
             ? Caption.GenerateAsync(request, settings, cancellationToken)
@@ -88,6 +91,7 @@ public sealed class ComfyImageService(IAiSettingsStore settingsStore,
         if (!ImageWorkflowLimits.SupportsResolution(settings.DefaultImageWorkflow, request.Resolution)) throw new AiGenerationException("This workflow does not support the selected image resolution.");
         request = ReferenceEditInputs.Capture(request, captured, ImageWorkflowLimits.MaximumReferences(settings.DefaultImageWorkflow));
         if (settings.DefaultImageWorkflow == ImageWorkflow.CodexImages) throw new AiGenerationException("Submit Codex images through the background AI queue.");
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3) throw new AiGenerationException("Submit MiniMax H3 edits through the background AI queue.");
         await ValidateProjectLorasAsync(request.ProjectId, request.Loras, settings, cancellationToken);
         var updates = CaptionImagePolicy.Supports(settings.DefaultImageWorkflow)
             ? Caption.EditAsync(request, captured, settings, cancellationToken)
@@ -106,6 +110,7 @@ public sealed class ComfyImageService(IAiSettingsStore settingsStore,
     private ComfyQwenImage21 Qwen => qwen ?? throw new AiGenerationException("Qwen Image 2.1 service is unavailable.");
     private ComfyMossImages Moss => moss ?? throw new AiGenerationException("MOSS-Image service is unavailable.");
     private ComfyFlux3Images Flux3 => flux3 ?? throw new AiGenerationException("FLUX 3 service is unavailable.");
+    private ComfyH3Images H3 => h3 ?? throw new AiGenerationException("MiniMax H3 image service is unavailable.");
     private ComfyCaptionImages Caption => caption ?? throw new AiGenerationException("Caption image service is unavailable.");
 
     private async Task<ComfyImageConfiguration> CheckCodexAsync(AiSettings settings, CancellationToken ct, bool edit = false)

@@ -13,6 +13,7 @@ public sealed partial class AssetStoreTests
     [InlineData(ImageWorkflow.Krea2, true, 2)] [InlineData(ImageWorkflow.Krea2, true, 4)]
     [InlineData(ImageWorkflow.Flux2Klein9bKv, false, 2)] [InlineData(ImageWorkflow.Flux2Klein9bKv, false, 4)]
     [InlineData(ImageWorkflow.Flux2Klein9bKv, true, 2)] [InlineData(ImageWorkflow.Flux2Klein9bKv, true, 4)]
+    [InlineData(ImageWorkflow.MiniMaxH3, true, 2)] [InlineData(ImageWorkflow.MiniMaxH3, true, 4)]
     public async Task ComfyMultiTakeImagesSubmitOnceAndRouteEveryCandidate(ImageWorkflow workflow, bool editing, int count)
     {
         using var f = await ImageJobFixture.Create(this, workflow, editing);

@@ -377,6 +377,13 @@ else
                     <p class="field-hint" id="codex-image-effort-help">Start with <strong>Model default</strong>. Higher effort allows more planning, but takes longer.</p>
                     @if (_imageEditCheck is not null) { <p role="status">@_imageEditCheck</p> }
                 }
+                else if (IsH3)
+                {
+                    <p class="field-hint">MiniMax H3 is a video model. This workflow cuts its latent to one frame before sampling, with up to nine ordered references. It edits existing images and does not create new ones. Choose a generation preset for each run under Image settings in Assets; presets are set up in Video models. You can switch workflows for each run in Assets.</p>
+                    <p class="field-hint"><strong>Model files: </strong>@_settings.H3.Model, @_settings.H3.Encoder, @_settings.H3.VideoVae and @_settings.H3.AudioVae. Change them in <button type="button" class="inline-settings-link" @onclick='() => SelectTab("video")'>Video models</button>.</p>
+                    <MudButton OnClick="RefreshImagesAsync" Disabled="Busy" Variant="Variant.Outlined">Refresh image models</MudButton>
+                    @if (_imageEditCheck is not null) { <p class="field-hint" role="status" id="image-availability-status"><strong>Edit images:</strong> @_imageEditCheck</p> }
+                }
                 else
                 {
                 <p class="field-hint">@(IsCaption ? CaptionWorkflowDescription : IsFlux3 ? "FLUX 3 Image Klein creates and edits with up to ten ordered references. Choose the Base or Distilled checkpoint, Qwen3-VL 4B encoder and FLUX.2 VAE. Output supports up to 4K (~16 MP)." : IsMoss ? "MOSS-Image Base and SFT create images using Qwen3.5 9B and the FLUX.2 VAE. A compatible edit LoRA and the native Text Encode MOSS-Image Edit node enable up to four ordered references." : IsQwen ? "Qwen Image 2.1 creates and edits with up to ten ordered references. Use the Qwen3-VL 8B encoder and the separate Qwen Image 2.1 VAE. Base defaults to 25 Euler/simple steps; Turbo uses its fixed 8-step schedule. CFG 1, about 1 MP; up to 2K (~4 MP)." : IsKlein ? "Klein KV creates images and combines up to eight references for edits. Uses Qwen3 8B and the FLUX.2 VAE, with four Euler steps." : "Krea 2 creates images and edits one source using the identity-edit LoRA.") You can switch workflows for each run in Assets.</p>
@@ -442,7 +449,7 @@ else
                             }
 
                 }
-                <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save @_imageWorkflow.Label()</MudButton><MudButton OnClick="CancelImageWorkflow" Disabled="Busy">Cancel</MudButton></div>
+                @if (!IsH3) { <div class="settings-section-actions"><MudButton ButtonType="ButtonType.Submit" Disabled="Busy" Color="Color.Primary" Variant="Variant.Filled">Save @_imageWorkflow.Label()</MudButton><MudButton OnClick="CancelImageWorkflow" Disabled="Busy">Cancel</MudButton></div> }
             </form>
             }
             </div>

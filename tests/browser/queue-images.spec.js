@@ -7,6 +7,9 @@ async function pause(page, value) {
   await page.locator('.ai-activity-trigger').click();
   await activity(page).getByRole('button', { name: `${value ? 'Pause' : 'Resume'} queue ComfyUI`, exact: true }).click();
   await activity(page).getByRole('button', { name: 'Close AI activity' }).click();
+  // Closing returns focus to the trigger. If that lands after the next click, the composer won't take focus back.
+  await expect(activity(page)).toBeHidden();
+  await expect(page.locator('.ai-activity-trigger')).toBeFocused();
 }
 async function setup(page, request, patterned = false) {
   const { id } = await (await request.get('/fixtures/new')).json();

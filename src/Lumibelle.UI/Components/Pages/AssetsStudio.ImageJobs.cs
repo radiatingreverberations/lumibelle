@@ -186,7 +186,7 @@ public partial class AssetsStudio
             var seed = !IsCodex && long.TryParse(_fixedSeed, out var chosen) ? (long?)chosen : null;
             var create = IsEditMode ? null : new ReferenceGenerationRequest { VisualStyle = EffectiveImageStyle, Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, Prompt = _imagePrompt,
                 Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed, Loras = LoraPolicy.Capture(SelectedLoras) };
-            var edit = !IsEditMode ? null : new ReferenceEditRequest { VisualStyle = EffectiveImageStyle, Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, SourceAssetId = BaseReference!.AssetId,
+            var edit = !IsEditMode ? null : new ReferenceEditRequest { VisualStyle = EffectiveImageStyle, Resolution = CapturedImageResolution, QwenImage21 = CaptureQwenOptions(), H3Preset = CaptureH3Preset(), Look = CaptureLook(), ProjectId = project, Workflow = _imageWorkflow, SourceAssetId = BaseReference!.AssetId,
                 SourceImageId = _editSourceImageId!.Value, Prompt = _imagePrompt, Tags = tags, AspectRatio = ImageAspect, Count = _candidateCount, Seed = seed,
                 ReferenceBoost = _referenceBoost, BaseReferenceBoost = _baseReferenceBoost, GroundingPixels = _groundingPixels, SourceCrop = SourceCrop,
                 Regions = CurrentRegions, ReferenceCrops = CaptureReferenceCrops(), ReferenceLooks = CaptureReferenceLooks(), Loras = LoraPolicy.Capture(SelectedLoras) };
@@ -299,13 +299,14 @@ public partial class AssetsStudio
 
     private sealed record ImageComposerDraft(ImageWorkflow Workflow, string Prompt, string Tags, string Aspect, string Seed, int Count, Guid? Source, Guid? Look,
         IReadOnlyList<AssetImageReference> References, IReadOnlyList<AssetReferenceCrop> Crops, float ReferenceBoost, float BaseBoost, int Grounding, IReadOnlyList<RegionalImageSelection>? Regions = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] QwenImage21Options? QwenImage21 = null,
-        bool CreateFromRecipe = false, Guid? SourceAsset = null, IReadOnlyList<LoraSelection>? Loras = null, int Resolution = 1024, VisualStyle? VisualStyle = null)
+        bool CreateFromRecipe = false, Guid? SourceAsset = null, IReadOnlyList<LoraSelection>? Loras = null, int Resolution = 1024, VisualStyle? VisualStyle = null,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? H3Preset = null)
     {
         public static ImageComposerDraft From(AiImageJobRequest request) => new(request.Workflow, request.OriginalPrompt ?? request.Prompt, string.Join(", ", request.Tags), request.AspectRatio,
             (request.Create?.Seed ?? request.Edit?.Seed)?.ToString() ?? "", request.Create?.Count ?? request.Edit!.Count, request.Edit?.SourceImageId, request.Look?.LookId,
             request.Inputs.Skip(1).Select(i => i.Reference).ToArray(), request.Inputs.Where(i => i.Crop is not null).Select(i => new AssetReferenceCrop(i.Reference, i.Crop!)).ToArray(),
             request.Edit?.ReferenceBoost ?? 4, request.Edit?.BaseReferenceBoost ?? 1, request.Edit?.GroundingPixels ?? 768, request.Edit?.Regions,
-            request.Workflow == ImageWorkflow.QwenImage21 ? QwenImage21Policy.Options(request) : null, Resolution: request.Create?.Resolution ?? request.Edit!.Resolution, VisualStyle: request.Create?.VisualStyle ?? request.Edit?.VisualStyle);
+            request.Workflow == ImageWorkflow.QwenImage21 ? QwenImage21Policy.Options(request) : null, Resolution: request.Create?.Resolution ?? request.Edit!.Resolution, VisualStyle: request.Create?.VisualStyle ?? request.Edit?.VisualStyle, H3Preset: request.Edit?.H3Preset);
     }
     private void RememberImageComposer()
     {
@@ -317,7 +318,7 @@ public partial class AssetsStudio
         var crops = BaseReference is { } source && SourceCrop is { } crop ? new[] { new AssetReferenceCrop(source, crop) }.Concat(CaptureReferenceCrops()).ToArray() : CaptureReferenceCrops();
         return new(_imageWorkflow, _imagePrompt, _imageTags, ImageAspect, _fixedSeed, _candidateCount, _editSourceImageId, _targetLookId,
             _additionalReferences.ToArray(), crops, _referenceBoost, _baseReferenceBoost, _groundingPixels, CurrentRegions, CaptureQwenOptions(),
-            _imageRecipeCreation, _imageRecipeSourceAsset, _imageRecipeLoras, CapturedImageResolution, _imageVisualStyle);
+            _imageRecipeCreation, _imageRecipeSourceAsset, _imageRecipeLoras, CapturedImageResolution, _imageVisualStyle, CaptureH3Preset());
     }
     private void ClearSuccessfulImageCreate(AiJobHeader job, AiImageJobRequest request)
     {
@@ -362,6 +363,7 @@ public partial class AssetsStudio
     {
         _imageRecipeCreation = draft.CreateFromRecipe; _imageRecipeSourceAsset = draft.SourceAsset; _imageRecipeLoras = draft.Loras;
         _qwenOptions = draft.QwenImage21 ?? new();
+        _h3Preset = draft.H3Preset ?? H3ImagePolicy.StandardPreset;
         _imageVisualStyle = draft.VisualStyle;
         RestoreImageResolution(draft.Resolution, draft.Workflow);
         _regions.Clear(); foreach (var region in draft.Regions ?? []) _regions[region.Source] = region;

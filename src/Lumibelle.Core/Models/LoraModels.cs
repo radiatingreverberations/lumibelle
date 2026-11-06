@@ -12,6 +12,7 @@ public static class LoraWorkflows
         ImageWorkflow.Flux3ImageKlein => Models.LoraWorkflow.Flux3ImageKlein,
         ImageWorkflow.Fibo2 => Models.LoraWorkflow.Fibo2,
         ImageWorkflow.ZImage => Models.LoraWorkflow.ZImage,
+        ImageWorkflow.MiniMaxH3 => Models.LoraWorkflow.MiniMaxH3Ref2VA,
         ImageWorkflow.Flux2Klein9bKv => Models.LoraWorkflow.Flux2Klein9bKv,
         _ => throw new ArgumentOutOfRangeException(nameof(workflow))
     };

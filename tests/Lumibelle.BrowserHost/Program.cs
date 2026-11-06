@@ -789,6 +789,8 @@ sealed class MockImages : IReferenceImageGenerator, IReferenceImageEditor
     public Task<ComfyImageConfiguration> CheckAsync(AiSettings? settings = null, CancellationToken cancellationToken = default)
     {
         settings ??= new(); var klein = settings.DefaultImageWorkflow == ImageWorkflow.Flux2Klein9bKv;
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3)
+            return Task.FromResult(new ComfyImageConfiguration(false, H3ImagePolicy.EditOnlyMessage, [new(settings.H3.Model, "H3 model")], [new(settings.H3.Encoder, "H3 encoder")], [new(settings.H3.VideoVae, "H3 video VAE")]));
         if (CaptionImagePolicy.Supports(settings.DefaultImageWorkflow))
         {
             var workflow = settings.DefaultImageWorkflow; var value = CaptionImagePolicy.Settings(settings, workflow); var fibo = workflow == ImageWorkflow.Fibo2;
@@ -826,6 +828,7 @@ sealed class MockImages : IReferenceImageGenerator, IReferenceImageEditor
     Task<ComfyImageEditConfiguration> IReferenceImageEditor.CheckAsync(AiSettings? settings, CancellationToken cancellationToken) => Task.FromResult(settings?.DefaultImageWorkflow == ImageWorkflow.ZImage
         ? new ComfyImageEditConfiguration(false, "Z-Image Base and Turbo support creation here. Choose an editing workflow to use references.", [], 0)
         : settings?.DefaultImageWorkflow == ImageWorkflow.Fibo2 ? new ComfyImageEditConfiguration(true, "Mock Fibo editing ready.", [], 4)
+        : settings?.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3 ? new ComfyImageEditConfiguration(true, "Mock MiniMax H3 editing ready.", [], H3ImagePolicy.MaximumReferences) { H3Presets = [new("pdd", "Mock PDD issue.", [])] }
         : settings?.DefaultImageWorkflow == ImageWorkflow.MossImage
         ? new ComfyImageEditConfiguration(!string.IsNullOrWhiteSpace(settings.MossImage?.EditLora), "Mock MOSS edit adapter check.", [new("moss-edit/adapter_model.safetensors", "MOSS Edit")], 4)
         : new ComfyImageEditConfiguration(true, "Mock editing ready.", [], settings?.DefaultImageWorkflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.QwenImage21 ? 10 : settings?.DefaultImageWorkflow is ImageWorkflow.Flux2Klein9bKv or ImageWorkflow.CodexImages ? 8 : 2));

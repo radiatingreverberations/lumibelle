@@ -12,11 +12,16 @@ public interface IComfyImageJobAdapter
 }
 
 public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, ComfyReferenceImageEditor edit, ComfyFluxKleinImages klein,
-    IHttpClientFactory clients, IAiSettingsStore settings, IProjectAiPreferencesStore preferences, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null) : IComfyImageJobAdapter
+    IHttpClientFactory clients, IAiSettingsStore settings, IProjectAiPreferencesStore preferences, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null, ComfyH3Images? h3 = null) : IComfyImageJobAdapter
 {
     public async Task ValidateAsync(AiImageJobRequest request, CancellationToken ct)
     {
-        if (CaptionImagePolicy.Supports(request.Workflow))
+        if (request.Workflow == ImageWorkflow.MiniMaxH3)
+        {
+            var check = await (h3 ?? throw new AiGenerationException("MiniMax H3 image service is unavailable.")).CheckAsync(request.Settings, request.Edit is not null, ct, H3ImagePolicy.Preset(request.Edit));
+            if (!check.Success) throw new AiGenerationException(check.Message);
+        }
+        else if (CaptionImagePolicy.Supports(request.Workflow))
         {
             var check = await (caption ?? throw new AiGenerationException("Caption image service is unavailable.")).CheckAsync(request.Settings, request.Workflow, request.Edit is not null, ct);
             if (!check.Success) throw new AiGenerationException(check.Message);
@@ -70,6 +75,8 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
             request = request with { Edit = regionalEdit with { Prompt = regionalEdit.Prompt + "\n\n" + RegionalImageEdits.PlacementInstruction } };
         var size = QwenImage21Policy.OutputSize(request);
         var images = request.Inputs.Select(i => Convert.ToBase64String(i.Png)).ToArray();
+        if (request.Workflow == ImageWorkflow.MiniMaxH3)
+            return ComfyH3Images.BuildWorkflow(request.Settings, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras, H3ImagePolicy.Preset(request.Edit));
         if (CaptionImagePolicy.Supports(request.Workflow))
             return ComfyCaptionImages.BuildWorkflow(request.Settings, request.Workflow, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras);
         if (request.Workflow == ImageWorkflow.Flux3ImageKlein)
@@ -85,13 +92,15 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
                 ? ComfyReferenceImageEditor.BuildWorkflow(request.Settings, edit, images, candidate.Seed, size.Width, size.Height, clientId)
                 : ComfyReferenceImageGenerator.BuildWorkflow(request.Settings, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, clientId, request.AppliedLoras);
     }
-    public ComfyExecutionOptions Options(AiImageJobRequest request) => CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.ExecutionOptions
+    public ComfyExecutionOptions Options(AiImageJobRequest request) => request.Workflow == ImageWorkflow.MiniMaxH3 ? ComfyH3Images.ExecutionOptions
+        : CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.ExecutionOptions
         : request.Workflow == ImageWorkflow.Flux3ImageKlein ? ComfyFlux3Images.ExecutionOptions
         : request.Workflow == ImageWorkflow.MossImage ? ComfyMossImages.ExecutionOptions
         : request.Workflow == ImageWorkflow.QwenImage21 ? ComfyQwenImage21.ExecutionOptions
         : request.Workflow == ImageWorkflow.Flux2Klein9bKv ? ComfyFluxKleinImages.ExecutionOptions
         : request.Edit is null ? ComfyReferenceImageGenerator.ExecutionOptions : ComfyReferenceImageEditor.ExecutionOptions;
-    public string OutputNode(AiImageJobRequest request) => CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.OutputNode
+    public string OutputNode(AiImageJobRequest request) => request.Workflow == ImageWorkflow.MiniMaxH3 ? ComfyH3Images.OutputNode
+        : CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.OutputNode
         : request.Workflow == ImageWorkflow.Flux3ImageKlein ? ComfyFlux3Images.OutputNode
         : request.Workflow == ImageWorkflow.MossImage ? ComfyMossImages.OutputNode
         : request.Workflow == ImageWorkflow.QwenImage21 ? ComfyQwenImage21.OutputNode

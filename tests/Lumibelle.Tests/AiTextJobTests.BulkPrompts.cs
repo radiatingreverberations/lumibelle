@@ -15,6 +15,7 @@ public sealed partial class AiTextJobTests
     [InlineData(ImageWorkflow.QwenImage21, false)] [InlineData(ImageWorkflow.QwenImage21, true)]
     [InlineData(ImageWorkflow.Fibo2, false)] [InlineData(ImageWorkflow.Fibo2, true)]
     [InlineData(ImageWorkflow.ZImage, false)]
+    [InlineData(ImageWorkflow.MiniMaxH3, true)]
     public async Task BulkEnhancementUsesTheSingleImageGuideAndKeepsItsOwnJobTarget(ImageWorkflow workflow, bool edit)
     {
         var initial = Enhancement();

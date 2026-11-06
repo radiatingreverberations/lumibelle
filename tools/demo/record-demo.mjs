@@ -27,6 +27,7 @@
 //   --shot            Regex for the shot featured on camera (default "lawn|window|hunters").
 //   --environment     Regex for the location the reel is made from (default: the living or drawing room).
 //   --scenes 2,6,7    Draft shots only for these scenes, numbered from 1 in script order (default: all).
+//                     Shots that already have a take are left alone, so a later run can add scenes to the film.
 //   --film-shots 2,8  Give references, prompts and takes only to these shots, numbered from 1 in list order.
 //   --out             Output folder (default artifacts/demo): state.json, clips, checkpoints, library, demo.mp4.
 //   --from <phase>    Restore that phase's checkpoint (with --serve) and run from it, keeping earlier clips.
@@ -106,8 +107,8 @@ const captions = {
   takes1: 'Takes are MiniMax H3, generated in ComfyUI, with sound. Quick size for drafts.',
   takes2: 'Same faces, same room, same window, shot after shot.',
   takes3: 'Finals are refined in one overnight batch, reusing the frames picked for consistency.',
-  refine1: 'Refine from video: the draft guides a full-size render of the same shot.',
-  compare1: 'Draft and final side by side: the same performance, at full size.',
+  refine1: 'Refine from video: each draft guides a 1 MP render of the same shot.',
+  compare1: 'Draft and final side by side: the same performance, at 1 MP.',
   cut1: 'Cut the takes together and export.',
   switch1: 'A local 31B model keeps everything on your own machine, but writes at about 7 tokens per second here.',
   switch2: 'Switch to a fast hosted open model at any point, and carry on where you are.',
@@ -597,8 +598,12 @@ const phases = {
         const picker = page.getByRole('dialog', { name: 'Environment for drafting', exact: true });
         const environment = picker.getByRole('combobox', { name: 'Environment', exact: true });
         await picker.waitFor();
-        const choices = (await environment.locator('option').evaluateAll(list => list.map(o => o.value))).filter(Boolean);
-        if (!await environment.inputValue() && choices.length > 0)
+        const options = await environment.locator('option').evaluateAll(list => list.map(o => ({ value: o.value, label: o.textContent }))).then(list => list.filter(o => o.value));
+        const choices = options.map(o => o.value);
+        const heading = await page.locator(`.scene-outline-item[data-scene-id="${sceneId}"]`).textContent();
+        const exterior = /\bEXT\./.test(heading) && !/\bINT\./.test(heading) ? options.find(o => /exterior/i.test(o.label)) : null;
+        if (exterior) await environment.selectOption(exterior.value);
+        else if (!await environment.inputValue() && choices.length > 0)
           await environment.selectOption(choices.includes(state.environment?.id) ? state.environment.id : choices[0]);
         if (await environment.inputValue()) {
           await click(page, picker.getByRole('button', { name: 'Browse views', exact: true }));
@@ -664,10 +669,12 @@ const phases = {
   async shots() {
     const all = await shotList();
     // --film-shots 2,8,11 keeps those shots (numbered from 1 in list order) for references, prompts and takes.
-    state.film = args['film-shots'] ? String(args['film-shots']).split(',').map(n => all[Number(n.trim()) - 1]).filter(Boolean) : all;
-    const list = state.film;
-    state.featured = list.find(s => featuredPattern.test(s.title)) ?? list[0];
-    console.log(`${all.length} shots, ${list.length} in the film; featuring "${state.featured.title}"`);
+    state.filmShots = args['film-shots'] ? String(args['film-shots']).split(',').map(n => all[Number(n.trim()) - 1]).filter(Boolean) : all;
+    // Shots that already have a take keep their references and prompt, so adding scenes only fills in the new work.
+    state.pendingShots = state.filmShots.filter(s => !s.hasTakes);
+    state.featured = state.filmShots.find(s => featuredPattern.test(s.title)) ?? state.filmShots[0];
+    const list = state.pendingShots;
+    console.log(`${all.length} shots, ${state.filmShots.length} in the film, ${list.length} still to make; featuring "${state.featured.title}"`);
     // Ask for reference suggestions for every film shot; the queue runs them one after another.
     for (const shot of list) {
       const featured = shot.id === state.featured.id;
@@ -699,7 +706,7 @@ const phases = {
   },
 
   async references() {
-    for (const shot of state.film ?? state.shots) {
+    for (const shot of pendingShots()) {
       const featured = shot.id === state.featured.id;
       const apply = async page => {
         await openShot(page, shot.id);
@@ -726,7 +733,7 @@ const phases = {
   },
 
   async prompts() {
-    for (const shot of state.film ?? state.shots) {
+    for (const shot of pendingShots()) {
       const featured = shot.id === state.featured.id;
       const run = async page => {
         await openShot(page, shot.id);
@@ -748,7 +755,7 @@ const phases = {
       await page.getByLabel('Filter shots by prompt status', { exact: true }).selectOption('missing');
       await beat(800);
       // Only the film's shots get prompts; the rest of the coverage stays without one.
-      const filmIds = new Set((state.film ?? state.shots).map(s => s.id));
+      const filmIds = new Set((state.filmShots ?? state.shots).map(s => s.id));
       const missingIds = (await page.locator('.shot-outline-item .shot-list-row').evaluateAll(rows => rows.map(r => r.getAttribute('data-shot-id')))).filter(id => filmIds.has(id));
       if (missingIds.length === 0) return true;
       // A composed prompt can wait under Review changes instead of applying itself: apply any that are ready.
@@ -786,8 +793,9 @@ const phases = {
 
   async takes() {
     // One Quick take per film shot, from each shot's own Generate takes; the featured one on camera.
-    const film = state.film ?? state.shots;
-    for (const shot of [state.featured, ...film.filter(s => s.id !== state.featured.id)]) {
+    const film = state.filmShots ?? state.shots;
+    const pending = pendingShots();
+    for (const shot of [...pending.filter(s => s.id === state.featured.id), ...pending.filter(s => s.id !== state.featured.id)]) {
       const featured = shot.id === state.featured.id;
       const run = async page => {
         await openShot(page, shot.id);
@@ -843,62 +851,67 @@ const phases = {
       // Scroll the shot list so the thumbnails show the same room and cast across shots.
       await glide(page, page.locator('.shot-list-row').first());
       await wheel(page, 8, 4000, 1200);
-      // Show the overnight path without queueing anything.
-      await caption(page, captions.takes3);
-      await click(page, page.getByRole('button', { name: 'Bulk operations', exact: true }));
-      await click(page, page.getByRole('menuitem', { name: 'Refine selected takes…', exact: true }));
-      const refine = page.getByRole('dialog').filter({ hasText: 'Shared settings' }).last();
-      await refine.waitFor({ timeout: 10000 }).catch(() => {});
-      await glide(page, refine.getByText('Use refined frames from earlier clips').first());
-      await beat(4500);
-      await page.keyboard.press('Escape');
-      await beat(800);
     });
   },
 
   async refine() {
+    // Every film shot's selected take goes through one batch at Native size (1 MP).
     await record('refine', async page => {
-      await page.goto(project(`shots?shotId=${state.featured.id}&view=Takes`));
+      await page.goto(project('shots'));
       await page.locator('.shots-heading[data-interactive="true"]').waitFor({ timeout: 30000 });
-      await page.locator('.unified-take-card').first().waitFor({ timeout: 15000 });
       await mark();
       await caption(page, captions.refine1);
-      await click(page, page.getByRole('button', { name: 'Select multiple', exact: true }));
-      await click(page, page.getByRole('checkbox', { name: 'Select take 1', exact: true }));
-      await click(page, page.getByRole('button', { name: 'Refine selected…', exact: true }));
+      await click(page, page.getByRole('button', { name: 'Bulk operations', exact: true }));
+      await click(page, page.getByRole('menuitem', { name: 'Refine selected takes…', exact: true }));
       const dialog = page.getByRole('dialog', { name: 'Refine from video', exact: true });
-      // "Queue refinement" for one clip, "Queue 2 refinements" for more.
+      await dialog.waitFor({ timeout: 10000 });
+      const size = dialog.getByRole('combobox', { name: 'Shared output resolution', exact: true });
+      await glide(page, size);
+      await size.selectOption('native');
+      await beat(1500);
+      // "Queue refinement" for one clip, "Queue 2 refinements" for more. Each row loads its draft first.
       const queue = dialog.getByRole('button', { name: /^Queue (\d+ )?refinements?$/ });
       await queue.waitFor({ timeout: 60000 });
-      for (let i = 0; i < 60 && !await queue.isEnabled(); i++) await beat(1000);
+      for (let i = 0; i < 180 && !await queue.isEnabled(); i++) await beat(1000);
+      if (!await queue.isEnabled()) throw new Error(`The refine dialog will not queue: ${(await dialog.locator('.refine-rows').innerText()).replace(/\s+/g, ' ').slice(0, 600)}`);
+      state.refineClips = Number((await queue.innerText()).match(/\d+/)?.[0] ?? 1);
+      console.log(`  refining ${state.refineClips} takes at 1 MP`);
+      await caption(page, captions.takes3);
+      const linked = dialog.getByRole('checkbox', { name: 'Use refined frames from earlier clips', exact: true });
+      if (await linked.count()) await glide(page, linked);
       await glide(page, dialog.locator('.refine-row').first());
-      await beat(2500);
+      await beat(3500);
       const now = dialog.getByRole('radio', { name: 'Start now', exact: true });
       if (await now.count() && !await now.isChecked()) await click(page, now);
       await click(page, queue);
       await dialog.waitFor({ state: 'hidden', timeout: 30000 });
       await beat(2000);
     });
-    await waitFor('MiniMax H3 refined the take at full size', project(`shots?shotId=${state.featured.id}&view=Takes`), async page => {
+    // A failed clip does not hold up the others, so wait for all of them and then report the failures.
+    await waitFor('MiniMax H3 refined every take at 1 MP', project('shots'), async page => {
       await page.locator('.shots-heading[data-interactive="true"]').waitFor({ timeout: 30000 });
-      const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
-      if (!await batches.isVisible()) await page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click({ timeout: 3000 }).catch(() => {});
+      const batches = await openBatches(page);
       const start = batches.getByRole('button', { name: /^(Start batch|Resume batch)$/ });
       if (await start.count() && await start.first().isEnabled().catch(() => false)) await start.first().click().catch(() => {});
-      const stage = await batches.locator('.refinement-batch').first().locator('.refinement-item').first().getAttribute('data-stage', { timeout: 3000 }).catch(() => '');
-      if (/Failed|Cancelled/i.test(stage)) throw new Error(`The refinement ${stage.toLowerCase()}.`);
-      return stage === 'Completed';
-    });
+      const items = batches.locator('.refinement-batch').first().locator('.refinement-item');
+      const stages = await items.evaluateAll(list => list.map(i => ({ stage: i.getAttribute('data-stage'), name: i.querySelector('strong')?.textContent ?? '' }))).catch(() => []);
+      if (!stages.length || stages.some(s => !/^(Completed|Failed|Cancelled|NeedsAttention)$/.test(s.stage))) return false;
+      const bad = stages.filter(s => s.stage !== 'Completed');
+      if (bad.length) throw new Error(`These refinements did not finish: ${bad.map(s => `${s.name} (${s.stage})`).join(', ')}. Use Retry failed clips in Refinement batches, then run --from refine --continue.`);
+      return true;
+    }, { limit: waitLimit * (state.refineClips ?? 12) });
   },
 
   async compare() {
     await record('compare', async page => {
       await page.goto(project(`shots?shotId=${state.featured.id}&view=Takes`));
       await page.locator('.shots-heading[data-interactive="true"]').waitFor({ timeout: 30000 });
-      await page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click();
-      const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
-      const item = batches.locator('.refinement-batch').first().locator('.refinement-item').first();
-      await item.waitFor();
+      const batches = await openBatches(page);
+      const items = batches.locator('.refinement-batch').first().locator('.refinement-item');
+      await items.first().waitFor();
+      // Compare the featured shot when its clip can be found by name.
+      const named = items.filter({ hasText: state.featured.title }).first();
+      const item = await named.count() ? named : items.first();
       await mark();
       await caption(page, captions.compare1);
       await click(page, item.getByRole('button', { name: 'Compare', exact: true }));
@@ -911,6 +924,21 @@ const phases = {
       await beat(9000);
       await click(page, item.getByRole('button', { name: 'Use this take', exact: true }));
       await beat(1500);
+    });
+    // Off camera: every other final becomes its shot's take too, so the cut uses them all.
+    await work(async page => {
+      await page.goto(project('shots'));
+      await page.locator('.shots-heading[data-interactive="true"]').waitFor({ timeout: 30000 });
+      const batches = await openBatches(page);
+      const use = batches.locator('.refinement-batch').first().getByRole('button', { name: 'Use this take', exact: true });
+      await batches.locator('.refinement-batch').first().locator('.refinement-item').first().waitFor();
+      for (let left = await use.count(), tries = 0; left > 0 && tries < 60; tries++) {
+        await use.first().click({ timeout: 10000 }).catch(() => {});
+        await beat(1000);
+        left = await use.count();
+      }
+      const remaining = await use.count();
+      if (remaining) throw new Error(`${remaining} refined takes could not be selected.`);
     });
   },
 
@@ -950,6 +978,13 @@ const phases = {
 
 // --- app helpers ---------------------------------------------------------------------------------
 
+// The Refinement batches list, opened if it is not showing already. The newest batch comes first.
+async function openBatches(page) {
+  const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+  if (!await batches.isVisible()) await page.locator('.shots-library-tools').getByRole('button', { name: /^Refinement batches/ }).click({ timeout: 3000 }).catch(() => {});
+  return batches;
+}
+
 function project(rest) { state.route ??= args.route; if (!state.route) fail('No project yet: run the create phase first.'); return `${url}/projects/${state.route}/${rest}`; }
 
 async function ready(page, studio, settle = 700) {
@@ -974,11 +1009,14 @@ async function chooseTextModel(page, pattern = textModel) {
   console.log(`Text model: ${choice}`);
 }
 
+// The film's shots that still need references, a prompt and a take.
+function pendingShots() { return state.pendingShots ?? state.filmShots ?? state.shots; }
+
 async function shotList() {
   const list = await work(async page => {
     await page.goto(project('shots'));
     await page.locator('.shots-heading[data-interactive="true"]').waitFor({ timeout: 30000 });
-    return page.locator('.shot-outline-item .shot-list-row').evaluateAll(rows => rows.map(r => ({ id: r.getAttribute('data-shot-id'), title: r.querySelector('.shot-list-title')?.textContent?.trim() ?? '' })));
+    return page.locator('.shot-outline-item .shot-list-row').evaluateAll(rows => rows.map(r => ({ id: r.getAttribute('data-shot-id'), hasTakes: /[1-9]\d* takes?/.test(r.textContent), title: r.querySelector('.shot-list-title')?.textContent?.trim() ?? '' })));
   });
   if (list.length === 0) throw new Error('No shots in the project.');
   state.shots = list;
@@ -1198,7 +1236,7 @@ async function work(run) {
 
 // Waits off camera until check(page) is true, reloading now and then, and adds a badge with the elapsed time.
 // With softAfter, giving up after that long is not an error: the next phase has a fallback.
-async function waitFor(label, target, check, { quiet = false, softAfter = null } = {}) {
+async function waitFor(label, target, check, { quiet = false, softAfter = null, limit = waitLimit } = {}) {
   let started = Date.now();
   if (rejoining) {
     rejoining = false;
@@ -1220,7 +1258,7 @@ async function waitFor(label, target, check, { quiet = false, softAfter = null }
         if (await page.screenshot({ path: file, type: 'jpeg', quality: 80 }).then(() => true, () => false)) frames.push(file);
       }
       if (softAfter && Date.now() - started > Math.min(softAfter, waitLimit)) { console.warn(`  stopped waiting after ${minutes(Date.now() - started)}: ${label ?? target}`); return; }
-      if (Date.now() - started > waitLimit) throw new Error(`Gave up waiting after ${minutes(waitLimit)}: ${label ?? target}`);
+      if (Date.now() - started > limit) throw new Error(`Gave up waiting after ${minutes(limit)}: ${label ?? target}`);
       await beat(5000);
     }
   });
