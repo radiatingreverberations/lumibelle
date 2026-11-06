@@ -278,7 +278,8 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             ReviewStepKind.UseTake => $"Select another take for {shot}",
             ReviewStepKind.UpdateCut => "Point the cut at the selected takes",
             ReviewStepKind.GenerateTakes => $"Render {step.Takes} {(step.Takes == 1 ? "take" : "takes")} of {shot}" + (step.Resolution is { } size ? $" at {VideoResolutions.Label(size)}" : "")
-                + ((step.GenerationSetupName ?? snapshot.RenderSetup?.Name) is { } setup ? $" with “{setup}”" : ""),
+                // The selected setup says what a render will use only until it is queued. One queued without a recorded setup used another.
+                + ((step.GenerationSetupName ?? (step.JobId is null ? snapshot.RenderSetup?.Name : null)) is { } setup ? $" with “{setup}”" : ""),
             _ => step.Kind.ToString()
         };
     }

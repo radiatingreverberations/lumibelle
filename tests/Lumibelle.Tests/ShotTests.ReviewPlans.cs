@@ -272,7 +272,10 @@ public sealed partial class ShotTests
         var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Render.") { Takes = 2 });
         var other = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, second, "Render.") { Takes = 1, Resolution = VideoResolution.Detail });
         // The plan says which setup it will use before it is approved.
-        Assert.EndsWith("with “Drafting”", ReviewPlans.Describe(await f.Review.LoadAsync(f.Project, _ct), render));
+        var snapshot = await f.Review.LoadAsync(f.Project, _ct);
+        Assert.EndsWith("with “Drafting”", ReviewPlans.Describe(snapshot, render));
+        // A render already queued without a recorded setup is not credited with the one selected now.
+        Assert.DoesNotContain("Drafting", ReviewPlans.Describe(snapshot, render with { JobId = Guid.NewGuid() }));
 
         await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
         // Selecting something else afterwards does not change what was approved.
