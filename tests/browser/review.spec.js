@@ -8,52 +8,47 @@ async function setup(request) {
 }
 const state = async (request, id) => (await request.get(`/fixtures/${id}/review-state`)).json();
 
-test('review lists the check findings and a plan runs only after it is approved', async ({ page, request }) => {
+const nav = page => page.getByRole('region', { name: 'Checks and plans' });
+const center = page => page.getByRole('region', { name: 'Plan steps' });
+const tools = page => page.getByRole('region', { name: 'Plan', exact: true });
+
+test('review uses the workspace panes, lists findings, and a plan runs only after it is approved', async ({ page, request }) => {
   const { id, plan } = await setup(request);
   await page.goto(`/projects/${id}/review?planId=${plan}`);
   await expect(page.getByRole('heading', { name: 'Review', level: 1 })).toBeFocused();
   await expect(page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Review', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-studio', 'Review');
 
-  // The checks ran on load: the third shot has no takes, and the cut is empty.
-  const checks = page.getByRole('region', { name: 'Continuity checks' });
-  await expect(checks.getByRole('status').first()).toContainText('worth a look');
-  // Groups with nothing certain in them start closed.
-  await checks.getByText('Shots without a selected take').click();
-  await expect(checks.getByText('No takes yet.')).toBeVisible();
-  await checks.getByText('Cut and selected takes').click();
-  await expect(checks.getByText(/The cut is empty/)).toBeVisible();
-  await expect(checks.getByRole('link', { name: /#3 Not generated/ }).first()).toHaveAttribute('href', new RegExp(`/shots\\?shotId=`));
-
-  const plans = page.getByRole('region', { name: 'Plans' });
-  const article = plans.getByRole('article');
-  await expect(article.getByRole('heading', { name: 'Notes on rough cut 2' })).toBeVisible();
-  await expect(article).toContainText('Waiting for your approval');
-  await expect(article).toContainText('Proposed by claude-code');
-  await expect(article).toContainText('Approving this plan makes 3 changes to the project and renders 0 takes.');
-  await expect(article.getByText('She holds nothing, but the next shot shows a letter.')).toBeVisible();
-  const steps = article.locator('.review-steps > li');
+  // The link opened the plan. The list holds it and the checks.
+  await expect(nav(page).getByRole('button', { name: /Notes on rough cut 2/ })).toHaveAttribute('aria-current', 'true');
+  await expect(center(page).getByRole('heading', { name: /Notes on rough cut 2/ })).toBeVisible();
+  await expect(tools(page)).toContainText('Waiting for your approval');
+  await expect(tools(page)).toContainText('Proposed by claude-code');
+  await expect(tools(page)).toContainText('Approving this plan makes 3 changes to the project and renders 0 takes.');
+  await expect(center(page).getByText('She holds nothing, but the next shot shows a letter.')).toBeVisible();
+  const steps = center(page).locator('.review-steps > li');
   await expect(steps).toHaveCount(3);
   await expect(steps.nth(0)).toContainText('Change the prompt of #1 and mark it reviewed');
   await steps.nth(0).getByText('Compare prompts').click();
   await expect(steps.nth(0)).toContainText('holding a letter');
 
   // Nothing has changed yet.
-  let before = await state(request, id);
+  const before = await state(request, id);
   expect(before.prompts[0]).toBe('The camera holds as she looks up.');
   expect(before.selected[1]).toBeNull();
 
   // Reject one step; the totals follow and the step can be kept again.
   await steps.nth(1).getByRole('button', { name: 'Reject step' }).click();
   await expect(steps.nth(1)).toContainText('Rejected');
-  await expect(article).toContainText('makes 2 changes to the project');
+  await expect(tools(page)).toContainText('makes 2 changes to the project');
   await expect(steps.nth(1).getByRole('button', { name: 'Keep step' })).toBeVisible();
 
-  await article.getByRole('button', { name: 'Approve plan' }).click();
-  await expect(article).toContainText('Finished');
+  await tools(page).getByRole('button', { name: 'Approve plan' }).click();
+  await expect(tools(page)).toContainText('Finished');
   await expect(steps.nth(0)).toContainText('Done');
   await expect(steps.nth(2)).toContainText('Done');
-  await expect(article).toContainText('Approved here');
-  await expect(article.getByRole('button', { name: 'Approve plan' })).toHaveCount(0);
+  await expect(tools(page)).toContainText('Approved here');
+  await expect(tools(page).getByRole('button', { name: 'Approve plan' })).toHaveCount(0);
 
   const after = await state(request, id);
   expect(after.prompts[0]).toBe('The camera holds as she looks up, holding a letter.');
@@ -62,10 +57,34 @@ test('review lists the check findings and a plan runs only after it is approved'
   const cut = await (await request.get(`/fixtures/${id}/cut`)).json();
   expect(cut.clips.length).toBe(1);
 
-  // A finished plan can be deleted, after a confirmation.
-  await article.getByRole('button', { name: 'Delete plan…' }).click();
+  // The checks are one click away: the third shot has no takes. Groups with nothing certain in them start closed.
+  await nav(page).getByRole('button', { name: /Continuity checks/ }).click();
+  const checks = page.getByRole('region', { name: 'Continuity checks' });
+  await expect(checks.getByRole('status')).toContainText('worth a look');
+  await expect(page.getByRole('region', { name: 'About the checks' }).getByRole('button', { name: 'Measure sound' })).toBeVisible();
+  await checks.getByText('Shots without a selected take').click();
+  await expect(checks.getByText('No takes yet.')).toBeVisible();
+  await expect(checks.getByRole('link', { name: /#3 Not generated/ }).first()).toHaveAttribute('href', /\/shots\?shotId=/);
+
+  // A finished plan can be deleted from its menu, after a confirmation.
+  await nav(page).getByRole('button', { name: /Notes on rough cut 2/ }).click();
+  await tools(page).getByRole('button', { name: 'Plan actions' }).click();
+  await page.getByRole('menuitem', { name: 'Delete plan…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete plan', exact: true }).click();
-  await expect(plans.getByText('No plans yet')).toBeVisible();
+  await expect(nav(page).getByText(/The plans it proposes appear here/)).toBeVisible();
+  await expect(checks).toBeVisible();
+});
+
+test('the panes become drawers on a phone and choosing a plan reveals it', async ({ page, request }) => {
+  const { id } = await setup(request);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${id}/review`);
+  await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  // A submitted plan opens first, since it is waiting for the director.
+  await expect(center(page).getByRole('heading', { name: /Notes on rough cut 2/ })).toBeInViewport();
+  await page.locator('[data-toggle-pane=right]').click();
+  await expect(tools(page).getByRole('button', { name: 'Approve plan' })).toBeInViewport();
 });
 
 test('a running plan shows where it is, renders through the queue and waits for a pick', async ({ page, request }) => {
@@ -74,22 +93,22 @@ test('a running plan shows where it is, renders through the queue and waits for 
   expect(render.ok(), await render.text()).toBeTruthy();
   const { plan } = await render.json();
   await page.goto(`/projects/${id}/review?planId=${plan}`);
-  const article = page.getByRole('region', { name: 'Plans' }).getByRole('article');
-  await expect(article.getByRole('heading', { name: 'Render the last shot' })).toBeVisible();
-  await expect(article).toContainText('renders 2 takes');
-  const steps = article.locator('.review-steps > li');
+  await expect(center(page).getByRole('heading', { name: /Render the last shot/ })).toBeVisible();
+  await expect(tools(page)).toContainText('renders 2 takes');
+  const steps = center(page).locator('.review-steps > li');
   await expect(steps.nth(1)).toContainText('Render 2 takes of #3');
 
-  await article.getByRole('button', { name: 'Approve plan' }).click();
+  await tools(page).getByRole('button', { name: 'Approve plan' }).click();
   // The progress line follows the plan without a reload, through to the pick.
-  await expect(article.locator('.review-plan-progress')).toContainText('of 2 steps done');
+  const progress = center(page).locator('.review-plan-progress');
+  await expect(progress).toContainText('of 2 steps done');
   await expect(steps.nth(1)).toContainText('Pick a take', { timeout: 30000 });
-  await expect(article.locator('.review-plan-progress')).toContainText('1 of 2 steps done · 1 take choice waiting for you');
-  await expect((await state(request, id)).selected[2]).toBeNull();
+  await expect(progress).toContainText('1 of 2 steps done · 1 take choice waiting for you');
+  expect((await state(request, id)).selected[2]).toBeNull();
 
   await steps.nth(1).getByRole('button', { name: 'Use this take' }).first().click();
-  await expect(article).toContainText('Finished');
-  await expect(article.locator('.review-plan-progress')).toHaveCount(0);
+  await expect(tools(page)).toContainText('Finished');
+  await expect(progress).toHaveCount(0);
   expect((await state(request, id)).selected[2]).not.toBeNull();
 });
 
@@ -97,15 +116,14 @@ test('stopping a plan with a render waiting cancels it and closes every step', a
   const { id } = await setup(request);
   const { plan } = await (await request.post(`/fixtures/${id}/review-render-plan`)).json();
   await page.goto(`/projects/${id}/review?planId=${plan}`);
-  const article = page.getByRole('region', { name: 'Plans' }).getByRole('article');
-  await article.getByRole('button', { name: 'Approve plan' }).click();
-  await expect(article.locator('.review-plan-progress')).toBeVisible();
-  await article.getByRole('button', { name: 'Stop plan' }).click();
-  await expect(article).toContainText('Stopped');
+  await tools(page).getByRole('button', { name: 'Approve plan' }).click();
+  await expect(center(page).locator('.review-plan-progress')).toBeVisible();
+  await tools(page).getByRole('button', { name: 'Stop plan' }).click();
+  await expect(tools(page)).toContainText('Stopped');
   const steps = (await state(request, id)).plans.find(p => p.id === plan).steps;
   expect(steps[0]).toBe('Done');
   expect(steps[1]).toBe('Skipped');
-  await expect(article.getByRole('button', { name: 'Use this take' })).toHaveCount(0);
+  await expect(center(page).getByRole('button', { name: 'Use this take' })).toHaveCount(0);
 });
 
 test('agent access is off until turned on, and the endpoint needs the token', async ({ page, request, baseURL }) => {

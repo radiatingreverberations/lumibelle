@@ -2,9 +2,11 @@
 
 Open **Review** in a project to check it for continuity errors, and to approve fixes that an AI agent proposes. Review reads your project; it changes nothing until you approve a plan.
 
+Choose **Continuity checks** or a plan on the left. Its findings or steps fill the center, and what you can do with it is on the right.
+
 ## Continuity checks
 
-The checks run when you open the page. They read the project's saved shots, prompts, references, takes and cut. They need no model and no GPU, and they give the same answer every time. Use **Run checks again** after you change something.
+The checks run when you open the page. They read the project's saved shots, prompts, references, takes and cut. They need no model and no GPU, and they give the same answer every time. Use **Run checks again** on the right after you change something.
 
 Each finding is either a **Problem**, which the saved data shows to be wrong, or **Worth a look**, which may be fine. A finding about a shot links to it in Shots.
 
@@ -31,7 +33,7 @@ The checks cannot see motion, and they cannot tell whose voice is heard or what 
 
 ## Plans
 
-A plan is a list of findings and proposed steps, written by an AI agent you connected under [Agent access](#connect-an-agent). Writing a plan changes nothing in the project. The plan appears under **Plans** with the agent's name, and Review updates as the agent adds to it.
+A plan is a list of findings and proposed steps, written by an AI agent you connected under [Agent access](#connect-an-agent). Writing a plan changes nothing in the project. The plan appears under **Plans** with the agent's name, and its steps appear as the agent writes them.
 
 A step is one change or one render:
 
@@ -47,13 +49,13 @@ A plan has no step that deletes anything.
 
 ### Review and approve
 
-The line under the plan's title says what approving it does: how many changes it makes, how many takes it renders, and how many seconds of footage that is. For a prompt change, open **Compare prompts** to see the prompt when the step was written beside the proposed one.
+The right pane says what approving it does: how many changes it makes, how many takes it renders, and how many seconds of footage that is. For a prompt change, open **Compare prompts** to see the prompt when the step was written beside the proposed one.
 
 Use **Reject step** on anything you do not want. A step that depended on a rejected one is skipped when the plan runs, and says why. Then choose **Approve plan**.
 
 ### What happens after approval
 
-Lumibelle runs the plan itself, so the agent can disconnect. The line under the title says how far it has come, what is rendering now and what is waiting for you, and each render step shows its live progress.
+Lumibelle runs the plan itself, so the agent can disconnect. The line above the steps says how far it has come, what is rendering now and what is waiting for you, and each render step shows its live progress.
 
 - Changes run at once, through the same saves as the studios.
 - A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the generation setup selected in Shots when you approved the plan. Each render step names it. Choosing another setup afterwards does not change what you approved.

@@ -19,7 +19,8 @@ public partial class ContinuityReview
     private IReadOnlyList<ReviewPlan> _plans = [];
     private Guid? _planId, _handledPlan;
     private string? _error;
-    private bool _busy, _measuring, _soundMeasured, _confirmRemove, _disposed;
+    private bool _busy, _measuring, _soundMeasured, _confirmRemove, _disposed, _viewChosen;
+    private lumibelle.Components.Layout.StudioWorkspace? _workspace;
     private int _levels;
     private readonly CancellationTokenSource _lifetime = new();
     private ReviewPlan? Selected => _plans.FirstOrDefault(p => p.Id == _planId);
@@ -51,7 +52,7 @@ public partial class ContinuityReview
     {
         if (_project?.Id != Id)
         {
-            _project = null; _snapshot = null; _findings = []; _plans = []; _planId = null; _soundMeasured = false; _error = null;
+            _project = null; _snapshot = null; _findings = []; _plans = []; _planId = null; _soundMeasured = false; _error = null; _viewChosen = false;
             try
             {
                 _project = await Projects.GetAsync(Id, _lifetime.Token) ?? throw new WorkspaceStoreException("This project is no longer in your library.");
@@ -59,7 +60,7 @@ public partial class ContinuityReview
             }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
         }
-        if (RequestedPlanId is { } requested && _handledPlan != requested && _plans.Any(p => p.Id == requested)) { _handledPlan = requested; _planId = requested; }
+        if (RequestedPlanId is { } requested && _handledPlan != requested && _plans.Any(p => p.Id == requested)) { _handledPlan = requested; _planId = requested; _viewChosen = true; }
     }
 
     private async Task Reload()
@@ -68,8 +69,15 @@ public partial class ContinuityReview
         // Sound findings are kept until the checks are run again; measuring is the slow part.
         _findings = [.. ReviewChecks.Run(_snapshot), .. _findings.Where(f => f.Check == ReviewMedia.Levels)];
         _plans = await Plans.Store.ListAsync(Id, _lifetime.Token);
-        _planId ??= _plans.OrderByDescending(p => p.Active).ThenByDescending(p => p.State == ReviewPlanState.Submitted).ThenByDescending(p => p.CreatedUtc).FirstOrDefault()?.Id;
-        if (_planId is not null && Selected is null) _planId = _plans.FirstOrDefault()?.Id;
+        if (!_viewChosen)
+        {
+            // The last view in this browser, or else a plan that needs the director. A plan arriving later never takes the page away.
+            _viewChosen = true;
+            var last = Place<string?>(Id, "review", "view", null);
+            _planId = last == "checks" ? null : Guid.TryParse(last, out var remembered) && _plans.Any(p => p.Id == remembered) ? remembered
+                : _plans.Where(p => p.Active || p.State == ReviewPlanState.Submitted).OrderByDescending(p => p.CreatedUtc).FirstOrDefault()?.Id;
+        }
+        if (_planId is not null && Selected is null) _planId = null;
     }
 
     // Raised from the store on whichever thread saved the plan: a proposer over MCP, the runner, or this page.
@@ -104,6 +112,9 @@ public partial class ContinuityReview
         }
     }
 
+    private string ChecksSummary => _snapshot is null ? "Running…" : _snapshot.Rows.Count == 0 ? "No shots yet" : _findings.Count == 0 ? "No findings"
+        : $"{Count(_findings.Count(f => f.Severity == ReviewSeverity.Problem), "problem")} · {_findings.Count(f => f.Severity == ReviewSeverity.Look)} worth a look";
+    private static bool Open(ReviewPlan plan) => plan.State is ReviewPlanState.Draft or ReviewPlanState.Submitted;
     private string Title(Guid shot) => _snapshot?.Row(shot)?.Coverage.Title ?? "";
     private static string Count(int n, string one) => $"{n} {one}{(n == 1 ? "" : "s")}";
 
@@ -138,7 +149,12 @@ public partial class ContinuityReview
         finally { _measuring = false; }
     }
 
-    private void Select(Guid plan) { _planId = plan; _confirmRemove = false; }
+    private async Task Select(Guid? plan)
+    {
+        _planId = plan; _confirmRemove = false;
+        await Remember(Id, "review", "view", plan?.ToString() ?? "checks");
+        if (_workspace is not null) await _workspace.RevealCenterAsync();
+    }
 
     private Task Decide(ReviewPlan plan, ReviewPlanStep step, bool keep) => Do(() => Plans.DecideAsync(Id, plan.Id, step.Id, keep, _lifetime.Token));
 
