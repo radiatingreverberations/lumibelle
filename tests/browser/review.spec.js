@@ -78,20 +78,24 @@ test('agent access is off until turned on, and the endpoint needs the token', as
   await page.goto('/settings/ai');
   // Focus moves to the heading once the page is interactive.
   await expect(page.locator('h1')).toBeFocused();
-  const panel = page.getByRole('region', { name: 'Agent access' });
+  // It belongs to the Connections list only.
+  const entry = page.getByRole('tablist', { name: 'Connection providers' }).getByRole('tab', { name: 'Agent access', exact: true });
+  await entry.click();
+  await expect(entry).toHaveAttribute('aria-selected', 'true');
+  const panel = page.getByRole('tabpanel', { name: 'Agent access' });
   await expect(panel).toBeVisible();
+  await expect(panel).not.toContainText('Claude');
   const enabled = panel.getByLabel('Allow agent access from this computer');
   await expect(enabled).not.toBeChecked();
-  await expect(panel.getByLabel('Add Lumibelle to Claude Code')).toHaveCount(0);
+  await expect(panel.getByLabel('Access token')).toHaveCount(0);
   await enabled.check();
 
-  const command = panel.getByLabel('Add Lumibelle to Claude Code');
-  await expect(command).toHaveValue(new RegExp(`^claude mcp add --transport http lumibelle ${baseURL}/mcp --header "Authorization: Bearer •+"$`));
-  await panel.getByRole('button', { name: 'Show command' }).click();
-  await expect(command).toHaveValue(/Bearer [A-Za-z0-9_-]{40,}"$/);
-  const shown = await command.inputValue();
-  const token = shown.match(/Bearer ([A-Za-z0-9_-]{40,})"$/)?.[1];
-  expect(token, shown).toBeTruthy();
+  await expect(panel.getByLabel('Server address')).toHaveValue(`${baseURL}/mcp`);
+  const field = panel.getByLabel('Access token');
+  await expect(field).toHaveValue('••••••••');
+  await panel.getByRole('button', { name: 'Show token' }).click();
+  await expect(field).toHaveValue(/^[A-Za-z0-9_-]{40,}$/);
+  const token = await field.inputValue();
 
   expect((await call(null)).status()).toBe(401);
   const listed = await call(token);
@@ -111,10 +115,10 @@ test('agent access is off until turned on, and the endpoint needs the token', as
   // Replacing the token refuses the old one.
   await panel.getByRole('button', { name: 'Replace token…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Replace token', exact: true }).click();
-  await expect(command).not.toHaveValue(shown);
+  await expect(field).not.toHaveValue(token);
   expect((await call(token)).status()).toBe(401);
 
   await enabled.uncheck();
-  await expect(panel.getByLabel('Add Lumibelle to Claude Code')).toHaveCount(0);
+  await expect(field).toHaveCount(0);
   expect((await call(token)).status()).toBe(404);
 });

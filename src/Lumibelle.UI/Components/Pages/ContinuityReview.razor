@@ -63,7 +63,7 @@ else
 
         <section class="review-section" aria-labelledby="review-plans-title">
             <h2 id="review-plans-title">Plans</h2>
-            <p class="field-hint">A plan is a list of findings and proposed fixes, written by an agent you connected under <a href="/settings/ai">AI settings → Connections → Agent access</a>. Nothing in a plan runs until you approve it here.</p>
+            <p class="field-hint">A plan is a list of findings and proposed fixes, written by an agent you connected under <a href="/settings/ai?tab=connections&provider=agents">AI settings → Connections → Agent access</a>. Nothing in a plan runs until you approve it here.</p>
             @if (_plans.Count == 0) { <EmptyState Compact="true" Title="No plans yet" HeadingLevel="3">When an agent proposes changes or renders for this project, the plan appears here for you to review.</EmptyState> }
             else
             {

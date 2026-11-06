@@ -30,7 +30,7 @@ else
         {
             <section id="ai-panel-connections" role="tabpanel" aria-labelledby="ai-tab-connections" hidden='@(_tab != "connections")'>
                 <div class="ai-connections-layout">
-                    <AiProviderSidebar Label="Connection providers" TabPrefix="ai-provider-" PanelPrefix="ai-connection-" Selection="@ConnectionProvider" SelectionChanged="SelectProvider" />
+                    <AiProviderSidebar Label="Connection providers" TabPrefix="ai-provider-" PanelPrefix="ai-connection-" Items="ConnectionEntries" Selection="@ConnectionProvider" SelectionChanged="SelectConnection" />
                     <div class="ai-connection-content">
                         @if (_visitedProviders.Contains("comfyui"))
                         {
@@ -81,9 +81,14 @@ else
                                 <lumibelle.Components.AI.CodexSettingsPanel Settings="_settings.Codex" Busy="Busy" SaveSettings="SaveCodexAsync" Active='@(_tab == "connections" && ConnectionProvider == "codex")' />
                             </section>
                         }
+                        @if (_visitedProviders.Contains(AiProviderSidebar.AgentAccessKey))
+                        {
+                            <section id="ai-connection-agents" role="tabpanel" aria-labelledby="ai-provider-agents" hidden='@(ConnectionProvider != AiProviderSidebar.AgentAccessKey)'>
+                                <lumibelle.Components.AI.AgentAccessPanel />
+                            </section>
+                        }
                     </div>
                 </div>
-                <lumibelle.Components.AI.AgentAccessPanel />
             </section>
         }
         @if (_tab is not ("connections" or "loras"))

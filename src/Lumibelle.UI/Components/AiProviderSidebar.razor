@@ -3,7 +3,7 @@
     {
         var index = i; var provider = Entries[index];
         <button type="button" role="tab" id="@(TabPrefix + provider.Key)" aria-label="@provider.Label" aria-controls="@(PanelPrefix + provider.Key)"
-                class="@(provider.Key == DefaultsKey ? "ai-provider-defaults" : null)"
+                class="@(provider.Key is DefaultsKey or AgentAccessKey ? "ai-provider-defaults" : null)"
                 aria-selected="@(Selection == provider.Key ? "true" : "false")" tabindex="@(Selection == provider.Key ? 0 : -1)"
                 @ref="_elements[index]" @onclick="() => SelectionChanged.InvokeAsync(provider.Key)" @onkeydown="args => OnKeyAsync(args, index)">
             <strong>@provider.Label</strong><span>@provider.Kind</span>
@@ -14,6 +14,9 @@
 @code {
     public static readonly (string Key, string Label, string Kind)[] Providers =
         [("comfyui", "ComfyUI", "Server"), ("vllm", "OpenAI-compatible", "Servers"), ("openrouter", "OpenRouter", "Cloud API"), ("codex", "Codex", "Local CLI")];
+    // Connections only: not a model provider, so the other tabs' lists leave it out.
+    public const string AgentAccessKey = "agents";
+    public static readonly (string Key, string Label, string Kind)[] ConnectionsWithAgentAccess = [.. Providers, (AgentAccessKey, "Agent access", "MCP")];
     // The entry for settings that apply across a tab's providers, shown last.
     public const string DefaultsKey = "defaults";
     [Parameter, EditorRequired] public string Label { get; set; } = "";

@@ -73,9 +73,15 @@ Agent access lets an AI agent that you run yourself work with this library throu
 
 1. Open **AI settings → Connections** and find **Agent access**.
 2. Turn on **Allow agent access from this computer**.
-3. Choose **Show command** and run the command in a terminal. It adds Lumibelle to Claude Code. The command contains the access token, so treat it like a password.
+3. Add the **Server address** to your MCP client as a Streamable HTTP server, and have it send the **Access token** in an `Authorization: Bearer` header. Choose **Show token** to read it, and treat it like a password.
 
-Another MCP client needs the address shown there and an `Authorization: Bearer` header with the token. Only programs on this computer can connect. **Replace token…** makes a new token; clients set up with the old one are refused until you add Lumibelle to them again.
+In Claude Code, that is:
+
+```bash
+claude mcp add --transport http lumibelle http://localhost:5183/mcp --header "Authorization: Bearer <token>"
+```
+
+Only programs on this computer can connect. **Replace token…** makes a new token; clients set up with the old one are refused until you give them the new one.
 
 With access on, the agent can:
 

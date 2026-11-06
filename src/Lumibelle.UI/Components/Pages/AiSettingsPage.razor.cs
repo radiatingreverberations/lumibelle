@@ -150,6 +150,7 @@ public partial class AiSettingsPage
         {
             _connectionProvider = AiProviderSidebar.Providers.Any(p => p.Key == InitialProvider) || InitialProvider == AiProviderSidebar.DefaultsKey ? InitialProvider! : "comfyui";
             if (_connectionProvider != AiProviderSidebar.DefaultsKey) _lastProvider = _connectionProvider;
+            _agentAccessSelected = InitialProvider == AiProviderSidebar.AgentAccessKey && AgentAccessAvailable;
         }
         _parametersApplied = true; _appliedTab = InitialTab; _appliedProvider = InitialProvider;
         if (RequestedJobId.HasValue && _openedJob != RequestedJobId) { _tab = "text"; _connectionProvider = "comfyui"; }
@@ -157,7 +158,18 @@ public partial class AiSettingsPage
     }
     // Connections has no Defaults entry; while Defaults is selected it keeps the last provider.
     private string _lastProvider = "comfyui";
-    private string ConnectionProvider => _connectionProvider == AiProviderSidebar.DefaultsKey ? _lastProvider : _connectionProvider;
+    private string ConnectionProvider => _agentAccessSelected ? AiProviderSidebar.AgentAccessKey : _connectionProvider == AiProviderSidebar.DefaultsKey ? _lastProvider : _connectionProvider;
+    // Kept apart from the provider the Text models tab shares: Agent access has no text models to show there.
+    private bool _agentAccessSelected;
+    // An agent needs an address to connect to, and the desktop host serves none.
+    private bool AgentAccessAvailable => Services.GetService<lumibelle.Services.Review.IAgentAccessStore>() is not null && Services.GetService<IHostActions>()?.IsDesktop == false;
+    private (string Key, string Label, string Kind)[] ConnectionEntries => AgentAccessAvailable ? AiProviderSidebar.ConnectionsWithAgentAccess : AiProviderSidebar.Providers;
+    private void SelectConnection(string key)
+    {
+        _agentAccessSelected = key == AiProviderSidebar.AgentAccessKey;
+        if (_agentAccessSelected) { VisitProvider(); UpdateSelectionUrl(); }
+        else SelectProvider(key);
+    }
     private void VisitProvider() { if (_tab == "connections") _visitedProviders.Add(ConnectionProvider); }
     private void SelectTab(string key) { _tab = key; VisitProvider(); UpdateSelectionUrl(); }
     private void SelectProvider(string key)
