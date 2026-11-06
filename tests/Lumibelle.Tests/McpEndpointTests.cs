@@ -25,6 +25,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "Lumibelle.McpTests", Guid.NewGuid().ToString("N"));
     private WebApplication _app = null!;
+    private readonly StandInRenders _renders = new();
     private Uri _endpoint = null!;
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private IAgentAccessStore Access => _app.Services.GetRequiredService<IAgentAccessStore>();
@@ -37,6 +38,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
         builder.Services.AddSingleton<ISecretProtector>(new WebSecretProtector(new EphemeralDataProtectionProvider()));
         builder.Services.AddLumibelleCore(new ApplicationPaths(Path.Combine(_root, "data"), Path.Combine(_root, "library")), exclusive: false);
         builder.Services.AddLumibelleMcp();
+        builder.Services.AddSingleton<IReviewRenderQueue>(_renders);
         _app = builder.Build();
         _app.MapLumibelleMcp();
         await _app.StartAsync(Ct);
@@ -259,6 +261,72 @@ public sealed class McpEndpointTests : IAsyncLifetime
         Assert.NotEqual(ReviewPlans.Director, saved.ApprovedFrom);
         Assert.Contains(saved.Log, l => l.Who == saved.ApprovedFrom && l.What.StartsWith("Approved revision"));
         Assert.Equal(shot.Id, saved.Steps[0].ShotId);
+    }
+
+    [Fact]
+    public async Task RenderedTakesAreRecommendedAndPickedOverMcpOnlyByNamingThem()
+    {
+        var (project, shot) = await ProjectWithShotAsync();
+        var shots = _app.Services.GetRequiredService<IShotStore>();
+        await using var client = await ConnectAsync(await EnableAsync(approval: true));
+        var id = project.ToString();
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Another take" })).GetProperty("id").GetString()!;
+        var step = (await CallAsync(client, "propose_step", new { project = id, plan, kind = "GenerateTakes", shot = "#1", reason = "Try again.", takes = 2 })).GetProperty("id").GetString()!;
+        var submitted = await CallAsync(client, "submit_plan", new { project = id, plan });
+        var totals = submitted.GetProperty("totals");
+        Assert.Equal(2, totals.GetProperty("takes").GetInt32());
+
+        var approved = await CallAsync(client, "approve_plan", new { project = id, plan, revision = submitted.GetProperty("revision").GetInt64(), takes = 2,
+            footage_seconds = totals.GetProperty("footageSeconds").GetDouble(), changes = 0 });
+        Assert.Equal("Running", approved.GetProperty("steps")[0].GetProperty("state").GetString());
+        var job = approved.GetProperty("steps")[0].GetProperty("job").GetGuid();
+        Assert.Equal((shot.Id, 2), Assert.Single(_renders.Captured));
+
+        // The render finishes: two takes are published for the job, as the video handler would.
+        var takes = new List<string>();
+        for (var n = 1; n <= 2; n++)
+        {
+            var current = (await shots.LoadAsync(project, Ct)).Shots.Single();
+            var snapshot = new VideoSnapshot(project, 1, current.Copy(), "prompt", "fingerprint", "http://localhost:8188", new(), 32, 32, H3Policy.Frames(1));
+            var run = Guid.NewGuid(); var directory = Path.Combine(await shots.RunDirectoryAsync(project, run, Ct), "candidate-" + n); Directory.CreateDirectory(directory);
+            await File.WriteAllBytesAsync(Path.Combine(directory, "video.mp4"), [1, 2, 3], Ct);
+            var frames = await Lumibelle.Testing.MockFrameArchive.WriteAsync(directory, snapshot.FrameCount, 32, 32, Ct);
+            var document = await shots.PublishTakeAsync(project, new() { ShotId = current.Id, RunId = run, Candidate = n, AiJobId = job, Snapshot = snapshot, Width = 32, Height = 32, Frames = frames, Bytes = 3 + frames.DistinctBy(f => f.FileName).Sum(f => f.Bytes) }, directory, Ct);
+            takes.Add(document.Takes.Single(t => t.RunId == run).Id.ToString());
+        }
+        _renders.States[job] = AiJobState.Completed;
+        await _app.Services.GetRequiredService<ReviewPlanRunner>().AdvanceWatchedAsync(ct: Ct);
+
+        var waiting = await CallAsync(client, "get_plan", new { project = id, plan });
+        Assert.Equal("Pick", waiting.GetProperty("steps")[0].GetProperty("state").GetString());
+        Assert.Equal(takes, waiting.GetProperty("steps")[0].GetProperty("takesToPickFrom").EnumerateArray().Select(t => t.GetString()!));
+        Assert.Null((await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId);
+
+        await CallAsync(client, "recommend_take", new { project = id, plan, step, take = takes[1], reason = "The mouse looks up in time." });
+        Assert.Null((await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId);
+
+        // A take the plan did not render is refused, and nothing is selected.
+        var wrong = await client.CallToolAsync("accept_picks", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan,
+            ["picks"] = new[] { new Dictionary<string, object?> { ["shot"] = "#1", ["take"] = Guid.NewGuid().ToString() } } }, cancellationToken: Ct);
+        Assert.True(wrong.IsError);
+        Assert.Null((await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId);
+
+        var picked = await CallAsync(client, "accept_picks", new { project = id, plan, picks = new[] { new { shot = "#1", take = takes[1] } } });
+        Assert.Equal("Finished", picked.GetProperty("state").GetString());
+        Assert.Equal(takes[1], (await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId.ToString());
+    }
+
+    private sealed class StandInRenders : IReviewRenderQueue
+    {
+        public System.Collections.Concurrent.ConcurrentDictionary<Guid, AiJobState> States { get; } = new();
+        public List<(Guid Shot, int Takes)> Captured { get; } = [];
+        public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
+        {
+            Captured.Add((setup.ShotId, takes));
+            return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId), "Project", "Shot", Guid.Empty, new { takes }));
+        }
+        public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
+        public AiJobState? State(Guid jobId) => States.TryGetValue(jobId, out var state) ? state : null;
     }
 
     [Theory]

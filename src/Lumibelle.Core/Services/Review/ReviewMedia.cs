@@ -115,7 +115,8 @@ public sealed class ReviewMedia(IShotStore shots, ProjectFiles files, IProductio
     public static IReadOnlyList<ReviewFinding> LevelFindings(ProjectReviewSnapshot snapshot, IReadOnlyList<TakeAudioLevel> levels)
     {
         var findings = new List<ReviewFinding>();
-        var means = levels.Where(l => l.MeanDb is not null).Select(l => l.MeanDb!.Value).Order().ToArray();
+        // Silent tracks say nothing about how loud the film is.
+        var means = levels.Where(l => l.MeanDb is > AudioLevels.DigitalSilenceDb).Select(l => l.MeanDb!.Value).Order().ToArray();
         double? median = means.Length == 0 ? null : means.Length % 2 == 1 ? means[means.Length / 2] : (means[means.Length / 2 - 1] + means[means.Length / 2]) / 2;
         foreach (var level in levels)
         {
@@ -123,7 +124,7 @@ public sealed class ReviewMedia(IShotStore shots, ProjectFiles files, IProductio
             void Add(string message) => findings.Add(new(Levels, ReviewSeverity.Look, message) { ShotId = level.ShotId, ShotNumber = row?.Number, TakeId = level.TakeId });
             static string Db(double value) => value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " dB";
             if (!level.HasAudio) { Add("The selected take has no soundtrack."); continue; }
-            if (level.MeanDb is null) { Add("The selected take's soundtrack is silent."); continue; }
+            if (level.MeanDb is null or <= AudioLevels.DigitalSilenceDb) { Add("The selected take's soundtrack is silent."); continue; }
             if (median is { } middle && means.Length >= 3 && level.MeanDb < middle - QuietDb)
                 Add($"The selected take averages {Db(level.MeanDb.Value)}, {Db(middle - level.MeanDb.Value)} quieter than the film's median of {Db(middle)}.");
             if (row?.Coverage.Dialogue.Count > 0 && level.Seconds > 0 && level.SilentSeconds / level.Seconds >= .8)

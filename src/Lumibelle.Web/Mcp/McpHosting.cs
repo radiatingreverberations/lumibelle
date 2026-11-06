@@ -60,7 +60,7 @@ public static class McpHosting
         {
             var access = http.RequestServices.GetRequiredService<IAgentAccessStore>();
             // Off looks like no endpoint at all.
-            if (!(await access.LoadAsync(http.RequestAborted)).Enabled) { await Refuse(http, StatusCodes.Status404NotFound, "Agent access is turned off in Lumibelle."); return; }
+            if (!(await access.StateAsync(http.RequestAborted)).Enabled) { await Refuse(http, StatusCodes.Status404NotFound, "Agent access is turned off in Lumibelle."); return; }
             if (http.Connection.RemoteIpAddress is not { } remote || !IPAddress.IsLoopback(remote)) { await Refuse(http, StatusCodes.Status403Forbidden, "Agent access is available from this computer only."); return; }
             // A browser page on another site must not be able to reach a local server (DNS rebinding).
             if (http.Request.Headers.Origin.ToString() is { Length: > 0 } origin && !LocalOrigin(origin)) { await Refuse(http, StatusCodes.Status403Forbidden, "This origin may not use agent access."); return; }
@@ -78,7 +78,7 @@ public static class McpHosting
     }
 
     private static async Task<bool> ApprovalAllowed(IServiceProvider? services, CancellationToken ct) =>
-        services is not null && (await services.GetRequiredService<IAgentAccessStore>().LoadAsync(ct)).AllowClientApproval;
+        services is not null && (await services.GetRequiredService<IAgentAccessStore>().StateAsync(ct)).AllowClientApproval;
 
     internal static bool LocalOrigin(string origin) => Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" &&
         (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));

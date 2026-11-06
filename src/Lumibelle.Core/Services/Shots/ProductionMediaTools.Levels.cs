@@ -11,6 +11,8 @@ public sealed record AudioLevels(double? MeanDb, double? PeakDb, IReadOnlyList<(
 {
     public const int SilenceDb = -50;
     public const double SilenceSeconds = 0.5;
+    /// <summary>At or below this mean level a track holds no sound at all; FFmpeg reports about -91 dB for digital silence.</summary>
+    public const double DigitalSilenceDb = -90;
 
     // FFmpeg's volumedetect and silencedetect report on the log, one value per line.
     public static AudioLevels Parse(string log, double seconds)

@@ -1,12 +1,13 @@
 @using lumibelle.Services.Review
-@inject IAgentAccessStore Access
+@inject IServiceProvider Services
 @inject NavigationManager Navigation
-@inject IHostActions Host
 
+@if (Access is not null)
+{
 <section class="settings-card agent-access" aria-labelledby="agent-access-title">
     <div class="settings-card-title"><span class="provider-badge">MCP</span><h2 id="agent-access-title">Agent access</h2></div>
     <p>Let an AI agent you run yourself, such as Claude Code, review the projects in this library: read shots, takes and the cut, run the continuity checks, and propose fixes as a plan. A plan changes nothing until you approve it.</p>
-    @if (Host.IsDesktop) { <p class="field-hint">Agent access needs Lumibelle running in a browser. The desktop app has no address for an agent to connect to.</p> }
+    @if (Desktop) { <p class="field-hint">Agent access needs Lumibelle running in a browser. The desktop app has no address for an agent to connect to.</p> }
     else if (_settings is null) { <p role="status">@(_error ?? "Loading…")</p> }
     else
     {
@@ -28,11 +29,15 @@
         @if (_error is not null) { <p class="field-hint" role="alert">@_error</p> }
     }
 </section>
+}
 <ConfirmDialog Visible="_confirmRenew" VisibleChanged="v => { if (!v) _confirmRenew = false; }" Title="Replace the access token?" ConfirmLabel="Replace token" Busy="_busy" OnConfirm="Renew">
     Clients set up with the current token are refused until you add Lumibelle to them again with the new command.
 </ConfirmDialog>
 
 @code {
+    // Optional: a host without the MCP endpoint, or a page rendered on its own, has no agent access to offer.
+    private IAgentAccessStore? Access => Services.GetService<IAgentAccessStore>();
+    private bool Desktop => Services.GetService<IHostActions>()?.IsDesktop == true;
     private AgentAccessSettings? _settings;
     private string? _token, _error;
     private bool _busy, _shown, _confirmRenew;
@@ -42,15 +47,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Host.IsDesktop) return;
+        if (Access is null || Desktop) return;
         try { await Load(); }
         catch (WorkspaceStoreException e) { _error = e.Message; }
     }
 
-    private async Task Load() { _settings = await Access.LoadAsync(); _token = _settings.Enabled ? await Access.ReadTokenAsync() : null; }
+    private async Task Load() { _settings = await Access!.LoadAsync(); _token = _settings.Enabled ? await Access.ReadTokenAsync() : null; }
 
-    private Task Save(bool enabled, bool approval) => Do(() => Access.SaveAsync(enabled, approval, _settings!.Revision));
-    private Task Renew() => Do(async () => { await Access.RenewTokenAsync(_settings!.Revision); _confirmRenew = false; });
+    private Task Save(bool enabled, bool approval) => Do(() => Access!.SaveAsync(enabled, approval, _settings!.Revision));
+    private Task Renew() => Do(async () => { await Access!.RenewTokenAsync(_settings!.Revision); _confirmRenew = false; });
 
     private async Task Do(Func<Task> action)
     {

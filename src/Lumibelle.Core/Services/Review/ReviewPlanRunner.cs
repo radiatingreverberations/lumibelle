@@ -21,16 +21,19 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, byte> _watched = new();
     private int _listening;
 
-    /// <summary>Advances the approved plans of every project. Called once at startup.</summary>
+    /// <summary>Advances the approved plans of every project, picking up whatever a restart interrupted. Called once at startup.</summary>
     public async Task AdvanceAllAsync(CancellationToken ct = default)
     {
         if (Interlocked.Exchange(ref _listening, 1) == 0) store.Changed += (project, _) => _watched[project] = 0;
         foreach (var project in (await projects.ListAsync(ct)).Projects) _watched[project.Id] = 0;
-        await AdvanceWatchedAsync(ct);
+        await AdvanceWatchedAsync(settledOnly: false, ct);
     }
 
-    /// <summary>Advances the approved plans of projects known to have had one. Called whenever the queue changes.</summary>
-    public async Task AdvanceWatchedAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Advances the approved plans of projects known to have had one. Called whenever the queue changes, which is often while a
+    /// render reports progress, so with <paramref name="settledOnly"/> a plan is only read in full once one of its renders has left the queue.
+    /// </summary>
+    public async Task AdvanceWatchedAsync(bool settledOnly = true, CancellationToken ct = default)
     {
         foreach (var project in _watched.Keys)
         {
@@ -39,7 +42,11 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read.", project); _watched.TryRemove(project, out _); continue; }
             if (!plans.Any(p => p.Active)) { _watched.TryRemove(project, out _); continue; }
             foreach (var plan in plans.Where(p => p.Active))
-                try { await AdvanceAsync(project, plan.Id, ct); }
+                try
+                {
+                    if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && renders.State(s.JobId ?? Guid.Empty) is not (AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention))) continue;
+                    await AdvanceAsync(project, plan.Id, ct);
+                }
                 catch (Exception e) when (e is WorkspaceStoreException or IOException) { logger.LogWarning(e, "Review plan {Plan} could not be advanced.", plan.Id); }
         }
     }
@@ -51,14 +58,15 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             // Each pass handles one step and reads the project again, so a later step sees what the earlier one changed.
+            var conflicts = new Dictionary<Guid, int>();
             for (var pass = 0; pass < 2000; pass++)
             {
                 var plan = await store.GetAsync(projectId, planId, ct);
                 if (!plan.Active) return plan;
                 var snapshot = await review.LoadAsync(projectId, ct);
-                if (await SettleRenderAsync(snapshot, plan, ct) || await RunNextAsync(snapshot, plan, ct)) continue;
+                if (await SettleRenderAsync(snapshot, plan, ct) || await RunNextAsync(snapshot, plan, conflicts, ct)) continue;
                 if (!plan.Steps.Any(s => s.Open))
-                    plan = await store.UpdateAsync(projectId, planId, p => p.Active ? p with { State = ReviewPlanState.Finished, Log = [.. p.Log, new(clock.GetUtcNow(), ReviewPlans.Director, "Every step has run.")] } : p, ct: ct);
+                    plan = await store.UpdateAsync(projectId, planId, p => p.Active && !p.Steps.Any(s => s.Open) ? p with { State = ReviewPlanState.Finished, Log = [.. p.Log, new(clock.GetUtcNow(), ReviewPlans.Director, "Every step has run.")] } : p, ct: ct);
                 return plan;
             }
             return await store.GetAsync(projectId, planId, ct);
@@ -105,7 +113,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         return false;
     }
 
-    private async Task<bool> RunNextAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, CancellationToken ct)
+    private async Task<bool> RunNextAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, Dictionary<Guid, int> conflicts, CancellationToken ct)
     {
         foreach (var step in plan.Steps.Where(s => s.State == ReviewStepState.Waiting))
         {
@@ -122,8 +130,12 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 else if (await ApplyAsync(snapshot, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held);
                 else await Finish(step, ReviewStepState.Done, null);
             }
-            // Another save landed between reading and writing: read again and retry this step.
-            catch (WorkspaceConflictException) { }
+            // Another save landed between reading and writing: read again and retry this step, a few times at most.
+            catch (WorkspaceConflictException)
+            {
+                conflicts[step.Id] = conflicts.GetValueOrDefault(step.Id) + 1;
+                if (conflicts[step.Id] >= 3) await Finish(step, ReviewStepState.Failed, "Something else kept saving this shot while the step was applied. Close other editors of the shot, then start a new plan for this step.");
+            }
             catch (WorkspaceStoreException e) { await Finish(step, ReviewStepState.Failed, e.Message); }
             return true;
         }
@@ -276,8 +288,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         if (changed) await cuts.SaveAsync(projectId, clips, cut.Revision, ct);
     }
 
-    private static ReviewPlan Set(ReviewPlan plan, Guid stepId, Func<ReviewPlanStep, ReviewPlanStep> change, string who, string what) =>
-        plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? change(s) : s).ToArray(), Log = [.. plan.Log, new(DateTimeOffset.UtcNow, who, what)] };
+    private ReviewPlan Set(ReviewPlan plan, Guid stepId, Func<ReviewPlanStep, ReviewPlanStep> change, string who, string what) =>
+        plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? change(s) : s).ToArray(), Log = [.. plan.Log, new(clock.GetUtcNow(), who, what)] };
 }
 
 /// <summary>How a plan starts a render and learns what became of it. The app's queue in production; a stand-in under test.</summary>
@@ -315,7 +327,7 @@ public sealed class ReviewPlanWorker(ReviewPlanRunner runner, AiJobCoordinator j
             {
                 // A queue change wakes it; the timeout covers a signal lost between passes.
                 await _signal.WaitAsync(TimeSpan.FromMinutes(1), stoppingToken);
-                try { if (first) await runner.AdvanceAllAsync(stoppingToken); else await runner.AdvanceWatchedAsync(stoppingToken); first = false; }
+                try { if (first) await runner.AdvanceAllAsync(stoppingToken); else await runner.AdvanceWatchedAsync(ct: stoppingToken); first = false; }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
                 catch (Exception e) { logger.LogError(e, "Review plans could not be advanced."); }
             }

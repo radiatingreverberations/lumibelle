@@ -109,6 +109,10 @@ export function attach(root, storageKey, context) {
         dispose() { save(); disposed = true; clearTimeout(timer); clearTimeout(settle); events.abort(); resize.disconnect(); mutation.disconnect(); } };
 }
 export function focusHeading(path) {
+    // The tab row scrolls within itself when it cannot fit; keep the current page's tab in view.
+    // Only the row moves: scrollIntoView would also scroll the page, which restores its own position.
+    const tab = document.querySelector('.project-tabs > a.active'), row = tab?.parentElement;
+    if (row && row.scrollWidth > row.clientWidth) row.scrollLeft = tab.offsetLeft - row.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2;
     if (location.pathname !== path) return;
     const heading = document.querySelector('main h1');
     if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }

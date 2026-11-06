@@ -213,6 +213,52 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task AStepCanBeRewrittenUntilThePlanIsApproved()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Rewrite", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "One take."));
+        var before = (await f.Plan(plan)).Revision;
+
+        // The step keeps its id and place; a second render of the same shot is still refused.
+        var rewritten = await f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.GenerateTakes, shot, "Three, to choose from.") { Takes = 3 }, "agent", replaces: render.Id, _ct);
+        Assert.Equal(render.Id, rewritten.Id);
+        var current = await f.Plan(plan);
+        Assert.Equal((3, "Three, to choose from."), (Assert.Single(current.Steps).Takes, current.Steps[0].Reason));
+        Assert.True(current.Revision > before);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Again.")));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.UpdateCut, null, "Another kind."), "agent", replaces: render.Id, _ct));
+
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.GenerateTakes, shot, "Too late.") { Takes = 1 }, "agent", replaces: render.Id, _ct));
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal((shot, 3), Assert.Single(f.Renders.Captured));
+    }
+
+    [Fact]
+    public async Task TheBackgroundPassOnlyReadsAPlanInFullOnceARenderHasLeftTheQueue()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Background", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "One take."));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+
+        // Startup picks up an approved plan nobody advanced, as after a restart.
+        await f.Runner.AdvanceAllAsync(_ct);
+        var running = await f.Plan(plan);
+        Assert.Equal(ReviewStepState.Running, running.Step(render.Id)!.State);
+
+        // Queue changes while the render runs leave the plan alone.
+        var revision = (await f.Plans.Store.ListAsync(f.Project, _ct)).Single().Log.Count;
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+        Assert.Equal(revision, (await f.Plan(plan)).Log.Count);
+
+        var takes = await f.Finish(running.Step(render.Id)!, 1);
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+        Assert.Equal((ReviewStepState.Pick, takes[0]), ((await f.Plan(plan)).Step(render.Id)!.State, (await f.Plan(plan)).Step(render.Id)!.ProducedTakeIds.Single()));
+    }
+
+    [Fact]
     public void PromptEditsReplaceTextThatOccursExactlyOnce()
     {
         const string prompt = "Vera stands by the window. The window is open.";

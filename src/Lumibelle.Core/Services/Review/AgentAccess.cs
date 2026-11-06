@@ -22,14 +22,17 @@ public interface IAgentAccessStore
     Task<string?> ReadTokenAsync(CancellationToken ct = default);
     /// <summary>True when access is on and this is the token.</summary>
     Task<bool> AcceptsAsync(string? presented, CancellationToken ct = default);
+    /// <summary>The saved switches, without reading the file on every request.</summary>
+    Task<(bool Enabled, bool AllowClientApproval)> StateAsync(CancellationToken ct = default);
 }
 
 public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtector protector) : IAgentAccessStore
 {
     private sealed record Stored(int SchemaVersion, long Revision, bool Enabled, bool AllowClientApproval, string? ProtectedToken);
     private readonly string _path = Path.Combine(paths.Data, "agent-access.json");
-    // The key ring is slow to ask on every request; a save replaces this.
-    private (long Revision, bool Enabled, byte[]? Token)? _current;
+    // Asked on every request, so neither the file nor the key ring is read each time. A save clears it.
+    private sealed record Current(bool Enabled, bool AllowClientApproval, byte[]? Token);
+    private volatile Current? _current;
 
     public async Task<AgentAccessSettings> LoadAsync(CancellationToken ct = default) => Summary(await ReadAsync(ct));
 
@@ -60,7 +63,13 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
             CryptographicOperations.FixedTimeEquals(token, Encoding.UTF8.GetBytes(presented));
     }
 
-    private async Task<(long Revision, bool Enabled, byte[]? Token)> CurrentAsync(CancellationToken ct)
+    public async Task<(bool Enabled, bool AllowClientApproval)> StateAsync(CancellationToken ct = default)
+    {
+        var current = await CurrentAsync(ct);
+        return (current.Enabled, current.AllowClientApproval);
+    }
+
+    private async Task<Current> CurrentAsync(CancellationToken ct)
     {
         if (_current is { } cached) return cached;
         var stored = await ReadAsync(ct);
@@ -68,7 +77,7 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
         if (stored.ProtectedToken is { } secret)
             try { token = Encoding.ASCII.GetBytes(protector.Unprotect(secret)); }
             catch (CryptographicException) { /* Saved under another account's key ring: refuse until the token is renewed. */ }
-        var current = (stored.Revision, stored.Enabled, token);
+        var current = new Current(stored.Enabled, stored.AllowClientApproval, token);
         _current = current;
         return current;
     }

@@ -51,7 +51,9 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
     {
         var snapshot = await review.LoadAsync(projectId, ct);
         var current = await store.GetAsync(projectId, planId, ct);
-        var step = Build(snapshot, current, proposal, who) with { Id = replaces ?? Guid.NewGuid() };
+        // The step being rewritten is not there to object to its own replacement.
+        var others = replaces is null ? current : current with { Steps = current.Steps.Where(s => s.Id != replaces).ToArray() };
+        var step = Build(snapshot, others, proposal, who) with { Id = replaces ?? Guid.NewGuid() };
         await store.UpdateAsync(projectId, planId, plan =>
         {
             Editable(plan);
@@ -59,6 +61,7 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             if (replaces is { } id)
             {
                 var old = plan.Step(id) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+                if (old.State is not (ReviewStepState.Proposed or ReviewStepState.Rejected)) throw new WorkspaceStoreException("That step has already been approved.");
                 if (old.Kind != step.Kind || old.ShotId != step.ShotId) throw new WorkspaceStoreException("A step can be rewritten, not turned into another kind or moved to another shot. Propose a new step instead.");
                 return plan with { Steps = plan.Steps.Select(s => s.Id == id ? step : s).ToArray(), Log = [.. plan.Log, new(clock.GetUtcNow(), who, $"Rewrote the step “{Describe(snapshot, step)}”.")] };
             }
