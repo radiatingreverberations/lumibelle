@@ -53,6 +53,8 @@ Use **Reject step** on anything you do not want. A step that depended on a rejec
 
 ### What happens after approval
 
+Lumibelle runs the plan itself, so the agent can disconnect. The line under the title says how far it has come, what is rendering now and what is waiting for you, and each render step shows its live progress.
+
 - Changes run at once, through the same saves as the studios.
 - A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the generation setup selected in Shots when you approved the plan. Each render step names it. Choosing another setup afterwards does not change what you approved.
 - When a render finishes, its step shows the new takes under **Pick a take**. Play them, then choose **Use this take**. The agent may recommend one with a reason; **Accept recommendations** takes every recommended take. Nothing selects a take for you.
@@ -61,7 +63,7 @@ Use **Reject step** on anything you do not want. A step that depended on a rejec
 
 A step is **Held** when its shot's prompt was edited after the step was written. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it.
 
-**Stop plan** skips the steps that have not run. A render already in the queue continues; cancel it in AI activity if you do not want it.
+**Stop plan** skips the steps that have not run and cancels the plan's waiting and running renders. **AI activity** can recover any takes a cancelled render had finished. Stopping undoes nothing: prompts and references it already changed stay, and takes it already finished stay in Shots without being selected. A stopped plan cannot be restarted, so what is still needed goes in a new plan.
 
 If a shot is open in Shots with unsaved edits when a plan changes it, that tab cannot save over the plan's change and keeps your draft. Reload the shot there.
 
@@ -89,7 +91,8 @@ With access on, the agent can:
 - look at take frames as contact sheets, and at reference pictures;
 - run the continuity checks and measure sound;
 - turn a time in the cut into a shot and a frame, for a note such as “3:54, the table disappears”;
-- write plans.
+- write plans;
+- stop a plan, cancel a request and pause a queue, which it can do without asking you. These can only reduce work, but the queue also holds your own requests.
 
 It sees still frames only, and it hears nothing. Text in your project reaches the agent as it reads; it is told to treat that text as content to review, not as instructions.
 
@@ -97,11 +100,11 @@ The server also offers a `review` prompt that carries a review procedure.
 
 ### Approving in the agent's conversation
 
-By default you approve plans and pick takes on the Review page. **Allow approving plans in the agent's conversation** adds two tools the agent can call after you agree in its conversation: one approves a submitted plan, the other selects the takes you named.
+By default you approve plans and pick takes on the Review page. **Allow approving plans in the agent's conversation** adds tools the agent can call after you agree in its conversation. They approve a submitted plan, select the takes you named, resume a paused queue, and pick a stopped request back up.
 
 Lumibelle refuses an approval that does not repeat the plan's current revision and totals, so an approval never covers a plan that changed after the agent read it.
 
-Claude Code asks you each time before it calls either tool, and none of its permission settings skips the question. Lumibelle cannot see that question, and another client may not ask it. Turn this on only for a client you trust to ask.
+Claude Code asks you each time before it calls any of them, and none of its permission settings skips the question. Lumibelle cannot see that question, and another client may not ask it. Turn this on only for a client you trust to ask.
 
 ## Claude and other models
 

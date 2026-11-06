@@ -233,7 +233,7 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
         {
             paused = view.Paused.Select(p => p.ToString()).ToArray(),
             waiting = listed.Count(j => j.State == AiJobState.Waiting), running = listed.Count(j => j.State == AiJobState.Running), needsAttention = listed.Count(j => j.State == AiJobState.NeedsAttention),
-            jobs = listed.Select(j => new { id = j.Id, kind = j.Kind.ToString(), state = j.State.ToString(), provider = j.Backend.ToString(), project = j.ProjectName, target = j.TargetName, shotId = j.Target.ShotId, created = j.CreatedUtc, started = j.StartedUtc }).ToArray()
+            jobs = listed.Select(j => new { id = j.Id, kind = j.Kind.ToString(), state = j.State.ToString(), provider = j.Backend.ToString(), project = j.ProjectName, target = j.TargetName, shotId = j.Target.ShotId, created = j.CreatedUtc, started = j.StartedUtc, cancelling = j.CancelRequested ? true : (bool?)null, progress = jobs.Progress(j.Id)?.Progress is { } p ? p.Current is { } at && p.Maximum is { } of ? $"{p.Label} {at:0}/{of:0}" : p.Label : null }).ToArray()
         };
     }
 }

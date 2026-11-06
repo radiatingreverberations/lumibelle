@@ -125,14 +125,23 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         }, proposal: false, ct);
     }
 
-    /// <summary>Stops an approved plan. Steps that have not run are skipped; a render already in the queue is left to finish or be cancelled in AI activity.</summary>
-    public Task<ReviewPlan> StopAsync(Guid projectId, Guid planId, string who, CancellationToken ct = default) => store.UpdateAsync(projectId, planId, plan =>
-        plan.State is ReviewPlanState.Finished or ReviewPlanState.Stopped ? plan : plan with
+    /// <summary>Closes a plan that has not been approved. An approved plan is stopped through <see cref="ReviewPlanRunner.StopAsync"/>, which also cancels its renders.</summary>
+    public Task<ReviewPlan> StopAsync(Guid projectId, Guid planId, string who, CancellationToken ct = default) =>
+        store.UpdateAsync(projectId, planId, plan => Stopped(plan, who, clock.GetUtcNow()), proposal: false, ct);
+
+    // No step of a stopped plan stays open. What it already changed stays: stopping undoes nothing.
+    internal static ReviewPlan Stopped(ReviewPlan plan, string who, DateTimeOffset now) => plan.State is ReviewPlanState.Finished or ReviewPlanState.Stopped ? plan : plan with
+    {
+        State = ReviewPlanState.Stopped,
+        Steps = plan.Steps.Select(s => s.State switch
         {
-            State = ReviewPlanState.Stopped,
-            Steps = plan.Steps.Select(s => s.State is ReviewStepState.Waiting or ReviewStepState.Held or ReviewStepState.Proposed ? s with { State = ReviewStepState.Skipped, Message = "The plan was stopped." } : s).ToArray(),
-            Log = [.. plan.Log, new(clock.GetUtcNow(), who, "Stopped the plan.")]
-        }, proposal: false, ct);
+            ReviewStepState.Waiting or ReviewStepState.Held or ReviewStepState.Proposed => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped.", FinishedUtc = now },
+            ReviewStepState.Running => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped and its render cancelled. AI activity can recover any takes it had finished.", FinishedUtc = now },
+            ReviewStepState.Pick => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped before a take was picked. The takes stay in Shots.", FinishedUtc = now },
+            _ => s
+        }).ToArray(),
+        Log = [.. plan.Log, new(now, who, "Stopped the plan.")]
+    };
 
     /// <summary>A proposer's advice on which of a step's new takes to use. The director still picks.</summary>
     public async Task<ReviewPlan> RecommendAsync(Guid projectId, Guid planId, Guid stepId, Guid takeId, string reason, string who, CancellationToken ct = default)

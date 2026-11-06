@@ -74,6 +74,22 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         finally { _gate.Release(); }
     }
 
+    /// <summary>Stops a plan: nothing more of it runs, and its waiting and running renders are cancelled. What it already changed stays.</summary>
+    public async Task<ReviewPlan> StopAsync(Guid projectId, Guid planId, string who, CancellationToken ct = default)
+    {
+        // Held across the change, so a pass in progress finishes queueing before the renders are collected.
+        await _gate.WaitAsync(ct);
+        IReadOnlyList<Guid> queued; ReviewPlan stopped;
+        try
+        {
+            queued = (await store.GetAsync(projectId, planId, ct)).Steps.Where(s => s.State == ReviewStepState.Running).Select(s => s.JobId).OfType<Guid>().ToArray();
+            stopped = await store.UpdateAsync(projectId, planId, plan => ReviewPlans.Stopped(plan, who, clock.GetUtcNow()), ct: ct);
+        }
+        finally { _gate.Release(); }
+        foreach (var job in queued) await renders.CancelAsync(job, ct);
+        return stopped;
+    }
+
     /// <summary>The director's choice among the takes a render step produced.</summary>
     public async Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid takeId, string who, CancellationToken ct = default)
     {
@@ -316,6 +332,7 @@ public interface IReviewRenderQueue
     /// <summary>Captures the request with the same checks as Generate takes in Shots. A refusal is a <see cref="WorkspaceStoreException"/>.</summary>
     Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct);
     Task EnqueueAsync(AiJobSubmission request, CancellationToken ct);
+    Task CancelAsync(Guid jobId, CancellationToken ct);
     /// <summary>The request's state, or null when the queue no longer lists it.</summary>
     AiJobState? State(Guid jobId);
 }
@@ -328,6 +345,7 @@ public sealed class ReviewRenderQueue(AiVideoJobCapture capture, AiJobCoordinato
         ? capture.CaptureCompositionWithPresetAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, H3Presets.Key(setup.Shot), size, ct: ct, generationSetupVersion: setup.GenerationSetupVersion)
         : capture.CaptureCompositionAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, ct, setup.GenerationSetupVersion);
     public async Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) => await jobs.EnqueueAsync(request, ct);
+    public Task CancelAsync(Guid jobId, CancellationToken ct) => jobs.CancelAsync(jobId, ct);
     public AiJobState? State(Guid jobId) => jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId)?.State;
 }
 

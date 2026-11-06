@@ -21,6 +21,7 @@
 .review-plan-list button span { font-size: var(--lumi-font-size-small); color: var(--muted); }
 .review-plan header p { margin:4px 0; }
 .review-totals { font-weight:600; }
+.review-plan-progress { font-weight:600; color: var(--lumi-accent); }
 .review-findings li { font-size: var(--lumi-font-size-compact); }
 .review-findings small { display:block; color: var(--muted); white-space:pre-wrap; }
 .review-steps { counter-reset: step; }

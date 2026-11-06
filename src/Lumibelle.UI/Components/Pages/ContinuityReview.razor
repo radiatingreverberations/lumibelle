@@ -5,6 +5,7 @@
 @inject ReviewMedia Media
 @inject ReviewPlans Plans
 @inject ReviewPlanRunner Runner
+@inject AiJobCoordinator Jobs
 @inject ISnackbar Snackbar
 @implements IDisposable
 
@@ -83,6 +84,7 @@ else
                                 <h3 id="review-plan-title">@current.Title</h3>
                                 <p><span class="review-state">@StateLabel(current)</span> Proposed by @current.ProposedBy on @current.CreatedUtc.ToLocalTime().ToString("g").@if (current.ApprovedFrom is { } from) { <span> Approved @(from == ReviewPlans.Director ? "here" : "from " + from) on @current.ApprovedUtc?.ToLocalTime().ToString("g").</span> }</p>
                                 @if (current.State == ReviewPlanState.Draft) { <p class="field-hint">The agent is still writing this plan. You can approve it now or wait until it is submitted.</p> }
+                                @if (PlanProgress(current) is { } progress) { <p class="review-plan-progress" role="status" aria-live="polite">@progress</p> }
                                 <p class="review-totals">@(open ? "Approving this plan" : "This plan") @(open ? "makes" : "covers") @Count(totals.Changes, "change") to the project and renders @Count(totals.Takes, "take")@(totals.Takes > 0 ? $", {totals.FootageSeconds:0.#} seconds of footage" : "").</p>
                             </header>
                             @if (current.Findings.Count > 0)
@@ -103,10 +105,14 @@ else
                                     <li class="step-@step.State.ToString().ToLowerInvariant()" @key="step.Id">
                                         <div class="review-step-head">
                                             <strong>@ReviewPlans.Describe(_snapshot, step)</strong>
-                                            <span class="review-state">@StepLabel(step)</span>
+                                            <span class="review-state">@StepLabel(current, step)</span>
                                             @if (open) { <button type="button" disabled="@_busy" @onclick="() => Decide(current, step, step.State == ReviewStepState.Rejected)">@(step.State == ReviewStepState.Rejected ? "Keep step" : "Reject step")</button> }
                                         </div>
                                         <p>@step.Reason</p>
+                                        @if (step.State == ReviewStepState.Running && Jobs.View.Jobs.FirstOrDefault(j => j.Id == step.JobId) is { } job)
+                                        {
+                                            <lumibelle.Components.AI.AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
+                                        }
                                         @if (step.Message is not null) { <p class="review-step-message" role="status">@step.Message</p> }
                                         @if (step.Kind == ReviewStepKind.SetPrompt)
                                         {
@@ -142,7 +148,7 @@ else
                                 @if (current.State is ReviewPlanState.Approved or ReviewPlanState.Submitted or ReviewPlanState.Draft) { <MudButton Disabled="_busy" OnClick="() => Stop(current)">@(current.Active ? "Stop plan" : "Close plan")</MudButton> }
                                 @if (!current.Active) { <MudButton Disabled="_busy" OnClick="() => _confirmRemove = true">Delete plan…</MudButton> }
                             </div>
-                            @if (current.Active && current.Steps.Any(s => s.State == ReviewStepState.Running)) { <p class="field-hint">Renders are in the queue. Follow them in AI activity; this page updates when takes arrive.</p> }
+                            @if (current.Active && current.Steps.Any(s => s.State == ReviewStepState.Running)) { <p class="field-hint">Lumibelle runs this plan itself, so the agent can disconnect. Cancel a single render in AI activity.</p> }
                             <details class="review-log"><summary>History</summary><ul>@foreach (var entry in current.Log.Reverse()) { <li><time>@entry.At.ToLocalTime().ToString("g")</time> <strong>@entry.Who</strong> @entry.What</li> }</ul></details>
                         </article>
                     }

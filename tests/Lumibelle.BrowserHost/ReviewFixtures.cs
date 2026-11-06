@@ -42,6 +42,16 @@ internal static class ReviewFixtures
             await plans.SubmitAsync(id, plan.Id, "claude-code");
             return new { plan = plan.Id };
         });
+        // After review-plan: a plan that renders a real queue job through the mock video handler.
+        app.MapPost("/fixtures/{id:guid}/review-render-plan", async (Guid id, IShotStore shots, ReviewPlans plans) =>
+        {
+            var third = (await shots.LoadAsync(id)).Shots[2];
+            var plan = await plans.CreateAsync(id, "Render the last shot", "claude-code");
+            await plans.ProposeAsync(id, plan.Id, new(ReviewStepKind.SetPrompt, third.Id, "Name the room.") { Prompt = "The camera holds on the empty room." }, "claude-code");
+            await plans.ProposeAsync(id, plan.Id, new(ReviewStepKind.GenerateTakes, third.Id, "It has no take yet.") { Takes = 2 }, "claude-code");
+            await plans.SubmitAsync(id, plan.Id, "claude-code");
+            return new { plan = plan.Id, shot = third.Id };
+        });
         app.MapGet("/fixtures/{id:guid}/review-state", async (Guid id, IShotStore shots, IProductionStore production, ReviewPlanStore plans) => new
         {
             prompts = (await production.LoadAsync(id)).Compositions.Select(c => c.Prompt).ToArray(),

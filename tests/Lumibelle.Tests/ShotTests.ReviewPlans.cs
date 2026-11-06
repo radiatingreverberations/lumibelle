@@ -314,6 +314,42 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task StoppingAPlanCancelsItsRendersLeavesNoStepOpenAndUndoesNothing()
+    {
+        var f = await PlanFixture.Create(this, shots: 3);
+        var plan = await f.Plans.CreateAsync(f.Project, "Stopped mid-way", "agent", _ct);
+        var prompt = await f.Propose(plan, new(ReviewStepKind.SetPrompt, f.ShotIds[0], "Fix.") { Prompt = "The mouse reads a letter." });
+        var picking = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Render."));
+        var running = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[1], "Render."));
+        var waiting = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, f.ShotIds[2], "Frame.") { Frame = new() { FromShotId = f.ShotIds[0], Name = "End" } });
+        var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Cut."));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        var started = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var job = started.Step(running.Id)!.JobId!.Value;
+        var takes = await f.Finish(started.Step(picking.Id)!, 1);
+        Assert.Equal(ReviewStepState.Pick, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(picking.Id)!.State);
+
+        var stopped = await f.Runner.StopAsync(f.Project, plan.Id, "agent", _ct);
+
+        Assert.Equal(ReviewPlanState.Stopped, stopped.State);
+        Assert.DoesNotContain(stopped.Steps, s => s.Open);
+        Assert.Equal(ReviewStepState.Done, stopped.Step(prompt.Id)!.State);
+        Assert.All(new[] { picking, running, waiting, cut }, s => Assert.Equal(ReviewStepState.Skipped, stopped.Step(s.Id)!.State));
+        Assert.Equal(AiJobState.Cancelled, f.Renders.States[job]);
+        Assert.Contains("takes stay in Shots", stopped.Step(picking.Id)!.Message);
+        Assert.Contains(stopped.Log, l => l.Who == "agent" && l.What == "Stopped the plan.");
+        // What already happened stays, and the finished take is there but not selected.
+        Assert.Equal("The mouse reads a letter.", (await f.Setup(f.ShotIds[0])).Prompt);
+        var document = await f.Shots.LoadAsync(f.Project, _ct);
+        Assert.Contains(document.Takes, t => t.Id == takes[0]);
+        Assert.Null(document.Shots[0].SelectedTakeId);
+        // A stopped plan never moves again, and stopping twice is harmless.
+        Assert.Equal(stopped.Log.Count, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Log.Count);
+        Assert.Equal(stopped.Log.Count, (await f.Runner.StopAsync(f.Project, plan.Id, "agent", _ct)).Log.Count);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, picking.Id, takes[0], ReviewPlans.Director, _ct));
+    }
+
+    [Fact]
     public void PromptEditsReplaceTextThatOccursExactlyOnce()
     {
         const string prompt = "Vera stands by the window. The window is open.";
@@ -399,6 +435,7 @@ public sealed partial class ShotTests
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId, CompositionId: setup.Id), "Project", "Shot", Guid.Empty, new { takes }));
         }
         public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
+        public Task CancelAsync(Guid jobId, CancellationToken ct) { States[jobId] = AiJobState.Cancelled; return Task.CompletedTask; }
         public AiJobState? State(Guid jobId) => States.TryGetValue(jobId, out var state) ? state : null;
     }
 }

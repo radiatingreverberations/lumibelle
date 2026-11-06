@@ -68,6 +68,46 @@ test('review lists the check findings and a plan runs only after it is approved'
   await expect(plans.getByText('No plans yet')).toBeVisible();
 });
 
+test('a running plan shows where it is, renders through the queue and waits for a pick', async ({ page, request }) => {
+  const { id } = await setup(request);
+  const render = await request.post(`/fixtures/${id}/review-render-plan`);
+  expect(render.ok(), await render.text()).toBeTruthy();
+  const { plan } = await render.json();
+  await page.goto(`/projects/${id}/review?planId=${plan}`);
+  const article = page.getByRole('region', { name: 'Plans' }).getByRole('article');
+  await expect(article.getByRole('heading', { name: 'Render the last shot' })).toBeVisible();
+  await expect(article).toContainText('renders 2 takes');
+  const steps = article.locator('.review-steps > li');
+  await expect(steps.nth(1)).toContainText('Render 2 takes of #3');
+
+  await article.getByRole('button', { name: 'Approve plan' }).click();
+  // The progress line follows the plan without a reload, through to the pick.
+  await expect(article.locator('.review-plan-progress')).toContainText('of 2 steps done');
+  await expect(steps.nth(1)).toContainText('Pick a take', { timeout: 30000 });
+  await expect(article.locator('.review-plan-progress')).toContainText('1 of 2 steps done · 1 take choice waiting for you');
+  await expect((await state(request, id)).selected[2]).toBeNull();
+
+  await steps.nth(1).getByRole('button', { name: 'Use this take' }).first().click();
+  await expect(article).toContainText('Finished');
+  await expect(article.locator('.review-plan-progress')).toHaveCount(0);
+  expect((await state(request, id)).selected[2]).not.toBeNull();
+});
+
+test('stopping a plan with a render waiting cancels it and closes every step', async ({ page, request }) => {
+  const { id } = await setup(request);
+  const { plan } = await (await request.post(`/fixtures/${id}/review-render-plan`)).json();
+  await page.goto(`/projects/${id}/review?planId=${plan}`);
+  const article = page.getByRole('region', { name: 'Plans' }).getByRole('article');
+  await article.getByRole('button', { name: 'Approve plan' }).click();
+  await expect(article.locator('.review-plan-progress')).toBeVisible();
+  await article.getByRole('button', { name: 'Stop plan' }).click();
+  await expect(article).toContainText('Stopped');
+  const steps = (await state(request, id)).plans.find(p => p.id === plan).steps;
+  expect(steps[0]).toBe('Done');
+  expect(steps[1]).toBe('Skipped');
+  await expect(article.getByRole('button', { name: 'Use this take' })).toHaveCount(0);
+});
+
 test('agent access is off until turned on, and the endpoint needs the token', async ({ page, request, baseURL }) => {
   const call = token => request.post('/mcp', {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

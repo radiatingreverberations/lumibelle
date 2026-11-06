@@ -316,6 +316,52 @@ public sealed class McpEndpointTests : IAsyncLifetime
         Assert.Equal(takes[1], (await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId.ToString());
     }
 
+    [Fact]
+    public async Task AnAgentCanStopCancelAndPauseWithoutApprovalButNotResume()
+    {
+        var (project, shot) = await ProjectWithShotAsync();
+        var jobs = _app.Services.GetRequiredService<AiJobCoordinator>();
+        await using var client = await ConnectAsync(await EnableAsync());
+        var id = project.ToString();
+        var names = (await client.ListToolsAsync(cancellationToken: Ct)).Select(t => t.Name).ToArray();
+        Assert.Contains("stop_plan", names); Assert.Contains("cancel_request", names); Assert.Contains("pause_queue", names);
+        Assert.DoesNotContain("resume_queue", names); Assert.DoesNotContain("resume_request", names);
+
+        // A plan approved in the app, its render running, stopped from the agent's conversation.
+        var plans = _app.Services.GetRequiredService<ReviewPlans>();
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Retake" })).GetProperty("id").GetString()!;
+        await CallAsync(client, "propose_step", new { project = id, plan, kind = "GenerateTakes", shot = "#1", reason = "Try again." });
+        await plans.ApproveAsync(project, Guid.Parse(plan), ReviewPlans.Director, ct: Ct);
+        var job = (await _app.Services.GetRequiredService<ReviewPlanRunner>().AdvanceAsync(project, Guid.Parse(plan), Ct)).Steps[0].JobId!.Value;
+        var stopped = await CallAsync(client, "stop_plan", new { project = id, plan });
+        Assert.Equal("Stopped", stopped.GetProperty("state").GetString());
+        Assert.Equal("Skipped", stopped.GetProperty("steps")[0].GetProperty("state").GetString());
+        Assert.Equal(AiJobState.Cancelled, _renders.States[job]);
+
+        // The queue itself: pause, and cancel a request by id.
+        await CallAsync(client, "pause_queue", new { provider = "ComfyUI" });
+        Assert.Contains(AiBackend.ComfyUI, jobs.View.Paused);
+        var waiting = Guid.NewGuid();
+        await jobs.EnqueueAsync(AiJobSubmission.Create(waiting, AiJobKind.Video, AiBackend.ComfyUI, new(project, ShotId: shot.Id, CompositionId: (await _app.Services.GetRequiredService<IProductionStore>().LoadAsync(project, Ct)).Compositions[0].Id), "Project", "Shot", Guid.NewGuid(), new { takes = 1 }), Ct);
+        var queue = await CallAsync(client, "get_queue", new { project = id });
+        Assert.Contains(queue.GetProperty("jobs").EnumerateArray(), j => j.GetProperty("id").GetGuid() == waiting);
+        await CallAsync(client, "cancel_request", new { request = waiting.ToString() });
+        Assert.Equal(AiJobState.Cancelled, jobs.View.Jobs.Single(j => j.Id == waiting).State);
+
+        var unknown = await client.CallToolAsync("cancel_request", new Dictionary<string, object?> { ["request"] = Guid.NewGuid().ToString() }, cancellationToken: Ct);
+        Assert.True(unknown.IsError);
+        var retired = await client.CallToolAsync("pause_queue", new Dictionary<string, object?> { ["provider"] = "ClaudeCode" }, cancellationToken: Ct);
+        Assert.True(retired.IsError);
+
+        // Resuming can spend GPU time, so it waits for the director's switch.
+        var refused = await client.CallToolAsync("resume_queue", new Dictionary<string, object?> { ["provider"] = "ComfyUI" }, cancellationToken: Ct);
+        Assert.True(refused.IsError);
+        Assert.Contains(AiBackend.ComfyUI, jobs.View.Paused);
+        await Access.SaveAsync(true, true, (await Access.LoadAsync(Ct)).Revision, Ct);
+        await CallAsync(client, "resume_queue", new { provider = "ComfyUI" });
+        Assert.DoesNotContain(AiBackend.ComfyUI, jobs.View.Paused);
+    }
+
     private sealed class StandInRenders : IReviewRenderQueue
     {
         public System.Collections.Concurrent.ConcurrentDictionary<Guid, AiJobState> States { get; } = new();
@@ -326,6 +372,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId), "Project", "Shot", Guid.Empty, new { takes }));
         }
         public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
+        public Task CancelAsync(Guid jobId, CancellationToken ct) { States[jobId] = AiJobState.Cancelled; return Task.CompletedTask; }
         public AiJobState? State(Guid jobId) => States.TryGetValue(jobId, out var state) ? state : null;
     }
 

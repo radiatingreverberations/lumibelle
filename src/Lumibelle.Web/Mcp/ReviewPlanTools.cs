@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using lumibelle.Models;
+using lumibelle.Services.AI;
 using lumibelle.Services.Review;
 using lumibelle.Services.Story;
 using ModelContextProtocol.Server;
@@ -119,7 +120,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         return Text(new { id = revised.Id, does = ReviewPlans.Describe(snapshot, revised), state = revised.State.ToString() });
     });
 
-    [McpServerTool(Name = "submit_plan", Idempotent = true, OpenWorld = false), Description("Hands the plan to the director for approval. Tell the director what the plan contains and where to review it; then use wait_for_plan.")]
+    [McpServerTool(Name = "submit_plan", Idempotent = true, OpenWorld = false), Description("Hands the plan to the director for approval. Tell the director what the plan contains and where to review it; then use wait_for_plan. Once approved, Lumibelle runs the plan by itself; you do not need to stay connected. Use get_queue to see how far a render has come.")]
     public Task<string> SubmitPlan([Description(Project)] string project, [Description(PlanId)] string plan, CancellationToken ct) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct);
@@ -171,15 +172,68 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
 }
 
 /// <summary>
-/// The two tools that act, listed only when the director turned on approval from the client. Both carry the mark that makes
+/// Tools that only reduce work: they stop, cancel or pause, and none starts anything or changes a shot. They need no approval
+/// from the director, so an agent can stop at once when asked or when it sees that a plan is wrong.
+/// </summary>
+[McpServerToolType]
+public sealed class ReviewControlTools(ReviewQueries queries, ReviewPlanRunner runner, AiJobCoordinator jobs, IHttpContextAccessor http)
+{
+    [McpServerTool(Name = "stop_plan", Destructive = true, Idempotent = true, OpenWorld = false), Description("Stops a plan: no more of its steps run, and its waiting and running renders are cancelled. Changes it already made to prompts, references and selections stay, and takes it already finished stay in Shots. A stopped plan cannot be restarted; propose what is still needed in a new plan.")]
+    public Task<string> StopPlan([Description("The project's id, or its exact name.")] string project, [Description("The plan's id.")] string plan, CancellationToken ct) => Guard(async () =>
+    {
+        var snapshot = await queries.SnapshotAsync(project, ct); var id = ReviewPlanTools.Id(plan);
+        var stopped = await runner.StopAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), ct);
+        return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), stopped, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
+    });
+
+    [McpServerTool(Name = "cancel_request", Destructive = true, Idempotent = true, OpenWorld = false), Description("Cancels one request in the AI queue, as Cancel request does in AI activity. A running render stops mid-way; AI activity can recover any takes it had finished. The queue is shared with the director's own work, so cancel a request you did not start only when asked. Use get_queue for the ids.")]
+    public Task<string> CancelRequest([Description("The request's id, from get_queue.")] string request, CancellationToken ct) => Guard(async () =>
+    {
+        var id = ReviewPlanTools.Id(request);
+        var job = jobs.View.Jobs.FirstOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("That request is not in the queue. Use get_queue for the ids.");
+        await jobs.CancelAsync(job.Id, ct);
+        return Text(queries.Queue(job.Target.ProjectId));
+    });
+
+    [McpServerTool(Name = "pause_queue", Idempotent = true, OpenWorld = false), Description("Pauses one provider's queue: waiting requests stay queued and do not start. It is shared with the director's own work. On ComfyUI, a render already running continues unless you cancel it. Only the director can resume, unless they allow approval from the client.")]
+    public Task<string> PauseQueue([Description(ReviewApprovalTools.Providers)] string provider, CancellationToken ct) => Guard(async () =>
+    {
+        await jobs.SetPausedAsync(ReviewApprovalTools.Provider(provider), true, ct);
+        return Text(queries.Queue());
+    });
+}
+
+/// <summary>
+/// The tools that act or start work, listed only when the director turned on approval from the client. All carry the mark that makes
 /// Claude Code ask the director on every call, in every permission mode. Lumibelle cannot see that prompt, so the server also
 /// refuses an approval that does not name the plan exactly as it stands.
 /// </summary>
 [McpServerToolType]
-public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans, ReviewPlanRunner runner, IHttpContextAccessor http)
+public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans, ReviewPlanRunner runner, AiJobCoordinator jobs, IHttpContextAccessor http)
 {
-    public static readonly string[] Names = ["approve_plan", "accept_picks"];
-    public const string Off = "Approval from the client is turned off. The director approves the plan in Lumibelle; give them the plan's page from get_plan.";
+    public static readonly string[] Names = ["approve_plan", "accept_picks", "resume_queue", "resume_request"];
+    public const string Off = "Approval from the client is turned off. The director does this in Lumibelle: plans and picks on the plan's page from get_plan, queues and requests in AI activity.";
+    public const string Providers = "The provider: ComfyUI, Vllm, OpenRouter or Codex.";
+    internal static AiBackend Provider(string name) => Enum.TryParse<AiBackend>(name, ignoreCase: true, out var backend) && Enum.IsDefined(backend) && !name.All(char.IsDigit) && !TextModelPolicy.Retired(backend)
+        ? backend : throw new WorkspaceStoreException(Providers);
+
+    [McpServerTool(Name = "resume_queue", OpenWorld = false), McpMeta("anthropic/requiresUserInteraction", true)]
+    [Description("Resumes a paused provider queue on the director's word, so its waiting requests can start and spend GPU time or credits.")]
+    public Task<string> ResumeQueue([Description(Providers)] string provider, CancellationToken ct) => Guard(async () =>
+    {
+        await jobs.SetPausedAsync(Provider(provider), false, ct);
+        return Text(queries.Queue());
+    });
+
+    [McpServerTool(Name = "resume_request", OpenWorld = false), McpMeta("anthropic/requiresUserInteraction", true)]
+    [Description("On the director's word, picks a request back up as AI activity does: checks a lost render's status, retries its output, continues it, or recovers takes a cancelled render had finished. Continuing can spend GPU time. It does nothing for a request that has nothing to recover.")]
+    public Task<string> ResumeRequest([Description("The request's id, from get_queue.")] string request, CancellationToken ct) => Guard(async () =>
+    {
+        var id = ReviewPlanTools.Id(request);
+        var job = jobs.View.Jobs.FirstOrDefault(j => j.Id == id) ?? throw new WorkspaceStoreException("That request is not in the queue. Use get_queue for the ids.");
+        await jobs.ResumeAsync(job.Id, ct);
+        return Text(queries.Queue(job.Target.ProjectId));
+    });
 
     [McpServerTool(Name = "approve_plan", Destructive = true, OpenWorld = false), McpMeta("anthropic/requiresUserInteraction", true)]
     [Description("Approves a submitted plan on the director's word, so its changes and renders start. Call it only after the director has seen the plan and agreed in this conversation. Repeat the plan's revision and totals exactly as get_plan returned them; the call is refused if the plan changed since.")]

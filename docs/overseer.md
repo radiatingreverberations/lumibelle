@@ -25,7 +25,8 @@ Steps 1 to 4 of the [build order](#8-build-order) are implemented, with the gaps
 | MCP endpoint | `src/Lumibelle.Web/Mcp/` | Stateless Streamable HTTP, so the client is named by its `User-Agent`. Requests are accepted from this computer only. Web host only |
 | Agent access | `Services/Review/AgentAccess.cs`, `AgentAccessPanel.razor` | Stored in `agent-access.json` in the data folder, beside the other settings |
 | Plans | `Services/Review/ReviewPlans.cs`, `ReviewPlanStore.cs`, `ReviewPlanRunner.cs` | Steps: prompt, mark reviewed, voice, add or remove a shot frame, replace or remove a picture, select a take, the cut, render takes. Not built: trimming, adding a picture, asset image edits, refinement batches, reverting a step, a starting frame |
-| Review page | `Components/Pages/ContinuityReview.razor` | One page for the checks and the plans |
+| Review page | `Components/Pages/ContinuityReview.razor` | One page for the checks and the plans. A running plan shows how far it has come and each render's live progress |
+| Control tools | `ReviewControlTools`, `ReviewApprovalTools` in `src/Lumibelle.Web/Mcp/` | Added after trying the design: an agent that can start renders has to be able to stop them. `stop_plan`, `cancel_request` and `pause_queue` need no approval. `resume_queue` and `resume_request` are behind the approval switch |
 
 Known gaps in what is built:
 
@@ -136,7 +137,7 @@ About twenty tools, named for the director's vocabulary. Shots are addressed by 
 - **Follow:** `get_plan`, `wait_for_plan`. The second returns when the plan's state changes or after a short timeout, so no call stays open for a whole render.
 - **Approve:** `approve_plan`, `accept_picks`. Listed only when approval from the client is turned on, and marked so that Claude Code asks the director on every call.
 
-No tool edits a project or starts a job directly; every change goes through a plan. See [Approval](#5-approval-and-order).
+No tool edits a project or starts a job directly; every change goes through a plan. Once approved, Lumibelle runs a plan without any model or agent. See [Approval](#5-approval-and-order).
 
 An MCP prompt, `review`, carries the review procedure (run the checks, read each scene's sheet, compare prompts with the continuity sheet, propose). Claude Code lists MCP prompts as commands.
 
@@ -273,7 +274,7 @@ What Lumibelle enforces whichever client calls:
 - **The cap holds.** Execution stops at the approved take count and footage.
 - **A plan changed after approval needs approving again.**
 - **The log records where each approval came from:** the app, or the client by name.
-- **No tool acts outside a plan,** and there are still no delete tools.
+- **No tool starts work or edits a shot outside a plan,** and there are still no delete tools. `stop_plan`, `cancel_request` and `pause_queue` act directly and need no approval, because they can only reduce work. `resume_queue` and `resume_request` can spend GPU time, so they are behind the same switch as approval.
 
 A terminal prompt cannot show a prompt diff beside frames. The plan page stays the place to read a plan closely, and `get_plan` returns its address so the agent can point the director to it.
 

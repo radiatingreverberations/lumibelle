@@ -21,7 +21,7 @@
             </div>
             <p id="agent-access-hint" class="field-hint">Add this address to your MCP client as a Streamable HTTP server, and send the token in an <code>Authorization: Bearer</code> header. Only programs on this computer can connect. The token opens this library to them, so treat it like a password.</p>
             <label class="check-row"><input id="agent-access-approval" type="checkbox" checked="@_settings.AllowClientApproval" disabled="@_busy" @onchange="e => Save(true, (bool)e.Value!)" />Allow approving plans in the agent’s conversation</label>
-            <p class="field-hint">Off: you approve plans and pick takes in Lumibelle, on the project’s Review page. On: the agent can also do both from its own conversation. Lumibelle can’t see whether the client asks you first, so turn this on only for a client you trust to ask.</p>
+            <p class="field-hint">Off: you approve plans and pick takes in Lumibelle, on the project’s Review page. On: the agent can also do both from its own conversation, and resume paused queues and stopped requests. Lumibelle can’t see whether the client asks you first, so turn this on only for a client you trust to ask. Either way, an agent can stop plans, cancel requests and pause queues.</p>
         }
         @if (_error is not null) { <p class="field-hint" role="alert">@_error</p> }
     }

@@ -24,7 +24,28 @@ public partial class ContinuityReview
     private readonly CancellationTokenSource _lifetime = new();
     private ReviewPlan? Selected => _plans.FirstOrDefault(p => p.Id == _planId);
 
-    protected override void OnInitialized() => Plans.Store.Changed += PlanChanged;
+    protected override void OnInitialized() { Plans.Store.Changed += PlanChanged; Jobs.Changed += QueueChanged; }
+
+    // Render progress and queue positions: only a plan that is running shows them.
+    private void QueueChanged()
+    {
+        if (!_disposed && Selected?.Active == true) _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Where a running plan is: how far along, what is happening now, and what it is waiting for.</summary>
+    private string? PlanProgress(ReviewPlan plan)
+    {
+        if (!plan.Active || _snapshot is not { } snapshot) return null;
+        var counted = plan.Steps.Where(s => s.State != ReviewStepState.Rejected).ToArray();
+        var parts = new List<string> { $"{counted.Count(s => s.State == ReviewStepState.Done)} of {counted.Length} steps done" };
+        var renders = counted.Where(s => s.State == ReviewStepState.Running).Select(s => (Step: s, State: Jobs.View.Jobs.FirstOrDefault(j => j.Id == s.JobId)?.State)).ToArray();
+        if (renders.FirstOrDefault(r => r.State == AiJobState.Running).Step is { } now) parts.Add("Now: " + ReviewPlans.Describe(snapshot, now));
+        if (renders.Count(r => r.State == AiJobState.Waiting) is > 0 and var waiting) parts.Add($"{Count(waiting, "render")} waiting in the queue");
+        if (renders.Count(r => r.State == AiJobState.NeedsAttention) is > 0 and var attention) parts.Add($"{Count(attention, "render")} {(attention == 1 ? "needs" : "need")} attention in AI activity");
+        if (counted.Count(s => s.State == ReviewStepState.Pick) is > 0 and var picks) parts.Add($"{Count(picks, "take choice")} waiting for you");
+        if (counted.Count(s => s.State == ReviewStepState.Held) is > 0 and var held) parts.Add($"{held} held");
+        return string.Join(" · ", parts);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -93,7 +114,8 @@ public partial class ContinuityReview
         ReviewPlanState.Finished => "Finished", _ => "Stopped"
     };
 
-    private static string StepLabel(ReviewPlanStep step) => step.State switch
+    // A plan stopped by an earlier build can hold a step still marked as rendering.
+    private static string StepLabel(ReviewPlan plan, ReviewPlanStep step) => step.Open && !plan.Active && plan.State is ReviewPlanState.Finished or ReviewPlanState.Stopped ? "Stopped" : step.State switch
     {
         ReviewStepState.Proposed => "Proposed", ReviewStepState.Rejected => "Rejected", ReviewStepState.Waiting => "Approved, waiting", ReviewStepState.Running => "Rendering",
         ReviewStepState.Pick => "Pick a take", ReviewStepState.Done => "Done", ReviewStepState.Failed => "Failed", ReviewStepState.Held => "Held", _ => "Skipped"
@@ -129,7 +151,7 @@ public partial class ContinuityReview
 
     private Task Pick(ReviewPlan plan, ReviewPlanStep step, Guid take) => Do(() => Runner.PickAsync(Id, plan.Id, step.Id, take, ReviewPlans.Director, _lifetime.Token));
     private Task AcceptRecommendations(ReviewPlan plan) => Do(() => Runner.AcceptRecommendationsAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token));
-    private Task Stop(ReviewPlan plan) => Do(() => Plans.StopAsync(Id, plan.Id, ReviewPlans.Director, _lifetime.Token));
+    private Task Stop(ReviewPlan plan) => Do(() => Runner.StopAsync(Id, plan.Id, ReviewPlans.Director, _lifetime.Token));
 
     private Task Release(ReviewPlan plan, ReviewPlanStep step) => Do(async () =>
     {
@@ -156,7 +178,7 @@ public partial class ContinuityReview
 
     public void Dispose()
     {
-        _disposed = true; Plans.Store.Changed -= PlanChanged;
+        _disposed = true; Plans.Store.Changed -= PlanChanged; Jobs.Changed -= QueueChanged;
         _lifetime.Cancel(); _lifetime.Dispose();
     }
 }
