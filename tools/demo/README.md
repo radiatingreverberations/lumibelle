@@ -69,7 +69,7 @@ node tools/demo/record-demo.mjs --serve web --out artifacts/film --from refine -
 
 The second command exports a rough cut of the Quick takes to check before the long renders. The third refines every selected take in one batch at Native size (1 MP), selects the results and exports the film. A clip that fails does not hold up the others: the phase reports it once the batch has settled, and after **Retry failed clips** in **Refinement batches**, `--from refine --continue` rejoins the wait.
 
-The third command hasn't been run yet, so its queue steps are unrehearsed. See [Before a refine](../../docs/continuity-lessons.md#before-a-refine) for what to check on *The Open Window*.
+The third command hasn't been run yet, so its queue steps are unrehearsed.
 
 Retakes made by hand live only in the library. `--from takes`, or any phase with a checkpoint, restores that checkpoint and discards them. `--from refine` uses the library as it is until a `refine` checkpoint exists, and from then on it restores that checkpoint, so anything changed by hand after the first attempt is lost. `--serve web` also fails if something is already answering on its port.
 
