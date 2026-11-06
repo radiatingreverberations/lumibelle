@@ -75,7 +75,10 @@ public sealed partial class ComfyJobExecution(IComfyExecutionMonitor monitor)
         // Reconciliation may have found the original receipt without replaying it.
         submission = (await context.ExecutionAsync(ct)).Submissions.Single(s => s.Operation == operation);
         if (submission.PromptId is null)
+        {
+            context.MissingRemoteOperation = operation;
             throw new AiGenerationException("Submission acceptance is unknown. Use Retry when connected to authorize checking and restarting missing work; ordinary Check status never repeats inference.");
+        }
         var output = await context.ReadOperationAsync<JsonElement?>(operation, AiOperationArtifact.Output, ct);
         if (output is { } published)
         {
@@ -104,7 +107,10 @@ public sealed partial class ComfyJobExecution(IComfyExecutionMonitor monitor)
             }
             using var queue = await GetJsonAsync(http, "queue", ct);
             if (!Queued(queue.RootElement, submission.PromptId))
+            {
+                context.MissingRemoteOperation = operation;
                 throw new AiGenerationException("The accepted job is missing from ComfyUI queue and history. Check the server or cancel it locally; no inference has been repeated.");
+            }
         }
         await using var observer = monitor.ObserveAsync(http, submission.PromptId, submission.ClientId, saved.Options, ct).GetAsyncEnumerator(ct);
         while (true)
@@ -184,10 +190,12 @@ public sealed partial class ComfyJobExecution(IComfyExecutionMonitor monitor)
                 if (saved is not null) submission = await FindReceiptAsync(context, submission, saved, http, ct) ?? submission;
                 if (submission.PromptId is null)
                 {
-                    if (saved is not null && await context.IsComfyStopRequestedAsync(ct))
+                    if (saved is not null && (await context.IsComfyStopRequestedAsync(ct) ||
+                        context.Clock.GetUtcNow() - submission.StartedUtc >= ComfyQueuePolicy.LostRemoteGrace))
                     {
-                        // Pause-and-retain is an explicit stop/restart intent. Check
-                        // once more before retiring an unacknowledged legacy request.
+                        // Pause-and-retain is an explicit stop/restart intent, and a
+                        // lost submission this old cannot still be arriving. Check once
+                        // more before retiring an unacknowledged legacy request.
                         submission = await FindReceiptAsync(context, submission, saved, http, ct) ?? submission;
                         if (submission.PromptId is null) { await context.FinishRemoteAsync(submission.Operation, cancelled: true); continue; }
                     }

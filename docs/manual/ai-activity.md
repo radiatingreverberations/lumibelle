@@ -12,6 +12,12 @@ Results become read when a visible studio review, model-test dialog or response 
 
 Use **Undo**, or **History → Show cleared → Restore to activity**, to bring entries back without creating unread notifications. Explicitly resuming a cleared request also returns it to Activity.
 
+## Lost ComfyUI connections
+
+When the connection to ComfyUI drops during a request, ComfyUI may still be working, so later ComfyUI requests wait. Lumibelle checks the request automatically, after 5 seconds at first and then at most a minute apart. Finished work is retrieved without rendering it again, and the queue continues on its own.
+
+If ComfyUI stays unreachable, the queue keeps waiting. If ComfyUI keeps answering for two minutes without any record of the request, it is reported in **Needs attention** and the queue moves on. It is not repeated automatically; use **Retry when connected** to run its captured workflow again.
+
 ## Provider capacity
 
 Expand a provider row for capacity information:

@@ -281,13 +281,23 @@ public sealed class ComfyQueueControlTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task OnlyExplicitPauseCanRetireAnUnacknowledgedMissingLegacyRequest(bool pause)
+    public async Task OnlyExplicitPauseCanRetireARecentUnacknowledgedMissingLegacyRequest(bool pause)
     {
         using var f = await Fixture.Create(); await f.Prepare(false);
         if (pause) await f.Store.SetPausedAsync(AiBackend.ComfyUI, true, Ct);
         var stopped = await f.Transport.CancelAsync(await f.Context(true), _ => f.Client(), Ct);
         Assert.Equal(pause, stopped);
         Assert.Equal(!pause, (await (await f.Context(true)).ExecutionAsync(Ct)).MayBeRunning);
+        Assert.Empty(f.Server.PostedGraphs);
+    }
+
+    [Fact]
+    public async Task CancellingAnOldUnacknowledgedRequestThatComfyHasNoRecordOfReleasesIt()
+    {
+        using var f = await Fixture.Create(); await f.Prepare(false);
+        var later = new AiJobContext(await f.Job(), true, f.Store, new ManualClock(DateTimeOffset.UtcNow + ComfyQueuePolicy.LostRemoteGrace + TimeSpan.FromMinutes(1)), (_, _) => { }, _ => { }, Ct);
+        Assert.True(await f.Transport.CancelAsync(later, _ => f.Client(), Ct));
+        Assert.False((await later.ExecutionAsync(Ct)).MayBeRunning);
         Assert.Empty(f.Server.PostedGraphs);
     }
 

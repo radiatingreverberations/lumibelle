@@ -15,6 +15,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
     private readonly ConcurrentDictionary<Guid, Worker> _workers = new();
     private readonly ConcurrentDictionary<Guid, AiJobProgress> _progress = new();
     private readonly HashSet<Guid> _reconciled = [];
+    private readonly ConcurrentDictionary<Guid, RemoteRecheck> _rechecks = new();
     private AiQueueDocument _view = new();
     private CancellationToken _stopping;
     private int _ownsExecution;
@@ -185,6 +186,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             var document = await store.ReadAsync(ct);
             foreach (var job in document.Jobs.Where(j => j.CancelRequested || j.ComfyControl?.PauseRequested == true))
                 if (_workers.TryGetValue(job.Id, out var active)) active.Cancellation.Cancel();
+            ForgetSettledRechecks(document);
             foreach (var job in document.Jobs.Where(j => j.State == AiJobState.Running || j.RemoteUnconfirmed || ComfyQueuePolicy.ShouldReconcile(j, document.Paused, clock.GetUtcNow())))
             {
                 // Cancelling a sampler is asynchronous. Recheck cancelled jobs until
@@ -192,13 +194,15 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
                 var cancellationDue = job.CancelRequested && job.RemoteUnconfirmed && job.FinishedUtc is { } finished &&
                     clock.GetUtcNow() - finished >= TimeSpan.FromSeconds(5);
                 var reconnectDue = ComfyQueuePolicy.ShouldReconcile(job, document.Paused, clock.GetUtcNow());
-                if (_workers.ContainsKey(job.Id) || _reconciled.Contains(job.Id) && !cancellationDue && !reconnectDue) continue;
+                var recheckDue = ComfyQueuePolicy.ShouldRecheck(job, RecheckAttempts(job.Id), clock.GetUtcNow());
+                if (_workers.ContainsKey(job.Id) || _reconciled.Contains(job.Id) && !cancellationDue && !reconnectDue && !recheckDue) continue;
                 if (job.ComfyControl is { PauseRequested: false } && document.Paused.Contains(AiBackend.ComfyUI)) continue;
                 if (job.Backend == AiBackend.ComfyUI && _workers.Values.Any(w => w.Backend == AiBackend.ComfyUI)) continue;
                 // Recovery handlers may read completed paid output from disk. An
                 // interrupted stream yields an explicit-retry result without inference.
                 await StartRecoveryAsync(job, ct);
                 _reconciled.Add(job.Id);
+                if (recheckDue) CountRecheck(job.Id);
             }
             await DispatchAsync(AiBackend.ComfyUI, 1, ct);
             try
@@ -340,7 +344,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         { outcome = AiJobOutcome.Attention(e.Message, recovering ? AiJobRecovery.CheckStatus : AiJobRecovery.GenerateAgain); }
         if (_stopping.IsCancellationRequested) return false;
 
-        bool remoteUnknown; var hasSubmissions = false;
+        bool remoteUnknown; var hasSubmissions = false; var lost = false;
         try
         {
             remoteUnknown = false;
@@ -349,6 +353,12 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
                 var execution = await context.ExecutionAsync();
                 hasSubmissions = execution.Submissions.Count > 0;
                 remoteUnknown = execution.MayBeRunning;
+                if (remoteUnknown && outcome.State != AiJobState.Cancelled && !ct.IsCancellationRequested &&
+                    !job.CancelRequested && job.ComfyControl?.PauseRequested != true && await RetireLostRemoteAsync(context, execution))
+                {
+                    lost = true; remoteUnknown = false;
+                    outcome = AiJobOutcome.Attention(ComfyQueuePolicy.LostRemoteMessage, AiJobRecovery.CheckStatus);
+                }
             }
         }
         catch (Exception e)
@@ -427,7 +437,7 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
                     State = j.CancelRequested || cancelled ? AiJobState.Cancelled : outcome.State,
                     Recovery = remoteUnknown ? AiJobRecovery.CheckStatus : outcome.Recovery,
                     FinishedUtc = clock.GetUtcNow(), RemoteUnconfirmed = remoteUnknown, Unread = outcome.Reviewable || remoteUnknown || outcome.Error is not null,
-                    ComfyControl = !remoteUnknown && outcome.Recovery != AiJobRecovery.CheckStatus ? null : j.ComfyControl,
+                    ComfyControl = lost || !remoteUnknown && outcome.Recovery != AiJobRecovery.CheckStatus ? null : j.ComfyControl,
                     Error = remoteUnknown && (j.CancelRequested || cancelled) ? "Cancelled locally. Waiting for ComfyUI to confirm it has stopped; status is checked automatically." : outcome.Error
                     };
                 }, _stopping);
@@ -476,4 +486,5 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task Task { get; set; } = Task.CompletedTask;
     }
+    private sealed record RemoteRecheck(int Attempts = 0, DateTimeOffset? MissingSince = null);
 }

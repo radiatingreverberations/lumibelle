@@ -5,6 +5,21 @@ namespace lumibelle.Services.AI;
 public static class ComfyQueuePolicy
 {
     public static readonly TimeSpan ReconnectInterval = TimeSpan.FromSeconds(5);
+    // How long ComfyUI must keep answering without any record of a request before it
+    // counts as lost. One empty reading can be a job moving from queue to history.
+    public static readonly TimeSpan LostRemoteGrace = TimeSpan.FromMinutes(2);
+    public const string LostRemoteMessage = "ComfyUI has no record of this request in its queue or history, so it cannot be recovered. " +
+        "Nothing was rendered again and the queue has moved on. Use Retry when connected to run the captured workflow again.";
+
+    // A dropped connection says nothing about the remote work, and every later ComfyUI
+    // job waits on the answer. Armed retries and cancellations have their own schedules.
+    public static bool ShouldRecheck(AiJobHeader job, int attempts, DateTimeOffset now) =>
+        job.Backend == AiBackend.ComfyUI && job.ComfyControl is null && !job.CancelRequested &&
+        job.State == AiJobState.NeedsAttention && job.RemoteUnconfirmed &&
+        (job.FinishedUtc is null || now - job.FinishedUtc >= RecheckDelay(attempts));
+
+    public static TimeSpan RecheckDelay(int attempts) =>
+        TimeSpan.FromSeconds(attempts >= 4 ? 60 : 5 << attempts);
 
     public static bool CanRetry(AiJobHeader job) => job.Backend == AiBackend.ComfyUI && !job.CancelRequested &&
         job.State == AiJobState.NeedsAttention && (job.RemoteUnconfirmed || job.Recovery == AiJobRecovery.CheckStatus);

@@ -32,7 +32,7 @@ else if (Job.State == AiJobState.Running)
 }
 else if (Job.RemoteUnconfirmed)
 {
-    <p class="field-hint" role="status">@(Job.CancelRequested ? "Cancelled locally. " : "")ComfyUI is reserved until the remote job is confirmed.</p>
+    <p class="field-hint" role="status">@(Job.CancelRequested ? "Cancelled locally. " : "")ComfyUI is reserved until the remote job is confirmed. Its status is checked automatically.</p>
 }
 @if (Job.State == AiJobState.Running && Job.Batch?.Candidates.Any(c => c.AppendCommandId is not null) == true &&
     Queue.Jobs.Any(j => j.Backend == Job.Backend && j.State == AiJobState.Waiting && !j.CancelRequested))
