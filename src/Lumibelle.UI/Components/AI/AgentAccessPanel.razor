@@ -23,7 +23,7 @@
                 <MudButton Disabled="_busy" OnClick="() => _confirmRenew = true">Replace token…</MudButton>
             </div>
             <label class="check-row"><input id="agent-access-approval" type="checkbox" checked="@_settings.AllowClientApproval" disabled="@_busy" @onchange="e => Save(true, (bool)e.Value!)" />Allow approving plans in the agent’s conversation</label>
-            <p class="field-hint">Off: you approve plans and pick takes in Lumibelle, on the project’s Review page. On: the agent can also ask you in its own conversation. Claude Code asks you each time, in every permission mode. Lumibelle can’t see that question, and another client may not ask it, so turn this on only for a client you trust to ask.</p>
+            <p class="field-hint">Off: you approve plans and pick takes in Lumibelle, on the project’s Review page. On: the agent can also ask you in its own conversation. Claude Code asks you each time, and none of its permission settings skips the question. Lumibelle can’t see that question, and another client may not ask it, so turn this on only for a client you trust to ask.</p>
         }
         @if (_error is not null) { <p class="field-hint" role="alert">@_error</p> }
     }

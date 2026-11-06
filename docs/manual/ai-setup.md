@@ -177,6 +177,12 @@ Lumibelle no longer runs Claude Code. What an earlier version saved still loads:
 - A request that was waiting for Claude Code needs attention in **AI activity**. Create it again with another model.
 - Finished requests and assistant history keep their Claude Code label.
 
+To use Claude with a Claude plan, run Claude Code yourself and connect it through [Agent access](#agent-access).
+
+## Agent access
+
+**Connections → Agent access** lets an AI agent that you run yourself, such as Claude Code, read this library's projects, run the continuity checks and propose fixes as a plan. It is off until you turn it on, works from this computer only, and needs Lumibelle running in a browser. A plan changes nothing until you approve it. See [Review](review.md#connect-an-agent) for setting it up and for what the agent can do.
+
 ## Codex
 
 Lumibelle can use an installed Codex CLI for text assistance and image Create/Edit, with the account the CLI is set up with.

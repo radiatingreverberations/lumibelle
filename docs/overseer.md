@@ -1,6 +1,6 @@
 # Overseer: design
 
-**Status: design only. Nothing described here is implemented.** "Overseer" is a working name.
+**Status: partly built.** See [What is built](#what-is-built). "Overseer" is a working name; the page in the app is called **Review**.
 
 An overseer is an AI agent that reviews a project's shots and takes, finds continuity errors, proposes fixes, and carries them out once the director approves. This design comes from doing that job by hand on *The Open Window* (59 shots, about 6.5 minutes): a Claude Code session drove the real UI with Playwright scripts and read `project.sqlite` directly, and the director approved each wave of renders. The scripts and the notes from that film are kept outside the repository; this document records what they needed.
 
@@ -12,7 +12,28 @@ An overseer is an AI agent that reviews a project's shots and takes, finds conti
 - **The built-in overseer is a guided workflow, not an agent loop.** No provider path in Lumibelle has tool calling today, and all of them accept still images only. App code holds the loop and asks one narrow, checkable question at a time. The free-form agent is the MCP route, where the client brings its own loop.
 - **Many useful checks need no model.** They come first in the build order.
 - **Expect it to shorten the rounds, not to replace watching the cut.** On this film the director's 13 notes on two rough cuts were almost all problems the frame review had not raised, and the voices problem was only audible.
-- **A Claude subscription drives this from Claude Code, not from inside Lumibelle.** The built-in Claude Code provider is to be removed now, ahead of the MCP endpoint, so Lumibelle runs no Claude itself. The reasons and the quoted terms are in [Claude subscription](#7-using-a-claude-subscription).
+- **A Claude subscription drives this from Claude Code, not from inside Lumibelle.** The built-in Claude Code provider is removed, so Lumibelle runs no Claude itself. The reasons and the quoted terms are in [Claude subscription](#7-using-a-claude-subscription).
+
+## What is built
+
+Steps 1 to 4 of the [build order](#8-build-order) are implemented, with the gaps listed here. Step 5, the guided review on Lumibelle's own models, is not started. The Claude Code provider is removed. The rest of this document is the design as it was written; where it and this section differ, this section describes the code.
+
+| Part | Where | Differs from the design |
+| --- | --- | --- |
+| Read model and data checks | `Services/Review/ProjectReview.cs`, `ReviewChecks.cs`, `ShotFrameOrder.cs`, `CutTimes.cs`, `ReferenceUsage.cs` | The superseded-reference mark is not built. `find_reference_usage` lists everything made from a picture when given that picture |
+| Media | `Services/Review/ReviewMedia.cs`, `Services/Shots/ProductionMediaTools.Levels.cs` | Contact sheets and sound levels only. The jump, opening-frame, colour, and black or frozen frame checks are not built. Sheets carry a tile map as text, not labels drawn on the image |
+| MCP endpoint | `src/Lumibelle.Web/Mcp/` | Stateless Streamable HTTP, so the client is named by its `User-Agent`. Requests are accepted from this computer only. Web host only |
+| Agent access | `Services/Review/AgentAccess.cs`, `AgentAccessPanel.razor` | Stored in `agent-access.json` in the data folder, beside the other settings |
+| Plans | `Services/Review/ReviewPlans.cs`, `ReviewPlanStore.cs`, `ReviewPlanRunner.cs` | Steps: prompt, mark reviewed, voice, add or remove a shot frame, replace or remove a picture, select a take, the cut, render takes. Not built: trimming, adding a picture, asset image edits, refinement batches, reverting a step, a starting frame |
+| Review page | `Components/Pages/ContinuityReview.razor` | One page for the checks and the plans |
+
+Known gaps in what is built:
+
+- **Project packages do not carry plans.** The package format has a fixed list of documents, and adding one is a change of its own.
+- **The stores still raise no change events.** A Shots tab open on a shot that a plan changes does not reload; with unsaved edits its save conflicts and keeps the draft.
+- **The dependency order runs on explicit steps.** A render waits for a pick only when a step adds a frame from that pick. Shots that already hold a frame from an older take are reported by the checks, not re-ordered by the plan.
+- **The image result size is not measured against Claude Code's limit.** Sheets are JPEG with 480-pixel tiles.
+- **Nothing here was run against a real film or a real ComfyUI.** The tests use temporary libraries and a stand-in for the render queue.
 
 ## 1. Tool set
 
@@ -130,12 +151,12 @@ Claude Code shows PNG, JPEG, GIF and WebP tool results to the model inline, and 
 
 ### What the code supports today
 
-Checked in `Services/AI/`. The Claude Code provider appears below because it exists today; this design assumes it is removed ([section 7](#7-using-a-claude-subscription)), which leaves four backends.
+Checked in `Services/AI/` before the Claude Code provider was removed ([section 7](#7-using-a-claude-subscription)). It appears below as it was; four backends remain.
 
 | Capability | State |
 | --- | --- |
-| Tool or function calling | None. `ChatOptions` is built in two places (`TextGenerationOptions.cs`) and never sets tools. The Claude Code provider starts the CLI with `--tools ""` and `--strict-mcp-config` and rejects a session that reports any tool or MCP server (`ClaudeCodeClient.cs`). The Codex provider disables its tool features and replaces the MCP table with an empty one (`CodexClient.cs`). The ComfyUI client rejects any message part that is not text or a PNG |
-| Image input | All five backends accept still PNGs (`TextVisionPolicy.SupportsBackend`). Whether a given model accepts them comes from the provider's catalog, a saved model test, or a connection override; the code treats a model name as no evidence |
+| Tool or function calling | None. `ChatOptions` is built in two places (`TextGenerationOptions.cs`) and never sets tools. The Claude Code provider started the CLI with `--tools ""` and `--strict-mcp-config` and rejected a session that reported any tool or MCP server. The Codex provider disables its tool features and replaces the MCP table with an empty one (`CodexClient.cs`). The ComfyUI client rejects any message part that is not text or a PNG |
+| Image input | Every backend accepts still PNGs (`TextVisionPolicy.SupportsBackend`). Whether a given model accepts them comes from the provider's catalog, a saved model test, or a connection override; the code treats a model name as no evidence |
 | Video or audio input | None. Video reaches a model only as sampled frames, and existing prompts say so ("You did not watch the video or hear audio", `AssetReelEvaluator.cs`) |
 | JSON constrained by a schema | OpenAI-compatible connections only: native vLLM, or a standard server that passed the schema test (`AiTextJobCapture.Structured.cs`). OpenRouter, ComfyUI, Codex and Claude Code get the format in the prompt and are validated afterwards, with `AiJsonReply.Latest` reading the last complete JSON answer from a model that reasons aloud |
 | ComfyUI text | One request per job through `TextGenerate`, no streaming, thinking disabled, up to 36 images letterboxed to at most 1,024 pixels a side (`ComfyTextVision.cs`). ComfyUI jobs of every kind share one lane with concurrency 1 (`AiJobCoordinator.cs`), so a review request waits behind renders and renders wait behind it. There is no logic to unload or swap models between jobs |
@@ -257,7 +278,7 @@ A terminal prompt cannot show a prompt diff beside frames. The plan page stays t
 
 ### The plan
 
-A plan belongs to one project and is stored with it, as a new document kind in `project.sqlite` (decided 2026-11-06). It therefore travels in a project package, findings included. It holds:
+A plan belongs to one project and is stored with it, as a new document kind in `project.sqlite` (decided 2026-11-06). Project packages do not carry plans yet; see [What is built](#what-is-built). It holds:
 
 - **Findings:** what is wrong, on which shot, with evidence: quoted prompt text, a frame, a check result, or the director's note and its timecode.
 - **Steps:** one change each, linked to the findings it answers. Each step records the versions it was written against, the before and after values, who proposed it (the MCP client's name or the built-in model), and for GPU steps the take count, resolution and duration.
@@ -337,7 +358,7 @@ Checked on 2026-11-06 against Anthropic's published terms. This is a reading of 
 - With a plan sign-in, "the Claude Agent SDK and `claude -p` still draw from your subscription limits." The same article says a previously announced change to this is paused. ([Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan); its latest dated notice is 2026-10-07)
 - The Consumer Terms forbid accessing the services "through automated or non-human means, whether through a bot, script, or otherwise", with this exception: "Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it". ([Consumer Terms](https://www.anthropic.com/legal/consumer-terms), effective 2025-10-08)
 
-**Decision: Lumibelle will not run Claude itself.** The [Claude Code provider](claude-code-provider.md) is to be removed at once, without waiting for the MCP endpoint. A director with a Claude plan uses it by running Claude Code against the MCP endpoint.
+**Decision: Lumibelle will not run Claude itself.** The Claude Code provider is removed, without waiting for the MCP endpoint. A director with a Claude plan uses it by running Claude Code against the MCP endpoint.
 
 | Route | Verdict |
 | --- | --- |
@@ -391,7 +412,7 @@ Removing the Claude Code provider is separate from these steps and depends on no
 Made by the director on 2026-11-06:
 
 1. **Where approval happens.** In Lumibelle, and also in the agent's conversation, behind its own switch. See [Where approval happens](#where-approval-happens).
-2. **Where plans live.** In the project database, so they travel with a package.
+2. **Where plans live.** In the project database. Carrying them in a project package is not built.
 3. **When to remove the Claude Code provider.** At once, not with the release that adds the read-only MCP endpoint.
 
 Still open:
@@ -413,4 +434,4 @@ Read on 2026-11-06:
 - [MCP specification 2025-11-25: transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) and [tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
 - [ModelContextProtocol.AspNetCore on NuGet](https://www.nuget.org/packages/ModelContextProtocol.AspNetCore)
 
-In this repository: [Claude Code provider](claude-code-provider.md), [Codex provider](codex-provider.md), [LLM profiles](llm-profiles.md), [writing probes](content-probes.md), [SQLite storage](sqlite-storage.md), [shared hosts](shared-hosts.md), [prompt and reference freshness](production/prompt-reference-freshness.md), [development notes](development.md).
+In this repository: [Codex provider](codex-provider.md), [LLM profiles](llm-profiles.md), [writing probes](content-probes.md), [SQLite storage](sqlite-storage.md), [shared hosts](shared-hosts.md), [prompt and reference freshness](production/prompt-reference-freshness.md), [development notes](development.md).
