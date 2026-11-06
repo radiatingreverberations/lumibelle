@@ -31,6 +31,8 @@ public interface IProductionMediaTools
         => throw new WorkspaceStoreException("Reference video preparation is unavailable.");
     Task<byte[]> ExtractFrameAsync(string path, int index, int width, int height, H3Settings settings, CancellationToken ct)
         => throw new WorkspaceStoreException("MP4 frame extraction is unavailable.");
+    Task<AudioLevels> AudioLevelsAsync(string path, double seconds, H3Settings settings, CancellationToken ct)
+        => throw new WorkspaceStoreException("Audio level measurement is unavailable.");
     Task<double> AudioDurationAsync(string path, H3Settings settings, CancellationToken ct);
     Task PrepareVoiceAsync(string source, string target, double start, double duration, H3Settings settings, CancellationToken ct);
     Task<VideoFileInfo> VideoInfoAsync(string path, H3Settings settings, CancellationToken ct);

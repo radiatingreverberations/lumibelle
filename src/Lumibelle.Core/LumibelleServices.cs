@@ -40,6 +40,8 @@ public static class LumibelleServices
         services.AddSingleton<IImageTrashStore>(s => s.GetRequiredService<FileAssetStore>());
         services.AddShots();
         services.AddSingleton<Services.Production.IProjectDubbingStore, Services.Production.FileProjectDubbingStore>();
+        services.AddSingleton<Services.Review.ProjectReview>();
+        services.AddSingleton<Services.Review.ReviewMedia>();
         services.AddSingleton<IAssetExtractor, AssetExtractor>();
         services.AddSingleton<ComfyReferenceImageGenerator>();
         services.AddSingleton<ComfyReferenceImageEditor>();
