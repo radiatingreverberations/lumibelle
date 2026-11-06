@@ -12,7 +12,7 @@ namespace lumibelle.Services.Review;
 /// has picked that take. Nothing here runs for a plan that is not approved.
 /// </summary>
 public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review, IProductionStore production, IShotStore shots, ICutStore cuts,
-    IReviewRenderQueue renders, IProjectStore projects, TimeProvider clock, ILogger<ReviewPlanRunner> logger)
+    IReviewRenderQueue renders, IProjectStore projects, TimeProvider clock, ILogger<ReviewPlanRunner> logger, IGenerationSetupStore? setups = null)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -163,7 +163,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
 
     private async Task RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
     {
-        var setup = Setup(await production.LoadAsync(snapshot.ProjectId, ct), step.ShotId!.Value);
+        var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
         var id = Guid.NewGuid();
         var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, ct);
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.
@@ -245,6 +245,24 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         H3Policy.Validate(shot, ready: false, requireScene: false);
         await production.SaveAsync(project, setup, setup.Version, ct);
         return null;
+    }
+
+    // A shot keeps one setup record per global setup, each with the shot's shared prompt and references, as Shots binds them.
+    // Renders use the record of the global setup the plan was approved with, so they match Generate takes in Shots.
+    private async Task<ProductionComposition> RenderSetupAsync(Guid project, ReviewPlanStep step, CancellationToken ct)
+    {
+        var shotId = step.ShotId!.Value; var document = await production.LoadAsync(project, ct);
+        var library = setups is null ? null : await setups.LoadAsync(ct);
+        var preset = step.GenerationSetupId is { } id
+            ? library?.Setups.FirstOrDefault(s => s.Id == id) ?? throw new WorkspaceStoreException($"The generation setup “{step.GenerationSetupName}” no longer exists. Start a new plan for this render.")
+            : library?.Active();
+        if (preset is null) return Setup(document, shotId);
+        if (preset.Archived) throw new WorkspaceStoreException($"The generation setup “{preset.Name}” was archived after this plan was approved. Restore it, or start a new plan for this render.");
+        if (document.Compositions.FirstOrDefault(c => c.ShotId == shotId && c.GenerationSetupId == preset.Id && !c.Archived) is { } bound) return bound;
+        var source = (await shots.LoadAsync(project, ct)).Shots.FirstOrDefault(s => s.Id == shotId) ?? throw new WorkspaceStoreException("The shot was removed.");
+        var created = new ProductionComposition { ShotId = shotId, Shot = ProductionPolicy.CoverageCopy(source), SourceFingerprint = ProductionPolicy.SourceFingerprint(source) };
+        preset.Apply(created);
+        return (await production.SaveAsync(project, created, 0, ct)).Compositions.First(c => c.Id == created.Id);
     }
 
     // The setup that carries the shot's shared prompt and references, as the review reads it.

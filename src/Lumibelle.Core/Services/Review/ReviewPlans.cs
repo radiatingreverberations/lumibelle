@@ -116,8 +116,11 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             return plan with
             {
                 State = ReviewPlanState.Approved, ApprovedUtc = now, ApprovedFrom = from,
-                Steps = plan.Steps.Select(s => s.State == ReviewStepState.Proposed ? s with { State = ReviewStepState.Waiting } : s).ToArray(),
-                Log = [.. plan.Log, new(now, from, $"Approved revision {plan.Revision}: {approved.Takes} takes, {approved.FootageSeconds} seconds of footage, {approved.Changes} changes.")]
+                Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.SpendsGpu
+                    ? s with { State = ReviewStepState.Waiting, GenerationSetupId = snapshot.RenderSetup?.Id, GenerationSetupName = snapshot.RenderSetup?.Name }
+                    : s with { State = ReviewStepState.Waiting }).ToArray(),
+                Log = [.. plan.Log, new(now, from, $"Approved revision {plan.Revision}: {approved.Takes} takes, {approved.FootageSeconds} seconds of footage, {approved.Changes} changes."
+                    + (approved.Takes > 0 && snapshot.RenderSetup is { } setup ? $" Renders use “{setup.Name}”." : ""))]
             };
         }, proposal: false, ct);
     }
@@ -265,7 +268,8 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             ReviewStepKind.RemovePicture => $"Remove {Picture(step.AssetId, step.ImageId)} from {shot}",
             ReviewStepKind.UseTake => $"Select another take for {shot}",
             ReviewStepKind.UpdateCut => "Point the cut at the selected takes",
-            ReviewStepKind.GenerateTakes => $"Render {step.Takes} {(step.Takes == 1 ? "take" : "takes")} of {shot}" + (step.Resolution is { } size ? $" at {VideoResolutions.Label(size)}" : ""),
+            ReviewStepKind.GenerateTakes => $"Render {step.Takes} {(step.Takes == 1 ? "take" : "takes")} of {shot}" + (step.Resolution is { } size ? $" at {VideoResolutions.Label(size)}" : "")
+                + ((step.GenerationSetupName ?? snapshot.RenderSetup?.Name) is { } setup ? $" with “{setup}”" : ""),
             _ => step.Kind.ToString()
         };
     }

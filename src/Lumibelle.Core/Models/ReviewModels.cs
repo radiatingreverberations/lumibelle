@@ -30,6 +30,8 @@ public sealed record ProjectReviewSnapshot(Guid ProjectId, ShotDocument Shots, P
     public ScriptDocument? Script { get; init; }
     /// <summary>The approved scripts the takes' shots were planned from, by snapshot id.</summary>
     public IReadOnlyDictionary<Guid, ScriptSourceSnapshot> ScriptSources { get; init; } = new Dictionary<Guid, ScriptSourceSnapshot>();
+    /// <summary>The global generation setup selected in Shots, which an approved plan's renders use.</summary>
+    public GenerationSetup? RenderSetup { get; init; }
     public ReviewShot? Row(Guid shotId) => Rows.FirstOrDefault(r => r.Id == shotId);
     public ReviewShot? OwnerOf(Guid takeId) => Shots.Takes.FirstOrDefault(t => t.Id == takeId) is { } take ? Row(take.ShotId) : null;
 }

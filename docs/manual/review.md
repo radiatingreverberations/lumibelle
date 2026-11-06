@@ -54,7 +54,7 @@ Use **Reject step** on anything you do not want. A step that depended on a rejec
 ### What happens after approval
 
 - Changes run at once, through the same saves as the studios.
-- A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md).
+- A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the generation setup selected in Shots when you approved the plan. Each render step names it. Choosing another setup afterwards does not change what you approved.
 - When a render finishes, its step shows the new takes under **Pick a take**. Play them, then choose **Use this take**. The agent may recommend one with a reason; **Accept recommendations** takes every recommended take. Nothing selects a take for you.
 - A step that adds a frame from another shot's new take waits for that pick, then uses the first or last frame of the take you picked.
 - The cut is pointed at the selected takes last.

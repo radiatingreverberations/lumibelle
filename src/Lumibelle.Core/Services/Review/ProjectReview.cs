@@ -10,7 +10,7 @@ namespace lumibelle.Services.Review;
 /// Reads a project the way a continuity review needs it: each shot with its prompt, references and takes.
 /// Nothing here changes a project, runs a model or uses the GPU.
 /// </summary>
-public sealed class ProjectReview(IShotStore shots, IProductionStore production, ICutStore cuts, IAssetStore assets, IScriptStore scripts)
+public sealed class ProjectReview(IShotStore shots, IProductionStore production, ICutStore cuts, IAssetStore assets, IScriptStore scripts, IGenerationSetupStore? setups = null)
 {
     public async Task<ProjectReviewSnapshot> LoadAsync(Guid projectId, CancellationToken ct = default)
     {
@@ -25,7 +25,8 @@ public sealed class ProjectReview(IShotStore shots, IProductionStore production,
         foreach (var id in document.Takes.Select(t => t.Snapshot.Shot.ApprovedScriptId).OfType<Guid>().Distinct())
             try { if (await scripts.LoadSourceAsync(projectId, id, ct) is { } source) sources[id] = source; }
             catch (WorkspaceStoreException) { }
-        return Compose(document, prompts, cut, library, script, sources);
+        var setup = setups is null ? null : (await setups.LoadAsync(ct)).Active();
+        return Compose(document, prompts, cut, library, script, sources) with { RenderSetup = setup };
     }
 
     public static ProjectReviewSnapshot Compose(ShotDocument document, ProductionDocument prompts, CutDocument cut, AssetLibrary library,

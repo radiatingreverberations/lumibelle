@@ -259,6 +259,61 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task RendersUseTheGenerationSetupSelectedWhenThePlanWasApproved()
+    {
+        var f = await PlanFixture.Create(this, shots: 2); var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var original = (await f.Setup(first)).GenerationSetupId;
+        var library = await f.Setups.SaveAsync(new() { Name = "Drafting", Settings = new() { GenerationPreset = "10eros-compact" } }, 0, _ct);
+        var drafting = library.Setups.Single(s => s.Name == "Drafting");
+        await f.Setups.SelectAsync(drafting.Id, _ct);
+
+        var plan = await f.Plans.CreateAsync(f.Project, "Retakes", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.SetPrompt, first, "Fix.") { Prompt = "The mouse reads a letter." });
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Render.") { Takes = 2 });
+        var other = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, second, "Render.") { Takes = 1, Resolution = VideoResolution.Detail });
+        // The plan says which setup it will use before it is approved.
+        Assert.EndsWith("with “Drafting”", ReviewPlans.Describe(await f.Review.LoadAsync(f.Project, _ct), render));
+
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        // Selecting something else afterwards does not change what was approved.
+        await f.Setups.SelectAsync(original!.Value, _ct);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.All(new[] { render, other }, s => Assert.Equal(ReviewStepState.Running, running.Step(s.Id)!.State));
+        Assert.Equal((drafting.Id, "Drafting"), (running.Step(render.Id)!.GenerationSetupId, running.Step(render.Id)!.GenerationSetupName));
+        Assert.Contains(running.Log, l => l.What.Contains("Renders use “Drafting”."));
+        // Each render used the shot's record for that setup, created as Shots does, with the shot's shared prompt and the setup's settings.
+        var used = f.Renders.Setups;
+        Assert.Equal([drafting.Id, drafting.Id], used.Select(c => c.GenerationSetupId));
+        Assert.Equal("The mouse reads a letter.", used[0].Prompt);
+        Assert.Equal("10eros-compact", used[0].Shot.GenerationPreset);
+        Assert.Equal([VideoResolution.Detail], f.Renders.Resolutions.OfType<VideoResolution>());
+        // The shot's other setup is still there, with the same prompt.
+        var records = (await f.Production.LoadAsync(f.Project, _ct)).Compositions.Where(c => c.ShotId == first).ToArray();
+        Assert.Equal(2, records.Length);
+        Assert.All(records, c => Assert.Equal("The mouse reads a letter.", c.Prompt));
+    }
+
+    [Fact]
+    public async Task ARenderFailsWhenItsApprovedSetupWasArchivedInsteadOfUsingAnother()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var library = await f.Setups.SaveAsync(new() { Name = "Drafting", Settings = new() { GenerationPreset = "10eros-compact" } }, 0, _ct);
+        var drafting = library.Setups.Single(s => s.Name == "Drafting");
+        await f.Setups.SelectAsync(drafting.Id, _ct);
+        var plan = await f.Plans.CreateAsync(f.Project, "Retake", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render."));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Setups.SaveAsync(drafting with { Archived = true }, drafting.Version, _ct);
+
+        var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal(ReviewStepState.Failed, done.Step(render.Id)!.State);
+        Assert.Contains("“Drafting” was archived", done.Step(render.Id)!.Message);
+        Assert.Empty(f.Renders.Captured);
+    }
+
+    [Fact]
     public void PromptEditsReplaceTextThatOccursExactlyOnce()
     {
         const string prompt = "Vera stands by the window. The window is open.";
@@ -273,7 +328,7 @@ public sealed partial class ShotTests
         public const string Prompt = "The camera holds as the mouse looks up.";
         public Guid Project; public ProjectFiles Files = null!; public FileShotStore Shots = null!; public FakeAssetStore Assets = null!;
         public FileProductionStore Production = null!; public FileCutStore Cuts = null!; public ProjectReview Review = null!;
-        public ReviewPlans Plans = null!; public ReviewPlanRunner Runner = null!; public FakeRenders Renders = null!;
+        public ReviewPlans Plans = null!; public ReviewPlanRunner Runner = null!; public FakeRenders Renders = null!; public FileGenerationSetupStore Setups = null!;
         public List<Guid> ShotIds = []; public ReferenceAsset Vera = null!; public VoiceReference Voice = null!;
         private ShotTests _owner = null!;
 
@@ -292,7 +347,9 @@ public sealed partial class ShotTests
             await f.Shots.SaveAsync(f.Project.Id, coverage, 0, ct: ct);
             result.ShotIds = coverage.Select(s => s.Id).ToList();
             var projects = new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project), List = () => Task.FromResult(new ProjectLibrary([f.Project], [])) };
-            result.Production = new(f.Files, f.Shots, result.Assets, projects, owner._clock, new FileAiJobStore(Path.Combine(owner._root, "plan-queue"), owner._clock));
+            var data = Path.Combine(owner._root, "plan-data"); Directory.CreateDirectory(data);
+            result.Setups = new(new lumibelle.Services.ApplicationPaths(data));
+            result.Production = new(f.Files, f.Shots, result.Assets, projects, owner._clock, new FileAiJobStore(Path.Combine(owner._root, "plan-queue"), owner._clock), generationSetups: result.Setups);
             foreach (var setup in (await result.Production.InitializeAsync(f.Project.Id, ct)).Compositions)
             {
                 setup.Prompt = Prompt;
@@ -300,15 +357,15 @@ public sealed partial class ShotTests
                 await result.Production.SaveAsync(f.Project.Id, setup, setup.Version, ct);
             }
             result.Cuts = new(f.Files, f.Shots, owner._clock);
-            result.Review = new(f.Shots, result.Production, result.Cuts, result.Assets, new FakeScriptStore());
+            result.Review = new(f.Shots, result.Production, result.Cuts, result.Assets, new FakeScriptStore(), result.Setups);
             var store = new ReviewPlanStore(f.Files, owner._clock);
             result.Plans = new(store, result.Review, owner._clock); result.Renders = new();
-            result.Runner = new(store, result.Review, result.Production, f.Shots, result.Cuts, result.Renders, projects, owner._clock, NullLogger<ReviewPlanRunner>.Instance);
+            result.Runner = new(store, result.Review, result.Production, f.Shots, result.Cuts, result.Renders, projects, owner._clock, NullLogger<ReviewPlanRunner>.Instance, result.Setups);
             return result;
         }
         public Task<ReviewPlanStep> Propose(ReviewPlan plan, ReviewStepProposal proposal) => Plans.ProposeAsync(Project, plan.Id, proposal, "agent", ct: _owner._ct);
         public Task<ReviewPlan> Plan(ReviewPlan plan) => Plans.Store.GetAsync(Project, plan.Id, _owner._ct);
-        public async Task<ProductionComposition> Setup(Guid shot) => (await Production.LoadAsync(Project, _owner._ct)).Compositions.Single(c => c.ShotId == shot);
+        public async Task<ProductionComposition> Setup(Guid shot) => (await Production.LoadAsync(Project, _owner._ct)).Compositions.First(c => c.ShotId == shot && !c.Archived);
         /// <summary>The queued render completes and publishes its takes, as the video handler would.</summary>
         public async Task<Guid[]> Finish(ReviewPlanStep step, int takes)
         {
@@ -332,11 +389,13 @@ public sealed partial class ShotTests
     {
         public Dictionary<Guid, AiJobState> States { get; } = [];
         public List<(Guid Shot, int Takes)> Captured { get; } = [];
+        public List<ProductionComposition> Setups { get; } = [];
+        public List<VideoResolution?> Resolutions { get; } = [];
         public Func<Guid, string?> Refuse { get; set; } = _ => null;
         public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
         {
             if (Refuse(setup.ShotId) is { } refusal) throw new WorkspaceStoreException(refusal);
-            Captured.Add((setup.ShotId, takes));
+            Captured.Add((setup.ShotId, takes)); Setups.Add(setup); Resolutions.Add(resolution);
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId, CompositionId: setup.Id), "Project", "Shot", Guid.Empty, new { takes }));
         }
         public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }

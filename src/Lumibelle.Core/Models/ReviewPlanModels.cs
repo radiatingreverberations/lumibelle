@@ -74,6 +74,9 @@ public sealed record ReviewPlanStep
     // GenerateTakes: how many, at which size, and what came of it.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int Takes { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public VideoResolution? Resolution { get; init; }
+    // The global setup selected when the plan was approved. The approval covers it, so a later change of selection leaves it alone.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? GenerationSetupId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }
     public IReadOnlyList<Guid> ProducedTakeIds { get; init; } = [];
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? RecommendedTakeId { get; init; }
