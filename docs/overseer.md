@@ -8,11 +8,11 @@ An overseer is an AI agent that reviews a project's shots and takes, finds conti
 
 - **One tool layer, two drivers.** A Core service layer exposes the operations the scripts needed. An MCP endpoint lets an outside agent such as Claude Code call it. A built-in guided review calls the same layer through Lumibelle's own AI connections. Both write proposals into the same plan.
 - **The MCP server has to run inside the Lumibelle process.** The library lease, the AI queue's worker lock and the per-project save locks all belong to that process.
-- **Approval is enforced in Lumibelle, not in the client.** No MCP tool changes a project or starts a GPU job. Tools can only add steps to a plan; the director approves the plan in the app.
+- **Approval is the director's, in Lumibelle or in the agent's conversation.** Tools add steps to a plan, and nothing runs until the plan is approved. The plan page in the app always works. Approving from the MCP client is behind its own switch, because there the client's prompt is the gate and Lumibelle cannot see it.
 - **The built-in overseer is a guided workflow, not an agent loop.** No provider path in Lumibelle has tool calling today, and all of them accept still images only. App code holds the loop and asks one narrow, checkable question at a time. The free-form agent is the MCP route, where the client brings its own loop.
 - **Many useful checks need no model.** They come first in the build order.
 - **Expect it to shorten the rounds, not to replace watching the cut.** On this film the director's 13 notes on two rough cuts were almost all problems the frame review had not raised, and the voices problem was only audible.
-- **A Claude subscription drives this from Claude Code, not from inside Lumibelle.** The built-in Claude Code provider is to be removed, so Lumibelle runs no Claude itself. The reasons and the quoted terms are in [Claude subscription](#7-using-a-claude-subscription).
+- **A Claude subscription drives this from Claude Code, not from inside Lumibelle.** The built-in Claude Code provider is to be removed now, ahead of the MCP endpoint, so Lumibelle runs no Claude itself. The reasons and the quoted terms are in [Claude subscription](#7-using-a-claude-subscription).
 
 ## 1. Tool set
 
@@ -103,7 +103,7 @@ The web host has no sign-in today; it relies on `AllowedHosts` and a localhost a
 - Off by default. A switch in **AI settings → Connections** turns it on for this library.
 - A bearer token generated there, stored through `ISecretProtector` like other credentials, and shown with the command above.
 - `Origin` validation and localhost binding. The MCP specification requires the first and recommends the second and authentication for local servers ([transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)).
-- Project text reaches the agent through tool results, and a project can be imported from a package someone else made. Because tools can only propose, text that tries to instruct the agent can at most produce a proposal the director sees.
+- Project text reaches the agent through tool results, and a project can be imported from a package someone else made. While tools can only propose, text that tries to instruct the agent can at most produce a proposal the director sees. With [approval from the client](#where-approval-happens) turned on, such text could also lead the agent to call an approval tool, and the client's prompt is then what stops it.
 
 ### Tools
 
@@ -112,8 +112,9 @@ About twenty tools, named for the director's vocabulary. Shots are addressed by 
 - **Read:** `list_projects`, `list_shots`, `get_shot`, `list_takes`, `get_take`, `get_frames`, `get_scene_sheet`, `get_neighbour_sheet`, `get_audio_levels`, `get_cut`, `locate_cut_time`, `list_assets`, `get_asset_image`, `find_reference_usage`, `run_checks`, `get_queue`. Marked `readOnlyHint`, which also lets Claude Code run them in parallel.
 - **Propose:** `create_plan`, `add_finding`, `propose_step`, `revise_step`, `recommend_take`, `submit_plan`. These write only to the plan.
 - **Follow:** `get_plan`, `wait_for_plan`. The second returns when the plan's state changes or after a short timeout, so no call stays open for a whole render.
+- **Approve:** `approve_plan`, `accept_picks`. Listed only when approval from the client is turned on, and marked so that Claude Code asks the director on every call.
 
-There is no `execute` or `approve` tool. See [Approval](#5-approval-and-order).
+No tool edits a project or starts a job directly; every change goes through a plan. See [Approval](#5-approval-and-order).
 
 An MCP prompt, `review`, carries the review procedure (run the checks, read each scene's sheet, compare prompts with the continuity sheet, propose). Claude Code lists MCP prompts as commands.
 
@@ -224,22 +225,44 @@ Audio analysis and scene detection do not exist in Core today. Frame extraction,
 
 ## 5. Approval and order
 
-**Rule: nothing that spends GPU time or changes a project runs without the director's approval, given in Lumibelle.**
+**Rule: nothing that spends GPU time or changes a project runs without the director's approval.**
 
-### Why approval lives in the app
+### Where approval happens
 
-An MCP client has its own permission prompts, but Lumibelle cannot see whether they were shown. A client can be set to approve tools automatically, and another client may not prompt at all. So the server offers no tool that acts. Proposing is all a client can do.
+In two places, as the director decided on 2026-11-06:
 
-Claude Code does honour a per-tool mark, `anthropic/requiresUserInteraction`, that forces its prompt on every call in every permission mode ([Claude Code MCP](https://code.claude.com/docs/en/mcp#require-approval-for-a-specific-tool)). It is specific to that client, and a terminal prompt cannot show a prompt diff beside frames. It could later back an optional "approve from the client" setting. It is not the gate.
+- **In Lumibelle**, on the plan page. Always available, and the only place while the switch below is off. Here Lumibelle knows a person clicked.
+- **In the agent's conversation**, as on this film. Two more tools, `approve_plan` and `accept_picks`, are listed only when **Allow approval from the MCP client** is turned on for the library. It is off by default.
+
+The switch is separate because the guarantee changes. Lumibelle cannot see whether a client showed a prompt, so with the switch on, the client's prompt is the gate.
+
+Both tools carry `_meta["anthropic/requiresUserInteraction"]`. What Claude Code documents for a tool with that mark ([Claude Code MCP](https://code.claude.com/docs/en/mcp#require-approval-for-a-specific-tool), read 2026-11-06):
+
+- It "shows that tool's permission prompt on every call, even in `acceptEdits`, `auto`, and `bypassPermissions`" modes, offers no "don't ask again" option, and allow rules do not skip the prompt.
+- In `dontAsk` mode it denies the call.
+- In non-interactive mode, an approval from a permission prompt tool is turned into a denial.
+- An application built on the Agent SDK does receive these calls in its `canUseTool` callback "and can approve them, because your SDK application is expected to show them to a user". Such an application can therefore approve without a person.
+
+The mark is Claude Code's own. Another client may ignore it, and Lumibelle would not know.
+
+What Lumibelle enforces whichever client calls:
+
+- **An approval names one exact plan.** `approve_plan` takes the plan's id and revision and its totals: takes, seconds of footage, and the number of project changes. The call is refused unless all of them match the submitted plan. The agent cannot approve a plan other than the one it read, and any totals the prompt displays are the real ones. The page above does not say how much of a call's arguments the prompt displays; check that in the first build.
+- **The cap holds.** Execution stops at the approved take count and footage.
+- **A plan changed after approval needs approving again.**
+- **The log records where each approval came from:** the app, or the client by name.
+- **No tool acts outside a plan,** and there are still no delete tools.
+
+A terminal prompt cannot show a prompt diff beside frames. The plan page stays the place to read a plan closely, and `get_plan` returns its address so the agent can point the director to it.
 
 ### The plan
 
-A plan belongs to one project and is stored with it, as a new document kind in `project.sqlite`. It holds:
+A plan belongs to one project and is stored with it, as a new document kind in `project.sqlite` (decided 2026-11-06). It therefore travels in a project package, findings included. It holds:
 
 - **Findings:** what is wrong, on which shot, with evidence: quoted prompt text, a frame, a check result, or the director's note and its timecode.
 - **Steps:** one change each, linked to the findings it answers. Each step records the versions it was written against, the before and after values, who proposed it (the MCP client's name or the built-in model), and for GPU steps the take count, resolution and duration.
 - **Waves:** steps grouped by what they depend on.
-- **A log:** who approved what and when, and the job ids that ran.
+- **A log:** who approved what, when and from where, and the job ids that ran.
 
 ### Reviewing a batch
 
@@ -257,7 +280,7 @@ The director can accept, reject or edit each step, then approves the rest togeth
 Which take to use cannot be known before the takes exist, so approval happens twice:
 
 1. **Plan approval.** Covers the edits and the GPU budget for every wave.
-2. **Picks.** When a wave's takes are ready they are shown between their neighbours. The overseer may recommend one with a reason; the director picks. A pick is a change to the project, so it is the director's click, or one **Accept recommendations** for the wave.
+2. **Picks.** When a wave's takes are ready they are shown between their neighbours. The overseer may recommend one with a reason; the director picks. A pick is a change to the project, so it is the director's click, or one **Accept recommendations** for the wave. With approval from the client turned on, `accept_picks` does the same from the conversation, naming each shot and the take chosen for it.
 
 Later waves start as their picks arrive. Shots that depend on nothing unpicked run straight away, so the director is only waited on where a frame really depends on the choice.
 
@@ -314,7 +337,7 @@ Checked on 2026-11-06 against Anthropic's published terms. This is a reading of 
 - With a plan sign-in, "the Claude Agent SDK and `claude -p` still draw from your subscription limits." The same article says a previously announced change to this is paused. ([Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan); its latest dated notice is 2026-10-07)
 - The Consumer Terms forbid accessing the services "through automated or non-human means, whether through a bot, script, or otherwise", with this exception: "Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it". ([Consumer Terms](https://www.anthropic.com/legal/consumer-terms), effective 2025-10-08)
 
-**Decision: Lumibelle will not run Claude itself.** The [Claude Code provider](claude-code-provider.md) is to be removed. A director with a Claude plan uses it by running Claude Code against the MCP endpoint.
+**Decision: Lumibelle will not run Claude itself.** The [Claude Code provider](claude-code-provider.md) is to be removed at once, without waiting for the MCP endpoint. A director with a Claude plan uses it by running Claude Code against the MCP endpoint.
 
 | Route | Verdict |
 | --- | --- |
@@ -333,6 +356,7 @@ Why remove the provider:
 What removal costs:
 
 - **In-app text assistance loses Claude as a backend.** Script help, prompt composition, enhancement and guidance are buttons in the studios; the MCP route does not serve them. A director who used Claude for those picks another backend.
+- **A gap for Claude plans.** Until the read-only MCP endpoint ships, a Claude plan has no route into Lumibelle.
 - **Saved data has to stay readable.** Settings, LLM profiles, project preferences and old jobs name the Claude Code backend. They must keep loading, and a saved choice that points at it must show as unavailable.
 
 ### Codex
@@ -353,21 +377,26 @@ Each step is useful without the ones after it.
 
 1. **Checks and sheets in Core, with a report page.** The data checks, audio levels, scene and neighbour sheets, and the cut-against-selection comparison. No model, no MCP, no plan. This is the smallest useful step: on this film it would have reported the missing voices on all 59 shots, #56's missing references, #57's duration and the cut ignoring 46 picks, before any render. Everything later reads its output.
 2. **Read-only MCP endpoint.** The read tools, `run_checks` and `locate_cut_time`, behind the switch and token. Claude Code can then review a project and trace the director's notes without Playwright or reading the database. Nothing can change, so no approval machinery is needed yet. Measure image result sizes here.
-3. **Plans for changes that cost no GPU.** The plan store, the review page, and steps for prompts, references, picks, trims and the cut. This is where the reference-apply logic moves from the dialog into Core, and where the store change events are added. Propose tools join the MCP endpoint.
-4. **GPU steps.** Generate takes with waves and the pick gate; asset image edits that wait for review; the superseded-reference mark and its impact list.
+3. **Plans for changes that cost no GPU.** The plan store, the review page, and steps for prompts, references, picks, trims and the cut. This is where the reference-apply logic moves from the dialog into Core, and where the store change events are added. Propose tools join the MCP endpoint, with `approve_plan` and its switch.
+4. **GPU steps.** Generate takes with waves and the pick gate, including `accept_picks`; asset image edits that wait for review; the superseded-reference mark and its impact list.
 5. **Guided review in the app.** The fixture from *The Open Window* first, then the prompt-against-sheet job (text only), then the take and neighbour jobs. This needs the continuity sheet, which is its own piece of work and also feeds prompt composition.
-6. **Later.** Refinement batches from a plan; the desktop host; a stdio relay; approval from the client as an option; video or audio input if a provider offers it.
+6. **Later.** Refinement batches from a plan; the desktop host; a stdio relay; video or audio input if a provider offers it.
 
 Steps 1 and 2 together replace the read half of the hand-run scripts. Steps 3 and 4 replace the write half.
 
-Removing the Claude Code provider is separate from these steps and depends on none of them. Done before step 2, Claude users have no route into Lumibelle until step 2 lands; done with step 2, the MCP route replaces the provider in the same release.
+Removing the Claude Code provider is separate from these steps and depends on none of them. It is to be done at once, so Claude users have no route into Lumibelle until step 2 lands.
 
-## Decisions for the director
+## Decisions
 
-1. **Where approval happens.** This design puts it in Lumibelle only. Approving in the Claude Code conversation, as on this film, would be an option added later and would hold only for clients that honour the per-tool mark.
-2. **Where plans live.** In the project database, so they travel with a package, or in application data, so they do not.
-3. **The name.** "Overseer" in this document. The page the director uses is closer to "Continuity review".
-4. **When to remove the Claude Code provider:** at once, or in the release that adds the read-only MCP endpoint.
+Made by the director on 2026-11-06:
+
+1. **Where approval happens.** In Lumibelle, and also in the agent's conversation, behind its own switch. See [Where approval happens](#where-approval-happens).
+2. **Where plans live.** In the project database, so they travel with a package.
+3. **When to remove the Claude Code provider.** At once, not with the release that adds the read-only MCP endpoint.
+
+Still open:
+
+4. **The name.** "Continuity review" is acceptable for the page the director uses. A name about assisting the director is also being considered. "Overseer" stays the working name in this document.
 
 ## Sources
 
