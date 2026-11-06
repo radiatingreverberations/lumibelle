@@ -195,6 +195,37 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
         return output.ToArray();
     }
 
+    public static object Plans(IReadOnlyList<ReviewPlan> plans) => plans.Select(p => new
+    {
+        id = p.Id, title = p.Title, state = p.State.ToString(), revision = p.Revision, proposedBy = p.ProposedBy, created = p.CreatedUtc,
+        findings = p.Findings.Count, steps = p.Steps.Count, waitingForPicks = p.Steps.Count(s => s.State == ReviewStepState.Pick)
+    }).ToArray();
+
+    /// <summary>A plan as a proposer or the director reads it. Prompt texts are left out unless one step is asked for.</summary>
+    public static object Plan(ProjectReviewSnapshot snapshot, ReviewPlan plan, Guid? stepId = null, string? page = null)
+    {
+        var totals = ReviewPlans.Totals(plan, snapshot);
+        object Step(ReviewPlanStep s, bool full) => new
+        {
+            id = s.Id, does = ReviewPlans.Describe(snapshot, s), kind = s.Kind.ToString(), shot = s.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null,
+            state = s.State.ToString(), reason = s.Reason, message = s.Message, findings = s.FindingIds.Count == 0 ? null : s.FindingIds,
+            promptBefore = full ? s.Before : null, promptAfter = full ? s.After : null,
+            job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.SpendsGpu ? s.TakeId : null,
+            recommendedTake = s.RecommendedTakeId, recommendation = s.Recommendation
+        };
+        if (stepId is { } id) return Step(plan.Step(id) ?? throw new WorkspaceStoreException("That step is not in this plan."), true);
+        return new
+        {
+            id = plan.Id, title = plan.Title, state = plan.State.ToString(), revision = plan.Revision, page,
+            // What an approval of this revision agrees to. approve_plan must repeat these exactly.
+            totals = new { takes = totals.Takes, footageSeconds = totals.FootageSeconds, changes = totals.Changes },
+            approvedFrom = plan.ApprovedFrom, approved = plan.ApprovedUtc,
+            findings = plan.Findings.Select(f => new { id = f.Id, shot = f.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null, message = f.Message, evidence = f.Evidence }).ToArray(),
+            steps = plan.Steps.Select(s => Step(s, false)).ToArray(),
+            log = plan.Log.TakeLast(20).Select(l => new { at = l.At, who = l.Who, what = l.What }).ToArray()
+        };
+    }
+
     public object Queue(Guid? projectId = null)
     {
         var view = jobs.View; var listed = view.Jobs.Where(j => (projectId is null || j.Target.ProjectId == projectId) && j.State is not (AiJobState.Completed or AiJobState.Cancelled)).ToArray();

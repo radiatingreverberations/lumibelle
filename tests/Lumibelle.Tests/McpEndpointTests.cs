@@ -4,6 +4,9 @@ using System.Text;
 using System.Text.Json;
 using lumibelle;
 using lumibelle.Mcp;
+using lumibelle.Models;
+using lumibelle.Services.Production;
+using lumibelle.Services.Shots;
 using lumibelle.Services;
 using lumibelle.Services.AI;
 using lumibelle.Services.Review;
@@ -157,6 +160,105 @@ public sealed class McpEndpointTests : IAsyncLifetime
         var cut = await client.CallToolAsync("locate_cut_time", new Dictionary<string, object?> { ["project"] = project.Id.ToString(), ["time"] = "3:54" }, cancellationToken: Ct);
         Assert.True(cut.IsError);
         Assert.Contains("The cut is empty", TextOf(cut));
+    }
+
+    private async Task<(Guid Project, Shot Shot)> ProjectWithShotAsync()
+    {
+        var project = await _app.Services.GetRequiredService<IProjectStore>().CreateAsync(new("The Open Window", "Fixture"), Ct);
+        var shot = new Shot { Title = "The arrival", Description = "The camera holds as the mouse looks up.", Duration = 1 };
+        await _app.Services.GetRequiredService<IShotStore>().SaveAsync(project.Id, [shot], 0, ct: Ct);
+        var production = _app.Services.GetRequiredService<IProductionStore>();
+        var setup = (await production.InitializeAsync(project.Id, Ct)).Compositions.Single();
+        setup.Prompt = "The camera holds as the mouse looks up.";
+        await production.SaveAsync(project.Id, setup, setup.Version, Ct);
+        return (project.Id, shot);
+    }
+
+    private async Task<JsonElement> CallAsync(McpClient client, string tool, object arguments)
+    {
+        var result = await client.CallToolAsync(tool, JsonSerializer.SerializeToElement(arguments).EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value), cancellationToken: Ct);
+        Assert.False(result.IsError == true, TextOf(result));
+        return JsonDocument.Parse(TextOf(result)).RootElement;
+    }
+
+    [Fact]
+    public async Task TheToolsThatActAreHiddenAndRefusedUntilApprovalFromTheClientIsAllowed()
+    {
+        var token = await EnableAsync();
+        await using (var client = await ConnectAsync(token))
+        {
+            var tools = await client.ListToolsAsync(cancellationToken: Ct);
+            Assert.DoesNotContain(tools, t => ReviewApprovalTools.Names.Contains(t.Name));
+            Assert.Contains(tools, t => t.Name == "propose_step");
+            // Calling a hidden tool by name is refused as well, with where approval happens instead.
+            var refused = await client.CallToolAsync("approve_plan", new Dictionary<string, object?> { ["project"] = "x", ["plan"] = Guid.NewGuid().ToString(), ["revision"] = 1, ["takes"] = 0, ["footage_seconds"] = 0, ["changes"] = 0 }, cancellationToken: Ct);
+            Assert.True(refused.IsError);
+            Assert.Equal(ReviewApprovalTools.Off, TextOf(refused));
+        }
+        await Access.SaveAsync(true, true, (await Access.LoadAsync(Ct)).Revision, Ct);
+        await using (var client = await ConnectAsync(token))
+        {
+            var tools = await client.ListToolsAsync(cancellationToken: Ct);
+            foreach (var name in ReviewApprovalTools.Names)
+            {
+                var tool = Assert.Single(tools, t => t.Name == name).ProtocolTool;
+                // The mark Claude Code documents for a tool whose prompt must reach a person on every call.
+                Assert.True(tool.Meta?["anthropic/requiresUserInteraction"]?.GetValue<bool>(), name);
+                Assert.NotEqual(true, tool.Annotations?.ReadOnlyHint);
+            }
+        }
+        // Turning agent access off also turns approval from the client off.
+        var off = await Access.SaveAsync(false, true, (await Access.LoadAsync(Ct)).Revision, Ct);
+        Assert.False(off.AllowClientApproval);
+    }
+
+    [Fact]
+    public async Task APlanProposedOverMcpChangesNothingUntilAnApprovalThatMatchesIt()
+    {
+        var (project, shot) = await ProjectWithShotAsync();
+        var production = _app.Services.GetRequiredService<IProductionStore>();
+        var token = await EnableAsync(approval: true);
+        await using var client = await ConnectAsync(token);
+        var id = project.ToString();
+
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Fix the letter" })).GetProperty("id").GetString()!;
+        var finding = (await CallAsync(client, "add_finding", new { project = id, plan, shot = "#1", message = "The mouse holds nothing.", evidence = "Prompt: looks up" })).GetProperty("id").GetString()!;
+        var step = await CallAsync(client, "propose_step", new { project = id, plan, kind = "SetPrompt", shot = "#1", reason = "Name the letter.", findings = new[] { finding }, edits = new[] { new { old = "looks up", @new = "looks up, holding a letter" } } });
+        Assert.Equal("Change the prompt of #1 and mark it reviewed", step.GetProperty("does").GetString());
+        await CallAsync(client, "propose_step", new { project = id, plan, kind = "UpdateCut", reason = "Show the picks." });
+
+        // An edit that is not unique is refused when it is proposed, not when it runs.
+        var ambiguous = await client.CallToolAsync("propose_step", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["kind"] = "SetPrompt", ["shot"] = "#1", ["reason"] = "x",
+            ["edits"] = new[] { new Dictionary<string, object?> { ["old"] = "s ", ["new"] = "z " } } }, cancellationToken: Ct);
+        Assert.True(ambiguous.IsError);
+        Assert.Contains("more than once", TextOf(ambiguous));
+
+        var submitted = await CallAsync(client, "submit_plan", new { project = id, plan });
+        Assert.Equal("Submitted", submitted.GetProperty("state").GetString());
+        Assert.EndsWith($"/projects/{project:D}/review?planId={plan}", submitted.GetProperty("page").GetString());
+        var totals = submitted.GetProperty("totals"); var revision = submitted.GetProperty("revision").GetInt64();
+        Assert.Equal((0, 2), (totals.GetProperty("takes").GetInt32(), totals.GetProperty("changes").GetInt32()));
+        var full = await CallAsync(client, "get_plan", new { project = id, plan, step = step.GetProperty("id").GetString() });
+        Assert.Contains("holding a letter", full.GetProperty("promptAfter").GetString());
+        Assert.Equal("The camera holds as the mouse looks up.", (await production.LoadAsync(project, Ct)).Compositions.Single().Prompt);
+
+        // The totals shown to the director must be the plan's own.
+        var wrong = await client.CallToolAsync("approve_plan", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["revision"] = revision, ["takes"] = 0, ["footage_seconds"] = 0, ["changes"] = 1 }, cancellationToken: Ct);
+        Assert.True(wrong.IsError);
+        Assert.Contains("does not match the plan as it stands", TextOf(wrong));
+        Assert.Equal("The camera holds as the mouse looks up.", (await production.LoadAsync(project, Ct)).Compositions.Single().Prompt);
+
+        var approved = await CallAsync(client, "approve_plan", new { project = id, plan, revision, takes = 0, footage_seconds = 0, changes = 2 });
+
+        Assert.Equal("Finished", approved.GetProperty("state").GetString());
+        Assert.All(approved.GetProperty("steps").EnumerateArray(), s => Assert.Equal("Done", s.GetProperty("state").GetString()));
+        var setup = (await production.LoadAsync(project, Ct)).Compositions.Single();
+        Assert.Equal("The camera holds as the mouse looks up, holding a letter.", setup.Prompt);
+        Assert.Equal(setup.Prompt, setup.Accepted?.Prompt);
+        var saved = await _app.Services.GetRequiredService<ReviewPlanStore>().GetAsync(project, Guid.Parse(plan), Ct);
+        Assert.NotEqual(ReviewPlans.Director, saved.ApprovedFrom);
+        Assert.Contains(saved.Log, l => l.Who == saved.ApprovedFrom && l.What.StartsWith("Approved revision"));
+        Assert.Equal(shot.Id, saved.Steps[0].ShotId);
     }
 
     [Theory]
