@@ -1,4 +1,5 @@
 using lumibelle.Components;
+using lumibelle.Mcp;
 using lumibelle.Services;
 using lumibelle.Services.AI;
 using Microsoft.AspNetCore.DataProtection;
@@ -13,6 +14,7 @@ public static class WebHosting
         services.AddDataProtection().SetApplicationName("Lumibelle");
         services.AddSingleton<ISecretProtector, WebSecretProtector>();
         services.AddLumibelleCore(paths, exclusive).AddLumibelleUI();
+        services.AddLumibelleMcp();
         return services;
     }
     public static void MapLumibelleWeb(this WebApplication app)
@@ -29,7 +31,7 @@ public static class WebHosting
         });
         if (!app.Environment.IsDevelopment()) app.UseExceptionHandler("/Error");
         app.UseStatusCodePagesWithReExecute("/not-found");
-        app.UseAntiforgery(); app.MapStaticAssets(); app.MapProductionMedia();
+        app.UseAntiforgery(); app.MapStaticAssets(); app.MapProductionMedia(); app.MapLumibelleMcp();
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode().AddAdditionalAssemblies(typeof(Routes).Assembly);
     }
     public static void MapProductionMedia(this WebApplication app)

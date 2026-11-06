@@ -42,6 +42,8 @@ public static class LumibelleServices
         services.AddSingleton<Services.Production.IProjectDubbingStore, Services.Production.FileProjectDubbingStore>();
         services.AddSingleton<Services.Review.ProjectReview>();
         services.AddSingleton<Services.Review.ReviewMedia>();
+        services.AddSingleton<Services.Review.ReviewQueries>();
+        services.AddSingleton<Services.Review.IAgentAccessStore>(s => new Services.Review.FileAgentAccessStore(paths, s.GetRequiredService<ISecretProtector>()));
         services.AddSingleton<IAssetExtractor, AssetExtractor>();
         services.AddSingleton<ComfyReferenceImageGenerator>();
         services.AddSingleton<ComfyReferenceImageEditor>();
