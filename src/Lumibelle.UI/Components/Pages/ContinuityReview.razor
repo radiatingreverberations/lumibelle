@@ -1,0 +1,156 @@
+@inherits ProjectAwareComponent
+@using lumibelle.Services.Review
+@inject IProjectStore Projects
+@inject ProjectReview Review
+@inject ReviewMedia Media
+@inject ReviewPlans Plans
+@inject ReviewPlanRunner Runner
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Review · Lumibelle</PageTitle>
+@if (_project is null)
+{
+    @if (_error is not null) { <EmptyState Icon="@Icons.Material.Outlined.ErrorOutline" Title="Couldn’t open the review" HeadingLevel="1">@_error</EmptyState> }
+    else { <LoadingState Text="Opening Review…" /> }
+}
+else
+{
+    <ProjectNavigation Project="_project" CurrentStudio="review" />
+    <StudioPageHeader Title="Review">
+        <div class="review-actions">
+            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="_busy" OnClick="RunChecks">Run checks again</MudButton>
+            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.GraphicEq" Disabled="@(_busy || _measuring)" OnClick="MeasureSound">@(_measuring ? "Measuring sound…" : "Measure sound")</MudButton>
+        </div>
+    </StudioPageHeader>
+    @if (_error is not null) { <p class="review-error" role="alert">@_error</p> }
+    <div class="review-page">
+        <section class="review-section" aria-labelledby="review-checks-title">
+            <h2 id="review-checks-title">Continuity checks</h2>
+            <p class="field-hint">These read the project’s saved data. They need no model and no GPU, and they change nothing. They can’t see motion or tell whose voice is heard; watch each cut with sound as well.</p>
+            @if (_snapshot is null) { <LoadingState Text="Running checks…" /> }
+            else if (_snapshot.Rows.Count == 0) { <EmptyState Compact="true" Title="No shots yet" HeadingLevel="3">Break the script into shots first. The checks read shots, their references and takes.</EmptyState> }
+            else
+            {
+                <p role="status" class="review-summary">@Summary</p>
+                @if (_soundMeasured) { <p class="field-hint">Sound levels were measured for @_levels shots. Silence is anything quieter than @(Services.Shots.AudioLevels.SilenceDb) dB for half a second.</p> }
+                @foreach (var group in _findings.GroupBy(f => f.Check))
+                {
+                    <details class="review-check" open="@(group.Any(f => f.Severity == ReviewSeverity.Problem))">
+                        <summary><strong>@(ReviewChecks.Titles.GetValueOrDefault(group.Key) ?? "Sound levels")</strong> <span class="review-count">@group.Count()</span></summary>
+                        <ul>
+                            @foreach (var finding in group)
+                            {
+                                <li class="@(finding.Severity == ReviewSeverity.Problem ? "problem" : "look")">
+                                    <span class="review-severity">@(finding.Severity == ReviewSeverity.Problem ? "Problem" : "Worth a look")</span>
+                                    @if (finding.ShotId is { } shot) { <a href="@ProjectLink(Id, $"/shots?shotId={shot}")">#@finding.ShotNumber @Title(shot)</a> }
+                                    <span>@finding.Message</span>
+                                </li>
+                            }
+                        </ul>
+                    </details>
+                }
+                @if (RenderWaves.Count > 1)
+                {
+                    <details class="review-check">
+                        <summary><strong>Render order</strong></summary>
+                        <p class="field-hint">A shot that uses a frame from another shot’s take can only be rendered after that shot.</p>
+                        <ol>@foreach (var wave in RenderWaves) { <li>@string.Join(", ", wave)</li> }</ol>
+                    </details>
+                }
+            }
+        </section>
+
+        <section class="review-section" aria-labelledby="review-plans-title">
+            <h2 id="review-plans-title">Plans</h2>
+            <p class="field-hint">A plan is a list of findings and proposed fixes, written by an agent you connected under <a href="/settings/ai">AI settings → Connections → Agent access</a>. Nothing in a plan runs until you approve it here.</p>
+            @if (_plans.Count == 0) { <EmptyState Compact="true" Title="No plans yet" HeadingLevel="3">When an agent proposes changes or renders for this project, the plan appears here for you to review.</EmptyState> }
+            else
+            {
+                <div class="review-plans">
+                    <ul class="review-plan-list" aria-label="Plans">
+                        @foreach (var plan in _plans.OrderByDescending(p => p.CreatedUtc))
+                        {
+                            <li><button type="button" class="@(plan.Id == _planId ? "selected" : null)" aria-current="@(plan.Id == _planId ? "true" : null)" @onclick="() => Select(plan.Id)">
+                                <strong>@plan.Title</strong><span>@StateLabel(plan) · @plan.ProposedBy · @plan.CreatedUtc.ToLocalTime().ToString("g")</span></button></li>
+                        }
+                    </ul>
+                    @if (Selected is { } current && _snapshot is not null)
+                    {
+                        var totals = ReviewPlans.Totals(current, _snapshot); var open = current.State is ReviewPlanState.Draft or ReviewPlanState.Submitted;
+                        <article class="review-plan" aria-labelledby="review-plan-title">
+                            <header>
+                                <h3 id="review-plan-title">@current.Title</h3>
+                                <p><span class="review-state">@StateLabel(current)</span> Proposed by @current.ProposedBy on @current.CreatedUtc.ToLocalTime().ToString("g").@if (current.ApprovedFrom is { } from) { <span> Approved @(from == ReviewPlans.Director ? "here" : "from " + from) on @current.ApprovedUtc?.ToLocalTime().ToString("g").</span> }</p>
+                                @if (current.State == ReviewPlanState.Draft) { <p class="field-hint">The agent is still writing this plan. You can approve it now or wait until it is submitted.</p> }
+                                <p class="review-totals">@(open ? "Approving this plan" : "This plan") @(open ? "makes" : "covers") @Count(totals.Changes, "change") to the project and renders @Count(totals.Takes, "take")@(totals.Takes > 0 ? $", {totals.FootageSeconds:0.#} seconds of footage" : "").</p>
+                            </header>
+                            @if (current.Findings.Count > 0)
+                            {
+                                <h4>Findings</h4>
+                                <ul class="review-findings">
+                                    @foreach (var finding in current.Findings)
+                                    {
+                                        <li>@if (finding.ShotId is { } shot && _snapshot.Row(shot) is { } row) { <a href="@ProjectLink(Id, $"/shots?shotId={shot}")">#@row.Number</a> } <span>@finding.Message</span>
+                                            @if (finding.Evidence.Length > 0) { <small>@finding.Evidence</small> }</li>
+                                    }
+                                </ul>
+                            }
+                            <h4>Steps</h4>
+                            <ol class="review-steps">
+                                @foreach (var step in current.Steps)
+                                {
+                                    <li class="step-@step.State.ToString().ToLowerInvariant()" @key="step.Id">
+                                        <div class="review-step-head">
+                                            <strong>@ReviewPlans.Describe(_snapshot, step)</strong>
+                                            <span class="review-state">@StepLabel(step)</span>
+                                            @if (open) { <button type="button" disabled="@_busy" @onclick="() => Decide(current, step, step.State == ReviewStepState.Rejected)">@(step.State == ReviewStepState.Rejected ? "Keep step" : "Reject step")</button> }
+                                        </div>
+                                        <p>@step.Reason</p>
+                                        @if (step.Message is not null) { <p class="review-step-message" role="status">@step.Message</p> }
+                                        @if (step.Kind == ReviewStepKind.SetPrompt)
+                                        {
+                                            <details><summary>Compare prompts</summary><lumibelle.Components.Shots.PromptComparisonView Before="@(step.Before ?? "")" After="@(step.After ?? "")" BeforeLabel="Prompt when proposed" AfterLabel="Proposed prompt" /></details>
+                                        }
+                                        @if (step.State == ReviewStepState.Held) { <button type="button" disabled="@_busy" @onclick="() => Release(current, step)">Apply to the shot as it is now</button> }
+                                        @if (step.State == ReviewStepState.Pick)
+                                        {
+                                            <div class="review-picks" role="group" aria-label="Takes to pick from">
+                                                @foreach (var take in _snapshot.Shots.Takes.Where(t => step.ProducedTakeIds.Contains(t.Id)))
+                                                {
+                                                    <figure>
+                                                        <video controls preload="metadata" src="@($"/media/projects/{Id}/takes/{take.Id}")" aria-label="@TakeDisplay.Label(take)"></video>
+                                                        <figcaption>@TakeDisplay.Label(take)@if (step.RecommendedTakeId == take.Id) { <span class="review-recommended"> · Recommended</span> }</figcaption>
+                                                        <MudButton Size="Size.Small" Variant="@(step.RecommendedTakeId == take.Id ? Variant.Filled : Variant.Outlined)" Color="@(step.RecommendedTakeId == take.Id ? Color.Primary : Color.Default)" Disabled="_busy" OnClick="() => Pick(current, step, take.Id)">Use this take</MudButton>
+                                                    </figure>
+                                                }
+                                            </div>
+                                            @if (step.Recommendation is not null) { <p class="field-hint">@step.Recommendation</p> }
+                                            <a href="@ProjectLink(Id, $"/shots?shotId={step.ShotId}&view=Takes")">Compare takes in Shots</a>
+                                        }
+                                    </li>
+                                }
+                            </ol>
+                            <div class="review-plan-actions">
+                                @if (open)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !current.Steps.Any(s => s.State == ReviewStepState.Proposed))" OnClick="() => Approve(current)">Approve plan</MudButton>
+                                    @if (!current.Steps.Any(s => s.State == ReviewStepState.Proposed)) { <span class="field-hint">Keep at least one step to approve the plan.</span> }
+                                }
+                                @if (current.Active && current.Steps.Any(s => s.State == ReviewStepState.Pick && s.RecommendedTakeId is not null))
+                                { <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="() => AcceptRecommendations(current)">Accept recommendations</MudButton> }
+                                @if (current.State is ReviewPlanState.Approved or ReviewPlanState.Submitted or ReviewPlanState.Draft) { <MudButton Disabled="_busy" OnClick="() => Stop(current)">@(current.Active ? "Stop plan" : "Close plan")</MudButton> }
+                                @if (!current.Active) { <MudButton Disabled="_busy" OnClick="() => _confirmRemove = true">Delete plan…</MudButton> }
+                            </div>
+                            @if (current.Active && current.Steps.Any(s => s.State == ReviewStepState.Running)) { <p class="field-hint">Renders are in the queue. Follow them in AI activity; this page updates when takes arrive.</p> }
+                            <details class="review-log"><summary>History</summary><ul>@foreach (var entry in current.Log.Reverse()) { <li><time>@entry.At.ToLocalTime().ToString("g")</time> <strong>@entry.Who</strong> @entry.What</li> }</ul></details>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+    <ConfirmDialog Visible="_confirmRemove" VisibleChanged="v => { if (!v) _confirmRemove = false; }" Title="Delete this plan?" ConfirmLabel="Delete plan" Danger="true" Busy="_busy" OnConfirm="Remove">
+        The plan’s findings, steps and history are removed. Changes it already made to the project stay.
+    </ConfirmDialog>
+}

@@ -1,0 +1,68 @@
+@using lumibelle.Services.Review
+@inject IAgentAccessStore Access
+@inject NavigationManager Navigation
+@inject IHostActions Host
+
+<section class="settings-card agent-access" aria-labelledby="agent-access-title">
+    <div class="settings-card-title"><span class="provider-badge">MCP</span><h2 id="agent-access-title">Agent access</h2></div>
+    <p>Let an AI agent you run yourself, such as Claude Code, review the projects in this library: read shots, takes and the cut, run the continuity checks, and propose fixes as a plan. A plan changes nothing until you approve it.</p>
+    @if (Host.IsDesktop) { <p class="field-hint">Agent access needs Lumibelle running in a browser. The desktop app has no address for an agent to connect to.</p> }
+    else if (_settings is null) { <p role="status">@(_error ?? "Loading…")</p> }
+    else
+    {
+        <label class="check-row"><input id="agent-access-enabled" type="checkbox" checked="@_settings.Enabled" disabled="@_busy" @onchange="e => Save((bool)e.Value!, _settings.AllowClientApproval)" />Allow agent access from this computer</label>
+        @if (_settings.Enabled)
+        {
+            <p class="field-hint">The agent connects to <code>@Endpoint</code> with the token below. Only programs on this computer can reach it.</p>
+            <label for="agent-access-command">Add Lumibelle to Claude Code</label>
+            @if (_shown) { <textarea id="agent-access-command" class="agent-access-command" readonly rows="3" spellcheck="false" aria-describedby="agent-access-command-hint">@Command</textarea> }
+            else { <input id="agent-access-command" class="agent-access-command" readonly value="@Hidden" aria-describedby="agent-access-command-hint" /> }
+            <p id="agent-access-command-hint" class="field-hint">Run this once in a terminal. The command contains the access token, so treat it like a password. Another MCP client needs the same address and an <code>Authorization: Bearer</code> header with the token.</p>
+            <div class="agent-access-actions">
+                <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="() => _shown = !_shown">@(_shown ? "Hide command" : "Show command")</MudButton>
+                <MudButton Disabled="_busy" OnClick="() => _confirmRenew = true">Replace token…</MudButton>
+            </div>
+            <label class="check-row"><input id="agent-access-approval" type="checkbox" checked="@_settings.AllowClientApproval" disabled="@_busy" @onchange="e => Save(true, (bool)e.Value!)" />Allow approving plans in the agent’s conversation</label>
+            <p class="field-hint">Off: you approve plans and pick takes in Lumibelle, on the project’s Review page. On: the agent can also ask you in its own conversation. Claude Code asks you each time, in every permission mode. Lumibelle can’t see that question, and another client may not ask it, so turn this on only for a client you trust to ask.</p>
+        }
+        @if (_error is not null) { <p class="field-hint" role="alert">@_error</p> }
+    }
+</section>
+<ConfirmDialog Visible="_confirmRenew" VisibleChanged="v => { if (!v) _confirmRenew = false; }" Title="Replace the access token?" ConfirmLabel="Replace token" Busy="_busy" OnConfirm="Renew">
+    Clients set up with the current token are refused until you add Lumibelle to them again with the new command.
+</ConfirmDialog>
+
+@code {
+    private AgentAccessSettings? _settings;
+    private string? _token, _error;
+    private bool _busy, _shown, _confirmRenew;
+    private string Endpoint => Navigation.ToAbsoluteUri("/mcp").ToString();
+    private string Command => $"claude mcp add --transport http lumibelle {Endpoint} --header \"Authorization: Bearer {_token}\"";
+    private string Hidden => $"claude mcp add --transport http lumibelle {Endpoint} --header \"Authorization: Bearer ••••••••\"";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Host.IsDesktop) return;
+        try { await Load(); }
+        catch (WorkspaceStoreException e) { _error = e.Message; }
+    }
+
+    private async Task Load() { _settings = await Access.LoadAsync(); _token = _settings.Enabled ? await Access.ReadTokenAsync() : null; }
+
+    private Task Save(bool enabled, bool approval) => Do(() => Access.SaveAsync(enabled, approval, _settings!.Revision));
+    private Task Renew() => Do(async () => { await Access.RenewTokenAsync(_settings!.Revision); _confirmRenew = false; });
+
+    private async Task Do(Func<Task> action)
+    {
+        if (_busy || _settings is null) return;
+        _busy = true; _error = null;
+        try { await action(); }
+        catch (WorkspaceConflictException) { _error = "These settings changed in another tab. They have been reloaded."; }
+        catch (WorkspaceStoreException e) { _error = e.Message; }
+        finally
+        {
+            try { await Load(); } catch (WorkspaceStoreException e) { _error = e.Message; }
+            _busy = false;
+        }
+    }
+}

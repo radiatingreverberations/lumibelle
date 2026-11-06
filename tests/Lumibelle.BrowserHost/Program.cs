@@ -50,6 +50,7 @@ builder.Services.AddSingleton<IAssetReelStore>(s => s.GetRequiredService<Referen
 var app = builder.Build();
 app.MapLumibelleWeb();
 app.MapCutFixtures();
+app.MapReviewFixtures();
 app.MapStorageFixtures();
 app.MapMotionReferenceFixtures();
 app.MapReferencePickerFixtures();

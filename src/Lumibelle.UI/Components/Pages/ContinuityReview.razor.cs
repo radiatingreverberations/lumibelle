@@ -1,0 +1,162 @@
+using lumibelle.Models;
+using lumibelle.Services;
+using lumibelle.Services.Review;
+using lumibelle.Services.Story;
+using Microsoft.AspNetCore.Components;
+using MudBlazor;
+
+namespace lumibelle.Components.Pages;
+
+/// <summary>The continuity checks' report and the plans proposed for this project. Approval happens here.</summary>
+public partial class ContinuityReview
+{
+    [Parameter] public Guid Id { get; set; }
+    /// <summary>The plan to open, from a link an agent gave the director.</summary>
+    [Parameter] public Guid? RequestedPlanId { get; set; }
+    private ProjectInfo? _project;
+    private ProjectReviewSnapshot? _snapshot;
+    private IReadOnlyList<ReviewFinding> _findings = [];
+    private IReadOnlyList<ReviewPlan> _plans = [];
+    private Guid? _planId, _handledPlan;
+    private string? _error;
+    private bool _busy, _measuring, _soundMeasured, _confirmRemove, _disposed;
+    private int _levels;
+    private readonly CancellationTokenSource _lifetime = new();
+    private ReviewPlan? Selected => _plans.FirstOrDefault(p => p.Id == _planId);
+
+    protected override void OnInitialized() => Plans.Store.Changed += PlanChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_project?.Id != Id)
+        {
+            _project = null; _snapshot = null; _findings = []; _plans = []; _planId = null; _soundMeasured = false; _error = null;
+            try
+            {
+                _project = await Projects.GetAsync(Id, _lifetime.Token) ?? throw new WorkspaceStoreException("This project is no longer in your library.");
+                await Reload();
+            }
+            catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+        }
+        if (RequestedPlanId is { } requested && _handledPlan != requested && _plans.Any(p => p.Id == requested)) { _handledPlan = requested; _planId = requested; }
+    }
+
+    private async Task Reload()
+    {
+        _snapshot = await Review.LoadAsync(Id, _lifetime.Token);
+        // Sound findings are kept until the checks are run again; measuring is the slow part.
+        _findings = [.. ReviewChecks.Run(_snapshot), .. _findings.Where(f => f.Check == ReviewMedia.Levels)];
+        _plans = await Plans.Store.ListAsync(Id, _lifetime.Token);
+        _planId ??= _plans.OrderByDescending(p => p.Active).ThenByDescending(p => p.State == ReviewPlanState.Submitted).ThenByDescending(p => p.CreatedUtc).FirstOrDefault()?.Id;
+        if (_planId is not null && Selected is null) _planId = _plans.FirstOrDefault()?.Id;
+    }
+
+    // Raised from the store on whichever thread saved the plan: a proposer over MCP, the runner, or this page.
+    private void PlanChanged(Guid project, Guid plan)
+    {
+        if (project != Id || _disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            try { await Reload(); StateHasChanged(); }
+            catch (Exception e) when (e is WorkspaceStoreException or OperationCanceledException or ObjectDisposedException) { }
+        });
+    }
+
+    private string Summary
+    {
+        get
+        {
+            var problems = _findings.Count(f => f.Severity == ReviewSeverity.Problem); var looks = _findings.Count - problems;
+            return _findings.Count == 0 ? $"No findings in {Count(_snapshot!.Rows.Count, "shot")}."
+                : $"{Count(problems, "problem")} and {looks} worth a look, in {Count(_findings.Where(f => f.ShotId is not null).Select(f => f.ShotId).Distinct().Count(), "shot")} of {_snapshot!.Rows.Count}.";
+        }
+    }
+
+    // Only shots that feed or follow another need an order.
+    private IReadOnlyList<string[]> RenderWaves
+    {
+        get
+        {
+            if (_snapshot is null) return [];
+            var order = ShotFrameOrder.Build(_snapshot);
+            return order.Waves.Select(w => w.Where(s => order.Sources.ContainsKey(s) || order.Dependants(s).Count > 0).Select(s => "#" + _snapshot.Row(s)?.Number).ToArray()).Where(w => w.Length > 0).ToArray();
+        }
+    }
+
+    private string Title(Guid shot) => _snapshot?.Row(shot)?.Coverage.Title ?? "";
+    private static string Count(int n, string one) => $"{n} {one}{(n == 1 ? "" : "s")}";
+
+    private static string StateLabel(ReviewPlan plan) => plan.State switch
+    {
+        ReviewPlanState.Draft => "Being written", ReviewPlanState.Submitted => "Waiting for your approval",
+        ReviewPlanState.Approved => plan.Steps.Any(s => s.State == ReviewStepState.Pick) ? "Waiting for your pick" : plan.Steps.Any(s => s.State == ReviewStepState.Held) ? "A step is held" : "Running",
+        ReviewPlanState.Finished => "Finished", _ => "Stopped"
+    };
+
+    private static string StepLabel(ReviewPlanStep step) => step.State switch
+    {
+        ReviewStepState.Proposed => "Proposed", ReviewStepState.Rejected => "Rejected", ReviewStepState.Waiting => "Approved, waiting", ReviewStepState.Running => "Rendering",
+        ReviewStepState.Pick => "Pick a take", ReviewStepState.Done => "Done", ReviewStepState.Failed => "Failed", ReviewStepState.Held => "Held", _ => "Skipped"
+    };
+
+    private Task RunChecks() => Do(async () => { _findings = []; _soundMeasured = false; await Reload(); });
+
+    private async Task MeasureSound()
+    {
+        if (_snapshot is null || _measuring) return;
+        _measuring = true; _error = null;
+        try
+        {
+            var levels = await Media.AudioLevelsAsync(_snapshot, ct: _lifetime.Token);
+            _findings = [.. _findings.Where(f => f.Check != ReviewMedia.Levels), .. ReviewMedia.LevelFindings(_snapshot, levels)];
+            _levels = levels.Count; _soundMeasured = true;
+        }
+        catch (WorkspaceStoreException e) { _error = e.Message; }
+        catch (OperationCanceledException) when (_disposed) { }
+        finally { _measuring = false; }
+    }
+
+    private void Select(Guid plan) { _planId = plan; _confirmRemove = false; }
+
+    private Task Decide(ReviewPlan plan, ReviewPlanStep step, bool keep) => Do(() => Plans.DecideAsync(Id, plan.Id, step.Id, keep, _lifetime.Token));
+
+    private Task Approve(ReviewPlan plan) => Do(async () =>
+    {
+        await Plans.ApproveAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token);
+        await Runner.AdvanceAsync(Id, plan.Id, _lifetime.Token);
+        Snackbar.Add("Plan approved.", Severity.Success);
+    });
+
+    private Task Pick(ReviewPlan plan, ReviewPlanStep step, Guid take) => Do(() => Runner.PickAsync(Id, plan.Id, step.Id, take, ReviewPlans.Director, _lifetime.Token));
+    private Task AcceptRecommendations(ReviewPlan plan) => Do(() => Runner.AcceptRecommendationsAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token));
+    private Task Stop(ReviewPlan plan) => Do(() => Plans.StopAsync(Id, plan.Id, ReviewPlans.Director, _lifetime.Token));
+
+    private Task Release(ReviewPlan plan, ReviewPlanStep step) => Do(async () =>
+    {
+        await Plans.ReleaseAsync(Id, plan.Id, step.Id, _snapshot?.Row(step.ShotId ?? Guid.Empty)?.Prompt, _lifetime.Token);
+        await Runner.AdvanceAsync(Id, plan.Id, _lifetime.Token);
+    });
+
+    private Task Remove() => Do(async () =>
+    {
+        if (_planId is { } plan) await Plans.Store.RemoveAsync(Id, plan, _lifetime.Token);
+        _confirmRemove = false; _planId = null;
+    });
+
+    private async Task Do(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await action(); await Reload(); }
+        catch (WorkspaceConflictException) { _error = "The project changed while this was saved. Try again."; }
+        catch (WorkspaceStoreException e) { _error = e.Message; }
+        catch (OperationCanceledException) when (_disposed) { }
+        finally { _busy = false; }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true; Plans.Store.Changed -= PlanChanged;
+        _lifetime.Cancel(); _lifetime.Dispose();
+    }
+}
