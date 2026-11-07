@@ -1071,6 +1071,34 @@ public sealed partial class ShotTests
         Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
     }
 
+    [Fact]
+    public async Task AFrameUsesThePlannedTakeWhenTheRenderOfItsShotWasRejected()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var (source, target) = (f.ShotIds[0], f.ShotIds[1]);
+        var earlier = await f.Plans.CreateAsync(f.Project, "Takes", "agent", _ct);
+        var first = await f.Propose(earlier, new(ReviewStepKind.GenerateTakes, source, "Two takes.") { Takes = 2 });
+        await f.Approve(earlier);
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, earlier.Id, _ct)).Step(first.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, earlier.Id, _ct);
+        await f.Runner.PickAsync(f.Project, earlier.Id, first.Id, takes[0], ReviewPlans.Director, _ct);
+
+        // The director turns down a new render of the source and keeps the step that selects its second take.
+        var plan = await f.Plans.CreateAsync(f.Project, "Carry over", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, source, "Another take."));
+        await f.Propose(plan, new(ReviewStepKind.UseTake, source, "The second take.") { TakeId = takes[1] });
+        var frame = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, target, "Carry the end over.") { Frame = new() { FromShotId = source, Position = ReviewFramePosition.Last, Name = "End" } });
+        await f.Plans.DecideAsync(f.Project, plan.Id, render.Id, keep: false, _ct);
+        await f.Approve(plan);
+
+        var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal(ReviewStepState.Done, done.Step(frame.Id)!.State);
+        Assert.Equal(takes[1], Assert.Single((await f.Setup(target)).Shot.ShotFrames).TakeId);
+        // Only the earlier plan rendered; the rejected render never ran.
+        Assert.Single(f.Renders.Captured);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";
