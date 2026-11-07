@@ -1099,6 +1099,29 @@ public sealed partial class ShotTests
         Assert.Single(f.Renders.Captured);
     }
 
+    [Fact]
+    public async Task PicksMadeTogetherAreRefusedTogetherWhenOneTakeIsInTrash()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var plan = await f.Plans.CreateAsync(f.Project, "Renders", "agent", _ct);
+        var one = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Render."));
+        var two = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, second, "Render."));
+        var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Show the picks."));
+        await f.Approve(plan);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var (a, b) = ((await f.Finish(running.Step(one.Id)!, 1))[0], (await f.Finish(running.Step(two.Id)!, 1))[0]);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // The second chosen take goes to Trash before the picks are made.
+        await f.Shots.DiscardAsync(f.Project, b, ShotTrashKind.Take, (await f.Shots.LoadAsync(f.Project, _ct)).Revision, _ct);
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(one.Id, a), (two.Id, b)], ReviewPlans.Director, _ct));
+
+        var after = await f.Plan(plan);
+        Assert.Equal((ReviewStepState.Pick, ReviewStepState.Pick, ReviewStepState.Waiting), (after.Step(one.Id)!.State, after.Step(two.Id)!.State, after.Step(cut.Id)!.State));
+        Assert.All((await f.Shots.LoadAsync(f.Project, _ct)).Shots, s => Assert.Null(s.SelectedTakeId));
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";

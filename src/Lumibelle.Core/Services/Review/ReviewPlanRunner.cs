@@ -116,28 +116,46 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private bool Queued(Guid? job) => job is { } id && renders.State(id) is AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention;
 
     /// <summary>The director's choice among the takes or images a step produced.</summary>
-    public async Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid choice, string who, CancellationToken ct = default)
+    public Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid choice, string who, CancellationToken ct = default) =>
+        PickAllAsync(projectId, planId, [(stepId, choice)], who, ct);
+
+    /// <summary>
+    /// Several picks at once. Every one is checked first, including that its take or image is still there, so a refusal leaves
+    /// every selection as it was; the plan goes on only once all of them are made.
+    /// </summary>
+    public async Task<ReviewPlan> PickAllAsync(Guid projectId, Guid planId, IReadOnlyList<(Guid Step, Guid Choice)> picks, string who, CancellationToken ct = default)
     {
-        // Under the gate, as stopping is: a plan stopped while the pick was on its way gets nothing selected.
+        if (picks.Count == 0) throw new WorkspaceStoreException("Name at least one step and what was chosen for it.");
+        if (picks.Select(p => p.Step).Distinct().Count() != picks.Count) throw new WorkspaceStoreException("Name each step or shot once, with the one take or image chosen for it.");
+        // Under the gate, as stopping is: a plan stopped while the picks were on their way gets nothing selected.
         await _gate.WaitAsync(ct);
         try
         {
-            var step = await PickableAsync(projectId, planId, stepId, ct);
-            if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
-            // Once the pick starts changing the project it runs to the end, even if the caller goes away: a pick half made
+            var takes = (await shots.LoadAsync(projectId, ct)).Takes; var library = await assets.LoadAsync(projectId, ct);
+            var steps = new List<(ReviewPlanStep Step, Guid Choice)>();
+            foreach (var (stepId, choice) in picks)
+            {
+                var step = await PickableAsync(projectId, planId, stepId, ct);
+                if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
+                var there = step.Kind == ReviewStepKind.EditImage ? library.Assets.Any(a => a.Id == step.AssetId && a.Images.Any(i => i.Id == choice)) : takes.Any(t => t.Id == choice && t.ShotId == step.ShotId);
+                if (!there) throw new WorkspaceStoreException("A chosen take or image is no longer in the project. It may be in Trash. Nothing was picked.");
+                steps.Add((step, choice));
+            }
+            // Once the picks start changing the project they run to the end, even if the caller goes away: a pick half made
             // would keep the image or select the take while the step still offered the others.
             var commit = CancellationToken.None;
-            if (step.Kind == ReviewStepKind.EditImage)
-            {
-                await KeepImageAsync(projectId, step.AssetId!.Value, choice, commit);
-                await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
-                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: commit);
-            }
-            else
-            {
-                await SelectAsync(projectId, step.ShotId!.Value, choice, commit);
-                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: commit);
-            }
+            foreach (var (step, choice) in steps)
+                if (step.Kind == ReviewStepKind.EditImage)
+                {
+                    await KeepImageAsync(projectId, step.AssetId!.Value, choice, commit);
+                    await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
+                    await store.UpdateAsync(projectId, planId, p => Picked(p, step.Id, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: commit);
+                }
+                else
+                {
+                    await SelectAsync(projectId, step.ShotId!.Value, choice, commit);
+                    await store.UpdateAsync(projectId, planId, p => Picked(p, step.Id, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: commit);
+                }
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
@@ -204,8 +222,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         if (shown.Count == 0) throw new WorkspaceStoreException("No step is waiting with a recommended take.");
         var ready = shown.Select(pair => plan.Step(pair.Key) is { State: ReviewStepState.Pick } step && step.RecommendedTakeId == pair.Value ? step
             : throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.")).ToArray();
-        foreach (var step in ready) plan = await PickAsync(projectId, planId, step.Id, step.RecommendedTakeId!.Value, who, ct);
-        return plan;
+        return await PickAllAsync(projectId, planId, ready.Select(s => (s.Id, s.RecommendedTakeId!.Value)).ToArray(), who, ct);
     }
 
     // A queued render that finished becomes a pick; one that was cancelled or lost fails its step.

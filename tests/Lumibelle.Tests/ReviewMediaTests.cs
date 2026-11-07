@@ -52,7 +52,8 @@ public sealed class ReviewMediaTests : IDisposable
     {
         Directory.CreateDirectory(_directory);
         string stand;
-        // Windows starts a .cmd named as the program through cmd.exe, also without the shell, as .NET's Process does.
+        // With UseShellExecute false, CreateProcess still starts a .cmd named as the program by running it through cmd.exe.
+        // This is the implicit behaviour behind the 2024 "BatBadBut" advisories; this test passes on Windows because of it.
         if (OperatingSystem.IsWindows())
         {
             stand = Path.Combine(_directory, "stalled-ffmpeg.cmd");

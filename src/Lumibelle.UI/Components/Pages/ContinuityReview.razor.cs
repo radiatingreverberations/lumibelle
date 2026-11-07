@@ -147,15 +147,18 @@ public partial class ContinuityReview
 
     private async Task MeasureSound()
     {
-        if (_snapshot is null || _measuring) return;
+        if (_snapshot is not { } measured || _measuring) return;
         _measuring = true; _error = null;
+        // Measured against this project as it was loaded; a result that arrives after another project was opened is dropped.
+        var id = Id;
         try
         {
-            var levels = await Media.AudioLevelsAsync(_snapshot, ct: _lifetime.Token);
-            _findings = [.. _findings.Where(f => f.Check != ReviewMedia.Levels), .. ReviewMedia.LevelFindings(_snapshot, levels)];
+            var levels = await Media.AudioLevelsAsync(measured, ct: _lifetime.Token);
+            if (id != Id) return;
+            _findings = [.. _findings.Where(f => f.Check != ReviewMedia.Levels), .. ReviewMedia.LevelFindings(measured, levels)];
             _levels = levels.Count; _soundMeasured = true;
         }
-        catch (WorkspaceStoreException e) { _error = e.Message; }
+        catch (WorkspaceStoreException e) { if (id == Id) _error = e.Message; }
         catch (OperationCanceledException) when (_disposed) { }
         finally { _measuring = false; }
     }

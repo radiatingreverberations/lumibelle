@@ -291,9 +291,9 @@ public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans
             if (step is not { State: ReviewStepState.Pick }) throw new WorkspaceStoreException("That step or shot has nothing waiting for a pick in this plan.");
             return step.Produced.Contains(take) ? (Step: step.Id, Take: take) : throw new WorkspaceStoreException("That is not one of the takes or images this step produced.");
         }).ToArray();
-        // One choice per step: a second for the same step would fail only after the first had been applied.
-        if (chosen.Select(c => c.Step).Distinct().Count() != chosen.Length) throw new WorkspaceStoreException("Name each step or shot once, with the one take or image chosen for it.");
-        foreach (var (step, take) in chosen) current = await runner.PickAsync(snapshot.ProjectId, id, step, take, ReviewPlanTools.Client(http.HttpContext), ct);
+        // All of them are checked again, together, before any is made: one step named twice, or a take moved to Trash meanwhile,
+        // leaves every selection as it was.
+        current = await runner.PickAllAsync(snapshot.ProjectId, id, chosen, ReviewPlanTools.Client(http.HttpContext), ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), current, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
     });
 }
