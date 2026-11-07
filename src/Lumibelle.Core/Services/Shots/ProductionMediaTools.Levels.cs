@@ -22,8 +22,9 @@ public sealed record AudioLevels(double? MeanDb, double? PeakDb, IReadOnlyList<(
         var silences = new List<(double, double)>(); double? open = null;
         foreach (var line in log.Split('\n'))
         {
-            if (Value(line, @"silence_start:\s*(-?[0-9.]+)") is { } start) open = Math.Max(0, start);
-            else if (Value(line, @"silence_end:\s*(-?[0-9.]+)") is { } end && open is { } from) { silences.Add((from, end)); open = null; }
+            // FFmpeg prints a timestamp near zero in scientific notation, such as 2.08333e-05, so the exponent is part of the number.
+            if (Value(line, @"silence_start:\s*(-?[0-9.]+(?:[eE][-+]?[0-9]+)?)") is { } start) open = Math.Max(0, start);
+            else if (Value(line, @"silence_end:\s*(-?[0-9.]+(?:[eE][-+]?[0-9]+)?)") is { } end && open is { } from) { silences.Add((from, end)); open = null; }
         }
         // Silence that runs to the end of the file is opened and never closed.
         if (open is { } tail && seconds > tail) silences.Add((tail, seconds));
@@ -34,13 +35,16 @@ public sealed record AudioLevels(double? MeanDb, double? PeakDb, IReadOnlyList<(
 
 public sealed partial class ProductionMediaTools
 {
-    public async Task<AudioLevels> AudioLevelsAsync(string path, double seconds, H3Settings settings, CancellationToken ct)
+    public Task<AudioLevels> AudioLevelsAsync(string path, double seconds, H3Settings settings, CancellationToken ct) => AudioLevelsAsync(path, seconds, settings, TimeSpan.FromMinutes(2), ct);
+
+    /// <summary>Measures with a time limit. Running past it is a measurement error, not a cancellation of the caller's work.</summary>
+    internal async Task<AudioLevels> AudioLevelsAsync(string path, double seconds, H3Settings settings, TimeSpan limit, CancellationToken ct)
     {
         var info = new ProcessStartInfo(settings.Ffmpeg) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "-hide_banner", "-nostats", "-nostdin", "-i", path, "-map", "0:a:0", "-vn",
             "-af", $"volumedetect,silencedetect=noise={AudioLevels.SilenceDb}dB:d={AudioLevels.SilenceSeconds.ToString(CultureInfo.InvariantCulture)}", "-f", "null", "-" }) info.ArgumentList.Add(arg);
         using var process = new Process { StartInfo = info };
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromMinutes(2));
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(limit);
         try
         {
             process.Start();
@@ -50,6 +54,10 @@ public sealed partial class ProductionMediaTools
             return AudioLevels.Parse(log, seconds);
         }
         catch (System.ComponentModel.Win32Exception e) { throw new WorkspaceStoreException("FFmpeg could not be started. Set its executable path in AI settings → Video models.", e); }
+        catch (OperationCanceledException e) when (!ct.IsCancellationRequested)
+        {
+            throw new WorkspaceStoreException($"Measuring the soundtrack took longer than {limit.TotalSeconds:0} seconds, so FFmpeg was stopped. Check the file and the FFmpeg setup in Video models.", e);
+        }
         finally { try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
     }
 }

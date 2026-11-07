@@ -15,12 +15,12 @@ public sealed partial class AiJobCoordinatorTests
         var running = await Store.EnqueueAsync(Request(AiBackend.Codex, AiJobKind.AssetExtraction), _ct);
         var finished = await Store.EnqueueAsync(Request(AiBackend.Codex), _ct);
         var other = await Store.EnqueueAsync(Request(AiBackend.OpenRouter), _ct);
+        foreach (var id in new[] { waiting.Id, running.Id, finished.Id }) await RetiredClaudeCodeJobs.RewriteAsync(Store, id, _ct);
         var file = JsonNode.Parse(await File.ReadAllTextAsync(Index, _ct))!;
         foreach (var job in file["jobs"]!.AsArray())
         {
             var id = Guid.Parse(job!["id"]!.GetValue<string>());
             if (id == other.Id) continue;
-            job["backend"] = "ClaudeCode";
             if (id == running.Id) { job["state"] = "Running"; job["leaseId"] = Guid.NewGuid().ToString(); job["startedUtc"] = DateTimeOffset.UtcNow.ToString("O"); }
             if (id == finished.Id) { job["state"] = "Completed"; job["finishedUtc"] = DateTimeOffset.UtcNow.ToString("O"); }
         }
@@ -31,10 +31,11 @@ public sealed partial class AiJobCoordinatorTests
 
         var handler = new FakeHandler(); var queue = await Start(handler);
         var only = await handler.Next(_ct); Assert.Equal(other.Id, only.Context.Job.Id);
+        // The waiting one is retired at once; the running one goes to recovery, which finds no saved response and says the same.
         foreach (var id in new[] { waiting.Id, running.Id })
         {
             var job = await State(id, j => j.State == AiJobState.NeedsAttention);
-            Assert.Equal(AiJobRecovery.None, job.Recovery); Assert.Equal(TextModelPolicy.RetiredRequest, job.Error);
+            Assert.Equal(TextModelPolicy.RetiredRequest, job.Error); Assert.Equal(AiJobRecovery.None, job.Recovery);
             Assert.True(job.Unread); Assert.True(job.CanClearActivity); Assert.False(job.LocksTarget); Assert.False(job.HoldsProvider);
             await Assert.ThrowsAsync<WorkspaceStoreException>(() => queue.ResumeAsync(id, _ct));
         }

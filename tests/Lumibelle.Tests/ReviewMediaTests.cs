@@ -46,6 +46,30 @@ public sealed class ReviewMediaTests : IDisposable
         Assert.True((await _media.VideoInfoAsync(file, _settings, Ct)).HasAudio);
     }
 
+    // Needs no FFmpeg: a stand-in that never finishes.
+    [Fact]
+    public async Task AMeasurementThatRunsTooLongIsAnErrorTheReviewCanShow()
+    {
+        Directory.CreateDirectory(_directory);
+        string stand;
+        if (OperatingSystem.IsWindows())
+        {
+            stand = Path.Combine(_directory, "stalled-ffmpeg.cmd");
+            await File.WriteAllTextAsync(stand, "@ping -n 30 127.0.0.1 >nul\r\n", Ct);
+        }
+        else
+        {
+            stand = Path.Combine(_directory, "stalled-ffmpeg");
+            await File.WriteAllTextAsync(stand, "#!/bin/sh\nsleep 30\n", Ct);
+            File.SetUnixFileMode(stand, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        var e = await Assert.ThrowsAsync<lumibelle.Services.Story.WorkspaceStoreException>(() =>
+            _media.AudioLevelsAsync(Path.Combine(_directory, "take.mp4"), 3, new H3Settings { Ffmpeg = stand }, TimeSpan.FromSeconds(1), Ct));
+
+        Assert.Contains("took longer than 1 seconds", e.Message);
+    }
+
     private async Task<string> Fixture(string name, params string[] audio)
     {
         Directory.CreateDirectory(_directory);

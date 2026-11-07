@@ -349,6 +349,16 @@ public sealed class ReviewChecksTests
     }
 
     [Fact]
+    public void ReadsSilenceTimestampsWrittenInScientificNotation()
+    {
+        var levels = AudioLevels.Parse("[silencedetect @ 000001] silence_start: 2.08333e-05\n[silencedetect @ 000001] silence_end: 5 | silence_duration: 4.99998\n", 5);
+
+        var silence = Assert.Single(levels.Silences);
+        Assert.InRange(silence.Start, 0, .001);
+        Assert.Equal(5, silence.End);
+    }
+
+    [Fact]
     public void ReportsTakesThatStandOutByEar()
     {
         var f = new Fixture();

@@ -231,10 +231,11 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         finally { _commands.Release(); }
     }
     // Requests an earlier build queued for the removed Claude Code provider can never run. Say so once, instead of
-    // leaving them waiting or handing an interrupted one to a recovery that has no provider to ask.
+    // leaving them waiting. One that was running may have saved its whole response before the restart: it goes to
+    // recovery like any other, which publishes that response without asking a provider, or says the request is retired.
     private async Task<AiQueueDocument> RetireRemovedProviderAsync(AiQueueDocument document, CancellationToken ct)
     {
-        static bool Stranded(AiJobHeader job) => TextModelPolicy.Retired(job.Backend) && job.State is AiJobState.Waiting or AiJobState.Running;
+        static bool Stranded(AiJobHeader job) => TextModelPolicy.Retired(job.Backend) && (job.State == AiJobState.Waiting || job.State == AiJobState.Running && job.CancelRequested);
         var paused = document.Paused.Where(TextModelPolicy.Retired).ToArray();
         var stranded = document.Jobs.Where(Stranded).ToArray();
         if (paused.Length == 0 && stranded.Length == 0) return document;

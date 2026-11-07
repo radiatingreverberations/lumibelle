@@ -277,6 +277,29 @@ public sealed partial class AiTextJobTests : IDisposable
         Assert.NotEmpty((await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct))!.Read<AssistantUpdate>()!.Blocks!);
     }
     [Fact]
+    public async Task ARequestRunOnTheRemovedClaudeCodePublishesTheResponseItSavedWithoutAnyProvider()
+    {
+        // An earlier build ran these on Claude Code; only the captured model in the snapshot says so now.
+        async Task<AiJobContext> Retire(AiJobContext job) { await RetiredClaudeCodeJobs.RewriteAsync(Store, job.Job.Id, _ct); return Context((await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == job.Job.Id), false); }
+        var request = await Request(AiJobKind.ScriptAssistant); var context = await Claim(request);
+        await context.SaveOperationAsync("text", AiOperationArtifact.Output, new AiTextJobResult(Response(AiJobKind.ScriptAssistant), true, "stop"), _ct);
+        _providers.OnCheck = () => throw new InvalidOperationException("No provider for a retired request");
+
+        var published = await Handler().RecoverAsync(await Recover(await Retire(context)), await Store.ReadSnapshotAsync(request.Id, _ct), _ct);
+
+        Assert.Equal(AiJobState.Completed, published.State); Assert.Equal(0, _providers.Created);
+        Assert.NotEmpty((await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct))!.Read<AssistantUpdate>()!.Blocks!);
+    }
+    [Fact]
+    public async Task ARequestRunOnTheRemovedClaudeCodeWithNoSavedResponseSaysItIsRetired()
+    {
+        async Task<AiJobContext> Retire(AiJobContext job) { await RetiredClaudeCodeJobs.RewriteAsync(Store, job.Job.Id, _ct); return Context((await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == job.Job.Id), false); }
+        var unsaved = await Request(AiJobKind.ScriptAssistant); var interrupted = await Claim(unsaved);
+        var retired = await Handler().RecoverAsync(await Recover(await Retire(interrupted)), await Store.ReadSnapshotAsync(unsaved.Id, _ct), _ct);
+        Assert.Equal((AiJobState.NeedsAttention, AiJobRecovery.None, TextModelPolicy.RetiredRequest), (retired.State, retired.Recovery, retired.Error));
+        Assert.Equal(0, _providers.Created);
+    }
+    [Fact]
     public async Task LocalTextUsesDurableSubmissionWithCapturedSeedAndNeverTheMutableDefault()
     {
         _settings.Value = _settings.Value with { DefaultBackend = AiBackend.ComfyUI, ComfyModel = "local/model", ComfyUrl = "http://original.test:8188" };

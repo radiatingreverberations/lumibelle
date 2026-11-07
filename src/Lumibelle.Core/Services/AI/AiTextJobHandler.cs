@@ -117,6 +117,11 @@ public sealed partial class AiTextJobHandler(IAiProviderRegistry providers, IHtt
                 await ApplyReel(context, request, complete, ct);
             return Outcome(complete, request.Kind);
         }
+        // Claude Code was removed. A response an earlier build saved in full is still published, which needs no provider;
+        // without one there is nothing to recover.
+        if (TextModelPolicy.Retired(request.Model.Backend))
+            return await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, ct) is { Complete: true } retired
+                ? await FinishAsync(context, request, retired, ct, allowInference: false) : AiJobOutcome.Attention(TextModelPolicy.RetiredRequest, AiJobRecovery.None);
         if (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.Vllm)
         {
             var saved = await context.ReadOperationAsync<AiTextJobResult>(Operation, AiOperationArtifact.Output, ct);

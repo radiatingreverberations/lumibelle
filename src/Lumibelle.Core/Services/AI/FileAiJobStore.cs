@@ -54,7 +54,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
         var key = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(operation)));
         return Path.Combine(DirectoryFor(id), "operations", key, artifact.ToString().ToLowerInvariant() + ".json");
     }
-    private static string Fingerprint(AiJobSubmission request) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, AtomicJsonFile.Options)));
+    internal static string Fingerprint(AiJobSubmission request) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, AtomicJsonFile.Options)));
     private string ArtifactPath(Guid id, AiJobArtifact artifact) => Enum.IsDefined(artifact)
         ? Path.Combine(DirectoryFor(id), artifact.ToString().ToLowerInvariant() + ".json") : throw new WorkspaceStoreException("Unknown AI job artifact.");
     public async Task ResetProductionAsync(Guid project, CancellationToken ct = default)
