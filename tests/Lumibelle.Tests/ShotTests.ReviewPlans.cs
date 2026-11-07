@@ -880,6 +880,52 @@ public sealed partial class ShotTests
         Assert.Equal((ReviewStepState.Done, (Guid?)made[0]), (done.Step(edit.Id)!.State, done.Step(edit.Id)!.NewImageId));
     }
 
+    [Fact]
+    public async Task APickWhoseCallerGoesAwayMidwayIsStillRecorded()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night.", Takes = 2 });
+        var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Use it.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // The caller disconnects right after the other candidate goes to Trash.
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(_ct);
+        f.Assets.Discarded = () => { f.Assets.Discarded = null; caller.Cancel(); };
+
+        try { await f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, caller.Token); }
+        catch (OperationCanceledException) { }
+
+        Assert.Equal((ReviewStepState.Done, (Guid?)made[0]), ((await f.Plan(plan)).Step(edit.Id)!.State, (await f.Plan(plan)).Step(edit.Id)!.NewImageId));
+        var resumed = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal(ReviewStepState.Done, resumed.Step(replace.Id)!.State);
+        Assert.Equal(made[0], Assert.Single((await f.Setup(shot)).Shot.Images).MediaId);
+    }
+
+    [Fact]
+    public async Task APromptReviewWaitsForThePictureItsShotIsGetting()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var review = await f.Propose(plan, new(ReviewStepKind.MarkPromptReviewed, shot, "Reads well with the new picture."));
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night." });
+        var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Use it.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
+        await f.Approve(plan);
+
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal(ReviewStepState.Waiting, running.Step(review.Id)!.State);
+        var made = f.FinishEdit(running.Step(edit.Id)!, 1);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var done = await f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, _ct);
+
+        Assert.Equal((ReviewStepState.Done, ReviewStepState.Done), (done.Step(replace.Id)!.State, done.Step(review.Id)!.State));
+        var snapshot = await f.Review.LoadAsync(f.Project, _ct);
+        Assert.Equal(PromptReferenceState.Current, ProjectReview.PromptCheck(snapshot, snapshot.Row(shot)!).State);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";

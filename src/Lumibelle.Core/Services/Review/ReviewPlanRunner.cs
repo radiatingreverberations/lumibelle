@@ -124,16 +124,19 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         {
             var step = await PickableAsync(projectId, planId, stepId, ct);
             if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
+            // Once the pick starts changing the project it runs to the end, even if the caller goes away: a pick half made
+            // would keep the image or select the take while the step still offered the others.
+            var commit = CancellationToken.None;
             if (step.Kind == ReviewStepKind.EditImage)
             {
-                await KeepImageAsync(projectId, step.AssetId!.Value, choice, ct);
-                await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), ct);
-                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: ct);
+                await KeepImageAsync(projectId, step.AssetId!.Value, choice, commit);
+                await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
+                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: commit);
             }
             else
             {
-                await SelectAsync(projectId, step.ShotId!.Value, choice, ct);
-                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: ct);
+                await SelectAsync(projectId, step.ShotId!.Value, choice, commit);
+                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: commit);
             }
         }
         finally { _gate.Release(); }
@@ -147,9 +150,10 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             var step = await PickableAsync(projectId, planId, stepId, ct);
-            if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, ct);
+            // As with a pick, the candidates are not moved to Trash without the step saying so.
+            if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, CancellationToken.None);
             var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
-            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow() }, who, message), ct: ct);
+            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow() }, who, message), ct: CancellationToken.None);
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
@@ -263,6 +267,12 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             Render(plan, from) is { State: not ReviewStepState.Done } render) return render;
         // A picture from an edit needs that edit picked.
         if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
+        // Accepting a prompt records the references it was read against, so it waits for the plan's changes to the shot's
+        // pictures, frames and voices; were it to run first, the change would undo the acceptance. A change that did not run
+        // leaves the references as they were, and the prompt step then runs against those.
+        if (step.Kind is ReviewStepKind.SetPrompt or ReviewStepKind.MarkPromptReviewed)
+            return plan.Steps.FirstOrDefault(s => s.Id != step.Id && s.ShotId == step.ShotId && s.Open && s.Kind is ReviewStepKind.SetVoice or ReviewStepKind.AddShotFrame
+                or ReviewStepKind.RemoveShotFrame or ReviewStepKind.ReplacePicture or ReviewStepKind.RemovePicture);
         // A render follows every change the plan makes to its shot, wherever in the plan the change was proposed.
         if (step.Kind == ReviewStepKind.GenerateTakes)
             return plan.Steps.Where(s => s.Id != step.Id && s.ShotId == step.ShotId && s.Kind is not (ReviewStepKind.UseTake or ReviewStepKind.GenerateTakes)).FirstOrDefault(s => s.Open || Stops(s));
