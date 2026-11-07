@@ -475,7 +475,10 @@ public interface IReviewRenderQueue
     Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct);
     Task EnqueueAsync(AiJobSubmission request, CancellationToken ct);
     Task CancelAsync(Guid jobId, CancellationToken ct);
-    /// <summary>The request's state, or null when the queue no longer lists it.</summary>
+    /// <summary>
+    /// The request's state, or null when the queue no longer lists it. Until the queue has been read after a restart, every
+    /// request counts as waiting: an unread queue lists nothing, which must not be taken for a lost request.
+    /// </summary>
     AiJobState? State(Guid jobId);
 }
 
@@ -490,7 +493,7 @@ public sealed class ReviewRenderQueue(AiVideoJobCapture capture, AiImageJobCaptu
         images.EditAsync(id, Origin, assetId, request, references, ct);
     public async Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) => await jobs.EnqueueAsync(request, ct);
     public Task CancelAsync(Guid jobId, CancellationToken ct) => jobs.CancelAsync(jobId, ct);
-    public AiJobState? State(Guid jobId) => jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId)?.State;
+    public AiJobState? State(Guid jobId) => jobs.Loaded ? jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId)?.State : AiJobState.Waiting;
 }
 
 /// <summary>Keeps approved plans moving as renders finish, and picks them up again after a restart.</summary>

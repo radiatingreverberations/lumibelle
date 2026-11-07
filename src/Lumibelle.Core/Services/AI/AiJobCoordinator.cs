@@ -21,6 +21,9 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
     private int _ownsExecution;
     private string? _errorSource;
     public AiQueueDocument View => Volatile.Read(ref _view);
+    private int _loaded;
+    /// <summary>Whether <see cref="View"/> has been read from the queue since startup. Before that it is empty, which says nothing about what is queued.</summary>
+    public bool Loaded => Volatile.Read(ref _loaded) == 1;
     public string? Error { get; private set; }
     public event Action? Changed;
     public AiJobProgress? Progress(Guid id) => _progress.GetValueOrDefault(id);
@@ -469,8 +472,9 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
             var previous = View;
             // Slow observers must not restore a queued/running lock after another
             // refresh has already observed completion or cancellation.
-            if (view.Revision <= previous.Revision) return;
-            if (ReferenceEquals(Interlocked.CompareExchange(ref _view, view, previous), previous)) { Notify(); return; }
+            if (view.Revision <= previous.Revision) { Volatile.Write(ref _loaded, 1); return; }
+            // Marked loaded before observers are told, so the first one woken already reads a view it can trust.
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _view, view, previous), previous)) { Volatile.Write(ref _loaded, 1); Notify(); return; }
         }
     }
     private void OnProgress(Guid id, AiJobProgress progress) { _progress[id] = progress; Notify(); }
