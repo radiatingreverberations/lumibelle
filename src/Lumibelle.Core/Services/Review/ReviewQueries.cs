@@ -212,6 +212,8 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             id = s.Id, does = ReviewPlans.Describe(snapshot, s), kind = s.Kind.ToString(), shot = s.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null,
             state = s.State.ToString(), reason = s.Reason, message = s.Message, findings = s.FindingIds.Count == 0 ? null : s.FindingIds,
             promptBefore = full ? s.Before : null, promptAfter = full ? s.After : null,
+            // UseTake: the existing take the step selects, so a plan can be read in full before it is approved.
+            takeToUse = s.Kind == ReviewStepKind.UseTake ? s.TakeId : null,
             job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick && s.Kind != ReviewStepKind.EditImage ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.GenerateTakes ? s.TakeId : null,
             asset = s.AssetId, image = s.ImageId, fromStep = s.FromStepId,
             imagesToPickFrom = s.State == ReviewStepState.Pick && s.Kind == ReviewStepKind.EditImage ? s.ProducedImageIds : null, pickedImage = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.EditImage ? s.NewImageId : null,

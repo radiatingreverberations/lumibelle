@@ -291,6 +291,20 @@ public sealed partial class AiTextJobTests : IDisposable
         Assert.NotEmpty((await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct))!.Read<AssistantUpdate>()!.Blocks!);
     }
     [Fact]
+    public async Task ASavedClaudeCodeResponseWithoutAStopMarkerIsNotPublishedAsFinished()
+    {
+        async Task<AiJobContext> Retire(AiJobContext job) { await RetiredClaudeCodeJobs.RewriteAsync(Store, job.Job.Id, _ct); return Context((await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == job.Job.Id), false); }
+        var request = await Request(AiJobKind.ScriptAssistant); var context = await Claim(request);
+        // Valid JSON, saved as complete, but the stream never said it stopped.
+        await context.SaveOperationAsync("text", AiOperationArtifact.Output, new AiTextJobResult(Response(AiJobKind.ScriptAssistant), true, null), _ct);
+
+        var outcome = await Handler().RecoverAsync(await Recover(await Retire(context)), await Store.ReadSnapshotAsync(request.Id, _ct), _ct);
+
+        Assert.NotEqual(AiJobState.Completed, outcome.State);
+        Assert.Contains("did not finish normally", (await Store.ReadArtifactAsync<AiTextJobResult>(request.Id, AiJobArtifact.Result, _ct))!.Error);
+        Assert.Equal(0, _providers.Created);
+    }
+    [Fact]
     public async Task ARequestRunOnTheRemovedClaudeCodeWithNoSavedResponseSaysItIsRetired()
     {
         async Task<AiJobContext> Retire(AiJobContext job) { await RetiredClaudeCodeJobs.RewriteAsync(Store, job.Job.Id, _ct); return Context((await Store.ReadAsync(_ct)).Jobs.Single(j => j.Id == job.Job.Id), false); }

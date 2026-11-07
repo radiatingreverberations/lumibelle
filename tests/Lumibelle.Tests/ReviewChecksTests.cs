@@ -275,6 +275,21 @@ public sealed class ReviewChecksTests
         Assert.Equal("1 of this shot's 2 clips in the cut uses another take than the one selected.", finding.Message);
     }
 
+    [Fact]
+    public void APlanReadNamesTheTakeAUseTakeStepSelects()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A"); f.Take(a, select: true); var other = f.Take(a);
+        var step = new ReviewPlanStep { Kind = ReviewStepKind.UseTake, ShotId = a.Id, TakeId = other.Id, State = ReviewStepState.Proposed, Reason = "The other take holds the look." };
+        var plan = new ReviewPlan { Title = "Swap", Steps = [step] };
+
+        var whole = System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan));
+        var single = System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, step.Id));
+
+        Assert.Equal(other.Id, whole.GetProperty("steps")[0].GetProperty("takeToUse").GetGuid());
+        Assert.Equal(other.Id, single.GetProperty("takeToUse").GetGuid());
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]
