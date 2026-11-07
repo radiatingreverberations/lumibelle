@@ -223,6 +223,8 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             } : null,
             job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick && s.Kind != ReviewStepKind.EditImage ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.GenerateTakes ? s.TakeId : null,
             asset = s.AssetId, image = s.ImageId, fromStep = s.FromStepId,
+            // SetVoice: the character and the recording by id, since two recordings can share a name; "none" turns the voice off.
+            character = s.CharacterAssetId, voice = s.Kind != ReviewStepKind.SetVoice ? null : s.VoiceId is { } recording ? recording.ToString() : "none",
             // ReplacePicture: the picture selected instead, by id, since two images of an asset can share a name.
             newAsset = s.NewAssetId, newImage = s.NewImageId,
             // EditImage: the further reference images, in the order the model receives them after the source.

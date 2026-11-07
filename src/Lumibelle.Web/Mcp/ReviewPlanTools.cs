@@ -81,7 +81,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         - SetPrompt: shot, and either edits (exact text to replace, each occurring once) or prompt (the whole new prompt). The prompt is marked reviewed when the step runs.
         - MarkPromptReviewed: shot. For a prompt that still fits after its references changed.
         - SetVoice: shot, character (asset id), and voice (a recording's id from list_assets); leave voice out for None.
-        - AddShotFrame: shot, frame_name, and either take with frame (counted from 1) or frame_position, or from_shot with frame_position (first or last) to use the take the director will pick for that shot in this plan.
+        - AddShotFrame: shot, frame_name, and either take with frame (counted from 1) or frame_position, or from_shot with frame_position (first or last) to use the take the director will pick for that shot in this plan, or the take a UseTake step of this plan selects for it.
         - RemoveShotFrame: shot, take and frame (counted from 1) as get_shot lists them.
         - ReplacePicture: shot, asset and image selected now, and either new_asset and new_image to select instead, or from_step with the id of an EditImage step in this plan to use the image the director picks from it. The picture keeps its number in the prompt.
         - RemovePicture: shot, asset and image. Later pictures are renumbered, so propose the prompt change too.

@@ -1026,6 +1026,31 @@ public sealed partial class ShotTests
         Assert.Equal(made[0], Assert.Single((await f.Setup(shot)).Shot.Images).MediaId);
     }
 
+    [Fact]
+    public async Task AFrameCanComeFromATakeThePlanSelectsForAShotWithNoneSelected()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var (source, target) = (f.ShotIds[0], f.ShotIds[1]);
+        var earlier = await f.Plans.CreateAsync(f.Project, "Takes", "agent", _ct);
+        var render = await f.Propose(earlier, new(ReviewStepKind.GenerateTakes, source, "Two takes.") { Takes = 2 });
+        await f.Approve(earlier);
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, earlier.Id, _ct)).Step(render.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, earlier.Id, _ct);
+        // None of the source's takes is picked: it has takes but no selection.
+        await f.Runner.RejectPickAsync(f.Project, earlier.Id, render.Id, ReviewPlans.Director, _ct);
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single(s => s.Id == source).SelectedTakeId);
+
+        var plan = await f.Plans.CreateAsync(f.Project, "Carry over", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.UseTake, source, "The second take.") { TakeId = takes[1] });
+        var frame = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, target, "Carry the end over.") { Frame = new() { FromShotId = source, Position = ReviewFramePosition.Last, Name = "End" } });
+        await f.Approve(plan);
+
+        var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal(ReviewStepState.Done, done.Step(frame.Id)!.State);
+        Assert.Equal(takes[1], Assert.Single((await f.Setup(target)).Shot.ShotFrames).TakeId);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";

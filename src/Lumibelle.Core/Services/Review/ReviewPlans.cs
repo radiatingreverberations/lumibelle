@@ -311,8 +311,10 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
                     var from = snapshot.Row(source.FromShotId!.Value) ?? throw new WorkspaceStoreException("The shot supplying the frame is not in this project.");
                     if (from.Id == row.Id) throw new WorkspaceStoreException("A shot cannot take a frame from its own next pick.");
                     if (source.Position == ReviewFramePosition.Index) throw new WorkspaceStoreException("A frame from a take that does not exist yet is named by position: the first or the last frame.");
-                    if (!plan.Steps.Any(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from.Id && s.State != ReviewStepState.Rejected) && from.SelectedTake is null)
-                        throw new WorkspaceStoreException($"Shot #{from.Number} has no selected take and this plan does not render it. Propose its render first.");
+                    // The frame comes from the take this plan renders or selects for that shot, or else from its selected take.
+                    if (!plan.Steps.Any(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from.Id && s.State != ReviewStepState.Rejected) &&
+                        ReviewPlanRunner.Chosen(plan, from.Id) is null && from.SelectedTake is null)
+                        throw new WorkspaceStoreException($"Shot #{from.Number} has no selected take, and this plan neither renders it nor selects one of its takes. Propose its render or the take to use first.");
                 }
                 var name = string.IsNullOrWhiteSpace(source.Name) ? "Shot frame" : source.Name.Trim();
                 if (name.Length > 200) throw new WorkspaceStoreException("Keep the frame's name under 200 characters.");

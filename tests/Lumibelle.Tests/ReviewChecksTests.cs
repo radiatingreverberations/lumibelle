@@ -339,6 +339,45 @@ public sealed class ReviewChecksTests
             Assert.Equal((f.Vera.Id, twin.Id), (read.GetProperty("newAsset").GetGuid(), read.GetProperty("newImage").GetGuid()));
     }
 
+    [Fact]
+    public void FollowsAPictureThroughAReelGeneratedWithItIntoTakesAndTheirFrames()
+    {
+        var f = new Fixture(); var image = f.Room.Images[0];
+        // A reel generated from a shot that used the picture.
+        var generated = new Shot { Title = "Reel", Images = [new() { AssetId = f.Room.Id, MediaId = image.Id, Name = "Room" }] };
+        var media = new ReferenceVideoMedia(Guid.NewGuid(), "sha", 3, 64, 64, 48, 24, 2, false);
+        var snapshot = new VideoSnapshot(f.Assets.ProjectId, 1, generated, "prompt", "fingerprint", "http://localhost:8188", new(), 64, 64, 48);
+        f.Assets.Reels.Add(new() { AssetId = f.Room.Id, Name = "Room walk", Media = media, Generation = new(null!, Guid.NewGuid(), Guid.NewGuid(), 1, 1, snapshot) });
+        // A shot renders with the reel, and another takes a frame from that take.
+        var a = f.Shot("A"); f.Setup(a).Shot.Videos = [new() { Media = media, Name = "Room walk" }]; var aTake = f.Take(a, select: true);
+        var b = f.Shot("B"); f.Setup(b).Shot.ShotFrames = [new(Guid.NewGuid(), aTake.Id, 38, "A end")]; var bTake = f.Take(b, select: true);
+
+        var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
+
+        Assert.Single(uses, u => u.Kind == "Reel");
+        Assert.Equal(a.Id, Assert.Single(uses, u => u.Kind == "Shot").ShotId);
+        Assert.Equal([aTake.Id, bTake.Id], uses.Where(u => u.Kind == "Selected take").Select(u => u.TakeId!.Value));
+        Assert.Contains("Room walk", uses.Single(u => u.TakeId == aTake.Id).Detail);
+    }
+
+    [Fact]
+    public void APlanReadNamesTheVoiceRecordingById()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A");
+        // Two recordings with the same name: only the ids tell them apart.
+        var twin = new VoiceReference { AssetId = f.Vera.Id, Name = f.Voice.Name };
+        f.Assets.Voices.Add(twin);
+        var set = new ReviewPlanStep { Kind = ReviewStepKind.SetVoice, ShotId = a.Id, CharacterAssetId = f.Vera.Id, VoiceId = twin.Id, State = ReviewStepState.Proposed, Reason = "The other take of the line." };
+        var none = set with { Id = Guid.NewGuid(), VoiceId = null, Reason = "No voice." };
+        var plan = new ReviewPlan { Title = "Voices", Steps = [set, none] };
+
+        foreach (var read in new[] { System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan)).GetProperty("steps")[0],
+            System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, set.Id)) })
+            Assert.Equal((f.Vera.Id, twin.Id.ToString()), (read.GetProperty("character").GetGuid(), read.GetProperty("voice").GetString()));
+        Assert.Equal("none", System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, none.Id)).GetProperty("voice").GetString());
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]
