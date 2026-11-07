@@ -99,13 +99,15 @@ jobs:
   # request. It is separate from the review so that, after resolving a thread to dismiss a
   # finding, "Re-run failed jobs" turns it green without paying for another review. It also
   # resolves PR-Agent's threads for findings a later review marked resolved, which PR-Agent
-  # does not do on GitHub itself; that needs pull-requests: write.
+  # does not do on GitHub itself. GitHub only lets a token resolve review threads with
+  # contents: write. The job never checks out or runs pull request code; it only reads
+  # comment text through the API.
   findings:
     needs: review
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write
       issues: read
       pull-requests: write
     steps:
