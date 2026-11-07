@@ -6,6 +6,7 @@ using lumibelle;
 using lumibelle.Mcp;
 using lumibelle.Models;
 using lumibelle.Services.Production;
+using lumibelle.Services.Assets;
 using lumibelle.Services.Shots;
 using lumibelle.Services;
 using lumibelle.Services.AI;
@@ -366,6 +367,8 @@ public sealed class McpEndpointTests : IAsyncLifetime
     {
         public System.Collections.Concurrent.ConcurrentDictionary<Guid, AiJobState> States { get; } = new();
         public List<(Guid Shot, int Takes)> Captured { get; } = [];
+        public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct) =>
+            Task.FromResult(AiJobSubmission.Create(id, AiJobKind.ImageEdit, AiBackend.ComfyUI, new(request.ProjectId, AssetId: assetId), "Project", "Image", Guid.Empty, new { request.Count }));
         public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
         {
             Captured.Add((setup.ShotId, takes));

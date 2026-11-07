@@ -52,6 +52,21 @@ internal static class ReviewFixtures
             await plans.SubmitAsync(id, plan.Id, "claude-code");
             return new { plan = plan.Id, shot = third.Id };
         });
+        // After review-plan and images: an image edit through the real capture and the mock image handler, whose pick replaces a shot's picture.
+        app.MapPost("/fixtures/{id:guid}/review-image-plan", async (Guid id, IProductionStore production, lumibelle.Services.Assets.IAssetStore assets, ReviewPlans plans) =>
+        {
+            var owner = (await assets.LoadAsync(id)).Assets.First(a => a.Images.Count > 0); var image = owner.Images[0];
+            var setup = (await production.LoadAsync(id)).Compositions.First();
+            setup.Shot.Images = [new() { AssetId = owner.Id, MediaId = image.Id, Name = owner.Name }];
+            await production.SaveAsync(id, setup, setup.Version);
+            var plan = await plans.CreateAsync(id, "Night plate", "claude-code");
+            var edit = await plans.ProposeAsync(id, plan.Id, new(ReviewStepKind.EditImage, null, "The scene is at night.") { AssetId = owner.Id, ImageId = image.Id, Prompt = "Make it night, moonlight through the window.", Takes = 2 }, "claude-code");
+            await plans.ProposeAsync(id, plan.Id, new(ReviewStepKind.ReplacePicture, setup.ShotId, "Use the night plate.") { AssetId = owner.Id, ImageId = image.Id, FromStepId = edit.Id }, "claude-code");
+            await plans.SubmitAsync(id, plan.Id, "claude-code");
+            return new { plan = plan.Id, source = image.Id, shot = setup.ShotId };
+        });
+        app.MapGet("/fixtures/{id:guid}/review-picture/{shot:guid}", async (Guid id, Guid shot, IProductionStore production) =>
+            new { image = (await production.LoadAsync(id)).Compositions.First(c => c.ShotId == shot).Shot.Images.Single().MediaId });
         app.MapGet("/fixtures/{id:guid}/review-state", async (Guid id, IShotStore shots, IProductionStore production, ReviewPlanStore plans) => new
         {
             prompts = (await production.LoadAsync(id)).Compositions.Select(c => c.Prompt).ToArray(),

@@ -43,7 +43,7 @@ public partial class ContinuityReview
         if (renders.FirstOrDefault(r => r.State == AiJobState.Running).Step is { } now) parts.Add("Now: " + ReviewPlans.Describe(snapshot, now));
         if (renders.Count(r => r.State == AiJobState.Waiting) is > 0 and var waiting) parts.Add($"{Count(waiting, "render")} waiting in the queue");
         if (renders.Count(r => r.State == AiJobState.NeedsAttention) is > 0 and var attention) parts.Add($"{Count(attention, "render")} {(attention == 1 ? "needs" : "need")} attention in AI activity");
-        if (counted.Count(s => s.State == ReviewStepState.Pick) is > 0 and var picks) parts.Add($"{Count(picks, "take choice")} waiting for you");
+        if (counted.Count(s => s.State == ReviewStepState.Pick) is > 0 and var picks) parts.Add($"{Count(picks, "choice")} waiting for you");
         if (counted.Count(s => s.State == ReviewStepState.Held) is > 0 and var held) parts.Add($"{held} held");
         return string.Join(" · ", parts);
     }
@@ -129,7 +129,7 @@ public partial class ContinuityReview
     private static string StepLabel(ReviewPlan plan, ReviewPlanStep step) => step.Open && !plan.Active && plan.State is ReviewPlanState.Finished or ReviewPlanState.Stopped ? "Stopped" : step.State switch
     {
         ReviewStepState.Proposed => "Proposed", ReviewStepState.Rejected => "Rejected", ReviewStepState.Waiting => "Approved, waiting", ReviewStepState.Running => "Rendering",
-        ReviewStepState.Pick => "Pick a take", ReviewStepState.Done => "Done", ReviewStepState.Failed => "Failed", ReviewStepState.Held => "Held", _ => "Skipped"
+        ReviewStepState.Pick => step.Kind == ReviewStepKind.EditImage ? "Pick an image" : "Pick a take", ReviewStepState.Done => "Done", ReviewStepState.Failed => "Failed", ReviewStepState.Held => "Held", _ => "Skipped"
     };
 
     private Task RunChecks() => Do(async () => { _findings = []; _soundMeasured = false; await Reload(); });
@@ -166,6 +166,7 @@ public partial class ContinuityReview
     });
 
     private Task Pick(ReviewPlan plan, ReviewPlanStep step, Guid take) => Do(() => Runner.PickAsync(Id, plan.Id, step.Id, take, ReviewPlans.Director, _lifetime.Token));
+    private Task RejectPick(ReviewPlan plan, ReviewPlanStep step) => Do(() => Runner.RejectPickAsync(Id, plan.Id, step.Id, ReviewPlans.Director, _lifetime.Token));
     private Task AcceptRecommendations(ReviewPlan plan) => Do(() => Runner.AcceptRecommendationsAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token));
     private Task Stop(ReviewPlan plan) => Do(() => Runner.StopAsync(Id, plan.Id, ReviewPlans.Director, _lifetime.Token));
 

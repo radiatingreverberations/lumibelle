@@ -103,13 +103,40 @@ test('a running plan shows where it is, renders through the queue and waits for 
   const progress = center(page).locator('.review-plan-progress');
   await expect(progress).toContainText('of 2 steps done');
   await expect(steps.nth(1)).toContainText('Pick a take', { timeout: 30000 });
-  await expect(progress).toContainText('1 of 2 steps done · 1 take choice waiting for you');
+  await expect(progress).toContainText('1 of 2 steps done · 1 choice waiting for you');
   expect((await state(request, id)).selected[2]).toBeNull();
 
   await steps.nth(1).getByRole('button', { name: 'Use this take' }).first().click();
   await expect(tools(page)).toContainText('Finished');
   await expect(progress).toHaveCount(0);
   expect((await state(request, id)).selected[2]).not.toBeNull();
+});
+
+test('an image edit waits for a pick, then replaces the shot picture', async ({ page, request }) => {
+  const { id } = await setup(request);
+  await request.post(`/fixtures/${id}/images`);
+  const made = await request.post(`/fixtures/${id}/review-image-plan`);
+  expect(made.ok(), await made.text()).toBeTruthy();
+  const { plan, source, shot } = await made.json();
+  await page.goto(`/projects/${id}/review?planId=${plan}`);
+  await expect(center(page).getByRole('heading', { name: /Night plate/ })).toBeVisible();
+  await expect(tools(page)).toContainText('and edits 2 image candidates');
+  const steps = center(page).locator('.review-steps > li');
+  await expect(steps.nth(0)).toContainText('into 2 candidates');
+  await expect(steps.nth(0)).toContainText('moonlight through the window');
+  await expect(steps.nth(1)).toContainText('the image picked from its edit step');
+
+  await tools(page).getByRole('button', { name: 'Approve plan' }).click();
+  await expect(steps.nth(0)).toContainText('Pick an image', { timeout: 30000 });
+  const picks = steps.nth(0).getByRole('group', { name: 'Images to pick from' });
+  await expect(picks.getByRole('button', { name: 'Use this image' })).toHaveCount(2);
+  await expect(steps.nth(0).getByRole('button', { name: 'None of these' })).toBeVisible();
+  expect((await (await request.get(`/fixtures/${id}/review-picture/${shot}`)).json()).image).toBe(source);
+
+  await picks.getByRole('button', { name: 'Use this image' }).first().click();
+  await expect(tools(page)).toContainText('Finished');
+  await expect(steps.nth(1)).toContainText('Done');
+  expect((await (await request.get(`/fixtures/${id}/review-picture/${shot}`)).json()).image).not.toBe(source);
 });
 
 test('stopping a plan with a render waiting cancels it and closes every step', async ({ page, request }) => {
@@ -168,7 +195,8 @@ test('agent access is off until turned on, and the endpoint needs the token', as
   await expect(approval).not.toBeChecked();
   await approval.check();
   await expect(approval).toBeChecked();
-  expect(await (await call(token)).text()).toContain('approve_plan');
+  // The checkbox ticks at once; the save lands a moment later.
+  await expect.poll(async () => (await call(token)).text()).toContain('approve_plan');
 
   // Replacing the token refuses the old one.
   await panel.getByRole('button', { name: 'Replace token…' }).click();

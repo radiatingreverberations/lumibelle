@@ -210,7 +210,9 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             id = s.Id, does = ReviewPlans.Describe(snapshot, s), kind = s.Kind.ToString(), shot = s.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null,
             state = s.State.ToString(), reason = s.Reason, message = s.Message, findings = s.FindingIds.Count == 0 ? null : s.FindingIds,
             promptBefore = full ? s.Before : null, promptAfter = full ? s.After : null,
-            job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.SpendsGpu ? s.TakeId : null,
+            job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick && s.Kind != ReviewStepKind.EditImage ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.GenerateTakes ? s.TakeId : null,
+            asset = s.AssetId, image = s.ImageId, fromStep = s.FromStepId,
+            imagesToPickFrom = s.State == ReviewStepState.Pick && s.Kind == ReviewStepKind.EditImage ? s.ProducedImageIds : null, pickedImage = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.EditImage ? s.NewImageId : null,
             recommendedTake = s.RecommendedTakeId, recommendation = s.Recommendation
         };
         if (stepId is { } id) return Step(plan.Step(id) ?? throw new WorkspaceStoreException("That step is not in this plan."), true);
@@ -218,7 +220,7 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
         {
             id = plan.Id, title = plan.Title, state = plan.State.ToString(), revision = plan.Revision, page,
             // What an approval of this revision agrees to. approve_plan must repeat these exactly.
-            totals = new { takes = totals.Takes, footageSeconds = totals.FootageSeconds, changes = totals.Changes },
+            totals = new { takes = totals.Takes, footageSeconds = totals.FootageSeconds, changes = totals.Changes, images = totals.Images },
             approvedFrom = plan.ApprovedFrom, approved = plan.ApprovedUtc,
             findings = plan.Findings.Select(f => new { id = f.Id, shot = f.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null, message = f.Message, evidence = f.Evidence }).ToArray(),
             steps = plan.Steps.Select(s => Step(s, false)).ToArray(),

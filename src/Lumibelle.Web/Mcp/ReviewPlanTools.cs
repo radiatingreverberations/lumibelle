@@ -11,7 +11,8 @@ namespace lumibelle.Mcp;
 /// <summary>An exact replacement in a prompt.</summary>
 public sealed record PromptEdit([property: Description("The exact text in the prompt now. It must occur exactly once.")] string Old, [property: Description("The text to put in its place.")] string New);
 /// <summary>The take chosen for one shot.</summary>
-public sealed record TakePick([property: Description("The shot, by number such as #31 or by id.")] string Shot, [property: Description("The id of the take to select, one of those the render produced.")] string Take);
+public sealed record TakePick([property: Description("The id of the take or image chosen, one of those the step produced.")] string Take,
+    [property: Description("The shot of a render step, by number such as #31 or by id.")] string? Shot = null, [property: Description("The step's id. Needed for an image edit, which has no shot.")] string? Step = null);
 
 /// <summary>
 /// Tools that write to a plan and nothing else. A finding or a step added here changes no shot, prompt, cut or queue;
@@ -22,7 +23,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
 {
     private const string Project = "The project's id, or its exact name.";
     private const string PlanId = "The plan's id, from create_plan or list_plans.";
-    private const string Kinds = "SetPrompt, MarkPromptReviewed, SetVoice, AddShotFrame, RemoveShotFrame, ReplacePicture, RemovePicture, UseTake, UpdateCut or GenerateTakes.";
+    private const string Kinds = "SetPrompt, MarkPromptReviewed, SetVoice, AddShotFrame, RemoveShotFrame, ReplacePicture, RemovePicture, UseTake, UpdateCut, GenerateTakes or EditImage.";
 
     [McpServerTool(Name = "list_plans", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("Lists the project's review plans with their state.")]
     public Task<string> ListPlans([Description(Project)] string project, CancellationToken ct) => Guard(async () =>
@@ -80,10 +81,11 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         - SetVoice: shot, character (asset id), and voice (a recording's id from list_assets); leave voice out for None.
         - AddShotFrame: shot, frame_name, and either take with frame (counted from 1) or frame_position, or from_shot with frame_position (first or last) to use the take the director will pick for that shot in this plan.
         - RemoveShotFrame: shot, take and frame (counted from 1) as get_shot lists them.
-        - ReplacePicture: shot, asset and image selected now, new_asset and new_image to select instead. The picture keeps its number in the prompt.
+        - ReplacePicture: shot, asset and image selected now, and either new_asset and new_image to select instead, or from_step with the id of an EditImage step in this plan to use the image the director picks from it. The picture keeps its number in the prompt.
         - RemovePicture: shot, asset and image. Later pictures are renumbered, so propose the prompt change too.
         - UseTake: shot and take, to select an existing take.
         - GenerateTakes: shot, takes (1 to 4), and optionally resolution. A shot's other steps run before its render.
+        - EditImage: asset and image to edit, prompt with the edit instruction, takes (1 to 4 candidates). Uses the project's image model and keeps the source's proportions and look. The candidates wait for the director to pick one; those not picked go to Trash.
         - UpdateCut: nothing more. Points the cut at the selected takes, after every pick is made.
         """)]
     public Task<string> ProposeStep([Description(Project)] string project, [Description(PlanId)] string plan, [Description(Kinds)] string kind,
@@ -94,6 +96,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         [Description("SetVoice: the character's asset id.")] string? character = null, [Description("SetVoice: the voice recording's id.")] string? voice = null,
         [Description("The asset id of the picture selected now.")] string? asset = null, [Description("The image id of the picture selected now.")] string? image = null,
         [Description("ReplacePicture: the asset id of the picture to select instead.")] string? new_asset = null, [Description("ReplacePicture: the image id of the picture to select instead.")] string? new_image = null,
+        [Description("ReplacePicture: the id of the EditImage step in this plan whose picked image to use.")] string? from_step = null,
         [Description("A take's id: the frame's source, the take to select, or the shot frame to remove.")] string? take = null,
         [Description("AddShotFrame: the shot whose picked take supplies the frame, when that take is rendered by this plan.")] string? from_shot = null,
         [Description("AddShotFrame: first or last.")] string? frame_position = null, [Description("A frame number, counted from 1.")] int? frame = null,
@@ -102,7 +105,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct);
-        var proposal = Proposal(snapshot, kind, reason, shot, findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution);
+        var proposal = Proposal(snapshot, kind, reason, shot, findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step);
         var step = await plans.ProposeAsync(snapshot.ProjectId, Id(plan), proposal, Client(http.HttpContext), ct: ct);
         return Text(new { id = step.Id, does = ReviewPlans.Describe(snapshot, step), state = step.State.ToString() });
     });
@@ -110,12 +113,12 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
     [McpServerTool(Name = "revise_step", OpenWorld = false), Description("Rewrites a step that has not been approved yet, for example after the prompt changed or the director asked for something else. Give the step's full content again, as for propose_step; the kind and the shot stay the same.")]
     public Task<string> ReviseStep([Description(Project)] string project, [Description(PlanId)] string plan, [Description("The id of the step to rewrite.")] string step, [Description("Why the step is needed, for the director to read.")] string reason,
         string[]? findings = null, PromptEdit[]? edits = null, string? prompt = null, string? character = null, string? voice = null, string? asset = null, string? image = null,
-        string? new_asset = null, string? new_image = null, string? take = null, string? from_shot = null, string? frame_position = null, int? frame = null, string? frame_name = null,
+        string? new_asset = null, string? new_image = null, string? from_step = null, string? take = null, string? from_shot = null, string? frame_position = null, int? frame = null, string? frame_name = null,
         int takes = 1, string? resolution = null, CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var planId = Id(plan);
         var old = (await plans.Store.GetAsync(snapshot.ProjectId, planId, ct)).Step(Id(step)) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-        var proposal = Proposal(snapshot, old.Kind.ToString(), reason, old.ShotId?.ToString(), findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution);
+        var proposal = Proposal(snapshot, old.Kind.ToString(), reason, old.ShotId?.ToString(), findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step);
         var revised = await plans.ProposeAsync(snapshot.ProjectId, planId, proposal, Client(http.HttpContext), replaces: old.Id, ct);
         return Text(new { id = revised.Id, does = ReviewPlans.Describe(snapshot, revised), state = revised.State.ToString() });
     });
@@ -127,9 +130,9 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         return Text(ReviewQueries.Plan(snapshot, await plans.SubmitAsync(snapshot.ProjectId, Id(plan), Client(http.HttpContext), ct), page: Page(http.HttpContext, snapshot.ProjectId, Id(plan))));
     });
 
-    [McpServerTool(Name = "recommend_take", Idempotent = true, OpenWorld = false), Description("Advises the director which of a render step's new takes to use, with the reason. Look at the takes first with get_frames and get_neighbour_sheet. The director still makes the pick.")]
-    public Task<string> RecommendTake([Description(Project)] string project, [Description(PlanId)] string plan, [Description("The render step's id.")] string step,
-        [Description("The id of the take you recommend, one of the step's takesToPickFrom.")] string take, [Description("Why this take, from what its frames show.")] string reason, CancellationToken ct) => Guard(async () =>
+    [McpServerTool(Name = "recommend_take", Idempotent = true, OpenWorld = false), Description("Advises the director which of a step's new takes or images to use, with the reason. Look at them first: get_frames and get_neighbour_sheet for takes, get_asset_image for images. The director still makes the pick.")]
+    public Task<string> RecommendTake([Description(Project)] string project, [Description(PlanId)] string plan, [Description("The step's id.")] string step,
+        [Description("The id of the take or image you recommend, from the step's takesToPickFrom or imagesToPickFrom.")] string take, [Description("Why this take, from what its frames show.")] string reason, CancellationToken ct) => Guard(async () =>
     {
         var found = await queries.ProjectAsync(project, ct);
         await plans.RecommendAsync(found.Id, Id(plan), Id(step), Id(take), reason, Client(http.HttpContext), ct);
@@ -147,7 +150,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
     internal static string? Page(HttpContext? http, Guid project, Guid plan) => http is null ? null : $"{http.Request.Scheme}://{http.Request.Host}/projects/{project:D}/review?planId={plan:D}";
 
     private static ReviewStepProposal Proposal(ProjectReviewSnapshot snapshot, string kind, string reason, string? shot, string[]? findings, PromptEdit[]? edits, string? prompt,
-        string? character, string? voice, string? asset, string? image, string? newAsset, string? newImage, string? take, string? fromShot, string? framePosition, int? frame, string? frameName, int takes, string? resolution)
+        string? character, string? voice, string? asset, string? image, string? newAsset, string? newImage, string? take, string? fromShot, string? framePosition, int? frame, string? frameName, int takes, string? resolution, string? fromStep)
     {
         if (!Enum.TryParse<ReviewStepKind>(kind, ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed)) throw new WorkspaceStoreException("Choose one of these kinds: " + Kinds);
         Guid? Optional(string? value) => value is null ? null : Id(value);
@@ -164,7 +167,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         {
             FindingIds = (findings ?? []).Select(Id).ToArray(), Prompt = prompt, Edits = (edits ?? []).Select(e => (e.Old, e.New)).ToArray(),
             CharacterAssetId = Optional(character), VoiceId = Optional(voice), AssetId = Optional(asset), ImageId = Optional(image), NewAssetId = Optional(newAsset), NewImageId = Optional(newImage),
-            TakeId = needsFrame ? null : Optional(take),
+            TakeId = needsFrame ? null : Optional(take), FromStepId = Optional(fromStep),
             Frame = !needsFrame ? null : new() { TakeId = Optional(take), FromShotId = fromShot is null ? null : ReviewQueries.Shot(snapshot, fromShot).Id, Position = position, Index = (frame ?? 1) - 1, Name = frameName ?? "" },
             Takes = takes, Resolution = size
         };
@@ -240,27 +243,36 @@ public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans
     public Task<string> ApprovePlan([Description("The project's id, or its exact name.")] string project, [Description("The plan's id.")] string plan,
         [Description("The plan's revision, from get_plan.")] long revision, [Description("totals.takes from get_plan: takes that will be rendered.")] int takes,
         [Description("totals.footageSeconds from get_plan: seconds of footage that will be rendered.")] double footage_seconds,
-        [Description("totals.changes from get_plan: changes to prompts, references, selections and the cut.")] int changes, CancellationToken ct) => Guard(async () =>
+        [Description("totals.changes from get_plan: changes to prompts, references, selections and the cut.")] int changes,
+        [Description("totals.images from get_plan: image candidates that will be generated.")] int images = 0, CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var id = ReviewPlanTools.Id(plan);
-        await plans.ApproveAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes), ct);
+        await plans.ApproveAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes, images), ct);
         var running = await runner.AdvanceAsync(snapshot.ProjectId, id, ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), running, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
     });
 
     [McpServerTool(Name = "accept_picks", Destructive = true, OpenWorld = false), McpMeta("anthropic/requiresUserInteraction", true)]
-    [Description("Selects, on the director's word, the take to use for each shot whose render is waiting for a pick. Name every shot and its take. Later steps that waited for these picks then run.")]
+    [Description("Selects, on the director's word, what to use from each step waiting for a pick: the take for a render, named by shot, or the image for an edit, named by step. Name each one. Later steps that waited for these picks then run.")]
     public Task<string> AcceptPicks([Description("The project's id, or its exact name.")] string project, [Description("The plan's id.")] string plan,
-        [Description("The take chosen for each shot.")] TakePick[] picks, CancellationToken ct) => Guard(async () =>
+        [Description("The take or image chosen for each step.")] TakePick[] picks, CancellationToken ct) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var id = ReviewPlanTools.Id(plan); var current = await plans.Store.GetAsync(snapshot.ProjectId, id, ct);
-        if (picks is not { Length: > 0 }) throw new WorkspaceStoreException("Name at least one shot and its take.");
+        if (picks is not { Length: > 0 }) throw new WorkspaceStoreException("Name at least one step or shot, and what was chosen.");
         // All of them are checked before any is applied, so a wrong id leaves every pick to the director.
         var chosen = picks.Select(pick =>
         {
-            var shot = ReviewQueries.Shot(snapshot, pick.Shot); var take = ReviewPlanTools.Id(pick.Take);
-            var step = current.Steps.FirstOrDefault(s => s.ShotId == shot.Id && s.State == ReviewStepState.Pick) ?? throw new WorkspaceStoreException($"Shot #{shot.Number} has no render waiting for a pick in this plan.");
-            return step.ProducedTakeIds.Contains(take) ? (Step: step.Id, Take: take) : throw new WorkspaceStoreException($"That take is not one this plan rendered for shot #{shot.Number}.");
+            var take = ReviewPlanTools.Id(pick.Take);
+            ReviewPlanStep? step;
+            if (pick.Step is { } named) step = current.Step(ReviewPlanTools.Id(named));
+            else
+            {
+                if (pick.Shot is null) throw new WorkspaceStoreException("Name the shot of a render, or the step of an image edit.");
+                var shot = ReviewQueries.Shot(snapshot, pick.Shot);
+                step = current.Steps.FirstOrDefault(s => s.ShotId == shot.Id && s.State == ReviewStepState.Pick);
+            }
+            if (step is not { State: ReviewStepState.Pick }) throw new WorkspaceStoreException("That step or shot has nothing waiting for a pick in this plan.");
+            return step.Produced.Contains(take) ? (Step: step.Id, Take: take) : throw new WorkspaceStoreException("That is not one of the takes or images this step produced.");
         }).ToArray();
         foreach (var (step, take) in chosen) current = await runner.PickAsync(snapshot.ProjectId, id, step, take, ReviewPlanTools.Client(http.HttpContext), ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), current, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));

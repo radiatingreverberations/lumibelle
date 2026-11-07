@@ -19,6 +19,8 @@ public sealed record ReviewStepProposal(ReviewStepKind Kind, Guid? ShotId, strin
     public Guid? NewAssetId { get; init; }
     public Guid? NewImageId { get; init; }
     public ReviewFrameSource? Frame { get; init; }
+    /// <summary>ReplacePicture: the edit step in this plan whose picked image replaces the picture.</summary>
+    public Guid? FromStepId { get; init; }
     public Guid? TakeId { get; init; }
     public int Takes { get; init; } = 1;
     public VideoResolution? Resolution { get; init; }
@@ -88,8 +90,9 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
     public static ReviewPlanTotals Totals(ReviewPlan plan, ProjectReviewSnapshot snapshot)
     {
         var kept = plan.Steps.Where(s => s.State != ReviewStepState.Rejected && s.State != ReviewStepState.Skipped).ToArray();
-        var renders = kept.Where(s => s.SpendsGpu).ToArray();
-        return new(renders.Sum(s => s.Takes), Math.Round(renders.Sum(s => s.Takes * Seconds(snapshot, s.ShotId)), 3), kept.Count(s => !s.SpendsGpu));
+        var renders = kept.Where(s => s.Kind == ReviewStepKind.GenerateTakes).ToArray();
+        return new(renders.Sum(s => s.Takes), Math.Round(renders.Sum(s => s.Takes * Seconds(snapshot, s.ShotId)), 3), kept.Count(s => !s.SpendsGpu),
+            kept.Where(s => s.Kind == ReviewStepKind.EditImage).Sum(s => s.Takes));
     }
     private static double Seconds(ProjectReviewSnapshot snapshot, Guid? shotId) =>
         snapshot.Row(shotId ?? Guid.Empty)?.Coverage.Duration is { } seconds and >= 1 and <= 15 ? H3Policy.Seconds(seconds) : 0;
@@ -108,18 +111,18 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             {
                 if (plan.State != ReviewPlanState.Submitted) throw new WorkspaceStoreException("Submit the plan before it is approved.");
                 var actual = Totals(plan, snapshot);
-                if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01)
-                    throw new WorkspaceStoreException($"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes). Read the plan again and show the director these totals.");
+                if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || totals.Images != actual.Images || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01)
+                    throw new WorkspaceStoreException($"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes, {actual.Images} images). Read the plan again and show the director these totals.");
             }
             if (!plan.Steps.Any(s => s.State == ReviewStepState.Proposed)) throw new WorkspaceStoreException("No step of this plan is left to approve.");
             var now = clock.GetUtcNow(); var approved = Totals(plan, snapshot);
             return plan with
             {
                 State = ReviewPlanState.Approved, ApprovedUtc = now, ApprovedFrom = from,
-                Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.SpendsGpu
+                Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.Kind == ReviewStepKind.GenerateTakes
                     ? s with { State = ReviewStepState.Waiting, GenerationSetupId = snapshot.RenderSetup?.Id, GenerationSetupName = snapshot.RenderSetup?.Name }
                     : s with { State = ReviewStepState.Waiting }).ToArray(),
-                Log = [.. plan.Log, new(now, from, $"Approved revision {plan.Revision}: {approved.Takes} takes, {approved.FootageSeconds} seconds of footage, {approved.Changes} changes."
+                Log = [.. plan.Log, new(now, from, $"Approved revision {plan.Revision}: {approved.Takes} takes, {approved.FootageSeconds} seconds of footage, {approved.Changes} changes, {approved.Images} images."
                     + (approved.Takes > 0 && snapshot.RenderSetup is { } setup ? $" Renders use “{setup.Name}”." : ""))]
             };
         }, proposal: false, ct);
@@ -137,7 +140,8 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         {
             ReviewStepState.Waiting or ReviewStepState.Held or ReviewStepState.Proposed => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped.", FinishedUtc = now },
             ReviewStepState.Running => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped and its render cancelled. AI activity can recover any takes it had finished.", FinishedUtc = now },
-            ReviewStepState.Pick => s with { State = ReviewStepState.Skipped, Message = "The plan was stopped before a take was picked. The takes stay in Shots.", FinishedUtc = now },
+            ReviewStepState.Pick => s with { State = ReviewStepState.Skipped, FinishedUtc = now, Message = s.Kind == ReviewStepKind.EditImage
+                ? "The plan was stopped before an image was picked. The candidates stay in Assets, waiting for review." : "The plan was stopped before a take was picked. The takes stay in Shots." },
             _ => s
         }).ToArray(),
         Log = [.. plan.Log, new(now, who, "Stopped the plan.")]
@@ -151,8 +155,8 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         return await store.UpdateAsync(projectId, planId, plan =>
         {
             var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-            if (step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has no takes waiting for a pick.");
-            if (!step.ProducedTakeIds.Contains(takeId)) throw new WorkspaceStoreException("Recommend one of the takes this step produced.");
+            if (step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
+            if (!step.Produced.Contains(takeId)) throw new WorkspaceStoreException("Recommend one of the takes or images this step produced.");
             return plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? s with { RecommendedTakeId = takeId, Recommendation = reason } : s).ToArray(),
                 Log = [.. plan.Log, new(clock.GetUtcNow(), who, $"Recommended a take for “{step.Reason}”.")] };
         }, proposal: false, ct);
@@ -194,6 +198,15 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         if (reason.Length is 0 or > 2000) throw new WorkspaceStoreException("Say why the step is needed in up to 2000 characters.");
         var step = new ReviewPlanStep { Kind = p.Kind, ShotId = p.ShotId, Reason = reason, FindingIds = p.FindingIds.Distinct().ToArray(), ProposedBy = who };
         if (p.Kind == ReviewStepKind.UpdateCut) return step with { ShotId = null };
+        if (p.Kind == ReviewStepKind.EditImage)
+        {
+            var source = snapshot.Assets.Assets.FirstOrDefault(a => a.Id == p.AssetId)?.Images.FirstOrDefault(i => i.Id == p.ImageId) ?? throw new WorkspaceStoreException("Name the asset and image to edit, from list_assets.");
+            if (source.PendingReview == true) throw new WorkspaceStoreException("That image is still waiting for review in Assets.");
+            var instruction = (p.Prompt ?? "").Trim();
+            if (instruction.Length is 0 or > 20000) throw new WorkspaceStoreException("Say how to edit the image, in up to 20000 characters.");
+            if (p.Takes is < 1 or > 4) throw new WorkspaceStoreException("Ask for one to four candidates.");
+            return step with { ShotId = null, AssetId = p.AssetId, ImageId = p.ImageId, After = instruction, Takes = p.Takes };
+        }
         var row = snapshot.Row(p.ShotId ?? Guid.Empty) ?? throw new WorkspaceStoreException("Name the shot this step changes.");
         var setup = row.Setup ?? throw new WorkspaceStoreException($"Shot #{row.Number} has no setup yet. Open it in Shots once before proposing changes to it.");
         var shot = setup.Shot;
@@ -238,6 +251,12 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             case ReviewStepKind.ReplacePicture or ReviewStepKind.RemovePicture:
                 if (!shot.Images.Any(i => i.Kind == ShotImageKind.AssetImage && i.AssetId == p.AssetId && i.MediaId == p.ImageId)) throw new WorkspaceStoreException($"Shot #{row.Number} does not select that picture.");
                 if (p.Kind == ReviewStepKind.RemovePicture) return step with { AssetId = p.AssetId, ImageId = p.ImageId };
+                if (p.FromStepId is { } edited)
+                {
+                    var producer = plan.Step(edited) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+                    if (producer.Kind != ReviewStepKind.EditImage || producer.State == ReviewStepState.Rejected) throw new WorkspaceStoreException("Name an edit step of this plan that has not been rejected.");
+                    return step with { AssetId = p.AssetId, ImageId = p.ImageId, FromStepId = edited, NewAssetId = producer.AssetId };
+                }
                 var replacement = snapshot.Assets.Assets.FirstOrDefault(a => a.Id == p.NewAssetId)?.Images.FirstOrDefault(i => i.Id == p.NewImageId) ?? throw new WorkspaceStoreException("The replacement picture is not in Assets.");
                 if (replacement.PendingReview == true) throw new WorkspaceStoreException("The replacement picture is still waiting for review in Assets.");
                 if (shot.Images.Any(i => i.AssetId == p.NewAssetId && i.MediaId == p.NewImageId)) throw new WorkspaceStoreException($"Shot #{row.Number} already selects the replacement picture.");
@@ -273,7 +292,10 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
                 ? $"Add the {(frame.Position == ReviewFramePosition.First ? "first" : "last")} frame of the take picked for #{snapshot.Row(from)?.Number} to {shot} as “{frame.Name}”"
                 : $"Add a frame of a take of #{snapshot.OwnerOf(step.Frame?.TakeId ?? Guid.Empty)?.Number} to {shot} as “{step.Frame?.Name}”",
             ReviewStepKind.RemoveShotFrame => $"Remove a shot frame from {shot}",
-            ReviewStepKind.ReplacePicture => $"In {shot}, replace {Picture(step.AssetId, step.ImageId)} with {Picture(step.NewAssetId, step.NewImageId)}",
+            ReviewStepKind.ReplacePicture => step.FromStepId is not null
+                ? $"In {shot}, replace {Picture(step.AssetId, step.ImageId)} with the image picked from its edit step"
+                : $"In {shot}, replace {Picture(step.AssetId, step.ImageId)} with {Picture(step.NewAssetId, step.NewImageId)}",
+            ReviewStepKind.EditImage => $"Edit {Picture(step.AssetId, step.ImageId)} into {step.Takes} {(step.Takes == 1 ? "candidate" : "candidates")}",
             ReviewStepKind.RemovePicture => $"Remove {Picture(step.AssetId, step.ImageId)} from {shot}",
             ReviewStepKind.UseTake => $"Select another take for {shot}",
             ReviewStepKind.UpdateCut => "Point the cut at the selected takes",

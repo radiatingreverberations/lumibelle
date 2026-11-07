@@ -5,11 +5,11 @@ namespace lumibelle.Models;
 /// <summary>Draft: still being written. Submitted: waiting for the director. Approved: running, or waiting for picks. Finished and Stopped are final.</summary>
 public enum ReviewPlanState { Draft, Submitted, Approved, Finished, Stopped }
 
-public enum ReviewStepKind { SetPrompt, MarkPromptReviewed, SetVoice, AddShotFrame, RemoveShotFrame, ReplacePicture, RemovePicture, UseTake, UpdateCut, GenerateTakes }
+public enum ReviewStepKind { SetPrompt, MarkPromptReviewed, SetVoice, AddShotFrame, RemoveShotFrame, ReplacePicture, RemovePicture, UseTake, UpdateCut, GenerateTakes, EditImage }
 
 /// <summary>
 /// Proposed: waiting for a decision. Rejected: the director said no. Waiting: approved, not run yet. Running: its render is queued or
-/// running. Pick: its takes are ready and the director has to choose one. Held: the shot changed since the step was written.
+/// running. Pick: its takes or images are ready and the director has to choose one. Held: the shot changed since the step was written.
 /// Skipped: a step it depends on was rejected or failed.
 /// </summary>
 public enum ReviewStepState { Proposed, Rejected, Waiting, Running, Pick, Done, Failed, Held, Skipped }
@@ -69,6 +69,10 @@ public sealed record ReviewPlanStep
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? NewImageId { get; init; }
     // AddShotFrame: where the frame comes from. RemoveShotFrame: the take and frame to remove.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public ReviewFrameSource? Frame { get; init; }
+    // EditImage: the asset image to edit is AssetId and ImageId, the instruction is After, the number of candidates is Takes, and the
+    // picked candidate is NewImageId. ReplacePicture: the edit step whose picked image replaces the picture, when it does not exist yet.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? FromStepId { get; init; }
+    public IReadOnlyList<Guid> ProducedImageIds { get; init; } = [];
     // UseTake: the take to select.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? TakeId { get; init; }
     // GenerateTakes: how many, at which size, and what came of it.
@@ -79,18 +83,21 @@ public sealed record ReviewPlanStep
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }
     public IReadOnlyList<Guid> ProducedTakeIds { get; init; } = [];
+    /// <summary>The take or image the proposer advises picking.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? RecommendedTakeId { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Recommendation { get; init; }
 
     [JsonIgnore] public bool Decided => State is not (ReviewStepState.Proposed or ReviewStepState.Rejected);
     [JsonIgnore] public bool Open => State is ReviewStepState.Waiting or ReviewStepState.Running or ReviewStepState.Pick or ReviewStepState.Held;
-    [JsonIgnore] public bool SpendsGpu => Kind == ReviewStepKind.GenerateTakes;
+    [JsonIgnore] public bool SpendsGpu => Kind is ReviewStepKind.GenerateTakes or ReviewStepKind.EditImage;
+    /// <summary>The takes or images this step produced, to pick from.</summary>
+    [JsonIgnore] public IReadOnlyList<Guid> Produced => Kind == ReviewStepKind.EditImage ? ProducedImageIds : ProducedTakeIds;
 }
 
 public sealed record ReviewPlanLogEntry(DateTimeOffset At, string Who, string What);
 
-/// <summary>What approving a plan agrees to: renders, footage and changes to the project.</summary>
-public sealed record ReviewPlanTotals(int Takes, double FootageSeconds, int Changes);
+/// <summary>What approving a plan agrees to: renders, footage, changes to the project and image candidates.</summary>
+public sealed record ReviewPlanTotals(int Takes, double FootageSeconds, int Changes, int Images = 0);
 
 /// <summary>Findings and the steps proposed to fix them. Proposing changes nothing; steps run after the director approves.</summary>
 public sealed record ReviewPlan

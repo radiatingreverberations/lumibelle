@@ -40,7 +40,8 @@ A step is one change or one render:
 - change a shot's prompt and mark it reviewed, or mark an unchanged prompt reviewed;
 - set a character's voice;
 - add or remove a shot frame;
-- replace or remove a reference picture;
+- replace or remove a reference picture, including with an image an earlier step edits;
+- edit an asset image into one to four candidates, using the project's image model;
 - select a take;
 - render one to four takes of a shot;
 - point the cut at the selected takes.
@@ -61,6 +62,8 @@ Lumibelle runs the plan itself, so the agent can disconnect. The line above the 
 - A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the generation setup selected in Shots when you approved the plan. Each render step names it. Choosing another setup afterwards does not change what you approved.
 - When a render finishes, its step shows the new takes under **Pick a take**. Play them, then choose **Use this take**. The agent may recommend one with a reason; **Accept recommendations** takes every recommended take. Nothing selects a take for you.
 - A step that adds a frame from another shot's new take waits for that pick, then uses the first or last frame of the take you picked.
+- An image edit's candidates wait the same way, under **Use this image**. The one you pick joins the asset, the others go to Trash, and a step that replaces a picture with it then runs.
+- **None of these** turns down a step's results. Steps that needed the pick are skipped, and the rest of the plan goes on.
 - The cut is pointed at the selected takes last.
 
 A step is **Held** when its shot's prompt was edited after the step was written. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it.

@@ -1,5 +1,6 @@
 using lumibelle.Models;
 using lumibelle.Services.AI;
+using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
@@ -11,7 +12,7 @@ namespace lumibelle.Services.Review;
 /// what it depends on is done: a shot's edits before its render, and a frame from another shot's new take only after the director
 /// has picked that take. Nothing here runs for a plan that is not approved.
 /// </summary>
-public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review, IProductionStore production, IShotStore shots, ICutStore cuts,
+public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review, IProductionStore production, IShotStore shots, ICutStore cuts, IAssetStore assets,
     IReviewRenderQueue renders, IProjectStore projects, TimeProvider clock, ILogger<ReviewPlanRunner> logger, IGenerationSetupStore? setups = null)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -90,16 +91,55 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         return stopped;
     }
 
-    /// <summary>The director's choice among the takes a render step produced.</summary>
-    public async Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid takeId, string who, CancellationToken ct = default)
+    /// <summary>The director's choice among the takes or images a step produced.</summary>
+    public async Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid choice, string who, CancellationToken ct = default)
     {
         var plan = await store.GetAsync(projectId, planId, ct);
         var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-        if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has no takes waiting for a pick.");
-        if (!step.ProducedTakeIds.Contains(takeId)) throw new WorkspaceStoreException("Pick one of the takes this step produced.");
-        await SelectAsync(projectId, step.ShotId!.Value, takeId, ct);
-        await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = takeId, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: ct);
+        if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
+        if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
+        if (step.Kind == ReviewStepKind.EditImage)
+        {
+            await KeepImageAsync(projectId, step.AssetId!.Value, choice, ct);
+            await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), ct);
+            await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: ct);
+        }
+        else
+        {
+            await SelectAsync(projectId, step.ShotId!.Value, choice, ct);
+            await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: ct);
+        }
         return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    /// <summary>None of a step's results will do. Steps that depended on the pick are skipped, and the rest of the plan goes on.</summary>
+    public async Task<ReviewPlan> RejectPickAsync(Guid projectId, Guid planId, Guid stepId, string who, CancellationToken ct = default)
+    {
+        var plan = await store.GetAsync(projectId, planId, ct);
+        var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+        if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
+        if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, ct);
+        var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
+        await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow() }, who, message), ct: ct);
+        return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    private async Task KeepImageAsync(Guid projectId, Guid assetId, Guid imageId, CancellationToken ct)
+    {
+        var library = await assets.LoadAsync(projectId, ct);
+        if (library.Assets.FirstOrDefault(a => a.Id == assetId)?.Images.FirstOrDefault(i => i.Id == imageId) is not { } image) throw new WorkspaceStoreException("That image is no longer in Assets. It may be in Trash.");
+        if (image.PendingReview == false) return;
+        await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id != assetId ? a : a with { Images = a.Images.Select(i => i.Id == imageId ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, ct);
+    }
+
+    // The candidates not chosen go to Trash, where they can be restored. Failing to move them never undoes a pick.
+    private async Task DiscardCandidatesAsync(Guid projectId, ReviewPlanStep step, IReadOnlyCollection<Guid> images, CancellationToken ct)
+    {
+        var library = await assets.LoadAsync(projectId, ct);
+        var pending = images.Where(id => library.Assets.Any(a => a.Id == step.AssetId && a.Images.Any(i => i.Id == id && i.PendingReview == true))).Select(id => new AssetImageReference(step.AssetId!.Value, id)).ToArray();
+        if (pending.Length == 0) return;
+        try { await assets.DiscardPendingImagesAsync(projectId, Guid.NewGuid(), pending, library.Revision, ct); }
+        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException) { logger.LogWarning(e, "Image candidates of step {Step} could not be moved to Trash.", step.Id); }
     }
 
     /// <summary>Picks the recommended take of every step that is waiting with a recommendation.</summary>
@@ -118,12 +158,18 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         foreach (var step in plan.Steps.Where(s => s.State == ReviewStepState.Running))
         {
             var job = renders.State(step.JobId ?? Guid.Empty);
-            var takes = snapshot.Shots.Takes.Where(t => t.AiJobId == step.JobId && t.ShotId == step.ShotId).Select(t => t.Id).ToArray();
+            var image = step.Kind == ReviewStepKind.EditImage;
+            var takes = image
+                ? snapshot.Assets.Assets.Where(a => a.Id == step.AssetId).SelectMany(a => a.Images).Where(i => i.Generation?.AiJobId == step.JobId && i.PendingReview == true).Select(i => i.Id).ToArray()
+                : snapshot.Shots.Takes.Where(t => t.AiJobId == step.JobId && t.ShotId == step.ShotId).Select(t => t.Id).ToArray();
             if (job is AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention) continue;
             await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => takes.Length > 0
-                ? s with { State = ReviewStepState.Pick, ProducedTakeIds = takes, Message = null }
-                : s with { State = ReviewStepState.Failed, FinishedUtc = clock.GetUtcNow(), Message = job == AiJobState.Cancelled ? "The render was cancelled." : "The render finished without a take. See AI activity." },
-                ReviewPlans.Director, takes.Length > 0 ? $"A render finished with {takes.Length} {(takes.Length == 1 ? "take" : "takes")} to pick from." : "A render did not produce a take."), ct: ct);
+                ? image ? s with { State = ReviewStepState.Pick, ProducedImageIds = takes, Message = null } : s with { State = ReviewStepState.Pick, ProducedTakeIds = takes, Message = null }
+                : s with { State = ReviewStepState.Failed, FinishedUtc = clock.GetUtcNow(), Message = image
+                    ? job == AiJobState.Cancelled ? "The edit was cancelled." : "The edit finished without an image. See AI activity."
+                    : job == AiJobState.Cancelled ? "The render was cancelled." : "The render finished without a take. See AI activity." },
+                ReviewPlans.Director, takes.Length == 0 ? $"A {(image ? "edit" : "render")} produced nothing to pick."
+                    : image ? $"An edit finished with {takes.Length} {(takes.Length == 1 ? "image" : "images")} to pick from." : $"A render finished with {takes.Length} {(takes.Length == 1 ? "take" : "takes")} to pick from."), ct: ct);
             return true;
         }
         return false;
@@ -143,7 +189,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             try
             {
                 if (step.Kind == ReviewStepKind.GenerateTakes) await RenderAsync(snapshot, plan, step, ct);
-                else if (await ApplyAsync(snapshot, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held);
+                else if (step.Kind == ReviewStepKind.EditImage) await EditAsync(snapshot, plan, step, ct);
+                else if (await ApplyAsync(snapshot, Resolved(plan, step), ct) is { } held) await Finish(step, ReviewStepState.Held, held);
                 else await Finish(step, ReviewStepState.Done, null);
             }
             // Another save landed between reading and writing: read again and retry this step, a few times at most.
@@ -152,7 +199,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 conflicts[step.Id] = conflicts.GetValueOrDefault(step.Id) + 1;
                 if (conflicts[step.Id] >= 3) await Finish(step, ReviewStepState.Failed, "Something else kept saving this shot while the step was applied. Close other editors of the shot, then start a new plan for this step.");
             }
-            catch (WorkspaceStoreException e) { await Finish(step, ReviewStepState.Failed, e.Message); }
+            catch (Exception e) when (e is WorkspaceStoreException or AiGenerationException) { await Finish(step, ReviewStepState.Failed, e.Message); }
             return true;
         }
         return false;
@@ -169,6 +216,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         // A frame from another shot's new take needs that render picked.
         if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } from &&
             plan.Steps.FirstOrDefault(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from) is { State: not ReviewStepState.Done } render) return render;
+        // A picture from an edit needs that edit picked.
+        if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
         // A render follows the changes proposed for its shot before it.
         if (step.Kind == ReviewStepKind.GenerateTakes)
             return plan.Steps.Take(index).Where(s => s.ShotId == step.ShotId && s.Kind != ReviewStepKind.UseTake).FirstOrDefault(s => s.Open || Stops(s));
@@ -185,6 +234,25 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director,
             $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
+        await renders.EnqueueAsync(request, ct);
+    }
+
+    private static ReviewPlanStep Resolved(ReviewPlan plan, ReviewPlanStep step) =>
+        step.FromStepId is { } edit && plan.Step(edit) is { } producer ? step with { NewAssetId = producer.AssetId, NewImageId = producer.NewImageId } : step;
+
+    private async Task EditAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
+    {
+        var owner = snapshot.Assets.Assets.FirstOrDefault(a => a.Id == step.AssetId); var image = owner?.Images.FirstOrDefault(i => i.Id == step.ImageId);
+        if (owner is null || image is null) throw new WorkspaceStoreException("The image to edit is no longer in Assets. It may be in Trash.");
+        var id = Guid.NewGuid();
+        // Candidates wait for the director, and keep the source's proportions and look. The model is the project's image default.
+        var request = await renders.CaptureEditAsync(id, owner.Id, new ReferenceEditRequest
+        {
+            ProjectId = snapshot.ProjectId, SourceAssetId = owner.Id, SourceImageId = image.Id, Prompt = step.After!, AspectRatio = ImageAspectPolicy.FromImage1,
+            Count = step.Takes, PendingReview = true, Look = LookPolicy.Capture(owner, image.LookId)
+        }, [new(owner.Id, image.Id)], ct);
+        // Recorded before it is queued, as a render is.
+        await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director, $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
         await renders.EnqueueAsync(request, ct);
     }
 
@@ -331,19 +399,23 @@ public interface IReviewRenderQueue
 {
     /// <summary>Captures the request with the same checks as Generate takes in Shots. A refusal is a <see cref="WorkspaceStoreException"/>.</summary>
     Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct);
+    /// <summary>Captures an image edit with the same checks as the Assets studio.</summary>
+    Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct);
     Task EnqueueAsync(AiJobSubmission request, CancellationToken ct);
     Task CancelAsync(Guid jobId, CancellationToken ct);
     /// <summary>The request's state, or null when the queue no longer lists it.</summary>
     AiJobState? State(Guid jobId);
 }
 
-public sealed class ReviewRenderQueue(AiVideoJobCapture capture, AiJobCoordinator jobs) : IReviewRenderQueue
+public sealed class ReviewRenderQueue(AiVideoJobCapture capture, AiImageJobCapture images, AiJobCoordinator jobs) : IReviewRenderQueue
 {
     /// <summary>The queue's origin for requests a plan started; no browser tab owns them.</summary>
     public static readonly Guid Origin = new("7d0c5a3e-2f0b-4c57-9a55-0c1e5f6b7a11");
     public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct) => resolution is { } size
         ? capture.CaptureCompositionWithPresetAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, H3Presets.Key(setup.Shot), size, ct: ct, generationSetupVersion: setup.GenerationSetupVersion)
         : capture.CaptureCompositionAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, ct, setup.GenerationSetupVersion);
+    public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct) =>
+        images.EditAsync(id, Origin, assetId, request, references, ct);
     public async Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) => await jobs.EnqueueAsync(request, ct);
     public Task CancelAsync(Guid jobId, CancellationToken ct) => jobs.CancelAsync(jobId, ct);
     public AiJobState? State(Guid jobId) => jobs.View.Jobs.FirstOrDefault(j => j.Id == jobId)?.State;

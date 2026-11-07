@@ -1,5 +1,6 @@
 using lumibelle.Models;
 using lumibelle.Services.AI;
+using lumibelle.Services.Assets;
 using lumibelle.Services.Production;
 using lumibelle.Services.Review;
 using lumibelle.Services.Shots;
@@ -353,6 +354,77 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task AnEditedImageWaitsForAPickThenReplacesThePictureBeforeTheRender()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Night plate", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "The scene is at night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night, moonlight through the window.", Takes = 2 });
+        var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Use the night plate.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render at night."));
+        // Proposals are checked when they are written.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.EditImage, null, "Unknown.") { AssetId = f.Vera.Id, ImageId = Guid.NewGuid(), Prompt = "x" }));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.EditImage, null, "No instruction.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = " " }));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Not an edit.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = render.Id }));
+
+        var snapshot = await f.Review.LoadAsync(f.Project, _ct);
+        Assert.Equal(new ReviewPlanTotals(1, H3Policy.Seconds(1), 1, 2), ReviewPlans.Totals(await f.Plan(plan), snapshot));
+        Assert.Contains("into 2 candidates", ReviewPlans.Describe(snapshot, edit));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+
+        // The edit is queued with the source and waits for review. What needs its pick waits too.
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var captured = Assert.Single(f.Renders.Edits);
+        Assert.Equal((source.Id, 2, true, ImageAspectPolicy.FromImage1), (captured.SourceImageId, captured.Count, captured.PendingReview, captured.AspectRatio));
+        Assert.Equal(ReviewStepState.Running, running.Step(edit.Id)!.State);
+        Assert.All(new[] { replace, render }, s => Assert.Equal(ReviewStepState.Waiting, running.Step(s.Id)!.State));
+        Assert.Empty(f.Renders.Captured);
+
+        var candidates = f.FinishEdit(running.Step(edit.Id)!, 2);
+        var picking = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal(ReviewStepState.Pick, picking.Step(edit.Id)!.State);
+        Assert.Equal(candidates, picking.Step(edit.Id)!.ProducedImageIds);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, edit.Id, Guid.NewGuid(), ReviewPlans.Director, _ct));
+        await f.Plans.RecommendAsync(f.Project, plan.Id, edit.Id, candidates[1], "The window stays readable.", "agent", _ct);
+
+        var after = await f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+
+        // The pick joins the asset, the shot's picture becomes it at the same place, and the render goes.
+        var images = f.Assets.Library.Assets[0].Images;
+        Assert.Equal(false, images.Single(i => i.Id == candidates[1]).PendingReview);
+        Assert.DoesNotContain(images, i => i.Id == candidates[0]);
+        Assert.Equal(candidates[1], after.Step(edit.Id)!.NewImageId);
+        Assert.Equal(ReviewStepState.Done, after.Step(replace.Id)!.State);
+        Assert.Equal(candidates[1], Assert.Single((await f.Setup(shot)).Shot.Images).MediaId);
+        Assert.Equal(ReviewStepState.Running, after.Step(render.Id)!.State);
+        Assert.Equal(candidates[1], Assert.Single(f.Renders.Setups).Shot.Images.Single().MediaId);
+    }
+
+    [Fact]
+    public async Task TurningDownAPickSkipsWhatNeededItAndTheRestGoesOn()
+    {
+        var f = await PlanFixture.Create(this, shots: 2, character: true); var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Turned down", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night." });
+        var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, first, "Use it.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
+        var other = await f.Propose(plan, new(ReviewStepKind.MarkPromptReviewed, second, "Unrelated."));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal(ReviewStepState.Done, running.Step(other.Id)!.State);
+        f.FinishEdit(running.Step(edit.Id)!, 1);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        var done = await f.Runner.RejectPickAsync(f.Project, plan.Id, edit.Id, ReviewPlans.Director, _ct);
+
+        Assert.Equal(ReviewStepState.Skipped, done.Step(edit.Id)!.State);
+        Assert.Equal(ReviewStepState.Skipped, done.Step(replace.Id)!.State);
+        Assert.Contains("did not run", done.Step(replace.Id)!.Message);
+        Assert.Equal(ReviewPlanState.Finished, done.State);
+        Assert.Equal(source.Id, Assert.Single((await f.Setup(first)).Shot.Images).MediaId);
+    }
+
+    [Fact]
     public void PromptEditsReplaceTextThatOccursExactlyOnce()
     {
         const string prompt = "Vera stands by the window. The window is open.";
@@ -399,12 +471,22 @@ public sealed partial class ShotTests
             result.Review = new(f.Shots, result.Production, result.Cuts, result.Assets, new FakeScriptStore(), result.Setups);
             var store = new ReviewPlanStore(f.Files, owner._clock);
             result.Plans = new(store, result.Review, owner._clock); result.Renders = new();
-            result.Runner = new(store, result.Review, result.Production, f.Shots, result.Cuts, result.Renders, projects, owner._clock, NullLogger<ReviewPlanRunner>.Instance, result.Setups);
+            result.Runner = new(store, result.Review, result.Production, f.Shots, result.Cuts, result.Assets, result.Renders, projects, owner._clock, NullLogger<ReviewPlanRunner>.Instance, result.Setups);
             return result;
         }
         public Task<ReviewPlanStep> Propose(ReviewPlan plan, ReviewStepProposal proposal) => Plans.ProposeAsync(Project, plan.Id, proposal, "agent", ct: _owner._ct);
         public Task<ReviewPlan> Plan(ReviewPlan plan) => Plans.Store.GetAsync(Project, plan.Id, _owner._ct);
         public async Task<ProductionComposition> Setup(Guid shot) => (await Production.LoadAsync(Project, _owner._ct)).Compositions.First(c => c.ShotId == shot && !c.Archived);
+        /// <summary>The queued edit completes and publishes pending candidates, as the image handler would.</summary>
+        public Guid[] FinishEdit(ReviewPlanStep step, int count)
+        {
+            var job = step.JobId!.Value;
+            var made = Enumerable.Range(1, count).Select(n => new AssetImage { Id = Guid.NewGuid(), FileName = $"edit-{n}.png", ContentType = "image/png", Width = 64, Height = 64, PendingReview = true, Generation = new() { AiJobId = job } }).ToArray();
+            var library = Assets.Library;
+            Assets.Library = library with { Assets = library.Assets.Select(a => a.Id == step.AssetId ? a with { Images = [.. a.Images, .. made] } : a).ToList() };
+            Renders.States[job] = AiJobState.Completed;
+            return made.Select(i => i.Id).ToArray();
+        }
         /// <summary>The queued render completes and publishes its takes, as the video handler would.</summary>
         public async Task<Guid[]> Finish(ReviewPlanStep step, int takes)
         {
@@ -430,6 +512,12 @@ public sealed partial class ShotTests
         public List<(Guid Shot, int Takes)> Captured { get; } = [];
         public List<ProductionComposition> Setups { get; } = [];
         public List<VideoResolution?> Resolutions { get; } = [];
+        public List<ReferenceEditRequest> Edits { get; } = [];
+        public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct)
+        {
+            Edits.Add(request);
+            return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.ImageEdit, AiBackend.ComfyUI, new(request.ProjectId, AssetId: assetId), "Project", "Image", Guid.Empty, new { request.Count }));
+        }
         public Func<Guid, string?> Refuse { get; set; } = _ => null;
         public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
         {

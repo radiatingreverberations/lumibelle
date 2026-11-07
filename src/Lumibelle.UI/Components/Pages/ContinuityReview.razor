@@ -79,6 +79,10 @@ else
                                         <lumibelle.Components.AI.AiJobProgressView Job="job" Queue="Jobs.View" Progress="Jobs.Progress(job.Id)" />
                                     }
                                     @if (step.Message is not null) { <p class="review-step-message" role="status">@step.Message</p> }
+                                    @if (step.Kind == ReviewStepKind.EditImage)
+                                    {
+                                        <div class="review-edit"><img src="@($"/media/projects/{Id}/assets/{step.AssetId}/images/{step.ImageId}")" alt="The image to edit" loading="lazy" /><p>@step.After</p></div>
+                                    }
                                     @if (step.Kind == ReviewStepKind.SetPrompt)
                                     {
                                         <details><summary>Compare prompts</summary><lumibelle.Components.Shots.PromptComparisonView Before="@(step.Before ?? "")" After="@(step.After ?? "")" BeforeLabel="Prompt when proposed" AfterLabel="Proposed prompt" /></details>
@@ -86,7 +90,15 @@ else
                                     @if (step.State == ReviewStepState.Held) { <button type="button" disabled="@_busy" @onclick="() => Release(current, step)">Apply to the shot as it is now</button> }
                                     @if (step.State == ReviewStepState.Pick)
                                     {
-                                        <div class="review-picks" role="group" aria-label="Takes to pick from">
+                                        <div class="review-picks" role="group" aria-label="@(step.Kind == ReviewStepKind.EditImage ? "Images to pick from" : "Takes to pick from")">
+                                            @foreach (var candidate in step.Kind == ReviewStepKind.EditImage ? step.ProducedImageIds : [])
+                                            {
+                                                <figure @key="candidate">
+                                                    <img src="@($"/media/projects/{Id}/assets/{step.AssetId}/images/{candidate}")" alt="Image candidate" loading="lazy" />
+                                                    @if (step.RecommendedTakeId == candidate) { <figcaption><span class="review-recommended">Recommended</span></figcaption> }
+                                                    <MudButton Size="Size.Small" Variant="@(step.RecommendedTakeId == candidate ? Variant.Filled : Variant.Outlined)" Color="@(step.RecommendedTakeId == candidate ? Color.Primary : Color.Default)" Disabled="_busy" OnClick="() => Pick(current, step, candidate)">Use this image</MudButton>
+                                                </figure>
+                                            }
                                             @foreach (var take in _snapshot.Shots.Takes.Where(t => step.ProducedTakeIds.Contains(t.Id)))
                                             {
                                                 <figure @key="take.Id">
@@ -97,7 +109,11 @@ else
                                             }
                                         </div>
                                         @if (step.Recommendation is not null) { <p class="field-hint">@step.Recommendation</p> }
-                                        <a href="@ProjectLink(Id, $"/shots?shotId={step.ShotId}&view=Takes")">Compare takes in Shots</a>
+                                        <div class="review-pick-actions">
+                                            @if (step.Kind != ReviewStepKind.EditImage) { <a href="@ProjectLink(Id, $"/shots?shotId={step.ShotId}&view=Takes")">Compare takes in Shots</a> }
+                                            <button type="button" disabled="@_busy" @onclick="() => RejectPick(current, step)">None of these</button>
+                                        </div>
+                                        <p class="field-hint">@(step.Kind == ReviewStepKind.EditImage ? "Images you don’t pick go to Trash, where you can restore them. Steps that use the pick are skipped if you choose none." : "Takes you don’t pick stay in Shots. Steps that use the pick are skipped if you choose none.")</p>
                                     }
                                 </li>
                             }
@@ -152,7 +168,7 @@ else
                     <ChildContent>
                         <p><span class="review-state">@StateLabel(plan)</span></p>
                         <p class="field-hint">Proposed by @plan.ProposedBy on @plan.CreatedUtc.ToLocalTime().ToString("g").@if (plan.ApprovedFrom is { } from) { <span> Approved @(from == ReviewPlans.Director ? "here" : "from " + from) on @plan.ApprovedUtc?.ToLocalTime().ToString("g").</span> }</p>
-                        <p class="review-totals">@(open ? "Approving this plan makes" : "This plan covers") @Count(totals.Changes, "change") to the project and renders @Count(totals.Takes, "take")@(totals.Takes > 0 ? $", {totals.FootageSeconds:0.#} seconds of footage" : "").</p>
+                        <p class="review-totals">@(open ? "Approving this plan makes" : "This plan covers") @Count(totals.Changes, "change") to the project and renders @Count(totals.Takes, "take")@(totals.Takes > 0 ? $", {totals.FootageSeconds:0.#} seconds of footage" : "")@(totals.Images > 0 ? $", and edits {Count(totals.Images, "image candidate")}" : "").</p>
                         @if (plan.State == ReviewPlanState.Draft) { <p class="field-hint">The agent is still writing this plan. You can approve it now or wait until it is submitted.</p> }
                         @if (plan.Active) { <p class="field-hint">Lumibelle runs this plan itself, so the agent can disconnect. Cancel a single render in AI activity.</p> }
                         <details class="review-log"><summary>History</summary><ul>@foreach (var entry in plan.Log.Reverse()) { <li><time>@entry.At.ToLocalTime().ToString("g")</time> <strong>@entry.Who</strong> @entry.What</li> }</ul></details>

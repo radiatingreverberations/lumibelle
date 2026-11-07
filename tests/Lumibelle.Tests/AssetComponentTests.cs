@@ -680,6 +680,11 @@ internal sealed class FakeAssetStore(Guid projectId) : IAssetStore, IImageTrashS
     }
     public Task<SavedAssetImage> SaveDerivedImageAsync(Guid id, DerivedImageRequest request, long expectedRevision, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Derived-image operations use real file-store test fixtures.");
+    public Task<ImageTrashResult> DiscardPendingImagesAsync(Guid id, Guid operationId, IReadOnlyCollection<AssetImageReference> images, long expectedRevision, CancellationToken cancellationToken = default)
+    {
+        Library = Library with { Assets = Library.Assets.Select(a => a with { Images = a.Images.Where(i => !images.Contains(new(a.Id, i.Id))).ToList() }).ToList() };
+        return Task.FromResult(new ImageTrashResult(Library, images.Select(_ => Guid.NewGuid()).ToArray()));
+    }
     public AssetLibrary Library { get; set; } = new() { ProjectId = projectId };
     public AssetLibrary Working { get; private set; } = new() { ProjectId = projectId };
     public int SaveCalls { get; private set; }

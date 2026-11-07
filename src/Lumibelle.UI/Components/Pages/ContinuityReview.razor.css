@@ -37,7 +37,11 @@
 .review-step-message { color: var(--lumi-warning); }
 .review-picks { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
 .review-picks figure { margin: 0; width: min(320px, 100%); display: flex; flex-direction: column; gap: 4px; }
-.review-picks video { width: 100%; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.review-picks video, .review-picks img { width: 100%; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.review-pick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 4px; }
+.review-edit { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin: 8px 0; }
+.review-edit img { width: 160px; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.review-edit p { flex: 1 1 240px; margin: 0; white-space: pre-wrap; }
 .review-picks figcaption { font-size: var(--lumi-font-size-small); color: var(--lumi-text-muted); }
 .review-recommended { color: var(--lumi-accent); font-weight: 600; }
 
