@@ -378,6 +378,27 @@ public sealed class ReviewChecksTests
         Assert.Equal("none", System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, none.Id)).GetProperty("voice").GetString());
     }
 
+    [Fact]
+    public void FollowsAPictureThroughATakeFrameIntoAReelAndTheTakesThatUseIt()
+    {
+        var f = new Fixture(); var image = f.Room.Images[0];
+        // Take A is rendered with the picture.
+        var a = f.Shot("A"); f.Setup(a).Shot.Images.Add(new() { AssetId = f.Room.Id, MediaId = image.Id, Name = "Room" }); var aTake = f.Take(a);
+        // A reel is generated from a shot that uses a frame of take A, not the picture itself.
+        var generated = new Shot { Title = "Reel", ShotFrames = [new(Guid.NewGuid(), aTake.Id, 38, "A end")] };
+        var media = new ReferenceVideoMedia(Guid.NewGuid(), "sha", 3, 64, 64, 48, 24, 2, false);
+        var snapshot = new VideoSnapshot(f.Assets.ProjectId, 1, generated, "prompt", "fingerprint", "http://localhost:8188", new(), 64, 64, 48);
+        f.Assets.Reels.Add(new() { AssetId = f.Room.Id, Name = "Room walk", Media = media, Generation = new(null!, Guid.NewGuid(), Guid.NewGuid(), 1, 1, snapshot) });
+        // Take C is rendered with that reel.
+        var c = f.Shot("C"); f.Setup(c).Shot.Videos = [new() { Media = media, Name = "Room walk" }]; var cTake = f.Take(c, select: true);
+
+        var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
+
+        Assert.Contains("frame from", Assert.Single(uses, u => u.Kind == "Reel").Detail);
+        Assert.Contains("Room walk", Assert.Single(uses, u => u.TakeId == cTake.Id).Detail);
+        Assert.Contains(uses, u => u.TakeId == aTake.Id);
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]
