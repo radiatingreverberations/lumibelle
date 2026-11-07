@@ -238,8 +238,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             // A frame from a shot the plan does not render comes from that shot's selected take. Which take that is, is
             // recorded first, so a step applied again after an interruption adds the same frame, never one from a take
             // selected since.
+            // A take this plan selects for that shot comes first: the step waited for it.
             if (step is { Kind: ReviewStepKind.AddShotFrame, Frame: { TakeId: null, FromShotId: { } source } } && Render(plan, source) is null &&
-                snapshot.Row(source)?.Coverage.SelectedTakeId is { } selected)
+                (Chosen(plan, source)?.TakeId ?? snapshot.Row(source)?.Coverage.SelectedTakeId) is { } selected)
             {
                 await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => p with { Steps = p.Steps.Select(s => s.Id == step.Id && s.Frame is { TakeId: null } frame ? s with { Frame = frame with { TakeId = selected } } : s).ToArray() }, ct: ct);
                 return true;
@@ -276,6 +277,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         // When a render of that shot was rejected and another proposed, the one kept is the one it waits for.
         if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } from &&
             Render(plan, from) is { State: not ReviewStepState.Done } render) return render;
+        // A frame from a shot whose take this plan selects waits for that selection.
+        if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } chosenFrom && Render(plan, chosenFrom) is null &&
+            Chosen(plan, chosenFrom) is { State: not ReviewStepState.Done } use) return use;
         // A picture from an edit needs that edit picked.
         if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
         // Accepting a prompt records the references it was read against, so it waits for the plan's changes to the shot's
@@ -318,6 +322,10 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         step.FromStepId is { } edit && plan.Step(edit) is { } producer ? step with { NewAssetId = producer.AssetId, NewImageId = producer.NewImageId }
         : step is { Kind: ReviewStepKind.AddShotFrame, Frame: { TakeId: null, FromShotId: { } from } frame } && Render(plan, from) is { State: ReviewStepState.Done, TakeId: { } picked }
             ? step with { Frame = frame with { TakeId = picked } } : step;
+
+    /// <summary>The last step of the plan that selects an existing take for a shot and was not rejected.</summary>
+    internal static ReviewPlanStep? Chosen(ReviewPlan plan, Guid shotId) =>
+        plan.Steps.LastOrDefault(s => s.Kind == ReviewStepKind.UseTake && s.ShotId == shotId && s.State != ReviewStepState.Rejected);
 
     /// <summary>The plan's render of a shot: the one kept, when another was rejected.</summary>
     internal static ReviewPlanStep? Render(ReviewPlan plan, Guid shotId) =>

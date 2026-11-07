@@ -223,6 +223,8 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             } : null,
             job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick && s.Kind != ReviewStepKind.EditImage ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.GenerateTakes ? s.TakeId : null,
             asset = s.AssetId, image = s.ImageId, fromStep = s.FromStepId,
+            // EditImage: the further reference images, in the order the model receives them after the source.
+            references = s.ReferenceImages.Count == 0 ? null : s.ReferenceImages.Select(r => new { asset = r.AssetId, image = r.ImageId }).ToArray(),
             imagesToPickFrom = s.State == ReviewStepState.Pick && s.Kind == ReviewStepKind.EditImage ? s.ProducedImageIds : null, pickedImage = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.EditImage ? s.NewImageId : null,
             recommendedTake = s.RecommendedTakeId, recommendation = s.Recommendation
         };

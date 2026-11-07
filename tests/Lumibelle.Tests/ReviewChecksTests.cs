@@ -308,6 +308,20 @@ public sealed class ReviewChecksTests
         }
     }
 
+    [Fact]
+    public void APlanReadListsAnEditsFurtherReferencesInOrder()
+    {
+        var f = new Fixture();
+        var references = new AssetImageReference[] { new(f.Room.Id, f.Room.Images[0].Id), new(f.Vera.Id, f.Vera.Images[0].Id) };
+        var step = new ReviewPlanStep { Kind = ReviewStepKind.EditImage, AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, After = "Make it night.", Takes = 1,
+            State = ReviewStepState.Proposed, Reason = "Night.", ReferenceImages = references };
+        var plan = new ReviewPlan { Title = "Night", Steps = [step] };
+
+        foreach (var read in new[] { System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan)).GetProperty("steps")[0],
+            System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, step.Id)) })
+            Assert.Equal(references, read.GetProperty("references").EnumerateArray().Select(r => new AssetImageReference(r.GetProperty("asset").GetGuid(), r.GetProperty("image").GetGuid())));
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]
