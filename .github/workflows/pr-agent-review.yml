@@ -97,7 +97,9 @@ jobs:
 
   # PR-Agent cannot fail a check on its findings, so this job reads them back from the pull
   # request. It is separate from the review so that, after resolving a thread to dismiss a
-  # finding, "Re-run failed jobs" turns it green without paying for another review.
+  # finding, "Re-run failed jobs" turns it green without paying for another review. It also
+  # resolves PR-Agent's threads for findings a later review marked resolved, which PR-Agent
+  # does not do on GitHub itself; that needs pull-requests: write.
   findings:
     needs: review
     runs-on: ubuntu-latest
@@ -105,7 +107,7 @@ jobs:
     permissions:
       contents: read
       issues: read
-      pull-requests: read
+      pull-requests: write
     steps:
       - name: Fail on open findings
         env:
@@ -157,14 +159,14 @@ jobs:
                   pullRequest(number: $pr) {
                     reviewThreads(first: 100, after: $endCursor) {
                       pageInfo { hasNextPage endCursor }
-                      nodes { isResolved path comments(first: 1) { nodes { author { login } url body } } }
+                      nodes { id isResolved path comments(first: 1) { nodes { author { login } url body } } }
                     }
                   }
                 }
               }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
                 | .comments.nodes[0] as $c
                 | select(($c.author.login // "") | startswith("github-actions"))
-                | {resolved: .isResolved, path, url: $c.url, body: $c.body} | @json' | jq -s .)
+                | {id, resolved: .isResolved, path, url: $c.url, body: $c.body} | @json' | jq -s .)
 
             # An active finding is open until every inline thread posting it is resolved.
             # One that could not be posted inline stays open until a review drops it.
@@ -182,6 +184,29 @@ jobs:
               report "$findings"
               open=$((open + $(grep -c . <<< "$findings")))
             fi
+
+            # Resolve the open threads of findings PR-Agent has marked resolved, unless the
+            # thread also matches a finding that is still active. This only tidies the pull
+            # request, so a thread that cannot be resolved is a warning, not a failure.
+            # shellcheck disable=SC2016
+            fixed=$(printf '%s\n%s\n' "$state" "$threads" | jq -nr '
+              def posts($f): .path == $f.path and (.body | startswith($f.body));
+              input as $state | input as $threads
+              | [$state.findings[] | select(.state == "ACTIVE")] as $active
+              | [$state.findings[] | select(.state == "RESOLVED")] as $resolved
+              | $threads[] | select(.resolved | not) | . as $t
+              | select(any($resolved[]; . as $f | $t | posts($f)))
+              | select(all($active[]; . as $f | $t | posts($f) | not))
+              | .id')
+            for id in $fixed; do
+              # shellcheck disable=SC2016
+              if gh api graphql -f id="$id" -f query='
+                mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' > /dev/null; then
+                echo "Resolved the thread of a fixed finding ($id)."
+              else
+                echo "::warning::Could not resolve review thread $id."
+              fi
+            done
 
             # Coverage gaps are reported, not failed.
             jq -r '.last_run | select(.complete == false or ((.excluded_files // []) | length) > 0)
