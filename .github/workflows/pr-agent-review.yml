@@ -112,59 +112,86 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # The single-quoted $ names below are jq and GraphQL variables, not shell ones,
           # hence the SC2016 exceptions.
           set -euo pipefail
-          open=0
           report() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; echo "$1"; }
 
-          # The persistent summary comment, which the review job has just updated. Findings
-          # that could not be attached to a line stay only here.
-          # shellcheck disable=SC2016
-          summary_id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- pr-agent:review:full -->"))) | .id' | tail -n 1)
-          if [ -z "$summary_id" ]; then
-            echo "::error::PR-Agent posted no review summary on this pull request."
+          # The persistent summary comment. Its pr-agent-review-state block lists every
+          # finding of the last complete review with its state. GitHub can briefly serve the
+          # comment from before the review job edited it, so wait until it names this commit.
+          reviewed=""
+          for _ in 1 2 3 4 5 6; do
+            # shellcheck disable=SC2016
+            summary=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- pr-agent:review:full -->"))) | {url: .html_url, body} | @json' | tail -n 1)
+            if [ -z "$summary" ]; then
+              echo "::error::PR-Agent posted no review summary on this pull request."
+              exit 1
+            fi
+            body=$(jq -r .body <<< "$summary")
+            state=$(sed -n '/^<!-- pr-agent-review-state:v1$/,/^-->$/p' <<< "$body" | sed '1d;$d')
+            if [ -n "$state" ]; then
+              reviewed=$(jq -r '.last_run.head_sha // empty' <<< "$state")
+            else
+              reviewed=$({ grep -oE 'Review updated until commit [^ )]*/commit/[0-9a-f]{40}' <<< "$body" || true; } | grep -oE '[0-9a-f]{40}$' || true)
+            fi
+            if [ -z "$reviewed" ] || [ "$reviewed" = "$HEAD_SHA" ]; then break; fi
+            sleep 10
+          done
+          if [ -n "$reviewed" ] && [ "$reviewed" != "$HEAD_SHA" ]; then
+            echo "::error::The review summary is for commit ${reviewed:0:7}, not ${HEAD_SHA:0:7}. Re-run the whole workflow."
             exit 1
           fi
-          summary=$(gh api "repos/$REPO/issues/comments/$summary_id" --jq .body)
-          summary_url=$(gh api "repos/$REPO/issues/comments/$summary_id" --jq .html_url)
-          for marker in "No major issues detected" "No security concerns identified"; do
-            if ! grep -qF "$marker" <<< "$summary"; then
-              report "- The [review summary]($summary_url) does not say \"$marker\"."
-              open=$((open + 1))
-            fi
-          done
+          summary_url=$(jq -r .url <<< "$summary")
+          open=0
 
-          # Inline findings. A thread stops counting once it is resolved, or once a push
-          # changes its lines and GitHub marks it outdated; the next review re-raises a
-          # finding the change did not fix.
-          # shellcheck disable=SC2016
-          threads=$(gh api graphql --paginate -F owner="${REPO%/*}" -F name="${REPO#*/}" -F pr="$PR" -f query='
-            query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
-              repository(owner: $owner, name: $name) {
-                pullRequest(number: $pr) {
-                  reviewThreads(first: 100, after: $endCursor) {
-                    pageInfo { hasNextPage endCursor }
-                    nodes {
-                      isResolved
-                      isOutdated
-                      path
-                      line
-                      comments(first: 1) { nodes { author { login } url body } }
+          if [ -n "$state" ]; then
+            # Every inline thread PR-Agent opened, resolved or not.
+            # shellcheck disable=SC2016
+            threads=$(gh api graphql --paginate -F owner="${REPO%/*}" -F name="${REPO#*/}" -F pr="$PR" -f query='
+              query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100, after: $endCursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes { isResolved comments(first: 1) { nodes { author { login } url body } } }
                     }
                   }
                 }
-              }
-            }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
-              | select((.isResolved | not) and (.isOutdated | not))
-              | .comments.nodes[0] as $c
-              | select(($c.author.login // "") | startswith("github-actions"))
-              | "- [\(.path):\(.line // "file")](\($c.url)) \($c.body | split("\n")[0] | .[0:200])"')
-          if [ -n "$threads" ]; then
-            report "$threads"
-            open=$((open + $(grep -c . <<< "$threads")))
+              }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+                | .comments.nodes[0] as $c
+                | select(($c.author.login // "") | startswith("github-actions"))
+                | {resolved: .isResolved, url: $c.url, body: $c.body} | @json' | jq -s .)
+
+            # An active finding is open until every inline thread posting it is resolved.
+            # One that could not be posted inline stays open until a review drops it.
+            # shellcheck disable=SC2016
+            findings=$(printf '%s\n%s\n' "$state" "$threads" | jq -nr --arg summary "$summary_url" '
+              input as $state | input as $threads
+              | $state.findings[] | select(.state == "ACTIVE") | . as $f
+              | [$threads[] | select(.body | startswith($f.body))] as $t
+              | select(($t | length) == 0 or ($t | any(.resolved | not)))
+              | "- [\($f.path):\($f.line_start)](\([$t[] | select(.resolved | not)][0].url // $summary)) \($f.body | split("\n")[0] | .[0:200])"
+                + (if ($t | length) == 0 then " (only in the summary, so it clears on the next review)" else "" end)')
+            if [ -n "$findings" ]; then
+              report "$findings"
+              open=$((open + $(grep -c . <<< "$findings")))
+            fi
+
+            # Coverage gaps are reported, not failed.
+            jq -r '.last_run | select(.complete == false or ((.excluded_files // []) | length) > 0)
+              | "::warning::The review was incomplete. Files left out: \((.excluded_files // []) | join(", "))"' <<< "$state"
+          elif ! grep -qF "No major issues detected" <<< "$body"; then
+            report "- The [review summary]($summary_url) reports issues but has no finding state to track them by."
+            open=$((open + 1))
+          fi
+
+          if ! grep -qF "No security concerns identified" <<< "$body"; then
+            report "- The [review summary]($summary_url) reports a security concern, which clears on the next review."
+            open=$((open + 1))
           fi
 
           if [ "$open" -gt 0 ]; then
