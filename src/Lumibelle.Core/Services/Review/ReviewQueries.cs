@@ -158,7 +158,7 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             {
                 var at = start; start += c.Duration; var row = snapshot.Row(c.ShotId);
                 return new { index = i + 1, starts = CutTimes.Format(at), seconds = Math.Round(c.Duration, 3), shot = row is null ? null : "#" + row.Number, shotId = c.ShotId, title = c.ShotTitle,
-                    take = c.TakeId, isSelectedTake = row?.Coverage.SelectedTakeId == c.TakeId, frames = new { from = c.StartFrame, toExclusive = c.EndFrameExclusive } };
+                    take = c.TakeId, isSelectedTake = row?.Coverage.SelectedTakeId == c.TakeId, frames = new { first = c.StartFrame + 1, last = c.EndFrameExclusive } };
             }).ToArray()
         };
     }
@@ -170,7 +170,7 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             : $"The cut is {CutTimes.Format(CutTimes.Duration(snapshot.Cut))} long; {time} is past its end.");
         var row = snapshot.Row(found.Clip.ShotId);
         return new { time = CutTimes.Format(seconds), clip = found.ClipIndex + 1, shot = row is null ? null : "#" + row.Number, shotId = found.Clip.ShotId, title = found.Clip.ShotTitle,
-            take = found.Clip.TakeId, takeFrame = found.TakeFrame, secondsIntoClip = Math.Round(found.SecondsIntoClip, 3), clipStarts = CutTimes.Format(found.ClipStartSeconds),
+            take = found.Clip.TakeId, takeFrame = found.TakeFrame + 1, secondsIntoClip = Math.Round(found.SecondsIntoClip, 3), clipStarts = CutTimes.Format(found.ClipStartSeconds),
             // The cut may be older than the picks; a note on it is about the take it shows.
             isSelectedTake = row?.Coverage.SelectedTakeId == found.Clip.TakeId };
     }

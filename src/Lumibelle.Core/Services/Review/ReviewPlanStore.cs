@@ -69,7 +69,8 @@ public sealed class ReviewPlanStore(ProjectFiles files, TimeProvider clock)
             var document = await ReadAsync(directory, projectId, ct);
             var plan = document.Plans.FirstOrDefault(p => p.Id == planId);
             if (plan is null) return;
-            if (plan.Active && plan.Steps.Any(s => s.State == ReviewStepState.Running)) throw new WorkspaceStoreException("This plan has a render running. Stop the plan first.");
+            // Stopping goes through the runner, which waits for a pick in progress; a running plan is never removed under it.
+            if (plan.Active) throw new WorkspaceStoreException("This plan is running. Stop the plan before deleting it.");
             document.Plans.Remove(plan); document.Revision++;
             await Documents.SaveAsync(directory, projectId, document, ct);
         }

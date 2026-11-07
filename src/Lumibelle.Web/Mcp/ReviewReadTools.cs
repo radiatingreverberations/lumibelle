@@ -86,10 +86,10 @@ public sealed class ReviewReadTools(ReviewQueries queries, ReviewMedia media)
         return Text(await queries.AudioLevelsAsync(snapshot, snapshot.Rows.Where(r => r.Number >= first && r.Number <= last).Select(r => r.Id).ToArray(), ct));
     });
 
-    [McpServerTool(Name = "get_cut", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("The cut: each clip with the time it starts, its shot and take, and whether that take is still the shot's selected take.")]
+    [McpServerTool(Name = "get_cut", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("The cut: each clip with the time it starts, its shot and take, the first and last frames of the take it shows (counted from 1), and whether that take is still the shot's selected take.")]
     public Task<string> GetCut([Description(Project)] string project, CancellationToken ct) => Guard(async () => Text(ReviewQueries.Cut(await queries.SnapshotAsync(project, ct))));
 
-    [McpServerTool(Name = "locate_cut_time", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("Turns a time in the cut, as in a director's note such as “3:54, the table disappears”, into the shot, the take and the frame of that take on screen at that moment.")]
+    [McpServerTool(Name = "locate_cut_time", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("Turns a time in the cut, as in a director's note such as “3:54, the table disappears”, into the shot, the take and the frame of that take on screen at that moment, counted from 1 as get_frames counts them.")]
     public Task<string> LocateCutTime([Description(Project)] string project, [Description("The time as minutes:seconds, such as 3:54, or as seconds.")] string time, CancellationToken ct) =>
         Guard(async () => Text(ReviewQueries.Locate(await queries.SnapshotAsync(project, ct), time)));
 

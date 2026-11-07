@@ -45,7 +45,9 @@ public static class CutTimes
 
     public static string Format(double seconds)
     {
-        var whole = (int)Math.Floor(seconds);
-        return $"{whole / 60}:{whole % 60:00}" + (seconds - whole >= .05 ? (seconds - whole).ToString(".0", CultureInfo.InvariantCulture) : "");
+        // Rounded to tenths as a whole, so 59.96 carries into the next minute instead of reading 0:59 and a tenth of 1.0.
+        var tenths = (long)Math.Round(Math.Max(0, seconds) * 10, MidpointRounding.AwayFromZero);
+        var whole = tenths / 10;
+        return $"{whole / 60}:{whole % 60:00}" + (tenths % 10 is > 0 and var tenth ? "." + tenth.ToString(CultureInfo.InvariantCulture) : "");
     }
 }

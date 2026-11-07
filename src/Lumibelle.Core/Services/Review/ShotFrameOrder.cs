@@ -44,26 +44,30 @@ public static class ShotFrameOrder
         return new(waves, Cycles(shots.Where(pending.ContainsKey).ToArray(), pending), sources);
     }
 
-    // What is left after the sort is cycles and the shots downstream of them; report only the cycles themselves.
+    // What is left after the sort is cycles and the shots downstream of them; report only the cycles themselves. Every
+    // dependency is followed (Tarjan's strongly connected components), so a cycle that leads into another is still found.
+    // Each cycle lists its shots in shot order, and the cycles come in the order of their first shot.
     private static IReadOnlyList<IReadOnlyList<Guid>> Cycles(IReadOnlyList<Guid> shots, Dictionary<Guid, HashSet<Guid>> waiting)
     {
-        var cycles = new List<IReadOnlyList<Guid>>(); var reported = new HashSet<Guid>();
-        foreach (var start in shots)
+        var position = shots.Select((s, i) => (s, i)).ToDictionary(x => x.s, x => x.i);
+        var index = new Dictionary<Guid, int>(); var low = new Dictionary<Guid, int>();
+        var stack = new Stack<Guid>(); var onStack = new HashSet<Guid>(); var groups = new List<Guid[]>();
+        foreach (var shot in shots) if (!index.ContainsKey(shot)) Visit(shot);
+        return groups.Where(g => g.Length > 1).Select(g => (IReadOnlyList<Guid>)g.OrderBy(s => position[s]).ToArray()).OrderBy(g => position[g[0]]).ToArray();
+
+        void Visit(Guid shot)
         {
-            if (reported.Contains(start)) continue;
-            var path = new List<Guid>(); var current = start;
-            while (!path.Contains(current))
+            index[shot] = low[shot] = index.Count; stack.Push(shot); onStack.Add(shot);
+            foreach (var next in shots.Where(waiting[shot].Contains))
             {
-                path.Add(current);
-                var next = shots.FirstOrDefault(s => waiting[current].Contains(s));
-                if (next == Guid.Empty) { path.Clear(); break; }
-                current = next;
+                if (!index.ContainsKey(next)) { Visit(next); low[shot] = Math.Min(low[shot], low[next]); }
+                else if (onStack.Contains(next)) low[shot] = Math.Min(low[shot], index[next]);
             }
-            if (path.Count == 0) continue;
-            var cycle = path.Skip(path.IndexOf(current)).ToArray();
-            if (cycle.Any(reported.Contains)) continue;
-            reported.UnionWith(cycle); cycles.Add(shots.Where(cycle.Contains).ToArray());
+            if (low[shot] != index[shot]) return;
+            var group = new List<Guid>();
+            Guid member;
+            do { member = stack.Pop(); onStack.Remove(member); group.Add(member); } while (member != shot);
+            groups.Add([.. group]);
         }
-        return cycles;
     }
 }

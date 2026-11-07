@@ -656,6 +656,80 @@ public sealed partial class ShotTests
         else Assert.Equal((ReviewStepState.Skipped, (Guid?)null), (step.State, selected));
     }
 
+    [Fact]
+    public async Task ARenderThatFinishesAfterThePassReadTheProjectStillOffersItsTakes()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take."));
+        await f.Approve(plan);
+        var running = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!;
+        f.Renders.States[running.JobId!.Value] = AiJobState.Running;
+        // The pass has read the project when the queue is asked about the render, which publishes its take and completes just then.
+        f.Renders.OnState = job => { if (job == running.JobId) { f.Renders.OnState = null; f.Finish(running, 1).GetAwaiter().GetResult(); } };
+
+        var settled = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!;
+
+        Assert.Equal(ReviewStepState.Pick, settled.State);
+        Assert.Single(settled.ProducedTakeIds);
+    }
+
+    [Fact]
+    public async Task ARunningPlanCannotBeDeletedUntilItIsStopped()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take."));
+        await f.Approve(plan);
+        await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 1);
+        Assert.Equal(ReviewStepState.Pick, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!.State);
+
+        // Waiting for a pick, which another tab may be making: refused.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.Store.RemoveAsync(f.Project, plan.Id, _ct));
+        await f.Runner.StopAsync(f.Project, plan.Id, ReviewPlans.Director, _ct);
+        await f.Plans.Store.RemoveAsync(f.Project, plan.Id, _ct);
+        Assert.Empty(await f.Plans.Store.ListAsync(f.Project, _ct));
+    }
+
+    [Fact]
+    public async Task APlanApprovedWhileAPassForgetsItsProjectIsStillStarted()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Fix", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.SetPrompt, shot, "Fix.") { Prompt = "The mouse reads a letter." });
+        // The startup pass reads the plans before the approval and would forget the project after it.
+        f.Runner.Listed = _ => { f.Runner.Listed = null; f.Approve(plan).GetAwaiter().GetResult(); };
+        await f.Runner.AdvanceAllAsync(_ct);
+        Assert.Equal(ReviewPlanState.Approved, (await f.Plan(plan)).State);
+
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+
+        Assert.Equal(ReviewPlanState.Finished, (await f.Plan(plan)).State);
+        Assert.Equal("The mouse reads a letter.", (await f.Setup(shot)).Prompt);
+    }
+
+    [Fact]
+    public async Task AFrameFromAShotWaitsForTheRenderThatReplacedARejectedOne()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var plan = await f.Plans.CreateAsync(f.Project, "Carry over", "agent", _ct);
+        var rejected = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "One take."));
+        await f.Plans.DecideAsync(f.Project, plan.Id, rejected.Id, keep: false, _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Two takes instead.") { Takes = 2 });
+        var frame = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, second, "Carry the end over.") { Frame = new() { FromShotId = first, Name = "End" } });
+        // The rejected render cannot be kept again beside its replacement.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.DecideAsync(f.Project, plan.Id, rejected.Id, keep: true, _ct));
+        await f.Approve(plan);
+
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 2);
+        Assert.Equal(ReviewStepState.Waiting, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(frame.Id)!.State);
+        var done = await f.Runner.PickAsync(f.Project, plan.Id, render.Id, takes[1], ReviewPlans.Director, _ct);
+
+        Assert.Equal(ReviewStepState.Done, done.Step(frame.Id)!.State);
+        Assert.Contains((await f.Setup(second)).Shot.ShotFrames, x => x.TakeId == takes[1]);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";
@@ -769,6 +843,8 @@ public sealed partial class ShotTests
             if (FailCancels > 0) { FailCancels--; throw new IOException("The queue could not be reached."); }
             States[jobId] = AiJobState.Cancelled; return Task.CompletedTask;
         }
-        public AiJobState? State(Guid jobId) => States.TryGetValue(jobId, out var state) ? state : null;
+        /// <summary>Runs when the queue is asked about a request, before it answers.</summary>
+        public Action<Guid>? OnState { get; set; }
+        public AiJobState? State(Guid jobId) { OnState?.Invoke(jobId); return States.TryGetValue(jobId, out var state) ? state : null; }
     }
 }

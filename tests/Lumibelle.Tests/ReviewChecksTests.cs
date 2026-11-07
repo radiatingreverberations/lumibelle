@@ -205,6 +205,45 @@ public sealed class ReviewChecksTests
         Assert.Contains("#1 and #2 take frames from one another", Assert.Single(f.Run(), x => x.Check == ReviewChecks.Order).Message);
     }
 
+    [Fact]
+    public void ReportsACycleThatLeadsIntoAnotherCycle()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A"); var b = f.Shot("B"); var c = f.Shot("C"); var d = f.Shot("D");
+        var (ta, tb, tc, td) = (f.Take(a).Id, f.Take(b).Id, f.Take(c).Id, f.Take(d).Id);
+        f.Setup(a).Shot.ShotFrames = [new(Guid.NewGuid(), tb, 0, "from B")];
+        f.Setup(b).Shot.ShotFrames = [new(Guid.NewGuid(), ta, 0, "from A")];
+        // C waits for A, whose cycle is found first, and for D, which waits for C.
+        f.Setup(c).Shot.ShotFrames = [new(Guid.NewGuid(), ta, 0, "from A"), new(Guid.NewGuid(), td, 0, "from D")];
+        f.Setup(d).Shot.ShotFrames = [new(Guid.NewGuid(), tc, 0, "from C")];
+
+        var order = ShotFrameOrder.Build(f.Snapshot());
+
+        Assert.Empty(order.Waves);
+        Assert.Equal([[a.Id, b.Id], [c.Id, d.Id]], order.Cycles);
+    }
+
+    [Theory]
+    [InlineData(59.96, "1:00")]
+    [InlineData(2.96, "0:03")]
+    [InlineData(2.04, "0:02")]
+    [InlineData(3.54, "0:03.5")]
+    [InlineData(119.95, "2:00")]
+    public void FormatsCutTimesRoundedAsAWhole(double seconds, string text) => Assert.Equal(text, CutTimes.Format(seconds));
+
+    [Fact]
+    public void LocatedAndListedFramesAreCountedFromOne()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A"); f.Cut.Clips.Add(CutClip.From(a, f.Take(a, frames: 48)));
+        var snapshot = f.Snapshot();
+
+        // Time zero is the take's first frame, which get_frames calls frame 1.
+        Assert.Equal(1, System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Locate(snapshot, "0")).GetProperty("takeFrame").GetInt32());
+        var frames = System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Cut(snapshot)).GetProperty("clips")[0].GetProperty("frames");
+        Assert.Equal((1, 48), (frames.GetProperty("first").GetInt32(), frames.GetProperty("last").GetInt32()));
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]

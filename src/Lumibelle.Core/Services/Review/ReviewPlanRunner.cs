@@ -19,14 +19,19 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
 
     // Projects that may have an approved plan: found once at startup, then kept current by the store's change event,
     // so a queue change does not open every project in the library.
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, byte> _watched = new();
+    // Each project's count of plan changes seen, so a pass forgets a project only if nothing changed since it read the plans.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, long> _watched = new();
     private int _listening;
+    /// <summary>Called after a pass reads a project's plans. Tests use it to change a plan in between.</summary>
+    internal Action<Guid>? Listed { get; set; }
+
+    private void Watch(Guid project) => _watched.AddOrUpdate(project, 1, (_, seen) => seen + 1);
 
     /// <summary>Advances the approved plans of every project, picking up whatever a restart interrupted. Called once at startup.</summary>
     public async Task AdvanceAllAsync(CancellationToken ct = default)
     {
-        if (Interlocked.Exchange(ref _listening, 1) == 0) store.Changed += (project, _) => _watched[project] = 0;
-        foreach (var project in (await projects.ListAsync(ct)).Projects) _watched[project.Id] = 0;
+        if (Interlocked.Exchange(ref _listening, 1) == 0) store.Changed += (project, _) => Watch(project);
+        foreach (var project in (await projects.ListAsync(ct)).Projects) Watch(project.Id);
         await AdvanceWatchedAsync(settledOnly: false, ct);
     }
 
@@ -39,10 +44,13 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     {
         foreach (var project in _watched.Keys)
         {
+            if (!_watched.TryGetValue(project, out var seen)) continue;
             IReadOnlyList<ReviewPlan> plans;
             try { plans = await store.ListAsync(project, ct); }
-            catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read.", project); _watched.TryRemove(project, out _); continue; }
-            if (!plans.Any(p => p.Active)) { _watched.TryRemove(project, out _); continue; }
+            catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read.", project); _watched.TryRemove(KeyValuePair.Create(project, seen)); continue; }
+            Listed?.Invoke(project);
+            // A plan approved after the read keeps the project watched.
+            if (!plans.Any(p => p.Active)) { _watched.TryRemove(KeyValuePair.Create(project, seen)); continue; }
             foreach (var plan in plans.Where(p => p.Active))
                 try
                 {
@@ -191,11 +199,12 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         foreach (var step in plan.Steps.Where(s => s.State == ReviewStepState.Running))
         {
             var job = renders.State(step.JobId ?? Guid.Empty);
+            if (job is AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention) continue;
+            // Read after the request is seen to be over: the snapshot may be older than the takes it published as it finished.
             var image = step.Kind == ReviewStepKind.EditImage;
             var takes = image
-                ? snapshot.Assets.Assets.Where(a => a.Id == step.AssetId).SelectMany(a => a.Images).Where(i => i.Generation?.AiJobId == step.JobId && i.PendingReview == true).Select(i => i.Id).ToArray()
-                : snapshot.Shots.Takes.Where(t => t.AiJobId == step.JobId && t.ShotId == step.ShotId).Select(t => t.Id).ToArray();
-            if (job is AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention) continue;
+                ? (await assets.LoadAsync(snapshot.ProjectId, ct)).Assets.Where(a => a.Id == step.AssetId).SelectMany(a => a.Images).Where(i => i.Generation?.AiJobId == step.JobId && i.PendingReview == true).Select(i => i.Id).ToArray()
+                : (await shots.LoadAsync(snapshot.ProjectId, ct)).Takes.Where(t => t.AiJobId == step.JobId && t.ShotId == step.ShotId).Select(t => t.Id).ToArray();
             await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => takes.Length > 0
                 ? image ? s with { State = ReviewStepState.Pick, ProducedImageIds = takes, Message = null } : s with { State = ReviewStepState.Pick, ProducedTakeIds = takes, Message = null }
                 : s with { State = ReviewStepState.Failed, FinishedUtc = clock.GetUtcNow(), Message = image
@@ -246,8 +255,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     {
         static bool Stops(ReviewPlanStep s) => s.State is ReviewStepState.Rejected or ReviewStepState.Failed or ReviewStepState.Skipped;
         // A frame from another shot's new take needs that render picked.
+        // When a render of that shot was rejected and another proposed, the one kept is the one it waits for.
         if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } from &&
-            plan.Steps.FirstOrDefault(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from) is { State: not ReviewStepState.Done } render) return render;
+            plan.Steps.Where(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from).OrderBy(s => s.State == ReviewStepState.Rejected).FirstOrDefault() is { State: not ReviewStepState.Done } render) return render;
         // A picture from an edit needs that edit picked.
         if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
         // A render follows every change the plan makes to its shot, wherever in the plan the change was proposed.

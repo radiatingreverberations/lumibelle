@@ -93,6 +93,10 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         Editable(plan);
         var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
         var state = keep ? ReviewStepState.Proposed : ReviewStepState.Rejected;
+        // A render rejected and then replaced cannot come back beside its replacement.
+        if (keep && step.State == ReviewStepState.Rejected && step.Kind == ReviewStepKind.GenerateTakes &&
+            plan.Steps.Any(s => s.Id != stepId && s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == step.ShotId && s.State != ReviewStepState.Rejected))
+            throw new WorkspaceStoreException("This plan renders that shot in another step already. Reject that one first.");
         return step.State == state ? plan : plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? s with { State = state } : s).ToArray() };
     }, proposal: true, ct);
 
