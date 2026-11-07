@@ -12,7 +12,8 @@ namespace lumibelle.Services.Review;
 /// The read side of the review tools: plain answers about a project, in the director's terms. Shots are named by
 /// their number in the shot list ("#31") and carry their id. Nothing here changes a project.
 /// </summary>
-public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, ReviewMedia media, IAssetStore assets, AiJobCoordinator jobs)
+public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, ReviewMedia media, IAssetStore assets, AiJobCoordinator jobs,
+    IGenerationSetupStore setups, IVideoGenerator generator, IAiSettingsStore settings, IProjectAiPreferencesStore preferences)
 {
     public async Task<object> ProjectsAsync(CancellationToken ct = default) =>
         (await projects.ListAsync(ct)).Projects.Select(p => new { id = p.Id, name = p.Name, description = p.Description }).ToArray();
@@ -225,6 +226,49 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             findings = plan.Findings.Select(f => new { id = f.Id, shot = f.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null, message = f.Message, evidence = f.Evidence }).ToArray(),
             steps = plan.Steps.Select(s => Step(s, false)).ToArray(),
             log = plan.Log.TakeLast(20).Select(l => new { at = l.At, who = l.Who, what = l.What }).ToArray()
+        };
+    }
+
+    /// <summary>The global setups and H3 presets a render can use, with what each is. Facts only: it ranks nothing.</summary>
+    public async Task<object> VideoOptionsAsync(CancellationToken ct = default)
+    {
+        var library = await setups.LoadAsync(ct); var configured = await settings.LoadAsync(ct);
+        var check = await generator.CheckAsync(configured, ct);
+        var known = check.DiscoverySucceeded ? check.Presets.ToDictionary(p => p.Key) : null;
+        return new
+        {
+            selectedSetup = library.Active()?.Name,
+            setups = library.Setups.Where(s => !s.Archived).Select(s => new
+            {
+                id = s.Id, name = s.Name, preset = s.Settings.GenerationPreset is { } key ? H3Presets.Label(key) : null,
+                resolution = s.Settings.Resolution?.ToString() ?? (s.Settings.NativeResolution ? nameof(VideoResolution.Native) : nameof(VideoResolution.Preview)), takes = s.Settings.TakeCount
+            }).ToArray(),
+            filesChecked = known is not null, filesMessage = known is null ? check.Message : null,
+            presets = H3Presets.Offered.Select(key => new
+            {
+                key, label = H3Presets.Label(key), about = H3Presets.About(key),
+                ready = known is null ? (bool?)null : known.TryGetValue(key, out var setup) && setup.Issue is null,
+                issue = known?.GetValueOrDefault(key)?.Issue
+            }).ToArray(),
+            resolutions = Enum.GetNames<VideoResolution>()
+        };
+    }
+
+    /// <summary>The image models an edit can name, with what each takes. Facts only: it ranks nothing.</summary>
+    public async Task<object> ImageModelsAsync(Guid projectId, CancellationToken ct = default)
+    {
+        var configured = await settings.LoadAsync(ct);
+        var current = await ProjectImageDefaults.ResolveAsync(projectId, null, configured, preferences, ct);
+        return new
+        {
+            projectDefault = current.ToString(),
+            filesChecked = false,
+            note = "Whether a model's files are installed is checked when the edit is queued. A step that names a model without its files fails then.",
+            models = Enum.GetValues<ImageWorkflow>().Where(w => w != ImageWorkflow.CodexImages || configured.Codex.Enabled).Select(w => new
+            {
+                key = w.ToString(), label = w.Label(), canEdit = ImageWorkflowLimits.MaximumReferences(w) > 0, maximumImages = ImageWorkflowLimits.MaximumReferences(w),
+                isProjectDefault = w == current, usesPreset = w == ImageWorkflow.MiniMaxH3
+            }).ToArray()
         };
     }
 

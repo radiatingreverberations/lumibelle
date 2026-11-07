@@ -285,7 +285,7 @@ public sealed partial class ShotTests
 
         Assert.All(new[] { render, other }, s => Assert.Equal(ReviewStepState.Running, running.Step(s.Id)!.State));
         Assert.Equal((drafting.Id, "Drafting"), (running.Step(render.Id)!.GenerationSetupId, running.Step(render.Id)!.GenerationSetupName));
-        Assert.Contains(running.Log, l => l.What.Contains("Renders use “Drafting”."));
+        Assert.Contains(running.Log, l => l.What.Contains("Renders use “Drafting”"));
         // Each render used the shot's record for that setup, created as Shots does, with the shot's shared prompt and the setup's settings.
         var used = f.Renders.Setups;
         Assert.Equal([drafting.Id, drafting.Id], used.Select(c => c.GenerationSetupId));
@@ -425,6 +425,61 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task ARenderCanNameItsSetupAndPresetAndTheApprovalKeepsThem()
+    {
+        var f = await PlanFixture.Create(this, shots: 2); var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var library = await f.Setups.SaveAsync(new() { Name = "Drafting", Settings = new() { GenerationPreset = "10eros-compact" } }, 0, _ct);
+        library = await f.Setups.SaveAsync(new() { Name = "Production", Settings = new() { GenerationPreset = "beta" } }, 0, _ct);
+        await f.Setups.SelectAsync(library.Setups.Single(s => s.Name == "Production").Id, _ct);
+        var plan = await f.Plans.CreateAsync(f.Project, "Drafts", "agent", _ct);
+
+        var draft = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Draft it.") { Setup = "drafting" });
+        var quick = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, second, "Try a preset.") { Preset = "turbo4" });
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Unknown.") { Setup = "No such setup" }));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.GenerateTakes, first, "Retired.") { Preset = "turbo8" }, "agent", replaces: draft.Id, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.GenerateTakes, first, "Unknown preset.") { Preset = "nope" }, "agent", replaces: draft.Id, _ct));
+
+        var snapshot = await f.Review.LoadAsync(f.Project, _ct);
+        Assert.EndsWith("with “Drafting”", ReviewPlans.Describe(snapshot, draft));
+        Assert.EndsWith("with “Production” using Turbo · 4 steps", ReviewPlans.Describe(snapshot, quick));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal("Drafting", running.Step(draft.Id)!.GenerationSetupName);
+        Assert.Equal("Production", running.Step(quick.Id)!.GenerationSetupName);
+        Assert.Equal(["Drafting", "Production"], f.Renders.Setups.Select(c => c.Name));
+        Assert.Equal([null, "turbo4"], f.Renders.Presets);
+    }
+
+    [Fact]
+    public async Task AnEditCanNameItsModelPresetAndReferences()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var (source, other) = (f.Vera.Images[0], f.Vera.Images[1]);
+        var plan = await f.Plans.CreateAsync(f.Project, "Models", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night, as in image 2.", Workflow = ImageWorkflow.MiniMaxH3, Preset = "10eros-compact", References = [new(f.Vera.Id, other.Id)] });
+
+        ReviewStepProposal Bad(ImageWorkflow? workflow = null, string? preset = null, IReadOnlyList<AssetImageReference>? references = null) => new(ReviewStepKind.EditImage, null, "Wrong.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "x", Workflow = workflow, Preset = preset, References = references ?? [] };
+        // Z-Image creates and cannot edit. A preset is only for H3. The source is not its own reference. An unknown image is refused.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(ImageWorkflow.ZImage)));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(ImageWorkflow.QwenImage21, "turbo4")));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(ImageWorkflow.MiniMaxH3, "nope")));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(references: [new(f.Vera.Id, source.Id)])));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(references: [new(f.Vera.Id, Guid.NewGuid())])));
+
+        var snapshot = await f.Review.LoadAsync(f.Project, _ct);
+        Assert.EndsWith("with 1 more reference on MiniMax H3 (10Eros Compact · 8 steps)", ReviewPlans.Describe(snapshot, edit));
+        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        var captured = Assert.Single(f.Renders.Edits);
+        Assert.Equal((ImageWorkflow.MiniMaxH3, "10eros-compact"), (captured.Workflow, captured.H3Preset));
+        Assert.Equal([new AssetImageReference(f.Vera.Id, source.Id), new AssetImageReference(f.Vera.Id, other.Id)], f.Renders.EditReferences.Single());
+
+        // With no model named, the step shows the project's default and approval records it.
+        Assert.EndsWith("on Krea 2", ReviewPlans.Describe(snapshot with { ImageDefault = ImageWorkflow.Krea2 }, edit with { Workflow = null, ReferenceImages = [], Preset = null }));
+    }
+
+    [Fact]
     public void PromptEditsReplaceTextThatOccursExactlyOnce()
     {
         const string prompt = "Vera stands by the window. The window is open.";
@@ -515,12 +570,15 @@ public sealed partial class ShotTests
         public List<ReferenceEditRequest> Edits { get; } = [];
         public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct)
         {
-            Edits.Add(request);
+            Edits.Add(request); EditReferences.Add(references);
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.ImageEdit, AiBackend.ComfyUI, new(request.ProjectId, AssetId: assetId), "Project", "Image", Guid.Empty, new { request.Count }));
         }
         public Func<Guid, string?> Refuse { get; set; } = _ => null;
-        public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
+        public List<string?> Presets { get; } = [];
+        public List<IReadOnlyList<AssetImageReference>> EditReferences { get; } = [];
+        public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, string? preset, CancellationToken ct)
         {
+            Presets.Add(preset);
             if (Refuse(setup.ShotId) is { } refusal) throw new WorkspaceStoreException(refusal);
             Captured.Add((setup.ShotId, takes)); Setups.Add(setup); Resolutions.Add(resolution);
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId, CompositionId: setup.Id), "Project", "Shot", Guid.Empty, new { takes }));

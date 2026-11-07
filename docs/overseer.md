@@ -32,7 +32,7 @@ Known gaps in what is built:
 
 - **Project packages do not carry plans.** The package format has a fixed list of documents, and adding one is a change of its own.
 - **The stores still raise no change events.** A Shots tab open on a shot that a plan changes does not reload; with unsaved edits its save conflicts and keeps the draft.
-- **Renders use one setup.** A plan renders with the global generation setup selected when it is approved; a step cannot name another.
+- **Model choice is neutral.** `list_video_options` and `list_image_models` state what each option is and rank nothing, as the app and manual do. A director's preferences belong in the agent's own instructions. Whether an image model's files are installed is only checked when the edit is queued.
 - **The dependency order runs on explicit steps.** A render waits for a pick only when a step adds a frame from that pick. Shots that already hold a frame from an older take are reported by the checks, not re-ordered by the plan.
 - **The image result size is not measured against Claude Code's limit.** Sheets are JPEG with 480-pixel tiles.
 - **Nothing here was run against a real film or a real ComfyUI.** The tests use temporary libraries and a stand-in for the render queue.

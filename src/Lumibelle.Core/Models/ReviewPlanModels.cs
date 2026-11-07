@@ -78,7 +78,12 @@ public sealed record ReviewPlanStep
     // GenerateTakes: how many, at which size, and what came of it.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int Takes { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public VideoResolution? Resolution { get; init; }
-    // The global setup selected when the plan was approved. The approval covers it, so a later change of selection leaves it alone.
+    // GenerateTakes: an H3 preset for this render only, leaving the setup as it is. EditImage on MiniMax H3: the preset it runs.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Preset { get; init; }
+    // EditImage: the image model, the one named when proposed or else the project's default at approval, and any references after the source.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public ImageWorkflow? Workflow { get; init; }
+    public IReadOnlyList<AssetImageReference> ReferenceImages { get; init; } = [];
+    // The global setup named when proposed, or else the one selected at approval. The approval covers it, so a later change of selection leaves it alone.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? GenerationSetupId { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }

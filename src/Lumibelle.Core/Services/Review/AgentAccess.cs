@@ -92,6 +92,7 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
     private async Task<AgentAccessSettings> WriteAsync(Stored next, CancellationToken ct)
     {
         next = next with { Revision = checked(next.Revision + 1) };
+        Directory.CreateDirectory(paths.Data);
         await AtomicJsonFile.WriteAsync(_path, next, ct);
         _current = null;
         return Summary(next);
@@ -99,7 +100,8 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
 
     private async Task<Stored> ReadAsync(CancellationToken ct)
     {
-        var stored = await AtomicJsonFile.ReadAsync<Stored>(_path, ct) ?? new Stored(1, 0, false, false, null);
+        // A library not used yet has no data folder, which means the same as no saved settings.
+        var stored = Directory.Exists(paths.Data) ? await AtomicJsonFile.ReadAsync<Stored>(_path, ct) ?? new Stored(1, 0, false, false, null) : new Stored(1, 0, false, false, null);
         return stored.SchemaVersion == 1 && stored.Revision >= 0 ? stored
             : throw new WorkspaceStoreException("The agent access settings are from a newer version of Lumibelle. Nothing was changed.");
     }

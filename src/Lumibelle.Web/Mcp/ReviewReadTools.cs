@@ -117,6 +117,12 @@ public sealed class ReviewReadTools(ReviewQueries queries, ReviewMedia media)
         [Description("Also measure each selected take's soundtrack. Slower: a few seconds per shot.")] bool sound = false, CancellationToken ct = default) =>
         Guard(async () => Text(await queries.ChecksAsync(await queries.SnapshotAsync(project, ct), sound, ct)));
 
+    [McpServerTool(Name = "list_video_options", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("Lists the global generation setups and H3 presets a GenerateTakes step can name, which setup is selected in Shots, what each preset is, and whether its files are installed on ComfyUI. Lumibelle does not rank them.")]
+    public Task<string> ListVideoOptions(CancellationToken ct) => Guard(async () => Text(await queries.VideoOptionsAsync(ct)));
+
+    [McpServerTool(Name = "list_image_models", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("Lists the image models an EditImage step can name, which is the project's default, whether each can edit, and how many images it takes. Lumibelle does not rank them.")]
+    public Task<string> ListImageModels([Description(Project)] string project, CancellationToken ct) => Guard(async () => Text(await queries.ImageModelsAsync((await queries.ProjectAsync(project, ct)).Id, ct)));
+
     [McpServerTool(Name = "get_queue", ReadOnly = true, Idempotent = true, OpenWorld = false), Description("The AI queue: requests waiting, running or needing attention. Renders and model requests on ComfyUI share one lane.")]
     public Task<string> GetQueue([Description("Limit the list to one project, by id or exact name.")] string? project = null, CancellationToken ct = default) =>
         Guard(async () => Text(queries.Queue(project is null ? null : (await queries.ProjectAsync(project, ct)).Id)));

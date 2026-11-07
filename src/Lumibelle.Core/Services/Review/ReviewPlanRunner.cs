@@ -230,7 +230,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     {
         var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
         var id = Guid.NewGuid();
-        var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, ct);
+        var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, step.Preset, ct);
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director,
             $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
@@ -245,12 +245,12 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         var owner = snapshot.Assets.Assets.FirstOrDefault(a => a.Id == step.AssetId); var image = owner?.Images.FirstOrDefault(i => i.Id == step.ImageId);
         if (owner is null || image is null) throw new WorkspaceStoreException("The image to edit is no longer in Assets. It may be in Trash.");
         var id = Guid.NewGuid();
-        // Candidates wait for the director, and keep the source's proportions and look. The model is the project's image default.
+        // Candidates wait for the director, and keep the source's proportions and look.
         var request = await renders.CaptureEditAsync(id, owner.Id, new ReferenceEditRequest
         {
             ProjectId = snapshot.ProjectId, SourceAssetId = owner.Id, SourceImageId = image.Id, Prompt = step.After!, AspectRatio = ImageAspectPolicy.FromImage1,
-            Count = step.Takes, PendingReview = true, Look = LookPolicy.Capture(owner, image.LookId)
-        }, [new(owner.Id, image.Id)], ct);
+            Count = step.Takes, PendingReview = true, Look = LookPolicy.Capture(owner, image.LookId), Workflow = step.Workflow, H3Preset = step.Preset
+        }, [new(owner.Id, image.Id), .. step.ReferenceImages], ct);
         // Recorded before it is queued, as a render is.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director, $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
         await renders.EnqueueAsync(request, ct);
@@ -398,7 +398,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
 public interface IReviewRenderQueue
 {
     /// <summary>Captures the request with the same checks as Generate takes in Shots. A refusal is a <see cref="WorkspaceStoreException"/>.</summary>
-    Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct);
+    Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, string? preset, CancellationToken ct);
     /// <summary>Captures an image edit with the same checks as the Assets studio.</summary>
     Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct);
     Task EnqueueAsync(AiJobSubmission request, CancellationToken ct);
@@ -411,8 +411,8 @@ public sealed class ReviewRenderQueue(AiVideoJobCapture capture, AiImageJobCaptu
 {
     /// <summary>The queue's origin for requests a plan started; no browser tab owns them.</summary>
     public static readonly Guid Origin = new("7d0c5a3e-2f0b-4c57-9a55-0c1e5f6b7a11");
-    public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct) => resolution is { } size
-        ? capture.CaptureCompositionWithPresetAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, H3Presets.Key(setup.Shot), size, ct: ct, generationSetupVersion: setup.GenerationSetupVersion)
+    public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, string? preset, CancellationToken ct) => resolution is not null || preset is not null
+        ? capture.CaptureCompositionWithPresetAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, preset ?? H3Presets.Key(setup.Shot), resolution, ct: ct, generationSetupVersion: setup.GenerationSetupVersion)
         : capture.CaptureCompositionAsync(id, Origin, projectId, setup.Id, setup.Version, takes, setup.Seed, ct, setup.GenerationSetupVersion);
     public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct) =>
         images.EditAsync(id, Origin, assetId, request, references, ct);

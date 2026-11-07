@@ -32,6 +32,9 @@ public sealed record ProjectReviewSnapshot(Guid ProjectId, ShotDocument Shots, P
     public IReadOnlyDictionary<Guid, ScriptSourceSnapshot> ScriptSources { get; init; } = new Dictionary<Guid, ScriptSourceSnapshot>();
     /// <summary>The global generation setup selected in Shots, which an approved plan's renders use.</summary>
     public GenerationSetup? RenderSetup { get; init; }
+    public IReadOnlyList<GenerationSetup> Setups { get; init; } = [];
+    /// <summary>The image model an edit uses unless a step names another.</summary>
+    public ImageWorkflow? ImageDefault { get; init; }
     public ReviewShot? Row(Guid shotId) => Rows.FirstOrDefault(r => r.Id == shotId);
     public ReviewShot? OwnerOf(Guid takeId) => Shots.Takes.FirstOrDefault(t => t.Id == takeId) is { } take ? Row(take.ShotId) : null;
 }

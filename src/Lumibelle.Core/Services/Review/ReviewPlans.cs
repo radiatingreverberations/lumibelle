@@ -1,4 +1,5 @@
 using lumibelle.Models;
+using lumibelle.Services.Assets;
 using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 
@@ -24,6 +25,14 @@ public sealed record ReviewStepProposal(ReviewStepKind Kind, Guid? ShotId, strin
     public Guid? TakeId { get; init; }
     public int Takes { get; init; } = 1;
     public VideoResolution? Resolution { get; init; }
+    /// <summary>GenerateTakes: a global setup by name or id, instead of the one selected at approval.</summary>
+    public string? Setup { get; init; }
+    /// <summary>GenerateTakes: an H3 preset for this render only. EditImage on MiniMax H3: the preset it runs.</summary>
+    public string? Preset { get; init; }
+    /// <summary>EditImage: an image model, instead of the project's default.</summary>
+    public ImageWorkflow? Workflow { get; init; }
+    /// <summary>EditImage: further reference images, after the source.</summary>
+    public IReadOnlyList<AssetImageReference> References { get; init; } = [];
 }
 
 /// <summary>
@@ -119,11 +128,14 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             return plan with
             {
                 State = ReviewPlanState.Approved, ApprovedUtc = now, ApprovedFrom = from,
-                Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.Kind == ReviewStepKind.GenerateTakes
-                    ? s with { State = ReviewStepState.Waiting, GenerationSetupId = snapshot.RenderSetup?.Id, GenerationSetupName = snapshot.RenderSetup?.Name }
-                    : s with { State = ReviewStepState.Waiting }).ToArray(),
+                Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.Kind switch
+                {
+                    ReviewStepKind.GenerateTakes => s with { State = ReviewStepState.Waiting, GenerationSetupId = s.GenerationSetupId ?? snapshot.RenderSetup?.Id, GenerationSetupName = s.GenerationSetupName ?? snapshot.RenderSetup?.Name },
+                    ReviewStepKind.EditImage => s with { State = ReviewStepState.Waiting, Workflow = s.Workflow ?? snapshot.ImageDefault },
+                    _ => s with { State = ReviewStepState.Waiting }
+                }).ToArray(),
                 Log = [.. plan.Log, new(now, from, $"Approved revision {plan.Revision}: {approved.Takes} takes, {approved.FootageSeconds} seconds of footage, {approved.Changes} changes, {approved.Images} images."
-                    + (approved.Takes > 0 && snapshot.RenderSetup is { } setup ? $" Renders use “{setup.Name}”." : ""))]
+                    + (plan.Steps.Any(s => s.State == ReviewStepState.Proposed && s.Kind == ReviewStepKind.GenerateTakes && s.GenerationSetupId is null) && snapshot.RenderSetup is { } setup ? $" Renders use “{setup.Name}” unless a step names another." : ""))]
             };
         }, proposal: false, ct);
     }
@@ -205,7 +217,18 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             var instruction = (p.Prompt ?? "").Trim();
             if (instruction.Length is 0 or > 20000) throw new WorkspaceStoreException("Say how to edit the image, in up to 20000 characters.");
             if (p.Takes is < 1 or > 4) throw new WorkspaceStoreException("Ask for one to four candidates.");
-            return step with { ShotId = null, AssetId = p.AssetId, ImageId = p.ImageId, After = instruction, Takes = p.Takes };
+            var model = p.Workflow ?? snapshot.ImageDefault;
+            if (model is { } chosen)
+            {
+                if (ImageWorkflowLimits.MaximumReferences(chosen) == 0) throw new WorkspaceStoreException($"{chosen.Label()} creates images and cannot edit one. Choose a model from list_image_models.");
+                if (p.References.Count + 1 > ImageWorkflowLimits.MaximumReferences(chosen)) throw new WorkspaceStoreException($"{chosen.Label()} takes up to {ImageWorkflowLimits.MaximumReferences(chosen)} images, including the source.");
+                if (p.Preset is not null && chosen != ImageWorkflow.MiniMaxH3) throw new WorkspaceStoreException($"A preset applies to MiniMax H3, not {chosen.Label()}.");
+            }
+            if (p.Preset is { } imagePreset && H3ImagePolicy.PresetIssue(imagePreset) is { } presetIssue) throw new WorkspaceStoreException(presetIssue);
+            var extra = p.References.Distinct().ToArray();
+            if (extra.Any(r => r == new AssetImageReference(p.AssetId!.Value, p.ImageId!.Value))) throw new WorkspaceStoreException("The source is image 1 already. Name only further references.");
+            if (extra.Any(r => snapshot.Assets.Assets.FirstOrDefault(a => a.Id == r.AssetId)?.Images.FirstOrDefault(i => i.Id == r.ImageId) is not { PendingReview: not true })) throw new WorkspaceStoreException("A reference is not in Assets, or is still waiting for review.");
+            return step with { ShotId = null, AssetId = p.AssetId, ImageId = p.ImageId, After = instruction, Takes = p.Takes, Workflow = p.Workflow, Preset = p.Preset, ReferenceImages = extra };
         }
         var row = snapshot.Row(p.ShotId ?? Guid.Empty) ?? throw new WorkspaceStoreException("Name the shot this step changes.");
         var setup = row.Setup ?? throw new WorkspaceStoreException($"Shot #{row.Number} has no setup yet. Open it in Shots once before proposing changes to it.");
@@ -271,7 +294,15 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
                 if (plan.Steps.Any(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == row.Id && s.State != ReviewStepState.Rejected))
                     throw new WorkspaceStoreException($"This plan already renders shot #{row.Number}. Rewrite that step to change the number of takes.");
                 if (row.Coverage.Duration is null) throw new WorkspaceStoreException($"Shot #{row.Number} has no duration. Set one in Shots first.");
-                return step with { Takes = p.Takes, Resolution = p.Resolution };
+                GenerationSetup? named = null;
+                if (p.Setup is { Length: > 0 } wanted)
+                {
+                    named = snapshot.Setups.FirstOrDefault(s => s.Id.ToString() == wanted.Trim() || s.Name.Equals(wanted.Trim(), StringComparison.OrdinalIgnoreCase))
+                        ?? throw new WorkspaceStoreException($"No generation setup is called “{wanted}”. Call list_video_options for the names.");
+                    if (named.Archived) throw new WorkspaceStoreException($"The generation setup “{named.Name}” is archived.");
+                }
+                if (p.Preset is { } renderPreset && !H3Presets.Offered.Contains(renderPreset)) throw new WorkspaceStoreException(H3Presets.Retired(renderPreset) ? H3Presets.RemovedIssue(renderPreset) : "Choose a preset key from list_video_options.");
+                return step with { Takes = p.Takes, Resolution = p.Resolution, Preset = p.Preset, GenerationSetupId = named?.Id, GenerationSetupName = named?.Name };
             default: throw new WorkspaceStoreException("That kind of step is not supported.");
         }
     }
@@ -295,13 +326,17 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             ReviewStepKind.ReplacePicture => step.FromStepId is not null
                 ? $"In {shot}, replace {Picture(step.AssetId, step.ImageId)} with the image picked from its edit step"
                 : $"In {shot}, replace {Picture(step.AssetId, step.ImageId)} with {Picture(step.NewAssetId, step.NewImageId)}",
-            ReviewStepKind.EditImage => $"Edit {Picture(step.AssetId, step.ImageId)} into {step.Takes} {(step.Takes == 1 ? "candidate" : "candidates")}",
+            ReviewStepKind.EditImage => $"Edit {Picture(step.AssetId, step.ImageId)} into {step.Takes} {(step.Takes == 1 ? "candidate" : "candidates")}"
+                + (step.ReferenceImages.Count > 0 ? $" with {step.ReferenceImages.Count} more {(step.ReferenceImages.Count == 1 ? "reference" : "references")}" : "")
+                + ((step.Workflow ?? (step.JobId is null ? snapshot.ImageDefault : null)) is { } model
+                    ? $" on {model.Label()}" + (model == ImageWorkflow.MiniMaxH3 ? $" ({H3Presets.Label(step.Preset ?? H3ImagePolicy.StandardPreset)})" : "") : ""),
             ReviewStepKind.RemovePicture => $"Remove {Picture(step.AssetId, step.ImageId)} from {shot}",
             ReviewStepKind.UseTake => $"Select another take for {shot}",
             ReviewStepKind.UpdateCut => "Point the cut at the selected takes",
             ReviewStepKind.GenerateTakes => $"Render {step.Takes} {(step.Takes == 1 ? "take" : "takes")} of {shot}" + (step.Resolution is { } size ? $" at {VideoResolutions.Label(size)}" : "")
                 // The selected setup says what a render will use only until it is queued. One queued without a recorded setup used another.
-                + ((step.GenerationSetupName ?? (step.JobId is null ? snapshot.RenderSetup?.Name : null)) is { } setup ? $" with “{setup}”" : ""),
+                + ((step.GenerationSetupName ?? (step.JobId is null ? snapshot.RenderSetup?.Name : null)) is { } setup ? $" with “{setup}”" : "")
+                + (step.Preset is { } preset ? $" using {H3Presets.Label(preset)}" : ""),
             _ => step.Kind.ToString()
         };
     }

@@ -10,6 +10,8 @@ namespace lumibelle.Mcp;
 
 /// <summary>An exact replacement in a prompt.</summary>
 public sealed record PromptEdit([property: Description("The exact text in the prompt now. It must occur exactly once.")] string Old, [property: Description("The text to put in its place.")] string New);
+/// <summary>An asset image, by the ids list_assets gives.</summary>
+public sealed record ImageReference([property: Description("The asset's id.")] string Asset, [property: Description("The image's id.")] string Image);
 /// <summary>The take chosen for one shot.</summary>
 public sealed record TakePick([property: Description("The id of the take or image chosen, one of those the step produced.")] string Take,
     [property: Description("The shot of a render step, by number such as #31 or by id.")] string? Shot = null, [property: Description("The step's id. Needed for an image edit, which has no shot.")] string? Step = null);
@@ -84,8 +86,8 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         - ReplacePicture: shot, asset and image selected now, and either new_asset and new_image to select instead, or from_step with the id of an EditImage step in this plan to use the image the director picks from it. The picture keeps its number in the prompt.
         - RemovePicture: shot, asset and image. Later pictures are renumbered, so propose the prompt change too.
         - UseTake: shot and take, to select an existing take.
-        - GenerateTakes: shot, takes (1 to 4), and optionally resolution. A shot's other steps run before its render.
-        - EditImage: asset and image to edit, prompt with the edit instruction, takes (1 to 4 candidates). Uses the project's image model and keeps the source's proportions and look. The candidates wait for the director to pick one; those not picked go to Trash.
+        - GenerateTakes: shot, takes (1 to 4). Optional: setup, a global setup's name or id, instead of the one selected in Shots at approval; preset, an H3 preset key for this render only; resolution. list_video_options has the choices. A shot's other steps run before its render.
+        - EditImage: asset and image to edit, prompt with the edit instruction, takes (1 to 4 candidates). Optional: model, instead of the project's default, from list_image_models; preset, for MiniMax H3, which otherwise runs Standard; references, further images after the source, which the instruction can call image 2 and so on. Keeps the source's proportions and look. The candidates wait for the director to pick one; those not picked go to Trash.
         - UpdateCut: nothing more. Points the cut at the selected takes, after every pick is made.
         """)]
     public Task<string> ProposeStep([Description(Project)] string project, [Description(PlanId)] string plan, [Description(Kinds)] string kind,
@@ -101,11 +103,13 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         [Description("AddShotFrame: the shot whose picked take supplies the frame, when that take is rendered by this plan.")] string? from_shot = null,
         [Description("AddShotFrame: first or last.")] string? frame_position = null, [Description("A frame number, counted from 1.")] int? frame = null,
         [Description("AddShotFrame: what the frame shows, such as “End of the arrival”.")] string? frame_name = null,
-        [Description("GenerateTakes: how many takes, 1 to 4.")] int takes = 1, [Description("GenerateTakes: Quick, Preview, Detail, Native, FullHd or Qhd. Leave out to use the shot's own setting.")] string? resolution = null,
+        [Description("GenerateTakes: how many takes, 1 to 4. EditImage: how many candidates.")] int takes = 1, [Description("GenerateTakes: Quick, Preview, Detail, Native, FullHd or Qhd. Leave out to use the setup's own setting.")] string? resolution = null,
+        [Description("GenerateTakes: a global generation setup, by name or id.")] string? setup = null, [Description("An H3 preset key, from list_video_options.")] string? preset = null,
+        [Description("EditImage: an image model key, from list_image_models.")] string? model = null, [Description("EditImage: further reference images after the source.")] ImageReference[]? references = null,
         CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct);
-        var proposal = Proposal(snapshot, kind, reason, shot, findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step);
+        var proposal = Proposal(snapshot, kind, reason, shot, findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step, setup, preset, model, references);
         var step = await plans.ProposeAsync(snapshot.ProjectId, Id(plan), proposal, Client(http.HttpContext), ct: ct);
         return Text(new { id = step.Id, does = ReviewPlans.Describe(snapshot, step), state = step.State.ToString() });
     });
@@ -114,11 +118,11 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
     public Task<string> ReviseStep([Description(Project)] string project, [Description(PlanId)] string plan, [Description("The id of the step to rewrite.")] string step, [Description("Why the step is needed, for the director to read.")] string reason,
         string[]? findings = null, PromptEdit[]? edits = null, string? prompt = null, string? character = null, string? voice = null, string? asset = null, string? image = null,
         string? new_asset = null, string? new_image = null, string? from_step = null, string? take = null, string? from_shot = null, string? frame_position = null, int? frame = null, string? frame_name = null,
-        int takes = 1, string? resolution = null, CancellationToken ct = default) => Guard(async () =>
+        int takes = 1, string? resolution = null, string? setup = null, string? preset = null, string? model = null, ImageReference[]? references = null, CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var planId = Id(plan);
         var old = (await plans.Store.GetAsync(snapshot.ProjectId, planId, ct)).Step(Id(step)) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-        var proposal = Proposal(snapshot, old.Kind.ToString(), reason, old.ShotId?.ToString(), findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step);
+        var proposal = Proposal(snapshot, old.Kind.ToString(), reason, old.ShotId?.ToString(), findings, edits, prompt, character, voice, asset, image, new_asset, new_image, take, from_shot, frame_position, frame, frame_name, takes, resolution, from_step, setup, preset, model, references);
         var revised = await plans.ProposeAsync(snapshot.ProjectId, planId, proposal, Client(http.HttpContext), replaces: old.Id, ct);
         return Text(new { id = revised.Id, does = ReviewPlans.Describe(snapshot, revised), state = revised.State.ToString() });
     });
@@ -150,7 +154,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
     internal static string? Page(HttpContext? http, Guid project, Guid plan) => http is null ? null : $"{http.Request.Scheme}://{http.Request.Host}/projects/{project:D}/review?planId={plan:D}";
 
     private static ReviewStepProposal Proposal(ProjectReviewSnapshot snapshot, string kind, string reason, string? shot, string[]? findings, PromptEdit[]? edits, string? prompt,
-        string? character, string? voice, string? asset, string? image, string? newAsset, string? newImage, string? take, string? fromShot, string? framePosition, int? frame, string? frameName, int takes, string? resolution, string? fromStep)
+        string? character, string? voice, string? asset, string? image, string? newAsset, string? newImage, string? take, string? fromShot, string? framePosition, int? frame, string? frameName, int takes, string? resolution, string? fromStep, string? setup, string? preset, string? model, ImageReference[]? references)
     {
         if (!Enum.TryParse<ReviewStepKind>(kind, ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed)) throw new WorkspaceStoreException("Choose one of these kinds: " + Kinds);
         Guid? Optional(string? value) => value is null ? null : Id(value);
@@ -162,6 +166,9 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         if (frame is < 1) throw new WorkspaceStoreException("Frames are counted from 1.");
         VideoResolution? size = null;
         if (resolution is { Length: > 0 }) size = Enum.TryParse<VideoResolution>(resolution, ignoreCase: true, out var chosen) && Enum.IsDefined(chosen) ? chosen : throw new WorkspaceStoreException("resolution is Quick, Preview, Detail, Native, FullHd or Qhd.");
+        ImageWorkflow? workflow = null;
+        if (model is { Length: > 0 }) workflow = Enum.GetValues<ImageWorkflow>().Where(w => w.ToString().Equals(model.Trim(), StringComparison.OrdinalIgnoreCase) || w.Label().Equals(model.Trim(), StringComparison.OrdinalIgnoreCase)).Cast<ImageWorkflow?>().FirstOrDefault()
+            ?? throw new WorkspaceStoreException("Choose an image model from list_image_models.");
         var needsFrame = parsed is ReviewStepKind.AddShotFrame or ReviewStepKind.RemoveShotFrame;
         return new(parsed, shot is null ? null : Guid.TryParse(shot, out var shotId) ? shotId : ReviewQueries.Shot(snapshot, shot).Id, reason)
         {
@@ -169,7 +176,8 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
             CharacterAssetId = Optional(character), VoiceId = Optional(voice), AssetId = Optional(asset), ImageId = Optional(image), NewAssetId = Optional(newAsset), NewImageId = Optional(newImage),
             TakeId = needsFrame ? null : Optional(take), FromStepId = Optional(fromStep),
             Frame = !needsFrame ? null : new() { TakeId = Optional(take), FromShotId = fromShot is null ? null : ReviewQueries.Shot(snapshot, fromShot).Id, Position = position, Index = (frame ?? 1) - 1, Name = frameName ?? "" },
-            Takes = takes, Resolution = size
+            Takes = takes, Resolution = size, Setup = setup, Preset = preset, Workflow = workflow,
+            References = (references ?? []).Select(r => new AssetImageReference(Id(r.Asset), Id(r.Image))).ToArray()
         };
     }
 }

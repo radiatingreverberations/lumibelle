@@ -41,9 +41,9 @@ A step is one change or one render:
 - set a character's voice;
 - add or remove a shot frame;
 - replace or remove a reference picture, including with an image an earlier step edits;
-- edit an asset image into one to four candidates, using the project's image model;
+- edit an asset image into one to four candidates, with the project's image model or one the agent names, and optionally further reference images;
 - select a take;
-- render one to four takes of a shot;
+- render one to four takes of a shot, with the generation setup selected in Shots or one the agent names, and optionally another preset for that render alone;
 - point the cut at the selected takes.
 
 A plan has no step that deletes anything.
@@ -59,7 +59,7 @@ Use **Reject step** on anything you do not want. A step that depended on a rejec
 Lumibelle runs the plan itself, so the agent can disconnect. The line above the steps says how far it has come, what is rendering now and what is waiting for you, and each render step shows its live progress.
 
 - Changes run at once, through the same saves as the studios.
-- A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the generation setup selected in Shots when you approved the plan. Each render step names it. Choosing another setup afterwards does not change what you approved.
+- A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the setup the agent named, or else the one selected in Shots when you approved the plan. Each step names its setup, preset or image model, so read them before approving. Choosing another setup afterwards does not change what you approved.
 - When a render finishes, its step shows the new takes under **Pick a take**. Play them, then choose **Use this take**. The agent may recommend one with a reason; **Accept recommendations** takes every recommended take. Nothing selects a take for you.
 - A step that adds a frame from another shot's new take waits for that pick, then uses the first or last frame of the take you picked.
 - An image edit's candidates wait the same way, under **Use this image**. The one you pick joins the asset, the others go to Trash, and a step that replaces a picture with it then runs.
@@ -94,6 +94,7 @@ With access on, the agent can:
 
 - read projects, shots, prompts, references, takes and the cut;
 - look at take frames as contact sheets, and at reference pictures;
+- list the generation setups, H3 presets and image models it can name. Lumibelle gives what each one is and does not rank them, so tell your agent what you prefer for drafts and for finals;
 - run the continuity checks and measure sound;
 - turn a time in the cut into a shot and a frame, for a note such as “3:54, the table disappears”;
 - write plans;

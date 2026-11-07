@@ -40,6 +40,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
         builder.Services.AddLumibelleCore(new ApplicationPaths(Path.Combine(_root, "data"), Path.Combine(_root, "library")), exclusive: false);
         builder.Services.AddLumibelleMcp();
         builder.Services.AddSingleton<IReviewRenderQueue>(_renders);
+        builder.Services.AddSingleton<IVideoGenerator>(s => new Lumibelle.Testing.MockVideoGenerator(s.GetRequiredService<lumibelle.Services.Assets.IAssetStore>(), s.GetRequiredService<IShotStore>(), s.GetRequiredService<IReferenceVideoStore>()));
         _app = builder.Build();
         _app.MapLumibelleMcp();
         await _app.StartAsync(Ct);
@@ -77,6 +78,18 @@ public sealed class McpEndpointTests : IAsyncLifetime
     }), cancellationToken: Ct);
 
     private static string TextOf(CallToolResult result) => string.Concat(result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+
+    [Fact]
+    public async Task AccessSettingsWorkBeforeTheDataFolderExists()
+    {
+        var data = Path.Combine(_root, "not-created-yet");
+        var store = new FileAgentAccessStore(new ApplicationPaths(data), new WebSecretProtector(new EphemeralDataProtectionProvider()));
+        Assert.Equal(new AgentAccessSettings(false, false, false, 0), await store.LoadAsync(Ct));
+        Assert.False(Directory.Exists(data));
+        Assert.False(await store.AcceptsAsync("anything", Ct));
+        Assert.True((await store.SaveAsync(true, false, 0, Ct)).Enabled);
+        Assert.True(await store.AcceptsAsync(await store.ReadTokenAsync(Ct), Ct));
+    }
 
     [Fact]
     public async Task IsNotThereUntilAccessIsTurnedOn()
@@ -127,7 +140,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
         await using var client = await ConnectAsync(await EnableAsync());
         var tools = await client.ListToolsAsync(cancellationToken: Ct);
         string[] read = ["list_projects", "list_shots", "get_shot", "list_takes", "get_take", "get_frames", "get_scene_sheet", "get_neighbour_sheet",
-            "get_audio_levels", "get_cut", "locate_cut_time", "list_assets", "get_asset_image", "find_reference_usage", "run_checks", "get_queue"];
+            "get_audio_levels", "get_cut", "locate_cut_time", "list_assets", "get_asset_image", "find_reference_usage", "run_checks", "get_queue", "list_video_options", "list_image_models"];
         foreach (var name in read)
         {
             var tool = Assert.Single(tools, t => t.Name == name);
@@ -318,6 +331,35 @@ public sealed class McpEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ListsTheChoicesAsFactsAndAStepCanNameThem()
+    {
+        var (project, _) = await ProjectWithShotAsync();
+        await using var client = await ConnectAsync(await EnableAsync());
+        var id = project.ToString();
+
+        var video = await CallAsync(client, "list_video_options", new { });
+        var presets = video.GetProperty("presets").EnumerateArray().ToArray();
+        Assert.Contains(presets, p => p.GetProperty("key").GetString() == "10eros-compact" && p.GetProperty("label").GetString() == "10Eros Compact · 8 steps" && p.GetProperty("about").GetString()!.Length > 0);
+        Assert.DoesNotContain(presets, p => p.GetProperty("key").GetString() == "turbo8");
+        Assert.Contains("Default setup", video.GetProperty("setups").EnumerateArray().Select(s => s.GetProperty("name").GetString()));
+        // Facts, no ranking: nothing here says which is better.
+        Assert.DoesNotContain("recommend", video.GetRawText(), StringComparison.OrdinalIgnoreCase);
+
+        var images = await CallAsync(client, "list_image_models", new { project = id });
+        var models = images.GetProperty("models").EnumerateArray().ToArray();
+        Assert.False(models.Single(m => m.GetProperty("key").GetString() == "ZImage").GetProperty("canEdit").GetBoolean());
+        Assert.True(models.Single(m => m.GetProperty("key").GetString() == "MiniMaxH3").GetProperty("usesPreset").GetBoolean());
+        Assert.DoesNotContain(models, m => m.GetProperty("key").GetString() == "CodexImages");
+
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Draft" })).GetProperty("id").GetString()!;
+        var step = await CallAsync(client, "propose_step", new { project = id, plan, kind = "GenerateTakes", shot = "#1", reason = "Draft.", setup = "default setup", preset = "turbo4", resolution = "Quick" });
+        Assert.EndsWith("with “Default setup” using Turbo · 4 steps", step.GetProperty("does").GetString());
+        var wrong = await client.CallToolAsync("propose_step", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["kind"] = "EditImage", ["reason"] = "x", ["model"] = "No such model" }, cancellationToken: Ct);
+        Assert.True(wrong.IsError);
+        Assert.Contains("list_image_models", TextOf(wrong));
+    }
+
+    [Fact]
     public async Task AnAgentCanStopCancelAndPauseWithoutApprovalButNotResume()
     {
         var (project, shot) = await ProjectWithShotAsync();
@@ -369,7 +411,7 @@ public sealed class McpEndpointTests : IAsyncLifetime
         public List<(Guid Shot, int Takes)> Captured { get; } = [];
         public Task<AiJobSubmission> CaptureEditAsync(Guid id, Guid assetId, ReferenceEditRequest request, IReadOnlyList<AssetImageReference> references, CancellationToken ct) =>
             Task.FromResult(AiJobSubmission.Create(id, AiJobKind.ImageEdit, AiBackend.ComfyUI, new(request.ProjectId, AssetId: assetId), "Project", "Image", Guid.Empty, new { request.Count }));
-        public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, CancellationToken ct)
+        public Task<AiJobSubmission> CaptureAsync(Guid id, Guid projectId, ProductionComposition setup, int takes, VideoResolution? resolution, string? preset, CancellationToken ct)
         {
             Captured.Add((setup.ShotId, takes));
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId), "Project", "Shot", Guid.Empty, new { takes }));
