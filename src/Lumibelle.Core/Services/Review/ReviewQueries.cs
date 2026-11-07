@@ -222,7 +222,9 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
         {
             id = plan.Id, title = plan.Title, state = plan.State.ToString(), revision = plan.Revision, page,
             // What an approval of this revision agrees to. approve_plan must repeat these exactly.
-            totals = new { takes = totals.Takes, footageSeconds = totals.FootageSeconds, changes = totals.Changes, images = totals.Images },
+            totals = new { takes = totals.Takes, footageSeconds = totals.FootageSeconds, changes = totals.Changes, images = totals.Images,
+                // The defaults that steps naming none will use. Present only when such a step is still to be approved.
+                renderSetup = totals.RenderSetupId, renderSetupName = totals.RenderSetupId is null ? null : snapshot.RenderSetup?.Name, imageModel = totals.ImageModel?.ToString() },
             approvedFrom = plan.ApprovedFrom, approved = plan.ApprovedUtc,
             findings = plan.Findings.Select(f => new { id = f.Id, shot = f.ShotId is { } shot && snapshot.Row(shot) is { } row ? "#" + row.Number : null, message = f.Message, evidence = f.Evidence }).ToArray(),
             steps = plan.Steps.Select(s => Step(s, false)).ToArray(),

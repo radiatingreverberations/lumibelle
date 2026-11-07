@@ -28,7 +28,9 @@ public sealed partial class ShotTests
         // Proposing wrote to the plan only.
         Assert.Equal(PlanFixture.Prompt, (await f.Setup(first)).Prompt);
         Assert.Empty(f.Renders.Captured);
-        Assert.Equal(new ReviewPlanTotals(3, 3 * H3Policy.Seconds(1), 3), ReviewPlans.Totals(await f.Plan(plan), await f.Review.LoadAsync(f.Project, _ct)));
+        var before = await f.Review.LoadAsync(f.Project, _ct);
+        // The renders name no setup, so the one selected in Shots is part of what an approval agrees to.
+        Assert.Equal(new ReviewPlanTotals(3, 3 * H3Policy.Seconds(1), 3) { RenderSetupId = before.RenderSetup!.Id }, ReviewPlans.Totals(await f.Plan(plan), before));
         Assert.Equal(ReviewPlanState.Submitted, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).State);
         Assert.Equal(PlanFixture.Prompt, (await f.Setup(first)).Prompt);
 
@@ -368,7 +370,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Not an edit.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = render.Id }));
 
         var snapshot = await f.Review.LoadAsync(f.Project, _ct);
-        Assert.Equal(new ReviewPlanTotals(1, H3Policy.Seconds(1), 1, 2), ReviewPlans.Totals(await f.Plan(plan), snapshot));
+        Assert.Equal(new ReviewPlanTotals(1, H3Policy.Seconds(1), 1, 2) { RenderSetupId = snapshot.RenderSetup!.Id, ImageModel = snapshot.ImageDefault }, ReviewPlans.Totals(await f.Plan(plan), snapshot));
         Assert.Contains("into 2 candidates", ReviewPlans.Describe(snapshot, edit));
         await f.Approve(plan);
 
@@ -591,7 +593,10 @@ public sealed partial class ShotTests
         Assert.Contains("approved for", held.Message);
         Assert.Empty(f.Renders.Captured);
 
-        await f.Plans.ReleaseAsync(f.Project, plan.Id, render.Id, null, _ct);
+        Assert.Equal(H3Policy.Seconds(5), held.HeldSeconds!.Value, 3);
+        // A render is released with the length it was held at, not with a prompt.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ReleaseAsync(f.Project, plan.Id, render.Id, null, _ct));
+        await f.Plans.ReleaseRenderAsync(f.Project, plan.Id, render.Id, held.HeldSeconds!.Value, _ct);
         Assert.Equal(ReviewStepState.Running, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!.State);
         Assert.Equal((shot, 2), Assert.Single(f.Renders.Captured));
     }
@@ -808,6 +813,71 @@ public sealed partial class ShotTests
         await f.Runner.AdvanceWatchedAsync(ct: _ct);
 
         Assert.Equal(ReviewPlanState.Finished, (await f.Plan(plan)).State);
+    }
+
+    [Fact]
+    public async Task ReleasingAHeldRenderAgreesOnlyToTheLengthItWasHeldAt()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Another take."));
+        await f.Approve(plan);
+        await f.SetDuration(shot, 5);
+        var shown = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!;
+        // Another tab makes the shot longer still while the director reads the hold.
+        await f.SetDuration(shot, 10);
+
+        await f.Plans.ReleaseRenderAsync(f.Project, plan.Id, render.Id, shown.HeldSeconds!.Value, _ct);
+        var again = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!;
+
+        Assert.Equal(ReviewStepState.Held, again.State);
+        Assert.Equal(H3Policy.Seconds(10), again.HeldSeconds!.Value, 3);
+        Assert.Empty(f.Renders.Captured);
+        // The page still showing the first hold cannot release the second.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ReleaseRenderAsync(f.Project, plan.Id, render.Id, shown.HeldSeconds!.Value, _ct));
+    }
+
+    [Fact]
+    public async Task AnApprovalCoversTheDefaultSetupThatWasShown()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var original = (await f.Setup(shot)).GenerationSetupId!.Value;
+        var drafting = (await f.Setups.SaveAsync(new() { Name = "Drafting", Settings = new() { GenerationPreset = "10eros-compact" } }, 0, _ct)).Setups.Single(s => s.Name == "Drafting");
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Another take."));
+        var shown = await f.Plan(plan); var totals = ReviewPlans.Totals(shown, await f.Review.LoadAsync(f.Project, _ct));
+        Assert.Equal(original, totals.RenderSetupId);
+
+        // Another setup is selected in Shots after the page showed the plan.
+        await f.Setups.SelectAsync(drafting.Id, _ct);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, shown.Revision, totals, _ct));
+        await f.Plans.SubmitAsync(f.Project, plan.Id, "agent", _ct);
+        shown = await f.Plan(plan);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "agent", shown.Revision, totals, _ct));
+        Assert.Equal(ReviewPlanState.Submitted, (await f.Plan(plan)).State);
+
+        var approved = await f.Approve(plan);
+        Assert.Equal(drafting.Id, approved.Steps.Single().GenerationSetupId);
+    }
+
+    [Fact]
+    public async Task AnEditImageKeptInAssetsBeforeThePlanSettledCanStillBePicked()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night." });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 1);
+        // The director keeps the image in Assets before the plan looks at the finished request.
+        var library = f.Assets.Library;
+        f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => i.Id == made[0] ? i with { PendingReview = false } : i).ToList() }).ToList() };
+
+        var settled = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!;
+        Assert.Equal((ReviewStepState.Pick, made[0]), (settled.State, Assert.Single(settled.ProducedImageIds)));
+
+        var done = await f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, _ct);
+        Assert.Equal((ReviewStepState.Done, (Guid?)made[0]), (done.Step(edit.Id)!.State, done.Step(edit.Id)!.NewImageId));
     }
 
     private sealed class PlanFixture

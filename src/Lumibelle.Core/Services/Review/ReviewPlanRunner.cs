@@ -205,7 +205,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             // Read after the request is seen to be over: the snapshot may be older than the takes it published as it finished.
             var image = step.Kind == ReviewStepKind.EditImage;
             var takes = image
-                ? (await assets.LoadAsync(snapshot.ProjectId, ct)).Assets.Where(a => a.Id == step.AssetId).SelectMany(a => a.Images).Where(i => i.Generation?.AiJobId == step.JobId && i.PendingReview == true).Select(i => i.Id).ToArray()
+                // Including any the director already kept in Assets: picking one of those keeps it as it is.
+                ? (await assets.LoadAsync(snapshot.ProjectId, ct)).Assets.Where(a => a.Id == step.AssetId).SelectMany(a => a.Images).Where(i => i.Generation?.AiJobId == step.JobId).Select(i => i.Id).ToArray()
                 : (await shots.LoadAsync(snapshot.ProjectId, ct)).Takes.Where(t => t.AiJobId == step.JobId && t.ShotId == step.ShotId).Select(t => t.Id).ToArray();
             await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => takes.Length > 0
                 ? image ? s with { State = ReviewStepState.Pick, ProducedImageIds = takes, Message = null } : s with { State = ReviewStepState.Pick, ProducedTakeIds = takes, Message = null }
@@ -232,7 +233,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             try
             {
-                if (step.Kind == ReviewStepKind.GenerateTakes) { if (await RenderAsync(snapshot, plan, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held); }
+                if (step.Kind == ReviewStepKind.GenerateTakes) { if (await RenderAsync(snapshot, plan, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held.Message, held.Seconds); }
                 else if (step.Kind == ReviewStepKind.EditImage) await EditAsync(snapshot, plan, step, ct);
                 else if (await ApplyAsync(snapshot, Resolved(plan, step), ct) is { } held) await Finish(step, ReviewStepState.Held, held);
                 else await Finish(step, ReviewStepState.Done, null);
@@ -247,8 +248,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             return true;
         }
         return false;
-        Task Finish(ReviewPlanStep step, ReviewStepState state, string? message) => store.UpdateAsync(snapshot.ProjectId, plan.Id,
-            p => Set(p, step.Id, s => s with { State = state, Message = message, FinishedUtc = state == ReviewStepState.Held ? null : clock.GetUtcNow() }, ReviewPlans.Director,
+        Task Finish(ReviewPlanStep step, ReviewStepState state, string? message, double? heldSeconds = null) => store.UpdateAsync(snapshot.ProjectId, plan.Id,
+            p => Set(p, step.Id, s => s with { State = state, Message = message, FinishedUtc = state == ReviewStepState.Held ? null : clock.GetUtcNow(), HeldSeconds = heldSeconds }, ReviewPlans.Director,
                 $"{ReviewPlans.Describe(snapshot, step)}: {state switch { ReviewStepState.Done => "done", ReviewStepState.Held => "held", ReviewStepState.Skipped => "skipped", _ => "failed" }}{(message is null ? "" : ". " + message)}"), ct: ct);
     }
 
@@ -271,14 +272,14 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     }
 
     // Returns why the render is held, or null once it is queued.
-    private async Task<string?> RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
+    private async Task<(string Message, double Seconds)?> RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
     {
         // The approval covered so many seconds per take. A shot made longer since then needs the director's word again.
         // Measured on the setup that is captured, which is read after the snapshot and carries the shot's length as it is now.
         var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
         var seconds = Math.Max(ReviewPlans.Seconds(snapshot, step.ShotId), setup.Shot.Duration is { } length and >= 1 and <= 15 ? H3Policy.Seconds(length) : 0);
         if (step.ApprovedSeconds is { } approved && seconds > approved + .01)
-            return $"The shot is now {seconds:0.###} seconds long, and the plan was approved for {approved:0.###} seconds per take. Release the step to render {step.Takes * seconds:0.###} seconds of footage instead of {step.Takes * approved:0.###}.";
+            return ($"The shot is now {seconds:0.###} seconds long, and the plan was approved for {approved:0.###} seconds per take. Release the step to render {step.Takes * seconds:0.###} seconds of footage instead of {step.Takes * approved:0.###}.", seconds);
         var id = Guid.NewGuid();
         var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, step.Preset, ct);
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.

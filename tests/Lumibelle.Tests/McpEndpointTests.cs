@@ -388,8 +388,13 @@ public sealed class McpEndpointTests : IAsyncLifetime
         var totals = submitted.GetProperty("totals");
         Assert.Equal(2, totals.GetProperty("takes").GetInt32());
 
+        // The render names no setup, so the approval repeats the one the plan will use.
+        Assert.NotNull(totals.GetProperty("renderSetupName").GetString());
+        var unnamed = await client.CallToolAsync("approve_plan", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["revision"] = submitted.GetProperty("revision").GetInt64(), ["takes"] = 2,
+            ["footage_seconds"] = totals.GetProperty("footageSeconds").GetDouble(), ["changes"] = 0 }, cancellationToken: Ct);
+        Assert.True(unnamed.IsError);
         var approved = await CallAsync(client, "approve_plan", new { project = id, plan, revision = submitted.GetProperty("revision").GetInt64(), takes = 2,
-            footage_seconds = totals.GetProperty("footageSeconds").GetDouble(), changes = 0 });
+            footage_seconds = totals.GetProperty("footageSeconds").GetDouble(), changes = 0, render_setup = totals.GetProperty("renderSetup").GetString() });
         Assert.Equal("Running", approved.GetProperty("steps")[0].GetProperty("state").GetString());
         var job = approved.GetProperty("steps")[0].GetProperty("job").GetGuid();
         Assert.Equal((shot.Id, 2), Assert.Single(_renders.Captured));

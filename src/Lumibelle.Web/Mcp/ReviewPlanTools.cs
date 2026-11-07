@@ -253,10 +253,15 @@ public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans
         [Description("The plan's revision, from get_plan.")] long revision, [Description("totals.takes from get_plan: takes that will be rendered.")] int takes,
         [Description("totals.footageSeconds from get_plan: seconds of footage that will be rendered.")] double footage_seconds,
         [Description("totals.changes from get_plan: changes to prompts, references, selections and the cut.")] int changes,
-        [Description("totals.images from get_plan: image candidates that will be generated.")] int images = 0, CancellationToken ct = default) => Guard(async () =>
+        [Description("totals.images from get_plan: image candidates that will be generated.")] int images = 0,
+        [Description("totals.renderSetup from get_plan, when it has one: the setup for renders that name none.")] string? render_setup = null,
+        [Description("totals.imageModel from get_plan, when it has one: the image model for edits that name none.")] string? image_model = null, CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var id = ReviewPlanTools.Id(plan);
-        await plans.ApproveFromClientAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes, images), ct);
+        var setup = render_setup is { Length: > 0 } named ? Guid.TryParse(named.Trim(), out var parsed) ? parsed : throw new WorkspaceStoreException("render_setup is the id get_plan lists as totals.renderSetup.") : (Guid?)null;
+        var model = image_model is { Length: > 0 } key ? Enum.TryParse<ImageWorkflow>(key.Trim(), ignoreCase: true, out var workflow) && Enum.IsDefined(workflow) ? workflow
+            : throw new WorkspaceStoreException("image_model is the key get_plan lists as totals.imageModel.") : (ImageWorkflow?)null;
+        await plans.ApproveFromClientAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes, images) { RenderSetupId = setup, ImageModel = model }, ct);
         var running = await runner.AdvanceAsync(snapshot.ProjectId, id, ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), running, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
     });

@@ -174,7 +174,9 @@ public partial class ContinuityReview
 
     private Task Release(ReviewPlan plan, ReviewPlanStep step) => Do(async () =>
     {
-        await Plans.ReleaseAsync(Id, plan.Id, step.Id, _snapshot?.Row(step.ShotId ?? Guid.Empty)?.Prompt, _lifetime.Token);
+        // What the page shows is what is agreed to: the prompt for a prompt step, the length the hold names for a render.
+        if (step.Kind == ReviewStepKind.GenerateTakes) await Plans.ReleaseRenderAsync(Id, plan.Id, step.Id, step.HeldSeconds ?? 0, _lifetime.Token);
+        else await Plans.ReleaseAsync(Id, plan.Id, step.Id, _snapshot?.Row(step.ShotId ?? Guid.Empty)?.Prompt, _lifetime.Token);
         await Runner.AdvanceAsync(Id, plan.Id, _lifetime.Token);
     });
 

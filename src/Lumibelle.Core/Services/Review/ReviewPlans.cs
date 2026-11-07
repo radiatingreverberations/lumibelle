@@ -109,8 +109,14 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
     {
         var kept = plan.Steps.Where(s => s.State != ReviewStepState.Rejected && s.State != ReviewStepState.Skipped).ToArray();
         var renders = kept.Where(s => s.Kind == ReviewStepKind.GenerateTakes).ToArray();
+        // Steps that name no setup or image model get the default at approval, so the default is part of what is agreed to.
+        var open = kept.Where(s => s.State == ReviewStepState.Proposed).ToArray();
         return new(renders.Sum(s => s.Takes), Math.Round(renders.Sum(s => s.Takes * Seconds(snapshot, s.ShotId)), 3), kept.Count(s => !s.SpendsGpu),
-            kept.Where(s => s.Kind == ReviewStepKind.EditImage).Sum(s => s.Takes));
+            kept.Where(s => s.Kind == ReviewStepKind.EditImage).Sum(s => s.Takes))
+        {
+            RenderSetupId = open.Any(s => s.Kind == ReviewStepKind.GenerateTakes && s.GenerationSetupId is null) ? snapshot.RenderSetup?.Id : null,
+            ImageModel = open.Any(s => s.Kind == ReviewStepKind.EditImage && s.Workflow is null) ? snapshot.ImageDefault : null
+        };
     }
     internal static double Seconds(ProjectReviewSnapshot snapshot, Guid? shotId) =>
         snapshot.Row(shotId ?? Guid.Empty)?.Coverage.Duration is { } seconds and >= 1 and <= 15 ? H3Policy.Seconds(seconds) : 0;
@@ -138,10 +144,12 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
             if (!inApp && plan.State != ReviewPlanState.Submitted) throw new WorkspaceStoreException("Submit the plan before it is approved.");
             // In the app as from a client, an approval covers the plan that was shown and nothing that changed since.
             var actual = Totals(plan, snapshot);
-            if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || totals.Images != actual.Images || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01)
+            if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || totals.Images != actual.Images || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01 ||
+                totals.RenderSetupId != actual.RenderSetupId || totals.ImageModel != actual.ImageModel)
                 throw new WorkspaceStoreException(inApp
-                    ? $"The plan changed while you were reading it. It now has {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes and {actual.Images} images. Look it over again before approving."
-                    : $"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes, {actual.Images} images). Read the plan again and show the director these totals.");
+                    ? $"The plan changed while you were reading it, or the setup or image model it uses by default did. It now has {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes and {actual.Images} images. Look it over again before approving."
+                    : $"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes, {actual.Images} images"
+                        + (actual.RenderSetupId is { } defaultSetup ? $", renders with setup {defaultSetup}" : "") + (actual.ImageModel is { } defaultModel ? $", edits on {defaultModel}" : "") + "). Read the plan again and show the director these totals.");
             if (!plan.Steps.Any(s => s.State == ReviewStepState.Proposed)) throw new WorkspaceStoreException("No step of this plan is left to approve.");
             // A step kept again after it was rejected can close a ring that proposing it could not.
             if (LoopIssue(snapshot, plan) is { } loop) throw new WorkspaceStoreException(loop);
@@ -197,23 +205,30 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         }, proposal: false, ct);
     }
 
-    /// <summary>Lets a held step run against the shot as it is now.</summary>
-    public async Task<ReviewPlan> ReleaseAsync(Guid projectId, Guid planId, Guid stepId, string? currentPrompt, CancellationToken ct = default)
-    {
-        ProjectReviewSnapshot? snapshot = (await store.GetAsync(projectId, planId, ct)).Step(stepId)?.Kind == ReviewStepKind.GenerateTakes ? await review.LoadAsync(projectId, ct) : null;
-        return await store.UpdateAsync(projectId, planId, plan => Release(plan, stepId, currentPrompt, snapshot), proposal: false, ct);
-    }
+    /// <summary>Lets a held step run against the shot as it is now: for a prompt step, the prompt the director was shown.</summary>
+    public Task<ReviewPlan> ReleaseAsync(Guid projectId, Guid planId, Guid stepId, string? currentPrompt, CancellationToken ct = default) =>
+        store.UpdateAsync(projectId, planId, plan => Release(plan, stepId, currentPrompt, null), proposal: false, ct);
 
-    private ReviewPlan Release(ReviewPlan plan, Guid stepId, string? currentPrompt, ProjectReviewSnapshot? snapshot)
+    /// <summary>Lets a render held for its shot's new length run at the length the director was shown, and no longer.</summary>
+    public Task<ReviewPlan> ReleaseRenderAsync(Guid projectId, Guid planId, Guid stepId, double shownSeconds, CancellationToken ct = default) =>
+        store.UpdateAsync(projectId, planId, plan => Release(plan, stepId, null, shownSeconds), proposal: false, ct);
+
+    private ReviewPlan Release(ReviewPlan plan, Guid stepId, string? currentPrompt, double? shownSeconds)
     {
         var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
         if (step.State != ReviewStepState.Held) return plan;
-        // Releasing agrees to the shot as the director sees it: the prompt shown, and for a render the shot's length now.
+        if (step.Kind == ReviewStepKind.GenerateTakes)
+        {
+            // The length agreed to is the one the hold named; if the shot grew again since, the step is held anew with the new length.
+            if (shownSeconds is not { } shown) throw new WorkspaceStoreException("Release a held render with the length it was held at.");
+            if (step.HeldSeconds is { } held && Math.Abs(held - shown) > .01) throw new WorkspaceStoreException($"This render is now held at {held:0.###} seconds per take. Look at the step again before releasing it.");
+        }
+        // Releasing agrees to the shot as the director sees it: the prompt shown, and for a render the length shown.
         return plan with { Steps = plan.Steps.Select(s => s.Id != stepId ? s : s with
             {
-                State = ReviewStepState.Waiting, Message = null,
+                State = ReviewStepState.Waiting, Message = null, HeldSeconds = null,
                 Before = s.Kind is ReviewStepKind.SetPrompt or ReviewStepKind.MarkPromptReviewed ? currentPrompt : s.Before,
-                ApprovedSeconds = s.Kind == ReviewStepKind.GenerateTakes && snapshot is not null ? Seconds(snapshot, s.ShotId) : s.ApprovedSeconds
+                ApprovedSeconds = s.Kind == ReviewStepKind.GenerateTakes ? shownSeconds : s.ApprovedSeconds
             }).ToArray(),
             Log = [.. plan.Log, new(clock.GetUtcNow(), Director, "Let a held step run against the shot as it is now.")] };
     }

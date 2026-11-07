@@ -88,6 +88,8 @@ public sealed record ReviewPlanStep
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
     /// <summary>GenerateTakes: the seconds per take the director approved. A longer shot holds the render until it is released.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? ApprovedSeconds { get; init; }
+    /// <summary>GenerateTakes, while held: the seconds per take the hold names, which releasing it agrees to.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? HeldSeconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }
     public IReadOnlyList<Guid> ProducedTakeIds { get; init; } = [];
     /// <summary>The take or image the proposer advises picking.</summary>
@@ -104,7 +106,13 @@ public sealed record ReviewPlanStep
 public sealed record ReviewPlanLogEntry(DateTimeOffset At, string Who, string What);
 
 /// <summary>What approving a plan agrees to: renders, footage, changes to the project and image candidates.</summary>
-public sealed record ReviewPlanTotals(int Takes, double FootageSeconds, int Changes, int Images = 0);
+public sealed record ReviewPlanTotals(int Takes, double FootageSeconds, int Changes, int Images = 0)
+{
+    /// <summary>The global setup a render that names none will use, when the plan has such a render still to approve.</summary>
+    public Guid? RenderSetupId { get; init; }
+    /// <summary>The image model an edit that names none will use, when the plan has such an edit still to approve.</summary>
+    public ImageWorkflow? ImageModel { get; init; }
+}
 
 /// <summary>Findings and the steps proposed to fix them. Proposing changes nothing; steps run after the director approves.</summary>
 public sealed record ReviewPlan

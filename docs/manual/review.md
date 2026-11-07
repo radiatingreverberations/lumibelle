@@ -52,7 +52,7 @@ A plan has no step that deletes anything.
 
 The right pane says what approving it does: how many changes it makes, how many takes it renders, and how many seconds of footage that is. For a prompt change, open **Compare prompts** to see the prompt when the step was written beside the proposed one.
 
-Use **Reject step** on anything you do not want. A step that depended on a rejected one is skipped when the plan runs, and says why. Then choose **Approve plan**. The approval covers the plan as the page shows it: if the agent changed the plan, or a shot's length changed, since the page loaded, Lumibelle asks you to look again first.
+Use **Reject step** on anything you do not want. A step that depended on a rejected one is skipped when the plan runs, and says why. Then choose **Approve plan**. The approval covers the plan as the page shows it: if the agent changed the plan, a shot's length changed, or another setup or image model was made the default for steps that name none, since the page loaded, Lumibelle asks you to look again first.
 
 ### What happens after approval
 
@@ -66,7 +66,7 @@ Lumibelle runs the plan itself, so the agent can disconnect. The line above the 
 - **None of these** turns down a step's results. Steps that needed the pick are skipped, and the rest of the plan goes on.
 - The cut is pointed at the selected takes last.
 
-A step is **Held** when its shot's prompt was edited after the step was written, or when a render's shot was made longer after you approved the plan, so it would render more footage than you agreed to. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it.
+A step is **Held** when its shot's prompt was edited after the step was written, or when a render's shot was made longer after you approved the plan, so it would render more footage than you agreed to. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it. Applying a held render agrees to the length the step names; if the shot was made longer again meanwhile, the step is held again with the new length.
 
 **Stop plan** skips the steps that have not run and cancels the plan's waiting and running renders. **AI activity** can recover any takes a cancelled render had finished. Stopping undoes nothing: prompts and references it already changed stay, and takes it already finished stay in Shots without being selected. If a render could not be cancelled, Lumibelle says so; choose **Stop plan** again, or cancel it in AI activity. A stopped plan cannot be restarted, so what is still needed goes in a new plan.
 
@@ -108,7 +108,7 @@ The server also offers a `review` prompt that carries a review procedure.
 
 By default you approve plans and pick takes on the Review page. **Allow approving plans in the agent's conversation** adds tools the agent can call after you agree in its conversation. They approve a submitted plan, select the takes you named, resume a paused queue, and pick a stopped request back up.
 
-Lumibelle refuses an approval that does not repeat the plan's current revision and totals, so an approval never covers a plan that changed after the agent read it.
+Lumibelle refuses an approval that does not repeat the plan's current revision and totals, including the default setup or image model that steps naming none will use, so an approval never covers a plan that changed after the agent read it.
 
 Claude Code asks you each time before it calls any of them, and none of its permission settings skips the question. Lumibelle cannot see that question, and another client may not ask it. Turn this on only for a client you trust to ask.
 
