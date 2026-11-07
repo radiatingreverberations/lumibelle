@@ -1,0 +1,95 @@
+name: PR-Agent review
+
+# Reviews each same-repository pull request with PR-Agent on the OpenAI API, billed to the
+# API organization that holds OPENAI_KEY. The check reports whether the review completed;
+# findings are posted inline and in one persistent summary comment, and never fail it.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: pr-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    # Fork pull requests get no secrets, and drafts are reviewed once marked ready.
+    # There is deliberately no issue_comment trigger: the repository is public and PR-Agent
+    # does not check who wrote a slash command, so any commenter could spend API credits.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      # PR-Agent 0.49.0 exits successfully without reviewing when GITHUB_TOKEN is missing,
+      # and only logs a missing model key, so both are checked here to keep the check honest.
+      - name: Check credentials
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$OPENAI_KEY" ]; then echo "::error::The OPENAI_KEY secret is not set."; exit 1; fi
+          if [ -z "$GITHUB_TOKEN" ]; then echo "::error::GITHUB_TOKEN is empty."; exit 1; fi
+
+      # pragent/pr-agent:0.49.0-github_action, pinned by its multi-platform index digest.
+      - name: Review
+        uses: docker://pragent/pr-agent@sha256:b1ed6e8de56eb4d6e4169ee0d5c209bb5ed1ef071a01c0c042c64b80192a785c
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          GITHUB_ACTION_CONFIG.PR_ACTIONS: '["opened", "reopened", "ready_for_review", "synchronize"]'
+          GITHUB_ACTION_CONFIG.AUTO_REVIEW: "true"
+          # Describe would rewrite the pull request description.
+          GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "false"
+          GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"
+          GITHUB_ACTION_CONFIG.FAIL_ON_TOOL_ERRORS: "true"
+          # Check-run output would turn off persistent finding state.
+          GITHUB.PUBLISH_AS_CHECK_RUN: "false"
+
+          CONFIG.MODEL: gpt-6.1-sol
+          # Fail visibly rather than quietly reviewing with a weaker model.
+          CONFIG.FALLBACK_MODELS: "[]"
+          CONFIG.REASONING_EFFORT: high
+          # Sized for complete reviews rather than low cost. Inputs stay under the 272K
+          # long-context price tier; the output limit includes reasoning tokens.
+          CONFIG.MAX_MODEL_TOKENS: "200000"
+          CONFIG.MAX_OUTPUT_TOKENS: "64000"
+          CONFIG.PATCH_EXTRA_LINES_BEFORE: "10"
+          CONFIG.PATCH_EXTRA_LINES_AFTER: "5"
+          CONFIG.AI_TIMEOUT: "600"
+          CONFIG.PROPAGATE_TOOL_ERRORS: "true"
+          CONFIG.RESTRICTED_MODE: "true"
+          CONFIG.OUTPUT_RUN_DETAILS: "true"
+          CONFIG.OUTPUT_RUN_COST: "true"
+
+          PR_REVIEWER.PERSISTENT_COMMENT: "true"
+          PR_REVIEWER.PERSISTENT_FINDING_STATE: "true"
+          PR_REVIEWER.PUBLISH_OUTPUT_NO_SUGGESTIONS: "true"
+          PR_REVIEWER.ENABLE_REVIEW_COVERAGE_FOOTER: "true"
+          PR_REVIEWER.FINAL_UPDATE_MESSAGE: "false"
+          PR_REVIEWER.INLINE_KEY_ISSUES: "true"
+          PR_REVIEWER.NUM_MAX_FINDINGS: "10"
+          PR_REVIEWER.ENABLE_LARGE_PR_CHUNKING: "true"
+          PR_REVIEWER.MAX_NUMBER_OF_CALLS: "5"
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_SECURITY: "false"
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_EFFORT: "false"
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            Lumibelle is a personal video studio, built with .NET and Blazor, that grows a screenplay into generated shots and a cut film.
+            Focus on correctness, concurrency and cancellation, security, and data loss in storage code.
+            Report only defects you can tie to a concrete failure: say what input or sequence of events goes wrong and what happens. Do not comment on style or naming.
+            Do not report missing tests as a standalone finding. When you report a concrete defect, describe the focused test that would expose it.
+
+          # Lockfile, esbuild output, evaluation and benchmark records, and binary assets.
+          IGNORE.GLOB: >-
+            ["package-lock.json",
+            "src/Lumibelle.UI/wwwroot/script-editor.js",
+            "src/Lumibelle.UI/wwwroot/prompt-editor.js",
+            "docs/evaluations/**",
+            "docs/h3/**",
+            "**/*.png", "**/*.webp", "**/*.jpg", "**/*.svg", "**/*.woff2"]
