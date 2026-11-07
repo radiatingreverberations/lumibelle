@@ -157,22 +157,24 @@ jobs:
                   pullRequest(number: $pr) {
                     reviewThreads(first: 100, after: $endCursor) {
                       pageInfo { hasNextPage endCursor }
-                      nodes { isResolved comments(first: 1) { nodes { author { login } url body } } }
+                      nodes { isResolved path comments(first: 1) { nodes { author { login } url body } } }
                     }
                   }
                 }
               }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
                 | .comments.nodes[0] as $c
                 | select(($c.author.login // "") | startswith("github-actions"))
-                | {resolved: .isResolved, url: $c.url, body: $c.body} | @json' | jq -s .)
+                | {resolved: .isResolved, path, url: $c.url, body: $c.body} | @json' | jq -s .)
 
             # An active finding is open until every inline thread posting it is resolved.
             # One that could not be posted inline stays open until a review drops it.
+            # Threads are matched by file as well as text, so that a finding repeated in
+            # another file is not cleared by resolving the first one.
             # shellcheck disable=SC2016
             findings=$(printf '%s\n%s\n' "$state" "$threads" | jq -nr --arg summary "$summary_url" '
               input as $state | input as $threads
               | $state.findings[] | select(.state == "ACTIVE") | . as $f
-              | [$threads[] | select(.body | startswith($f.body))] as $t
+              | [$threads[] | select(.path == $f.path and (.body | startswith($f.body)))] as $t
               | select(($t | length) == 0 or ($t | any(.resolved | not)))
               | "- [\($f.path):\($f.line_start)](\([$t[] | select(.resolved | not)][0].url // $summary)) \($f.body | split("\n")[0] | .[0:200])"
                 + (if ($t | length) == 0 then " (only in the summary, so it clears on the next review)" else "" end)')
