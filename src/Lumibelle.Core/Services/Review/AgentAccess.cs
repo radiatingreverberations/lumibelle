@@ -33,6 +33,9 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
     // Asked on every request, so neither the file nor the key ring is read each time. A save clears it.
     private sealed record Current(bool Enabled, bool AllowClientApproval, byte[]? Token);
     private volatile Current? _current;
+    // Counts saves. A read that a save overtook is not cached, so a revoked token is never put back in the cache.
+    private long _generation;
+    private readonly Lock _cache = new();
 
     public async Task<AgentAccessSettings> LoadAsync(CancellationToken ct = default) => Summary(await ReadAsync(ct));
 
@@ -71,15 +74,23 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
 
     private async Task<Current> CurrentAsync(CancellationToken ct)
     {
-        if (_current is { } cached) return cached;
-        var stored = await ReadAsync(ct);
-        byte[]? token = null;
-        if (stored.ProtectedToken is { } secret)
-            try { token = Encoding.ASCII.GetBytes(protector.Unprotect(secret)); }
-            catch (CryptographicException) { /* Saved under another account's key ring: refuse until the token is renewed. */ }
-        var current = new Current(stored.Enabled, stored.AllowClientApproval, token);
-        _current = current;
-        return current;
+        while (true)
+        {
+            if (_current is { } cached) return cached;
+            var generation = Interlocked.Read(ref _generation);
+            var stored = await ReadAsync(ct);
+            byte[]? token = null;
+            if (stored.ProtectedToken is { } secret)
+                try { token = Encoding.ASCII.GetBytes(protector.Unprotect(secret)); }
+                catch (CryptographicException) { /* Saved under another account's key ring: refuse until the token is renewed. */ }
+            var current = new Current(stored.Enabled, stored.AllowClientApproval, token);
+            lock (_cache)
+            {
+                if (_generation != generation) continue;
+                _current = current;
+                return current;
+            }
+        }
     }
 
     private string NewToken()
@@ -93,8 +104,9 @@ public sealed class FileAgentAccessStore(ApplicationPaths paths, ISecretProtecto
     {
         next = next with { Revision = checked(next.Revision + 1) };
         Directory.CreateDirectory(paths.Data);
-        await AtomicJsonFile.WriteAsync(_path, next, ct);
-        _current = null;
+        // Cleared even when the write is cancelled: the file may have been replaced all the same.
+        try { await AtomicJsonFile.WriteAsync(_path, next, ct); }
+        finally { lock (_cache) { _generation++; _current = null; } }
         return Summary(next);
     }
 

@@ -86,6 +86,8 @@ public sealed record ReviewPlanStep
     // The global setup named when proposed, or else the one selected at approval. The approval covers it, so a later change of selection leaves it alone.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? GenerationSetupId { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
+    /// <summary>GenerateTakes: the seconds per take the director approved. A longer shot holds the render until it is released.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? ApprovedSeconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }
     public IReadOnlyList<Guid> ProducedTakeIds { get; init; } = [];
     /// <summary>The take or image the proposer advises picking.</summary>

@@ -71,13 +71,14 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
                 kind = p.Image is not null ? "asset image" : p.Continuity is not null ? "shot frame" : "reel keyframe",
                 asset = p.Image is { } image ? snapshot.Assets.Assets.FirstOrDefault(a => a.Id == image.AssetId)?.Name : null,
                 assetId = p.Image?.AssetId, imageId = p.Image?.MediaId, role = p.Image?.Role,
-                fromTake = p.Continuity?.TakeId, frame = p.Continuity?.Frame,
+                // Frames are counted from 1 here, as propose_step and get_frames count them.
+                fromTake = p.Continuity?.TakeId, frame = p.Continuity?.Frame + 1,
                 fromShot = p.Continuity is { } frame && snapshot.OwnerOf(frame.TakeId) is { } owner ? "#" + owner.Number : null
             }).ToArray(),
             reels = resolved.Videos.Select(v => new { label = $"<Video {v.Number}>", name = v.Reel.Name, seconds = v.Reel.Media.Duration, soundtrack = v.Reel.UseSoundtrack }).ToArray(),
             audio = resolved.Audio.Select(a => new { label = $"<Audio {a.Number}>", speaker = a.Speaker, source = a.SourceName ?? snapshot.Assets.Voices.FirstOrDefault(v => v.Id == a.Voice?.VoiceId)?.Name }).ToArray(),
             characterVoices = (shot.CharacterVoices ?? []).Select(c => new { character = c.CharacterName, voice = CharacterVoices.Label(c), speaker = c.Speaker }).ToArray(),
-            startFrame = shot.StartFrame is { } start ? new { take = start.TakeId, frame = start.Frame, fromShot = snapshot.OwnerOf(start.TakeId) is { } source ? "#" + source.Number : null } : null,
+            startFrame = shot.StartFrame is { } start ? new { take = start.TakeId, frame = start.Frame + 1, fromShot = snapshot.OwnerOf(start.TakeId) is { } source ? "#" + source.Number : null } : null,
             rendersAfter = order.GetValueOrDefault(row.Id)?.Select(Number).ToArray() ?? [],
             feeds = order.Where(p => p.Value.Contains(row.Id)).Select(p => Number(p.Key)).ToArray(),
             selectedTake = row.Coverage.SelectedTakeId, takes = row.Takes.Count,
@@ -106,10 +107,10 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             renderedWith = new
             {
                 prompt = take.Snapshot.Prompt, seconds = rendered.Duration,
-                pictures = resolved.Pictures.Select(p => new { label = $"<Picture {p.Number}>", name = p.Image?.Name ?? p.Continuity?.Name ?? p.Reel?.Name, assetId = p.Image?.AssetId, imageId = p.Image?.MediaId, fromTake = p.Continuity?.TakeId, frame = p.Continuity?.Frame }).ToArray(),
+                pictures = resolved.Pictures.Select(p => new { label = $"<Picture {p.Number}>", name = p.Image?.Name ?? p.Continuity?.Name ?? p.Reel?.Name, assetId = p.Image?.AssetId, imageId = p.Image?.MediaId, fromTake = p.Continuity?.TakeId, frame = p.Continuity?.Frame + 1 }).ToArray(),
                 voices = rendered.Voices.Select(v => new { speaker = v.Speaker, recording = snapshot.Assets.Voices.FirstOrDefault(x => x.Id == v.VoiceId)?.Name, voiceId = v.VoiceId }).ToArray(),
                 reels = rendered.Videos.Select(v => new { name = v.Name, soundtrack = v.UseSoundtrack }).ToArray(),
-                startFrame = rendered.StartFrame
+                startFrame = rendered.StartFrame is { } start ? new { take = start.TakeId, frame = start.Frame + 1 } : null
             }
         };
     }

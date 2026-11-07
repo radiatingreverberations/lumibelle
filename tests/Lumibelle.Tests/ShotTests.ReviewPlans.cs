@@ -32,7 +32,7 @@ public sealed partial class ShotTests
         Assert.Equal(ReviewPlanState.Submitted, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).State);
         Assert.Equal(PlanFixture.Prompt, (await f.Setup(first)).Prompt);
 
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
         // The first shot's prompt is changed and reviewed, then its render is queued. Everything that needs its pick waits.
@@ -83,23 +83,23 @@ public sealed partial class ShotTests
         await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take.") { Takes = 2 });
         var draft = await f.Plan(plan); var totals = ReviewPlans.Totals(draft, await f.Review.LoadAsync(f.Project, _ct));
         // Not submitted yet.
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals, _ct));
         await f.Plans.SubmitAsync(f.Project, plan.Id, "agent", _ct);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals with { Takes = 1 }, _ct));
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, "Claude Code", null, null, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals with { Takes = 1 }, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "Claude Code", null, null, _ct));
 
         // The plan changes after the agent read it: the old revision no longer approves anything.
         await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Show the pick."));
-        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals, _ct));
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "Claude Code", draft.Revision, totals, _ct));
         Assert.Contains("2 takes", e.Message);
         Assert.Equal(ReviewPlanState.Submitted, (await f.Plan(plan)).State);
 
         var current = await f.Plan(plan);
-        var approved = await f.Plans.ApproveAsync(f.Project, plan.Id, "Claude Code", current.Revision, ReviewPlans.Totals(current, await f.Review.LoadAsync(f.Project, _ct)), _ct);
+        var approved = await f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "Claude Code", current.Revision, ReviewPlans.Totals(current, await f.Review.LoadAsync(f.Project, _ct)), _ct);
         Assert.Equal((ReviewPlanState.Approved, "Claude Code"), (approved.State, approved.ApprovedFrom));
         // Approved plans take no more steps and no second approval.
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Again.")));
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Approve(plan));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed partial class ShotTests
         var frame = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, second, "Carry it over.") { Frame = new() { FromShotId = first, Name = "End" } });
         var other = await f.Propose(plan, new(ReviewStepKind.SetPrompt, second, "Independent.") { Prompt = "The mouse leaves." });
         await f.Plans.DecideAsync(f.Project, plan.Id, prompt.Id, keep: false, _ct);
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
 
         var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
@@ -137,7 +137,7 @@ public sealed partial class ShotTests
         var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render."));
         // The director edits the prompt in Shots after the agent read it.
         var setup = await f.Setup(shot); setup.Prompt = "The mouse sleeps."; await f.Production.SaveAsync(f.Project, setup, setup.Version, _ct);
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
 
         var held = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
@@ -162,7 +162,7 @@ public sealed partial class ShotTests
         var refused = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Render."));
         var cancelled = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[1], "Render."));
         var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Cut."));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         f.Renders.Refuse = shot => shot == f.ShotIds[0] ? "Refresh Video models to check H3." : null;
 
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
@@ -180,7 +180,7 @@ public sealed partial class ShotTests
         var waiting = await f.Propose(second, new(ReviewStepKind.MarkPromptReviewed, f.ShotIds[0], "It still fits."));
         var stopped = await f.Plans.StopAsync(f.Project, second.Id, ReviewPlans.Director, _ct);
         Assert.Equal((ReviewPlanState.Stopped, ReviewStepState.Skipped), (stopped.State, stopped.Step(waiting.Id)!.State));
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, second.Id, ReviewPlans.Director, ct: _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Approve(second));
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.RemovePicture, shot, "Wrong.") { AssetId = f.Vera.Id, ImageId = Guid.NewGuid() }));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.UseTake, shot, "Wrong.") { TakeId = Guid.NewGuid() }));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Too many.") { Takes = 5 }));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
 
         var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
@@ -230,7 +230,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Again.")));
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.UpdateCut, null, "Another kind."), "agent", replaces: render.Id, _ct));
 
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ProposeAsync(f.Project, plan.Id, new(ReviewStepKind.GenerateTakes, shot, "Too late.") { Takes = 1 }, "agent", replaces: render.Id, _ct));
         await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
         Assert.Equal((shot, 3), Assert.Single(f.Renders.Captured));
@@ -242,7 +242,7 @@ public sealed partial class ShotTests
         var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
         var plan = await f.Plans.CreateAsync(f.Project, "Background", "agent", _ct);
         var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "One take."));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
 
         // Startup picks up an approved plan nobody advanced, as after a restart.
         await f.Runner.AdvanceAllAsync(_ct);
@@ -278,7 +278,7 @@ public sealed partial class ShotTests
         // A render already queued without a recorded setup is not credited with the one selected now.
         Assert.DoesNotContain("Drafting", ReviewPlans.Describe(snapshot, render with { JobId = Guid.NewGuid() }));
 
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         // Selecting something else afterwards does not change what was approved.
         await f.Setups.SelectAsync(original!.Value, _ct);
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
@@ -307,7 +307,7 @@ public sealed partial class ShotTests
         await f.Setups.SelectAsync(drafting.Id, _ct);
         var plan = await f.Plans.CreateAsync(f.Project, "Retake", "agent", _ct);
         var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render."));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         await f.Setups.SaveAsync(drafting with { Archived = true }, drafting.Version, _ct);
 
         var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
@@ -327,7 +327,7 @@ public sealed partial class ShotTests
         var running = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[1], "Render."));
         var waiting = await f.Propose(plan, new(ReviewStepKind.AddShotFrame, f.ShotIds[2], "Frame.") { Frame = new() { FromShotId = f.ShotIds[0], Name = "End" } });
         var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Cut."));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         var started = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
         var job = started.Step(running.Id)!.JobId!.Value;
         var takes = await f.Finish(started.Step(picking.Id)!, 1);
@@ -370,7 +370,7 @@ public sealed partial class ShotTests
         var snapshot = await f.Review.LoadAsync(f.Project, _ct);
         Assert.Equal(new ReviewPlanTotals(1, H3Policy.Seconds(1), 1, 2), ReviewPlans.Totals(await f.Plan(plan), snapshot));
         Assert.Contains("into 2 candidates", ReviewPlans.Describe(snapshot, edit));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
 
         // The edit is queued with the source and waits for review. What needs its pick waits too.
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
@@ -409,7 +409,7 @@ public sealed partial class ShotTests
         var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night." });
         var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, first, "Use it.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
         var other = await f.Propose(plan, new(ReviewStepKind.MarkPromptReviewed, second, "Unrelated."));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
         Assert.Equal(ReviewStepState.Done, running.Step(other.Id)!.State);
         f.FinishEdit(running.Step(edit.Id)!, 1);
@@ -442,7 +442,7 @@ public sealed partial class ShotTests
         var snapshot = await f.Review.LoadAsync(f.Project, _ct);
         Assert.EndsWith("with “Drafting”", ReviewPlans.Describe(snapshot, draft));
         Assert.EndsWith("with “Production” using Turbo · 4 steps", ReviewPlans.Describe(snapshot, quick));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
         Assert.Equal("Drafting", running.Step(draft.Id)!.GenerationSetupName);
@@ -468,7 +468,7 @@ public sealed partial class ShotTests
 
         var snapshot = await f.Review.LoadAsync(f.Project, _ct);
         Assert.EndsWith("with 1 more reference on MiniMax H3 (10Eros Compact · 8 steps)", ReviewPlans.Describe(snapshot, edit));
-        await f.Plans.ApproveAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        await f.Approve(plan);
         await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 
         var captured = Assert.Single(f.Renders.Edits);
@@ -487,6 +487,173 @@ public sealed partial class ShotTests
         Assert.Contains("more than once", Assert.Throws<WorkspaceStoreException>(() => ReviewPlans.ApplyEdits(prompt, [("window", "door")])).Message);
         Assert.Contains("does not contain", Assert.Throws<WorkspaceStoreException>(() => ReviewPlans.ApplyEdits(prompt, [("table", "chair")])).Message);
         Assert.Throws<WorkspaceStoreException>(() => ReviewPlans.ApplyEdits(prompt, [("", "x")]));
+    }
+
+    [Fact]
+    public async Task AnApprovalInTheAppCoversOnlyThePlanThePageShowed()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Another take.") { Takes = 2 });
+        var shown = await f.Plan(plan); var totals = ReviewPlans.Totals(shown, await f.Review.LoadAsync(f.Project, _ct));
+
+        // The agent adds a step while the director reads the page.
+        await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Show the pick."));
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, shown.Revision, totals, _ct));
+        Assert.Contains("changed while you were reading", e.Message);
+
+        // The shot is made longer: the same revision now costs more footage.
+        shown = await f.Plan(plan); totals = ReviewPlans.Totals(shown, await f.Review.LoadAsync(f.Project, _ct));
+        await f.SetDuration(shot, 5);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveAsync(f.Project, plan.Id, shown.Revision, totals, _ct));
+        Assert.Equal(ReviewPlanState.Draft, (await f.Plan(plan)).State);
+
+        var approved = await f.Approve(plan);
+        Assert.Equal((ReviewPlanState.Approved, ReviewPlans.Director), (approved.State, approved.ApprovedFrom));
+    }
+
+    [Fact]
+    public async Task AClientThatCallsItselfLumibelleIsStillHeldToTheClientRules()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take.") { Takes = 2 });
+        var draft = await f.Plan(plan); var totals = ReviewPlans.Totals(draft, await f.Review.LoadAsync(f.Project, _ct));
+
+        // Not submitted, and then totals that leave the takes out: both refused whatever the client is called.
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, ReviewPlans.Director, draft.Revision, totals, _ct));
+        await f.Plans.SubmitAsync(f.Project, plan.Id, "agent", _ct);
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Plans.ApproveFromClientAsync(f.Project, plan.Id, ReviewPlans.Director, draft.Revision, totals with { Takes = 0, FootageSeconds = 0 }, _ct));
+        Assert.Empty(f.Renders.Captured);
+
+        var approved = await f.Plans.ApproveFromClientAsync(f.Project, plan.Id, "lumibelle", draft.Revision, totals, _ct);
+        Assert.Equal("MCP client", approved.ApprovedFrom);
+    }
+
+    [Fact]
+    public async Task ReleasingAHeldReviewMarkAcceptsThePromptAsItIsNow()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Review", "agent", _ct);
+        var step = await f.Propose(plan, new(ReviewStepKind.MarkPromptReviewed, shot, "The prompt reads well."));
+        var setup = await f.Setup(shot); setup.Prompt = "The mouse sleeps."; await f.Production.SaveAsync(f.Project, setup, setup.Version, _ct);
+        await f.Approve(plan);
+
+        Assert.Equal(ReviewStepState.Held, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(step.Id)!.State);
+        await f.Plans.ReleaseAsync(f.Project, plan.Id, step.Id, "The mouse sleeps.", _ct);
+        var released = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal(ReviewStepState.Done, released.Step(step.Id)!.State);
+        Assert.Equal("The mouse sleeps.", (await f.Setup(shot)).Accepted?.Prompt);
+    }
+
+    [Fact]
+    public async Task ARenderWaitsForChangesToItsShotProposedAfterIt()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Fix then render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render the fix."));
+        var prompt = await f.Propose(plan, new(ReviewStepKind.SetPrompt, shot, "Fix.") { Prompt = "The mouse reads a letter." });
+        await f.Approve(plan);
+
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal((ReviewStepState.Done, ReviewStepState.Running), (running.Step(prompt.Id)!.State, running.Step(render.Id)!.State));
+        Assert.Equal("The mouse reads a letter.", Assert.Single(f.Renders.Setups).Prompt);
+    }
+
+    [Fact]
+    public async Task ShotsThatWouldWaitForEachOthersPicksAreRefused()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var (first, second) = (f.ShotIds[0], f.ShotIds[1]);
+        var plan = await f.Plans.CreateAsync(f.Project, "Ring", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.GenerateTakes, first, "Render."));
+        await f.Propose(plan, new(ReviewStepKind.GenerateTakes, second, "Render."));
+        await f.Propose(plan, new(ReviewStepKind.AddShotFrame, second, "Carry the end over.") { Frame = new() { FromShotId = first, Name = "End" } });
+
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, new(ReviewStepKind.AddShotFrame, first, "And back.") { Frame = new() { FromShotId = second, Position = ReviewFramePosition.First, Name = "Start" } }));
+        Assert.Matches("#(1 → #2 → #1|2 → #1 → #2) would each wait", e.Message);
+        Assert.Equal(3, (await f.Plan(plan)).Steps.Count);
+    }
+
+    [Fact]
+    public async Task ARenderWhoseShotGrewAfterApprovalIsHeldUntilReleased()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Another take.") { Takes = 2 });
+        await f.Approve(plan);
+        await f.SetDuration(shot, 5);
+
+        var held = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!;
+        Assert.Equal(ReviewStepState.Held, held.State);
+        Assert.Contains("approved for", held.Message);
+        Assert.Empty(f.Renders.Captured);
+
+        await f.Plans.ReleaseAsync(f.Project, plan.Id, render.Id, null, _ct);
+        Assert.Equal(ReviewStepState.Running, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!.State);
+        Assert.Equal((shot, 2), Assert.Single(f.Renders.Captured));
+    }
+
+    [Fact]
+    public async Task APlanApprovedWithoutBeingAdvancedIsStartedByTheNextWatchedPass()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        await f.Runner.AdvanceAllAsync(_ct);
+        var plan = await f.Plans.CreateAsync(f.Project, "Fix", "agent", _ct);
+        await f.Propose(plan, new(ReviewStepKind.SetPrompt, shot, "Fix.") { Prompt = "The mouse reads a letter." });
+        // The approving request ends before it advances the plan.
+        await f.Approve(plan);
+
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+
+        Assert.Equal(ReviewPlanState.Finished, (await f.Plan(plan)).State);
+        Assert.Equal("The mouse reads a letter.", (await f.Setup(shot)).Prompt);
+    }
+
+    [Fact]
+    public async Task StoppingAgainCancelsARenderAnEarlierStopCouldNot()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take."));
+        await f.Approve(plan);
+        var job = (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!.JobId!.Value;
+        f.Renders.FailCancels = 1;
+
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.StopAsync(f.Project, plan.Id, ReviewPlans.Director, _ct));
+        Assert.Contains("could not be cancelled", e.Message);
+        Assert.Equal(ReviewPlanState.Stopped, (await f.Plan(plan)).State);
+        Assert.Equal(AiJobState.Waiting, f.Renders.States[job]);
+        // The page offers Stop plan again for as long as the render is queued.
+        Assert.True(f.Runner.Uncancelled(await f.Plan(plan)));
+
+        await f.Runner.StopAsync(f.Project, plan.Id, ReviewPlans.Director, _ct);
+        Assert.Equal(AiJobState.Cancelled, f.Renders.States[job]);
+        Assert.False(f.Runner.Uncancelled(await f.Plan(plan)));
+    }
+
+    [Fact]
+    public async Task APickRacingAStopEitherLandsBeforeItOrSelectsNothing()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Another take."));
+        await f.Approve(plan);
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 1);
+        Assert.Equal(ReviewStepState.Pick, (await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!.State);
+
+        var pick = Task.Run(() => f.Runner.PickAsync(f.Project, plan.Id, render.Id, takes[0], ReviewPlans.Director, _ct), _ct);
+        var stop = Task.Run(() => f.Runner.StopAsync(f.Project, plan.Id, ReviewPlans.Director, _ct), _ct);
+        await stop;
+        try { await pick; } catch (WorkspaceStoreException) { }
+
+        var step = (await f.Plan(plan)).Step(render.Id)!;
+        var selected = (await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId;
+        // Picked first, then stopped; or stopped first, and the pick changed nothing.
+        if (step.State == ReviewStepState.Done) Assert.Equal(takes[0], selected);
+        else Assert.Equal((ReviewStepState.Skipped, (Guid?)null), (step.State, selected));
     }
 
     private sealed class PlanFixture
@@ -531,6 +698,18 @@ public sealed partial class ShotTests
         }
         public Task<ReviewPlanStep> Propose(ReviewPlan plan, ReviewStepProposal proposal) => Plans.ProposeAsync(Project, plan.Id, proposal, "agent", ct: _owner._ct);
         public Task<ReviewPlan> Plan(ReviewPlan plan) => Plans.Store.GetAsync(Project, plan.Id, _owner._ct);
+        // The director approves the plan as the Review page shows it.
+        public async Task<ReviewPlan> Approve(ReviewPlan plan)
+        {
+            var shown = await Plan(plan);
+            return await Plans.ApproveAsync(Project, plan.Id, shown.Revision, ReviewPlans.Totals(shown, await Review.LoadAsync(Project, _owner._ct)), _owner._ct);
+        }
+        public async Task SetDuration(Guid shot, double seconds)
+        {
+            var document = await Shots.LoadAsync(Project, _owner._ct);
+            document.Shots.Single(s => s.Id == shot).Duration = seconds;
+            await Shots.SaveAsync(Project, document.Shots, document.Revision, ct: _owner._ct);
+        }
         public async Task<ProductionComposition> Setup(Guid shot) => (await Production.LoadAsync(Project, _owner._ct)).Compositions.First(c => c.ShotId == shot && !c.Archived);
         /// <summary>The queued edit completes and publishes pending candidates, as the image handler would.</summary>
         public Guid[] FinishEdit(ReviewPlanStep step, int count)
@@ -584,7 +763,12 @@ public sealed partial class ShotTests
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId, CompositionId: setup.Id), "Project", "Shot", Guid.Empty, new { takes }));
         }
         public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
-        public Task CancelAsync(Guid jobId, CancellationToken ct) { States[jobId] = AiJobState.Cancelled; return Task.CompletedTask; }
+        public int FailCancels { get; set; }
+        public Task CancelAsync(Guid jobId, CancellationToken ct)
+        {
+            if (FailCancels > 0) { FailCancels--; throw new IOException("The queue could not be reached."); }
+            States[jobId] = AiJobState.Cancelled; return Task.CompletedTask;
+        }
         public AiJobState? State(Guid jobId) => States.TryGetValue(jobId, out var state) ? state : null;
     }
 }

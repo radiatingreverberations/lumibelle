@@ -71,11 +71,12 @@ public sealed class McpEndpointTests : IAsyncLifetime
         return await http.SendAsync(request, Ct);
     }
 
-    private async Task<McpClient> ConnectAsync(string token) => await McpClient.CreateAsync(new HttpClientTransport(new()
+    private async Task<McpClient> ConnectAsync(string token, string? userAgent = null)
     {
-        Endpoint = _endpoint, TransportMode = HttpTransportMode.StreamableHttp,
-        AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + token }
-    }), cancellationToken: Ct);
+        var headers = new Dictionary<string, string> { ["Authorization"] = "Bearer " + token };
+        if (userAgent is not null) headers["User-Agent"] = userAgent;
+        return await McpClient.CreateAsync(new HttpClientTransport(new() { Endpoint = _endpoint, TransportMode = HttpTransportMode.StreamableHttp, AdditionalHeaders = headers }), cancellationToken: Ct);
+    }
 
     private static string TextOf(CallToolResult result) => string.Concat(result.Content.OfType<TextContentBlock>().Select(c => c.Text));
 
@@ -278,6 +279,103 @@ public sealed class McpEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AClientNamingItselfLumibelleCannotApproveWhatTheDirectorWasNotShown()
+    {
+        var (project, _) = await ProjectWithShotAsync();
+        await using var client = await ConnectAsync(await EnableAsync(approval: true), userAgent: "Lumibelle/1.0");
+        var id = project.ToString();
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Retake" })).GetProperty("id").GetString()!;
+        await CallAsync(client, "propose_step", new { project = id, plan, kind = "GenerateTakes", shot = "#1", reason = "Try again.", takes = 2 });
+
+        // A draft, with totals that leave the renders out: refused, and nothing runs.
+        var draft = await client.CallToolAsync("approve_plan", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["revision"] = 99, ["takes"] = 0, ["footage_seconds"] = 0, ["changes"] = 0 }, cancellationToken: Ct);
+        Assert.True(draft.IsError);
+        var saved = await _app.Services.GetRequiredService<ReviewPlanStore>().GetAsync(project, Guid.Parse(plan), Ct);
+        Assert.Equal(ReviewPlanState.Draft, saved.State);
+        Assert.Empty(_renders.Captured);
+        Assert.NotEqual(ReviewPlans.Director, saved.ProposedBy);
+
+        var submitted = await CallAsync(client, "submit_plan", new { project = id, plan });
+        var wrong = await client.CallToolAsync("approve_plan", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["revision"] = submitted.GetProperty("revision").GetInt64(), ["takes"] = 0, ["footage_seconds"] = 0, ["changes"] = 0 }, cancellationToken: Ct);
+        Assert.True(wrong.IsError);
+        Assert.Contains("does not match the plan as it stands", TextOf(wrong));
+        Assert.Equal(ReviewPlanState.Submitted, (await _app.Services.GetRequiredService<ReviewPlanStore>().GetAsync(project, Guid.Parse(plan), Ct)).State);
+    }
+
+    [Fact]
+    public async Task ShotFramesAreNumberedFromOneAndRemovedByThatNumber()
+    {
+        var (project, shot) = await ProjectWithShotAsync();
+        var shots = _app.Services.GetRequiredService<IShotStore>(); var production = _app.Services.GetRequiredService<IProductionStore>();
+        // A take of the shot, and its first frame used as a shot frame: stored as frame 0.
+        var current = (await shots.LoadAsync(project, Ct)).Shots.Single();
+        var snapshot = new VideoSnapshot(project, 1, current.Copy(), "prompt", "fingerprint", "http://localhost:8188", new(), 32, 32, H3Policy.Frames(1));
+        var run = Guid.NewGuid(); var directory = Path.Combine(await shots.RunDirectoryAsync(project, run, Ct), "candidate-1"); Directory.CreateDirectory(directory);
+        await File.WriteAllBytesAsync(Path.Combine(directory, "video.mp4"), [1, 2, 3], Ct);
+        var frames = await Lumibelle.Testing.MockFrameArchive.WriteAsync(directory, snapshot.FrameCount, 32, 32, Ct);
+        var take = (await shots.PublishTakeAsync(project, new() { ShotId = current.Id, RunId = run, Candidate = 1, AiJobId = Guid.NewGuid(), Snapshot = snapshot, Width = 32, Height = 32, Frames = frames,
+            Bytes = 3 + frames.DistinctBy(f => f.FileName).Sum(f => f.Bytes) }, directory, Ct)).Takes.Single(t => t.RunId == run);
+        var setup = (await production.LoadAsync(project, Ct)).Compositions.Single();
+        setup.Shot.ShotFrames.Add(new(Guid.NewGuid(), take.Id, 0, "Opening"));
+        await production.SaveAsync(project, setup, setup.Version, Ct);
+
+        await using var client = await ConnectAsync(await EnableAsync());
+        var id = project.ToString();
+        var listed = (await CallAsync(client, "get_shot", new { project = id, shot = "#1" })).GetProperty("pictures").EnumerateArray().Single(p => p.GetProperty("kind").GetString() == "shot frame");
+        Assert.Equal(1, listed.GetProperty("frame").GetInt32());
+
+        var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Drop the frame" })).GetProperty("id").GetString()!;
+        var step = await CallAsync(client, "propose_step", new { project = id, plan, kind = "RemoveShotFrame", shot = "#1", reason = "Not needed.",
+            take = listed.GetProperty("fromTake").GetString(), frame = listed.GetProperty("frame").GetInt32() });
+        Assert.Equal("Remove a shot frame from #1", step.GetProperty("does").GetString());
+        var plans = _app.Services.GetRequiredService<ReviewPlans>();
+        var shown = await plans.Store.GetAsync(project, Guid.Parse(plan), Ct);
+        await plans.ApproveAsync(project, shown.Id, shown.Revision, ReviewPlans.Totals(shown, await _app.Services.GetRequiredService<ProjectReview>().LoadAsync(project, Ct)), Ct);
+        await _app.Services.GetRequiredService<ReviewPlanRunner>().AdvanceAsync(project, shown.Id, Ct);
+        Assert.Empty((await production.LoadAsync(project, Ct)).Compositions.Single().Shot.ShotFrames);
+        _ = shot;
+    }
+
+    [Fact]
+    public async Task ATokenRenewedWhileItIsBeingCheckedIsNotKeptInTheCache()
+    {
+        var paths = new ApplicationPaths(Path.Combine(_root, "race"));
+        var protector = new HeldProtector(new WebSecretProtector(new EphemeralDataProtectionProvider()));
+        var first = new FileAgentAccessStore(paths, protector);
+        var saved = await first.SaveAsync(true, false, 0, Ct); var old = (await first.ReadTokenAsync(Ct))!;
+        // Another store over the same file, with nothing cached yet.
+        var store = new FileAgentAccessStore(paths, protector);
+
+        // The first check reads the old settings and stops while the token is unprotected; the token is renewed meanwhile.
+        protector.HoldNext();
+        var check = Task.Run(() => store.AcceptsAsync(old, Ct), Ct);
+        await protector.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await store.RenewTokenAsync(saved.Revision, Ct);
+        protector.Resume();
+        await check;
+
+        Assert.False(await store.AcceptsAsync(old, Ct));
+        Assert.True(await store.AcceptsAsync(await store.ReadTokenAsync(Ct), Ct));
+    }
+
+    private sealed class HeldProtector(ISecretProtector inner) : ISecretProtector
+    {
+        private readonly ManualResetEventSlim _resume = new(true);
+        private int _hold;
+        public ISecretProtector Inner => inner;
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void HoldNext() { _resume.Reset(); _hold = 1; }
+        public void Resume() => _resume.Set();
+        public string Protect(string value) => inner.Protect(value);
+        public string Unprotect(string value)
+        {
+            var result = inner.Unprotect(value);
+            if (Interlocked.Exchange(ref _hold, 0) == 1) { Entered.TrySetResult(); _resume.Wait(TimeSpan.FromSeconds(10)); }
+            return result;
+        }
+    }
+
+    [Fact]
     public async Task RenderedTakesAreRecommendedAndPickedOverMcpOnlyByNamingThem()
     {
         var (project, shot) = await ProjectWithShotAsync();
@@ -374,7 +472,8 @@ public sealed class McpEndpointTests : IAsyncLifetime
         var plans = _app.Services.GetRequiredService<ReviewPlans>();
         var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Retake" })).GetProperty("id").GetString()!;
         await CallAsync(client, "propose_step", new { project = id, plan, kind = "GenerateTakes", shot = "#1", reason = "Try again." });
-        await plans.ApproveAsync(project, Guid.Parse(plan), ReviewPlans.Director, ct: Ct);
+        var shown = await plans.Store.GetAsync(project, Guid.Parse(plan), Ct);
+        await plans.ApproveAsync(project, shown.Id, shown.Revision, ReviewPlans.Totals(shown, await _app.Services.GetRequiredService<ProjectReview>().LoadAsync(project, Ct)), Ct);
         var job = (await _app.Services.GetRequiredService<ReviewPlanRunner>().AdvanceAsync(project, Guid.Parse(plan), Ct)).Steps[0].JobId!.Value;
         var stopped = await CallAsync(client, "stop_plan", new { project = id, plan });
         Assert.Equal("Stopped", stopped.GetProperty("state").GetString());

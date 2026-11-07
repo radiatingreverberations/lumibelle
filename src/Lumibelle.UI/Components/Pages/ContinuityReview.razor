@@ -186,6 +186,11 @@ else
                             { <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="() => AcceptRecommendations(plan)">Accept recommendations</MudButton> }
                             <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Error" Disabled="_busy" OnClick="() => Stop(plan)">Stop plan</MudButton>
                         }
+                        else if (Runner.Uncancelled(plan))
+                        {
+                            @* An earlier stop could not cancel every render: stopping again tries those once more. *@
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Error" Disabled="_busy" OnClick="() => Stop(plan)">Stop plan</MudButton>
+                        }
                     </Footer>
                 </StudioPane>
             }

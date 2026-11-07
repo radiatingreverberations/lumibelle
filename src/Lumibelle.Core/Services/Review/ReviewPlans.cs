@@ -65,6 +65,7 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         // The step being rewritten is not there to object to its own replacement.
         var others = replaces is null ? current : current with { Steps = current.Steps.Where(s => s.Id != replaces).ToArray() };
         var step = Build(snapshot, others, proposal, who) with { Id = replaces ?? Guid.NewGuid() };
+        if (LoopIssue(snapshot, others with { Steps = [.. others.Steps, step] }) is { } loop) throw new WorkspaceStoreException(loop);
         await store.UpdateAsync(projectId, planId, plan =>
         {
             Editable(plan);
@@ -103,34 +104,48 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         return new(renders.Sum(s => s.Takes), Math.Round(renders.Sum(s => s.Takes * Seconds(snapshot, s.ShotId)), 3), kept.Count(s => !s.SpendsGpu),
             kept.Where(s => s.Kind == ReviewStepKind.EditImage).Sum(s => s.Takes));
     }
-    private static double Seconds(ProjectReviewSnapshot snapshot, Guid? shotId) =>
+    internal static double Seconds(ProjectReviewSnapshot snapshot, Guid? shotId) =>
         snapshot.Row(shotId ?? Guid.Empty)?.Coverage.Duration is { } seconds and >= 1 and <= 15 ? H3Policy.Seconds(seconds) : 0;
 
     /// <summary>
     /// Approves the plan. From the app the director has the plan in front of them. From a client, the call must name the revision
     /// and the totals it read, so an approval can never cover a plan other than the one that was shown.
     /// </summary>
-    public async Task<ReviewPlan> ApproveAsync(Guid projectId, Guid planId, string from, long? revision = null, ReviewPlanTotals? totals = null, CancellationToken ct = default)
+    public Task<ReviewPlan> ApproveAsync(Guid projectId, Guid planId, long revision, ReviewPlanTotals totals, CancellationToken ct = default) =>
+        ApproveAsync(projectId, planId, Director, inApp: true, revision, totals, ct);
+
+    /// <summary>
+    /// An approval relayed by a client on the director's word. The client's name is only a label: it never makes the call count
+    /// as one made in the app, whatever the client calls itself.
+    /// </summary>
+    public Task<ReviewPlan> ApproveFromClientAsync(Guid projectId, Guid planId, string client, long? revision, ReviewPlanTotals? totals, CancellationToken ct = default) =>
+        ApproveAsync(projectId, planId, string.Equals(client, Director, StringComparison.OrdinalIgnoreCase) ? "MCP client" : client, inApp: false, revision, totals, ct);
+
+    private async Task<ReviewPlan> ApproveAsync(Guid projectId, Guid planId, string from, bool inApp, long? revision, ReviewPlanTotals? totals, CancellationToken ct)
     {
         var snapshot = await review.LoadAsync(projectId, ct);
         return await store.UpdateAsync(projectId, planId, plan =>
         {
             if (plan.State is not (ReviewPlanState.Draft or ReviewPlanState.Submitted)) throw new WorkspaceStoreException(plan.State == ReviewPlanState.Approved ? "This plan is already approved." : "This plan is closed. Start a new plan.");
-            if (from != Director)
-            {
-                if (plan.State != ReviewPlanState.Submitted) throw new WorkspaceStoreException("Submit the plan before it is approved.");
-                var actual = Totals(plan, snapshot);
-                if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || totals.Images != actual.Images || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01)
-                    throw new WorkspaceStoreException($"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes, {actual.Images} images). Read the plan again and show the director these totals.");
-            }
+            if (!inApp && plan.State != ReviewPlanState.Submitted) throw new WorkspaceStoreException("Submit the plan before it is approved.");
+            // In the app as from a client, an approval covers the plan that was shown and nothing that changed since.
+            var actual = Totals(plan, snapshot);
+            if (revision != plan.Revision || totals is null || totals.Takes != actual.Takes || totals.Changes != actual.Changes || totals.Images != actual.Images || Math.Abs(totals.FootageSeconds - actual.FootageSeconds) > .01)
+                throw new WorkspaceStoreException(inApp
+                    ? $"The plan changed while you were reading it. It now has {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes and {actual.Images} images. Look it over again before approving."
+                    : $"The approval does not match the plan as it stands (revision {plan.Revision}: {actual.Takes} takes, {actual.FootageSeconds} seconds of footage, {actual.Changes} changes, {actual.Images} images). Read the plan again and show the director these totals.");
             if (!plan.Steps.Any(s => s.State == ReviewStepState.Proposed)) throw new WorkspaceStoreException("No step of this plan is left to approve.");
+            // A step kept again after it was rejected can close a ring that proposing it could not.
+            if (LoopIssue(snapshot, plan) is { } loop) throw new WorkspaceStoreException(loop);
             var now = clock.GetUtcNow(); var approved = Totals(plan, snapshot);
             return plan with
             {
                 State = ReviewPlanState.Approved, ApprovedUtc = now, ApprovedFrom = from,
                 Steps = plan.Steps.Select(s => s.State != ReviewStepState.Proposed ? s : s.Kind switch
                 {
-                    ReviewStepKind.GenerateTakes => s with { State = ReviewStepState.Waiting, GenerationSetupId = s.GenerationSetupId ?? snapshot.RenderSetup?.Id, GenerationSetupName = s.GenerationSetupName ?? snapshot.RenderSetup?.Name },
+                    // The length approved per take is kept, so a render whose shot grew since waits for the director.
+                    ReviewStepKind.GenerateTakes => s with { State = ReviewStepState.Waiting, GenerationSetupId = s.GenerationSetupId ?? snapshot.RenderSetup?.Id, GenerationSetupName = s.GenerationSetupName ?? snapshot.RenderSetup?.Name,
+                        ApprovedSeconds = Seconds(snapshot, s.ShotId) },
                     ReviewStepKind.EditImage => s with { State = ReviewStepState.Waiting, Workflow = s.Workflow ?? snapshot.ImageDefault },
                     _ => s with { State = ReviewStepState.Waiting }
                 }).ToArray(),
@@ -175,13 +190,25 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
     }
 
     /// <summary>Lets a held step run against the shot as it is now.</summary>
-    public Task<ReviewPlan> ReleaseAsync(Guid projectId, Guid planId, Guid stepId, string? currentPrompt, CancellationToken ct = default) => store.UpdateAsync(projectId, planId, plan =>
+    public async Task<ReviewPlan> ReleaseAsync(Guid projectId, Guid planId, Guid stepId, string? currentPrompt, CancellationToken ct = default)
+    {
+        ProjectReviewSnapshot? snapshot = (await store.GetAsync(projectId, planId, ct)).Step(stepId)?.Kind == ReviewStepKind.GenerateTakes ? await review.LoadAsync(projectId, ct) : null;
+        return await store.UpdateAsync(projectId, planId, plan => Release(plan, stepId, currentPrompt, snapshot), proposal: false, ct);
+    }
+
+    private ReviewPlan Release(ReviewPlan plan, Guid stepId, string? currentPrompt, ProjectReviewSnapshot? snapshot)
     {
         var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
         if (step.State != ReviewStepState.Held) return plan;
-        return plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? s with { State = ReviewStepState.Waiting, Message = null, Before = s.Kind == ReviewStepKind.SetPrompt ? currentPrompt : s.Before } : s).ToArray(),
+        // Releasing agrees to the shot as the director sees it: the prompt shown, and for a render the shot's length now.
+        return plan with { Steps = plan.Steps.Select(s => s.Id != stepId ? s : s with
+            {
+                State = ReviewStepState.Waiting, Message = null,
+                Before = s.Kind is ReviewStepKind.SetPrompt or ReviewStepKind.MarkPromptReviewed ? currentPrompt : s.Before,
+                ApprovedSeconds = s.Kind == ReviewStepKind.GenerateTakes && snapshot is not null ? Seconds(snapshot, s.ShotId) : s.ApprovedSeconds
+            }).ToArray(),
             Log = [.. plan.Log, new(clock.GetUtcNow(), Director, "Let a held step run against the shot as it is now.")] };
-    }, proposal: false, ct);
+    }
 
     private static ReviewPlan Editable(ReviewPlan plan) => plan.State is ReviewPlanState.Draft or ReviewPlanState.Submitted ? plan
         : throw new WorkspaceStoreException(plan.State == ReviewPlanState.Approved ? "This plan is approved and running. Start a new plan for further changes." : "This plan is closed. Start a new plan.");
@@ -305,6 +332,38 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
                 return step with { Takes = p.Takes, Resolution = p.Resolution, Preset = p.Preset, GenerationSetupId = named?.Id, GenerationSetupName = named?.Name };
             default: throw new WorkspaceStoreException("That kind of step is not supported.");
         }
+    }
+
+    /// <summary>
+    /// A render waits for every frame the plan adds to its shot, and a frame from another shot's pick waits for that shot's render.
+    /// Returns shots that would wait on each other in a ring, first shot repeated at the end, or an empty list.
+    /// </summary>
+    private static string? LoopIssue(ProjectReviewSnapshot snapshot, ReviewPlan plan) => Loop(plan) is { Count: > 0 } loop
+        ? $"Shots {string.Join(" → ", loop.Select(id => "#" + snapshot.Row(id)?.Number))} would each wait for the next one's pick, so none of them could render. Take one of those frames from a take that exists."
+        : null;
+
+    internal static IReadOnlyList<Guid> Loop(ReviewPlan plan)
+    {
+        var kept = plan.Steps.Where(s => s.State != ReviewStepState.Rejected).ToArray();
+        var rendered = kept.Where(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId is not null).Select(s => s.ShotId!.Value).ToHashSet();
+        var waits = kept.Where(s => s.Kind == ReviewStepKind.AddShotFrame && s.ShotId is not null && s.Frame?.FromShotId is { } from && rendered.Contains(from))
+            .GroupBy(s => s.ShotId!.Value).ToDictionary(g => g.Key, g => g.Select(s => s.Frame!.FromShotId!.Value).Distinct().ToArray());
+        var done = new HashSet<Guid>();
+        foreach (var start in waits.Keys)
+        {
+            var path = new List<Guid>();
+            if (Visit(start)) return path;
+            bool Visit(Guid shot)
+            {
+                if (path.IndexOf(shot) is >= 0 and var at) { path.RemoveRange(0, at); path.Add(shot); return true; }
+                if (!done.Add(shot)) return false;
+                path.Add(shot);
+                foreach (var next in waits.GetValueOrDefault(shot) ?? []) if (Visit(next)) return true;
+                path.RemoveAt(path.Count - 1);
+                return false;
+            }
+        }
+        return [];
     }
 
     /// <summary>One line saying what a step does, for lists and the log.</summary>

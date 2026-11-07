@@ -52,23 +52,23 @@ A plan has no step that deletes anything.
 
 The right pane says what approving it does: how many changes it makes, how many takes it renders, and how many seconds of footage that is. For a prompt change, open **Compare prompts** to see the prompt when the step was written beside the proposed one.
 
-Use **Reject step** on anything you do not want. A step that depended on a rejected one is skipped when the plan runs, and says why. Then choose **Approve plan**.
+Use **Reject step** on anything you do not want. A step that depended on a rejected one is skipped when the plan runs, and says why. Then choose **Approve plan**. The approval covers the plan as the page shows it: if the agent changed the plan, or a shot's length changed, since the page loaded, Lumibelle asks you to look again first.
 
 ### What happens after approval
 
 Lumibelle runs the plan itself, so the agent can disconnect. The line above the steps says how far it has come, what is rendering now and what is waiting for you, and each render step shows its live progress.
 
 - Changes run at once, through the same saves as the studios.
-- A shot's changes run before its render. Renders are ordinary requests in [AI activity](ai-activity.md), and use the setup the agent named, or else the one selected in Shots when you approved the plan. Each step names its setup, preset or image model, so read them before approving. Choosing another setup afterwards does not change what you approved.
+- All of a shot's changes in the plan run before its render, wherever they appear in the list. An agent cannot propose frames that would make shots wait for each other's picks. Renders are ordinary requests in [AI activity](ai-activity.md), and use the setup the agent named, or else the one selected in Shots when you approved the plan. Each step names its setup, preset or image model, so read them before approving. Choosing another setup afterwards does not change what you approved.
 - When a render finishes, its step shows the new takes under **Pick a take**. Play them, then choose **Use this take**. The agent may recommend one with a reason; **Accept recommendations** takes every recommended take. Nothing selects a take for you.
 - A step that adds a frame from another shot's new take waits for that pick, then uses the first or last frame of the take you picked.
 - An image edit's candidates wait the same way, under **Use this image**. The one you pick joins the asset, the others go to Trash, and a step that replaces a picture with it then runs.
 - **None of these** turns down a step's results. Steps that needed the pick are skipped, and the rest of the plan goes on.
 - The cut is pointed at the selected takes last.
 
-A step is **Held** when its shot's prompt was edited after the step was written. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it.
+A step is **Held** when its shot's prompt was edited after the step was written, or when a render's shot was made longer after you approved the plan, so it would render more footage than you agreed to. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it.
 
-**Stop plan** skips the steps that have not run and cancels the plan's waiting and running renders. **AI activity** can recover any takes a cancelled render had finished. Stopping undoes nothing: prompts and references it already changed stay, and takes it already finished stay in Shots without being selected. A stopped plan cannot be restarted, so what is still needed goes in a new plan.
+**Stop plan** skips the steps that have not run and cancels the plan's waiting and running renders. **AI activity** can recover any takes a cancelled render had finished. Stopping undoes nothing: prompts and references it already changed stay, and takes it already finished stay in Shots without being selected. If a render could not be cancelled, Lumibelle says so; choose **Stop plan** again, or cancel it in AI activity. A stopped plan cannot be restarted, so what is still needed goes in a new plan.
 
 If a shot is open in Shots with unsaved edits when a plan changes it, that tab cannot save over the plan's change and keeps your draft. Reload the shot there.
 

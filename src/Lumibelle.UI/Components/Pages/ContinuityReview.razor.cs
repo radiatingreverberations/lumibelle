@@ -160,7 +160,9 @@ public partial class ContinuityReview
 
     private Task Approve(ReviewPlan plan) => Do(async () =>
     {
-        await Plans.ApproveAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token);
+        // Bound to what the page shows: a plan or shot that changed since must be looked at again.
+        if (_snapshot is not { } shown) return;
+        await Plans.ApproveAsync(Id, plan.Id, plan.Revision, ReviewPlans.Totals(plan, shown), _lifetime.Token);
         await Runner.AdvanceAsync(Id, plan.Id, _lifetime.Token);
         Snackbar.Add("Plan approved.", Severity.Success);
     });

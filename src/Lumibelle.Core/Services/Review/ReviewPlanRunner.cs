@@ -32,7 +32,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
 
     /// <summary>
     /// Advances the approved plans of projects known to have had one. Called whenever the queue changes, which is often while a
-    /// render reports progress, so with <paramref name="settledOnly"/> a plan is only read in full once one of its renders has left the queue.
+    /// render reports progress, so with <paramref name="settledOnly"/> a plan is only read in full once one of its renders has left the queue,
+    /// or when it has a step that could run now: one approved or released without being advanced, as when the request that approved it ended first.
     /// </summary>
     public async Task AdvanceWatchedAsync(bool settledOnly = true, CancellationToken ct = default)
     {
@@ -45,7 +46,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             foreach (var plan in plans.Where(p => p.Active))
                 try
                 {
-                    if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && renders.State(s.JobId ?? Guid.Empty) is not (AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention))) continue;
+                    if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && !Queued(s.JobId)) &&
+                        !plan.Steps.Any(s => s.State == ReviewStepState.Waiting && Blocker(plan, s) is not { Open: true })) continue;
                     await AdvanceAsync(project, plan.Id, ct);
                 }
                 catch (Exception e) when (e is WorkspaceStoreException or IOException) { logger.LogWarning(e, "Review plan {Plan} could not be advanced.", plan.Id); }
@@ -78,51 +80,82 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     /// <summary>Stops a plan: nothing more of it runs, and its waiting and running renders are cancelled. What it already changed stays.</summary>
     public async Task<ReviewPlan> StopAsync(Guid projectId, Guid planId, string who, CancellationToken ct = default)
     {
-        // Held across the change, so a pass in progress finishes queueing before the renders are collected.
+        // Held across the change, so a pass or pick in progress finishes before the renders are collected.
         await _gate.WaitAsync(ct);
         IReadOnlyList<Guid> queued; ReviewPlan stopped;
         try
         {
-            queued = (await store.GetAsync(projectId, planId, ct)).Steps.Where(s => s.State == ReviewStepState.Running).Select(s => s.JobId).OfType<Guid>().ToArray();
+            // A stopped step keeps its request, so stopping again cancels whatever an earlier stop could not.
+            queued = (await store.GetAsync(projectId, planId, ct)).Steps
+                .Where(s => s.State == ReviewStepState.Running || s.State == ReviewStepState.Skipped && Queued(s.JobId)).Select(s => s.JobId).OfType<Guid>().ToArray();
             stopped = await store.UpdateAsync(projectId, planId, plan => ReviewPlans.Stopped(plan, who, clock.GetUtcNow()), ct: ct);
         }
         finally { _gate.Release(); }
-        foreach (var job in queued) await renders.CancelAsync(job, ct);
+        // The plan is already stopped, so the cancellations run to the end even if the caller goes away.
+        var failed = 0;
+        foreach (var job in queued)
+            try { await renders.CancelAsync(job, CancellationToken.None); }
+            catch (Exception e) when (e is not OperationCanceledException) { failed++; logger.LogWarning(e, "Request {Job} of review plan {Plan} could not be cancelled.", job, planId); }
+        if (failed > 0) throw new WorkspaceStoreException($"The plan is stopped, but {failed} of its {(failed == 1 ? "request" : "requests")} could not be cancelled. Stop the plan again, or cancel {(failed == 1 ? "it" : "them")} in AI activity.");
         return stopped;
     }
+
+    /// <summary>A stopped plan with a request an earlier stop could not cancel.</summary>
+    public bool Uncancelled(ReviewPlan plan) => plan.State == ReviewPlanState.Stopped && plan.Steps.Any(s => s.State == ReviewStepState.Skipped && Queued(s.JobId));
+
+    private bool Queued(Guid? job) => job is { } id && renders.State(id) is AiJobState.Waiting or AiJobState.Running or AiJobState.NeedsAttention;
 
     /// <summary>The director's choice among the takes or images a step produced.</summary>
     public async Task<ReviewPlan> PickAsync(Guid projectId, Guid planId, Guid stepId, Guid choice, string who, CancellationToken ct = default)
     {
-        var plan = await store.GetAsync(projectId, planId, ct);
-        var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-        if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
-        if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
-        if (step.Kind == ReviewStepKind.EditImage)
+        // Under the gate, as stopping is: a plan stopped while the pick was on its way gets nothing selected.
+        await _gate.WaitAsync(ct);
+        try
         {
-            await KeepImageAsync(projectId, step.AssetId!.Value, choice, ct);
-            await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), ct);
-            await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: ct);
+            var step = await PickableAsync(projectId, planId, stepId, ct);
+            if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
+            if (step.Kind == ReviewStepKind.EditImage)
+            {
+                await KeepImageAsync(projectId, step.AssetId!.Value, choice, ct);
+                await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), ct);
+                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: ct);
+            }
+            else
+            {
+                await SelectAsync(projectId, step.ShotId!.Value, choice, ct);
+                await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: ct);
+            }
         }
-        else
-        {
-            await SelectAsync(projectId, step.ShotId!.Value, choice, ct);
-            await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: ct);
-        }
+        finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
     }
 
     /// <summary>None of a step's results will do. Steps that depended on the pick are skipped, and the rest of the plan goes on.</summary>
     public async Task<ReviewPlan> RejectPickAsync(Guid projectId, Guid planId, Guid stepId, string who, CancellationToken ct = default)
     {
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var step = await PickableAsync(projectId, planId, stepId, ct);
+            if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, ct);
+            var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
+            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow() }, who, message), ct: ct);
+        }
+        finally { _gate.Release(); }
+        return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    private async Task<ReviewPlanStep> PickableAsync(Guid projectId, Guid planId, Guid stepId, CancellationToken ct)
+    {
         var plan = await store.GetAsync(projectId, planId, ct);
         var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
         if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
-        if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, ct);
-        var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
-        await store.UpdateAsync(projectId, planId, p => Set(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow() }, who, message), ct: ct);
-        return await AdvanceAsync(projectId, planId, ct);
+        return step;
     }
+
+    // Checked again in the save itself, so a pick never overwrites a step that was settled another way.
+    private ReviewPlan Picked(ReviewPlan plan, Guid stepId, Func<ReviewPlanStep, ReviewPlanStep> change, string who, string what) =>
+        plan.Active && plan.Step(stepId)?.State == ReviewStepState.Pick ? Set(plan, stepId, change, who, what) : throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
 
     private async Task KeepImageAsync(Guid projectId, Guid assetId, Guid imageId, CancellationToken ct)
     {
@@ -188,7 +221,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             try
             {
-                if (step.Kind == ReviewStepKind.GenerateTakes) await RenderAsync(snapshot, plan, step, ct);
+                if (step.Kind == ReviewStepKind.GenerateTakes) { if (await RenderAsync(snapshot, plan, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held); }
                 else if (step.Kind == ReviewStepKind.EditImage) await EditAsync(snapshot, plan, step, ct);
                 else if (await ApplyAsync(snapshot, Resolved(plan, step), ct) is { } held) await Finish(step, ReviewStepState.Held, held);
                 else await Finish(step, ReviewStepState.Done, null);
@@ -212,22 +245,26 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     internal static ReviewPlanStep? Blocker(ReviewPlan plan, ReviewPlanStep step)
     {
         static bool Stops(ReviewPlanStep s) => s.State is ReviewStepState.Rejected or ReviewStepState.Failed or ReviewStepState.Skipped;
-        var index = plan.Steps.ToList().FindIndex(s => s.Id == step.Id);
         // A frame from another shot's new take needs that render picked.
         if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } from &&
             plan.Steps.FirstOrDefault(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from) is { State: not ReviewStepState.Done } render) return render;
         // A picture from an edit needs that edit picked.
         if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
-        // A render follows the changes proposed for its shot before it.
+        // A render follows every change the plan makes to its shot, wherever in the plan the change was proposed.
         if (step.Kind == ReviewStepKind.GenerateTakes)
-            return plan.Steps.Take(index).Where(s => s.ShotId == step.ShotId && s.Kind != ReviewStepKind.UseTake).FirstOrDefault(s => s.Open || Stops(s));
+            return plan.Steps.Where(s => s.Id != step.Id && s.ShotId == step.ShotId && s.Kind is not (ReviewStepKind.UseTake or ReviewStepKind.GenerateTakes)).FirstOrDefault(s => s.Open || Stops(s));
         // The cut is pointed at the picks once every pick is made.
         if (step.Kind == ReviewStepKind.UpdateCut) return plan.Steps.FirstOrDefault(s => s.Id != step.Id && s.Kind != ReviewStepKind.UpdateCut && s.Open);
         return null;
     }
 
-    private async Task RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
+    // Returns why the render is held, or null once it is queued.
+    private async Task<string?> RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
     {
+        // The approval covered so many seconds per take. A shot made longer since then needs the director's word again.
+        var seconds = ReviewPlans.Seconds(snapshot, step.ShotId);
+        if (step.ApprovedSeconds is { } approved && seconds > approved + .01)
+            return $"The shot is now {seconds:0.###} seconds long, and the plan was approved for {approved:0.###} seconds per take. Release the step to render {step.Takes * seconds:0.###} seconds of footage instead of {step.Takes * approved:0.###}.";
         var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
         var id = Guid.NewGuid();
         var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, step.Preset, ct);
@@ -235,6 +272,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director,
             $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
         await renders.EnqueueAsync(request, ct);
+        return null;
     }
 
     private static ReviewPlanStep Resolved(ReviewPlan plan, ReviewPlanStep step) =>

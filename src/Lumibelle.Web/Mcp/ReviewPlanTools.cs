@@ -149,7 +149,8 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         // Each request stands alone, so the client is known by how it names itself in the request.
         var agent = http?.Request.Headers.UserAgent.ToString() ?? "";
         var name = agent.Split(' ', '/')[0].Trim();
-        return name.Length is > 0 and <= 60 && name.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.') ? name : "MCP client";
+        // Never the app's own name, so a client's work is never shown as the director's.
+        return name.Length is > 0 and <= 60 && name.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.') && !name.Equals(ReviewPlans.Director, StringComparison.OrdinalIgnoreCase) ? name : "MCP client";
     }
     internal static string? Page(HttpContext? http, Guid project, Guid plan) => http is null ? null : $"{http.Request.Scheme}://{http.Request.Host}/projects/{project:D}/review?planId={plan:D}";
 
@@ -255,7 +256,7 @@ public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans
         [Description("totals.images from get_plan: image candidates that will be generated.")] int images = 0, CancellationToken ct = default) => Guard(async () =>
     {
         var snapshot = await queries.SnapshotAsync(project, ct); var id = ReviewPlanTools.Id(plan);
-        await plans.ApproveAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes, images), ct);
+        await plans.ApproveFromClientAsync(snapshot.ProjectId, id, ReviewPlanTools.Client(http.HttpContext), revision, new(takes, footage_seconds, changes, images), ct);
         var running = await runner.AdvanceAsync(snapshot.ProjectId, id, ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), running, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
     });
