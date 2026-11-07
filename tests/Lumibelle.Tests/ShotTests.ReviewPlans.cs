@@ -55,7 +55,7 @@ public sealed partial class ShotTests
         Assert.Single(f.Renders.Captured);
 
         await f.Plans.RecommendAsync(f.Project, plan.Id, render.Id, takes[1], "The letter is readable.", "agent", _ct);
-        var picked = await f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        var picked = await f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, new Dictionary<Guid, Guid> { [render.Id] = takes[1] }, _ct);
 
         // The pick selects the take, resolves the frame against it, and lets the second render go.
         var document = await f.Shots.LoadAsync(f.Project, _ct);
@@ -389,7 +389,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, edit.Id, Guid.NewGuid(), ReviewPlans.Director, _ct));
         await f.Plans.RecommendAsync(f.Project, plan.Id, edit.Id, candidates[1], "The window stays readable.", "agent", _ct);
 
-        var after = await f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, ct: _ct);
+        var after = await f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, new Dictionary<Guid, Guid> { [edit.Id] = candidates[1] }, _ct);
 
         // The pick joins the asset, the shot's picture becomes it at the same place, and the render goes.
         var images = f.Assets.Library.Assets[0].Images;
@@ -1049,6 +1049,26 @@ public sealed partial class ShotTests
 
         Assert.Equal(ReviewStepState.Done, done.Step(frame.Id)!.State);
         Assert.Equal(takes[1], Assert.Single((await f.Setup(target)).Shot.ShotFrames).TakeId);
+    }
+
+    [Fact]
+    public async Task AcceptingRecommendationsRefusesOneThatChangedAfterItWasShown()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Two takes.") { Takes = 2 });
+        await f.Approve(plan);
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        await f.Plans.RecommendAsync(f.Project, plan.Id, render.Id, takes[1], "The letter is readable.", "agent", _ct);
+        var shown = new Dictionary<Guid, Guid> { [render.Id] = takes[1] };
+        // The agent changes its mind before the page shows it.
+        await f.Plans.RecommendAsync(f.Project, plan.Id, render.Id, takes[0], "On second look, the first.", "agent", _ct);
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.AcceptRecommendationsAsync(f.Project, plan.Id, ReviewPlans.Director, shown, _ct));
+
+        Assert.Equal(ReviewStepState.Pick, (await f.Plan(plan)).Step(render.Id)!.State);
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
     }
 
     private sealed class PlanFixture

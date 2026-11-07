@@ -165,6 +165,9 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
             _ => throw new WorkspaceStoreException("frame_position is first or last.")
         };
         if (frame is < 1) throw new WorkspaceStoreException("Frames are counted from 1.");
+        // A removal names its frame; the defaults that help an addition must never pick a frame to remove.
+        if (parsed == ReviewStepKind.RemoveShotFrame && (frame is null || framePosition is { Length: > 0 }))
+            throw new WorkspaceStoreException("Name the shot frame to remove by its take and frame number, counted from 1, as get_shot lists them.");
         VideoResolution? size = null;
         if (resolution is { Length: > 0 }) size = Enum.TryParse<VideoResolution>(resolution, ignoreCase: true, out var chosen) && Enum.IsDefined(chosen) ? chosen : throw new WorkspaceStoreException("resolution is Quick, Preview, Detail, Native, FullHd or Qhd.");
         ImageWorkflow? workflow = null;
@@ -288,6 +291,8 @@ public sealed class ReviewApprovalTools(ReviewQueries queries, ReviewPlans plans
             if (step is not { State: ReviewStepState.Pick }) throw new WorkspaceStoreException("That step or shot has nothing waiting for a pick in this plan.");
             return step.Produced.Contains(take) ? (Step: step.Id, Take: take) : throw new WorkspaceStoreException("That is not one of the takes or images this step produced.");
         }).ToArray();
+        // One choice per step: a second for the same step would fail only after the first had been applied.
+        if (chosen.Select(c => c.Step).Distinct().Count() != chosen.Length) throw new WorkspaceStoreException("Name each step or shot once, with the one take or image chosen for it.");
         foreach (var (step, take) in chosen) current = await runner.PickAsync(snapshot.ProjectId, id, step, take, ReviewPlanTools.Client(http.HttpContext), ct);
         return Text(ReviewQueries.Plan(await queries.SnapshotAsync(project, ct), current, page: ReviewPlanTools.Page(http.HttpContext, snapshot.ProjectId, id)));
     });

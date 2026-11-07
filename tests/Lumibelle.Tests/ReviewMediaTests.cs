@@ -52,6 +52,7 @@ public sealed class ReviewMediaTests : IDisposable
     {
         Directory.CreateDirectory(_directory);
         string stand;
+        // Windows starts a .cmd named as the program through cmd.exe, also without the shell, as .NET's Process does.
         if (OperatingSystem.IsWindows())
         {
             stand = Path.Combine(_directory, "stalled-ffmpeg.cmd");

@@ -325,6 +325,11 @@ public sealed class McpEndpointTests : IAsyncLifetime
         Assert.Equal(1, listed.GetProperty("frame").GetInt32());
 
         var plan = (await CallAsync(client, "create_plan", new { project = id, title = "Drop the frame" })).GetProperty("id").GetString()!;
+        // A removal without a frame number is refused, not taken to mean frame 1.
+        var unnamed = await client.CallToolAsync("propose_step", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan, ["kind"] = "RemoveShotFrame", ["shot"] = "#1",
+            ["reason"] = "Not needed.", ["take"] = listed.GetProperty("fromTake").GetString() }, cancellationToken: Ct);
+        Assert.True(unnamed.IsError);
+        Assert.Empty((await _app.Services.GetRequiredService<ReviewPlanStore>().GetAsync(project, Guid.Parse(plan), Ct)).Steps);
         var step = await CallAsync(client, "propose_step", new { project = id, plan, kind = "RemoveShotFrame", shot = "#1", reason = "Not needed.",
             take = listed.GetProperty("fromTake").GetString(), frame = listed.GetProperty("frame").GetInt32() });
         Assert.Equal("Remove a shot frame from #1", step.GetProperty("does").GetString());
@@ -426,6 +431,13 @@ public sealed class McpEndpointTests : IAsyncLifetime
         var wrong = await client.CallToolAsync("accept_picks", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan,
             ["picks"] = new[] { new Dictionary<string, object?> { ["shot"] = "#1", ["take"] = Guid.NewGuid().ToString() } } }, cancellationToken: Ct);
         Assert.True(wrong.IsError);
+        Assert.Null((await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId);
+
+        // Two choices for one step are refused before either is applied.
+        var twice = await client.CallToolAsync("accept_picks", new Dictionary<string, object?> { ["project"] = id, ["plan"] = plan,
+            ["picks"] = new[] { new Dictionary<string, object?> { ["shot"] = "#1", ["take"] = takes[0] }, new Dictionary<string, object?> { ["step"] = step, ["take"] = takes[1] } } }, cancellationToken: Ct);
+        Assert.True(twice.IsError);
+        Assert.Contains("once", TextOf(twice));
         Assert.Null((await shots.LoadAsync(project, Ct)).Shots.Single().SelectedTakeId);
 
         var picked = await CallAsync(client, "accept_picks", new { project = id, plan, picks = new[] { new { shot = "#1", take = takes[1] } } });

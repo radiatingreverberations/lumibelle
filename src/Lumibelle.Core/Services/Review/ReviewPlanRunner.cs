@@ -194,12 +194,16 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         { logger.LogWarning(e, "Image candidates of step {Step} could not be moved to Trash.", step.Id); }
     }
 
-    /// <summary>Picks the recommended take of every step that is waiting with a recommendation.</summary>
-    public async Task<ReviewPlan> AcceptRecommendationsAsync(Guid projectId, Guid planId, string who, IReadOnlyCollection<Guid>? stepIds = null, CancellationToken ct = default)
+    /// <summary>
+    /// Picks the recommended takes the director was shown, by step. Nothing is picked if any of those recommendations changed
+    /// since, so accepting never selects a take the director did not see recommended.
+    /// </summary>
+    public async Task<ReviewPlan> AcceptRecommendationsAsync(Guid projectId, Guid planId, string who, IReadOnlyDictionary<Guid, Guid> shown, CancellationToken ct = default)
     {
         var plan = await store.GetAsync(projectId, planId, ct);
-        var ready = plan.Steps.Where(s => s.State == ReviewStepState.Pick && s.RecommendedTakeId is not null && (stepIds is null || stepIds.Contains(s.Id))).ToArray();
-        if (ready.Length == 0) throw new WorkspaceStoreException("No step is waiting with a recommended take.");
+        if (shown.Count == 0) throw new WorkspaceStoreException("No step is waiting with a recommended take.");
+        var ready = shown.Select(pair => plan.Step(pair.Key) is { State: ReviewStepState.Pick } step && step.RecommendedTakeId == pair.Value ? step
+            : throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.")).ToArray();
         foreach (var step in ready) plan = await PickAsync(projectId, planId, step.Id, step.RecommendedTakeId!.Value, who, ct);
         return plan;
     }

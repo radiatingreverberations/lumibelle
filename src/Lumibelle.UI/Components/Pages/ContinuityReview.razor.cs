@@ -53,22 +53,33 @@ public partial class ContinuityReview
         if (_project?.Id != Id)
         {
             _project = null; _snapshot = null; _findings = []; _plans = []; _planId = null; _soundMeasured = false; _error = null; _viewChosen = false;
+            var id = Id; _load++;
             try
             {
-                _project = await Projects.GetAsync(Id, _lifetime.Token) ?? throw new WorkspaceStoreException("This project is no longer in your library.");
+                var project = await Projects.GetAsync(id, _lifetime.Token) ?? throw new WorkspaceStoreException("This project is no longer in your library.");
+                // Another project was opened meanwhile; its own load fills the page.
+                if (id != Id) return;
+                _project = project;
                 await Reload();
             }
-            catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { _error = e.Message; }
+            catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { if (id == Id) _error = e.Message; }
         }
         if (RequestedPlanId is { } requested && _handledPlan != requested && _plans.Any(p => p.Id == requested)) { _handledPlan = requested; _planId = requested; _viewChosen = true; }
     }
 
+    // Counts loads, so one overtaken by a later load, or by opening another project, is dropped instead of mixing projects.
+    private int _load;
+
     private async Task Reload()
     {
-        _snapshot = await Review.LoadAsync(Id, _lifetime.Token);
+        var id = Id; var load = ++_load;
+        var snapshot = await Review.LoadAsync(id, _lifetime.Token);
+        var plans = await Plans.Store.ListAsync(id, _lifetime.Token);
+        if (load != _load || id != Id) return;
+        _snapshot = snapshot;
         // Sound findings are kept until the checks are run again; measuring is the slow part.
         _findings = [.. ReviewChecks.Run(_snapshot), .. _findings.Where(f => f.Check == ReviewMedia.Levels)];
-        _plans = await Plans.Store.ListAsync(Id, _lifetime.Token);
+        _plans = plans;
         if (!_viewChosen)
         {
             // The last view in this browser, or else a plan that needs the director. A plan arriving later never takes the page away.
@@ -169,7 +180,9 @@ public partial class ContinuityReview
 
     private Task Pick(ReviewPlan plan, ReviewPlanStep step, Guid take) => Do(() => Runner.PickAsync(Id, plan.Id, step.Id, take, ReviewPlans.Director, _lifetime.Token));
     private Task RejectPick(ReviewPlan plan, ReviewPlanStep step) => Do(() => Runner.RejectPickAsync(Id, plan.Id, step.Id, ReviewPlans.Director, _lifetime.Token));
-    private Task AcceptRecommendations(ReviewPlan plan) => Do(() => Runner.AcceptRecommendationsAsync(Id, plan.Id, ReviewPlans.Director, ct: _lifetime.Token));
+    // The recommendations as the page shows them; one changed since is refused rather than accepted unseen.
+    private Task AcceptRecommendations(ReviewPlan plan) => Do(() => Runner.AcceptRecommendationsAsync(Id, plan.Id, ReviewPlans.Director,
+        plan.Steps.Where(s => s.State == ReviewStepState.Pick && s.RecommendedTakeId is not null).ToDictionary(s => s.Id, s => s.RecommendedTakeId!.Value), _lifetime.Token));
     private Task Stop(ReviewPlan plan) => Do(() => Runner.StopAsync(Id, plan.Id, ReviewPlans.Director, _lifetime.Token));
 
     private Task Release(ReviewPlan plan, ReviewPlanStep step) => Do(async () =>
