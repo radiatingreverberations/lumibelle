@@ -19,19 +19,22 @@ public static class ReferenceUsage
         foreach (var reel in snapshot.Assets.Reels.Where(r => r.Generation?.Snapshot.Shot is { } shot && Uses(shot)))
             uses.Add(new("Reel", null, null, null, $"The reel “{reel.Name}” was generated with it."));
 
-        // Takes rendered with the picture, then takes that took a frame from any take already found.
+        // Takes rendered with the picture, then takes that took a frame from any take already found. Takes in Trash are
+        // followed too, so a take rendered from a trashed one is still found; only takes outside Trash are reported.
+        var trashed = snapshot.Shots.Trash.Select(e => e.Take).OfType<ShotTake>().Where(t => snapshot.Shots.Takes.All(x => x.Id != t.Id)).ToArray();
+        var all = snapshot.Shots.Takes.Concat(trashed).ToArray();
         var tainted = new Dictionary<Guid, string>();
-        foreach (var take in snapshot.Shots.Takes.Where(t => Uses(t.Snapshot.Shot))) tainted[take.Id] = "Rendered with it as a reference picture.";
+        foreach (var take in all.Where(t => Uses(t.Snapshot.Shot))) tainted[take.Id] = "Rendered with it as a reference picture.";
         for (var grew = true; grew;)
         {
             grew = false;
-            foreach (var take in snapshot.Shots.Takes.Where(t => !tainted.ContainsKey(t.Id)))
+            foreach (var take in all.Where(t => !tainted.ContainsKey(t.Id)))
             {
                 var rendered = take.Snapshot.Shot;
                 var source = rendered.ShotFrames.Select(f => f.TakeId).Append(rendered.StartFrame?.TakeId ?? Guid.Empty).FirstOrDefault(tainted.ContainsKey);
                 if (source == Guid.Empty) continue;
-                var from = snapshot.Shots.Takes.First(t => t.Id == source);
-                tainted[take.Id] = $"Rendered with a frame from {TakeDisplay.Label(from)} of shot #{snapshot.Row(from.ShotId)?.Number}, which carries it.";
+                var from = all.First(t => t.Id == source);
+                tainted[take.Id] = $"Rendered with a frame from {TakeDisplay.Label(from)} of shot #{snapshot.Row(from.ShotId)?.Number}{(trashed.Contains(from) ? ", now in Trash," : ",")} which carries it.";
                 grew = true;
             }
         }

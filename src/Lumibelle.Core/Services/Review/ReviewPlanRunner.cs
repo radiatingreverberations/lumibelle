@@ -54,8 +54,10 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             foreach (var plan in plans.Where(p => p.Active))
                 try
                 {
+                    // A plan is read in full when a render left the queue, a step could run now, or nothing is left open but
+                    // the plan was never marked finished, as when the pass that ran its last step was cancelled.
                     if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && !Queued(s.JobId)) &&
-                        !plan.Steps.Any(s => s.State == ReviewStepState.Waiting && Blocker(plan, s) is not { Open: true })) continue;
+                        !plan.Steps.Any(s => s.State == ReviewStepState.Waiting && Blocker(plan, s) is not { Open: true }) && plan.Steps.Any(s => s.Open)) continue;
                     await AdvanceAsync(project, plan.Id, ct);
                 }
                 catch (Exception e) when (e is WorkspaceStoreException or IOException) { logger.LogWarning(e, "Review plan {Plan} could not be advanced.", plan.Id); }
@@ -257,7 +259,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         // A frame from another shot's new take needs that render picked.
         // When a render of that shot was rejected and another proposed, the one kept is the one it waits for.
         if (step.Kind == ReviewStepKind.AddShotFrame && step.Frame?.FromShotId is { } from &&
-            plan.Steps.Where(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == from).OrderBy(s => s.State == ReviewStepState.Rejected).FirstOrDefault() is { State: not ReviewStepState.Done } render) return render;
+            Render(plan, from) is { State: not ReviewStepState.Done } render) return render;
         // A picture from an edit needs that edit picked.
         if (step.FromStepId is { } edit && plan.Step(edit) is { State: not ReviewStepState.Done } producer) return producer;
         // A render follows every change the plan makes to its shot, wherever in the plan the change was proposed.
@@ -272,10 +274,11 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private async Task<string?> RenderAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
     {
         // The approval covered so many seconds per take. A shot made longer since then needs the director's word again.
-        var seconds = ReviewPlans.Seconds(snapshot, step.ShotId);
+        // Measured on the setup that is captured, which is read after the snapshot and carries the shot's length as it is now.
+        var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
+        var seconds = Math.Max(ReviewPlans.Seconds(snapshot, step.ShotId), setup.Shot.Duration is { } length and >= 1 and <= 15 ? H3Policy.Seconds(length) : 0);
         if (step.ApprovedSeconds is { } approved && seconds > approved + .01)
             return $"The shot is now {seconds:0.###} seconds long, and the plan was approved for {approved:0.###} seconds per take. Release the step to render {step.Takes * seconds:0.###} seconds of footage instead of {step.Takes * approved:0.###}.";
-        var setup = await RenderSetupAsync(snapshot.ProjectId, step, ct);
         var id = Guid.NewGuid();
         var request = await renders.CaptureAsync(id, snapshot.ProjectId, setup, step.Takes, step.Resolution, step.Preset, ct);
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.
@@ -285,8 +288,16 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         return null;
     }
 
+    // What a step uses from the steps before it: the image an edit's pick produced, or the take the plan picked for a frame's
+    // source shot. The take picked here, not whatever that shot has selected since in another tab.
     private static ReviewPlanStep Resolved(ReviewPlan plan, ReviewPlanStep step) =>
-        step.FromStepId is { } edit && plan.Step(edit) is { } producer ? step with { NewAssetId = producer.AssetId, NewImageId = producer.NewImageId } : step;
+        step.FromStepId is { } edit && plan.Step(edit) is { } producer ? step with { NewAssetId = producer.AssetId, NewImageId = producer.NewImageId }
+        : step is { Kind: ReviewStepKind.AddShotFrame, Frame: { TakeId: null, FromShotId: { } from } frame } && Render(plan, from) is { State: ReviewStepState.Done, TakeId: { } picked }
+            ? step with { Frame = frame with { TakeId = picked } } : step;
+
+    /// <summary>The plan's render of a shot: the one kept, when another was rejected.</summary>
+    internal static ReviewPlanStep? Render(ReviewPlan plan, Guid shotId) =>
+        plan.Steps.Where(s => s.Kind == ReviewStepKind.GenerateTakes && s.ShotId == shotId).OrderBy(s => s.State == ReviewStepState.Rejected).FirstOrDefault();
 
     private async Task EditAsync(ProjectReviewSnapshot snapshot, ReviewPlan plan, ReviewPlanStep step, CancellationToken ct)
     {

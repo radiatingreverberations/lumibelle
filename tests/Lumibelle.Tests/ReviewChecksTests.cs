@@ -244,6 +244,24 @@ public sealed class ReviewChecksTests
         Assert.Equal((1, 48), (frames.GetProperty("first").GetInt32(), frames.GetProperty("last").GetInt32()));
     }
 
+    [Fact]
+    public void FollowsAPictureThroughATakeInTrashToTheTakesRenderedFromIt()
+    {
+        var f = new Fixture(); var image = f.Room.Images[0];
+        var a = f.Shot("A"); f.Setup(a).Shot.Images.Add(new() { AssetId = f.Room.Id, MediaId = image.Id, Name = "Room" });
+        var aTake = f.Take(a); f.Setup(a).Shot.Images.Clear();
+        var b = f.Shot("B"); f.Setup(b).Shot.ShotFrames = [new(Guid.NewGuid(), aTake.Id, 38, "A end")];
+        var bTake = f.Take(b, select: true);
+        // A's take goes to Trash; B's take still carries the picture through its frame.
+        f.Shots.Takes.Remove(aTake); f.Shots.Trash.Add(new() { Take = aTake });
+
+        var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
+
+        var use = Assert.Single(uses);
+        Assert.Equal((bTake.Id, "Selected take"), (use.TakeId!.Value, use.Kind));
+        Assert.Contains("now in Trash", use.Detail);
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]

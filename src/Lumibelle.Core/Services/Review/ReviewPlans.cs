@@ -69,6 +69,10 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         await store.UpdateAsync(projectId, planId, plan =>
         {
             Editable(plan);
+            // Checked again against the plan as saved: a proposal made at the same time, such as a second render of the shot, may have landed first.
+            var saved = replaces is null ? plan : plan with { Steps = plan.Steps.Where(s => s.Id != replaces).ToArray() };
+            Build(snapshot, saved, proposal, who);
+            if (LoopIssue(snapshot, saved with { Steps = [.. saved.Steps, step] }) is { } ring) throw new WorkspaceStoreException(ring);
             if (step.FindingIds.Any(f => plan.Findings.All(x => x.Id != f))) throw new WorkspaceStoreException("A step can only name findings of its own plan.");
             if (replaces is { } id)
             {
