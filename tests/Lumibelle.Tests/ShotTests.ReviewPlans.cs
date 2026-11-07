@@ -1006,6 +1006,26 @@ public sealed partial class ShotTests
         Assert.Equal(takes[1], Assert.Single((await f.Setup(target)).Shot.ShotFrames).TakeId);
     }
 
+    [Fact]
+    public async Task APickIsRecordedWhenTheOtherCandidatesCannotBeMovedToTrash()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var source = f.Vera.Images[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = source.Id, Prompt = "Make it night.", Takes = 2 });
+        var replace = await f.Propose(plan, new(ReviewStepKind.ReplacePicture, shot, "Use it.") { AssetId = f.Vera.Id, ImageId = source.Id, FromStepId = edit.Id });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        f.Assets.Discarded = () => { f.Assets.Discarded = null; throw new IOException("The disk is full."); };
+
+        var done = await f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, _ct);
+
+        Assert.Equal((ReviewStepState.Done, (Guid?)made[0]), (done.Step(edit.Id)!.State, done.Step(edit.Id)!.NewImageId));
+        Assert.Equal(ReviewStepState.Done, done.Step(replace.Id)!.State);
+        Assert.Equal(made[0], Assert.Single((await f.Setup(shot)).Shot.Images).MediaId);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";

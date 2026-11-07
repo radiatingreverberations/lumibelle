@@ -182,11 +182,16 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     // The candidates not chosen go to Trash, where they can be restored. Failing to move them never undoes a pick.
     private async Task DiscardCandidatesAsync(Guid projectId, ReviewPlanStep step, IReadOnlyCollection<Guid> images, CancellationToken ct)
     {
-        var library = await assets.LoadAsync(projectId, ct);
-        var pending = images.Where(id => library.Assets.Any(a => a.Id == step.AssetId && a.Images.Any(i => i.Id == id && i.PendingReview == true))).Select(id => new AssetImageReference(step.AssetId!.Value, id)).ToArray();
-        if (pending.Length == 0) return;
-        try { await assets.DiscardPendingImagesAsync(projectId, Guid.NewGuid(), pending, library.Revision, ct); }
-        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException) { logger.LogWarning(e, "Image candidates of step {Step} could not be moved to Trash.", step.Id); }
+        // Disk errors count as well: the candidates then stay in Assets, waiting for review, and the pick is still recorded.
+        try
+        {
+            var library = await assets.LoadAsync(projectId, ct);
+            var pending = images.Where(id => library.Assets.Any(a => a.Id == step.AssetId && a.Images.Any(i => i.Id == id && i.PendingReview == true))).Select(id => new AssetImageReference(step.AssetId!.Value, id)).ToArray();
+            if (pending.Length == 0) return;
+            await assets.DiscardPendingImagesAsync(projectId, Guid.NewGuid(), pending, library.Revision, ct);
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
+        { logger.LogWarning(e, "Image candidates of step {Step} could not be moved to Trash.", step.Id); }
     }
 
     /// <summary>Picks the recommended take of every step that is waiting with a recommendation.</summary>

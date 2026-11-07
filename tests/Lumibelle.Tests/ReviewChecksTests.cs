@@ -322,6 +322,23 @@ public sealed class ReviewChecksTests
             Assert.Equal(references, read.GetProperty("references").EnumerateArray().Select(r => new AssetImageReference(r.GetProperty("asset").GetGuid(), r.GetProperty("image").GetGuid())));
     }
 
+    [Fact]
+    public void APlanReadNamesTheReplacementPictureById()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A");
+        // Two images of one asset with the same name: only the ids tell them apart.
+        var twin = new AssetImage { Id = Guid.NewGuid(), Name = f.Vera.Images[0].Name, FileName = "twin.png", ContentType = "image/png", Width = 64, Height = 64 };
+        f.Vera.Images.Add(twin);
+        var step = new ReviewPlanStep { Kind = ReviewStepKind.ReplacePicture, ShotId = a.Id, AssetId = f.Room.Id, ImageId = f.Room.Images[0].Id,
+            NewAssetId = f.Vera.Id, NewImageId = twin.Id, State = ReviewStepState.Proposed, Reason = "The other portrait." };
+        var plan = new ReviewPlan { Title = "Swap", Steps = [step] };
+
+        foreach (var read in new[] { System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan)).GetProperty("steps")[0],
+            System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, step.Id)) })
+            Assert.Equal((f.Vera.Id, twin.Id), (read.GetProperty("newAsset").GetGuid(), read.GetProperty("newImage").GetGuid()));
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]
