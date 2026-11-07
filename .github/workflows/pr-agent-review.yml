@@ -1,0 +1,234 @@
+name: PR-Agent review
+
+# Reviews each same-repository pull request with PR-Agent on the OpenAI API, billed to the
+# API organization that holds OPENAI_KEY. The review job fails when the review does not
+# complete. Findings are posted inline and in one persistent summary comment, and the
+# findings job fails while any of them is still open.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: pr-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    # Fork pull requests get no secrets, and drafts are reviewed once marked ready.
+    # There is deliberately no issue_comment trigger: the repository is public and PR-Agent
+    # does not check who wrote a slash command, so any commenter could spend API credits.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      # PR-Agent 0.49.0 exits successfully without reviewing when GITHUB_TOKEN is missing,
+      # and only logs a missing model key, so both are checked here to keep the check honest.
+      - name: Check credentials
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$OPENAI_KEY" ]; then echo "::error::The OPENAI_KEY secret is not set."; exit 1; fi
+          if [ -z "$GITHUB_TOKEN" ]; then echo "::error::GITHUB_TOKEN is empty."; exit 1; fi
+
+      # pragent/pr-agent:0.49.0-github_action, pinned by its multi-platform index digest.
+      - name: Review
+        uses: docker://pragent/pr-agent@sha256:b1ed6e8de56eb4d6e4169ee0d5c209bb5ed1ef071a01c0c042c64b80192a785c
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          GITHUB_ACTION_CONFIG.PR_ACTIONS: '["opened", "reopened", "ready_for_review", "synchronize"]'
+          GITHUB_ACTION_CONFIG.AUTO_REVIEW: "true"
+          # Describe would rewrite the pull request description.
+          GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "false"
+          GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"
+          GITHUB_ACTION_CONFIG.FAIL_ON_TOOL_ERRORS: "true"
+          # Check-run output would turn off persistent finding state.
+          GITHUB.PUBLISH_AS_CHECK_RUN: "false"
+
+          CONFIG.MODEL: gpt-6.1-sol
+          # Fail visibly rather than quietly reviewing with a weaker model.
+          CONFIG.FALLBACK_MODELS: "[]"
+          CONFIG.REASONING_EFFORT: high
+          # Sized for complete reviews rather than low cost. Inputs stay under the 272K
+          # long-context price tier; the output limit includes reasoning tokens.
+          CONFIG.MAX_MODEL_TOKENS: "200000"
+          CONFIG.MAX_OUTPUT_TOKENS: "64000"
+          CONFIG.PATCH_EXTRA_LINES_BEFORE: "10"
+          CONFIG.PATCH_EXTRA_LINES_AFTER: "5"
+          CONFIG.AI_TIMEOUT: "600"
+          CONFIG.PROPAGATE_TOOL_ERRORS: "true"
+          CONFIG.RESTRICTED_MODE: "true"
+          CONFIG.OUTPUT_RUN_DETAILS: "true"
+          CONFIG.OUTPUT_RUN_COST: "true"
+
+          PR_REVIEWER.PERSISTENT_COMMENT: "true"
+          PR_REVIEWER.PERSISTENT_FINDING_STATE: "true"
+          PR_REVIEWER.PUBLISH_OUTPUT_NO_SUGGESTIONS: "true"
+          PR_REVIEWER.ENABLE_REVIEW_COVERAGE_FOOTER: "true"
+          PR_REVIEWER.FINAL_UPDATE_MESSAGE: "false"
+          PR_REVIEWER.INLINE_KEY_ISSUES: "true"
+          PR_REVIEWER.NUM_MAX_FINDINGS: "10"
+          PR_REVIEWER.ENABLE_LARGE_PR_CHUNKING: "true"
+          PR_REVIEWER.MAX_NUMBER_OF_CALLS: "5"
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_SECURITY: "false"
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_EFFORT: "false"
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            Lumibelle is a personal video studio, built with .NET and Blazor, that grows a screenplay into generated shots and a cut film.
+            Focus on correctness, concurrency and cancellation, security, and data loss in storage code.
+            Report only defects you can tie to a concrete failure: say what input or sequence of events goes wrong and what happens. Do not comment on style or naming.
+            Do not report missing tests as a standalone finding. When you report a concrete defect, describe the focused test that would expose it.
+
+          # Lockfile, esbuild output, evaluation and benchmark records, and binary assets.
+          IGNORE.GLOB: >-
+            ["package-lock.json",
+            "src/Lumibelle.UI/wwwroot/script-editor.js",
+            "src/Lumibelle.UI/wwwroot/prompt-editor.js",
+            "docs/evaluations/**",
+            "docs/h3/**",
+            "**/*.png", "**/*.webp", "**/*.jpg", "**/*.svg", "**/*.woff2"]
+
+  # PR-Agent cannot fail a check on its findings, so this job reads them back from the pull
+  # request. It is separate from the review so that, after resolving a thread to dismiss a
+  # finding, "Re-run failed jobs" turns it green without paying for another review. It also
+  # resolves PR-Agent's threads for findings a later review marked resolved, which PR-Agent
+  # does not do on GitHub itself. GitHub only lets a token resolve review threads with
+  # contents: write. The job never checks out or runs pull request code; it only reads
+  # comment text through the API.
+  findings:
+    needs: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Fail on open findings
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The single-quoted $ names below are jq and GraphQL variables, not shell ones,
+          # hence the SC2016 exceptions.
+          set -euo pipefail
+          report() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; echo "$1"; }
+
+          # The persistent summary comment. Its pr-agent-review-state block lists every
+          # finding of the last complete review with its state. GitHub can briefly serve the
+          # comment from before the review job edited it, so wait until it names this commit.
+          reviewed=""
+          for _ in 1 2 3 4 5 6; do
+            # shellcheck disable=SC2016
+            summary=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- pr-agent:review:full -->"))) | {url: .html_url, body} | @json' | tail -n 1)
+            if [ -z "$summary" ]; then
+              echo "::error::PR-Agent posted no review summary on this pull request."
+              exit 1
+            fi
+            body=$(jq -r .body <<< "$summary")
+            state=$(sed -n '/^<!-- pr-agent-review-state:v1$/,/^-->$/p' <<< "$body" | sed '1d;$d')
+            if [ -n "$state" ]; then
+              reviewed=$(jq -r '.last_run.head_sha // empty' <<< "$state")
+            else
+              reviewed=$({ grep -oE 'Review updated until commit [^ )]*/commit/[0-9a-f]{40}' <<< "$body" || true; } | grep -oE '[0-9a-f]{40}$' || true)
+            fi
+            if [ -z "$reviewed" ] || [ "$reviewed" = "$HEAD_SHA" ]; then break; fi
+            sleep 10
+          done
+          if [ -n "$reviewed" ] && [ "$reviewed" != "$HEAD_SHA" ]; then
+            echo "::error::The review summary is for commit ${reviewed:0:7}, not ${HEAD_SHA:0:7}. Re-run the whole workflow."
+            exit 1
+          fi
+          summary_url=$(jq -r .url <<< "$summary")
+          # The verdicts are read from their own table rows, outside the state block, so
+          # finding text that quotes them cannot stand in for them.
+          visible=$(sed '/^<!-- pr-agent-review-state:v1$/,/^-->$/d' <<< "$body")
+          verdict() { grep -qxF "<tr><td>$1&nbsp;<strong>$2</strong></td></tr>" <<< "$visible"; }
+          open=0
+
+          if [ -n "$state" ]; then
+            # Every inline thread PR-Agent opened, resolved or not.
+            # shellcheck disable=SC2016
+            threads=$(gh api graphql --paginate -F owner="${REPO%/*}" -F name="${REPO#*/}" -F pr="$PR" -f query='
+              query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100, after: $endCursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes { id isResolved path comments(first: 1) { nodes { author { login } url body } } }
+                    }
+                  }
+                }
+              }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+                | .comments.nodes[0] as $c
+                | select(($c.author.login // "") | startswith("github-actions"))
+                | {id, resolved: .isResolved, path, url: $c.url, body: $c.body} | @json' | jq -s .)
+
+            # An active finding is open until every inline thread posting it is resolved.
+            # One that could not be posted inline stays open until a review drops it.
+            # Threads are matched by file as well as text, so that a finding repeated in
+            # another file is not cleared by resolving the first one.
+            # shellcheck disable=SC2016
+            findings=$(printf '%s\n%s\n' "$state" "$threads" | jq -nr --arg summary "$summary_url" '
+              input as $state | input as $threads
+              | $state.findings[] | select(.state == "ACTIVE") | . as $f
+              | [$threads[] | select(.path == $f.path and (.body | startswith($f.body)))] as $t
+              | select(($t | length) == 0 or ($t | any(.resolved | not)))
+              | "- [\($f.path):\($f.line_start)](\([$t[] | select(.resolved | not)][0].url // $summary)) \($f.body | split("\n")[0] | .[0:200])"
+                + (if ($t | length) == 0 then " (only in the summary, so it clears on the next review)" else "" end)')
+            if [ -n "$findings" ]; then
+              report "$findings"
+              open=$((open + $(grep -c . <<< "$findings")))
+            fi
+
+            # Resolve the open threads of findings PR-Agent has marked resolved, unless the
+            # thread also matches a finding that is still active. This only tidies the pull
+            # request, so a thread that cannot be resolved is a warning, not a failure.
+            # shellcheck disable=SC2016
+            fixed=$(printf '%s\n%s\n' "$state" "$threads" | jq -nr '
+              def posts($f): .path == $f.path and (.body | startswith($f.body));
+              input as $state | input as $threads
+              | [$state.findings[] | select(.state == "ACTIVE")] as $active
+              | [$state.findings[] | select(.state == "RESOLVED")] as $resolved
+              | $threads[] | select(.resolved | not) | . as $t
+              | select(any($resolved[]; . as $f | $t | posts($f)))
+              | select(all($active[]; . as $f | $t | posts($f) | not))
+              | .id')
+            for id in $fixed; do
+              # shellcheck disable=SC2016
+              if gh api graphql -f id="$id" -f query='
+                mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' > /dev/null; then
+                echo "Resolved the thread of a fixed finding ($id)."
+              else
+                echo "::warning::Could not resolve review thread $id."
+              fi
+            done
+
+            # Coverage gaps are reported, not failed.
+            jq -r '.last_run | select(.complete == false or ((.excluded_files // []) | length) > 0)
+              | "::warning::The review was incomplete. Files left out: \((.excluded_files // []) | join(", "))"' <<< "$state"
+          elif ! verdict ⚡ "No major issues detected"; then
+            report "- The [review summary]($summary_url) reports issues but has no finding state to track them by."
+            open=$((open + 1))
+          fi
+
+          if ! verdict 🔒 "No security concerns identified"; then
+            report "- The [review summary]($summary_url) reports a security concern, which clears on the next review."
+            open=$((open + 1))
+          fi
+
+          if [ "$open" -gt 0 ]; then
+            echo "::error::$open open PR-Agent finding(s). Fix them, or resolve a thread to dismiss its finding and re-run this job."
+            exit 1
+          fi
+          report "No open PR-Agent findings."
