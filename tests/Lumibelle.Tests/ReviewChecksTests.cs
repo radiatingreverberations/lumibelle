@@ -290,6 +290,24 @@ public sealed class ReviewChecksTests
         Assert.Equal(other.Id, single.GetProperty("takeToUse").GetGuid());
     }
 
+    [Fact]
+    public void APlanReadNamesTheFrameAStepRemoves()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A"); var b = f.Shot("B"); var take = f.Take(b);
+        f.Setup(a).Shot.ShotFrames = [new(Guid.NewGuid(), take.Id, 0, "Start"), new(Guid.NewGuid(), take.Id, 38, "End")];
+        var step = new ReviewPlanStep { Kind = ReviewStepKind.RemoveShotFrame, ShotId = a.Id, State = ReviewStepState.Proposed, Reason = "The end is not needed.",
+            Frame = new() { TakeId = take.Id, Position = ReviewFramePosition.Index, Index = 38 } };
+        var plan = new ReviewPlan { Title = "Drop", Steps = [step] };
+
+        foreach (var read in new[] { System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan)).GetProperty("steps")[0],
+            System.Text.Json.JsonSerializer.SerializeToElement(ReviewQueries.Plan(f.Snapshot(), plan, step.Id)) })
+        {
+            var frame = read.GetProperty("frame");
+            Assert.Equal((take.Id, 39), (frame.GetProperty("take").GetGuid(), frame.GetProperty("number").GetInt32()));
+        }
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]

@@ -235,12 +235,23 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 await Finish(step, ReviewStepState.Skipped, $"Skipped because “{ReviewPlans.Describe(snapshot, blocker)}” did not run.");
                 return true;
             }
+            // A frame from a shot the plan does not render comes from that shot's selected take. Which take that is, is
+            // recorded first, so a step applied again after an interruption adds the same frame, never one from a take
+            // selected since.
+            if (step is { Kind: ReviewStepKind.AddShotFrame, Frame: { TakeId: null, FromShotId: { } source } } && Render(plan, source) is null &&
+                snapshot.Row(source)?.Coverage.SelectedTakeId is { } selected)
+            {
+                await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => p with { Steps = p.Steps.Select(s => s.Id == step.Id && s.Frame is { TakeId: null } frame ? s with { Frame = frame with { TakeId = selected } } : s).ToArray() }, ct: ct);
+                return true;
+            }
             try
             {
                 if (step.Kind == ReviewStepKind.GenerateTakes) { if (await RenderAsync(snapshot, plan, step, ct) is { } held) await Finish(step, ReviewStepState.Held, held.Message, held.Seconds); }
                 else if (step.Kind == ReviewStepKind.EditImage) await EditAsync(snapshot, plan, step, ct);
-                else if (await ApplyAsync(snapshot, Resolved(plan, step), ct) is { } held) await Finish(step, ReviewStepState.Held, held);
-                else await Finish(step, ReviewStepState.Done, null);
+                // A change and the record that it was made go together: once the change is saved, the caller going away must not
+                // leave the step waiting to be applied a second time.
+                else if (await ApplyAsync(snapshot, Resolved(plan, step), CancellationToken.None) is { } held) await Finish(step, ReviewStepState.Held, held, token: CancellationToken.None);
+                else await Finish(step, ReviewStepState.Done, null, token: CancellationToken.None);
             }
             // Another save landed between reading and writing: read again and retry this step, a few times at most.
             catch (WorkspaceConflictException)
@@ -252,9 +263,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             return true;
         }
         return false;
-        Task Finish(ReviewPlanStep step, ReviewStepState state, string? message, double? heldSeconds = null) => store.UpdateAsync(snapshot.ProjectId, plan.Id,
+        Task Finish(ReviewPlanStep step, ReviewStepState state, string? message, double? heldSeconds = null, CancellationToken? token = null) => store.UpdateAsync(snapshot.ProjectId, plan.Id,
             p => Set(p, step.Id, s => s with { State = state, Message = message, FinishedUtc = state == ReviewStepState.Held ? null : clock.GetUtcNow(), HeldSeconds = heldSeconds }, ReviewPlans.Director,
-                $"{ReviewPlans.Describe(snapshot, step)}: {state switch { ReviewStepState.Done => "done", ReviewStepState.Held => "held", ReviewStepState.Skipped => "skipped", _ => "failed" }}{(message is null ? "" : ". " + message)}"), ct: ct);
+                $"{ReviewPlans.Describe(snapshot, step)}: {state switch { ReviewStepState.Done => "done", ReviewStepState.Held => "held", ReviewStepState.Skipped => "skipped", _ => "failed" }}{(message is null ? "" : ". " + message)}"), ct: token ?? ct);
     }
 
     /// <summary>The step this one has to wait for, if any: still open means wait, anything else means it cannot run.</summary>

@@ -214,6 +214,13 @@ public sealed class ReviewQueries(IProjectStore projects, ProjectReview review, 
             promptBefore = full ? s.Before : null, promptAfter = full ? s.After : null,
             // UseTake: the existing take the step selects, so a plan can be read in full before it is approved.
             takeToUse = s.Kind == ReviewStepKind.UseTake ? s.TakeId : null,
+            // AddShotFrame and RemoveShotFrame: which frame, counted from 1 as get_shot and propose_step count it.
+            frame = s.Frame is { } f ? new
+            {
+                take = f.TakeId, fromShot = f.FromShotId is { } from && snapshot.Row(from) is { } source ? "#" + source.Number : null,
+                position = f.Position == ReviewFramePosition.Index ? null : f.Position.ToString().ToLowerInvariant(),
+                number = f.Position == ReviewFramePosition.Index ? f.Index + 1 : (int?)null, name = string.IsNullOrEmpty(f.Name) ? null : f.Name
+            } : null,
             job = s.JobId, takesToPickFrom = s.State == ReviewStepState.Pick && s.Kind != ReviewStepKind.EditImage ? s.ProducedTakeIds : null, pickedTake = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.GenerateTakes ? s.TakeId : null,
             asset = s.AssetId, image = s.ImageId, fromStep = s.FromStepId,
             imagesToPickFrom = s.State == ReviewStepState.Pick && s.Kind == ReviewStepKind.EditImage ? s.ProducedImageIds : null, pickedImage = s.State == ReviewStepState.Done && s.Kind == ReviewStepKind.EditImage ? s.NewImageId : null,
