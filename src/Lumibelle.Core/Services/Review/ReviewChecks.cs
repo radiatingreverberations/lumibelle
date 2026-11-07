@@ -160,8 +160,11 @@ public static partial class ReviewChecks
         foreach (var clips in snapshot.Cut.Clips.GroupBy(c => c.ShotId))
         {
             if (snapshot.Row(clips.Key) is not { } row) continue;
-            if (row.Coverage.SelectedTakeId is { } take && clips.All(c => c.TakeId != take))
-                yield return new(Cut, ReviewSeverity.Problem, "The cut uses another take than the one selected for this shot.") { ShotId = row.Id, ShotNumber = row.Number, TakeId = take };
+            // Any clip of the shot showing another take counts, also when another clip of it shows the selected one.
+            if (row.Coverage.SelectedTakeId is not { } take || clips.Count(c => c.TakeId != take) is not (> 0 and var outdated)) continue;
+            var all = clips.Count();
+            yield return new(Cut, ReviewSeverity.Problem, outdated == all ? "The cut uses another take than the one selected for this shot."
+                : $"{outdated} of this shot's {all} clips in the cut {(outdated == 1 ? "uses" : "use")} another take than the one selected.") { ShotId = row.Id, ShotNumber = row.Number, TakeId = take };
         }
         var missing = selected.Where(r => snapshot.Cut.Clips.All(c => c.ShotId != r.Id)).ToArray();
         if (missing.Length > 0) yield return new(Cut, ReviewSeverity.Look, $"{Shots(missing.Select(r => r.Number))} {(missing.Length == 1 ? "has" : "have")} a selected take and {(missing.Length == 1 ? "is" : "are")} not in the cut.");

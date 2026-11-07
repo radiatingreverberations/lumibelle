@@ -262,6 +262,19 @@ public sealed class ReviewChecksTests
         Assert.Contains("now in Trash", use.Detail);
     }
 
+    [Fact]
+    public void ReportsAnOutdatedClipBesideOneThatShowsTheSelectedTake()
+    {
+        var f = new Fixture();
+        var a = f.Shot("A"); var old = f.Take(a); var selected = f.Take(a, select: true);
+        f.Cut.Clips.Add(CutClip.From(a, selected)); f.Cut.Clips.Add(CutClip.From(a, old));
+
+        var finding = Assert.Single(f.Run(), x => x.Check == ReviewChecks.Cut);
+
+        Assert.Equal((a.Id, ReviewSeverity.Problem), (finding.ShotId, finding.Severity));
+        Assert.Equal("1 of this shot's 2 clips in the cut uses another take than the one selected.", finding.Message);
+    }
+
     [Theory]
     [InlineData("234.5", 234.5)]
     [InlineData("3:54", 234)]

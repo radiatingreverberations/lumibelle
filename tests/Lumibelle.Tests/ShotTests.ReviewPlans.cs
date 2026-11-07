@@ -926,6 +926,28 @@ public sealed partial class ShotTests
         Assert.Equal(PromptReferenceState.Current, ProjectReview.PromptCheck(snapshot, snapshot.Row(shot)!).State);
     }
 
+    [Fact]
+    public async Task ARenderMarkedRunningIsQueuedEvenIfTheCallerGoesAway()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Another take."));
+        await f.Approve(plan);
+        // The caller disconnects as soon as the step is saved as running.
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(_ct);
+        void Cancel(Guid project, Guid id) { f.Plans.Store.Changed -= Cancel; caller.Cancel(); }
+        f.Plans.Store.Changed += Cancel;
+
+        try { await f.Runner.AdvanceAsync(f.Project, plan.Id, caller.Token); }
+        catch (OperationCanceledException) { }
+
+        var job = (await f.Plan(plan)).Step(render.Id)!.JobId!.Value;
+        Assert.Equal(AiJobState.Waiting, f.Renders.States[job]);
+        var again = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        Assert.Equal((ReviewStepState.Running, (Guid?)job), (again.Step(render.Id)!.State, again.Step(render.Id)!.JobId));
+        Assert.Single(f.Renders.Captured);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";
@@ -1032,7 +1054,7 @@ public sealed partial class ShotTests
             Captured.Add((setup.ShotId, takes)); Setups.Add(setup); Resolutions.Add(resolution);
             return Task.FromResult(AiJobSubmission.Create(id, AiJobKind.Video, AiBackend.ComfyUI, new(projectId, ShotId: setup.ShotId, CompositionId: setup.Id), "Project", "Shot", Guid.Empty, new { takes }));
         }
-        public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
+        public Task EnqueueAsync(AiJobSubmission request, CancellationToken ct) { ct.ThrowIfCancellationRequested(); States[request.Id] = AiJobState.Waiting; return Task.CompletedTask; }
         public int FailCancels { get; set; }
         public Task CancelAsync(Guid jobId, CancellationToken ct)
         {

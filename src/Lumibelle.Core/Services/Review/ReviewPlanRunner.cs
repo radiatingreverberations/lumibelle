@@ -295,7 +295,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         // Recorded before it is queued: a crash in between leaves a step that reports the lost render, never a second render.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director,
             $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
-        await renders.EnqueueAsync(request, ct);
+        // Once the step says it is running, the request is handed to the queue even if the caller goes away; dropping it here
+        // would fail an approved render that was never given a chance.
+        await renders.EnqueueAsync(request, CancellationToken.None);
         return null;
     }
 
@@ -321,9 +323,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             ProjectId = snapshot.ProjectId, SourceAssetId = owner.Id, SourceImageId = image.Id, Prompt = step.After!, AspectRatio = ImageAspectPolicy.FromImage1,
             Count = step.Takes, PendingReview = true, Look = LookPolicy.Capture(owner, image.LookId), Workflow = step.Workflow, H3Preset = step.Preset
         }, [new(owner.Id, image.Id), .. step.ReferenceImages], ct);
-        // Recorded before it is queued, as a render is.
+        // Recorded before it is queued, and then queued whatever the caller does, as a render is.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director, $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);
-        await renders.EnqueueAsync(request, ct);
+        await renders.EnqueueAsync(request, CancellationToken.None);
     }
 
     // Returns why the step is held, or null when it was applied (or was already in place).
