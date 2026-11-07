@@ -1,8 +1,9 @@
 name: PR-Agent review
 
 # Reviews each same-repository pull request with PR-Agent on the OpenAI API, billed to the
-# API organization that holds OPENAI_KEY. The check reports whether the review completed;
-# findings are posted inline and in one persistent summary comment, and never fail it.
+# API organization that holds OPENAI_KEY. The review job fails when the review does not
+# complete. Findings are posted inline and in one persistent summary comment, and the
+# findings job fails while any of them is still open.
 
 on:
   pull_request:
@@ -93,3 +94,81 @@ jobs:
             "docs/evaluations/**",
             "docs/h3/**",
             "**/*.png", "**/*.webp", "**/*.jpg", "**/*.svg", "**/*.woff2"]
+
+  # PR-Agent cannot fail a check on its findings, so this job reads them back from the pull
+  # request. It is separate from the review so that, after resolving a thread to dismiss a
+  # finding, "Re-run failed jobs" turns it green without paying for another review.
+  findings:
+    needs: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Fail on open findings
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # The single-quoted $ names below are jq and GraphQL variables, not shell ones,
+          # hence the SC2016 exceptions.
+          set -euo pipefail
+          open=0
+          report() { echo "$1" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; echo "$1"; }
+
+          # The persistent summary comment, which the review job has just updated. Findings
+          # that could not be attached to a line stay only here.
+          # shellcheck disable=SC2016
+          summary_id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- pr-agent:review:full -->"))) | .id' | tail -n 1)
+          if [ -z "$summary_id" ]; then
+            echo "::error::PR-Agent posted no review summary on this pull request."
+            exit 1
+          fi
+          summary=$(gh api "repos/$REPO/issues/comments/$summary_id" --jq .body)
+          summary_url=$(gh api "repos/$REPO/issues/comments/$summary_id" --jq .html_url)
+          for marker in "No major issues detected" "No security concerns identified"; do
+            if ! grep -qF "$marker" <<< "$summary"; then
+              report "- The [review summary]($summary_url) does not say \"$marker\"."
+              open=$((open + 1))
+            fi
+          done
+
+          # Inline findings. A thread stops counting once it is resolved, or once a push
+          # changes its lines and GitHub marks it outdated; the next review re-raises a
+          # finding the change did not fix.
+          # shellcheck disable=SC2016
+          threads=$(gh api graphql --paginate -F owner="${REPO%/*}" -F name="${REPO#*/}" -F pr="$PR" -f query='
+            query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $pr) {
+                  reviewThreads(first: 100, after: $endCursor) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      isResolved
+                      isOutdated
+                      path
+                      line
+                      comments(first: 1) { nodes { author { login } url body } }
+                    }
+                  }
+                }
+              }
+            }' --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+              | select((.isResolved | not) and (.isOutdated | not))
+              | .comments.nodes[0] as $c
+              | select(($c.author.login // "") | startswith("github-actions"))
+              | "- [\(.path):\(.line // "file")](\($c.url)) \($c.body | split("\n")[0] | .[0:200])"')
+          if [ -n "$threads" ]; then
+            report "$threads"
+            open=$((open + $(grep -c . <<< "$threads")))
+          fi
+
+          if [ "$open" -gt 0 ]; then
+            echo "::error::$open open PR-Agent finding(s). Fix them, or resolve a thread to dismiss its finding and re-run this job."
+            exit 1
+          fi
+          report "No open PR-Agent findings."
