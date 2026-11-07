@@ -148,6 +148,10 @@ jobs:
             exit 1
           fi
           summary_url=$(jq -r .url <<< "$summary")
+          # The verdicts are read from their own table rows, outside the state block, so
+          # finding text that quotes them cannot stand in for them.
+          visible=$(sed '/^<!-- pr-agent-review-state:v1$/,/^-->$/d' <<< "$body")
+          verdict() { grep -qxF "<tr><td>$1&nbsp;<strong>$2</strong></td></tr>" <<< "$visible"; }
           open=0
 
           if [ -n "$state" ]; then
@@ -211,12 +215,12 @@ jobs:
             # Coverage gaps are reported, not failed.
             jq -r '.last_run | select(.complete == false or ((.excluded_files // []) | length) > 0)
               | "::warning::The review was incomplete. Files left out: \((.excluded_files // []) | join(", "))"' <<< "$state"
-          elif ! grep -qF "No major issues detected" <<< "$body"; then
+          elif ! verdict ⚡ "No major issues detected"; then
             report "- The [review summary]($summary_url) reports issues but has no finding state to track them by."
             open=$((open + 1))
           fi
 
-          if ! grep -qF "No security concerns identified" <<< "$body"; then
+          if ! verdict 🔒 "No security concerns identified"; then
             report "- The [review summary]($summary_url) reports a security concern, which clears on the next review."
             open=$((open + 1))
           fi
