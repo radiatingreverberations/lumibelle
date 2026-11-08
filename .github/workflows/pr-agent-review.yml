@@ -32,6 +32,12 @@ jobs:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
     with:
       model: gpt-6.1-sol
+      # Trial: Terra decides verifications, and Luna answers the same requests in the job summary
+      # for comparison only.
+      verifier-model: gpt-6.1-terra
+      verifier-reasoning-effort: medium
+      shadow-verifier-model: gpt-6-luna
+      shadow-verifier-reasoning-effort: high
       instructions: |
         Lumibelle is a personal video studio, built with .NET and Blazor, that grows a screenplay into generated shots and a cut film.
         Focus on correctness, concurrency and cancellation, security, and data loss in storage code.
