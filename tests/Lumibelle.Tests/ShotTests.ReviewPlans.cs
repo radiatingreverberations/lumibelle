@@ -1265,6 +1265,35 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task UndoingABatchLeavesASelectionSomeoneMadeSince()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Mixed", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Two takes.") { Takes = 2 });
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night." });
+        await f.Approve(plan);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var takes = await f.Finish(running.Step(render.Id)!, 2);
+        var image = f.FinishEdit(running.Step(edit.Id)!, 1)[0];
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // While the batch keeps its image, another editor selects the other take and then the batch's take again.
+        async Task Select(Guid take)
+        {
+            var document = await f.Shots.LoadAsync(f.Project, _ct);
+            document.Shots.Single().SelectedTakeId = take;
+            await f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct);
+        }
+        f.Assets.BeforeSave = async () => { f.Assets.BeforeSave = null; await Select(takes[1]); await Select(takes[0]); throw new WorkspaceConflictException(); };
+
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, takes[0]), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        // The selection is the other editor's now, so the undo leaves it and says so.
+        Assert.Equal(takes[0], (await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        Assert.Contains("Shots", e.Message);
+        Assert.Equal(ReviewStepState.Pick, (await f.Plan(plan)).Step(render.Id)!.State);
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);

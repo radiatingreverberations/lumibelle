@@ -166,19 +166,18 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             // In this order, so that nothing is lost if a later write fails: the takes are selected, the images kept, the picks
             // recorded, and only then are the other candidates moved to Trash. A failure before the picks are recorded puts the
             // takes and images back as they were and leaves every step waiting for its pick, with all its candidates.
-            var selected = false; var keptSaved = false;
+            // The revision each save left, so an undo only touches a store nobody saved to since.
+            long? selected = null, keptSaved = null;
             try
             {
                 if (takePicks.Length > 0)
                 {
                     foreach (var (step, choice) in takePicks) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
-                    await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit);
-                    selected = true;
+                    selected = (await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit)).Revision;
                 }
                 if (kept.Count > 0)
                 {
-                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit);
-                    keptSaved = true;
+                    keptSaved = (await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit)).Revision;
                 }
                 await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
                     ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image.")
@@ -186,9 +185,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
             {
-                if (!selected && !keptSaved) throw;
-                var takesBack = !selected || await RestoreSelectionsAsync(projectId, before, takePicks);
-                var imagesBack = !keptSaved || await RestoreKeptAsync(projectId, kept);
+                if (selected is null && keptSaved is null) throw;
+                var takesBack = selected is not { } shotsRevision || await RestoreSelectionsAsync(projectId, before, takePicks, shotsRevision);
+                var imagesBack = keptSaved is not { } assetsRevision || await RestoreKeptAsync(projectId, kept, assetsRevision);
                 // Say so when undoing failed too, rather than claim nothing was picked.
                 throw new WorkspaceStoreException(takesBack && imagesBack ? "The picks could not all be saved, so none was made. Try them again."
                     : "The picks could not all be saved, and part of what was saved could not be undone: "
@@ -202,15 +201,18 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     }
 
     // Returns the images a failed batch kept to waiting for review, where nothing else changed them since.
-    // Each tries a few times: a save that lost to another one reads the store again. Returns whether it succeeded.
+    // Each undoes the batch's own save only while the store is still at the revision that save left: once someone else has
+    // saved, what is there may be their choice, and it is left alone and reported. A save that fails for another reason is
+    // tried again a few times. Returns whether the batch's change is gone.
     private const int UndoAttempts = 3;
 
-    private async Task<bool> RestoreKeptAsync(Guid projectId, IReadOnlySet<AssetImageReference> kept)
+    private async Task<bool> RestoreKeptAsync(Guid projectId, IReadOnlySet<AssetImageReference> kept, long savedRevision)
     {
         for (var attempt = 1; ; attempt++)
         try
         {
             var library = await assets.LoadAsync(projectId, CancellationToken.None);
+            if (library.Revision != savedRevision) return false;
             if (!library.Assets.Any(a => a.Images.Any(i => i.PendingReview == false && kept.Contains(new(a.Id, i.Id))))) return true;
             await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => i.PendingReview == false && kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = true } : i).ToList() }).ToList() }, library.Revision, CancellationToken.None);
             return true;
@@ -223,12 +225,13 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     }
 
     // Puts back the selections a failed batch made, where nothing else changed them since.
-    private async Task<bool> RestoreSelectionsAsync(Guid projectId, IReadOnlyDictionary<Guid, Guid?> before, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> made)
+    private async Task<bool> RestoreSelectionsAsync(Guid projectId, IReadOnlyDictionary<Guid, Guid?> before, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> made, long savedRevision)
     {
         for (var attempt = 1; ; attempt++)
         try
         {
             var latest = await shots.LoadAsync(projectId, CancellationToken.None); var changed = false;
+            if (latest.Revision != savedRevision) return false;
             foreach (var (step, choice) in made)
                 if (latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) is { } shot && shot.SelectedTakeId == choice) { shot.SelectedTakeId = before[shot.Id]; changed = true; }
             if (changed) await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", CancellationToken.None);
