@@ -143,10 +143,16 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             var plan = await store.GetAsync(projectId, planId, ct);
+            // An earlier pick of these steps that a restart interrupted is settled first, finished or undone, so a new choice
+            // never replaces the record of what that one wrote.
+            var settling = picks.Where(p => plan.Step(p.Step)?.PickingChoice is not null).Select(p => p.Step).ToHashSet();
+            if (settling.Count > 0 && await ResumePicksAsync(plan, projectId, ct)) plan = await store.GetAsync(projectId, planId, ct);
             var steps = new List<(ReviewPlanStep Step, Guid Choice)>();
             foreach (var (stepId, choice) in picks)
             {
                 var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+                if (step.PickingChoice is not null) throw new WorkspaceStoreException("An earlier pick of this step, which a restart interrupted, could not be finished or undone yet. Try again later.");
+                if (settling.Contains(stepId) && step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("An earlier pick of this step, which a restart interrupted, was just finished. Look at the plan again.");
                 if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
                 if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
                 if (recommended && step.RecommendedTakeId != choice) throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.");
@@ -158,7 +164,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             bool? Keeps(ReviewPlanStep step, Guid choice) => step.Kind != ReviewStepKind.EditImage ? null
                 : images.Assets.FirstOrDefault(a => a.Id == step.AssetId)?.Images.FirstOrDefault(i => i.Id == choice)?.PendingReview == true;
             var intents = steps.ToDictionary(p => p.Step.Id, p => (p.Choice, From: p.Step.Kind == ReviewStepKind.EditImage ? null : current.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId, Keeps: Keeps(p.Step, p.Choice)));
-            plan = await store.UpdateAsync(projectId, planId, p => p.Active && intents.Keys.All(id => p.Step(id)?.State == ReviewStepState.Pick)
+            plan = await store.UpdateAsync(projectId, planId, p => p.Active && intents.Keys.All(id => p.Step(id) is { State: ReviewStepState.Pick, PickingChoice: null })
                 ? p with { Steps = p.Steps.Select(s => intents.TryGetValue(s.Id, out var intent) ? s with { PickingChoice = intent.Choice, PickingFrom = intent.From, PickingKeeps = intent.Keeps } : s).ToArray() }
                 : throw new WorkspaceStoreException("This step has nothing waiting for a pick."), ct: CancellationToken.None);
             await CommitPicksAsync(projectId, planId, steps.Select(p => (plan.Step(p.Step.Id)!, p.Choice)).ToArray(), who, resuming: false);
@@ -178,7 +184,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         var latest = await shots.LoadAsync(projectId, commit);
         var library = await assets.LoadAsync(projectId, commit);
         var chosen = imagePicks.Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
-        var before = takePicks.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom);
+        // What an interrupted run wrote and is known to own. A pick being made now has written nothing yet.
+        var (ownedTakes, ownedImages) = resuming ? Owned(latest, library, steps) : (Array.Empty<(ReviewPlanStep Step, Guid Choice)>(), new HashSet<AssetImageReference>());
         try
         {
             foreach (var (step, choice) in takePicks)
@@ -195,26 +202,26 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         }
         catch (Exception e) when (e is StaleSelectionException or WorkspaceStoreException)
         {
-            // Finishing an interrupted run, which may have written some of its picks already: what it still owns is undone
-            // before the record of what was there is cleared. That is each take it selected on a shot nobody changed since,
-            // and each image it kept. A pick being made now has written nothing, so it has nothing to undo.
-            if (resuming && !await UndoInterruptedAsync(projectId, latest, library, steps))
+            // Finishing an interrupted run: what it is known to own is undone before the record of what was there is cleared.
+            if (resuming && !await UndoAsync(projectId, ownedTakes, latest.Revision, ownedImages, library.Revision))
             {
                 logger.LogWarning("What interrupted picks in plan {Plan} wrote could not all be undone; their record is kept for the next pass.", planId);
                 throw e is StaleSelectionException ? new WorkspaceStoreException("These picks could not be finished or undone yet. They are tried again on the next pass.") : e;
             }
-            await ForgetPicksAsync(projectId, planId, steps);
+            await ForgetPicksAsync(projectId, planId, steps, resuming ? Unowned(latest, library, steps, ownedTakes, ownedImages) : []);
             if (e is StaleSelectionException) throw new WorkspaceStoreException("Another take was selected for one of these shots meanwhile. Nothing was picked; look at the picks again.");
             throw;
         }
         var kept = library.Assets.SelectMany(a => a.Images.Where(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id))).Select(i => new AssetImageReference(a.Id, i.Id))).ToHashSet();
         var changing = takePicks.Where(p => latest.Shots.Single(s => s.Id == p.Step.ShotId).SelectedTakeId != p.Choice).ToArray();
+        // What this batch answers for: what it changes now, and what an interrupted run of it is known to have written.
+        var mineTakes = changing.Concat(ownedTakes).ToArray();
+        var mineImages = kept.Concat(ownedImages).ToHashSet();
         // The revision each save left, so an undo only touches a store nobody saved to since.
         long? selected = null, keptSaved = null;
         try
         {
-            // Only the takes this batch changes are selected, and only those are undone: a shot that already shows the chosen
-            // take, whoever selected it, is left as it is.
+            // Only the takes this batch changes are selected: a shot that already shows the chosen take is left as it is.
             if (changing.Length > 0)
             {
                 foreach (var (step, choice) in changing) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
@@ -222,22 +229,29 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             if (kept.Count > 0)
                 keptSaved = (await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit)).Revision;
+            // The revisions those saves left are recorded, so that after a restart this batch's writes are told from anyone else's.
+            if (selected is not null || keptSaved is not null)
+            {
+                var takeSteps = mineTakes.Select(p => p.Step.Id).ToHashSet();
+                var imageSteps = imagePicks.Where(p => mineImages.Contains(new(p.Step.AssetId!.Value, p.Choice))).Select(p => p.Step.Id).ToHashSet();
+                await store.UpdateAsync(projectId, planId, p => p with { Steps = p.Steps.Select(s =>
+                    selected is { } r && takeSteps.Contains(s.Id) ? s with { PickingWrittenAt = r } : keptSaved is { } k && imageSteps.Contains(s.Id) ? s with { PickingWrittenAt = k } : s).ToArray() }, ct: commit);
+            }
             Recording?.Invoke(steps[0].Step.Id);
             await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
-                ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked an image.")
-                : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked a take.")), ct: commit);
+                ? Picked(current, pick.Step.Id, s => Finished(s) with { NewImageId = pick.Choice }, who, "Picked an image.")
+                : Picked(current, pick.Step.Id, s => Finished(s) with { TakeId = pick.Choice }, who, "Picked a take.")), ct: commit);
         }
         catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
         {
-            var takesBack = selected is not { } shotsRevision || await RestoreSelectionsAsync(projectId, before, changing, shotsRevision);
-            var imagesBack = keptSaved is not { } assetsRevision || await RestoreKeptAsync(projectId, kept, assetsRevision);
-            // An interrupted run may have written some of these before the restart, which this run found in place and left.
-            if (resuming && !await UndoInterruptedAsync(projectId, await shots.LoadAsync(projectId, commit), await assets.LoadAsync(projectId, commit), steps))
+            var takesBack = await UndoAsync(projectId, mineTakes, selected ?? latest.Revision, new HashSet<AssetImageReference>(), 0);
+            var imagesBack = await UndoAsync(projectId, [], 0, mineImages, keptSaved ?? library.Revision);
+            if (resuming && !(takesBack && imagesBack))
             {
                 logger.LogWarning("What interrupted picks in plan {Plan} wrote could not all be undone; their record is kept for the next pass.", planId);
                 throw new WorkspaceStoreException("These picks could not be finished or undone yet. They are tried again on the next pass.", e);
             }
-            await ForgetPicksAsync(projectId, planId, steps);
+            await ForgetPicksAsync(projectId, planId, steps, resuming ? Unowned(latest, library, steps, ownedTakes, ownedImages) : []);
             if (selected is null && keptSaved is null && !resuming) throw;
             // Say so when undoing failed too, rather than claim nothing was picked.
             throw new WorkspaceStoreException(takesBack && imagesBack ? "The picks could not all be saved, so none was made. Try them again."
@@ -248,26 +262,64 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
     }
 
+    private ReviewPlanStep Finished(ReviewPlanStep step) => step with
+    {
+        State = ReviewStepState.Done, Message = null, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null, PickingWrittenAt = null,
+    };
+
     private sealed class StaleSelectionException : Exception;
 
-    // Undoes what an interrupted batch wrote and still owns. Returns whether all of it is undone.
-    private async Task<bool> UndoInterruptedAsync(Guid projectId, ShotDocument latest, AssetLibrary library, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)
+    // What interrupted picks wrote and are known to own: a take selected, or an image kept, in a store still at the revision
+    // their own save left. Anything else that matches a pick may be someone's choice since, and is never undone.
+    private static ((ReviewPlanStep Step, Guid Choice)[] Takes, HashSet<AssetImageReference> Images) Owned(ShotDocument latest, AssetLibrary library, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps) =>
+        (steps.Where(p => p.Step.Kind != ReviewStepKind.EditImage && p.Step.PickingWrittenAt == latest.Revision && Selects(latest, p)).ToArray(),
+         steps.Where(p => p.Step.Kind == ReviewStepKind.EditImage && p.Step.PickingWrittenAt == library.Revision && Keeps(library, p))
+             .Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet());
+
+    // The steps whose interrupted pick may have written what is there now, but cannot be shown to have.
+    private static Guid[] Unowned(ShotDocument latest, AssetLibrary library, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps,
+        IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> ownedTakes, IReadOnlySet<AssetImageReference> ownedImages) =>
+        steps.Where(p => p.Step.Kind == ReviewStepKind.EditImage
+                ? Keeps(library, p) && !ownedImages.Contains(new(p.Step.AssetId!.Value, p.Choice))
+                : Selects(latest, p) && !ownedTakes.Any(o => o.Step.Id == p.Step.Id))
+            .Select(p => p.Step.Id).ToArray();
+
+    // The pick's take is selected in place of another one.
+    private static bool Selects(ShotDocument latest, (ReviewPlanStep Step, Guid Choice) p) =>
+        p.Step.PickingFrom != p.Choice && latest.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId == p.Choice;
+
+    // The pick's image, which was waiting for review, is kept.
+    private static bool Keeps(AssetLibrary library, (ReviewPlanStep Step, Guid Choice) p) => p.Step.PickingKeeps == true &&
+        library.Assets.FirstOrDefault(a => a.Id == p.Step.AssetId)?.Images.FirstOrDefault(i => i.Id == p.Choice)?.PendingReview == false;
+
+    // Puts back the takes and images given, each only while its store is at the revision given. Returns whether all of it is undone.
+    private async Task<bool> UndoAsync(Guid projectId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> takes, long takesAt, IReadOnlySet<AssetImageReference> images, long imagesAt)
     {
-        var takes = steps.Where(p => p.Step.Kind != ReviewStepKind.EditImage && p.Step.PickingFrom != p.Choice &&
-            latest.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId == p.Choice).ToArray();
-        var images = steps.Where(p => p.Step is { Kind: ReviewStepKind.EditImage, PickingKeeps: true } &&
-            library.Assets.FirstOrDefault(a => a.Id == p.Step.AssetId)?.Images.FirstOrDefault(i => i.Id == p.Choice)?.PendingReview == false)
-            .Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
-        var takesBack = takes.Length == 0 || await RestoreSelectionsAsync(projectId, takes.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), takes, latest.Revision);
-        var imagesBack = images.Count == 0 || await RestoreKeptAsync(projectId, images, library.Revision);
+        var takesBack = takes.Count == 0 || await RestoreSelectionsAsync(projectId, takes.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), takes, takesAt);
+        var imagesBack = images.Count == 0 || await RestoreKeptAsync(projectId, images, imagesAt);
         return takesBack && imagesBack;
     }
 
     // Clears the record of picks that were not made. Failing to is only logged: the next pass then finishes those picks.
-    private async Task ForgetPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)
+    // A step whose interrupted pick may have left its take selected or its image kept is told so, as that is left as it is.
+    private async Task ForgetPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps, IReadOnlyCollection<Guid> left)
     {
         var ids = steps.Select(s => s.Step.Id).ToHashSet();
-        try { await store.UpdateAsync(projectId, planId, p => p with { Steps = p.Steps.Select(s => ids.Contains(s.Id) && s.State == ReviewStepState.Pick ? s with { PickingChoice = null, PickingFrom = null, PickingKeeps = null } : s).ToArray() }, ct: CancellationToken.None); }
+        if (left.Count > 0) logger.LogWarning("Picks a restart interrupted in plan {Plan} could not be finished, and what they chose was left in place.", planId);
+        try
+        {
+            await store.UpdateAsync(projectId, planId, p => p with
+            {
+                Steps = p.Steps.Select(s => !ids.Contains(s.Id) || s.State != ReviewStepState.Pick ? s : s with
+                {
+                    PickingChoice = null, PickingFrom = null, PickingKeeps = null, PickingWrittenAt = null,
+                    Message = !left.Contains(s.Id) ? s.Message : s.Kind == ReviewStepKind.EditImage
+                        ? "A restart interrupted this pick, and it could not be finished. The chosen image is still kept in Assets, as someone may have kept it there since: check it before picking again."
+                        : "A restart interrupted this pick, and it could not be finished. The chosen take is still selected in Shots, as someone may have selected it there since: check it before picking again.",
+                }).ToArray(),
+                Log = left.Count == 0 ? p.Log : [.. p.Log, new(clock.GetUtcNow(), ReviewPlans.Director, "Picks a restart interrupted could not be finished. What they chose was left in place, as it may be someone's choice since.")],
+            }, ct: CancellationToken.None);
+        }
         catch (Exception e) when (e is WorkspaceStoreException or IOException) { logger.LogWarning(e, "The record of picks that were not made could not be cleared."); }
     }
 
@@ -355,27 +407,25 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             var step = await PickableAsync(projectId, planId, stepId, ct);
-            // A pick of this step a restart interrupted may have selected its take already: that is put back first.
-            if (step is { PickingChoice: { } interrupted, Kind: not ReviewStepKind.EditImage })
+            var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
+            // A pick of this step a restart interrupted may have selected its take or kept its image already. What it is known
+            // to have written is put back first, so a kept image goes to Trash with the other candidates; what may be someone
+            // else's choice since is left, and said.
+            if (step.PickingChoice is { } interrupted)
             {
-                var latest = await shots.LoadAsync(projectId, ct);
-                if (latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) is { } shot && shot.SelectedTakeId == interrupted)
-                {
-                    shot.SelectedTakeId = step.PickingFrom;
-                    await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", CancellationToken.None);
-                }
-            }
-            // An interrupted pick may have kept its image: it returns to review, so it goes to Trash with the other candidates.
-            if (step is { PickingChoice: { } keptImage, Kind: ReviewStepKind.EditImage, PickingKeeps: true, AssetId: { } owner })
-            {
-                var library = await assets.LoadAsync(projectId, ct);
-                if (library.Assets.FirstOrDefault(a => a.Id == owner)?.Images.FirstOrDefault(i => i.Id == keptImage) is { PendingReview: false })
-                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id != owner ? a : a with { Images = a.Images.Select(i => i.Id == keptImage ? i with { PendingReview = true } : i).ToList() }).ToList() }, library.Revision, CancellationToken.None);
+                var latest = await shots.LoadAsync(projectId, ct); var library = await assets.LoadAsync(projectId, ct);
+                (ReviewPlanStep, Guid)[] pick = [(step, interrupted)];
+                var (takes, images) = Owned(latest, library, pick);
+                if (!await UndoAsync(projectId, takes, latest.Revision, images, library.Revision))
+                    throw new WorkspaceStoreException("What an interrupted pick of this step wrote could not be undone yet. Try again later.");
+                if (Unowned(latest, library, pick, takes, images).Length > 0)
+                    message = step.Kind == ReviewStepKind.EditImage
+                        ? "None of the candidates was picked. The one an interrupted pick chose is still kept in Assets, as someone may have kept it there since; the others are in Trash."
+                        : "None of the takes was picked. They stay in Shots, and the one an interrupted pick chose is still selected, as someone may have selected it since.";
             }
             // As with a pick, the rejection is recorded first and the candidates go to Trash only after, so a step that still
             // waits for its pick never lost them.
-            var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
-            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, message), ct: CancellationToken.None);
+            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null, PickingWrittenAt = null }, who, message), ct: CancellationToken.None);
             if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, CancellationToken.None);
         }
         finally { _gate.Release(); }

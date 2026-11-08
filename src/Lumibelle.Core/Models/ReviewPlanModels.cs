@@ -90,12 +90,18 @@ public sealed record ReviewPlanStep
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? ApprovedSeconds { get; init; }
     /// <summary>
     /// While a pick is being saved: the take or image chosen, and for a take the one its shot had selected before. A pick
-    /// interrupted by a restart is finished from these, and turning it down puts the earlier take back.
+    /// interrupted by a restart is finished from these, and turning it down puts the earlier take back where the pick is
+    /// known to have selected it.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingChoice { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingFrom { get; init; }
     /// <summary>For an image, that the pick keeps it: it was waiting for review, and turning the pick down returns it there.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? PickingKeeps { get; init; }
+    /// <summary>
+    /// The revision of Shots (for a take) or Assets (for an image) the pick's own save left, recorded once that save is made.
+    /// While the store is still at it, the chosen take or kept image is the pick's doing; once anyone saved since, it may be theirs.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public long? PickingWrittenAt { get; init; }
     /// <summary>GenerateTakes, while held: the seconds per take the hold names, which releasing it agrees to.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? HeldSeconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }

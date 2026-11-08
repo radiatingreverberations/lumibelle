@@ -64,6 +64,7 @@ Lumibelle runs the plan itself, so the agent can disconnect. The line above the 
 - A step that adds a frame from another shot's new take waits for that pick, then uses the first or last frame of the take you picked.
 - An image edit's candidates wait the same way, under **Use this image**. The one you pick joins the asset, the others go to Trash, and a step that replaces a picture with it then runs.
 - **None of these** turns down a step's results. Steps that needed the pick are skipped, and the rest of the plan goes on.
+- If Lumibelle stops part way through saving a pick, the plan finishes that pick when it next runs, before taking a new one for the step. If it cannot be finished, what the pick saved is undone, except a selected take or kept image that someone may have chosen since in Shots or Assets. That stays, and the step says so.
 - The cut is pointed at the selected takes last.
 
 A step is **Held** when its shot's prompt was edited after the step was written, or when a render's shot was made longer after you approved the plan, so it would render more footage than you agreed to. Read the step, then choose **Apply to the shot as it is now**, or leave it and ask the agent to rewrite it. Applying a held render agrees to the length the step names; if the shot was made longer again meanwhile, the step is held again with the new length.
