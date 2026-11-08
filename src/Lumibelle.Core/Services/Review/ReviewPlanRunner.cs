@@ -191,19 +191,18 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             if (chosen.Any(c => library.Assets.FirstOrDefault(a => a.Id == c.AssetId)?.Images.Any(i => i.Id == c.ImageId) != true))
                 throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
         }
-        catch (StaleSelectionException) { await ForgetPicksAsync(projectId, planId, steps); throw new WorkspaceStoreException("Another take was selected for one of these shots meanwhile. Nothing was picked; look at the picks again."); }
-        catch (WorkspaceStoreException)
+        catch (Exception e) when (e is StaleSelectionException or WorkspaceStoreException)
         {
-            // Finishing an interrupted run, which may have selected takes already: they are put back before the record of what
-            // was there is cleared. A pick being made now has written nothing yet, so a chosen take already selected is
-            // someone else's doing and stays.
-            var interrupted = !resuming ? [] : takePicks.Where(p => latest.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId == p.Choice && p.Step.PickingFrom != p.Choice).ToArray();
-            if (interrupted.Length > 0 && !await RestoreSelectionsAsync(projectId, interrupted.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), interrupted, latest.Revision))
+            // Finishing an interrupted run, which may have written some of its picks already: what it still owns is undone
+            // before the record of what was there is cleared. That is each take it selected on a shot nobody changed since,
+            // and each image it kept. A pick being made now has written nothing, so it has nothing to undo.
+            if (resuming && !await UndoInterruptedAsync(projectId, latest, library, steps))
             {
-                logger.LogWarning("Takes selected by interrupted picks in plan {Plan} could not be put back; their record is kept for the next pass.", planId);
-                throw;
+                logger.LogWarning("What interrupted picks in plan {Plan} wrote could not all be undone; their record is kept for the next pass.", planId);
+                throw e is StaleSelectionException ? new WorkspaceStoreException("These picks could not be finished or undone yet. They are tried again on the next pass.") : e;
             }
             await ForgetPicksAsync(projectId, planId, steps);
+            if (e is StaleSelectionException) throw new WorkspaceStoreException("Another take was selected for one of these shots meanwhile. Nothing was picked; look at the picks again.");
             throw;
         }
         var kept = library.Assets.SelectMany(a => a.Images.Where(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id))).Select(i => new AssetImageReference(a.Id, i.Id))).ToHashSet();
@@ -238,6 +237,19 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     }
 
     private sealed class StaleSelectionException : Exception;
+
+    // Undoes what an interrupted batch wrote and still owns. Returns whether all of it is undone.
+    private async Task<bool> UndoInterruptedAsync(Guid projectId, ShotDocument latest, AssetLibrary library, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)
+    {
+        var takes = steps.Where(p => p.Step.Kind != ReviewStepKind.EditImage && p.Step.PickingFrom != p.Choice &&
+            latest.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId == p.Choice).ToArray();
+        var images = steps.Where(p => p.Step is { Kind: ReviewStepKind.EditImage, PickingKeeps: true } &&
+            library.Assets.FirstOrDefault(a => a.Id == p.Step.AssetId)?.Images.FirstOrDefault(i => i.Id == p.Choice)?.PendingReview == false)
+            .Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
+        var takesBack = takes.Length == 0 || await RestoreSelectionsAsync(projectId, takes.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), takes, latest.Revision);
+        var imagesBack = images.Count == 0 || await RestoreKeptAsync(projectId, images, library.Revision);
+        return takesBack && imagesBack;
+    }
 
     // Clears the record of picks that were not made. Failing to is only logged: the next pass then finishes those picks.
     private async Task ForgetPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)
