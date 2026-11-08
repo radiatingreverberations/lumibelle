@@ -167,16 +167,21 @@ Checking the key and refreshing models generate no text. Requests stream text in
 
 Default advanced settings are temperature **0.7**, maximum output **2,048 tokens** and a **300-second** timeout. Authentication, credit, rate-limit, context, model, connection and execution errors are shown. Partial text and instructions remain available after a failure or cancellation.
 
-## Claude Code
+## Claude Code (removed)
 
-Lumibelle can use an installed Claude Code CLI for text assistance, including optional image inspection. It runs with the account you set the CLI up with, and never signs in, reads credentials or modifies the CLI. Claude Code cannot generate images.
+Lumibelle no longer runs Claude Code. What an earlier version saved still loads:
 
-1. Install Claude Code 2.1.259 or later (see [Claude Code setup](https://code.claude.com/docs/en/setup)), open a new terminal and run `claude` once to sign in, as the same operating-system user that runs Lumibelle. **Connections → Claude Code → Install the Claude Code CLI** shows the command for your system.
-2. Open **AI settings → Connections → Claude Code**, enable the provider, and **Check connection**. Leave the executable path empty for detection, or select the installed executable.
-3. Save the connection. The check shows the provider, account and sign-in method that requests will use; it generates no content.
-4. In **Text models**, star the models you want and optionally set **Default Claude Code reasoning effort**.
+- A global default, project default or request choice that names Claude Code is shown as unavailable. Choose another model.
+- A Claude Code LLM profile stays listed under **Text models → Defaults & profiles** so you can remove it. It cannot be edited or selected.
+- Starred Claude Code models are no longer listed in model pickers.
+- A request that was waiting for Claude Code needs attention in **AI activity**. Create it again with another model.
+- Finished requests and assistant history keep their Claude Code label.
 
-Claude Code does not report remaining usage, so Lumibelle shows no allowance meter. When a request ends because of a usage or rate limit, it needs attention and the Claude Code queue pauses until you choose **Resume**.
+To use Claude with a Claude plan, run Claude Code yourself and connect it through [Agent access](#agent-access).
+
+## Agent access
+
+**Connections → Agent access** lets an AI agent that you run yourself, such as Claude Code, read this library's projects, run the continuity checks and propose fixes as a plan. It is off until you turn it on, works from this computer only, and needs Lumibelle running in a browser. A plan changes nothing until you approve it. See [Review](review.md#connect-an-agent) for setting it up and for what the agent can do.
 
 ## Codex
 

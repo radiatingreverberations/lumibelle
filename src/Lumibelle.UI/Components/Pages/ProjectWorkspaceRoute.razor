@@ -35,6 +35,7 @@ else { <LoadingState Text="Opening workspace…" /> }
     [SupplyParameterFromQuery] public Guid? TakeId { get; set; }
     [SupplyParameterFromQuery] public Guid? SetupId { get; set; }
     [SupplyParameterFromQuery] public Guid? JobId { get; set; }
+    [SupplyParameterFromQuery] public Guid? PlanId { get; set; }
     [SupplyParameterFromQuery] public string? View { get; set; }
     [SupplyParameterFromQuery] public bool Edit { get; set; }
     private ProjectRoute? _route;
@@ -56,7 +57,7 @@ else { <LoadingState Text="Opening workspace…" /> }
         try {
             var route = await ProjectRoutes.ResolveAsync(ProjectKey);
             if (version != _version) return;
-            var type = studio switch { "overview" => typeof(ProjectHome), "source" => typeof(SourceStudio), "script" => typeof(ScriptEditor), "assets" => typeof(AssetsStudio), "scenes" => typeof(ScenesStudio), "shots" => typeof(ProductionStudio), "dubs" => typeof(DubbingStudio), "cut" => typeof(CutStudio), "settings" => typeof(ProjectSettings), _ => null };
+            var type = studio switch { "overview" => typeof(ProjectHome), "source" => typeof(SourceStudio), "script" => typeof(ScriptEditor), "assets" => typeof(AssetsStudio), "scenes" => typeof(ScenesStudio), "shots" => typeof(ProductionStudio), "dubs" => typeof(DubbingStudio), "cut" => typeof(CutStudio), "review" => typeof(ContinuityReview), "settings" => typeof(ProjectSettings), _ => null };
             if (_route?.ProjectId != route?.ProjectId || _type != type) _ready = false;
             _type = type;
             _missing = route is null || _type is null; _route = route; _error = null;
@@ -98,6 +99,7 @@ else { <LoadingState Text="Opening workspace…" /> }
         if (studio is "assets" or "shots") { p["RequestedJobId"] = JobId!; p["RequestedView"] = View!; }
         if (studio == "assets") { p["RequestedAssetId"] = AssetId!; p["RequestedImageId"] = ImageId!; p["RequestedReelId"] = ReelId!; p["EditRequestedImage"] = Edit; }
         if (studio == "shots") { p["RequestedShotId"] = ShotId!; p["RequestedCompositionId"] = SetupId!; }
+        if (studio == "review") p["RequestedPlanId"] = PlanId!;
         return p;
     }
 }

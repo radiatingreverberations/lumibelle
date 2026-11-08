@@ -42,7 +42,7 @@ public sealed class DirectionEvaluationTests
         }
         var captured = JsonSerializer.Deserialize<List<Captured>>(await File.ReadAllTextAsync(capturePath, evaluationCancellation), AtomicJsonFile.Options)!;
         var registry = new AiProviderRegistry(new NoHttp(), new FakeAiSettingsStore(), TestComfy.Monitor(),
-            new CodexClient(new CodexTransportFactory(), TimeProvider.System), new ClaudeCodeClient(new ClaudeCodeProcessFactory()));
+            new CodexClient(new CodexTransportFactory(), TimeProvider.System));
         await Parallel.ForEachAsync(captured.Select((c, i) => (c, i)), new ParallelOptions { MaxDegreeOfParallelism = 2, CancellationToken = evaluationCancellation }, async (entry, ct) => {
             var path = Path.Combine(root, $"{arm}-{entry.i + 1:00}.json");
             if (File.Exists(path)) return;

@@ -31,7 +31,7 @@ internal static class TextGenerationOptions
             MaxOutputTokens = selection?.MaxOutputTokens ?? (backend == AiBackend.ComfyUI ? settings.MaxOutputTokens : null),
             Seed = seed
         };
-        if (backend is AiBackend.Codex or AiBackend.ClaudeCode && selection is not null)
+        if (backend == AiBackend.Codex && selection is not null)
         {
             // Presence with a null value explicitly means the model's default, rather
             // than the global subscription effort. Profiles do not inherit that effort.

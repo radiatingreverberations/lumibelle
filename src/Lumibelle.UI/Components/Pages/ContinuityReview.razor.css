@@ -1,0 +1,52 @@
+/* Review: checks and plans on the left, findings or a plan's steps in the centre, the current task on the right. */
+.review-row { display: grid; gap: 2px; justify-items: start; width: 100%; min-height: 0; padding: 8px 10px; text-align: left; border: 1px solid transparent; border-radius: var(--lumi-radius-control); background: transparent; color: var(--lumi-text); }
+.review-row:hover { background: var(--lumi-surface-selected); }
+.review-row.selected { background: var(--lumi-surface-selected); border-color: var(--lumi-accent); }
+.review-row strong { font-size: var(--lumi-font-size-compact); font-weight: 600; overflow-wrap: anywhere; }
+.review-row small { color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); }
+.review-nav-heading { margin: 16px 0 6px; padding-inline: 10px; font-size: var(--lumi-font-size-meta); font-weight: 600; color: var(--lumi-text-muted); }
+.review-plan-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+
+.review-heading { margin: 16px 0 6px; font-size: var(--lumi-font-size-compact); font-weight: 600; }
+.review-heading:first-child { margin-top: 0; }
+.review-summary, .review-plan-progress { margin: 4px 0 0; font-size: var(--lumi-font-size-compact); font-weight: 600; }
+.review-plan-progress { color: var(--lumi-accent); }
+.review-totals { font-weight: 600; font-size: var(--lumi-font-size-compact); }
+
+.review-check { border-top: 1px solid var(--lumi-border); padding: 8px 0; }
+.review-check:first-child { border-top: 0; padding-top: 0; }
+.review-check summary { cursor: pointer; }
+.review-check ul, .review-findings, .review-steps, .review-log ul { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.review-check li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: var(--lumi-font-size-compact); }
+.review-severity, .review-state { font-size: var(--lumi-font-size-small); padding: 1px 7px; border-radius: var(--lumi-radius-pill); border: 1px solid var(--lumi-border); color: var(--lumi-text-muted); white-space: nowrap; }
+.review-check li.problem .review-severity { color: var(--lumi-danger); border-color: var(--lumi-danger-border); background: var(--lumi-danger-surface); }
+.review-check li.look .review-severity { color: var(--lumi-warning); border-color: var(--lumi-warning-border); background: var(--lumi-warning-surface); }
+
+.review-findings li { font-size: var(--lumi-font-size-compact); }
+.review-findings a { margin-right: 6px; }
+.review-findings small { display: block; color: var(--lumi-text-muted); font-size: var(--lumi-font-size-small); white-space: pre-wrap; }
+.review-steps > li { padding: 10px 0; border-top: 1px solid var(--lumi-border); }
+.review-steps > li:first-child { border-top: 0; padding-top: 0; }
+.review-steps > li.step-rejected, .review-steps > li.step-skipped { opacity: .65; }
+.review-steps > li.step-failed .review-state { color: var(--lumi-danger); border-color: var(--lumi-danger-border); background: var(--lumi-danger-surface); }
+.review-steps > li.step-held .review-state, .review-steps > li.step-pick .review-state { color: var(--lumi-accent); border-color: var(--lumi-accent); }
+.review-steps p { margin: 4px 0; font-size: var(--lumi-font-size-compact); }
+.review-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.review-step-head strong { font-size: var(--lumi-font-size-compact); font-weight: 600; overflow-wrap: anywhere; }
+.review-step-head button { margin-left: auto; }
+.review-step-message { color: var(--lumi-warning); }
+.review-picks { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.review-picks figure { margin: 0; width: min(320px, 100%); display: flex; flex-direction: column; gap: 4px; }
+.review-picks video, .review-picks img { width: 100%; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.review-pick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 4px; }
+.review-edit { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin: 8px 0; }
+.review-edit img { width: 160px; border-radius: var(--lumi-radius-control); background: var(--lumi-media-stage); }
+.review-edit p { flex: 1 1 240px; margin: 0; white-space: pre-wrap; }
+.review-picks figcaption { font-size: var(--lumi-font-size-small); color: var(--lumi-text-muted); }
+.review-recommended { color: var(--lumi-accent); font-weight: 600; }
+
+.review-waves { margin: 4px 0 0; padding-left: 20px; font-size: var(--lumi-font-size-compact); }
+.review-log { margin-top: 12px; font-size: var(--lumi-font-size-small); }
+.review-log time { color: var(--lumi-text-muted); }
+.review-row { grid-template-columns: minmax(0, 1fr); }
+.review-row .review-state { max-width: 100%; white-space: normal; }

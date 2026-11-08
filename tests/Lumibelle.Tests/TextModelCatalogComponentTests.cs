@@ -43,7 +43,7 @@ public sealed partial class AiModelComponentTests
         Assert.Equal("true", page.Find("#ai-text-provider-defaults").GetAttribute("aria-selected"));
         Assert.NotNull(page.Find("#ai-text-defaults #global-text-default")); Assert.Empty(page.FindAll("#model-search"));
         page.Find("#ai-text-provider-defaults").KeyDown("ArrowUp");
-        Assert.Equal("true", page.Find("#ai-text-provider-claudecode").GetAttribute("aria-selected"));
+        Assert.Equal("true", page.Find("#ai-text-provider-codex").GetAttribute("aria-selected"));
         Assert.DoesNotContain("provider=", Services.GetRequiredService<NavigationManager>().Uri);
     }
 

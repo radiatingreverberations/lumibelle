@@ -14,7 +14,10 @@ public static class AiTextResults
     {
         var result = new AiTextJobResult(raw, true, finishReason);
         if (string.IsNullOrWhiteSpace(raw)) return result with { Error = "The model returned an empty response. Inspect and retry; nothing has been applied." };
-        if (finishReason is not null && finishReason != ChatFinishReason.Stop.ToString() || request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.ClaudeCode or AiBackend.Vllm && finishReason is null)
+        // Providers that always report how a response ended. Claude Code is among them although it was removed: a response an
+        // earlier build saved for it is still published on recovery, and one without a stop marker may have been cut off.
+        if (finishReason is not null && finishReason != ChatFinishReason.Stop.ToString() ||
+            (request.Model.Backend is AiBackend.OpenRouter or AiBackend.Codex or AiBackend.Vllm || TextModelPolicy.Retired(request.Model.Backend)) && finishReason is null)
             return result with { Error = "The response did not finish normally. Inspect it and retry; incomplete output cannot be applied." };
         var parsed = Checked(request, result, raw, finishReason);
         if (parsed.Error is null || WholeJson(raw)) return parsed;

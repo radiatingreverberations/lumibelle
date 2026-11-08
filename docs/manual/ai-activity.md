@@ -25,7 +25,6 @@ Expand a provider row for capacity information:
 - **ComfyUI** reports available/total memory per device, never pooled across GPUs. Available memory may include reusable cached memory and does not predict whether a request will fit. These checks only read `/system_stats`; they do not clear caches or unload models.
 - **OpenRouter** shows the configured key's spending allowance, cap, reset and usage. An uncapped key is distinct from account credits ([key limits](https://openrouter.ai/docs/api_reference/limits)).
 - **Codex**, for ChatGPT sign-ins, displays the shared allowance reported by its CLI, for information only.
-- **Claude Code** does not report its usage; its queue pauses when a usage or rate limit ends a request.
 
 Visible expanded panels refresh ComfyUI every five seconds and hosted allowances no more than once per minute, with manual refresh available. Failed refreshes keep prior readings with a stale indicator. Changing the server or credential clears the cached display.
 

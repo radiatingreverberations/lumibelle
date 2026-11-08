@@ -85,5 +85,7 @@ public sealed record GenerationSetupLibrary
     public Guid? SelectedId { get; set; }
     public List<GenerationSetup> Setups { get; set; } = [];
     public List<ImportedGenerationSetup> Imports { get; set; } = [];
+    /// <summary>The setup new takes use: the one selected in Shots, or the first active one.</summary>
+    public GenerationSetup? Active() => Setups.FirstOrDefault(s => s.Id == SelectedId && !s.Archived) ?? Setups.FirstOrDefault(s => !s.Archived);
 }
 public sealed record ImportedGenerationSetup(Guid ProjectId, Guid CompositionId, Guid SetupId, string SourceName);

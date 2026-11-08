@@ -39,20 +39,17 @@ public sealed class LiveShotDraftingTests
     [Theory]
     [InlineData(AiBackend.Codex, "gpt-6.1-sol", false)]
     [InlineData(AiBackend.Codex, "gpt-6.1-sol", true)]
-    [InlineData(AiBackend.ClaudeCode, "opus", false)]
-    [InlineData(AiBackend.ClaudeCode, "opus", true)]
     public async Task HostedCliModelsDraftValidPlainJsonWithPlayableDurations(AiBackend backend, string modelId, bool single)
     {
         var file = Environment.GetEnvironmentVariable("LUMIBELLE_LIVE_SHOT_DRAFT_SETTINGS");
         if (string.IsNullOrWhiteSpace(file)) Assert.Skip("Set LUMIBELLE_LIVE_SHOT_DRAFT_SETTINGS to use the local CLI sign-ins with neutral test material.");
         using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
         var settings = new AiSettings {
-            Codex = saved.RootElement.GetProperty("settings").GetProperty("codex").Deserialize<CodexSettings>(AtomicJsonFile.Options)! with { Enabled = true },
-            ClaudeCode = saved.RootElement.GetProperty("settings").GetProperty("claudeCode").Deserialize<ClaudeCodeSettings>(AtomicJsonFile.Options)! with { Enabled = true }
+            Codex = saved.RootElement.GetProperty("settings").GetProperty("codex").Deserialize<CodexSettings>(AtomicJsonFile.Options)! with { Enabled = true }
         };
         await using var codex = new CodexClient(new CodexTransportFactory(), TimeProvider.System);
         var registry = new AiProviderRegistry(new TestHttpFactory(new HttpClientHandler()), new FakeAiSettingsStore(), TestComfy.Monitor(),
-            codex, new ClaudeCodeClient(new ClaudeCodeProcessFactory()));
+            codex);
         await Run(registry, settings, new(backend, modelId, modelId), single, false);
     }
 

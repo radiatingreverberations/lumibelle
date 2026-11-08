@@ -39,7 +39,6 @@ public sealed class TextModelSession(Guid projectId, IAiSettingsStore settings, 
         AiBackend.ComfyUI => JsonSerializer.Serialize(new { value.ComfyUrl, value.ComfyTextModelVerifications }),
         AiBackend.Vllm => JsonSerializer.Serialize(new { Connections = OpenAiConnections.All(value), value.VllmTextModelBenchmarks }),
         AiBackend.Codex => JsonSerializer.Serialize(value.Codex),
-        AiBackend.ClaudeCode => JsonSerializer.Serialize(value.ClaudeCode),
         _ => JsonSerializer.Serialize(value.HasOpenRouterKey)
     };
     public async Task RefreshAsync(bool allProviders = false, CancellationToken ct = default)

@@ -10,7 +10,7 @@ using OpenAI;
 
 namespace lumibelle.Services.AI;
 
-public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSettingsStore settingsStore, IComfyExecutionMonitor comfyMonitor, ICodexClient? codex = null, IClaudeCodeClient? claude = null) : IAiProviderRegistry, IModelTestRunner
+public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSettingsStore settingsStore, IComfyExecutionMonitor comfyMonitor, ICodexClient? codex = null) : IAiProviderRegistry, IModelTestRunner
 {
     // Reply limit of standard benchmarks captured before they used the model's own setting.
     internal const int LegacyBenchmarkTokens = 256;
@@ -19,9 +19,9 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
     public async Task<IChatClient> CreateAsync(AiBackend backend, string model, AiSettings settings, CancellationToken cancellationToken = default)
     {
         FileAiSettingsStore.Validate(settings);
+        if (TextModelPolicy.Retired(backend)) throw new AiGenerationException(TextModelPolicy.RetiredIssue);
         if (string.IsNullOrWhiteSpace(model)) throw new AiGenerationException("Choose a model in AI settings first.");
         if (backend == AiBackend.Codex) return new CodexChatClient(codex ?? throw new AiGenerationException("Codex is not configured."), settings.Codex, model);
-        if (backend == AiBackend.ClaudeCode) return new ClaudeCodeChatClient(claude ?? throw new AiGenerationException("Claude Code is not configured."), settings.ClaudeCode, model);
         if (backend == AiBackend.ComfyUI)
         {
             var http = clients.CreateClient("ComfyUI");
@@ -61,12 +61,7 @@ public sealed partial class AiProviderRegistry(IHttpClientFactory clients, IAiSe
             var check = await codex.CheckAsync(settings.Codex, cancellationToken);
             return new(check.Success, check.Message, check.Models, check.Version);
         }
-        if (backend == AiBackend.ClaudeCode)
-        {
-            if (claude is null) return new(false, "Claude Code is not configured.", []);
-            var check = await claude.CheckAsync(settings.ClaudeCode, cancellationToken);
-            return new(check.Success, check.Message, check.Models, check.Version);
-        }
+        if (TextModelPolicy.Retired(backend)) return new(false, TextModelPolicy.RetiredIssue, []);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
         try

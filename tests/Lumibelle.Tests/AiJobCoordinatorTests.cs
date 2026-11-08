@@ -365,7 +365,10 @@ public sealed partial class AiJobCoordinatorTests : IAsyncDisposable
         public async Task<Invocation> Next(CancellationToken ct) => await _started.Reader.ReadAsync(ct).AsTask().WaitAsync(TimeSpan.FromSeconds(8), ct);
         public Task<AiJobOutcome> ExecuteAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => Invoke(context, snapshot, ct);
         public Task<AiJobOutcome> RecoverAsync(AiJobContext context, JsonElement snapshot, CancellationToken ct) => context.Job.Backend == AiBackend.OpenRouter
-            ? Task.FromResult(AiJobOutcome.Attention("Interrupted paid response. Retry explicitly.", AiJobRecovery.GenerateAgain)) : Invoke(context, snapshot, ct);
+            ? Task.FromResult(AiJobOutcome.Attention("Interrupted paid response. Retry explicitly.", AiJobRecovery.GenerateAgain))
+            // As the text handler answers for a request of the removed provider that saved no response.
+            : TextModelPolicy.Retired(context.Job.Backend) ? Task.FromResult(AiJobOutcome.Attention(TextModelPolicy.RetiredRequest, AiJobRecovery.None))
+            : Invoke(context, snapshot, ct);
         // Set synchronously, so it flows through the rest of the calling worker.
         public static readonly AsyncLocal<Guid?> Worker = new();
         private Task<AiJobOutcome> Invoke(AiJobContext context, JsonElement snapshot, CancellationToken ct)

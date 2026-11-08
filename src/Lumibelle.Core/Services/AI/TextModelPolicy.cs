@@ -24,6 +24,10 @@ public static class TextModelPolicy
         if (duplicates.Any(other => !Same(other, model) && other.Model == model.Model)) suffix += $" · {Server(model)}";
         return $"{provider} · {name}{suffix}";
     }
+    // The Claude Code provider was removed. Saved choices and requests that name it stay readable and are reported as unavailable.
+    public const string RetiredIssue = "Claude Code is no longer available in Lumibelle. Choose another model.";
+    public const string RetiredRequest = "Claude Code is no longer available in Lumibelle. Create this request again with another model.";
+    public static bool Retired(AiBackend backend) => backend == AiBackend.ClaudeCode;
     public static string ProviderName(AiBackend backend) => backend switch { AiBackend.ClaudeCode => "Claude Code", AiBackend.Vllm => "OpenAI-compatible", _ => backend.ToString() };
     public static string? Server(TextModelReference model) => model.Backend switch { AiBackend.ComfyUI => model.ComfyUrl, AiBackend.Vllm => model.VllmUrl, _ => null };
     public static TextModelReference Reference(AiBackend backend, string id, string name, AiSettings settings) =>
@@ -43,7 +47,8 @@ public static class TextModelPolicy
     {
         AiBackend.ComfyUI => new(AiBackend.ComfyUI, settings.ComfyModel, settings.ComfyModel, settings.ComfyUrl),
         AiBackend.Codex => new(AiBackend.Codex, settings.Codex.TextModel, settings.Codex.TextModel, ReasoningEffort: settings.Codex.TextEffort),
-        AiBackend.ClaudeCode => new(AiBackend.ClaudeCode, settings.ClaudeCode.TextModel, settings.ClaudeCode.TextModel, ReasoningEffort: settings.ClaudeCode.TextEffort),
+        // The model a retired default named is not kept; the choice shows as unavailable until another is saved.
+        AiBackend.ClaudeCode => new(AiBackend.ClaudeCode, "", ""),
         AiBackend.Vllm => Reference(AiBackend.Vllm, "", "", settings),
         _ => new(AiBackend.OpenRouter, settings.OpenRouterModel, settings.OpenRouterModel)
     });
@@ -55,12 +60,9 @@ public static class TextModelPolicy
         UsesNamedEffort(model.Backend) && model.ProfileId is null && model.ReasoningEffort is null
             ? model with { ReasoningEffort = DefaultEffort(model.Backend, settings) }
             : model;
-    // The CLI providers take a named reasoning effort with a global text default.
-    public static bool UsesNamedEffort(AiBackend backend) => backend is AiBackend.Codex or AiBackend.ClaudeCode;
-    public static string? DefaultEffort(AiBackend backend, AiSettings settings) => backend switch
-    {
-        AiBackend.Codex => settings.Codex.TextEffort, AiBackend.ClaudeCode => settings.ClaudeCode.TextEffort, _ => null
-    };
+    // Codex takes a named reasoning effort with a global text default.
+    public static bool UsesNamedEffort(AiBackend backend) => backend == AiBackend.Codex;
+    public static string? DefaultEffort(AiBackend backend, AiSettings settings) => backend == AiBackend.Codex ? settings.Codex.TextEffort : null;
     public static bool Same(TextModelReference? left, TextModelReference? right) =>
         left is not null && right is not null && Key(left) == Key(right);
     public static bool SameServer(string? left, string? right) => left is not null && right is not null &&
@@ -102,6 +104,7 @@ public static class TextModelPolicy
     // Saved choices can be shown and selected before their provider has been contacted.
     public static string? ConfigurationIssue(TextModelReference model, AiSettings settings)
     {
+        if (Retired(model.Backend)) return RetiredIssue;
         if (string.IsNullOrWhiteSpace(model.Model)) return "Choose a model in AI settings.";
         try { Validate(model); }
         catch (WorkspaceStoreException e) { return e.Message; }
@@ -114,7 +117,6 @@ public static class TextModelPolicy
             if (!connection.Enabled) return $"Enable {connection.Name} in Connections.";
         }
         if (model.Backend == AiBackend.Codex && !settings.Codex.Enabled) return "Enable Codex in Connections.";
-        if (model.Backend == AiBackend.ClaudeCode && !settings.ClaudeCode.Enabled) return "Enable Claude Code in Connections.";
         return null;
     }
 }

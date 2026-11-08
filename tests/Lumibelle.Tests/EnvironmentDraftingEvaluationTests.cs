@@ -77,7 +77,7 @@ public sealed class EnvironmentDraftingEvaluationTests
         using var settingsJson = JsonDocument.Parse(await File.ReadAllTextAsync(Environment.GetEnvironmentVariable("LUMIBELLE_ENVIRONMENT_EVAL_SETTINGS")!, ct));
         var settings = settingsJson.RootElement.GetProperty("settings").Deserialize<AiSettings>(AtomicJsonFile.Options)!;
         var registry = new AiProviderRegistry(new NoHttp(), new FakeAiSettingsStore(), TestComfy.Monitor(),
-            new CodexClient(new CodexTransportFactory(), TimeProvider.System), new ClaudeCodeClient(new ClaudeCodeProcessFactory()));
+            new CodexClient(new CodexTransportFactory(), TimeProvider.System));
         foreach (var entry in captured) {
             var output = Path.Combine(root, entry.Name + ".json");
             if (File.Exists(output)) continue;

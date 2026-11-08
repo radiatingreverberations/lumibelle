@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup><TargetFramework>net10.0</TargetFramework><RootNamespace>lumibelle</RootNamespace></PropertyGroup>
   <ItemGroup><InternalsVisibleTo Include="Lumibelle.Tests" /></ItemGroup>
-  <ItemGroup><ProjectReference Include="../Lumibelle.UI/Lumibelle.UI.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../Lumibelle.UI/Lumibelle.UI.csproj" /><PackageReference Include="ModelContextProtocol.AspNetCore" /></ItemGroup>
   <PropertyGroup><BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException></PropertyGroup>
   <ItemGroup><Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" /></ItemGroup>
 </Project>

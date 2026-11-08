@@ -146,7 +146,8 @@ button:where(:not([class]):not([role=tab]):not(:disabled)):hover, .lumi-button:n
 
 @media (max-width: 1279px) and (min-width: 760px) {
     .studio-projectbar { gap: 6px; padding-inline: 8px; }
-    .project-tabs > a { padding-inline: 8px; font-size: var(--lumi-font-size-meta); }
+    .project-tabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .project-tabs > a { padding-inline: 8px; font-size: var(--lumi-font-size-meta); flex-shrink: 0; }
     .workspace-toolbar [data-toggle-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .workspace-toolbar button[data-toggle-pane] { width: 30px; font-size: 18px; }
 }

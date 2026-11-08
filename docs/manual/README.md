@@ -17,6 +17,7 @@ Lumibelle runs on your own computer, and projects are ordinary files in a folder
 - [Scenes](scenes.md): set up each scene's environment and draft its shots.
 - [Shots](shots.md): references, prompts, takes and refinement.
 - [Cut studio](cut.md): assemble takes into a sequence and export it.
+- [Review](review.md): continuity checks, and plans an AI agent proposes for your approval.
 - [AI setup](ai-setup.md): connect ComfyUI, OpenRouter and other providers.
 - [Install ComfyUI](comfyui.md): run ComfyUI for local generation and download its models.
 - [AI activity](ai-activity.md): follow running requests and review results.

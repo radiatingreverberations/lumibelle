@@ -11,14 +11,13 @@ namespace Lumibelle.Tests;
 
 /// <summary>
 /// Manual comparison: composes a saved composition job's shot with hosted CLI models, once with the images attached and
-/// once through a visual brief, to judge whether the two-step route loses quality. Uses the local Codex and Claude Code
-/// sign-ins. Set LUMIBELLE_LIVE_COMFY_JOB, LUMIBELLE_LIVE_SETTINGS (ai-settings.json) and LUMIBELLE_LIVE_OUT.
+/// once through a visual brief, to judge whether the two-step route loses quality. Uses the local Codex
+/// sign-in. Set LUMIBELLE_LIVE_COMFY_JOB, LUMIBELLE_LIVE_SETTINGS (ai-settings.json) and LUMIBELLE_LIVE_OUT.
 /// </summary>
 public sealed class LiveCompositionComparisonTests
 {
     [Theory]
     [InlineData(AiBackend.Codex, "gpt-6.1-sol")]
-    [InlineData(AiBackend.ClaudeCode, "opus")]
     public async Task HostedModelsComposeWithImagesAndFromABrief(AiBackend backend, string modelId)
     {
         var directory = Environment.GetEnvironmentVariable("LUMIBELLE_LIVE_COMFY_JOB");
@@ -28,9 +27,8 @@ public sealed class LiveCompositionComparisonTests
         using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "request.json"), ct));
         var original = saved.RootElement.GetProperty("request").Deserialize<AiTextJobRequest>(AtomicJsonFile.Options)!;
         using var stored = JsonDocument.Parse(await File.ReadAllTextAsync(settingsFile, ct));
-        // Only the CLI provider settings are needed; the saved ComfyUI data is irrelevant here.
-        var settings = new AiSettings { Codex = stored.RootElement.GetProperty("settings").GetProperty("codex").Deserialize<CodexSettings>(AtomicJsonFile.Options)!,
-            ClaudeCode = stored.RootElement.GetProperty("settings").GetProperty("claudeCode").Deserialize<ClaudeCodeSettings>(AtomicJsonFile.Options)! };
+        // Only the Codex settings are needed; the saved ComfyUI data is irrelevant here.
+        var settings = new AiSettings { Codex = stored.RootElement.GetProperty("settings").GetProperty("codex").Deserialize<CodexSettings>(AtomicJsonFile.Options)! };
         var composition = original.Payload<PromptCompositionRequest>();
         var attached = original.Messages.SelectMany(m => m.Parts).Where(p => p.Image is not null).Select(p => p.Image!).ToArray();
         var pictures = attached.Take(composition.Images.Count).ToArray();
@@ -39,7 +37,7 @@ public sealed class LiveCompositionComparisonTests
             .Select((f, n) => new RefModInspectionFrame(f.Video.Number, f.Frame, f.Video.Reel.Name, "", f.Hash, attached[pictures.Length + n])).ToArray();
 
         var registry = new AiProviderRegistry(new NoHttp(), new FakeAiSettingsStore(), TestComfy.Monitor(),
-            new CodexClient(new CodexTransportFactory(), TimeProvider.System), new ClaudeCodeClient(new ClaudeCodeProcessFactory()));
+            new CodexClient(new CodexTransportFactory(), TimeProvider.System));
         var report = new StringBuilder($"#### {backend} · {modelId}\n\n");
         async Task<string> Ask(string step, IEnumerable<ChatMessage> messages)
         {

@@ -5,6 +5,8 @@ namespace lumibelle.Models;
 public enum WritingOperation { Discuss, Outline, Draft, Revise, Continue, Rewrite }
 public enum AssistantRunStatus { Running, Completed, Failed, Cancelled, Interrupted }
 // Vllm is the persisted identity of the OpenAI-compatible provider. Keep existing requests readable.
+// ClaudeCode is retired: the provider was removed, and the name stays only so saved settings, profiles,
+// project defaults, history and queued requests keep loading. Nothing offers or runs it (TextModelPolicy.Retired).
 public enum AiBackend { ComfyUI, OpenRouter, Codex, ClaudeCode, Vllm }
 public enum AiModelVerificationState { NotApplicable, Untested, Verified }
 public enum GenerationPhase { Submitting, Queued, Preparing, Generating, Finalizing, Downloading, Saving, Completed }
@@ -100,7 +102,6 @@ public sealed record AiSettings
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CaptionImageSettings? ZImage { get; init; }
     public CodexSettings Codex { get; init; } = new();
-    public ClaudeCodeSettings ClaudeCode { get; init; } = new();
     public H3Settings H3 { get; init; } = new();
     public int SchemaVersion { get; init; } = 1;
     public long Revision { get; init; }

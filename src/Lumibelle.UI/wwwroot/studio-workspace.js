@@ -1,6 +1,6 @@
 import { attach as attachPosition, key as positionKey, read as readPosition, write as writePosition } from './workspace-position.js';
 const limits = { left: [160, 300], right: [300, 480] };
-const wide = studio => studio === 'Shots' || studio === 'Assets' || studio === 'Languages';
+const wide = studio => studio === 'Shots' || studio === 'Assets' || studio === 'Languages' || studio === 'Review';
 const defaults = studio => ({ left: wide(studio) ? 280 : 200, right: wide(studio) ? 320 : 340, leftCollapsed: false, rightCollapsed: false, tabs: {} });
 const focusables = root => [...root.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),summary,[tabindex="0"]')]
     .filter(el => el.getClientRects().length && !el.closest('[inert]'));

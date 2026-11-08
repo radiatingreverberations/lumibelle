@@ -145,6 +145,8 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         {
             Settings = stored.Settings with
             {
+                // Stars only shortlist models for pickers. Those of the removed Claude Code provider have no page left to unstar them on.
+                StarredTextModels = stored.Settings.StarredTextModels.Where(model => !TextModelPolicy.Retired(model.Backend)).ToList(),
                 ComfyTextModelVerifications = stored.Settings.ComfyTextModelVerifications
                     .Select(item => item with { Benchmarks = item.Benchmarks ?? [] }).ToList()
             }
@@ -184,9 +186,6 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         if (settings.Codex is null || settings.Codex.Concurrency is < 1 or > 4 || settings.Codex.ExecutablePath is null ||
             settings.Codex.TextModel is null || settings.Codex.ImageModel is null)
             throw new WorkspaceStoreException("Check Codex settings and concurrency (1-4).");
-        if (settings.ClaudeCode is null || settings.ClaudeCode.Concurrency is < 1 or > 4 || settings.ClaudeCode.ExecutablePath is null ||
-            settings.ClaudeCode.TextModel is null || settings.ClaudeCode.TextEffort is { } claudeEffort && !ClaudeCodeClient.Efforts.Contains(claudeEffort))
-            throw new WorkspaceStoreException("Check Claude Code settings and concurrency (1-4).");
         if (settings.SchemaVersion != 1 || settings.Revision < 0 || !Enum.IsDefined(settings.DefaultBackend) ||
             settings.ComfyModel is null || settings.OpenRouterModel is null || settings.ComfyImageModel is null ||
             settings.ComfyImageTextEncoder is null || settings.ComfyImageVae is null || settings.ComfyImageEditLora is null ||

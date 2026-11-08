@@ -54,7 +54,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
         var key = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(operation)));
         return Path.Combine(DirectoryFor(id), "operations", key, artifact.ToString().ToLowerInvariant() + ".json");
     }
-    private static string Fingerprint(AiJobSubmission request) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, AtomicJsonFile.Options)));
+    internal static string Fingerprint(AiJobSubmission request) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, AtomicJsonFile.Options)));
     private string ArtifactPath(Guid id, AiJobArtifact artifact) => Enum.IsDefined(artifact)
         ? Path.Combine(DirectoryFor(id), artifact.ToString().ToLowerInvariant() + ".json") : throw new WorkspaceStoreException("Unknown AI job artifact.");
     public async Task ResetProductionAsync(Guid project, CancellationToken ct = default)
@@ -111,6 +111,7 @@ public sealed partial class FileAiJobStore : IAiJobStore
             request.Kind is AiJobKind.TextBenchmark or AiJobKind.TextAdvancedTest && request.Backend is not (AiBackend.ComfyUI or AiBackend.OpenRouter or AiBackend.Vllm) ||
             request.Kind is AiJobKind.ImageCreate or AiJobKind.ImageEdit && request.Backend is not (AiBackend.ComfyUI or AiBackend.Codex))
             throw new WorkspaceStoreException("The AI request is incomplete or has the wrong provider.");
+        if (TextModelPolicy.Retired(request.Backend)) throw new WorkspaceStoreException(TextModelPolicy.RetiredIssue);
         request.Target.Validate(request.Kind);
         if (captured.Batch is { } batch && (batch.RootId != request.Id || batch.Candidates.Count is < 1 or > 4 ||
             batch.Candidates.Where((c, index) => c.Number != index + 1 || c.AppendCommandId is not null).Any()))

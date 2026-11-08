@@ -31,7 +31,7 @@ Both web and desktop load the same script, locally bundled font, styles, brand a
 
 ## Shell and workspaces
 
-The 48px app bar contains the logo, project identity linking to Overview, global routes, appearance, and AI activity. The 40px project bar contains Overview / Source / Script / Assets / Scenes / Shots / Cut / Settings, the studio actions, then pane visibility and the **Layout** menu. Studio headings remain available to assistive technology and route focus. Section slots keep controls owned by their page while displaying them in the shared shell.
+The 48px app bar contains the logo, project identity linking to Overview, global routes, appearance, and AI activity. The 40px project bar contains Overview / Source / Script / Assets / Scenes / Shots / Cut / Review / Settings, the studio actions, then pane visibility and the **Layout** menu. Studio headings remain available to assistive technology and route focus. Section slots keep controls owned by their page while displaying them in the shared shell.
 
 Project-bar horizontal padding is shared across Overview, Settings, and all studios at each breakpoint. Centered page content can extend the bar to the viewport edges with negative margins, but must not add a separate navigation inset.
 
@@ -66,6 +66,8 @@ Shots keeps **Shot / Takes** in the center and references in the sidebar. The si
 Shots' first overhaul pass adds a thumbnail navigator, an editable title in the heading, compact scene/duration fields, and an inline take preview beside the creative direction when the center has at least 600px available. Narrower centers stack those surfaces. The preview starts with the selected production take, falling back to the latest master take, then any available take. Browsing previews does not select a production take; arriving results do not replace a preview already being viewed. Leaving the Shot tab pauses playback. Cast, sound/music, language versions, and source use disclosures. Bulk operations contains bulk generation and deletion.
 
 The reference inspector uses a numbered contact sheet, image-slot/reel/audio counts, and Manage references. Detailed reference guidance, overrides, voice controls, and recovery remain in a disclosure. Missing-reference warnings stay visible beside generation. Reference management retains staged Apply/Cancel and identifies the target shot in its heading. Shots defaults to 280px navigation and 320px tools; saved custom widths remain in effect until Reset layout.
+
+Review lists **Continuity checks** and the project's plans on the left. The center shows the findings, or a plan's findings and steps, including its prompt comparisons and the takes to pick from. The right pane holds the current task: a plan's totals and history with **Approve plan** and **Stop plan** in its footer, or the checks' limits and render order with **Measure sound**. A plan that arrives while the director is elsewhere appears in the list and does not take the page away.
 
 ## Components
 

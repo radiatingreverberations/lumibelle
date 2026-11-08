@@ -18,7 +18,7 @@ public sealed class ShotDirectionTests
             Direction = new() { Intent = new() { Purpose = "Test the welcome", Reason = "The audience must doubt the invitation." }, Staging = new() { Positions = "Beside the door", Facing = "Toward the caller", Camera = "Static side view" },
                 Editorial = new() { CutOut = "When the caller responds", Timing = "Wait for hesitation" }, Advanced = new() { Assumptions = "Door location is proposed", LongTakeIdea = "A 25-second exchange could later justify manual extension." } } };
         ShotDirections.Review(shot, strategy);
-        var request = new ShotPlanningRequest(new(doc.ProjectId, doc.ProjectId, 1, DateTimeOffset.UtcNow, doc.Blocks), new() { ProjectId = doc.ProjectId }, [strategy.SceneId], 15, "Protect the pause.", new(AiBackend.ClaudeCode, "opus", "Opus")) { CoverageOnly = true };
+        var request = new ShotPlanningRequest(new(doc.ProjectId, doc.ProjectId, 1, DateTimeOffset.UtcNow, doc.Blocks), new() { ProjectId = doc.ProjectId }, [strategy.SceneId], 15, "Protect the pause.", new(AiBackend.Codex, "gpt-6.1-sol", "GPT-6.1 Sol")) { CoverageOnly = true };
         return (request, shot, strategy);
     }
     [Theory]

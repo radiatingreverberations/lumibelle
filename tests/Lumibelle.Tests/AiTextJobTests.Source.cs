@@ -101,12 +101,10 @@ public sealed partial class AiTextJobTests
         Assert.Equal(doc.Runs[0].PromptBudget, saved.Runs[0].PromptBudget);
         Assert.Equal(JsonSerializer.Serialize(doc.Runs[0]), JsonSerializer.Serialize(saved.Runs[0]));
     }
-    [Theory]
-    [InlineData(AiBackend.Codex)]
-    [InlineData(AiBackend.ClaudeCode)]
-    public async Task SourceCliModelsKeepSupportedControls(AiBackend backend)
+    [Fact]
+    public async Task SourceCliModelsKeepSupportedControls()
     {
-        var model = await Capture.SourceModelAsync(new(backend, "test-model", "CLI model"), _ct);
+        var model = await Capture.SourceModelAsync(new(AiBackend.Codex, "test-model", "CLI model"), _ct);
         Assert.Null(model.MaxOutputTokens);
         TextModelPolicy.Validate(model);
     }

@@ -19,7 +19,7 @@ public sealed class DraftingEnvironmentTests
         var setup = new DraftingEnvironmentSetup { AssetId = asset, Constraints = "Riley is shorter than the podium. Do not invent a platform.", Views = [candidate] };
         var pool = new EnvironmentSourcePool(script.ProjectId, asset, "Plaza", "Stone courtyard", "source", [candidate], [], new Dictionary<string, byte[]> { [candidate.Id] = Picture });
         var environment = DraftingEnvironments.Snapshot(script.Blocks[0].Id, setup, pool);
-        var request = new ShotPlanningRequest(new(script.ProjectId, script.ProjectId, 1, DateTimeOffset.UtcNow, script.Blocks), new() { ProjectId = script.ProjectId }, [script.Blocks[0].Id], 15, "Protect reactions", new(AiBackend.ClaudeCode, "opus", "Opus")) { CoverageOnly = true, Environments = [environment] };
+        var request = new ShotPlanningRequest(new(script.ProjectId, script.ProjectId, 1, DateTimeOffset.UtcNow, script.Blocks), new() { ProjectId = script.ProjectId }, [script.Blocks[0].Id], 15, "Protect reactions", new(AiBackend.Codex, "gpt-6.1-sol", "GPT-6.1 Sol")) { CoverageOnly = true, Environments = [environment] };
         var shot = new Shot { SceneId = script.Blocks[0].Id, SourceBlockIds = [script.Blocks[0].Id], Description = "Mouse hesitates at the door", Duration = 4, Direction = new() { Intent = new() { Purpose = "Delay the answer" }, Staging = new() { Camera = "Side view" } } };
         return (request, setup, pool, shot);
     }

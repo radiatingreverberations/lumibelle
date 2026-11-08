@@ -35,6 +35,20 @@ public sealed class AiSettingsNavigationTests : BunitContext
     private IRenderedComponent<AiSettingsPage> Open(string query = "")
     { Navigation.NavigateTo("/settings/ai" + query); return Render<AiSettingsPage>(); }
 
+    // Claude Code was removed as a provider. A default an earlier build saved still loads, and old links to its pane open ComfyUI.
+    [Fact]
+    public void ADefaultSavedForClaudeCodeIsShownAsUnavailableAndTheProviderIsNotOffered()
+    {
+        _settings.Value = _settings.Value with { DefaultBackend = AiBackend.ClaudeCode };
+        var page = Open("?tab=text&provider=defaults");
+        Assert.Equal(TextModelPolicy.RetiredIssue, page.Find("#global-text-default-issue").TextContent);
+        Assert.Contains("Claude Code · No longer available", page.Find("#global-text-default").TextContent);
+        Assert.Empty(page.FindAll("#ai-text-provider-claudecode"));
+        Navigation.NavigateTo("/settings/ai?tab=connections&provider=claudecode");
+        Assert.Equal("true", page.Find("#ai-provider-comfyui").GetAttribute("aria-selected"));
+        Assert.Empty(page.FindAll("#ai-provider-claudecode"));
+    }
+
     [Fact]
     public void ConnectionsOpenFirstWithoutProviderRequests()
     {
@@ -108,19 +122,19 @@ public sealed class AiSettingsNavigationTests : BunitContext
         page.Find("#ai-provider-vllm").KeyDown("ArrowDown");
         Assert.Equal("true", page.Find("#ai-provider-openrouter").GetAttribute("aria-selected"));
         page.Find("#ai-provider-openrouter").KeyDown("End");
-        Assert.Equal("true", page.Find("#ai-provider-claudecode").GetAttribute("aria-selected"));
+        Assert.Equal("true", page.Find("#ai-provider-codex").GetAttribute("aria-selected"));
         page.Find("#ai-tab-connections").KeyDown("ArrowRight");
         // The URL keeps the page and tab; the provider selection stays in page state.
         var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
         Assert.Equal("text", query["tab"]); Assert.False(query.ContainsKey("provider"));
-        Assert.Equal("true", page.Find("#ai-text-provider-claudecode").GetAttribute("aria-selected"));
+        Assert.Equal("true", page.Find("#ai-text-provider-codex").GetAttribute("aria-selected"));
         Assert.Equal(origin, query["returnUrl"]);
         Assert.Equal(origin, page.Find(".page-back").GetAttribute("href"));
         Navigation.NavigateTo("/settings/ai?tab=connections&provider=openrouter");
         Assert.Equal("true", page.Find("#ai-provider-openrouter").GetAttribute("aria-selected"));
         page.Find("#ai-provider-openrouter").KeyDown("Home");
         page.Find("#ai-provider-comfyui").KeyDown("ArrowUp");
-        Assert.Equal("true", page.Find("#ai-provider-claudecode").GetAttribute("aria-selected"));
+        Assert.Equal("true", page.Find("#ai-provider-codex").GetAttribute("aria-selected"));
     }
 
     [Fact]
