@@ -62,7 +62,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 {
                     // A plan is read in full when a render left the queue, a step could run now, or nothing is left open but
                     // the plan was never marked finished, as when the pass that ran its last step was cancelled.
-                    if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && !Queued(s.JobId)) &&
+                    // An interrupted pick is work too: the pass that finishes it may come long after the restart.
+                    if (settledOnly && !plan.Steps.Any(s => s.State == ReviewStepState.Running && !Queued(s.JobId)) && !plan.Steps.Any(s => s.State == ReviewStepState.Pick && s.PickingChoice is not null) &&
                         !plan.Steps.Any(s => s.State == ReviewStepState.Waiting && Blocker(plan, s) is not { Open: true }) && plan.Steps.Any(s => s.Open)) continue;
                     await AdvanceAsync(project, plan.Id, ct);
                 }
@@ -177,12 +178,30 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             foreach (var (step, choice) in takePicks)
-                if (latest.Shots.All(s => s.Id != step.ShotId) || !latest.Takes.Any(t => t.Id == choice && t.ShotId == step.ShotId))
+            {
+                if (latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) is not { } shot || !latest.Takes.Any(t => t.Id == choice && t.ShotId == step.ShotId))
                     throw new WorkspaceStoreException("A chosen take is no longer in the project. It may be in Trash. Nothing was picked.");
+                // The shot still has the take recorded as its earlier one, or this pick's take after an interrupted run. Anything
+                // else is another editor's choice since, which the batch neither overwrites nor would undo to the earlier take.
+                if (shot.SelectedTakeId != step.PickingFrom && shot.SelectedTakeId != choice)
+                    throw new StaleSelectionException();
+            }
             if (chosen.Any(c => library.Assets.FirstOrDefault(a => a.Id == c.AssetId)?.Images.Any(i => i.Id == c.ImageId) != true))
                 throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
         }
-        catch (WorkspaceStoreException) { await ForgetPicksAsync(projectId, planId, steps); throw; }
+        catch (StaleSelectionException) { await ForgetPicksAsync(projectId, planId, steps); throw new WorkspaceStoreException("Another take was selected for one of these shots meanwhile. Nothing was picked; look at the picks again."); }
+        catch (WorkspaceStoreException)
+        {
+            // An interrupted run may have selected takes already; they are put back before the record of what was there is cleared.
+            var interrupted = takePicks.Where(p => latest.Shots.First(s => s.Id == p.Step.ShotId).SelectedTakeId == p.Choice && p.Step.PickingFrom != p.Choice).ToArray();
+            if (interrupted.Length > 0 && !await RestoreSelectionsAsync(projectId, interrupted.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), interrupted, latest.Revision))
+            {
+                logger.LogWarning("Takes selected by interrupted picks in plan {Plan} could not be put back; their record is kept for the next pass.", planId);
+                throw;
+            }
+            await ForgetPicksAsync(projectId, planId, steps);
+            throw;
+        }
         var kept = library.Assets.SelectMany(a => a.Images.Where(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id))).Select(i => new AssetImageReference(a.Id, i.Id))).ToHashSet();
         // The revision each save left, so an undo only touches a store nobody saved to since.
         long? selected = null, keptSaved = null;
@@ -213,6 +232,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         }
         foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
     }
+
+    private sealed class StaleSelectionException : Exception;
 
     // Clears the record of picks that were not made. Failing to is only logged: the next pass then finishes those picks.
     private async Task ForgetPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)

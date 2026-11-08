@@ -1314,9 +1314,11 @@ public sealed partial class ShotTests
     }
 
     // A pick a restart interrupted after its take was selected: the step still waits, with the pick recorded in it.
-    private async Task<(PlanFixture F, ReviewPlan Plan, ReviewPlanStep Render, ReviewPlanStep Cut, Guid Take)> InterruptedPickAsync()
+    private async Task<(PlanFixture F, ReviewPlan Plan, ReviewPlanStep Render, ReviewPlanStep Cut, Guid Take)> InterruptedPickAsync(bool watched = false)
     {
         var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        // The worker's startup pass, so that later plan changes keep the project watched.
+        if (watched) await f.Runner.AdvanceAllAsync(_ct);
         var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
         var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render."));
         var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Show the pick."));
@@ -1352,6 +1354,61 @@ public sealed partial class ShotTests
         Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
         // The cut is pointed at the selected takes, and the turned-down take is not one.
         Assert.DoesNotContain((await f.Cuts.LoadAsync(f.Project, _ct)).Clips, c => c.TakeId == take);
+    }
+
+    [Fact]
+    public async Task ABackgroundPassFinishesAPickARestartInterrupted()
+    {
+        var (f, plan, render, _, take) = await InterruptedPickAsync(watched: true);
+
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+
+        Assert.Equal((ReviewStepState.Done, (Guid?)take), ((await f.Plan(plan)).Step(render.Id)!.State, (await f.Plan(plan)).Step(render.Id)!.TakeId));
+    }
+
+    [Fact]
+    public async Task ABatchLeavesATakeAnotherEditorSelectedWhileItWasRecorded()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Two takes.") { Takes = 2 });
+        await f.Approve(plan);
+        var takes = await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // Just as the pick is recorded, another editor selects the other take.
+        void Select(Guid project, Guid id)
+        {
+            f.Plans.Store.Changed -= Select;
+            var document = f.Shots.LoadAsync(f.Project, _ct).GetAwaiter().GetResult();
+            document.Shots.Single().SelectedTakeId = takes[1];
+            f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct).GetAwaiter().GetResult();
+        }
+        f.Plans.Store.Changed += Select;
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, render.Id, takes[0], ReviewPlans.Director, _ct));
+
+        Assert.Equal(takes[1], (await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        var step = (await f.Plan(plan)).Step(render.Id)!;
+        Assert.Equal((ReviewStepState.Pick, (Guid?)null), (step.State, step.PickingChoice));
+    }
+
+    [Fact]
+    public async Task AnInterruptedMixedBatchThatCannotBeFinishedPutsItsTakeBack()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        // A restart came after the take was selected; then the chosen image went to Trash.
+        await f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { Steps = p.Steps.Select(s =>
+            s.Id == render.Id ? s with { PickingChoice = take, PickingFrom = null } : s.Id == edit.Id ? s with { PickingChoice = image } : s).ToArray() }, ct: _ct);
+        var document = await f.Shots.LoadAsync(f.Project, _ct);
+        document.Shots.Single().SelectedTakeId = take;
+        await f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct);
+        var library = f.Assets.Library;
+        f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Where(i => i.Id != image).ToList() }).ToList() };
+
+        var after = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        Assert.Equal((ReviewStepState.Pick, (Guid?)null), (after.Step(render.Id)!.State, after.Step(render.Id)!.PickingChoice));
     }
 
     [Fact]
