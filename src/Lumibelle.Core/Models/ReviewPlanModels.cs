@@ -88,6 +88,12 @@ public sealed record ReviewPlanStep
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GenerationSetupName { get; init; }
     /// <summary>GenerateTakes: the seconds per take the director approved. A longer shot holds the render until it is released.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? ApprovedSeconds { get; init; }
+    /// <summary>
+    /// While a pick is being saved: the take or image chosen, and for a take the one its shot had selected before. A pick
+    /// interrupted by a restart is finished from these, and turning it down puts the earlier take back.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingChoice { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingFrom { get; init; }
     /// <summary>GenerateTakes, while held: the seconds per take the hold names, which releasing it agrees to.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? HeldSeconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }

@@ -1294,6 +1294,67 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task AChangeWhoseRecordFailedIsRecordedOnTheNextPass()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Drop", "agent", _ct);
+        var remove = await f.Propose(plan, new(ReviewStepKind.RemovePicture, shot, "Not needed.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id });
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render without it."));
+        await f.Approve(plan);
+        // The picture is removed, but saving that the step is done fails once.
+        f.Runner.Recording = id => { if (id != remove.Id) return; f.Runner.Recording = null; throw new WorkspaceStoreException("The project is busy."); };
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.AdvanceAsync(f.Project, plan.Id, _ct));
+        Assert.Equal(ReviewStepState.Waiting, (await f.Plan(plan)).Step(remove.Id)!.State);
+        Assert.Empty((await f.Setup(shot)).Shot.Images);
+
+        var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal((ReviewStepState.Done, ReviewStepState.Running), (done.Step(remove.Id)!.State, done.Step(render.Id)!.State));
+    }
+
+    // A pick a restart interrupted after its take was selected: the step still waits, with the pick recorded in it.
+    private async Task<(PlanFixture F, ReviewPlan Plan, ReviewPlanStep Render, ReviewPlanStep Cut, Guid Take)> InterruptedPickAsync()
+    {
+        var f = await PlanFixture.Create(this, shots: 1); var shot = f.ShotIds[0];
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, shot, "Render."));
+        var cut = await f.Propose(plan, new(ReviewStepKind.UpdateCut, null, "Show the pick."));
+        await f.Approve(plan);
+        var take = (await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 1))[0];
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        await f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { Steps = p.Steps.Select(s => s.Id == render.Id ? s with { PickingChoice = take, PickingFrom = null } : s).ToArray() }, ct: _ct);
+        var document = await f.Shots.LoadAsync(f.Project, _ct);
+        document.Shots.Single().SelectedTakeId = take;
+        await f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct);
+        return (f, plan, render, cut, take);
+    }
+
+    [Fact]
+    public async Task APickARestartInterruptedIsFinishedByTheNextPass()
+    {
+        var (f, plan, render, cut, take) = await InterruptedPickAsync();
+
+        var done = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.Equal((ReviewStepState.Done, (Guid?)take, (Guid?)null), (done.Step(render.Id)!.State, done.Step(render.Id)!.TakeId, done.Step(render.Id)!.PickingChoice));
+        Assert.Equal(ReviewStepState.Done, done.Step(cut.Id)!.State);
+    }
+
+    [Fact]
+    public async Task TurningDownAPickARestartInterruptedPutsTheEarlierTakeBack()
+    {
+        var (f, plan, render, cut, take) = await InterruptedPickAsync();
+
+        var done = await f.Runner.RejectPickAsync(f.Project, plan.Id, render.Id, ReviewPlans.Director, _ct);
+
+        Assert.Equal(ReviewStepState.Skipped, done.Step(render.Id)!.State);
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        // The cut is pointed at the selected takes, and the turned-down take is not one.
+        Assert.DoesNotContain((await f.Cuts.LoadAsync(f.Project, _ct)).Clips, c => c.TakeId == take);
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);
