@@ -208,13 +208,16 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             throw;
         }
         var kept = library.Assets.SelectMany(a => a.Images.Where(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id))).Select(i => new AssetImageReference(a.Id, i.Id))).ToHashSet();
+        var changing = takePicks.Where(p => latest.Shots.Single(s => s.Id == p.Step.ShotId).SelectedTakeId != p.Choice).ToArray();
         // The revision each save left, so an undo only touches a store nobody saved to since.
         long? selected = null, keptSaved = null;
         try
         {
-            if (takePicks.Length > 0)
+            // Only the takes this batch changes are selected, and only those are undone: a shot that already shows the chosen
+            // take, whoever selected it, is left as it is.
+            if (changing.Length > 0)
             {
-                foreach (var (step, choice) in takePicks) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
+                foreach (var (step, choice) in changing) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
                 selected = (await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit)).Revision;
             }
             if (kept.Count > 0)
@@ -226,7 +229,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         }
         catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
         {
-            var takesBack = selected is not { } shotsRevision || await RestoreSelectionsAsync(projectId, before, takePicks, shotsRevision);
+            var takesBack = selected is not { } shotsRevision || await RestoreSelectionsAsync(projectId, before, changing, shotsRevision);
             var imagesBack = keptSaved is not { } assetsRevision || await RestoreKeptAsync(projectId, kept, assetsRevision);
             // An interrupted run may have written some of these before the restart, which this run found in place and left.
             if (resuming && !await UndoInterruptedAsync(projectId, await shots.LoadAsync(projectId, commit), await assets.LoadAsync(projectId, commit), steps))

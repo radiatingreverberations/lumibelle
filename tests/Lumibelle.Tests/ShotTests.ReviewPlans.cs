@@ -1569,6 +1569,27 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task AFailedBatchKeepsTheChosenTakeAnEditorSelectedBeforeItWasSaved()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        // Once the picks are recorded, another editor selects the same take; then keeping the image fails.
+        void Meanwhile(Guid project, Guid id)
+        {
+            f.Plans.Store.Changed -= Meanwhile;
+            var document = f.Shots.LoadAsync(f.Project, _ct).GetAwaiter().GetResult();
+            document.Shots.Single().SelectedTakeId = take;
+            f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct).GetAwaiter().GetResult();
+        }
+        f.Plans.Store.Changed += Meanwhile;
+        f.Assets.BeforeSave = () => { f.Assets.BeforeSave = null; throw new WorkspaceConflictException(); };
+
+        // The batch wrote nothing, so the failure is reported as it came.
+        await Assert.ThrowsAsync<WorkspaceConflictException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, take), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        Assert.Equal(take, (await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);
