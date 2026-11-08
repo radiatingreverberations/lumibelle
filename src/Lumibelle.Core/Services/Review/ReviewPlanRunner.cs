@@ -162,25 +162,52 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
 
             var before = takePicks.ToDictionary(p => p.Step.ShotId!.Value, p => latest.Shots.Single(s => s.Id == p.Step.ShotId).SelectedTakeId);
-            if (takePicks.Length > 0)
+            var kept = library.Assets.SelectMany(a => a.Images.Where(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id))).Select(i => new AssetImageReference(a.Id, i.Id))).ToHashSet();
+            // In this order, so that nothing is lost if a later write fails: the takes are selected, the images kept, the picks
+            // recorded, and only then are the other candidates moved to Trash. A failure before the picks are recorded puts the
+            // takes and images back as they were and leaves every step waiting for its pick, with all its candidates.
+            var selected = false; var keptSaved = false;
+            try
             {
-                foreach (var (step, choice) in takePicks) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
-                await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit);
-            }
-            if (library.Assets.Any(a => a.Images.Any(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id)))))
-                try { await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => chosen.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit); }
-                catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException && takePicks.Length > 0)
+                if (takePicks.Length > 0)
                 {
-                    await RestoreSelectionsAsync(projectId, before, takePicks);
-                    throw new WorkspaceStoreException("The chosen images could not be kept, so no take was selected either. Try the picks again.", e);
+                    foreach (var (step, choice) in takePicks) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
+                    await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit);
+                    selected = true;
                 }
+                if (kept.Count > 0)
+                {
+                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit);
+                    keptSaved = true;
+                }
+                await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
+                    ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image.")
+                    : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take.")), ct: commit);
+            }
+            catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
+            {
+                if (selected) await RestoreSelectionsAsync(projectId, before, takePicks);
+                if (keptSaved) await RestoreKeptAsync(projectId, kept);
+                if (!selected && !keptSaved) throw;
+                throw new WorkspaceStoreException("The picks could not all be saved, so none was made. Try them again.", e);
+            }
             foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
-            await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
-                ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image.")
-                : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take.")), ct: commit);
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    // Returns the images a failed batch kept to waiting for review, where nothing else changed them since.
+    private async Task RestoreKeptAsync(Guid projectId, IReadOnlySet<AssetImageReference> kept)
+    {
+        try
+        {
+            var library = await assets.LoadAsync(projectId, CancellationToken.None);
+            if (!library.Assets.Any(a => a.Images.Any(i => i.PendingReview == false && kept.Contains(new(a.Id, i.Id))))) return;
+            await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => i.PendingReview == false && kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = true } : i).ToList() }).ToList() }, library.Revision, CancellationToken.None);
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
+        { logger.LogWarning(e, "The images kept by a batch of picks that failed could not be returned to review."); }
     }
 
     // Puts back the selections a failed batch made, where nothing else changed them since.
@@ -193,7 +220,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 if (latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) is { } shot && shot.SelectedTakeId == choice) { shot.SelectedTakeId = before[shot.Id]; changed = true; }
             if (changed) await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", CancellationToken.None);
         }
-        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException)
+        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
         { logger.LogWarning(e, "The takes selected by a batch of picks that failed could not be put back."); }
     }
 

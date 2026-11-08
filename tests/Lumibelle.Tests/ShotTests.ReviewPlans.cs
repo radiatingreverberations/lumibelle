@@ -1192,6 +1192,38 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task AMixedBatchHitByADiskErrorKeepingImagesPutsTheTakeBack()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        f.Assets.BeforeSave = () => { f.Assets.BeforeSave = null; throw new IOException("The disk is full."); };
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, take), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        Assert.Equal(ReviewStepState.Pick, (await f.Plan(plan)).Step(render.Id)!.State);
+    }
+
+    [Fact]
+    public async Task APickThatCannotBeRecordedLeavesEveryCandidateInAssets()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night.", Takes = 2 });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // While the image is kept, something else closes the plan, so the pick cannot be recorded.
+        f.Assets.BeforeSave = () => { f.Assets.BeforeSave = null; return f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { State = ReviewPlanState.Stopped }, ct: _ct); };
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, _ct));
+
+        Assert.Equal(ReviewStepState.Pick, (await f.Plan(plan)).Step(edit.Id)!.State);
+        var images = f.Assets.Library.Assets.SelectMany(a => a.Images).Where(i => made.Contains(i.Id)).ToArray();
+        Assert.Equal(2, images.Length);
+        Assert.All(images, i => Assert.True(i.PendingReview));
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);
