@@ -1224,6 +1224,47 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task TurningDownCandidatesRecordsThatBeforeTheyGoToTrash()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night.", Takes = 2 });
+        await f.Approve(plan);
+        f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        ReviewStepState? atTrash = null;
+        f.Assets.Discarded = () => { f.Assets.Discarded = null; atTrash = f.Plan(plan).GetAwaiter().GetResult().Step(edit.Id)!.State; };
+
+        await f.Runner.RejectPickAsync(f.Project, plan.Id, edit.Id, ReviewPlans.Director, _ct);
+
+        Assert.Equal(ReviewStepState.Skipped, atTrash);
+    }
+
+    [Fact]
+    public async Task APickWhoseUndoAlsoFailsSaysWhatWasLeft()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night.", Takes = 2 });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // The image is kept, the pick cannot be recorded, and returning the image to review fails every time.
+        var saves = 0;
+        f.Assets.BeforeSave = () => ++saves == 1
+            ? f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { State = ReviewPlanState.Stopped }, ct: _ct)
+            : throw new IOException("The disk is full.");
+
+        var e = await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, edit.Id, made[0], ReviewPlans.Director, _ct));
+
+        Assert.Contains("could not be undone", e.Message);
+        Assert.Contains("Assets", e.Message);
+        Assert.Equal(4, saves);
+        // Nothing went to Trash: both candidates are still there.
+        Assert.Equal(2, f.Assets.Library.Assets.SelectMany(a => a.Images).Count(i => made.Contains(i.Id)));
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);
