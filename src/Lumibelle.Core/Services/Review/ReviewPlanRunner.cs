@@ -24,6 +24,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private int _listening;
     /// <summary>Called after a pass reads a project's plans. Tests use it to change a plan in between.</summary>
     internal Action<Guid>? Listed { get; set; }
+    /// <summary>Called before a pass reads a project's plans. Tests use it to make that read fail.</summary>
+    internal Action<Guid>? Reading { get; set; }
 
     private void Watch(Guid project) => _watched.AddOrUpdate(project, 1, (_, seen) => seen + 1);
 
@@ -46,8 +48,10 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         {
             if (!_watched.TryGetValue(project, out var seen)) continue;
             IReadOnlyList<ReviewPlan> plans;
-            try { plans = await store.ListAsync(project, ct); }
-            catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read.", project); _watched.TryRemove(KeyValuePair.Create(project, seen)); continue; }
+            // A read that fails says nothing about whether the project still has a running plan, so it stays watched and is
+            // read again on the next pass.
+            try { Reading?.Invoke(project); plans = await store.ListAsync(project, ct); }
+            catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read. They are read again on the next pass.", project); continue; }
             Listed?.Invoke(project);
             // A plan approved after the read keeps the project watched.
             if (!plans.Any(p => p.Active)) { _watched.TryRemove(KeyValuePair.Create(project, seen)); continue; }
@@ -142,37 +146,55 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                 if (recommended && step.RecommendedTakeId != choice) throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.");
                 steps.Add((step, choice));
             }
-            // Once the picks start changing the project they run to the end, even if the caller goes away. Every take is selected
-            // in one save and every image kept in another, each checking that its choices are still there, so a take or image
-            // moved to Trash meanwhile refuses them all instead of leaving some picks made.
+            // Once the picks start changing the project they run to the end, even if the caller goes away. Every take and every
+            // image is checked before anything is written; then every take is selected in one save and every image kept in
+            // another. If keeping the images fails, the takes are put back as they were, so the batch is all or nothing.
             var commit = CancellationToken.None;
-            if (steps.Where(s => s.Step.Kind != ReviewStepKind.EditImage).ToArray() is { Length: > 0 } takePicks)
+            var takePicks = steps.Where(s => s.Step.Kind != ReviewStepKind.EditImage).ToArray();
+            var imagePicks = steps.Where(s => s.Step.Kind == ReviewStepKind.EditImage).ToArray();
+            var latest = await shots.LoadAsync(projectId, commit);
+            var library = await assets.LoadAsync(projectId, commit);
+            var chosen = imagePicks.Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
+            foreach (var (step, choice) in takePicks)
+                if (latest.Shots.All(s => s.Id != step.ShotId) || !latest.Takes.Any(t => t.Id == choice && t.ShotId == step.ShotId))
+                    throw new WorkspaceStoreException("A chosen take is no longer in the project. It may be in Trash. Nothing was picked.");
+            if (chosen.Any(c => library.Assets.FirstOrDefault(a => a.Id == c.AssetId)?.Images.Any(i => i.Id == c.ImageId) != true))
+                throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
+
+            var before = takePicks.ToDictionary(p => p.Step.ShotId!.Value, p => latest.Shots.Single(s => s.Id == p.Step.ShotId).SelectedTakeId);
+            if (takePicks.Length > 0)
             {
-                var latest = await shots.LoadAsync(projectId, commit);
-                foreach (var (step, choice) in takePicks)
-                {
-                    var shot = latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) ?? throw new WorkspaceStoreException("A shot of these picks was removed. Nothing was picked.");
-                    if (!latest.Takes.Any(t => t.Id == choice && t.ShotId == shot.Id)) throw new WorkspaceStoreException("A chosen take is no longer in the project. It may be in Trash. Nothing was picked.");
-                    shot.SelectedTakeId = choice;
-                }
+                foreach (var (step, choice) in takePicks) latest.Shots.Single(s => s.Id == step.ShotId).SelectedTakeId = choice;
                 await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit);
             }
-            if (steps.Where(s => s.Step.Kind == ReviewStepKind.EditImage).ToArray() is { Length: > 0 } imagePicks)
-            {
-                var library = await assets.LoadAsync(projectId, commit);
-                var chosen = imagePicks.Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
-                if (chosen.Any(c => library.Assets.FirstOrDefault(a => a.Id == c.AssetId)?.Images.Any(i => i.Id == c.ImageId) != true))
-                    throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
-                if (library.Assets.Any(a => a.Images.Any(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id)))))
-                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => chosen.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit);
-                foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
-            }
+            if (library.Assets.Any(a => a.Images.Any(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id)))))
+                try { await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => chosen.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit); }
+                catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException && takePicks.Length > 0)
+                {
+                    await RestoreSelectionsAsync(projectId, before, takePicks);
+                    throw new WorkspaceStoreException("The chosen images could not be kept, so no take was selected either. Try the picks again.", e);
+                }
+            foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
             await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
                 ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image.")
                 : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take.")), ct: commit);
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    // Puts back the selections a failed batch made, where nothing else changed them since.
+    private async Task RestoreSelectionsAsync(Guid projectId, IReadOnlyDictionary<Guid, Guid?> before, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> made)
+    {
+        try
+        {
+            var latest = await shots.LoadAsync(projectId, CancellationToken.None); var changed = false;
+            foreach (var (step, choice) in made)
+                if (latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) is { } shot && shot.SelectedTakeId == choice) { shot.SelectedTakeId = before[shot.Id]; changed = true; }
+            if (changed) await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", CancellationToken.None);
+        }
+        catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException)
+        { logger.LogWarning(e, "The takes selected by a batch of picks that failed could not be put back."); }
     }
 
     /// <summary>A proposer's advice on which of a step's new takes or images to use. The director still picks.</summary>

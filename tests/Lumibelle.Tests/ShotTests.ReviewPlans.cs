@@ -1146,6 +1146,70 @@ public sealed partial class ShotTests
         Assert.NotEqual(takes[0], selected);
     }
 
+    // A plan with a render of the first shot and an edit of Vera's portrait, both waiting for a pick.
+    private async Task<(PlanFixture F, ReviewPlan Plan, ReviewPlanStep Render, Guid Take, ReviewPlanStep Edit, Guid Image)> MixedPicksAsync()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Mixed", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Render."));
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night." });
+        await f.Approve(plan);
+        var running = await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        var take = (await f.Finish(running.Step(render.Id)!, 1))[0];
+        var image = f.FinishEdit(running.Step(edit.Id)!, 1)[0];
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        return (f, plan, render, take, edit, image);
+    }
+
+    [Fact]
+    public async Task AMixedBatchWithATrashedImageSelectsNoTake()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        // The chosen image goes to Trash before the picks are made.
+        var library = f.Assets.Library;
+        f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Where(i => i.Id != image).ToList() }).ToList() };
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, take), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        var after = await f.Plan(plan);
+        Assert.Equal((ReviewStepState.Pick, ReviewStepState.Pick), (after.Step(render.Id)!.State, after.Step(edit.Id)!.State));
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+    }
+
+    [Fact]
+    public async Task AMixedBatchWhoseImagesCannotBeKeptPutsTheTakeBack()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        // Keeping the image fails after the take was selected.
+        f.Assets.BeforeSave = () => { f.Assets.BeforeSave = null; throw new WorkspaceConflictException(); };
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, take), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        var after = await f.Plan(plan);
+        Assert.Equal((ReviewStepState.Pick, ReviewStepState.Pick), (after.Step(render.Id)!.State, after.Step(edit.Id)!.State));
+        Assert.Null((await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+        Assert.True(f.Assets.Library.Assets.SelectMany(a => a.Images).Single(i => i.Id == image).PendingReview);
+    }
+
+    [Fact]
+    public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
+    {
+        var f = await PlanFixture.Create(this, shots: 1);
+        await f.Runner.AdvanceAllAsync(_ct);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Render."));
+        await f.Approve(plan);
+        await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 1);
+        // The plans cannot be read on the pass that would settle the render.
+        f.Runner.Reading = _ => { f.Runner.Reading = null; throw new WorkspaceStoreException("The project is busy."); };
+
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+        Assert.Equal(ReviewStepState.Running, (await f.Plan(plan)).Step(render.Id)!.State);
+        await f.Runner.AdvanceWatchedAsync(ct: _ct);
+
+        Assert.Equal(ReviewStepState.Pick, (await f.Plan(plan)).Step(render.Id)!.State);
+    }
+
     private sealed class PlanFixture
     {
         public const string Prompt = "The camera holds as the mouse looks up.";
