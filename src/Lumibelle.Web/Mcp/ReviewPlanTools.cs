@@ -21,7 +21,7 @@ public sealed record TakePick([property: Description("The id of the take or imag
 /// the plan runs only after the director approves it.
 /// </summary>
 [McpServerToolType]
-public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IHttpContextAccessor http)
+public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, ReviewPlanRunner runner, IHttpContextAccessor http)
 {
     private const string Project = "The project's id, or its exact name.";
     private const string PlanId = "The plan's id, from create_plan or list_plans.";
@@ -139,7 +139,7 @@ public sealed class ReviewPlanTools(ReviewQueries queries, ReviewPlans plans, IH
         [Description("The id of the take or image you recommend, from the step's takesToPickFrom or imagesToPickFrom.")] string take, [Description("Why this take, from what its frames show.")] string reason, CancellationToken ct) => Guard(async () =>
     {
         var found = await queries.ProjectAsync(project, ct);
-        await plans.RecommendAsync(found.Id, Id(plan), Id(step), Id(take), reason, Client(http.HttpContext), ct);
+        await runner.RecommendAsync(found.Id, Id(plan), Id(step), Id(take), reason, Client(http.HttpContext), ct);
         return Text(new { recommended = take });
     });
 

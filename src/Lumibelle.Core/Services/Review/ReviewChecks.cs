@@ -134,7 +134,8 @@ public static partial class ReviewChecks
             if (row.SelectedTake is not { } take) continue;
             var rendered = take.Snapshot.Shot;
             foreach (var voice in rendered.Voices)
-                uses.Add((voice.CharacterAssetId ?? voice.AssetId, $"{voice.VoiceId:N}:{Number(voice.Start)}:{Number(voice.Duration)}",
+                // The recording is the voice; a different excerpt of the same recording is the same voice.
+                uses.Add((voice.CharacterAssetId ?? voice.AssetId, voice.VoiceId.ToString("N"),
                     snapshot.Assets.Voices.FirstOrDefault(v => v.Id == voice.VoiceId)?.Name ?? "a recording no longer in Assets", row.Number));
             foreach (var reel in rendered.Videos.Where(v => v.UseSoundtrack))
                 if (CharacterVoices.Owner(reel, snapshot.Assets) is { } owner) uses.Add((owner, "reel:" + reel.Media.Id.ToString("N"), $"the reel “{reel.Name}”", row.Number));

@@ -123,42 +123,77 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     /// Several picks at once. Every one is checked first, including that its take or image is still there, so a refusal leaves
     /// every selection as it was; the plan goes on only once all of them are made.
     /// </summary>
-    public async Task<ReviewPlan> PickAllAsync(Guid projectId, Guid planId, IReadOnlyList<(Guid Step, Guid Choice)> picks, string who, CancellationToken ct = default)
+    public async Task<ReviewPlan> PickAllAsync(Guid projectId, Guid planId, IReadOnlyList<(Guid Step, Guid Choice)> picks, string who, CancellationToken ct = default, bool recommended = false)
     {
         if (picks.Count == 0) throw new WorkspaceStoreException("Name at least one step and what was chosen for it.");
         if (picks.Select(p => p.Step).Distinct().Count() != picks.Count) throw new WorkspaceStoreException("Name each step or shot once, with the one take or image chosen for it.");
-        // Under the gate, as stopping is: a plan stopped while the picks were on their way gets nothing selected.
+        // Under the gate, as stopping and recommending are: a plan stopped, or a recommendation changed, while the picks were
+        // on their way gets nothing selected.
         await _gate.WaitAsync(ct);
         try
         {
-            var takes = (await shots.LoadAsync(projectId, ct)).Takes; var library = await assets.LoadAsync(projectId, ct);
+            var plan = await store.GetAsync(projectId, planId, ct);
             var steps = new List<(ReviewPlanStep Step, Guid Choice)>();
             foreach (var (stepId, choice) in picks)
             {
-                var step = await PickableAsync(projectId, planId, stepId, ct);
+                var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+                if (!plan.Active || step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
                 if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Pick one of the takes or images this step produced.");
-                var there = step.Kind == ReviewStepKind.EditImage ? library.Assets.Any(a => a.Id == step.AssetId && a.Images.Any(i => i.Id == choice)) : takes.Any(t => t.Id == choice && t.ShotId == step.ShotId);
-                if (!there) throw new WorkspaceStoreException("A chosen take or image is no longer in the project. It may be in Trash. Nothing was picked.");
+                if (recommended && step.RecommendedTakeId != choice) throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.");
                 steps.Add((step, choice));
             }
-            // Once the picks start changing the project they run to the end, even if the caller goes away: a pick half made
-            // would keep the image or select the take while the step still offered the others.
+            // Once the picks start changing the project they run to the end, even if the caller goes away. Every take is selected
+            // in one save and every image kept in another, each checking that its choices are still there, so a take or image
+            // moved to Trash meanwhile refuses them all instead of leaving some picks made.
             var commit = CancellationToken.None;
-            foreach (var (step, choice) in steps)
-                if (step.Kind == ReviewStepKind.EditImage)
+            if (steps.Where(s => s.Step.Kind != ReviewStepKind.EditImage).ToArray() is { Length: > 0 } takePicks)
+            {
+                var latest = await shots.LoadAsync(projectId, commit);
+                foreach (var (step, choice) in takePicks)
                 {
-                    await KeepImageAsync(projectId, step.AssetId!.Value, choice, commit);
-                    await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
-                    await store.UpdateAsync(projectId, planId, p => Picked(p, step.Id, s => s with { State = ReviewStepState.Done, NewImageId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image."), ct: commit);
+                    var shot = latest.Shots.FirstOrDefault(s => s.Id == step.ShotId) ?? throw new WorkspaceStoreException("A shot of these picks was removed. Nothing was picked.");
+                    if (!latest.Takes.Any(t => t.Id == choice && t.ShotId == shot.Id)) throw new WorkspaceStoreException("A chosen take is no longer in the project. It may be in Trash. Nothing was picked.");
+                    shot.SelectedTakeId = choice;
                 }
-                else
-                {
-                    await SelectAsync(projectId, step.ShotId!.Value, choice, commit);
-                    await store.UpdateAsync(projectId, planId, p => Picked(p, step.Id, s => s with { State = ReviewStepState.Done, TakeId = choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take."), ct: commit);
-                }
+                await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", commit);
+            }
+            if (steps.Where(s => s.Step.Kind == ReviewStepKind.EditImage).ToArray() is { Length: > 0 } imagePicks)
+            {
+                var library = await assets.LoadAsync(projectId, commit);
+                var chosen = imagePicks.Select(p => new AssetImageReference(p.Step.AssetId!.Value, p.Choice)).ToHashSet();
+                if (chosen.Any(c => library.Assets.FirstOrDefault(a => a.Id == c.AssetId)?.Images.Any(i => i.Id == c.ImageId) != true))
+                    throw new WorkspaceStoreException("A chosen image is no longer in Assets. It may be in Trash. Nothing was picked.");
+                if (library.Assets.Any(a => a.Images.Any(i => i.PendingReview == true && chosen.Contains(new(a.Id, i.Id)))))
+                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => chosen.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit);
+                foreach (var (step, choice) in imagePicks) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds.Where(i => i != choice).ToArray(), commit);
+            }
+            await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
+                ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked an image.")
+                : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow() }, who, "Picked a take.")), ct: commit);
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
+    }
+
+    /// <summary>A proposer's advice on which of a step's new takes or images to use. The director still picks.</summary>
+    public async Task<ReviewPlan> RecommendAsync(Guid projectId, Guid planId, Guid stepId, Guid choice, string reason, string who, CancellationToken ct = default)
+    {
+        reason = (reason ?? "").Trim();
+        if (reason.Length is 0 or > 2000) throw new WorkspaceStoreException("Say why in up to 2000 characters.");
+        // Under the gate, so a recommendation never changes between the check and the pick of an acceptance.
+        await _gate.WaitAsync(ct);
+        try
+        {
+            return await store.UpdateAsync(projectId, planId, plan =>
+            {
+                var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
+                if (step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
+                if (!step.Produced.Contains(choice)) throw new WorkspaceStoreException("Recommend one of the takes or images this step produced.");
+                return plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? s with { RecommendedTakeId = choice, Recommendation = reason } : s).ToArray(),
+                    Log = [.. plan.Log, new(clock.GetUtcNow(), who, $"Recommended a take for “{step.Reason}”.")] };
+            }, proposal: false, ct);
+        }
+        finally { _gate.Release(); }
     }
 
     /// <summary>None of a step's results will do. Steps that depended on the pick are skipped, and the rest of the plan goes on.</summary>
@@ -189,14 +224,6 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private ReviewPlan Picked(ReviewPlan plan, Guid stepId, Func<ReviewPlanStep, ReviewPlanStep> change, string who, string what) =>
         plan.Active && plan.Step(stepId)?.State == ReviewStepState.Pick ? Set(plan, stepId, change, who, what) : throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
 
-    private async Task KeepImageAsync(Guid projectId, Guid assetId, Guid imageId, CancellationToken ct)
-    {
-        var library = await assets.LoadAsync(projectId, ct);
-        if (library.Assets.FirstOrDefault(a => a.Id == assetId)?.Images.FirstOrDefault(i => i.Id == imageId) is not { } image) throw new WorkspaceStoreException("That image is no longer in Assets. It may be in Trash.");
-        if (image.PendingReview == false) return;
-        await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id != assetId ? a : a with { Images = a.Images.Select(i => i.Id == imageId ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, ct);
-    }
-
     // The candidates not chosen go to Trash, where they can be restored. Failing to move them never undoes a pick.
     private async Task DiscardCandidatesAsync(Guid projectId, ReviewPlanStep step, IReadOnlyCollection<Guid> images, CancellationToken ct)
     {
@@ -218,11 +245,9 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     /// </summary>
     public async Task<ReviewPlan> AcceptRecommendationsAsync(Guid projectId, Guid planId, string who, IReadOnlyDictionary<Guid, Guid> shown, CancellationToken ct = default)
     {
-        var plan = await store.GetAsync(projectId, planId, ct);
         if (shown.Count == 0) throw new WorkspaceStoreException("No step is waiting with a recommended take.");
-        var ready = shown.Select(pair => plan.Step(pair.Key) is { State: ReviewStepState.Pick } step && step.RecommendedTakeId == pair.Value ? step
-            : throw new WorkspaceStoreException("A recommendation changed after the plan was shown. Look at the picks again before accepting them.")).ToArray();
-        return await PickAllAsync(projectId, planId, ready.Select(s => (s.Id, s.RecommendedTakeId!.Value)).ToArray(), who, ct);
+        // Checked with the picks, under the gate, against the recommendations as they stand then.
+        return await PickAllAsync(projectId, planId, shown.Select(pair => (pair.Key, pair.Value)).ToArray(), who, ct, recommended: true);
     }
 
     // A queued render that finished becomes a pick; one that was cancelled or lost fails its step.

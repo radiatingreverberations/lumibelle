@@ -190,21 +190,6 @@ public sealed class ReviewPlans(ReviewPlanStore store, ProjectReview review, Tim
         Log = [.. plan.Log, new(now, who, "Stopped the plan.")]
     };
 
-    /// <summary>A proposer's advice on which of a step's new takes to use. The director still picks.</summary>
-    public async Task<ReviewPlan> RecommendAsync(Guid projectId, Guid planId, Guid stepId, Guid takeId, string reason, string who, CancellationToken ct = default)
-    {
-        reason = (reason ?? "").Trim();
-        if (reason.Length is 0 or > 2000) throw new WorkspaceStoreException("Say why in up to 2000 characters.");
-        return await store.UpdateAsync(projectId, planId, plan =>
-        {
-            var step = plan.Step(stepId) ?? throw new WorkspaceStoreException("That step is not in this plan.");
-            if (step.State != ReviewStepState.Pick) throw new WorkspaceStoreException("This step has nothing waiting for a pick.");
-            if (!step.Produced.Contains(takeId)) throw new WorkspaceStoreException("Recommend one of the takes or images this step produced.");
-            return plan with { Steps = plan.Steps.Select(s => s.Id == stepId ? s with { RecommendedTakeId = takeId, Recommendation = reason } : s).ToArray(),
-                Log = [.. plan.Log, new(clock.GetUtcNow(), who, $"Recommended a take for “{step.Reason}”.")] };
-        }, proposal: false, ct);
-    }
-
     /// <summary>Lets a held step run against the shot as it is now: for a prompt step, the prompt the director was shown.</summary>
     public Task<ReviewPlan> ReleaseAsync(Guid projectId, Guid planId, Guid stepId, string? currentPrompt, CancellationToken ct = default) =>
         store.UpdateAsync(projectId, planId, plan => Release(plan, stepId, currentPrompt, null), proposal: false, ct);

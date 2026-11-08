@@ -163,13 +163,17 @@ public sealed class ReviewChecksTests
         var b = f.Shot("B"); f.Take(b, select: true);
         Assert.DoesNotContain(f.Run(), x => x.Check == ReviewChecks.VoiceConsistency);
 
+        // Another excerpt of the same recording is still the same voice.
+        var excerpt = f.Shot("Excerpt"); f.Setup(excerpt).Shot.Voices[0].Start = 2; f.Setup(excerpt).Shot.Voices[0].Duration = 3; f.Take(excerpt, select: true);
+        Assert.DoesNotContain(f.Run(), x => x.Check == ReviewChecks.VoiceConsistency);
+
         var other = new VoiceReference { AssetId = f.Vera.Id, Name = "Vera, older take" }; f.Assets.Voices.Add(other);
         var c = f.Shot("C"); f.Setup(c).Shot.Voices[0].VoiceId = other.Id; f.Take(c, select: true);
 
         var finding = Assert.Single(f.Run(), x => x.Check == ReviewChecks.VoiceConsistency);
         Assert.Contains("Vera Sappleton has 2 different voices", finding.Message);
-        Assert.Contains("shots #1 and #2", finding.Message);
-        Assert.Contains("Vera, older take in shot #3", finding.Message);
+        Assert.Contains("shots #1, #2 and #3", finding.Message);
+        Assert.Contains("Vera, older take in shot #4", finding.Message);
     }
 
     [Fact]
@@ -257,9 +261,11 @@ public sealed class ReviewChecksTests
 
         var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
 
-        var use = Assert.Single(uses);
+        var use = Assert.Single(uses, u => u.TakeId is not null);
         Assert.Equal((bTake.Id, "Selected take"), (use.TakeId!.Value, use.Kind));
         Assert.Contains("now in Trash", use.Detail);
+        // B's next take would carry it the same way.
+        Assert.Equal(b.Id, Assert.Single(uses, u => u.Kind == "Shot").ShotId);
     }
 
     [Fact]
@@ -355,7 +361,7 @@ public sealed class ReviewChecksTests
         var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
 
         Assert.Single(uses, u => u.Kind == "Reel");
-        Assert.Equal(a.Id, Assert.Single(uses, u => u.Kind == "Shot").ShotId);
+        Assert.Equal([a.Id, b.Id], uses.Where(u => u.Kind == "Shot").Select(u => u.ShotId!.Value));
         Assert.Equal([aTake.Id, bTake.Id], uses.Where(u => u.Kind == "Selected take").Select(u => u.TakeId!.Value));
         Assert.Contains("Room walk", uses.Single(u => u.TakeId == aTake.Id).Detail);
     }
@@ -397,6 +403,20 @@ public sealed class ReviewChecksTests
         Assert.Contains("frame from", Assert.Single(uses, u => u.Kind == "Reel").Detail);
         Assert.Contains("Room walk", Assert.Single(uses, u => u.TakeId == cTake.Id).Detail);
         Assert.Contains(uses, u => u.TakeId == aTake.Id);
+    }
+
+    [Fact]
+    public void FindsAShotNotRenderedYetThatTakesAFrameCarryingThePicture()
+    {
+        var f = new Fixture(); var image = f.Room.Images[0];
+        var a = f.Shot("A"); f.Setup(a).Shot.Images.Add(new() { AssetId = f.Room.Id, MediaId = image.Id, Name = "Room" }); var aTake = f.Take(a, select: true);
+        // B has no take yet, but its first one will start from A's last frame.
+        var b = f.Shot("B"); f.Setup(b).Shot.StartFrame = new(aTake.Id, 38);
+
+        var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
+
+        var shot = Assert.Single(uses, u => u.Kind == "Shot" && u.ShotId == b.Id);
+        Assert.Contains("frame from", shot.Detail);
     }
 
     [Theory]
@@ -448,7 +468,8 @@ public sealed class ReviewChecksTests
 
         var uses = ReferenceUsage.Find(f.Snapshot(), f.Room.Id, image.Id);
 
-        Assert.Equal(still.Id, Assert.Single(uses, u => u.Kind == "Shot").ShotId);
+        // Shots whose next take would carry it: one selecting it, and those taking a frame from a take that carries it.
+        Assert.Equal([close.Id, later.Id, still.Id], uses.Where(u => u.Kind == "Shot").Select(u => u.ShotId!.Value));
         Assert.Equal([wideTake.Id, closeTake.Id], uses.Where(u => u.Kind == "Selected take").Select(u => u.TakeId!.Value));
         Assert.Equal(laterTake.Id, Assert.Single(uses, u => u.Kind == "Take").TakeId);
         Assert.Contains("frame from", uses.Single(u => u.TakeId == closeTake.Id).Detail);

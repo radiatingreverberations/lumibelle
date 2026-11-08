@@ -48,8 +48,8 @@ public static class ReferenceUsage
 
         foreach (var row in snapshot.Rows)
             if (Uses(row.Shot)) uses.Add(new("Shot", row.Id, row.Number, null, "Selected as a reference picture."));
-            else if (row.Shot.Videos.Select(v => v.Media?.Id).OfType<Guid>().Select(id => reelNames.GetValueOrDefault(id)).FirstOrDefault(name => name is not null) is { } name)
-                uses.Add(new("Shot", row.Id, row.Number, null, $"Uses the reel “{name}”, which carries it."));
+            // A shot not rendered yet carries the picture into its next take through a reel or a frame that carries it.
+            else if (Carries(row.Shot) is { } why) uses.Add(new("Shot", row.Id, row.Number, null, $"Would render {why}."));
         foreach (var (reel, why) in reels.Values)
             uses.Add(new("Reel", null, null, null, $"The reel “{reel.Name}” was generated {why}."));
         foreach (var take in snapshot.Shots.Takes.Where(t => tainted.ContainsKey(t.Id)))
