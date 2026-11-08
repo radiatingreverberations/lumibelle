@@ -1523,6 +1523,51 @@ public sealed partial class ShotTests
         Assert.DoesNotContain(f.Assets.Library.Assets.SelectMany(a => a.Images), i => i.Id == image);
     }
 
+    // An image pick a restart interrupted after the image was kept.
+    private async Task<(PlanFixture F, ReviewPlan Plan, ReviewPlanStep Edit, Guid[] Made)> InterruptedImagePickAsync()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night.", Takes = 2 });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        await f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { Steps = p.Steps.Select(s => s.Id == edit.Id ? s with { PickingChoice = made[0], PickingKeeps = true } : s).ToArray() }, ct: _ct);
+        var library = f.Assets.Library;
+        f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => i.Id == made[0] ? i with { PendingReview = false } : i).ToList() }).ToList() };
+        return (f, plan, edit, made);
+    }
+
+    [Fact]
+    public async Task AnInterruptedPickWhoseRecordFailsReturnsItsKeptImageToReview()
+    {
+        var (f, plan, edit, made) = await InterruptedImagePickAsync();
+        // Finishing the pick fails at its last save.
+        f.Runner.Recording = id => { if (id != edit.Id) return; f.Runner.Recording = null; throw new WorkspaceStoreException("The project is busy."); };
+
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        Assert.True(f.Assets.Library.Assets.SelectMany(a => a.Images).Single(i => i.Id == made[0]).PendingReview);
+        await f.Runner.RejectPickAsync(f.Project, plan.Id, edit.Id, ReviewPlans.Director, _ct);
+        Assert.DoesNotContain(f.Assets.Library.Assets.SelectMany(a => a.Images), i => made.Contains(i.Id));
+    }
+
+    [Fact]
+    public async Task AnInterruptedPickThatCanNeitherFinishNorUndoIsTriedOncePerAdvance()
+    {
+        var (f, plan, edit, made) = await InterruptedImagePickAsync();
+        // Finishing fails, and so does every attempt to return the image to review.
+        f.Runner.Recording = id => { if (id == edit.Id) throw new WorkspaceStoreException("The project is busy."); };
+        var saves = 0;
+        f.Assets.BeforeSave = () => { saves++; throw new IOException("The disk is full."); };
+
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+
+        // One round of undo attempts, and the record is kept for the next advance.
+        Assert.Equal(3, saves);
+        Assert.Equal(made[0], (await f.Plan(plan)).Step(edit.Id)!.PickingChoice);
+    }
+
     [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {

@@ -78,12 +78,14 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         try
         {
             // Each pass handles one step and reads the project again, so a later step sees what the earlier one changed.
-            var conflicts = new Dictionary<Guid, int>();
+            var conflicts = new Dictionary<Guid, int>(); var resumeTried = false;
             for (var pass = 0; pass < 2000; pass++)
             {
                 var plan = await store.GetAsync(projectId, planId, ct);
                 if (!plan.Active) return plan;
-                if (await ResumePicksAsync(plan, projectId, ct)) continue;
+                // Interrupted picks are tried once per advance: one that cannot be finished or undone now waits for the next
+                // advance, rather than this one retrying it on every pass while holding the gate.
+                if (!resumeTried) { resumeTried = true; if (await ResumePicksAsync(plan, projectId, ct)) continue; }
                 var snapshot = await review.LoadAsync(projectId, ct);
                 if (await SettleRenderAsync(snapshot, plan, ct) || await RunNextAsync(snapshot, plan, conflicts, ct)) continue;
                 if (!plan.Steps.Any(s => s.Open))
@@ -217,6 +219,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             if (kept.Count > 0)
                 keptSaved = (await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit)).Revision;
+            Recording?.Invoke(steps[0].Step.Id);
             await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
                 ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked an image.")
                 : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked a take.")), ct: commit);
@@ -225,8 +228,14 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         {
             var takesBack = selected is not { } shotsRevision || await RestoreSelectionsAsync(projectId, before, takePicks, shotsRevision);
             var imagesBack = keptSaved is not { } assetsRevision || await RestoreKeptAsync(projectId, kept, assetsRevision);
+            // An interrupted run may have written some of these before the restart, which this run found in place and left.
+            if (resuming && !await UndoInterruptedAsync(projectId, await shots.LoadAsync(projectId, commit), await assets.LoadAsync(projectId, commit), steps))
+            {
+                logger.LogWarning("What interrupted picks in plan {Plan} wrote could not all be undone; their record is kept for the next pass.", planId);
+                throw new WorkspaceStoreException("These picks could not be finished or undone yet. They are tried again on the next pass.", e);
+            }
             await ForgetPicksAsync(projectId, planId, steps);
-            if (selected is null && keptSaved is null) throw;
+            if (selected is null && keptSaved is null && !resuming) throw;
             // Say so when undoing failed too, rather than claim nothing was picked.
             throw new WorkspaceStoreException(takesBack && imagesBack ? "The picks could not all be saved, so none was made. Try them again."
                 : "The picks could not all be saved, and part of what was saved could not be undone: "
@@ -265,6 +274,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     {
         var interrupted = plan.Steps.Where(s => s.State == ReviewStepState.Pick && s.PickingChoice is not null).Select(s => (s, s.PickingChoice!.Value)).ToArray();
         if (interrupted.Length == 0) return false;
+        // Either way the plan is read again; the caller tries this once per advance.
         try { await CommitPicksAsync(projectId, plan.Id, interrupted, ReviewPlans.Director, resuming: true); }
         catch (WorkspaceStoreException e) { logger.LogWarning(e, "Picks interrupted in review plan {Plan} could not be finished.", plan.Id); }
         return true;
