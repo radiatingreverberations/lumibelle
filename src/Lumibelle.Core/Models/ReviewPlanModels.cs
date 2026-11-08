@@ -94,6 +94,8 @@ public sealed record ReviewPlanStep
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingChoice { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? PickingFrom { get; init; }
+    /// <summary>For an image, that the pick keeps it: it was waiting for review, and turning the pick down returns it there.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? PickingKeeps { get; init; }
     /// <summary>GenerateTakes, while held: the seconds per take the hold names, which releasing it agrees to.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? HeldSeconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? JobId { get; init; }

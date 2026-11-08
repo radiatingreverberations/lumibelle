@@ -152,12 +152,14 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             }
             // What is about to be picked is recorded first, with the take each shot had selected, so a restart part way through
             // finishes the picks instead of leaving takes selected for steps that still wait.
-            var current = await shots.LoadAsync(projectId, ct);
-            var intents = steps.ToDictionary(p => p.Step.Id, p => (p.Choice, From: p.Step.Kind == ReviewStepKind.EditImage ? null : current.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId));
+            var current = await shots.LoadAsync(projectId, ct); var images = await assets.LoadAsync(projectId, ct);
+            bool? Keeps(ReviewPlanStep step, Guid choice) => step.Kind != ReviewStepKind.EditImage ? null
+                : images.Assets.FirstOrDefault(a => a.Id == step.AssetId)?.Images.FirstOrDefault(i => i.Id == choice)?.PendingReview == true;
+            var intents = steps.ToDictionary(p => p.Step.Id, p => (p.Choice, From: p.Step.Kind == ReviewStepKind.EditImage ? null : current.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId, Keeps: Keeps(p.Step, p.Choice)));
             plan = await store.UpdateAsync(projectId, planId, p => p.Active && intents.Keys.All(id => p.Step(id)?.State == ReviewStepState.Pick)
-                ? p with { Steps = p.Steps.Select(s => intents.TryGetValue(s.Id, out var intent) ? s with { PickingChoice = intent.Choice, PickingFrom = intent.From } : s).ToArray() }
+                ? p with { Steps = p.Steps.Select(s => intents.TryGetValue(s.Id, out var intent) ? s with { PickingChoice = intent.Choice, PickingFrom = intent.From, PickingKeeps = intent.Keeps } : s).ToArray() }
                 : throw new WorkspaceStoreException("This step has nothing waiting for a pick."), ct: CancellationToken.None);
-            await CommitPicksAsync(projectId, planId, steps.Select(p => (plan.Step(p.Step.Id)!, p.Choice)).ToArray(), who);
+            await CommitPicksAsync(projectId, planId, steps.Select(p => (plan.Step(p.Step.Id)!, p.Choice)).ToArray(), who, resuming: false);
         }
         finally { _gate.Release(); }
         return await AdvanceAsync(projectId, planId, ct);
@@ -166,7 +168,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     // Writes picks recorded in their steps: the takes are selected, the images kept, the picks recorded, and only then are the
     // other candidates moved to Trash. Everything is checked before anything is written. A failure before the picks are
     // recorded puts the takes and images back where nobody saved since, clears the record, and says what is left.
-    private async Task CommitPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps, string who)
+    private async Task CommitPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps, string who, bool resuming)
     {
         var commit = CancellationToken.None;
         var takePicks = steps.Where(s => s.Step.Kind != ReviewStepKind.EditImage).ToArray();
@@ -192,8 +194,10 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         catch (StaleSelectionException) { await ForgetPicksAsync(projectId, planId, steps); throw new WorkspaceStoreException("Another take was selected for one of these shots meanwhile. Nothing was picked; look at the picks again."); }
         catch (WorkspaceStoreException)
         {
-            // An interrupted run may have selected takes already; they are put back before the record of what was there is cleared.
-            var interrupted = takePicks.Where(p => latest.Shots.First(s => s.Id == p.Step.ShotId).SelectedTakeId == p.Choice && p.Step.PickingFrom != p.Choice).ToArray();
+            // Finishing an interrupted run, which may have selected takes already: they are put back before the record of what
+            // was there is cleared. A pick being made now has written nothing yet, so a chosen take already selected is
+            // someone else's doing and stays.
+            var interrupted = !resuming ? [] : takePicks.Where(p => latest.Shots.FirstOrDefault(s => s.Id == p.Step.ShotId)?.SelectedTakeId == p.Choice && p.Step.PickingFrom != p.Choice).ToArray();
             if (interrupted.Length > 0 && !await RestoreSelectionsAsync(projectId, interrupted.ToDictionary(p => p.Step.ShotId!.Value, p => p.Step.PickingFrom), interrupted, latest.Revision))
             {
                 logger.LogWarning("Takes selected by interrupted picks in plan {Plan} could not be put back; their record is kept for the next pass.", planId);
@@ -215,8 +219,8 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             if (kept.Count > 0)
                 keptSaved = (await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => kept.Contains(new(a.Id, i.Id)) ? i with { PendingReview = false } : i).ToList() }).ToList() }, library.Revision, commit)).Revision;
             await store.UpdateAsync(projectId, planId, p => steps.Aggregate(p, (current, pick) => pick.Step.Kind == ReviewStepKind.EditImage
-                ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null }, who, "Picked an image.")
-                : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null }, who, "Picked a take.")), ct: commit);
+                ? Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, NewImageId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked an image.")
+                : Picked(current, pick.Step.Id, s => s with { State = ReviewStepState.Done, TakeId = pick.Choice, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, "Picked a take.")), ct: commit);
         }
         catch (Exception e) when (e is WorkspaceStoreException or WorkspaceConflictException or IOException or UnauthorizedAccessException)
         {
@@ -239,7 +243,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     private async Task ForgetPicksAsync(Guid projectId, Guid planId, IReadOnlyList<(ReviewPlanStep Step, Guid Choice)> steps)
     {
         var ids = steps.Select(s => s.Step.Id).ToHashSet();
-        try { await store.UpdateAsync(projectId, planId, p => p with { Steps = p.Steps.Select(s => ids.Contains(s.Id) && s.State == ReviewStepState.Pick ? s with { PickingChoice = null, PickingFrom = null } : s).ToArray() }, ct: CancellationToken.None); }
+        try { await store.UpdateAsync(projectId, planId, p => p with { Steps = p.Steps.Select(s => ids.Contains(s.Id) && s.State == ReviewStepState.Pick ? s with { PickingChoice = null, PickingFrom = null, PickingKeeps = null } : s).ToArray() }, ct: CancellationToken.None); }
         catch (Exception e) when (e is WorkspaceStoreException or IOException) { logger.LogWarning(e, "The record of picks that were not made could not be cleared."); }
     }
 
@@ -249,7 +253,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
     {
         var interrupted = plan.Steps.Where(s => s.State == ReviewStepState.Pick && s.PickingChoice is not null).Select(s => (s, s.PickingChoice!.Value)).ToArray();
         if (interrupted.Length == 0) return false;
-        try { await CommitPicksAsync(projectId, plan.Id, interrupted, ReviewPlans.Director); }
+        try { await CommitPicksAsync(projectId, plan.Id, interrupted, ReviewPlans.Director, resuming: true); }
         catch (WorkspaceStoreException e) { logger.LogWarning(e, "Picks interrupted in review plan {Plan} could not be finished.", plan.Id); }
         return true;
     }
@@ -336,10 +340,17 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
                     await shots.SaveAsync(projectId, latest.Shots, latest.Revision, "Choose production take", CancellationToken.None);
                 }
             }
+            // An interrupted pick may have kept its image: it returns to review, so it goes to Trash with the other candidates.
+            if (step is { PickingChoice: { } keptImage, Kind: ReviewStepKind.EditImage, PickingKeeps: true, AssetId: { } owner })
+            {
+                var library = await assets.LoadAsync(projectId, ct);
+                if (library.Assets.FirstOrDefault(a => a.Id == owner)?.Images.FirstOrDefault(i => i.Id == keptImage) is { PendingReview: false })
+                    await assets.SaveAsync(library with { Assets = library.Assets.Select(a => a.Id != owner ? a : a with { Images = a.Images.Select(i => i.Id == keptImage ? i with { PendingReview = true } : i).ToList() }).ToList() }, library.Revision, CancellationToken.None);
+            }
             // As with a pick, the rejection is recorded first and the candidates go to Trash only after, so a step that still
             // waits for its pick never lost them.
             var message = step.Kind == ReviewStepKind.EditImage ? "None of the candidates was picked. They are in Trash." : "None of the takes was picked. They stay in Shots.";
-            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null }, who, message), ct: CancellationToken.None);
+            await store.UpdateAsync(projectId, planId, p => Picked(p, stepId, s => s with { State = ReviewStepState.Skipped, Message = message, FinishedUtc = clock.GetUtcNow(), PickingChoice = null, PickingFrom = null, PickingKeeps = null }, who, message), ct: CancellationToken.None);
             if (step.Kind == ReviewStepKind.EditImage) await DiscardCandidatesAsync(projectId, step, step.ProducedImageIds, CancellationToken.None);
         }
         finally { _gate.Release(); }

@@ -1412,6 +1412,66 @@ public sealed partial class ShotTests
     }
 
     [Fact]
+    public async Task APickForARemovedShotIsRefusedAndForgotten()
+    {
+        var f = await PlanFixture.Create(this, shots: 2);
+        var plan = await f.Plans.CreateAsync(f.Project, "Render", "agent", _ct);
+        var render = await f.Propose(plan, new(ReviewStepKind.GenerateTakes, f.ShotIds[0], "Render."));
+        await f.Approve(plan);
+        var take = (await f.Finish((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(render.Id)!, 1))[0];
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        await f.Shots.DeleteShotsAsync(f.Project, [f.ShotIds[0]], (await f.Shots.LoadAsync(f.Project, _ct)).Revision, ct: _ct);
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAsync(f.Project, plan.Id, render.Id, take, ReviewPlans.Director, _ct));
+
+        Assert.Null((await f.Plan(plan)).Step(render.Id)!.PickingChoice);
+        // The next pass is not stuck on it.
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+    }
+
+    [Fact]
+    public async Task AFailedBatchLeavesTheChosenTakeIfAnotherEditorSelectedIt()
+    {
+        var (f, plan, render, take, edit, image) = await MixedPicksAsync();
+        // Once the picks are recorded, another editor selects the same take, and the chosen image goes to Trash.
+        void Meanwhile(Guid project, Guid id)
+        {
+            f.Plans.Store.Changed -= Meanwhile;
+            var document = f.Shots.LoadAsync(f.Project, _ct).GetAwaiter().GetResult();
+            document.Shots.Single().SelectedTakeId = take;
+            f.Shots.SaveAsync(f.Project, document.Shots, document.Revision, ct: _ct).GetAwaiter().GetResult();
+            var library = f.Assets.Library;
+            f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Where(i => i.Id != image).ToList() }).ToList() };
+        }
+        f.Plans.Store.Changed += Meanwhile;
+
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Runner.PickAllAsync(f.Project, plan.Id, [(render.Id, take), (edit.Id, image)], ReviewPlans.Director, _ct));
+
+        // The batch wrote no take, so the other editor's selection stays.
+        Assert.Equal(take, (await f.Shots.LoadAsync(f.Project, _ct)).Shots.Single().SelectedTakeId);
+    }
+
+    [Fact]
+    public async Task TurningDownAnInterruptedImagePickSendsTheKeptImageToTrashToo()
+    {
+        var f = await PlanFixture.Create(this, shots: 1, character: true);
+        var plan = await f.Plans.CreateAsync(f.Project, "Night", "agent", _ct);
+        var edit = await f.Propose(plan, new(ReviewStepKind.EditImage, null, "Night.") { AssetId = f.Vera.Id, ImageId = f.Vera.Images[0].Id, Prompt = "Make it night.", Takes = 2 });
+        await f.Approve(plan);
+        var made = f.FinishEdit((await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct)).Step(edit.Id)!, 2);
+        await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
+        // A restart came after the first image was kept and before the pick was recorded.
+        await f.Plans.Store.UpdateAsync(f.Project, plan.Id, p => p with { Steps = p.Steps.Select(s => s.Id == edit.Id ? s with { PickingChoice = made[0], PickingKeeps = true } : s).ToArray() }, ct: _ct);
+        var library = f.Assets.Library;
+        f.Assets.Library = library with { Assets = library.Assets.Select(a => a with { Images = a.Images.Select(i => i.Id == made[0] ? i with { PendingReview = false } : i).ToList() }).ToList() };
+
+        var done = await f.Runner.RejectPickAsync(f.Project, plan.Id, edit.Id, ReviewPlans.Director, _ct);
+
+        Assert.Equal(ReviewStepState.Skipped, done.Step(edit.Id)!.State);
+        Assert.DoesNotContain(f.Assets.Library.Assets.SelectMany(a => a.Images), i => made.Contains(i.Id));
+    }
+
+    [Fact]
     public async Task AFailedReadOfAProjectsPlansDoesNotStopItsRunningPlan()
     {
         var f = await PlanFixture.Create(this, shots: 1);
