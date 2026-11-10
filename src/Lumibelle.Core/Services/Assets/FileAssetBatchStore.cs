@@ -49,7 +49,7 @@ public sealed class FileAssetBatchStore(ProjectFiles files)
         foreach (var run in doc.Runs)
         {
             if (run.Id == Guid.Empty || run.TabId == Guid.Empty || run.Settings is null || !Enum.IsDefined(run.Kind) || !Enum.IsDefined(run.Settings.DefaultImageWorkflow) || !Enum.IsDefined(run.State) ||
-                run.CandidateCount is < 1 or > 4 || !ImageAspectPolicy.IsSupported(run.AspectRatio, false) || !ImageAspectPolicy.IsResolutionSupported(run.Resolution) ||
+                run.CandidateCount is < 1 or > 4 || !ImageAspectPolicy.IsSupported(run.AspectRatio, false, run.Settings.DefaultImageWorkflow) || !ImageAspectPolicy.IsResolutionSupported(run.Resolution) ||
                 run.Items is not { Count: > 0 and <= 200 } || run.Items.Any(i => i?.Context is null) || run.Items.DistinctBy(i => i.Id).Count() != run.Items.Count ||
                 run.Items.DistinctBy(i => (i.Context.AssetId, i.Context.LookId)).Count() != run.Items.Count ||
                 (run.Pending is null) != (run.PendingItemId is null) || run.PendingItemId is { } itemId && !run.Items.Any(i => i.Id == itemId) ||

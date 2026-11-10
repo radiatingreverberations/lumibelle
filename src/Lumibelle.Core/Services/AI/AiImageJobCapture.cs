@@ -86,6 +86,8 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
             configured = configured with { MossImage = MossImagePolicy.Settings(configured) };
         if (configured.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein)
             configured = configured with { Flux3Image = Flux3ImagePolicy.Settings(configured) };
+        if (configured.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3Image)
+            configured = configured with { MiniMaxH3Image = MiniMaxH3ImagePolicy.Settings(configured) };
         RegionalImageCapture? regional = null;
         foreach (var reference in sourceContexts)
         {
@@ -110,7 +112,7 @@ public sealed class AiImageJobCapture(IAiSettingsStore settings, IProjectStore p
             }
             else png = configured.DefaultImageWorkflow == ImageWorkflow.QwenImage21
                 ? await QwenImage21Inputs.PrepareAsync(media.Content, crop, ct)
-                : configured.DefaultImageWorkflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.MiniMaxH3 || CaptionImagePolicy.Supports(configured.DefaultImageWorkflow)
+                : configured.DefaultImageWorkflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.MiniMaxH3 or ImageWorkflow.MiniMaxH3Image || CaptionImagePolicy.Supports(configured.DefaultImageWorkflow)
                 ? await NativeImageInputs.PrepareAsync(media.Content, crop, ct, configured.DefaultImageWorkflow.Label())
                 : await ComfyReferenceImageEditor.PrepareSourcePngAsync(media.Content, crop, ct);
             inputs.Add(new(reference.Reference, crop, reference.Context, png));

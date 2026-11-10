@@ -121,7 +121,7 @@ public sealed partial class AiImageJobHandler(IAssetStore assets, IComfyImageJob
                     {
                         var image = ComfyReferenceImageGenerator.ReadOutput(output.Value, adapter.OutputNode(request));
                         await context.ReportAsync(new(new(GenerationPhase.Downloading, "Downloading the completed candidate…"), candidate.Number, total), true);
-                        var bytes = await ComfyReferenceImageGenerator.DownloadAsync(http, image, linked.Token);
+                        var bytes = await ComfyReferenceImageGenerator.DownloadAsync(http, image, linked.Token, ImageWorkflowLimits.MaximumOutputBytes(request.Workflow));
                         var imageInfo = ImageInspector.Inspect(bytes); var expected = QwenImage21Policy.OutputSize(request);
                         if ((request.Regional is null || request.Workflow == ImageWorkflow.QwenImage21) && (imageInfo.Width, imageInfo.Height) != expected) throw new AiGenerationException("The output dimensions do not match the captured canvas.");
                         staged = new(candidate.Id, image.FileName, bytes, metadata);
@@ -138,7 +138,7 @@ public sealed partial class AiImageJobHandler(IAssetStore assets, IComfyImageJob
                     catch (Exception e) when (e is IOException or HttpRequestException or WorkspaceStoreException or AiGenerationException or JsonException)
                     { throw new AiJobRecoveryException("The completed candidate could not be downloaded or staged. Retry output without generating again. " + e.Message, AiJobRecovery.RetryOutput, e); }
                 }
-                if (staged.CandidateId != candidate.Id || staged.Bytes is null || staged.Bytes.Length == 0 || staged.Bytes.LongLength > FileAssetStore.MaximumImageBytes ||
+                if (staged.CandidateId != candidate.Id || staged.Bytes is null || staged.Bytes.Length == 0 || staged.Bytes.LongLength > ImageWorkflowLimits.MaximumOutputBytes(request.Workflow) ||
                     !JsonElement.DeepEquals(JsonSerializer.SerializeToElement(staged.Metadata, AtomicJsonFile.Options), JsonSerializer.SerializeToElement(metadata, AtomicJsonFile.Options)))
                     throw new AiJobRecoveryException("The staged candidate does not match its captured inputs. Inspect its saved output before retrying.", AiJobRecovery.RetryOutput);
                 if (request.Regional is not null)

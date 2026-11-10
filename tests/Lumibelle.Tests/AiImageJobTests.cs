@@ -223,7 +223,7 @@ public sealed partial class AssetStoreTests
             var clients = new TestHttpFactory(_http); var monitor = TestComfy.Monitor();
             var real = new ComfyImageJobAdapter(new(clients, Settings, TimeProvider.System, monitor), new(clients, Settings, TimeProvider.System, monitor),
                 new(clients, TimeProvider.System, monitor), clients, Settings, new FakeProjectAiPreferencesStore());
-            Adapter = new(real, workflow is ImageWorkflow.MossImage or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2 or ImageWorkflow.ZImage ? "9" : workflow == ImageWorkflow.Flux2Klein9bKv ? "14" : editing ? "13" : "9");
+            Adapter = new(real, workflow is ImageWorkflow.MiniMaxH3Image or ImageWorkflow.MossImage or ImageWorkflow.Flux3ImageKlein or ImageWorkflow.Fibo2 or ImageWorkflow.ZImage ? "9" : workflow == ImageWorkflow.Flux2Klein9bKv ? "14" : editing ? "13" : "9");
             Worker = new(Assets, Adapter, clients, new(monitor), TimeProvider.System);
         }
         public static async Task<ImageJobFixture> Create(AssetStoreTests owner, ImageWorkflow workflow, bool editing)
@@ -239,14 +239,14 @@ public sealed partial class AssetStoreTests
             return f;
         }
         public Task<AiJobSubmission> Capture(int count = 1, IReadOnlyList<LoraSelection>? loras = null, IReadOnlyList<RegionalImageSelection>? regions = null,
-            QwenImage21Options? qwen = null, string aspect = "1:1")
+            QwenImage21Options? qwen = null, string aspect = "1:1", int? resolution = null)
         {
             var projects = new FakeProjectStore { Get = id => Task.FromResult<ProjectInfo?>(id == Project.Id ? Project : null) };
             var capture = new AiImageJobCapture(Settings, projects, Assets); var id = Guid.NewGuid(); var tab = Guid.NewGuid();
             return _editing ? capture.EditAsync(id, tab, AssetId, new() { ProjectId = Project.Id, Workflow = _workflow,
-                    SourceAssetId = References[0].AssetId, SourceImageId = References[0].ImageId, Prompt = "Original instruction · keep mouse_token", AspectRatio = aspect, Count = count, Seed = 123, QwenImage21 = qwen,
+                    SourceAssetId = References[0].AssetId, SourceImageId = References[0].ImageId, Prompt = "Original instruction · keep mouse_token", AspectRatio = aspect, Count = count, Seed = 123, Resolution = resolution ?? (_workflow == ImageWorkflow.MiniMaxH3Image ? 2048 : 1024), QwenImage21 = qwen,
                     SourceCrop = new() { X = .25, Width = .5 }, ReferenceCrops = [new(References[1], new() { Height = .5 })], Loras = loras ?? [], Regions = regions }, References, Ct)
-                : capture.CreateAsync(id, tab, AssetId, new() { ProjectId = Project.Id, Workflow = _workflow, Prompt = "Original instruction · keep mouse_token", AspectRatio = "1:1", Count = count, Seed = 123, Loras = loras ?? [] }, Ct);
+                : capture.CreateAsync(id, tab, AssetId, new() { ProjectId = Project.Id, Workflow = _workflow, Prompt = "Original instruction · keep mouse_token", AspectRatio = "1:1", Count = count, Seed = 123, Resolution = resolution ?? (_workflow == ImageWorkflow.MiniMaxH3Image ? 2048 : 1024), Loras = loras ?? [] }, Ct);
         }
         public async Task<AiJobContext> Claim(AiJobSubmission request)
         { await Jobs.EnqueueAsync(request, Ct); return Context((await Jobs.ClaimNextAsync(AiBackend.ComfyUI, 1, Ct))!, false); }

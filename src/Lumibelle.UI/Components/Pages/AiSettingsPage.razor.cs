@@ -55,7 +55,7 @@ public partial class AiSettingsPage
     private bool _imageDefaultsSelected, _imageEntryChosen;
     private string _videoSection = lumibelle.Components.Shots.VideoSettingsPanel.H3Section;
     private static readonly (string Key, string Label, string Kind)[] ImageEntries =
-        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.Flux3ImageKlein, ImageWorkflow.QwenImage21, ImageWorkflow.MossImage, ImageWorkflow.Fibo2, ImageWorkflow.ZImage, ImageWorkflow.MiniMaxH3, ImageWorkflow.CodexImages }
+        new[] { ImageWorkflow.Krea2, ImageWorkflow.Flux2Klein9bKv, ImageWorkflow.Flux3ImageKlein, ImageWorkflow.QwenImage21, ImageWorkflow.MossImage, ImageWorkflow.Fibo2, ImageWorkflow.ZImage, ImageWorkflow.MiniMaxH3, ImageWorkflow.MiniMaxH3Image, ImageWorkflow.CodexImages }
         .Select(w => (w.ToString(), w.Label(), w == ImageWorkflow.CodexImages ? "Local CLI" : "ComfyUI")).ToArray();
     private string ImageEntry => _imageDefaultsSelected ? AiProviderSidebar.DefaultsKey : _imageWorkflow.ToString();
     private void SelectImageEntry(string key)
@@ -91,6 +91,8 @@ public partial class AiSettingsPage
     private QwenImage21Settings _qwen = new();
     private bool IsMoss => _imageWorkflow == ImageWorkflow.MossImage;
     private MossImageSettings _moss = new();
+    private bool IsH3Image => _imageWorkflow == ImageWorkflow.MiniMaxH3Image;
+    private MiniMaxH3ImageSettings _h3Image = new();
     private bool IsFlux3 => _imageWorkflow == ImageWorkflow.Flux3ImageKlein;
     private Flux3ImageSettings _flux3 = new();
     private bool IsCaption => CaptionImagePolicy.Supports(_imageWorkflow);
@@ -106,18 +108,18 @@ public partial class AiSettingsPage
     }
     private string ImageModel
     {
-        get => IsCaption ? CaptionSettings.Model : IsFlux3 ? _flux3.Model : IsMoss ? _moss.Model : IsQwen ? _qwen.Model : IsKlein ? _fluxModel : _comfyImageModel;
-        set { if (IsCaption) CaptionSettings = CaptionSettings with { Model = value }; else if (IsFlux3) _flux3 = _flux3 with { Model = value }; else if (IsMoss) _moss = _moss with { Model = value }; else if (IsQwen) _qwen = _qwen with { Model = value }; else if (IsKlein) _fluxModel = value; else _comfyImageModel = value; }
+        get => IsH3Image ? _h3Image.Model : IsCaption ? CaptionSettings.Model : IsFlux3 ? _flux3.Model : IsMoss ? _moss.Model : IsQwen ? _qwen.Model : IsKlein ? _fluxModel : _comfyImageModel;
+        set { if (IsH3Image) _h3Image = _h3Image with { Model = value }; else if (IsCaption) CaptionSettings = CaptionSettings with { Model = value }; else if (IsFlux3) _flux3 = _flux3 with { Model = value }; else if (IsMoss) _moss = _moss with { Model = value }; else if (IsQwen) _qwen = _qwen with { Model = value }; else if (IsKlein) _fluxModel = value; else _comfyImageModel = value; }
     }
     private string ImageEncoder
     {
-        get => IsCaption ? CaptionSettings.TextEncoder : IsFlux3 ? _flux3.TextEncoder : IsMoss ? _moss.TextEncoder : IsQwen ? _qwen.TextEncoder : IsKlein ? _fluxEncoder : _comfyImageEncoder;
-        set { if (IsCaption) CaptionSettings = CaptionSettings with { TextEncoder = value }; else if (IsFlux3) _flux3 = _flux3 with { TextEncoder = value }; else if (IsMoss) _moss = _moss with { TextEncoder = value }; else if (IsQwen) _qwen = _qwen with { TextEncoder = value }; else if (IsKlein) _fluxEncoder = value; else _comfyImageEncoder = value; }
+        get => IsH3Image ? _h3Image.TextEncoder : IsCaption ? CaptionSettings.TextEncoder : IsFlux3 ? _flux3.TextEncoder : IsMoss ? _moss.TextEncoder : IsQwen ? _qwen.TextEncoder : IsKlein ? _fluxEncoder : _comfyImageEncoder;
+        set { if (IsH3Image) _h3Image = _h3Image with { TextEncoder = value }; else if (IsCaption) CaptionSettings = CaptionSettings with { TextEncoder = value }; else if (IsFlux3) _flux3 = _flux3 with { TextEncoder = value }; else if (IsMoss) _moss = _moss with { TextEncoder = value }; else if (IsQwen) _qwen = _qwen with { TextEncoder = value }; else if (IsKlein) _fluxEncoder = value; else _comfyImageEncoder = value; }
     }
     private string ImageVae
     {
-        get => IsCaption ? CaptionSettings.Vae : IsFlux3 ? _flux3.Vae : IsMoss ? _moss.Vae : IsQwen ? _qwen.Vae : IsKlein ? _fluxVae : _comfyImageVae;
-        set { if (IsCaption) CaptionSettings = CaptionSettings with { Vae = value }; else if (IsFlux3) _flux3 = _flux3 with { Vae = value }; else if (IsMoss) _moss = _moss with { Vae = value }; else if (IsQwen) _qwen = _qwen with { Vae = value }; else if (IsKlein) _fluxVae = value; else _comfyImageVae = value; }
+        get => IsH3Image ? _h3Image.Vae : IsCaption ? CaptionSettings.Vae : IsFlux3 ? _flux3.Vae : IsMoss ? _moss.Vae : IsQwen ? _qwen.Vae : IsKlein ? _fluxVae : _comfyImageVae;
+        set { if (IsH3Image) _h3Image = _h3Image with { Vae = value }; else if (IsCaption) CaptionSettings = CaptionSettings with { Vae = value }; else if (IsFlux3) _flux3 = _flux3 with { Vae = value }; else if (IsMoss) _moss = _moss with { Vae = value }; else if (IsQwen) _qwen = _qwen with { Vae = value }; else if (IsKlein) _fluxVae = value; else _comfyImageVae = value; }
     }
     private bool _imageCatalogRefreshed;
     private string SavedImageFileLabel(string value) => string.IsNullOrEmpty(value) ? "Choose a file…" :
@@ -394,6 +396,7 @@ public partial class AiSettingsPage
             case ImageWorkflow.Flux3ImageKlein: _flux3 = _settings!.Flux3Image ?? new(); break;
             case ImageWorkflow.Fibo2: _fibo = CaptionImagePolicy.Settings(_settings!, workflow); break;
             case ImageWorkflow.ZImage: _zimage = CaptionImagePolicy.Settings(_settings!, workflow); break;
+            case ImageWorkflow.MiniMaxH3Image: _h3Image = _settings!.MiniMaxH3Image ?? new(); break;
             case ImageWorkflow.MiniMaxH3: break; // Its files belong to Video models.
             case ImageWorkflow.CodexImages: _codexImageModel = _settings!.Codex.ImageModel; _codexImageEffort = _settings.Codex.ImageEffort ?? ""; break;
             case ImageWorkflow.Flux2Klein9bKv: _fluxModel = _settings!.FluxKleinModel; _fluxEncoder = _settings.FluxKleinTextEncoder; _fluxVae = _settings.FluxKleinVae; break;
@@ -437,6 +440,7 @@ public partial class AiSettingsPage
     // Each workflow saves only its own fields; the default workflow is saved from Defaults.
     private AiSettings ApplyImageWorkflowDraft(AiSettings settings, ImageWorkflow workflow) => workflow switch
     {
+        ImageWorkflow.MiniMaxH3Image => settings with { MiniMaxH3Image = _h3Image },
         ImageWorkflow.MiniMaxH3 => settings,
         ImageWorkflow.CodexImages => settings with { Codex = settings.Codex with { ImageModel = _codexImageModel, ImageEffort = string.IsNullOrEmpty(_codexImageEffort) ? null : _codexImageEffort } },
         ImageWorkflow.QwenImage21 => settings with { QwenImage21 = _qwen },
@@ -480,9 +484,9 @@ public partial class AiSettingsPage
             var images = await ImageGenerator.CheckAsync(ImageDraft, _token);
             var edits = await ImageEditor.CheckAsync(ImageDraft, _token);
             _imageModels = images.DiffusionModels; _imageEncoders = images.TextEncoders; _imageVaes = images.Vaes; _imageEditLoras = edits.Loras;
-            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageModels.Count > 0 && _imageModels.All(model => model.Id != ImageModel)) ImageModel = _imageModels[0].Id;
-            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageEncoders.Count > 0 && _imageEncoders.All(model => model.Id != ImageEncoder)) ImageEncoder = _imageEncoders[0].Id;
-            if (!IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageVaes.Count > 0 && _imageVaes.All(model => model.Id != ImageVae)) ImageVae = _imageVaes[0].Id;
+            if (!IsH3Image && !IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageModels.Count > 0 && _imageModels.All(model => model.Id != ImageModel)) ImageModel = _imageModels[0].Id;
+            if (!IsH3Image && !IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageEncoders.Count > 0 && _imageEncoders.All(model => model.Id != ImageEncoder)) ImageEncoder = _imageEncoders[0].Id;
+            if (!IsH3Image && !IsCaption && !IsFlux3 && !IsMoss && !IsQwen && _imageVaes.Count > 0 && _imageVaes.All(model => model.Id != ImageVae)) ImageVae = _imageVaes[0].Id;
             if (_imageWorkflow == ImageWorkflow.Krea2 && _imageEditLoras.Count > 0 && _imageEditLoras.All(model => model.Id != _comfyImageEditLora))
                 _comfyImageEditLora = _imageEditLoras.FirstOrDefault(model => Path.GetFileName(model.Id).Equals("krea2_identity_edit_v1_2.safetensors", StringComparison.OrdinalIgnoreCase))?.Id ?? _imageEditLoras[0].Id;
             images = await ImageGenerator.CheckAsync(ImageDraft, _token);

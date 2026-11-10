@@ -165,9 +165,9 @@ public sealed class ComfyReferenceImageGenerator(
         throw new AiGenerationException("ComfyUI finished without an image output.");
     }
 
-    internal static async Task<byte[]> DownloadHandledAsync(HttpClient http, ComfyOutput output, CancellationTokenSource timeout, CancellationToken caller)
+    internal static async Task<byte[]> DownloadHandledAsync(HttpClient http, ComfyOutput output, CancellationTokenSource timeout, CancellationToken caller, long maximumBytes = FileAssetStore.MaximumImageBytes)
     {
-        try { return await DownloadAsync(http, output, timeout.Token); }
+        try { return await DownloadAsync(http, output, timeout.Token, maximumBytes); }
         catch (OperationCanceledException)
         {
             if (caller.IsCancellationRequested) throw new AiCancellationException("Generation cancelled.", caller);
@@ -176,13 +176,13 @@ public sealed class ComfyReferenceImageGenerator(
         catch (HttpRequestException) { throw new AiGenerationException("The completed image could not be downloaded from ComfyUI."); }
     }
 
-    internal static async Task<byte[]> DownloadAsync(HttpClient http, ComfyOutput output, CancellationToken ct)
+    internal static async Task<byte[]> DownloadAsync(HttpClient http, ComfyOutput output, CancellationToken ct, long maximumBytes = FileAssetStore.MaximumImageBytes)
     {
         var url = $"view?filename={Uri.EscapeDataString(output.FileName)}&subfolder={Uri.EscapeDataString(output.Subfolder)}&type={Uri.EscapeDataString(output.Type)}";
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
-        if (response.Content.Headers.ContentLength is > FileAssetStore.MaximumImageBytes)
-            throw new AiGenerationException("ComfyUI returned an image larger than 25 MB.");
+        if (response.Content.Headers.ContentLength > maximumBytes)
+            throw new AiGenerationException($"ComfyUI returned an image larger than {maximumBytes / 1024 / 1024} MB.");
         await using var source = await response.Content.ReadAsStreamAsync(ct);
         await using var result = new MemoryStream();
         var buffer = new byte[81920];
@@ -190,7 +190,7 @@ public sealed class ComfyReferenceImageGenerator(
         {
             var read = await source.ReadAsync(buffer, ct);
             if (read == 0) break;
-            if (result.Length + read > FileAssetStore.MaximumImageBytes) throw new AiGenerationException("ComfyUI returned an image larger than 25 MB.");
+            if (result.Length + read > maximumBytes) throw new AiGenerationException($"ComfyUI returned an image larger than {maximumBytes / 1024 / 1024} MB.");
             await result.WriteAsync(buffer.AsMemory(0, read), ct);
         }
         return result.ToArray();

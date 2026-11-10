@@ -88,7 +88,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
         try
         {
             await content.CopyToAsync(memory, cancellationToken);
-            if (memory.Length is 0 or > MaximumImageBytes)
+            if (memory.Length == 0 || memory.Length > ImageWorkflowLimits.MaximumOutputBytes(input.Generation?.Workflow))
                 throw new WorkspaceStoreException("Choose a PNG, JPEG, or WebP image no larger than 25 MB.");
             var info = ImageInspector.Inspect(memory.GetBuffer().AsSpan(0, checked((int)memory.Length)));
             var imageId = Guid.NewGuid();
@@ -280,6 +280,7 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             QwenImage21Policy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             MossImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             Flux3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
+            MiniMaxH3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             CaptionImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             H3ImagePolicy.InvalidMetadata(image.Generation, image.Width, image.Height) ||
             image.Generation is { } resolutionMetadata && !ImageWorkflowLimits.SupportsResolution(resolutionMetadata.Workflow, resolutionMetadata.Resolution) ||
@@ -344,6 +345,11 @@ public sealed partial class FileAssetStore(ProjectFiles files, TimeProvider cloc
             return edit.References.Count is < 1 or > MossImagePolicy.MaximumReferences ||
                 edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
                 edit.FitMode != "moss-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null;
+        if (generation.Workflow == ImageWorkflow.MiniMaxH3Image)
+            return edit.References.Count is < 1 or > MiniMaxH3ImagePolicy.MaximumReferences ||
+                edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||
+                edit.FitMode != "minimax-h3-image-reference-latent" || edit.ReferenceBoost != 0 || edit.GroundingPixels != 0 || edit.BaseReferenceBoost is not null ||
+                edit.Lora != "" || edit.LoraStrength != 0;
         if (generation.Workflow == ImageWorkflow.Flux3ImageKlein)
             return edit.References.Count is < 1 or > Flux3ImagePolicy.MaximumReferences ||
                 edit.References[0] != new AssetImageReference(edit.SourceAssetId, edit.SourceImageId) ||

@@ -32,6 +32,44 @@ public sealed class PromptEnhancerTests
     { Assert.Equal(id, PromptProfiles.Id(workflow, edit)); Assert.Contains(content, PromptProfiles.Read(workflow, edit), StringComparison.OrdinalIgnoreCase); }
 
     [Fact]
+    public async Task H3ImageCreationPreservesParagraphsAndNonEnglishLettering()
+    {
+        const string caption = "A restrained illustrated storefront with a sign reading \"ÖPPET\". mouse_token\n\nWarm window light illuminates the doorway.";
+        _providers.Chat.Output = JsonSerializer.Serialize(new { kind = "Prompt", text = caption });
+        var context = Context with { Workflow = ImageWorkflow.MiniMaxH3Image, MaximumReferences = 16, Resolution = 2048, ProtectedTriggers = ["mouse_token"] };
+        var updates = await Run(new PromptEnhancer(_providers, _settings, Store), new(context, Model));
+        Assert.Null(updates[^1].Error); Assert.Equal(caption, updates[^1].Result!.Text);
+        Assert.Contains("natural paragraph breaks", _providers.Chat.Messages[0].Text);
+        Assert.Contains("composition first", _providers.Chat.Messages[0].Text);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task H3ImageEditingUsesSourceRelationshipsAndKeepsColorTransferLocal(bool inspect)
+    {
+        var jacket = new AssetImage { Id = Guid.NewGuid(), FileName = "jacket.png", ContentType = "image/png", Width = 100, Height = 60 };
+        var donor = jacket with { Id = Guid.NewGuid() };
+        var store = Store; store.Library = store.Library with { Assets = [_asset with { Images = [jacket, donor] }] };
+        var context = Context with { Workflow = ImageWorkflow.MiniMaxH3Image, IsEdit = true, Resolution = 2048, MaximumReferences = 16,
+            Prompt = "Give the jacket from Image 1 only the color from Image 2, retaining its fabric and cut.",
+            References = [new(new(_asset.Id, jacket.Id), "Jacket", "", new() { Width = .5 }), new(new(_asset.Id, donor.Id), "Color donor", "", null)] };
+        const string caption = "The jacket in <Picture 1> is <Subject 1>. The color in <Picture 2> is <Subject 2>. The target image shows <Subject 1> with the color supplied by <Subject 2>, retaining its fabric and cut.";
+        _providers.Chat.Output = JsonSerializer.Serialize(new { kind = "Prompt", text = caption });
+        var updates = await Run(new PromptEnhancer(_providers, _settings, store), new(context, Model, inspect));
+        Assert.Equal(caption, updates[^1].Result!.Text);
+        var system = _providers.Chat.Messages[0].Text!;
+        Assert.Contains("source definitions", system); Assert.Contains("Partial preservation", system);
+        Assert.Contains("When image inspection is off", system);
+        Assert.Contains("partially preserved", system);
+        using var payload = JsonDocument.Parse(_providers.Chat.Messages[^1].Text!);
+        Assert.Equal("<Picture 1>", payload.RootElement.GetProperty("references")[0].GetProperty("nativeLabel").GetString());
+        Assert.Equal("<Picture 2>", payload.RootElement.GetProperty("references")[1].GetProperty("nativeLabel").GetString());
+        var images = _providers.Chat.Messages[^1].Contents.OfType<DataContent>().ToArray();
+        Assert.Equal(inspect ? 2 : 0, images.Length);
+        if (inspect) { var size = Image.Identify(images[0].Data.Span); Assert.Equal((50, 60), (size.Width, size.Height)); }
+    }
+
+    [Fact]
     public void ChangesSinceARequestAreNamedForTheAuthor()
     {
         var was = Context with { TargetLook = new(_asset.Id, "Mouse", "A drawn mouse", "", Guid.NewGuid(), "Coat", "Red coat", "") };

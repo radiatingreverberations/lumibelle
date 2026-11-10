@@ -19,7 +19,7 @@ public sealed partial class AssetBatchWorkflow(FileAssetBatchStore store, IAsset
         reviewer = reviewer is null ? null : Copy(reviewer);
         promptModel = promptModel is null ? null : Copy(promptModel);
         var configured = Copy(await settings.LoadAsync(ct)) with { DefaultImageWorkflow = workflow };
-        if (items.Count is < 1 or > 200 || count is < 1 or > 4 || !ImageAspectPolicy.IsSupported(aspect, false) || !ImageAspectPolicy.IsResolutionSupported(resolution))
+        if (items.Count is < 1 or > 200 || count is < 1 or > 4 || !ImageAspectPolicy.IsSupported(aspect, false, workflow) || !ImageAspectPolicy.IsResolutionSupported(resolution))
             throw new WorkspaceStoreException("Choose one to 200 asset/looks, one to four candidates and supported output settings.");
         if (promptModel is not null)
         {

@@ -469,7 +469,7 @@ public sealed partial class ShotTests
         await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Propose(plan, Bad(references: [new(f.Vera.Id, Guid.NewGuid())])));
 
         var snapshot = await f.Review.LoadAsync(f.Project, _ct);
-        Assert.EndsWith("with 1 more reference on MiniMax H3 (10Eros Compact · 8 steps)", ReviewPlans.Describe(snapshot, edit));
+        Assert.EndsWith("with 1 more reference on MiniMax H3 (video-model edit) (10Eros Compact · 8 steps)", ReviewPlans.Describe(snapshot, edit));
         await f.Approve(plan);
         await f.Runner.AdvanceAsync(f.Project, plan.Id, _ct);
 

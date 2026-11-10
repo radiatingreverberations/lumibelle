@@ -23,7 +23,7 @@ public sealed partial class FileAssetStore
         int read;
         while ((read = await content.ReadAsync(buffer, ct)) != 0)
         {
-            if (memory.Length + read > MaximumImageBytes) throw new WorkspaceStoreException("The generated image exceeds 25 MB.");
+            if (memory.Length + read > ImageWorkflowLimits.MaximumOutputBytes(generation.Workflow)) throw new WorkspaceStoreException("The generated image exceeds this workflow’s output size limit.");
             await memory.WriteAsync(buffer.AsMemory(0, read), ct);
         }
         if (memory.Length == 0) throw new WorkspaceStoreException("The generated image is empty.");

@@ -68,6 +68,14 @@ public static class ImageModelFiles
             F(Encoder, Qwen, "text_encoders/qwen3vl_8b_bf16.safetensors", "BF16", 17.53),
             F(Vae, Qwen, "vae/qwen_image_2.1_vae_bf16.safetensors", "BF16", .68)
         ]),
+        ImageWorkflow.MiniMaxH3Image => new("https://huggingface.co/Comfy-Org/MiniMax-H3-Image", "https://docs.comfy.org/tutorials/image/minimax/minimax-h3-image", [
+            F(Model, "Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_bf16.safetensors", "BF16", 40.23),
+            F(Model, "Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors", "INT8", 21),
+            F(Model, "Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_w4a8.safetensors", "W4A8", 12.55),
+            F(Encoder, "Comfy-Org/MiniMax-H3-Image", "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "INT8", 27.14),
+            F(Encoder, "Comfy-Org/MiniMax-H3-Image", "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "NVFP4", 15.69, note: Nvidia4Bit),
+            F(Vae, "Comfy-Org/MiniMax-H3-Image", "vae/minimax_h3_image_vae_fp16.safetensors", "FP16", 1.17)
+        ]),
         ImageWorkflow.Flux3ImageKlein => new($"https://huggingface.co/{Flux3}", $"https://huggingface.co/{Flux3}#using-with-comfyui", [
             F(Model, Flux3, "diffusion_models/flux3-image-klein-int8-convrot.safetensors", "INT8", 5.83, "Distilled"),
             F(Model, Flux3, "diffusion_models/flux3-image-klein-bf16.safetensors", "BF16", 11.10, "Distilled"),

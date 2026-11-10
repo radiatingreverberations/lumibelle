@@ -320,7 +320,7 @@ else
                         <div class="generation-advanced">
                             <label for="fixed-seed">Seed <span>(blank for fresh)</span></label>
                             <input id="fixed-seed" disabled="@_composerLocked" inputmode="numeric" @bind="_fixedSeed" @bind:event="oninput" />
-                            @if (IsEditMode && !IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption && !IsH3)
+                            @if (IsEditMode && !IsH3Image && !IsKlein && !IsQwen && !IsMoss && !IsFlux3 && !IsCaption && !IsH3)
                             {
                                 @if (_additionalReferences.Count > 0)
                                 {
@@ -373,6 +373,7 @@ else
                                 <select id="aspect" disabled="@_composerLocked" @bind="ImageAspect">
                                     <option value="@ImageAspectPolicy.FromImage1" disabled="@(!IsEditMode)">From Image 1</option>
                                     @foreach (var ratio in AspectRatios) { <option>@ratio</option> }
+                                    @if (IsH3Image) { <option>21:9</option> }
                                 </select>
                         </label>
                         <label for="candidate-count">Takes
@@ -385,10 +386,12 @@ else
                         <div class="image-resolution-options">
                             <label for="image-resolution">Resolution</label>
                             <select id="image-resolution" disabled="@_composerLocked" value="@ImageResolution" @onchange="ChangeImageResolution">
+                                @if (!IsH3Image) {
                                 <option value="1024">1K · ~1 MP</option>
                                 <option value="1440">1440 · ~2 MP</option>
+                                }
                                 <option value="2048">2K · ~4 MP</option>
-                                @if (IsFlux3) { <option value="4096">4K · ~16 MP</option> }
+                                @if (IsFlux3 || IsH3Image) { <option value="4096">@(IsH3Image ? "Native · ~16 MP" : "4K · ~16 MP")</option> }
                                 @if (IsQwen && IsEditMode) { <option value="0">Original input sizes</option> }
                             </select>
                             <span class="field-hint image-output-size">@ImageOutputLabel</span>
@@ -839,6 +842,7 @@ else
     private bool IsCodex => _imageWorkflow == ImageWorkflow.CodexImages;
     private bool IsKlein => _imageWorkflow == ImageWorkflow.Flux2Klein9bKv;
     private bool IsMoss => _imageWorkflow == ImageWorkflow.MossImage;
+    private bool IsH3Image => _imageWorkflow == ImageWorkflow.MiniMaxH3Image;
     private bool IsFlux3 => _imageWorkflow == ImageWorkflow.Flux3ImageKlein;
     private bool IsH3 => _imageWorkflow == ImageWorkflow.MiniMaxH3;
     private string _h3Preset = H3ImagePolicy.StandardPreset;
@@ -901,7 +905,7 @@ else
         _referenceToAdd = "";
     }
     private Task CheckImageWorkflowAsync() => CheckImageWorkflowCoreAsync(false);
-    private Task ImageWorkflowChanged() { _resolveImageDefault = false; _imageRecipeLoras = null; return CheckImageWorkflowAsync(); }
+    private Task ImageWorkflowChanged() { if (!ImageAspectPolicy.IsSupported(ImageAspect, IsEditMode, _imageWorkflow)) _aspect = "1:1"; _resolveImageDefault = false; _imageRecipeLoras = null; return CheckImageWorkflowAsync(); }
     private async Task CheckImageWorkflowCoreAsync(bool refreshLoras)
     {
         var version = ++_imageCheckVersion;

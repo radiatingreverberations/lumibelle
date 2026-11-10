@@ -106,6 +106,12 @@ With **FLUX.2 Klein 9B KV**, choose **Edit image** to make that take **image 1**
 
 The default Distilled checkpoint uses 16 steps; Base uses 50 steps and CFG 3.5. Configure the matching files and variant in [AI setup](ai-setup.md#flux-3-image-klein). FLUX 3 also offers **4K** output as a roughly 16-megapixel canvas with the selected aspect ratio. This increases memory use; reference size is configured separately and does not set the output dimensions.
 
+### MiniMax H3 Image
+
+**MiniMax H3 Image** creates from text and edits with up to sixteen ordered pictures. Use **Image 1** as the source and assign a clear role to each additional picture. **Enhance** develops a scene description for creation or defines source subjects and their target relationships for editing. Review the suggested text and exact lettering before applying it. The selected canvas starts at **4 MP** and offers **Native · ~16 MP**, including 21:9. **From Image 1** follows the cropped source's proportions.
+
+Configure the dedicated image checkpoint and VAE in **AI settings → Image models → MiniMax H3 Image**. The text encoder is shared with H3 video. The older **MiniMax H3 (video-model edit)** entry offers the video model's single-frame editing and presets. Each workflow keeps its own saved recipes.
+
 ### Fibo, Qwen Turbo and Z-Image
 
 **Fibo 2.0 Dev** creates and edits images. **Edit Turbo** requires at least one reference and defaults to four steps. Add up to four ordered references through Inputs. **Enhance** proposes an editable VGL JSON caption; review it before applying. For edits it includes the requested change as `edit_instruction`. Input crops, regional protection, take review and output recovery use the existing tools.

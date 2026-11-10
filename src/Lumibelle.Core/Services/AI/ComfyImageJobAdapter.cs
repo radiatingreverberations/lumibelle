@@ -12,7 +12,7 @@ public interface IComfyImageJobAdapter
 }
 
 public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, ComfyReferenceImageEditor edit, ComfyFluxKleinImages klein,
-    IHttpClientFactory clients, IAiSettingsStore settings, IProjectAiPreferencesStore preferences, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null, ComfyH3Images? h3 = null) : IComfyImageJobAdapter
+    IHttpClientFactory clients, IAiSettingsStore settings, IProjectAiPreferencesStore preferences, ComfyQwenImage21? qwen = null, ComfyMossImages? moss = null, ComfyFlux3Images? flux3 = null, ComfyCaptionImages? caption = null, ComfyH3Images? h3 = null, ComfyMiniMaxH3Images? h3Image = null) : IComfyImageJobAdapter
 {
     public async Task ValidateAsync(AiImageJobRequest request, CancellationToken ct)
     {
@@ -24,6 +24,11 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
         else if (CaptionImagePolicy.Supports(request.Workflow))
         {
             var check = await (caption ?? throw new AiGenerationException("Caption image service is unavailable.")).CheckAsync(request.Settings, request.Workflow, request.Edit is not null, ct);
+            if (!check.Success) throw new AiGenerationException(check.Message);
+        }
+        else if (request.Workflow == ImageWorkflow.MiniMaxH3Image)
+        {
+            var check = await (h3Image ?? throw new AiGenerationException("MiniMax H3 Image service is unavailable.")).CheckAsync(request.Settings, request.Edit is not null, ct);
             if (!check.Success) throw new AiGenerationException(check.Message);
         }
         else if (request.Workflow == ImageWorkflow.Flux3ImageKlein)
@@ -79,6 +84,8 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
             return ComfyH3Images.BuildWorkflow(request.Settings, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras, H3ImagePolicy.Preset(request.Edit));
         if (CaptionImagePolicy.Supports(request.Workflow))
             return ComfyCaptionImages.BuildWorkflow(request.Settings, request.Workflow, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras);
+        if (request.Workflow == ImageWorkflow.MiniMaxH3Image)
+            return ComfyMiniMaxH3Images.BuildWorkflow(request.Settings, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras);
         if (request.Workflow == ImageWorkflow.Flux3ImageKlein)
             return ComfyFlux3Images.BuildWorkflow(request.Settings, request.Prompt.Trim(), candidate.Seed, size.Width, size.Height, images, clientId, request.AppliedLoras);
         if (request.Workflow == ImageWorkflow.MossImage)
@@ -94,6 +101,7 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
     }
     public ComfyExecutionOptions Options(AiImageJobRequest request) => request.Workflow == ImageWorkflow.MiniMaxH3 ? ComfyH3Images.ExecutionOptions
         : CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.ExecutionOptions
+        : request.Workflow == ImageWorkflow.MiniMaxH3Image ? ComfyMiniMaxH3Images.ExecutionOptions
         : request.Workflow == ImageWorkflow.Flux3ImageKlein ? ComfyFlux3Images.ExecutionOptions
         : request.Workflow == ImageWorkflow.MossImage ? ComfyMossImages.ExecutionOptions
         : request.Workflow == ImageWorkflow.QwenImage21 ? ComfyQwenImage21.ExecutionOptions
@@ -101,6 +109,7 @@ public sealed class ComfyImageJobAdapter(ComfyReferenceImageGenerator krea, Comf
         : request.Edit is null ? ComfyReferenceImageGenerator.ExecutionOptions : ComfyReferenceImageEditor.ExecutionOptions;
     public string OutputNode(AiImageJobRequest request) => request.Workflow == ImageWorkflow.MiniMaxH3 ? ComfyH3Images.OutputNode
         : CaptionImagePolicy.Supports(request.Workflow) ? ComfyCaptionImages.OutputNode
+        : request.Workflow == ImageWorkflow.MiniMaxH3Image ? ComfyMiniMaxH3Images.OutputNode
         : request.Workflow == ImageWorkflow.Flux3ImageKlein ? ComfyFlux3Images.OutputNode
         : request.Workflow == ImageWorkflow.MossImage ? ComfyMossImages.OutputNode
         : request.Workflow == ImageWorkflow.QwenImage21 ? ComfyQwenImage21.OutputNode

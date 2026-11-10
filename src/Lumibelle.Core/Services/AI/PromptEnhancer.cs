@@ -142,11 +142,11 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
         if (images.Count != (request.InspectImages ? c.References.Count : 0)) throw new AiGenerationException("Inspection images do not match the captured reference slots.");
         // ComfyUI's TextGenerate preview has no finish reason. Keep its explicit JSON envelope
         // so a normally completed job with cut-off text cannot masquerade as a complete paragraph.
-        var structured = request.Model.Backend == AiBackend.ComfyUI || c.Workflow == ImageWorkflow.Fibo2;
+        var structured = request.Model.Backend == AiBackend.ComfyUI || c.Workflow is ImageWorkflow.Fibo2 or ImageWorkflow.MiniMaxH3Image;
         var outputContract = structured
             ? "Return exactly one complete JSON object with string fields kind and text, and no other output. " +
               "kind must be Prompt, NeedsInput, or NeedsSetup. " +
-              (c.Workflow == ImageWorkflow.Fibo2 ? "For Prompt, text is a JSON string containing the complete VGL JSON object. " : "For Prompt, text is the finished English paragraph. ") +
+              (c.Workflow == ImageWorkflow.Fibo2 ? "For Prompt, text is a JSON string containing the complete VGL JSON object. " : "For Prompt, text is the finished English image prompt. ") +
               "For NeedsInput or NeedsSetup, text is one concise question or requirement without the NEEDS_INPUT/NEEDS_SETUP prefix. "
             : "For a normal rewrite, return only the finished English prompt as one paragraph, with no heading, explanation, JSON, or code fence. " +
               "If essential information is missing, return NEEDS_INPUT: followed by one concise question. " +
@@ -162,6 +162,8 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
             "Preserve shared character identity while applying the requested target appearance. Do not carry source wardrobe into the target merely because it appears in background notes. The author's requested change takes priority over background notes. " +
             "When images are not attached, use source-relative wording and never claim to have inspected them. Do not alter settings or emit an execution plan. " +
             "authorDirection, when present, is the author's direction for this rewrite, such as what to improve, emphasise or keep; follow it within this contract.";
+        if (c.Workflow == ImageWorkflow.MiniMaxH3Image && !c.IsEdit)
+            system += " The text field is the complete English image description and may contain natural paragraph breaks. The selected output canvas governs composition. Preserve exact visible lettering in its original language.";
         if (c.Workflow == ImageWorkflow.QwenImage21 && c.IsEdit)
             system += " The actual output aspect follows the cropped first reference, not the authoring aspect selector. Use <image1> through <image10> labels; never invent an unprovided slot.";
         if (c.References.Any(r => r.Region is not null)) system += " " + RegionalImageEdits.PlacementInstruction;
@@ -175,6 +177,15 @@ public sealed class PromptEnhancer(IAiProviderRegistry providers, IAiSettingsSto
                 r.Label, backgroundNotes = r.Notes, sourceLookContext = r.Look, submittedCrop = r.Crop })
         };
         var payload = JsonSerializer.SerializeToNode(data)!.AsObject();
+        if (c.Workflow == ImageWorkflow.MiniMaxH3Image)
+        {
+            for (var i = 0; i < c.References.Count; i++)
+                payload["references"]![i]!["nativeLabel"] = $"<Picture {i + 1}>";
+            system += " Copy requested visible lettering character for character, including diacritics. Reference names are descriptive metadata. " +
+                "Use each reference's nativeLabel to address it in the image prompt. Subject labels have the form <Subject 1>, <Subject 2>, and so on.";
+            if (c.IsEdit) system += " Start with concise source definitions binding <Subject N> to <Picture N>, then write The target image and each source relationship, then the changed details. " +
+                "A subject whose color changes is partially preserved. Name its retained fabric and cut separately from its new color.";
+        }
         if (VisualStyles.Brief(c.VisualStyle) is { Length: > 0 } style) {
             payload["visualStyleDirection"] = style;
             system += " Apply visualStyleDirection to the rendering medium, palette and lighting while preserving the requested identity, content and framing. An explicit style conversion can change the reference's rendering medium without changing its subject.";
@@ -288,6 +299,7 @@ public static class PromptProfiles
         ImageWorkflow.ZImage when !edit => "z-image-create-v1",
         ImageWorkflow.ZImage => throw new AiGenerationException("Z-Image Base and Turbo support creation here. Choose an editing workflow to use references."),
         ImageWorkflow.Flux2Klein9bKv => edit ? "klein-edit-v1" : "klein-create-v1",
+        ImageWorkflow.MiniMaxH3Image => edit ? "minimax-h3-image-edit-v1" : "minimax-h3-image-create-v1",
         ImageWorkflow.MiniMaxH3 when edit => "h3-image-edit-v1",
         ImageWorkflow.MiniMaxH3 => throw new AiGenerationException(H3ImagePolicy.EditOnlyMessage),
         _ => throw new AiGenerationException("No enhancement guide is available for this workflow.")

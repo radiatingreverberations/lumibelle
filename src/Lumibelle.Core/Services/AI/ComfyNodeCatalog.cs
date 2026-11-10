@@ -42,7 +42,7 @@ internal static class ComfyNodeCatalog
         if (!Input(catalog, node, "images", out var grow) || grow.ValueKind != JsonValueKind.Array || grow.GetArrayLength() < 2 ||
             grow[1].ValueKind != JsonValueKind.Object || !grow[1].TryGetProperty("template", out var template) || !Contains(template, "IMAGE")) return false;
         if (template.TryGetProperty("names", out var names)) return Enumerable.Range(first, count).All(i => Contains(names, prefix + i));
-        return first == 0 && template.TryGetProperty("prefix", out var declared) && declared.GetString() == prefix &&
+        return first is 0 or 1 && template.TryGetProperty("prefix", out var declared) && declared.GetString() == prefix &&
             template.TryGetProperty("max", out var max) && max.TryGetInt32(out var maximum) && maximum >= count;
     }
 

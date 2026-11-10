@@ -67,6 +67,7 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
             OpenAiConnections = connections.Select(c => c with { HasApiKey = connectionKeys.ContainsKey(c.Url) }).ToArray(),
             QwenImage21 = settings.QwenImage21 is { } qwen ? QwenImage21Policy.Normalize(qwen) : null,
             MossImage = settings.MossImage is { } moss ? MossImagePolicy.Normalize(moss) : null,
+            MiniMaxH3Image = settings.MiniMaxH3Image is { } h3Image ? MiniMaxH3ImagePolicy.Normalize(h3Image) : null,
             Flux3Image = settings.Flux3Image is { } flux3 ? Flux3ImagePolicy.Normalize(flux3) : null,
             Fibo2 = settings.Fibo2 is { } fibo ? CaptionImagePolicy.Normalize(fibo) : null,
             ZImage = settings.ZImage is { } zimage ? CaptionImagePolicy.Normalize(zimage) : null,
@@ -166,6 +167,7 @@ public sealed class FileAiSettingsStore(ApplicationPaths paths, ISecretProtector
         QwenImage21Policy.ValidateSettings(settings.QwenImage21);
         MossImagePolicy.ValidateSettings(settings.MossImage);
         Flux3ImagePolicy.ValidateSettings(settings.Flux3Image);
+        MiniMaxH3ImagePolicy.ValidateSettings(settings.MiniMaxH3Image);
         CaptionImagePolicy.ValidateSettings(settings.Fibo2, ImageWorkflow.Fibo2);
         CaptionImagePolicy.ValidateSettings(settings.ZImage, ImageWorkflow.ZImage);
         ComfyTextSettings.Validate(settings);

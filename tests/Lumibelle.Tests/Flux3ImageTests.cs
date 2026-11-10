@@ -103,10 +103,10 @@ public sealed class Flux3ImageTests
     }
 
     [Fact]
-    public void FourKGeometryIsAvailableOnlyToFlux3RequestsAndAlignedToTheModel()
+    public void FourKGeometryIsAvailableToNativeImageRequestsAndAlignedToTheModel()
     {
         foreach (var workflow in Enum.GetValues<ImageWorkflow>())
-            Assert.Equal(workflow == ImageWorkflow.Flux3ImageKlein, ImageWorkflowLimits.SupportsResolution(workflow, 4096));
+            Assert.Equal(workflow is ImageWorkflow.Flux3ImageKlein or ImageWorkflow.MiniMaxH3Image, ImageWorkflowLimits.SupportsResolution(workflow, 4096));
         foreach (var aspect in new[] { "1:1", "16:9", "9:16", "From Image 1" })
         {
             var size = ImageAspectPolicy.Size(aspect, 800, 500, 4096);

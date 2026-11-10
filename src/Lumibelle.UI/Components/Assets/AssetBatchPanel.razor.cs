@@ -159,7 +159,10 @@ public partial class AssetBatchPanel
         foreach (var row in _rows) _drafts[row.Item.Id] = row.Item;
         _selected.Clear();
         if (!_rows.Any(r => r.Item.Category == _categoryFilter)) _categoryFilter = null;
-        _planReady = false; if (_workflow == ImageWorkflow.CodexImages) _resolution = 1024; SelectMissing();
+        _planReady = false;
+        if (!ImageWorkflowLimits.SupportsResolution(_workflow, _resolution)) _resolution = _workflow == ImageWorkflow.MiniMaxH3Image ? 2048 : 1024;
+        if (!ImageAspectPolicy.IsSupported(_aspect, false, _workflow)) _aspect = "1:1";
+        SelectMissing();
     }
     private void ClearSelection() { foreach (var row in SelectionRows) _selected.Remove(row.Item.Id); }
     private void SelectMissing() { ClearSelection(); foreach (var row in SelectionRows.Where(r => r.MissingReference && !ItemBlocked(r.Item))) _selected.Add(row.Item.Id); }

@@ -98,6 +98,8 @@ public sealed record AiSettings
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Flux3ImageSettings? Flux3Image { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MiniMaxH3ImageSettings? MiniMaxH3Image { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CaptionImageSettings? Fibo2 { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CaptionImageSettings? ZImage { get; init; }
