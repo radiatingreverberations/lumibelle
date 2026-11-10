@@ -29,11 +29,13 @@ public partial class AssetsStudio
 
     private int _imageResolution = 1024;
     private int _flux3Resolution = 1024;
-    private int ImageResolution => IsQwen ? QwenResolution : IsFlux3 ? _flux3Resolution : _imageResolution;
+    private int _h3ImageResolution = 2048;
+    private int ImageResolution => IsH3Image ? _h3ImageResolution : IsQwen ? QwenResolution : IsFlux3 ? _flux3Resolution : _imageResolution;
     private int CapturedImageResolution => IsQwen || IsCodex ? 1024 : ImageResolution;
     private void RestoreImageResolution(int resolution, ImageWorkflow workflow)
     {
-        if (workflow == ImageWorkflow.Flux3ImageKlein) _flux3Resolution = resolution;
+        if (workflow == ImageWorkflow.MiniMaxH3Image) _h3ImageResolution = resolution;
+        else if (workflow == ImageWorkflow.Flux3ImageKlein) _flux3Resolution = resolution;
         else _imageResolution = resolution;
     }
     private void ChangeImageResolution(ChangeEventArgs args)
@@ -52,7 +54,9 @@ public partial class AssetsStudio
             try
             {
                 var source = BaseReference is { } reference ? SourceImageSize(reference) : default;
-                var size = ImageAspectPolicy.Size(ImageAspect, source.Width, source.Height, ImageResolution);
+                var size = IsH3Image && ImageAspect != ImageAspectPolicy.FromImage1
+                    ? MiniMaxH3ImagePolicy.Size(ImageAspect, null, ImageResolution)
+                    : ImageAspectPolicy.Size(ImageAspect, source.Width, source.Height, ImageResolution);
                 return string.Create(CultureInfo.InvariantCulture, $"{size.Width} × {size.Height} · {(long)size.Width * size.Height / 1_000_000d:0.00} MP");
             }
             catch (AiGenerationException) { return "Choose an available source image"; }

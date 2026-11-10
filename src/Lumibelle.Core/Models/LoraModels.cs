@@ -1,7 +1,7 @@
 namespace lumibelle.Models;
 
 // Keep the existing image assignment names and numeric values in saved records.
-public enum LoraWorkflow { Krea2, Flux2Klein9bKv, MiniMaxH3Ref2VA, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage }
+public enum LoraWorkflow { Krea2, Flux2Klein9bKv, MiniMaxH3Ref2VA, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage, MiniMaxH3Image }
 public static class LoraWorkflows
 {
     public static LoraWorkflow LoraWorkflow(this ImageWorkflow workflow) => workflow switch
@@ -12,6 +12,7 @@ public static class LoraWorkflows
         ImageWorkflow.Flux3ImageKlein => Models.LoraWorkflow.Flux3ImageKlein,
         ImageWorkflow.Fibo2 => Models.LoraWorkflow.Fibo2,
         ImageWorkflow.ZImage => Models.LoraWorkflow.ZImage,
+        ImageWorkflow.MiniMaxH3Image => Models.LoraWorkflow.MiniMaxH3Image,
         ImageWorkflow.MiniMaxH3 => Models.LoraWorkflow.MiniMaxH3Ref2VA,
         ImageWorkflow.Flux2Klein9bKv => Models.LoraWorkflow.Flux2Klein9bKv,
         _ => throw new ArgumentOutOfRangeException(nameof(workflow))
@@ -25,6 +26,7 @@ public static class LoraWorkflows
         Models.LoraWorkflow.Fibo2 => "Fibo 2.0",
         Models.LoraWorkflow.ZImage => "Z-Image",
         Models.LoraWorkflow.Flux2Klein9bKv => "FLUX.2 Klein 9B KV",
+        Models.LoraWorkflow.MiniMaxH3Image => "MiniMax H3 Image",
         Models.LoraWorkflow.MiniMaxH3Ref2VA => "MiniMax H3 Ref2VA",
         _ => throw new ArgumentOutOfRangeException(nameof(workflow))
     };

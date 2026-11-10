@@ -23,7 +23,7 @@ public sealed partial class FileAssetStore
             entries.Add(relative, file with { Path = relative });
         }
         foreach (var image in content.Asset.Images)
-            await Add(ReusePath(projectDirectory, Path.GetRelativePath(projectDirectory, ImagePath(projectDirectory, content.Asset.Id, image)).Replace('\\', '/')), ReuseImagePath(image), MaximumImageBytes);
+            await Add(ReusePath(projectDirectory, Path.GetRelativePath(projectDirectory, ImagePath(projectDirectory, content.Asset.Id, image)).Replace('\\', '/')), ReuseImagePath(image), ImageWorkflowLimits.MaximumOutputBytes(image.Generation?.Workflow));
         foreach (var voice in content.Voices)
             await Add(ReusePath(projectDirectory, Path.GetRelativePath(projectDirectory, VoicePath(projectDirectory, voice)).Replace('\\', '/')), ReuseVoicePath(voice), 50L * 1024 * 1024);
         foreach (var reel in content.Reels.DistinctBy(r => r.Media.Id))

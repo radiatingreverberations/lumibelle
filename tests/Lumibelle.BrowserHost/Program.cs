@@ -807,6 +807,13 @@ sealed class MockImages : IReferenceImageGenerator, IReferenceImageEditor
                 [new("qwen_image_2.1_int8_convrot.safetensors", "Qwen Base"), new("qwen_image_2.1_turbo_int8_convrot.safetensors", "Qwen Turbo")],
                 [new(value.TextEncoder, "Qwen3-VL 8B")], [new(value.Vae, "Qwen VAE")]));
         }
+        if (settings.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3Image)
+        {
+            var files = MiniMaxH3ImagePolicy.Settings(settings);
+            return Task.FromResult(new ComfyImageConfiguration(true, "Mock MiniMax H3 Image ready.",
+                [new(files.Model, "H3 Image INT8"), new("minimax_h3_image_pruned_w4a8.safetensors", "H3 Image W4A8")],
+                [new(files.TextEncoder, "H3 Qwen3-VL")], [new(files.Vae, "H3 Image VAE")]));
+        }
         if (settings.DefaultImageWorkflow == ImageWorkflow.Flux3ImageKlein)
         {
             var flux3 = Flux3ImagePolicy.Settings(settings);
@@ -828,6 +835,7 @@ sealed class MockImages : IReferenceImageGenerator, IReferenceImageEditor
     }
     Task<ComfyImageEditConfiguration> IReferenceImageEditor.CheckAsync(AiSettings? settings, CancellationToken cancellationToken) => Task.FromResult(settings?.DefaultImageWorkflow == ImageWorkflow.ZImage
         ? new ComfyImageEditConfiguration(false, "Z-Image Base and Turbo support creation here. Choose an editing workflow to use references.", [], 0)
+        : settings?.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3Image ? new ComfyImageEditConfiguration(true, "Mock H3 Image edit ready.", [], 16)
         : settings?.DefaultImageWorkflow == ImageWorkflow.Fibo2 ? new ComfyImageEditConfiguration(true, "Mock Fibo editing ready.", [], 4)
         : settings?.DefaultImageWorkflow == ImageWorkflow.MiniMaxH3 ? new ComfyImageEditConfiguration(true, "Mock MiniMax H3 editing ready.", [], H3ImagePolicy.MaximumReferences) { H3Presets = [new("pdd", "Mock PDD issue.", [])] }
         : settings?.DefaultImageWorkflow == ImageWorkflow.MossImage

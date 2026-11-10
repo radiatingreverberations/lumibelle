@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace lumibelle.Models;
 
-public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage, MiniMaxH3 }
+public enum ImageWorkflow { Krea2, Flux2Klein9bKv, CodexImages, QwenImage21, MossImage, Flux3ImageKlein, Fibo2, ZImage, MiniMaxH3, MiniMaxH3Image }
 
 public static class ImageWorkflowNames
 {
@@ -14,7 +14,8 @@ public static class ImageWorkflowNames
         ImageWorkflow.Flux3ImageKlein => "FLUX 3 Image Klein",
         ImageWorkflow.Fibo2 => "Fibo 2.0",
         ImageWorkflow.ZImage => "Z-Image",
-        ImageWorkflow.MiniMaxH3 => "MiniMax H3",
+        ImageWorkflow.MiniMaxH3 => "MiniMax H3 (video-model edit)",
+        ImageWorkflow.MiniMaxH3Image => "MiniMax H3 Image",
         ImageWorkflow.CodexImages => "Codex Images",
         ImageWorkflow.Flux2Klein9bKv => "FLUX.2 Klein 9B KV",
         _ => "Unknown image workflow"
@@ -73,6 +74,8 @@ public sealed record AssetGenerationMetadata
     public MossImageOutput? MossImage { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Flux3ImageOutput? Flux3Image { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MiniMaxH3ImageOutput? MiniMaxH3Image { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CaptionImageOutput? CaptionImage { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

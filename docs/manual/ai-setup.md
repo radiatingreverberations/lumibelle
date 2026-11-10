@@ -60,6 +60,10 @@ Install these files in the corresponding ComfyUI model directories (subfolders a
 
 Use a current ComfyUI with `FluxKVCache`, `Flux2Scheduler`, `EmptyFlux2LatentImage`, `ReferenceLatent` and the custom sampler nodes. Editing also uses `ETN_LoadImageBase64` from the tooling node pack. A missing KV model does not fall back to standard Klein, a base checkpoint, 4B or Krea.
 
+### MiniMax H3 Image
+
+In **Image models → MiniMax H3 Image**, select the dedicated image diffusion model, the shared H3 Qwen3-VL encoder and `minimax_h3_image_vae_fp16.safetensors`. Refresh checks the installed files and native image-conditioning node. ComfyUI 0.45.0 introduced this workflow. Generation and editing use six Euler/simple steps with CFG 1. Lumibelle starts at 4 MP and offers native 16 MP output. Choose a weight format supported by your hardware. [Model files](https://huggingface.co/Comfy-Org/MiniMax-H3-Image), [ComfyUI setup](https://docs.comfy.org/tutorials/image/minimax/minimax-h3-image).
+
 ### MOSS-Image
 
 In **Image models → MOSS-Image**, refresh the installed files and select a MOSS-Image **Base or SFT** diffusion model, its **Qwen3.5 9B** text encoder and the **FLUX.2 VAE**. Comfy-Org provides [compatible model files](https://huggingface.co/Comfy-Org/MOSS-Image); follow the [native ComfyUI setup](https://github.com/OpenMOSS/MOSS-Image/blob/main/comfyui/README.md). Lumibelle keeps these choices separate from other workflows and preserves a missing saved choice until you replace it explicitly. Catalog checks establish installed nodes and filenames; they do not execute the model or test its architectural compatibility.

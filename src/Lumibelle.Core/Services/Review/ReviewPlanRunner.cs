@@ -622,7 +622,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
         var request = await renders.CaptureEditAsync(id, owner.Id, new ReferenceEditRequest
         {
             ProjectId = snapshot.ProjectId, SourceAssetId = owner.Id, SourceImageId = image.Id, Prompt = step.After!, AspectRatio = ImageAspectPolicy.FromImage1,
-            Count = step.Takes, PendingReview = true, Look = LookPolicy.Capture(owner, image.LookId), Workflow = step.Workflow, H3Preset = step.Preset
+            Count = step.Takes, PendingReview = true, Resolution = step.Workflow == ImageWorkflow.MiniMaxH3Image ? 2048 : 1024, Look = LookPolicy.Capture(owner, image.LookId), Workflow = step.Workflow, H3Preset = step.Preset
         }, [new(owner.Id, image.Id), .. step.ReferenceImages], ct);
         // Recorded before it is queued, and then queued whatever the caller does, as a render is.
         await store.UpdateAsync(snapshot.ProjectId, plan.Id, p => Set(p, step.Id, s => s with { State = ReviewStepState.Running, JobId = id }, ReviewPlans.Director, $"{ReviewPlans.Describe(snapshot, step)}: queued."), ct: ct);

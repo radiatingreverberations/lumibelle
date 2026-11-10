@@ -16,6 +16,25 @@ namespace Lumibelle.Tests;
 public sealed partial class AssetComponentTests
 {
     [Fact]
+    public async Task H3ImageReviewAppliesParagraphsAndNativeLabelsExactly()
+    {
+        var settings = (FakeAiSettingsStore)Services.GetRequiredService<IAiSettingsStore>();
+        settings.Value = settings.Value with { DefaultImageWorkflow = ImageWorkflow.MiniMaxH3Image };
+        _assets.Library = _assets.Library with { Assets = [Asset("Jacket") with { Description = "Original" }] };
+        var page = Page();
+        await StartEnhancement(page); EnhancementReady();
+        const string prompt = "The jacket in <Picture 1> is <Subject 1>. The target image retains the label 'ÖPPET'.\n\nThe canvas weave remains visible.";
+        await _dialogs.InvokeAsync(() => _dialogs.Find("#enhancement-suggestion").Input(prompt));
+        await _dialogs.InvokeAsync(() => _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Apply changes").ClickAsync(new()));
+        page.WaitForAssertion(() => Assert.Equal(prompt, page.Find("#image-prompt").GetAttribute("value")));
+        await page.InvokeAsync(() => page.FindAll("button").Single(b => b.TextContent.Trim() == "Generate images").ClickAsync(new()));
+        var job = _queue.View.Jobs.Single(j => j.Kind == AiJobKind.ImageCreate);
+        var captured = (await _jobs.ReadSnapshotAsync(job.Id, Xunit.TestContext.Current.CancellationToken)).Deserialize<AiImageJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal(prompt, captured.Prompt);
+        Assert.Equal(2048, captured.Create!.Resolution);
+    }
+
+    [Fact]
     public async Task HandledEnhancementLinkDoesNotSurviveSettingsRoundTrip()
     {
         var asset = Asset("Mouse", "Mouse prompt");

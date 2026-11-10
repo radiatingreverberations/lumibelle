@@ -37,8 +37,8 @@
             <div class="bulk-settings">
                 <label>Image workflow<select @bind="_workflow" @bind:after="RebuildPlan" disabled="@_busy">@foreach (var model in Enum.GetValues<ImageWorkflow>()) { <option value="@model">@model.Label()</option> }</select></label>
                 <label>Takes per item<select @bind="_count" disabled="@_busy">@for (var n = 1; n <= 4; n++) { <option value="@n">@n</option> }</select></label>
-                <label>Aspect<select aria-label="Aspect" @bind="_aspect" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "2:3", "3:2", "4:3", "3:4", "16:9", "9:16" }) { <option>@aspect</option> }</select></label>
-                <label>Resolution<select @bind="_resolution" disabled="@(_busy || _workflow == ImageWorkflow.CodexImages)"><option value="1024">1K · ~1 MP</option><option value="1440">1440 · ~2 MP</option><option value="2048">2K · ~4 MP</option></select></label>
+                <label>Aspect<select aria-label="Aspect" @bind="_aspect" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "2:3", "3:2", "4:3", "3:4", "16:9", "9:16" }) { <option>@aspect</option> }@if (_workflow == ImageWorkflow.MiniMaxH3Image) { <option>21:9</option> }</select></label>
+                <label>Resolution<select @bind="_resolution" disabled="@(_busy || _workflow == ImageWorkflow.CodexImages)">@if (_workflow != ImageWorkflow.MiniMaxH3Image) { <option value="1024">1K · ~1 MP</option><option value="1440">1440 · ~2 MP</option> }<option value="2048">4 MP</option>@if (_workflow == ImageWorkflow.MiniMaxH3Image) { <option value="4096">Native · ~16 MP</option> }</select></label>
             </div>
             } else {
                 <div class="bulk-settings bulk-reel-settings">
@@ -96,7 +96,7 @@
                     @if (_planReady && _selected.Contains(item.Id) && item.Recipe is { } recipe && item.ExistingReelId is null) {
                         <div class="bulk-settings bulk-reel-settings">
                             <label>Duration (seconds)<input type="number" min="1" step="0.1" value="@recipe.Duration.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => RecipeDuration(item.Id, e.Value?.ToString())" disabled="@_busy" /></label>
-                            <label>Reel aspect<select value="@recipe.Aspect" @onchange="e => EditRecipe(item.Id, r => r.Aspect = e.Value?.ToString() ?? string.Empty)" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "16:9", "9:16", "4:3", "3:4" }) { <option>@aspect</option> }</select></label>
+                            <label>Reel aspect<select value="@recipe.Aspect" @onchange="e => EditRecipe(item.Id, r => r.Aspect = e.Value?.ToString() ?? string.Empty)" disabled="@_busy">@foreach (var aspect in new[] { "1:1", "16:9", "9:16", "4:3", "3:4" }) { <option>@aspect</option> }@if (_workflow == ImageWorkflow.MiniMaxH3Image) { <option>21:9</option> }</select></label>
                         </div>
                         <label>Coverage / route instructions<textarea rows="3" value="@recipe.Instructions" @oninput="e => EditRecipe(item.Id, r => r.Instructions = e.Value?.ToString() ?? string.Empty)" disabled="@_busy"></textarea></label>
                         <button type="button" class="lumi-button bulk-build-recipe" @onclick="() => UpdateRecipePrompt(item.Id)" disabled="@_busy">Update prompt from recipe</button>

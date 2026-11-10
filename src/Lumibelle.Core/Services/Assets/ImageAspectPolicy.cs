@@ -1,4 +1,5 @@
 using lumibelle.Services.AI;
+using lumibelle.Models;
 
 namespace lumibelle.Services.Assets;
 
@@ -6,8 +7,8 @@ public static class ImageAspectPolicy
 {
     public const string FromImage1 = "From Image 1";
 
-    public static bool IsSupported(string aspect, bool editing) =>
-        ComfyReferenceImageGenerator.Sizes.ContainsKey(aspect) || editing && aspect == FromImage1;
+    public static bool IsSupported(string aspect, bool editing, ImageWorkflow? workflow = null) =>
+        ComfyReferenceImageGenerator.Sizes.ContainsKey(aspect) || workflow == ImageWorkflow.MiniMaxH3Image && aspect == "21:9" || editing && aspect == FromImage1;
 
     public static bool IsResolutionSupported(int resolution) => resolution is 1024 or 1440 or 2048 or 4096;
 
@@ -15,6 +16,7 @@ public static class ImageAspectPolicy
     public static (int Width, int Height) Size(string aspect, int sourceWidth, int sourceHeight, int resolution = 1024)
     {
         if (!IsResolutionSupported(resolution)) throw new AiGenerationException("Choose a supported image resolution.");
+        if (aspect == "21:9") return MiniMaxH3ImagePolicy.Size(aspect, null, resolution);
         if (resolution == 4096)
         {
             var original = aspect == FromImage1 ? (Width: sourceWidth, Height: sourceHeight)
