@@ -11,7 +11,7 @@
             default: <h2 class="empty-state-title">@Title</h2> break;
         }
     }
-    @if (ChildContent is not null) { <p class="empty-state-text">@ChildContent</p> }
+    @if (ChildContent is not null) { <div class="empty-state-text">@ChildContent</div> }
     @if (Actions is not null) { <div class="empty-state-actions">@Actions</div> }
 </div>
 @code {

@@ -86,7 +86,7 @@ public sealed partial class ProjectPackageService
             await state.WriteAsync(root, ct);
             foreach (var (relative, bytes) in plan.Metadata) await File.WriteAllBytesAsync(ProjectPackageFormat.Under(root, relative), bytes, ct);
             // Bring every document into project.sqlite now; the package keeps the JSON form.
-            await Storage.ProjectDocuments.MigrateAllAsync(root, state.Project.Id, ct);
+            await Storage.ProjectUpgrader.RunAsync(root, state.Project.Id, null, ct);
             await ProjectPackageState.ValidateStoresAsync(root, state.Project, ct);
             var staged = new List<ProjectPackageFile>();
             foreach (var relative in ProjectPackageState.StagedFiles(root, expected).Order(StringComparer.Ordinal)) {

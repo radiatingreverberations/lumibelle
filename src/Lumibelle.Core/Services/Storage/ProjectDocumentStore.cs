@@ -39,6 +39,10 @@ internal sealed class PreparedDocument(string kind, DecomposedDocument rows)
 internal interface IProjectDocumentStore
 {
     string Kind { get; }
+    bool HasLegacy(string directory);
+    PreparedDocument Prepare(object document);
+    DocumentEntry Apply(ProjectDbSession session, PreparedDocument prepared, bool replace = false);
+    Task<byte[]?> LoadJsonAsync(string directory, Guid project, bool complete, CancellationToken ct);
     Task<bool> EnsureAsync(string directory, Guid project, CancellationToken ct);
 }
 
@@ -48,6 +52,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     private static readonly ConcurrentDictionary<string, string> Migrated = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     public DocumentSpec<T> Spec { get; } = spec;
     public string Kind => Spec.Kind;
+    public bool HasLegacy(string directory) => LegacyFiles.Any(directory, Spec.Legacy);
 
     /// <summary>The document with detached properties left empty (a summary).</summary>
     public async Task<T> LoadAsync(string directory, Guid project, CancellationToken ct)
@@ -308,6 +313,7 @@ internal sealed class ProjectDocumentStore<T>(DocumentSpec<T> spec) : IProjectDo
     /// </remarks>
     public async Task<bool> EnsureAsync(string directory, Guid project, CancellationToken ct)
     {
+        ProjectFormat.RequireCurrent(directory);
         var db = ProjectDatabase.For(directory);
         var key = db.Path + "|" + Kind;
         if (Migrated.ContainsKey(key) && db.Exists) return true;

@@ -64,7 +64,7 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
         shots is FileShotStore stored ? await stored.LoadShotsAsync(project, ct) : (await shots.LoadAsync(project, ct)).Shots;
     private static void ValidateDocument(ProductionDocument d, Guid project)
     {
-        if (d.SchemaVersion is not (2 or 3 or 4) || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
+        if (d.SchemaVersion != 4 || d.ProjectId != project || d.Revision < 0 || d.Compositions is null ||
             d.Compositions.Any(c => c is null || c.Id == Guid.Empty || c.ShotId == Guid.Empty || c.Version < 1 ||
                 string.IsNullOrWhiteSpace(c.Name) || c.History is null || c.Prompt is null || c.DirectingNotes is null || c.RevisionNotes is null || c.ReferenceUsage is null ||
                 c.History.Any(r => r is null) || c.History.Select(r => r.Id).Distinct().Count() != c.History.Count || c.AcceptedRevisionId is not null && c.Accepted is null) ||
@@ -72,36 +72,13 @@ public sealed partial class FileProductionStore(ProjectFiles files, IShotStore s
             throw new WorkspaceStoreException("The production document is invalid. It has not been replaced.");
         HydrateSharedContent(d);
     }
-    // Retire legacy automatic image defaults, while keeping scene inspection and its recovery history.
-    private static List<SceneReferenceSetup> PlanningSetups(IEnumerable<SceneReferenceSetup> setups) =>
-        setups.Where(s => s.Environment is not null || s.Images.Count == 0).Select(s => s with { Images = [] }).ToList();
     public async Task<ProductionDocument> InitializeAsync(Guid project, CancellationToken ct = default)
     {
         var dir = await files.DirectoryAsync(project, ct); using var gate = await ProjectFiles.LockAsync(dir, ct);
         var raw = await Documents.TryLoadAsync(dir, project, ct);
-        List<Shot> sourceShots;
-        if (raw is null || raw.SchemaVersion < 2)
-        {
-            var source = await shots.LoadCompleteAsync(project, ct);
-            if ((await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && (j.Kind is AiJobKind.Video or AiJobKind.PromptComposition) && j.LocksTarget))
-                throw new WorkspaceStoreException("Wait for active production requests before starting the new Shots workspace.");
-            await jobs.ResetProductionAsync(project, ct);
-            // Publish production last: interrupted resets repeat safely. Media files stay untouched.
-            source.Shots = source.Shots.Select(ProductionPolicy.CoverageCopy).ToList();
-            source.Takes.Clear(); source.Trash.Clear(); source.TakePublications.Clear();
-            source.SceneSetups = PlanningSetups(source.SceneSetups);
-            source.Recovery = source.Recovery.Select(r => r with { Shots = r.Shots.Select(ProductionPolicy.CoverageCopy).ToList(), SceneSetups = PlanningSetups(r.SceneSetups) }).ToList();
-            source.Revision++;
-            await FileShotStore.Documents.SaveAsync(dir, project, source, ct);
-            var cut = await FileCutStore.Documents.LoadAsync(dir, project, ct);
-            cut.Clips.Clear(); cut.Revision++;
-            await FileCutStore.Documents.SaveAsync(dir, project, cut, ct);
-            raw = new() { ProjectId = project };
-            await Publish(dir, raw, ct);
-            sourceShots = source.Shots;
-        }
-        else sourceShots = await CoverageAsync(project, ct);
-        var d = await Read(dir, project, ct); var changed = raw.SchemaVersion < 4;
+        if (raw is null) await Documents.SaveAsync(dir, project, new ProductionDocument { ProjectId = project }, ct);
+        var sourceShots = await CoverageAsync(project, ct);
+        var d = await Read(dir, project, ct); var changed = raw is null;
         foreach (var shot in sourceShots.Where(s => d.Compositions.All(c => c.ShotId != s.Id)))
         {
             d.Compositions.Add(new() { ShotId = shot.Id, Name = "Default setup", Version = 1,

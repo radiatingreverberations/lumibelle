@@ -69,11 +69,7 @@ public sealed partial class FileShotStore(ProjectFiles files, TimeProvider clock
             new("takePublications", "takeId"), new("trimPublications", "resultId"), new("extensionPublications", "resultId"), new("projectCopies")
         ],
         ReadLegacy = async (dir, id, ct) =>
-        {
-            var doc = await AtomicJsonFile.ReadAsync<ShotDocument>(Path.Combine(dir, "shots.json"), ct);
-            if (doc is not null) { Migrate(doc); Validate(doc, id); }
-            return doc;
-        }
+            await AtomicJsonFile.ReadAsync<System.Text.Json.JsonElement>(Path.Combine(dir, "shots.json"), ct)
     });
     private static void Revision(ShotDocument d, long expected) { if (d.Revision != expected) throw new WorkspaceConflictException(); }
     public async Task<ShotDocument> LoadAsync(Guid projectId, CancellationToken ct = default) => await Read(await files.DirectoryAsync(projectId, ct), projectId, ct);

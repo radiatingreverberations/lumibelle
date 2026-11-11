@@ -80,3 +80,15 @@ Deleted images and reels go to **Trash** for 30 days; see [Assets studio](assets
 ## Settings and API keys
 
 Global settings are stored in `App_Data/ai-settings.json` beneath the application content root, separately from the project library. API keys are encrypted with ASP.NET Core Data Protection for the account running Lumibelle. The UI shows only whether a saved key is configured and supports replacing or removing it. Moving settings to another account or losing the key ring may require re-entering the key; project writing remains portable. Never commit the settings file or key ring.
+
+## Upgrading a project
+
+When a project needs a format upgrade, opening it shows **Upgrade project**, the changes
+it needs, and the size of the database backup. Wait for queued or working AI requests to
+finish, or cancel them through AI activity, then upgrade. Requests that attempt to use
+an old project receive the upgrade message until it is ready.
+
+Lumibelle keeps a database snapshot and original JSON files in the project's
+`legacy-json` folder. **Compact project** can remove those backups later. Earlier
+versions cannot open the upgraded database. Keep the backups to restore its earlier
+format. If an upgrade stops, open the project again and retry to resume completed work.

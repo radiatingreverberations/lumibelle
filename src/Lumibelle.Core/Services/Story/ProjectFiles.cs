@@ -16,6 +16,13 @@ public sealed class ProjectFiles(ApplicationPaths paths, IProjectStore projects,
     public Task<Models.ProjectLibrary> ListProjectsAsync(CancellationToken ct) => projects.ListAsync(ct);
     public async Task<string> DirectoryAsync(Guid id, CancellationToken ct)
     {
+        var directory = await LocateAsync(id, ct);
+        Storage.ProjectFormat.RequireCurrent(directory);
+        return directory;
+    }
+
+    internal async Task<string> LocateAsync(Guid id, CancellationToken ct)
+    {
         if (await projects.GetAsync(id, ct) is null)
             throw new WorkspaceStoreException("Project not found. Return to the project hub.");
         return await Locations.DirectoryAsync(id, ct);

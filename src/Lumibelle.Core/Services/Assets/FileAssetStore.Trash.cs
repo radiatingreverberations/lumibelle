@@ -32,6 +32,7 @@ public sealed partial class FileAssetStore
                 var library = await LoadAsync(project.Id, cancellationToken);
                 rows.AddRange(library.Trash.Select(t => new ImageTrashRow(project.Id, project.Name, library.Revision, t)));
             }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException)
             { issues.Add(new(project.Id, $"{project.Name}: {e.Message}")); }
         }
@@ -152,6 +153,7 @@ public sealed partial class FileAssetStore
                 var result = await PurgeLockedAsync(directory, current, ids, cancellationToken);
                 issues.AddRange(result.Errors.Select(e => new ImageTrashIssue(project.Id, e)));
             }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException)
             { issues.Add(new(project.Id, $"{project.Name}: {e.Message}")); }
         }

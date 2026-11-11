@@ -8,6 +8,7 @@ public static class ProjectGitFiles
 {
     public const string Ignore = """
         # Written while Lumibelle has the project folder open
+        legacy-json/*.sqlite
         .lumibelle.lock
         # Unfinished writes left by an interrupted save
         *.tmp

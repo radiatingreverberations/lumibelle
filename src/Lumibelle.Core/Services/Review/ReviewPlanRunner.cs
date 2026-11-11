@@ -53,6 +53,7 @@ public sealed class ReviewPlanRunner(ReviewPlanStore store, ProjectReview review
             // A read that fails says nothing about whether the project still has a running plan, so it stays watched and is
             // read again on the next pass.
             try { Reading?.Invoke(project); plans = await store.ListAsync(project, ct); }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { continue; }
             catch (WorkspaceStoreException e) { logger.LogWarning(e, "Review plans of project {Project} could not be read. They are read again on the next pass.", project); continue; }
             Listed?.Invoke(project);
             // A plan approved after the read keeps the project watched.

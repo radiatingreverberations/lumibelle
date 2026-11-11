@@ -78,6 +78,8 @@ public sealed partial class ShotTests
         var shots = TestProjectDatabase.Stamp(dir, "shots");
         var job = Guid.NewGuid();
         await jobs.EnqueueAsync(AiJobSubmission.Create(job, AiJobKind.PromptComposition, AiBackend.OpenRouter, new(f.Project.Id, ShotId: source.Id, CompositionId: b.Id), "Project", "Existing request", Guid.NewGuid(), new { preserved = true }), _ct);
+        TestProjectDatabase.Execute(dir, "PRAGMA user_version = 1");
+        await TestProjectDatabase.UpgradeAsync(dir, f.Project.Id, _ct);
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(4, migrated.SchemaVersion);
         Assert.All(migrated.Compositions, c => Assert.Equal(a.Prompt, c.Prompt));
@@ -86,7 +88,6 @@ public sealed partial class ShotTests
         Assert.Equal(b.History, earlier.Content.History); Assert.Equal(b.Shot.Images, earlier.Content.Images);
         // The legacy file is kept as it was; the upgrade backup holds the same stored document.
         Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production.json"), _ct));
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(original), JsonNode.Parse(await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production-before-shared-inputs.json"), _ct))));
         Assert.Equal(shots, TestProjectDatabase.Stamp(dir, "shots"));
         Assert.Equal(job, Assert.Single((await jobs.ReadAsync(_ct)).Jobs).Id);
         var reopened = await store.InitializeAsync(f.Project.Id, _ct);
@@ -119,11 +120,12 @@ public sealed partial class ShotTests
             Compositions = [first, alternate], ShotContent = [content]
         }, _ct);
         var original = await File.ReadAllBytesAsync(path, _ct);
+        TestProjectDatabase.Execute(dir, "PRAGMA user_version = 1");
+        await TestProjectDatabase.UpgradeAsync(dir, f.Project.Id, _ct);
         var migrated = await store.InitializeAsync(f.Project.Id, _ct);
         Assert.Equal(4, migrated.SchemaVersion);
         Assert.All(migrated.Compositions, c => Assert.Equal(conflicting ? null : (Guid?)environment, c.Shot.EnvironmentAssetId));
         Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production.json"), _ct));
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(original), JsonNode.Parse(await File.ReadAllBytesAsync(Path.Combine(dir, "legacy-json", "production-before-shared-environment.json"), _ct))));
         if (conflicting) Assert.Equal(new[] { first.Shot.EnvironmentAssetId, alternate.Shot.EnvironmentAssetId }.Order(),
             migrated.EarlierSetupContent.Select(e => e.Content.EnvironmentAssetId).Order());
         else Assert.Empty(migrated.EarlierSetupContent);

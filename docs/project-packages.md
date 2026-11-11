@@ -256,3 +256,5 @@ into another library and also open the unzipped folder. Confirm the source files
 not change. Then check take playback and paused frames, reel details and keyframe
 previews, adding a keyframe from the video, RefMod rebuilding, asset images and their
 crops, and Cut playback.
+
+Project import upgrades the staged project before confirmation and publication. Upgrade an older library project before exporting it.

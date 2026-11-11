@@ -60,6 +60,7 @@ public sealed partial class ShotDubbingStoreTests : IDisposable
             CreatedUtc = DateTimeOffset.UtcNow, Directory = takeId.ToString("D"), Bytes = 20 };
         await AtomicJsonFile.WriteAsync(Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "shots.json"),
             new ShotDocument { ProjectId = f.Project.Id, Shots = [snapshot.Shot], Takes = [take] }, _ct);
+        await TestProjectDatabase.UpgradeAsync(await f.Files.LocateAsync(f.Project.Id, _ct), f.Project.Id, _ct);
         await f.Store.SaveLanguagesAsync(new() { ProjectId = f.Project.Id, Main = ShotDubbingTests.English, Dubs = [ShotDubbingTests.Swedish] }, 0, _ct);
         return (f.Store, f.Files, f.Project.Id, take);
     }
@@ -83,7 +84,8 @@ public sealed partial class ShotDubbingStoreTests : IDisposable
         var f = await StoreFixture(); var path = Path.Combine(await f.Files.DirectoryAsync(f.Project.Id, _ct), "languages.json");
         await AtomicJsonFile.WriteAsync(path, new ProjectLanguages { ProjectId = Guid.NewGuid(), Main = ShotDubbingTests.English }, _ct);
         var before = await File.ReadAllBytesAsync(path, _ct);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => f.Store.LanguagesAsync(f.Project.Id, _ct));
+        await Assert.ThrowsAsync<WorkspaceStoreException>(() => TestProjectDatabase.UpgradeAsync(Path.GetDirectoryName(path)!, f.Project.Id, _ct));
+        await Assert.ThrowsAsync<lumibelle.Services.Storage.ProjectUpgradeRequiredException>(() => f.Store.LanguagesAsync(f.Project.Id, _ct));
         Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(Path.GetDirectoryName(path)!, "legacy-json", "languages.json"), _ct));
     }
     [Fact]

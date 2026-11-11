@@ -34,6 +34,7 @@ public sealed partial class ShotTests
         foreach (var r in snapshots.History) await AtomicJsonFile.WriteAsync(Path.Combine(dir, "script-history", $"{r.Id:D}.json"), r, _ct);
         File.Delete(TestProjectDatabase.PathIn(dir));
 
+        await TestProjectDatabase.UpgradeAsync(dir, f.Project.Id, _ct);
         var loaded = await f.Shots.LoadAsync(f.Project.Id, _ct);
         Assert.Equal("Renamed arrival", Assert.Single(loaded.Shots).Title);
         Assert.Equal(shots, StoredJson(await f.Shots.LoadCompleteAsync(f.Project.Id, _ct)));

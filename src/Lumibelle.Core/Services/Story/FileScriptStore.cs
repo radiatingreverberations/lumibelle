@@ -24,23 +24,24 @@ public sealed class FileScriptStore(ProjectFiles files, TimeProvider clock) : IS
     {
         Kind = "script_snapshots", Description = "the saved script versions", Legacy = ["script-sources", "script-history", "script-approved"],
         Empty = id => new() { ProjectId = id }, Lists = [new("sources"), new("history"), new("approved")],
-        ReadLegacy = async (dir, id, ct) => new ScriptSnapshots
+        ReadLegacy = async (dir, id, ct) => new
         {
             ProjectId = id,
-            Sources = await ReadFolderAsync<ScriptSourceSnapshot>(dir, "script-sources", s => s.Id, ct),
-            History = await ReadFolderAsync<ScriptRecovery>(dir, "script-history", r => r.Id, ct),
-            Approved = await ReadFolderAsync<ApprovedScriptSnapshot>(dir, "script-approved", a => a.Id, ct)
+            Sources = await ReadFolderAsync(dir, "script-sources", ct),
+            History = await ReadFolderAsync(dir, "script-history", ct),
+            Approved = await ReadFolderAsync(dir, "script-approved", ct)
         }
     });
-    private static async Task<List<T>> ReadFolderAsync<T>(string dir, string folder, Func<T, Guid> id, CancellationToken ct)
+    private static async Task<List<System.Text.Json.JsonElement>> ReadFolderAsync(string dir, string folder, CancellationToken ct)
     {
         var path = Path.Combine(dir, folder);
         if (!Directory.Exists(path)) return [];
-        List<T> items = [];
+        List<System.Text.Json.JsonElement> items = [];
         foreach (var file in Directory.GetFiles(path, "*.json").Order(StringComparer.Ordinal))
         {
-            var item = await AtomicJsonFile.ReadAsync<T>(file, ct) ?? throw new WorkspaceStoreException("A saved script version is invalid.");
-            if (id(item).ToString("D") != Path.GetFileNameWithoutExtension(file)) throw new WorkspaceStoreException("A saved script version is invalid.");
+            var item = await AtomicJsonFile.ReadAsync<System.Text.Json.JsonElement>(file, ct);
+            if (item.ValueKind != System.Text.Json.JsonValueKind.Object || !item.TryGetProperty("id", out var value) ||
+                !value.TryGetGuid(out var identity) || identity.ToString("D") != Path.GetFileNameWithoutExtension(file)) throw new WorkspaceStoreException("A saved script version is invalid.");
             items.Add(item);
         }
         return items;
@@ -170,7 +171,9 @@ public sealed class FileScriptStore(ProjectFiles files, TimeProvider clock) : IS
     private static async Task<ScriptDocument> ReadAsync(string dir, Guid id, CancellationToken ct)
     {
         var doc = await Documents.LoadAsync(dir, id, ct);
-        Validate(doc, id); return doc;
+        Validate(doc, id);
+        if (doc.SchemaVersion != 2) throw new WorkspaceStoreException("The stored script needs a format upgrade.");
+        return doc;
     }
     public static void Validate(ScriptDocument doc, Guid id)
     {

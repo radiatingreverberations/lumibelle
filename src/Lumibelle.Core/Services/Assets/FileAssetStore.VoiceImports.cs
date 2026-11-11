@@ -133,6 +133,7 @@ public sealed partial class FileAssetStore
                     if (Directory.Exists(staging)) issues.Add(new(project.Id, "An expired voice import could not be removed. Cleanup will retry."));
                 }
             }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
             catch (Exception e) when (e is WorkspaceStoreException or IOException or UnauthorizedAccessException) { issues.Add(new(project.Id, "Couldn’t clean up expired voice imports. Cleanup will retry.")); }
         }
         return issues;

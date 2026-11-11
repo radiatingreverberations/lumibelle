@@ -227,6 +227,7 @@ public sealed class SourceWorkflowWorker(IProjectStore projects, SourceWorkflow 
             try {
                 foreach (var project in (await projects.ListAsync(stoppingToken)).Projects) {
                     try { await workflow.AdvanceAsync(project.Id, stoppingToken); }
+                    catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
                     catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { logger.LogWarning(e, "Source analysis checkpoint unavailable for {Project}", project.Id); }
                 }
             } catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { logger.LogWarning(e, "Source analysis discovery unavailable"); }

@@ -383,6 +383,7 @@ public sealed class RefinementBatchWorker(IProjectStore projects, RefinementBatc
                     _preparing[item] = Task.Run(() => PrepareAsync(project.Id, batch, item, ct), CancellationToken.None);
                 }
             }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException)
             { logger.LogWarning(e, "Refinement batch checkpoint unavailable for {Project}", project.Id); }
         }

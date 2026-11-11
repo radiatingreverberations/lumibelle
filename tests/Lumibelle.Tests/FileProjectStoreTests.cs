@@ -170,6 +170,7 @@ public sealed class FileProjectStoreTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var original = await Store().CreateAsync(new("Original", "Old description"), ct);
         var folder = Path.Combine(_directory, "projects", original.Id.ToString("D"));
+        lumibelle.Services.Storage.ProjectDatabase.For(folder).Write(_ => 0);
         await File.WriteAllTextAsync(Path.Combine(folder, "script.json"), "script content", ct);
         await File.WriteAllTextAsync(Path.Combine(folder, "assets.json"), "asset content", ct);
         _clock.Now = _clock.Now.AddDays(1);

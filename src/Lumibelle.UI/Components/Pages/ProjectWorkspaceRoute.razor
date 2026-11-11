@@ -1,6 +1,8 @@
+@using lumibelle.Services.Projects
 @page "/projects/{ProjectKey}"
 @page "/projects/{ProjectKey}/{Section}"
 @inject IProjectRoutes ProjectRoutes
+@inject IProjectUpgrades Upgrades
 @inject WorkspacePositions Positions
 @inject NavigationManager Navigation
 
@@ -17,6 +19,10 @@ else if (_missing)
         <ChildContent>This project may have moved or is no longer in your library.</ChildContent>
         <Actions><MudButton Href="/" Variant="Variant.Outlined">Back to projects</MudButton></Actions>
     </EmptyState>
+}
+else if (_upgrade is { Needed: true } && _route is not null && !_resolving && !CanonicalPending)
+{
+    <ProjectUpgradeState @key="_route.ProjectId" ProjectId="_route.ProjectId" Name="@_route.Name" Status="_upgrade" OnUpgraded="UpgradedAsync" />
 }
 else if (_ready && _route is not null && _type is not null)
 {
@@ -39,10 +45,12 @@ else { <LoadingState Text="Opening workspace…" /> }
     [SupplyParameterFromQuery] public string? View { get; set; }
     [SupplyParameterFromQuery] public bool Edit { get; set; }
     private ProjectRoute? _route;
+    private ProjectUpgradeStatus? _upgrade;
     private Type? _type;
     private string? _error, _canonical;
     private bool _ready, _missing, _interactive, _resolving;
     private int _version;
+    private bool CanonicalPending => _canonical is { } url && Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery + Navigation.ToAbsoluteUri(Navigation.Uri).Fragment != url;
     private IDictionary<string, object> _parameters = new Dictionary<string, object>();
     public override Task SetParametersAsync(ParameterView parameters)
     {
@@ -62,12 +70,16 @@ else { <LoadingState Text="Opening workspace…" /> }
             _type = type;
             _missing = route is null || _type is null; _route = route; _error = null;
             if (_missing) { _ready = false; return; }
+            var status = await Upgrades.StatusAsync(route!.ProjectId);
+            if (version != _version) return;
+            _upgrade = status;
             var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
             _canonical = ProjectRoutes.Path(route!.ProjectId, studio == "overview" ? "" : "/" + studio) + uri.Query + uri.Fragment;
             _parameters = Parameters(studio);
             // Replace aliases before mounting an editor. Otherwise its asynchronous initial load
             // can run twice when canonical navigation delivers a second parameter set.
             if (_canonical != uri.PathAndQuery + uri.Fragment) { _ready = false; return; }
+            if (_upgrade.Needed) { _ready = false; return; }
             if (_interactive) { await Positions.LoadAsync(route.ProjectId, studio == "dubs" ? "shots" : studio); if (version == _version) _ready = true; }
         } catch (Exception e) when (e is ProjectStoreException or WorkspaceStoreException) { if (version == _version) { _error = e.Message; _ready = false; } }
         finally { if (version == _version) _resolving = false; }
@@ -83,12 +95,13 @@ else { <LoadingState Text="Opening workspace…" /> }
             }
         }
         var version = _version;
-        if (!_ready && !_missing && _error is null && _route is not null) {
+        if (!_ready && !_missing && _error is null && _route is not null && _upgrade is not { Needed: true }) {
             await Positions.LoadAsync(_route.ProjectId, Studio == "dubs" ? "shots" : Studio);
             if (version != _version) return;
             _ready = true; StateHasChanged();
         }
     }
+    private async Task UpgradedAsync() { _upgrade = null; _ready = false; await OnParametersSetAsync(); }
     private IDictionary<string, object> Parameters(string studio)
     {
         var p = new Dictionary<string, object> { ["Id"] = _route!.ProjectId };

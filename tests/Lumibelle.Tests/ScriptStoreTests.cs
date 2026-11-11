@@ -90,8 +90,8 @@ public sealed class ScriptStoreTests : IDisposable
         var project = await Projects.CreateAsync(new("Film"), TestContext.Current.CancellationToken);
         var path = Path.Combine(ProjectPath(project.Id), "script.json");
         await File.WriteAllTextAsync(path, content, TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.LoadAsync(project.Id, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<WorkspaceStoreException>(() => Stories.SaveAsync(new() { ProjectId = project.Id }, 0, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<lumibelle.Services.Storage.ProjectUpgradeRequiredException>(() => Stories.LoadAsync(project.Id, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<lumibelle.Services.Storage.ProjectUpgradeRequiredException>(() => Stories.SaveAsync(new() { ProjectId = project.Id }, 0, cancellationToken: TestContext.Current.CancellationToken));
         // Unreadable JSON stays where it was; JSON that only fails validation was kept aside when stored.
         var kept = File.Exists(path) ? path : Path.Combine(ProjectPath(project.Id), "legacy-json", "script.json");
         Assert.Equal(content, await File.ReadAllTextAsync(kept, TestContext.Current.CancellationToken));

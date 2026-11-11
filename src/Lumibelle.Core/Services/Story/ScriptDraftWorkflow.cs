@@ -165,6 +165,7 @@ public sealed class ScriptDraftWorkflowWorker(IProjectStore projects, ScriptDraf
             try {
                 foreach (var project in (await projects.ListAsync(stoppingToken)).Projects) {
                     try { await workflow.AdvanceAsync(project.Id, stoppingToken); }
+                    catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
                     catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { logger.LogWarning(e, "Screenplay batch checkpoint unavailable for {Project}", project.Id); }
                 }
             } catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { logger.LogWarning(e, "Screenplay batch discovery unavailable"); }

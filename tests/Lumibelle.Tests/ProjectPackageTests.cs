@@ -536,7 +536,15 @@ public sealed partial class ProjectPackageTests
         }
         internal Task<ProjectInfo> Create() => Projects.CreateAsync(new("Portable project"));
         internal string Root(ProjectInfo p) => Path.Combine(Paths.Projects, p.Id.ToString("D"));
-        internal Task Save<T>(ProjectInfo p, string path, T value) => AtomicJsonFile.WriteAsync(Path.Combine(Root(p), path), value, default);
+        internal Task Save<T>(ProjectInfo p, string path, T value)
+        {
+            var kind = path switch { "script-assistant.json" => "script_assistant", _ => Path.GetFileNameWithoutExtension(path) };
+            var store = lumibelle.Services.Storage.ProjectDocuments.All.Single(s => s.Kind == kind);
+            var prepared = store.Prepare(value!);
+            lumibelle.Services.Storage.ProjectDatabase.For(Root(p)).Write(s => store.Apply(s, prepared, replace: true));
+            lumibelle.Services.Storage.DocumentCache.EvictDirectory(Root(p));
+            return Task.CompletedTask;
+        }
         internal async Task Bytes(ProjectInfo p, string path, byte[] bytes) { var full = Path.Combine(Root(p), path); Directory.CreateDirectory(Path.GetDirectoryName(full)!); await File.WriteAllBytesAsync(full, bytes); }
         internal async Task<Dictionary<string, byte[]>> Unzip(ProjectInfo p, ProjectPackageExport package) {
             await using var source = (await Service.OpenExportAsync(p.Id, package.Id))!; using var zip = new ZipArchive(source.Content, ZipArchiveMode.Read);

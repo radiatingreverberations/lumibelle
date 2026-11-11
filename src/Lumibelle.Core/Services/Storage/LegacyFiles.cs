@@ -51,7 +51,8 @@ internal static class LegacyFiles
         if (File.Exists(target))
         {
             // An earlier, interrupted move already placed this copy.
-            if (new FileInfo(target).Length == new FileInfo(source).Length) { File.Delete(source); return; }
+            if (await IdenticalAsync(source, target, ct))
+            { File.Delete(source); return; }
             target = $"{target}.{DateTime.UtcNow.Ticks}.duplicate";
         }
         for (var attempt = 0; ; attempt++)
@@ -62,5 +63,15 @@ internal static class LegacyFiles
             catch (Exception e) when (OperatingSystem.IsWindows() && attempt < 4 && e is IOException or UnauthorizedAccessException && File.Exists(source))
             { await Task.Delay(TimeSpan.FromMilliseconds(20 * (1 << attempt)), ct); }
         }
+    }
+
+    private static async Task<bool> IdenticalAsync(string source, string target, CancellationToken ct)
+    {
+        if (new FileInfo(source).Length != new FileInfo(target).Length) return false;
+        await using var original = File.OpenRead(source);
+        await using var archived = File.OpenRead(target);
+        var originalHash = await System.Security.Cryptography.SHA256.HashDataAsync(original, ct);
+        var archivedHash = await System.Security.Cryptography.SHA256.HashDataAsync(archived, ct);
+        return originalHash.AsSpan().SequenceEqual(archivedHash);
     }
 }

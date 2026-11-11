@@ -43,7 +43,7 @@ public sealed class LoadFailureTests : BunitContext
         var ui = Render<LoadFailure>(p => p.Add(c => c.Title, "Couldn’t open the script")
             .Add(c => c.Error, new WorkspaceStoreException("The script is unavailable.")).Add(c => c.Retry, () => retries++));
         Assert.Empty(ui.FindAll("details"));
-        Assert.Contains("Nothing has been changed. Try again in a moment.", ui.Markup);
+        Assert.Contains("Nothing has been changed.", ui.Markup);
         ui.FindAll("button").Single(b => b.TextContent.Trim() == "Try again").Click();
         Assert.Equal(1, retries);
     }

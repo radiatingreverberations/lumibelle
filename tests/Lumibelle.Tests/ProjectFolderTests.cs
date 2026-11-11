@@ -45,6 +45,7 @@ public sealed class ProjectFolderTests : IDisposable
         await using (var media = (await source.Packages.OpenExportAsync(project.Id, export.Id, _ct))!) ZipFile.ExtractToDirectory(media.Content, folder);
         var library = NewLibrary();
         await library.Folders.OpenAsync(folder, _ct);
+        await new ProjectUpgrades(library.Paths, library.Files, library.Files.Locations, library.Jobs).UpgradeAsync(project.Id, ct: _ct);
         Assert.Equal(Path.Combine(folder, "project"), await library.Files.DirectoryAsync(project.Id, _ct));
         Assert.Equal(project.Id, (await new FileAssetStore(library.Files, TimeProvider.System).LoadAsync(project.Id, _ct)).ProjectId);
         // A linked project exports like one in the library, and its ID cannot be imported beside it.
@@ -71,6 +72,7 @@ public sealed class ProjectFolderTests : IDisposable
         await using (var media = (await source.Packages.OpenExportAsync(project.Id, export.Id, _ct))!) ZipFile.ExtractToDirectory(media.Content, folder);
         var library = NewLibrary();
         await library.Folders.OpenAsync(folder, _ct);
+        await new ProjectUpgrades(library.Paths, library.Files, library.Files.Locations, library.Jobs).UpgradeAsync(project.Id, ct: _ct);
         var assets = new FileAssetStore(library.Files, TimeProvider.System);
         var opened = Assert.Single(Assert.Single((await assets.LoadAsync(project.Id, _ct)).Assets).Images);
         Assert.Equal((image.Id.ToString("N") + ".webp", "image/webp", 256, 192), (opened.FileName, opened.ContentType, opened.Width, opened.Height));
@@ -88,6 +90,7 @@ public sealed class ProjectFolderTests : IDisposable
         await using (var media = (await source.Packages.OpenExportAsync(project.Id, export.Id, _ct))!) ZipFile.ExtractToDirectory(media.Content, folder);
         var library = NewLibrary();
         await library.Folders.OpenAsync(folder, _ct);
+        await new ProjectUpgrades(library.Paths, library.Files, library.Files.Locations, library.Jobs).UpgradeAsync(project.Id, ct: _ct);
         var root = Path.Combine(folder, "project");
         // Opening the folder brought the package's JSON documents into project.sqlite and kept them in legacy-json.
         await TestProjectDatabase.SnapshotAsync(root, project.Id, _ct);
@@ -143,6 +146,7 @@ public sealed class ProjectFolderTests : IDisposable
         var folder = Path.Combine(Outside("drive"), "Unplugged"); Copy(source.Root(project), folder);
         var library = NewLibrary(); var other = await library.Projects.CreateAsync(new("Still here"), _ct);
         await library.Folders.OpenAsync(folder, _ct);
+        await new ProjectUpgrades(library.Paths, library.Files, library.Files.Locations, library.Jobs).UpgradeAsync(project.Id, ct: _ct);
         Directory.Move(folder, folder + " (away)");
         var listed = await library.Projects.ListAsync(_ct);
         Assert.Equal(other.Id, Assert.Single(listed.Projects).Id);
