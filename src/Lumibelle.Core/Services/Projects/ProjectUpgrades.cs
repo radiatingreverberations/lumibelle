@@ -1,6 +1,7 @@
 using lumibelle.Services.AI;
 using lumibelle.Services.Production;
 using lumibelle.Services.Storage;
+using lumibelle.Services.Shots;
 using lumibelle.Services.Story;
 
 namespace lumibelle.Services.Projects;
@@ -18,7 +19,7 @@ public interface IProjectUpgrades
 }
 
 public sealed class ProjectUpgrades(ApplicationPaths paths, ProjectFiles files, ProjectLocations locations,
-    IAiJobStore? jobs = null, IGenerationSetupStore? setups = null) : IProjectUpgrades
+    IAiJobStore? jobs = null, IGenerationSetupStore? setups = null, LegacyVideoArchiveRecovery? archives = null) : IProjectUpgrades
 {
     public async Task<ProjectUpgradeStatus> StatusAsync(Guid project, CancellationToken ct = default)
     {
@@ -35,19 +36,23 @@ public sealed class ProjectUpgrades(ApplicationPaths paths, ProjectFiles files, 
     public async Task UpgradeAsync(Guid project, IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var directory = await files.LocateAsync(project, ct);
-        using var gate = await ProjectFiles.LockAsync(directory, ct);
-        var from = ProjectFormat.Inspect(directory);
-        if (from == ProjectFormat.Current && !ReconciliationPending(directory)) return;
-        await ProjectActivity.RequireIdleAsync(jobs, project, "upgrade it", ct);
-        var linked = await locations.FindAsync(project, ct) is not null;
-        await ProjectUpgrader.RunAsync(directory, project, progress, ct, reconcileSetups: linked);
-        using var scope = ProjectDatabase.AllowUpgrade(directory);
-        if (ReconciliationPending(directory))
+        using (await ProjectFiles.LockAsync(directory, ct))
         {
-            progress?.Report("Reconnecting this folder’s generation settings…");
-            if (linked) await FileProductionStore.ReconcileFolderSetupsAsync(directory, project, setups ?? new FileGenerationSetupStore(paths), ct);
-            ProjectDatabase.For(directory).Write(s => s.Execute("DELETE FROM meta WHERE key = 'format_setup_reconciliation'"));
+            var from = ProjectFormat.Inspect(directory);
+            if (from == ProjectFormat.Current && !ReconciliationPending(directory)) return;
+            await ProjectActivity.RequireIdleAsync(jobs, project, "upgrade it", ct);
+            var linked = await locations.FindAsync(project, ct) is not null;
+            await ProjectUpgrader.RunAsync(directory, project, progress, ct, reconcileSetups: linked);
+            using var scope = ProjectDatabase.AllowUpgrade(directory);
+            if (ReconciliationPending(directory))
+            {
+                progress?.Report("Reconnecting this folder’s generation settings…");
+                if (linked) await FileProductionStore.ReconcileFolderSetupsAsync(directory, project, setups ?? new FileGenerationSetupStore(paths), ct);
+                ProjectDatabase.For(directory).Write(s => s.Execute("DELETE FROM meta WHERE key = 'format_setup_reconciliation'"));
+            }
         }
+        // Publishing recovered takes acquires the same project lock through the shot store.
+        if (archives is not null) await archives.RecoverProjectSafelyAsync(project, ct);
     }
 
     private static bool ReconciliationPending(string directory) => ProjectFormat.ReconciliationPending(directory);

@@ -13,6 +13,9 @@ test('loading a sought frame leaves the player and its controls in place', async
   await closeShotSetup(page);
   // Generation is served by the isolated BrowserHost's mock video generator.
   await page.getByRole('button', { name: 'Generate takes', exact: true }).click();
+  // Batch completion removes the cancel action and recenters the dialog. Measure only seeking.
+  await expect(page.locator('.take-review-batch-heading [role=status]')).toHaveText('2/2 saved');
+  await expect(page.getByRole('button', { name: 'Cancel remaining takes', exact: true })).toBeHidden();
   const player = page.locator('.shot-review-dialog .take-player');
   const position = player.getByRole('slider', { name: 'Video position' });
   const save = player.getByRole('button', { name: 'Save frame', exact: true });

@@ -15,16 +15,21 @@ public sealed class LegacyVideoArchiveRecovery(ProjectFiles projects, IShotStore
         try
         {
             foreach (var project in (await projects.ListProjectsAsync(ct)).Projects)
-                try { await RecoverProjectAsync(project.Id, ct); }
-                catch (ProjectUpgradeRequiredException e)
-                { logger.LogWarning("Earlier video archives in project {Project} are waiting for an upgrade. {Reason}", project.Id, e.Message); }
-                catch (Exception e) when (e is WorkspaceStoreException or IOException)
-                { logger.LogWarning(e, "Earlier video archives in project {Project} could not be published", project.Id); }
+                await RecoverProjectSafelyAsync(project.Id, ct);
         }
         catch (Exception e) when (e is ProjectStoreException or WorkspaceStoreException or IOException)
         { logger.LogWarning(e, "Earlier video archive recovery could not read the project library"); }
     }
     public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
+    internal async Task RecoverProjectSafelyAsync(Guid project, CancellationToken ct)
+    {
+        try { await RecoverProjectAsync(project, ct); }
+        catch (ProjectUpgradeRequiredException e)
+        { logger.LogWarning("Earlier video archives in project {Project} are waiting for an upgrade. {Reason}", project, e.Message); }
+        catch (Exception e) when (e is WorkspaceStoreException or IOException)
+        { logger.LogWarning(e, "Earlier video archives in project {Project} could not be published", project); }
+    }
+
     internal async Task RecoverProjectAsync(Guid projectId, CancellationToken ct)
     {
         foreach (var run in await shots.RunsAsync(projectId, ct))

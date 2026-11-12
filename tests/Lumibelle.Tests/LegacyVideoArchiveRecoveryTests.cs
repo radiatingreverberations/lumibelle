@@ -1,5 +1,7 @@
 using lumibelle.Models;
 using lumibelle.Services.Shots;
+using lumibelle.Services;
+using lumibelle.Services.Projects;
 using Lumibelle.Testing;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -7,6 +9,29 @@ namespace Lumibelle.Tests;
 
 public sealed partial class ShotTests
 {
+    [Fact]
+    public async Task UpgradingPublishesDeferredLegacyArchivesWithoutRestarting()
+    {
+        var f = Fixture(); var shot = Ready(); await f.Shots.SaveAsync(f.Project.Id, [shot], 0, ct: _ct);
+        var run = new VideoRun { Snapshot = Snapshot(f.Project.Id, shot), Candidates = [new() { Number = 1, Seed = 22, State = VideoCandidateState.Downloading }] };
+        var candidate = run.Candidates[0];
+        var staging = Path.Combine(await f.Shots.RunDirectoryAsync(f.Project.Id, run.Id, _ct), "candidate-1"); Directory.CreateDirectory(staging);
+        await File.WriteAllBytesAsync(Path.Combine(staging, "video.mp4"), [1, 2, 3], _ct);
+        var frames = await MockFrameArchive.WriteAsync(staging, run.Snapshot.FrameCount, 32, 32, _ct);
+        candidate.ArchivedTake = new() { Id = candidate.TakeId, ShotId = shot.Id, RunId = run.Id, Candidate = 1, Seed = 22,
+            Snapshot = run.Snapshot, Width = 32, Height = 32, Frames = frames, Bytes = 3 + frames.DistinctBy(f => f.FileName).Sum(f => f.Bytes) };
+        await f.Shots.SaveRunAsync(run, _ct);
+        var directory = await f.Files.DirectoryAsync(f.Project.Id, _ct);
+        TestProjectDatabase.Execute(directory, "PRAGMA user_version = 1");
+        var recovery = new LegacyVideoArchiveRecovery(f.Files, f.Shots, NullLogger<LegacyVideoArchiveRecovery>.Instance);
+        await recovery.StartAsync(_ct);
+        Assert.Empty(TestProjectDatabase.Rows(directory, "shots", "takes"));
+        var paths = new ApplicationPaths(Path.Combine(_root, "App_Data"), Path.Combine(_root, "projects"));
+        await new ProjectUpgrades(paths, f.Files, f.Files.Locations, archives: recovery).UpgradeAsync(f.Project.Id, ct: _ct);
+        Assert.Equal(candidate.TakeId, Assert.Single((await f.Shots.LoadAsync(f.Project.Id, _ct)).Takes).Id);
+        Assert.Equal(VideoCandidateState.Complete, (await f.Shots.RunsAsync(f.Project.Id, _ct)).Single().Candidates[0].State);
+    }
+
     [Fact]
     public async Task EarlierCompletedArchivePublishesOnceAndNeverResurrectsADiscardedTake()
     {

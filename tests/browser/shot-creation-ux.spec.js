@@ -10,6 +10,7 @@ async function openProject(page, request, existing = true, alternativeSetup = fa
     await request.post(`/fixtures/${id}/legacy-setup-inputs`);
   }
   await page.goto(`/projects/${id}/shots`);
+  if (alternativeSetup) await page.getByRole('button', { name: 'Upgrade project', exact: true }).click();
   await expect(page.locator('.shots-heading')).toHaveAttribute('data-interactive', 'true');
   const state = async () => (await (await request.get(`/fixtures/${id}/shots`)).json());
   return { id, state };

@@ -105,7 +105,9 @@ app.MapPost("/fixtures/{id:guid}/legacy-setup-inputs", async (Guid id, IProducti
     var alternative = setup.Copy(); alternative.Id = Guid.NewGuid(); alternative.Name = "Earlier alternative";
     alternative.Prompt = "A different preserved prompt."; alternative.Shot.Images.Clear(); alternative.Shot.Resolution = VideoResolution.Detail;
     document.Compositions.Add(alternative); document.SchemaVersion = 2;
-    await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(await files.DirectoryAsync(id, default), id, document, default);
+    var directory = await files.DirectoryAsync(id, default);
+    await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(directory, id, document, default);
+    StorageFixtures.MarkLegacy(directory);
     return Results.Ok();
 });
 app.MapPost("/fixtures/{id:guid}/take-generation-setup", async (Guid id, IProductionStore production) => {

@@ -107,7 +107,9 @@ internal static class ReferencePickerFixtures
             source.Shot.EnvironmentAssetId = null;
             document.Compositions.Add(alternate); document.SchemaVersion = 3;
             foreach (var content in document.ShotContent) content.EnvironmentAssetId = null;
-            await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(await files.DirectoryAsync(id, default), id, document, default);
+            var directory = await files.DirectoryAsync(id, default);
+            await lumibelle.Services.Production.FileProductionStore.Documents.SaveAsync(directory, id, document, default);
+            StorageFixtures.MarkLegacy(directory);
             return Results.Ok();
         });
         app.MapPost("/fixtures/{id:guid}/picture-ten", async (Guid id, IProductionStore production, IAssetStore assets, ProjectFiles files) => {

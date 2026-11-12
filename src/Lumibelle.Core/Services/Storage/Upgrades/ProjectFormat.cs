@@ -33,7 +33,10 @@ internal static class ProjectFormat
 
     internal static int Inspect(SqliteConnection connection, string path)
     {
+        // The version and schema must come from one snapshot during the first concurrent save.
+        using var transaction = connection.BeginTransaction(deferred: true);
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "PRAGMA user_version";
         var version = Convert.ToInt32(command.ExecuteScalar());
         if (version > Current)

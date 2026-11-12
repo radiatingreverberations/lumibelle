@@ -13,9 +13,7 @@ public static class StorageFixtures
         {
             var directory = await files.DirectoryAsync(id, default);
             await FileProjectAiPreferencesStore.Documents.SaveAsync(directory, id, new ProjectAiPreferences { ProjectId = id, SchemaVersion = 1 }, default);
-            using var connection = ProjectFormat.Connect(Path.Combine(directory, ProjectDatabase.FileName));
-            using var command = connection.CreateCommand(); command.CommandText = "PRAGMA user_version = 1"; command.ExecuteNonQuery();
-            DocumentCache.EvictDirectory(directory);
+            MarkLegacy(directory);
             return Results.Ok();
         });
         app.MapGet("/fixtures/{id:guid}/format", async (Guid id, ProjectFiles files) => ProjectFormat.Inspect(await files.LocateAsync(id, default)));
@@ -52,5 +50,12 @@ public static class StorageFixtures
             }
             return Results.Ok(doc);
         });
+    }
+
+    internal static void MarkLegacy(string directory)
+    {
+        using var connection = ProjectFormat.Connect(Path.Combine(directory, ProjectDatabase.FileName));
+        using var command = connection.CreateCommand(); command.CommandText = "PRAGMA user_version = 1"; command.ExecuteNonQuery();
+        DocumentCache.EvictDirectory(directory);
     }
 }

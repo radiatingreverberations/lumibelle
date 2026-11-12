@@ -210,6 +210,50 @@ public sealed class ProjectUpgradeTests : IDisposable
     }
 
     [Fact]
+    public async Task ProductionIdentityMatchingUsesGuidValuesAcrossCasing()
+    {
+        var f = await Fixture(); await FormatFixtures.Sqlite(f.Directory, f.Project.Id, ct);
+        var shot = Guid.Parse("aabbccdd-1122-3344-5566-aabbccddeeff");
+        var environment = Guid.Parse("abcdefab-1122-3344-5566-aabbccddeeff");
+        using (ProjectDatabase.AllowUpgrade(f.Directory))
+        {
+            var json = await TestProjectDatabase.JsonAsync(FileShotStore.Documents, f.Directory, f.Project.Id, ct);
+            json["shots"]![0]!["id"] = shot.ToString();
+            await TestProjectDatabase.SaveJsonAsync(FileShotStore.Documents, f.Directory, f.Project.Id, json, ct);
+        }
+        foreach (var version in new[] { 1, 2, 3 })
+        {
+            using (ProjectDatabase.AllowUpgrade(f.Directory))
+            {
+                var production = JsonNode.Parse(FormatFixtures.Json(f.Project.Id)["production"])!;
+                production["schemaVersion"] = version;
+                var first = production["compositions"]![0]!;
+                first["shotId"] = shot.ToString().ToUpperInvariant();
+                first["inputs"]!["environmentAssetId"] = environment.ToString();
+                var second = first.DeepClone(); second["id"] = Guid.NewGuid().ToString(); second["name"] = "Alternative";
+                second["shotId"] = version == 1 ? shot.ToString().ToUpperInvariant() : shot.ToString();
+                second["inputs"]!["environmentAssetId"] = environment.ToString().ToUpperInvariant();
+                production["compositions"]!.AsArray().Add(second);
+                if (version == 3)
+                {
+                    production["shotContent"] = new JsonArray(new JsonObject { ["shotId"] = shot.ToString().ToUpperInvariant(), ["prompt"] = "Keep this prompt." });
+                    production["earlierSetupContent"] = new JsonArray();
+                }
+                await TestProjectDatabase.SaveJsonAsync(FileProductionStore.Documents, f.Directory, f.Project.Id, production, ct);
+            }
+            // Each input is a separate historical project with the same frozen source documents.
+            if (File.Exists(ProjectUpgrader.BackupPath(f.Directory, 1))) File.Delete(ProjectUpgrader.BackupPath(f.Directory, 1));
+            TestProjectDatabase.Execute(f.Directory, "PRAGMA user_version = 1");
+            await f.Upgrades.UpgradeAsync(f.Project.Id, ct: ct);
+            var saved = await FileProductionStore.Documents.LoadAsync(f.Directory, f.Project.Id, ct);
+            Assert.Equal(2, saved.Compositions.Count);
+            var content = Assert.Single(saved.ShotContent);
+            Assert.Equal(shot, content.ShotId); Assert.Equal(environment, content.EnvironmentAssetId);
+            Assert.Empty(saved.EarlierSetupContent);
+        }
+    }
+
+    [Fact]
     public async Task UnsupportedDocumentVersionStopsBeforeTheFormatChanges()
     {
         var f = await Fixture(); await FormatFixtures.Sqlite(f.Directory, f.Project.Id, ct);
