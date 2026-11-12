@@ -90,4 +90,12 @@ public sealed class ProjectUpgradeRequiredException : WorkspaceStoreException
     public ProjectUpgradeRequiredException(string directory, int found)
         : base("This project needs upgrading. Open it in Lumibelle to upgrade it.")
     { Found = found; Data["path"] = Path.Combine(directory, ProjectDatabase.FileName); }
+
+    internal static bool IsOnlyUpgradeRequired(Exception error)
+    {
+        if (error is ProjectUpgradeRequiredException) return true;
+        if (error is not AggregateException aggregate) return false;
+        var errors = aggregate.Flatten().InnerExceptions;
+        return errors.Count > 0 && errors.All(e => e is ProjectUpgradeRequiredException);
+    }
 }

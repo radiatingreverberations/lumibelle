@@ -1,6 +1,7 @@
 using System.Text.Json;
 using lumibelle.Models;
 using lumibelle.Services.Story;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.Shots;
 
@@ -15,6 +16,8 @@ public sealed class LegacyVideoArchiveRecovery(ProjectFiles projects, IShotStore
         {
             foreach (var project in (await projects.ListProjectsAsync(ct)).Projects)
                 try { await RecoverProjectAsync(project.Id, ct); }
+                catch (ProjectUpgradeRequiredException e)
+                { logger.LogWarning("Earlier video archives in project {Project} are waiting for an upgrade. {Reason}", project.Id, e.Message); }
                 catch (Exception e) when (e is WorkspaceStoreException or IOException)
                 { logger.LogWarning(e, "Earlier video archives in project {Project} could not be published", project.Id); }
         }
