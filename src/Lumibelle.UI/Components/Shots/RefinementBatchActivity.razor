@@ -28,17 +28,9 @@
             }
             @if (run.PauseRequested) { <p>Pausing after the current clip finishes.</p> }
             <div class="refinement-activity-actions" role="group" aria-label="@($"Controls for {run.Name}")">
-                @if (run.State is RefinementBatchState.Held or RefinementBatchState.Paused || run.PauseRequested)
+                @if (run.State == RefinementBatchState.Running && !run.PauseRequested)
                 {
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="() => Command(() => Batches.StartAsync(ProjectId, run.Id, _lifetime.Token))">@(run.State == RefinementBatchState.Held ? "Start batch" : "Resume batch")</MudButton>
-                }
-                else if (run.State == RefinementBatchState.Running)
-                {
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="() => Command(() => Batches.PauseAsync(ProjectId, run.Id, _lifetime.Token))">Pause after current clip</MudButton>
-                }
-                @if (current is not null || run.Items.Any(i => i.State is RefinementItemState.Preparing or RefinementItemState.Ready))
-                {
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="() => CancelBatch(run.Id)" title="Stop the current render and cancel waiting clips">Cancel batch</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="() => Command(() => Batches.PauseAsync(ProjectId, run.Id, _lifetime.Token))" title="Pause after the current clip finishes">Pause</MudButton>
                 }
                 <MudButton Size="Size.Small" OnClick="() => OpenBatch.InvokeAsync(run.Id)">Manage batch</MudButton>
             </div>
@@ -63,14 +55,6 @@
         RefinementBatchState.Held => "Held",
         _ => "Finished"
     };
-
-    private Task CancelBatch(Guid batch) => Command(async () =>
-    {
-        var ct = _lifetime.Token;
-        // Cancel unsubmitted clips first, so the worker cannot start another render while this one stops.
-        await Batches.CancelWaitingAsync(ProjectId, batch, ct);
-        await Batches.CancelCurrentAsync(ProjectId, batch, ct);
-    });
 
     private async Task Command(Func<Task> action)
     {

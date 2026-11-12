@@ -99,7 +99,7 @@ test('refine selected takes as a held background batch', async ({ page, request,
 });
 
 for (const pause of [false, true]) {
-  test(`restored batch is visible and can ${pause ? 'pause, resume and retain completed clips' : 'cancel current and waiting clips'} from Shots`, async ({ page, request }) => {
+  test(`restored batch exposes Pause and manages ${pause ? 'resume and completed clips' : 'cancellation'} in its dialog`, async ({ page, request }) => {
     test.setTimeout(150000);
     const { id } = await (await request.get('/fixtures/new')).json();
     await request.post(`/fixtures/${id}/approved`);
@@ -128,31 +128,37 @@ for (const pause of [false, true]) {
     const activity = page.locator('.refinement-activity-batch');
     await expect(activity).toContainText('Held');
     await expect(activity).toContainText('0 of 2 clips completed');
+    await expect(activity.getByRole('button')).toHaveCount(1);
     await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
     const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
     await expect(batches.locator('[data-stage="Ready"]')).toHaveCount(2, { timeout: 30000 });
-    await batches.getByRole('button', { name: 'Close', exact: true }).click();
     await request.post('/fixtures/video-queue?paused=true');
-    await activity.getByRole('button', { name: 'Start batch', exact: true }).click();
+    await batches.getByRole('button', { name: 'Start batch', exact: true }).click();
+    await batches.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(activity).toHaveAttribute('data-state', 'Running');
     await expect(activity).toContainText('Queued');
+    await expect(activity.getByRole('button')).toHaveCount(2);
+    await expect(activity.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('title', 'Pause after the current clip finishes');
     if (pause) {
-      await activity.getByRole('button', { name: 'Pause after current clip', exact: true }).click();
+      await activity.screenshot({ path: 'artifacts/refinement-batch-running.png' });
+      await activity.getByRole('button', { name: 'Pause', exact: true }).click();
       await expect(activity).toContainText('Pausing after the current clip finishes.');
-      await activity.getByRole('button', { name: 'Resume batch', exact: true }).click();
+      await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
+      await batches.getByRole('button', { name: 'Resume batch', exact: true }).click();
+      await batches.getByRole('button', { name: 'Close', exact: true }).click();
       await expect(activity.getByText('Pausing after the current clip finishes.')).toBeHidden();
-      await activity.getByRole('button', { name: 'Pause after current clip', exact: true }).click();
+      await activity.getByRole('button', { name: 'Pause', exact: true }).click();
       await request.post('/fixtures/video-queue?paused=false');
       await expect(activity).toHaveAttribute('data-state', 'Paused', { timeout: 60000 });
       await expect(activity).toContainText('1 of 2 clips completed');
       await page.reload();
       await expect(activity).toHaveAttribute('data-state', 'Paused');
-      await expect(activity.getByRole('button', { name: 'Resume batch', exact: true })).toBeEnabled();
+      await expect(activity.getByRole('button')).toHaveCount(1);
       await activity.screenshot({ path: 'artifacts/refinement-batch-activity.png' });
     }
-    await activity.getByRole('button', { name: 'Cancel batch', exact: true }).click();
+    await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
+    await batches.getByRole('button', { name: 'Cancel batch', exact: true }).click();
     await expect(activity).toHaveCount(0, { timeout: 30000 });
-    await page.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click();
     await expect(batches.locator('[data-stage="Cancelled"]')).toHaveCount(pause ? 1 : 2);
     await expect(batches.locator('[data-stage="Completed"]')).toHaveCount(pause ? 1 : 0);
     expect((await state()).takes).toHaveLength(pause ? 3 : 2);
