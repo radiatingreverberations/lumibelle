@@ -1,0 +1,10 @@
+.refinement-activity { display:grid; gap:10px; }
+.refinement-activity-batch { display:grid; gap:8px; padding:12px; margin-bottom:12px; border:1px solid var(--lumi-accent); border-radius:var(--lumi-radius-control); background:var(--lumi-surface-subtle); min-width:0; }
+.refinement-activity-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; gap:4px 12px; }
+.refinement-activity-heading strong { overflow-wrap:anywhere; }
+.refinement-activity-heading span { color:var(--lumi-accent); font-weight:600; }
+.refinement-activity-progress { display:flex; flex-wrap:wrap; gap:4px 12px; color:var(--muted); font-size:var(--lumi-font-size-small); font-variant-numeric:tabular-nums; }
+.refinement-activity-batch progress { display:block; width:100%; height:6px; accent-color:var(--lumi-accent); }
+.refinement-activity-batch p { margin:0; overflow-wrap:anywhere; font-size:var(--lumi-font-size-small); color:var(--muted); }
+.refinement-activity-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.refinement-activity-error { color:var(--lumi-danger); font-size:var(--lumi-font-size-small); }

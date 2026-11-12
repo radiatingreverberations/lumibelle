@@ -68,6 +68,7 @@ app.MapPost("/fixtures/ai-jobs/{id:guid}/unread", async (Guid id, IAiJobStore jo
     await jobs.UpdateAsync(id, j => j with { Unread = true }); await coordinator.RefreshAsync(); return Results.Ok();
 });
 app.MapPost("/fixtures/text-queue", async (bool paused, AiJobCoordinator jobs) => { await jobs.SetPausedAsync(AiBackend.OpenRouter, paused); return Results.Ok(); });
+app.MapPost("/fixtures/video-queue", async (bool paused, AiJobCoordinator jobs) => { await jobs.SetPausedAsync(AiBackend.ComfyUI, paused); return Results.Ok(); });
 app.MapGet("/fixtures/capacity", (MockCapacityState state) => new { state.ComfyChecks, state.RouterChecks });
 app.MapGet("/fixtures/codex", (Lumibelle.Testing.MockCodexTransport mock) => new { mock.Starts, mock.Threads, mock.Turns, inputs = mock.Inputs });
 app.MapPost("/fixtures/text-catalog", (bool enabled, bool failed, IAiProviderRegistry registry) => { var mock = (MockProviders)registry; mock.ComparisonCatalog = enabled; mock.CatalogFailure = failed; return Results.Ok(); });

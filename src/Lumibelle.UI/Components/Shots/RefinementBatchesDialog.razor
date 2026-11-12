@@ -98,7 +98,8 @@
     // Completed clips are seen once the open dialog shows them, which clears the new marks on Batches and Takes.
     private AiJobHeader[] SeenJobs => Ordered.SelectMany(r => RefinementBatchWorkflow.View(r, Jobs.View.Jobs))
         .Where(v => v.Stage == RefinementItemStage.Completed && v.Job is { Unread: true }).Select(v => v.Job!).ToArray();
-    private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs.OrderByDescending(r => r.CreatedUtc);
+    private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs
+        .OrderByDescending(r => r.Id == RequestedBatchId).ThenByDescending(r => r.Active).ThenByDescending(r => r.CreatedUtc);
 
     protected override void OnInitialized() { Batches.Changed += BatchesChanged; Jobs.Changed += Refresh; }
     // Pages keep it mounted after the first opening, since removing an open MudDialog leaves it on screen.
