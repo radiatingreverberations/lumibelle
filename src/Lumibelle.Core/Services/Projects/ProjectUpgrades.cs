@@ -39,16 +39,18 @@ public sealed class ProjectUpgrades(ApplicationPaths paths, ProjectFiles files, 
         using (await ProjectFiles.LockAsync(directory, ct))
         {
             var from = ProjectFormat.Inspect(directory);
-            if (from == ProjectFormat.Current && !ReconciliationPending(directory)) return;
-            await ProjectActivity.RequireIdleAsync(jobs, project, "upgrade it", ct);
-            var linked = await locations.FindAsync(project, ct) is not null;
-            await ProjectUpgrader.RunAsync(directory, project, progress, ct, reconcileSetups: linked);
-            using var scope = ProjectDatabase.AllowUpgrade(directory);
-            if (ReconciliationPending(directory))
+            if (from < ProjectFormat.Current || ReconciliationPending(directory))
             {
-                progress?.Report("Reconnecting this folder’s generation settings…");
-                if (linked) await FileProductionStore.ReconcileFolderSetupsAsync(directory, project, setups ?? new FileGenerationSetupStore(paths), ct);
-                ProjectDatabase.For(directory).Write(s => s.Execute("DELETE FROM meta WHERE key = 'format_setup_reconciliation'"));
+                await ProjectActivity.RequireIdleAsync(jobs, project, "upgrade it", ct);
+                var linked = await locations.FindAsync(project, ct) is not null;
+                await ProjectUpgrader.RunAsync(directory, project, progress, ct, reconcileSetups: linked);
+                using var scope = ProjectDatabase.AllowUpgrade(directory);
+                if (ReconciliationPending(directory))
+                {
+                    progress?.Report("Reconnecting this folder’s generation settings…");
+                    if (linked) await FileProductionStore.ReconcileFolderSetupsAsync(directory, project, setups ?? new FileGenerationSetupStore(paths), ct);
+                    ProjectDatabase.For(directory).Write(s => s.Execute("DELETE FROM meta WHERE key = 'format_setup_reconciliation'"));
+                }
             }
         }
         // Publishing recovered takes acquires the same project lock through the shot store.

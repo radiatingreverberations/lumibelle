@@ -12,13 +12,14 @@ async function setup(page, request) {
   return { project, library };
 }
 async function openComposer(page) {
-  const start = page.getByRole('button', { name: 'Improve prompt', exact: true });
-  if (await start.isVisible()) await start.click();
-  else {
-    await page.locator('.prompt-enhancement .request-action-button').click();
-    await page.locator('.prompt-enhancement-dialog').getByRole('button', { name: 'New request', exact: true }).click();
-  }
-  return page.locator('.ai-assist-dialog').last();
+  await action(page).click();
+  // Reloading can replace an earlier request with Improve prompt before the click reaches the server.
+  await expect(page.locator('.ai-assist-dialog:visible, .prompt-enhancement-dialog:visible')).toHaveCount(1);
+  if (await review(page).isVisible())
+    await review(page).getByRole('button', { name: 'New request', exact: true }).click();
+  const composer = page.locator('.ai-assist-dialog').last();
+  await expect(composer).toBeVisible();
+  return composer;
 }
 async function chooseVision(page) {
   const composer = await openComposer(page);
