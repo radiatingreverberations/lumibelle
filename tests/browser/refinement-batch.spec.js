@@ -51,6 +51,8 @@ test('refine selected takes as a held background batch', async ({ page, request,
   await returned.setViewportSize({ width: 1173, height: 1000 });
   await returned.goto(`/projects/${id}/shots?view=Takes`);
   await expect(returned.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+  await expect(returned.locator('.refinement-activity-batch')).toContainText('Held');
+  await expect(returned.locator('.refinement-activity-batch')).toContainText('0 of 2 clips completed');
   await returned.locator('.shots-library-tools').getByRole('button', { name: 'Refinement batches', exact: true }).click();
   const reopened = returned.getByRole('dialog', { name: 'Refinement batches', exact: true });
   const items = reopened.locator('.refinement-batch').first().locator('.refinement-item');
@@ -95,6 +97,74 @@ test('refine selected takes as a held background batch', async ({ page, request,
   expect(await returned.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await returned.screenshot({ path: 'artifacts/refinement-batch.png', fullPage: true });
 });
+
+for (const pause of [false, true]) {
+  test(`restored batch exposes Pause and manages ${pause ? 'resume and completed clips' : 'cancellation'} in its dialog`, async ({ page, request }) => {
+    test.setTimeout(150000);
+    const { id } = await (await request.get('/fixtures/new')).json();
+    await request.post(`/fixtures/${id}/approved`);
+    await request.post(`/fixtures/${id}/production-shot`);
+    await request.post(`/fixtures/${id}/motion-reference-setup?takes=2`);
+    const state = async () => (await request.get(`/fixtures/${id}/shots`)).json();
+    await page.setViewportSize({ width: 1173, height: 1000 });
+    await page.goto(`/projects/${id}/shots`);
+    await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+    await toolsTab(page, 'Generate');
+    await closeShotSetup(page);
+    await page.getByRole('button', { name: 'Generate takes', exact: true }).click();
+    await expect.poll(async () => (await state()).takes.length, { timeout: 60000 }).toBe(2);
+    await page.goto(`/projects/${id}/shots?view=Takes`);
+    await expect(page.locator('.studio-workspace')).toHaveAttribute('data-ready', 'true');
+    await page.getByRole('button', { name: 'Select multiple', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Select take 1', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'Select take 2', exact: true }).check();
+    await page.getByRole('button', { name: 'Refine selected…', exact: true }).click();
+    const refine = page.getByRole('dialog', { name: 'Refine from video', exact: true });
+    await refine.getByRole('radio', { name: 'Hold until started', exact: true }).check();
+    await expect(refine.getByRole('button', { name: 'Queue 2 refinements', exact: true })).toBeEnabled({ timeout: 30000 });
+    await refine.getByRole('button', { name: 'Queue 2 refinements', exact: true }).click();
+    await expect(refine).toBeHidden();
+    await page.reload();
+    const activity = page.locator('.refinement-activity-batch');
+    await expect(activity).toContainText('Held');
+    await expect(activity).toContainText('0 of 2 clips completed');
+    await expect(activity.getByRole('button')).toHaveCount(1);
+    await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
+    const batches = page.getByRole('dialog', { name: 'Refinement batches', exact: true });
+    await expect(batches.locator('[data-stage="Ready"]')).toHaveCount(2, { timeout: 30000 });
+    await request.post('/fixtures/video-queue?paused=true');
+    await batches.getByRole('button', { name: 'Start batch', exact: true }).click();
+    await batches.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(activity).toHaveAttribute('data-state', 'Running');
+    await expect(activity).toContainText('Queued');
+    await expect(activity.getByRole('button')).toHaveCount(2);
+    await expect(activity.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('title', 'Pause after the current clip finishes');
+    if (pause) {
+      await activity.screenshot({ path: 'artifacts/refinement-batch-running.png' });
+      await activity.getByRole('button', { name: 'Pause', exact: true }).click();
+      await expect(activity).toContainText('Pausing after the current clip finishes.');
+      await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
+      await batches.getByRole('button', { name: 'Resume batch', exact: true }).click();
+      await batches.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(activity.getByText('Pausing after the current clip finishes.')).toBeHidden();
+      await activity.getByRole('button', { name: 'Pause', exact: true }).click();
+      await request.post('/fixtures/video-queue?paused=false');
+      await expect(activity).toHaveAttribute('data-state', 'Paused', { timeout: 60000 });
+      await expect(activity).toContainText('1 of 2 clips completed');
+      await page.reload();
+      await expect(activity).toHaveAttribute('data-state', 'Paused');
+      await expect(activity.getByRole('button')).toHaveCount(1);
+      await activity.screenshot({ path: 'artifacts/refinement-batch-activity.png' });
+    }
+    await activity.getByRole('button', { name: 'Manage batch', exact: true }).click();
+    await batches.getByRole('button', { name: 'Cancel batch', exact: true }).click();
+    await expect(activity).toHaveCount(0, { timeout: 30000 });
+    await expect(batches.locator('[data-stage="Cancelled"]')).toHaveCount(pause ? 1 : 2);
+    await expect(batches.locator('[data-stage="Completed"]')).toHaveCount(pause ? 1 : 0);
+    expect((await state()).takes).toHaveLength(pause ? 3 : 2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
 
 test('refinement batches close from the header, Done and Escape, and reopen', async ({ page, request }) => {
   const { id } = await (await request.get('/fixtures/new')).json();

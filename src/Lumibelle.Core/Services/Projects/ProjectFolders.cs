@@ -54,7 +54,8 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
         try
         {
             using var projectLock = await ProjectFiles.LockAsync(root, ct);
-            await FileProductionStore.ReconcileFolderSetupsAsync(root, project.Id, new FileGenerationSetupStore(paths), ct);
+            if (Storage.ProjectFormat.Inspect(root) == Storage.ProjectFormat.Current && !Storage.ProjectFormat.ReconciliationPending(root))
+                await FileProductionStore.ReconcileFolderSetupsAsync(root, project.Id, new FileGenerationSetupStore(paths), ct);
             await locations.AddAsync(new(project.Id, root, clock.GetUtcNow()), ct);
         }
         catch { locations.Release(root); throw; }
@@ -67,9 +68,10 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
         using var gate = await ProjectFiles.LockAsync(OperationGate, ct);
         var info = await projects.GetAsync(project, ct) ?? throw new WorkspaceStoreException("Project not found. Return to the project hub.");
         if (await locations.FindAsync(project, ct) is not null) throw new WorkspaceStoreException("This project is already in a folder outside the library.");
-        await RequireIdleAsync(project, "move it", ct);
+        await ProjectActivity.RequireIdleAsync(jobs, project, "move it", ct);
         var source = locations.LibraryDirectory(project);
         using var projectLock = await ProjectFiles.LockAsync(source, ct);
+        Storage.ProjectFormat.RequireCurrent(source);
         CleanupMoved();
         var target = Unique(destination, FolderName(info.Name));
         var renamed = !CopyAcrossDrives && SameRoot(source, target) && TryRename(source, target);
@@ -98,15 +100,9 @@ public sealed class ProjectFolders(ApplicationPaths paths, ProjectLocations loca
         using var gate = await ProjectFiles.LockAsync(OperationGate, ct);
         var location = await locations.FindAsync(project, ct)
             ?? throw new WorkspaceStoreException("Only projects in folders outside the library can be removed from it this way.");
-        await RequireIdleAsync(project, "remove it from the library", ct);
+        await ProjectActivity.RequireIdleAsync(jobs, project, "remove it from the library", ct);
         await locations.RemoveAsync(project, ct);
         locations.Release(location.Path);
-    }
-
-    private async Task RequireIdleAsync(Guid project, string action, CancellationToken ct)
-    {
-        if (jobs is not null && (await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && j.LocksTarget))
-            throw new WorkspaceStoreException($"This project has queued or working AI requests. Wait for them to finish, or cancel them, then {action}.");
     }
 
     private string Folder(string? text)

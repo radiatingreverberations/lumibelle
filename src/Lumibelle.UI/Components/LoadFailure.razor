@@ -25,13 +25,14 @@
     private bool _retrying;
 
     private string? FilePath => Error.Data["path"] as string;
-    private string Advice => Error.InnerException switch
+    private string Advice => Error is lumibelle.Services.Storage.ProjectUpgradeRequiredException
+        ? "Open the project from your projects page to upgrade it." : Error.InnerException switch
     {
         System.Text.Json.JsonException => "The saved file is damaged, so Lumibelle has left it untouched. Restore it from a backup of the project folder, then try again.",
         UnauthorizedAccessException => "Lumibelle isn’t allowed to open the file. Check that your account can access the project folder, then try again.",
         DirectoryNotFoundException => "The project folder can’t be found. It may have been moved or deleted; check the project library location.",
         IOException => "Another program, such as a sync or backup tool, may be using the file. Wait a moment, then try again.",
-        _ => "Nothing has been changed. Try again in a moment."
+        _ => "Nothing has been changed."
     };
 
     protected override void OnParametersSet()

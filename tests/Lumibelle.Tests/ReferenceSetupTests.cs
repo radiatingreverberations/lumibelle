@@ -47,6 +47,7 @@ public sealed partial class ShotTests
         var (project, files, store, _) = Fixture(); var following = Ready(); var portrait = Ready(); portrait.Aspect = "9:16";
         var dir = await files.DirectoryAsync(project.Id, _ct);
         await AtomicJsonFile.WriteAsync(Path.Combine(dir, "shots.json"), new ShotDocument { ProjectId = project.Id, SchemaVersion = 1, Shots = [following, portrait] }, _ct);
+        await TestProjectDatabase.UpgradeAsync(dir, project.Id, _ct);
         var doc = await store.LoadAsync(project.Id, _ct);
         Assert.Null(doc.Shots[0].AspectOverride); Assert.Equal("9:16", doc.Shots[1].AspectOverride);
         var captured = ShotVideoDefaults.Capture(doc.Shots[0], project); var fingerprint = H3Policy.Fingerprint(captured);

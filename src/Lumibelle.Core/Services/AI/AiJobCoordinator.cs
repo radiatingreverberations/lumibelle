@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using lumibelle.Models;
 using lumibelle.Services.Story;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.AI;
 
@@ -462,7 +463,12 @@ public sealed partial class AiJobCoordinator(IAiJobStore store, IAiSettingsStore
         }
         return false;
     }
-    private void ObserveLateFailure(Task task) => _ = task.ContinueWith(t => logger.LogWarning(t.Exception, "An interrupted AI observer finished with an error"),
+    private void ObserveLateFailure(Task task) => _ = task.ContinueWith(t =>
+    {
+        if (ProjectUpgradeRequiredException.IsOnlyUpgradeRequired(t.Exception!))
+            logger.LogWarning("An AI observer stopped because its project needs upgrading. Open the project in Lumibelle to upgrade it.");
+        else logger.LogWarning(t.Exception, "An interrupted AI observer finished with an error");
+    },
         CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     public async Task RefreshAsync(CancellationToken ct = default)
     {

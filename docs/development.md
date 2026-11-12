@@ -113,10 +113,12 @@ Lumibelle opens a prompt-scoped WebSocket before submission for progress. Model-
 
 ### Review and agent access
 
-The review layer is in `Services/Review` in Core. `ProjectReview` joins each shot with its shared prompt, references and takes; `ReviewChecks` runs over that snapshot and never writes. `ReviewPlans` records findings and proposed steps in the `review-plans` document of `project.sqlite`, and `ReviewPlanRunner` applies approved steps through the production, shot and cut stores. Plan changes are functions applied under the project save lock, so a change must not call another store. Renders go through `IReviewRenderQueue`, which tests replace. Review code never calls `IProductionStore.InitializeAsync`: on a project without a production document it performs the Shots reset, which clears takes.
+The review layer is in `Services/Review` in Core. `ProjectReview` joins each shot with its shared prompt, references and takes; `ReviewChecks` runs over that snapshot and never writes. `ReviewPlans` records findings and proposed steps in the `review-plans` document of `project.sqlite`, and `ReviewPlanRunner` applies approved steps through the production, shot and cut stores. Plan changes are functions applied under the project save lock, so a change must not call another store. Renders go through `IReviewRenderQueue`, which tests replace. Production initialization creates missing setups while preserving saved takes and cut clips.
 
 The MCP endpoint is in `src/Lumibelle.Web/Mcp` and uses `ModelContextProtocol.AspNetCore` over stateless Streamable HTTP at `/mcp`. It answers only when agent access is on, to loopback addresses, with the bearer token, and refuses a non-local `Origin`. `approve_plan` and `accept_picks` are removed from `tools/list` and refused unless approval from the client is allowed; both carry `_meta["anthropic/requiresUserInteraction"]`. `McpEndpointTests` runs the endpoint on a loopback port with a temporary library; `tests/browser/review.spec.js` covers the Review page and the settings panel. The design and its open gaps are in [overseer.md](overseer.md).
 
 ### Shots
 
 The experimental production reset starts empty setups and take history while retaining scripts, assets, settings, shot IDs and coverage. Previous media files remain on disk. Old `/production` links redirect to Shots. See [Unified Shots implementation and validation](production.md) and [reference reels](h3/reference-reels.md).
+
+Project storage format steps, fixtures and recovery procedures are documented in [SQLite storage](sqlite-storage.md#project-format-and-upgrades).

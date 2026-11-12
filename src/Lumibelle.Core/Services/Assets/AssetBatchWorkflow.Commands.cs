@@ -113,6 +113,7 @@ public sealed class AssetBatchWorker(IProjectStore projects, AssetBatchWorkflow 
                 foreach (var project in (await projects.ListAsync(stoppingToken)).Projects)
                 {
                     try { await workflow.AdvanceAsync(project.Id, stoppingToken); }
+                    catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
                     catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException)
                     { logger.LogWarning(e, "Asset batch checkpoint unavailable for {Project}", project.Id); }
                 }

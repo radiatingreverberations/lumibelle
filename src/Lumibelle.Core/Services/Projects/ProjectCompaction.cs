@@ -86,8 +86,7 @@ public sealed class ProjectCompaction(ProjectFiles files, IProjectFolders folder
         IProgress<ProjectPackageProgress>? progress = null, CancellationToken ct = default)
     {
         var project = plan.ProjectId;
-        if (jobs is not null && (await jobs.ReadAsync(ct)).Jobs.Any(j => j.Target.ProjectId == project && j.LocksTarget))
-            throw new WorkspaceStoreException("This project has queued or working AI requests. Wait for them to finish, or cancel them, then compact it.");
+        await ProjectActivity.RequireIdleAsync(jobs, project, "compact it", ct);
         var dir = await files.DirectoryAsync(project, ct); long reclaimed = 0; List<string> issues = [];
         async Task Run(CompactionPart part, string message, Func<Task> action)
         {

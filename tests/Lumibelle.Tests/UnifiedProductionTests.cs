@@ -166,7 +166,7 @@ public sealed partial class ShotTests
     }
 
     [Fact]
-    public async Task UnifiedResetPreservesAssetsCoverageAndScriptsAndIsIdempotent()
+    public async Task ProductionInitializationPreservesAssetsCoverageScriptsAndQueueAndIsIdempotent()
     {
         var f = Fixture(); var source = Ready(); source.Characters = [new(Guid.NewGuid(), "Observer")];
         await f.Shots.SaveAsync(f.Project.Id, [source], 0, ct: _ct);
@@ -184,7 +184,7 @@ public sealed partial class ShotTests
         Assert.Equal(script, await File.ReadAllTextAsync(Path.Combine(dir, "script-test.json"), _ct));
         Assert.Equal(JsonSerializer.Serialize(library), JsonSerializer.Serialize(await f.Assets.LoadAsync(f.Project.Id, _ct)));
         Assert.Equal(ProductionPolicy.SourceFingerprint(source), ProductionPolicy.SourceFingerprint((await f.Shots.LoadAsync(f.Project.Id, _ct)).Shots[0]));
-        Assert.Empty((await jobs.ReadAsync(_ct)).Jobs);
+        Assert.Equal(old.Id, Assert.Single((await jobs.ReadAsync(_ct)).Jobs).Id);
         Assert.Empty(first.Compositions[0].Prompt); Assert.Empty(first.Compositions[0].Inputs.Images);
     }
 }

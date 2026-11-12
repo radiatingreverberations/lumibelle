@@ -17,7 +17,8 @@ public static class ShotServices
         services.AddSingleton<lumibelle.Services.Production.IGenerationSetupStore, lumibelle.Services.Production.FileGenerationSetupStore>();
         services.AddSingleton<ICutStore, FileCutStore>();
         services.AddSingleton<ICutExporter, CutExporter>();
-        services.AddHostedService<LegacyVideoArchiveRecovery>();
+        services.AddSingleton<LegacyVideoArchiveRecovery>();
+        services.AddHostedService(s => s.GetRequiredService<LegacyVideoArchiveRecovery>());
         services.AddSingleton<IShotPlanner, ShotPlanner>();
         services.AddSingleton<IProductionMediaTools, ProductionMediaTools>();
         services.AddSingleton<lumibelle.Services.Production.IReferenceVideoStore, lumibelle.Services.Production.FileReferenceVideoStore>();

@@ -91,11 +91,9 @@ public sealed class FileProjectAiPreferencesStore(ProjectFiles files) : IProject
     private static async Task<ProjectAiPreferences> ReadAsync(string path, Guid id, CancellationToken ct)
     {
         var preferences = await Documents.LoadAsync(Path.GetDirectoryName(path)!, id, ct);
-        if (preferences.SchemaVersion is not (1 or 2) || preferences.ProjectId != id || preferences.LoraVisibilityRevision < 0 || preferences.TextDefaultRevision < 0 ||
+        if (preferences.SchemaVersion != 2 || preferences.ProjectId != id || preferences.LoraVisibilityRevision < 0 || preferences.TextDefaultRevision < 0 ||
             preferences.ImageDefaultRevision < 0 || preferences.VisualStyleRevision < 0 || preferences.VisualStyle is null || preferences.ImageDefault is { } workflow && !Enum.IsDefined(workflow))
             throw new WorkspaceStoreException("Project AI preferences use an invalid or unsupported format. They have not been replaced.");
-        // Old studio choices remain readable, but no longer control new requests.
-        if (preferences.SchemaVersion == 1) preferences = preferences with { SchemaVersion = 2, TextDefault = null, TextDefaultRevision = 0 };
         if (preferences.TextDefault is not null) TextModelPolicy.Validate(preferences.TextDefault);
         LoraPolicy.ValidateVisibility(preferences.LoraVisibility);
         VisualStyles.Validate(preferences.VisualStyle);

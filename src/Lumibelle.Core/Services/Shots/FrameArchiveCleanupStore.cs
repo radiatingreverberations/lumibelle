@@ -1,6 +1,7 @@
 using lumibelle.Models;
 using lumibelle.Services.Assets;
 using lumibelle.Services.Story;
+using lumibelle.Services.Storage;
 
 namespace lumibelle.Services.Shots;
 
@@ -89,6 +90,8 @@ public sealed class FrameArchiveCleanupRecovery(IFrameArchiveCleanupStore store,
         {
             try { await store.ResumeAsync(stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception e) when (ProjectUpgradeRequiredException.IsOnlyUpgradeRequired(e))
+            { logger.LogWarning("Previously requested frame archive cleanup is waiting for project upgrades."); }
             catch (Exception e) { logger.LogWarning(e, "Previously requested frame archive cleanup will retry later."); }
         } while (await timer.WaitForNextTickAsync(stoppingToken));
     }

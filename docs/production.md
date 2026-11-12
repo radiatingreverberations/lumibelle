@@ -46,7 +46,7 @@ Cancelled batches offer **Recover completed takes** in batch review and AI activ
 
 ## Experimental reset
 
-Production schema version 2 intentionally resets previous setups, prompts, revisions, generated take records, take selections, production queue history and dependent Cut clips. Scripts, assets, project settings, shot IDs, coverage and planning provenance remain. Dialogue speakers formerly implicit in cast are materialized as cast entries. Media and operation files remain on disk; file cleanup is outside scope.
+Project format 2 upgrades older production documents while preserving take records, selections, Trash, cut clips, recovery and queue history. Opening Shots creates missing default setups without clearing saved work. Compatible old setup IDs and settings are carried forward, and pre-upgrade backups retain unmappable content.
 
 The reset refuses to run with active production jobs. It writes the schema marker last so interrupted initialization can safely repeat. Shot deletion/recovery and setup archiving account for active requests. New activity links target the unified workspace with shot, setup, job and Prompt/Takes selection.
 

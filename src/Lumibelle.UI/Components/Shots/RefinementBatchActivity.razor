@@ -1,0 +1,74 @@
+@using lumibelle.Services.Shots
+@using lumibelle.Services.Story
+@implements IDisposable
+@inject RefinementBatchWorkflow Batches
+@inject AiJobCoordinator Jobs
+
+<div class="refinement-activity">
+    @foreach (var run in Runs.Where(r => r.Active).OrderByDescending(r => r.CreatedUtc))
+    {
+        var views = RefinementBatchWorkflow.View(run, Jobs.View.Jobs);
+        var counts = RefinementBatchWorkflow.Count(views);
+        var current = views.FirstOrDefault(v => v.Item.State == RefinementItemState.Submitted &&
+            (v.Job is { State: AiJobState.Waiting or AiJobState.Running } || v.Job?.RemoteUnconfirmed == true));
+        <section @key="run.Id" class="refinement-activity-batch" aria-label="@($"Batch · {run.Name}")" data-batch-id="@run.Id" data-state="@run.State">
+            <div class="refinement-activity-heading"><strong>@run.Name</strong><span>@StateLabel(run)</span></div>
+            <div class="refinement-activity-progress" role="status">
+                <span>@counts.Completed of @counts.Total clips completed</span>
+                @if (counts.Failed > 0) { <span class="refinement-activity-error">@counts.Failed need attention</span> }
+            </div>
+            <progress value="@counts.Completed" max="@counts.Total" aria-label="@($"Completed clips in {run.Name}")"></progress>
+            @if (current is not null)
+            {
+                <p>@(current.Job?.RemoteUnconfirmed == true ? "Checking remote status" : current.Stage == RefinementItemStage.Generating ? "Rendering" : "Queued") · @current.Item.Name</p>
+            }
+            else if (run.State == RefinementBatchState.Running && views.FirstOrDefault(v => v.Stage == RefinementItemStage.Preparing) is { } preparing)
+            {
+                <p>Preparing · @preparing.Item.Name</p>
+            }
+            @if (run.PauseRequested) { <p>Pausing after the current clip finishes.</p> }
+            <div class="refinement-activity-actions" role="group" aria-label="@($"Controls for {run.Name}")">
+                @if (run.State == RefinementBatchState.Running && !run.PauseRequested)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="() => Command(() => Batches.PauseAsync(ProjectId, run.Id, _lifetime.Token))" title="Pause after the current clip finishes">Pause</MudButton>
+                }
+                <MudButton Size="Size.Small" OnClick="() => OpenBatch.InvokeAsync(run.Id)">Manage batch</MudButton>
+            </div>
+        </section>
+    }
+    @if (_error is not null) { <p class="refinement-activity-error" role="alert">@_error</p> }
+</div>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public IReadOnlyList<RefinementBatch> Runs { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OpenBatch { get; set; }
+    [Parameter] public EventCallback Updated { get; set; }
+    private readonly CancellationTokenSource _lifetime = new();
+    private bool _busy;
+    private string? _error;
+
+    private static string StateLabel(RefinementBatch run) => run.State switch
+    {
+        RefinementBatchState.Running => run.PauseRequested ? "Pausing" : "Running",
+        RefinementBatchState.Paused => "Paused",
+        RefinementBatchState.Held => "Held",
+        _ => "Finished"
+    };
+
+    private async Task Command(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await action(); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException or IOException) { _error = e.Message; }
+        finally
+        {
+            _busy = false;
+            if (!_lifetime.IsCancellationRequested) await Updated.InvokeAsync();
+        }
+    }
+
+    public void Dispose() { _lifetime.Cancel(); _lifetime.Dispose(); }
+}

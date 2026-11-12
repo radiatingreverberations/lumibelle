@@ -15,10 +15,26 @@ namespace lumibelle.Services.Storage;
 public sealed class ProjectDatabase
 {
     public const string FileName = "project.sqlite";
-    private const int SchemaVersion = 1;
     private static readonly ConcurrentDictionary<string, ProjectDatabase> Instances =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-    private volatile bool schemaReady;
+    private static readonly AsyncLocal<UpgradeScope?> Upgrade = new();
+
+    internal static bool UpgradeAllowed(string directory) => Upgrade.Value is { Active: true } scope &&
+        ProjectLocations.PathComparer.Equals(scope.Directory, System.IO.Path.GetFullPath(directory));
+
+    internal static IDisposable AllowUpgrade(string directory)
+    {
+        var scope = new UpgradeScope(System.IO.Path.GetFullPath(directory), Upgrade.Value);
+        Upgrade.Value = scope;
+        return scope;
+    }
+
+    private sealed class UpgradeScope(string directory, UpgradeScope? previous) : IDisposable
+    {
+        public string Directory { get; } = directory;
+        public bool Active { get; private set; } = true;
+        public void Dispose() { Active = false; Upgrade.Value = previous; }
+    }
 
     private ProjectDatabase(string directory)
     {
@@ -73,6 +89,7 @@ public sealed class ProjectDatabase
         if (!System.IO.Directory.Exists(Directory))
             throw new WorkspaceStoreException("Project not found. Return to the project hub.") { Data = { ["path"] = Path } };
         var created = !File.Exists(Path);
+        if (created) ProjectFormat.RequireCurrent(Directory);
         var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = Path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false, DefaultTimeout = 30
@@ -84,7 +101,7 @@ public sealed class ProjectDatabase
             // FULL synchronization matches the flush-before-rename durability of the former JSON files.
             command.CommandText = "PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;";
             command.ExecuteNonQuery();
-            if (created || !schemaReady) { EnsureSchema(connection); schemaReady = true; }
+            EnsureSchema(connection);
             return connection;
         }
         catch { connection.Dispose(); throw; }
@@ -93,12 +110,11 @@ public sealed class ProjectDatabase
     private void EnsureSchema(SqliteConnection connection)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = "PRAGMA user_version;";
-        var version = Convert.ToInt32(command.ExecuteScalar());
-        if (version > SchemaVersion)
-            throw new WorkspaceStoreException("This project was saved by a newer version of Lumibelle. Update Lumibelle to open it. Nothing was changed.")
-                { Data = { ["path"] = Path } };
-        if (version == SchemaVersion) return;
+        var version = ProjectFormat.Inspect(connection, Path);
+        var initial = version == 0 ? ProjectFormat.Initial(Directory) : version;
+        if (!UpgradeAllowed(Directory) && (initial < ProjectFormat.Current || version == ProjectFormat.Current && ProjectFormat.ReconciliationPending(connection)))
+            throw new ProjectUpgradeRequiredException(Directory, initial);
+        if (version != 0) return;
         command.CommandText = $"""
             BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -111,7 +127,7 @@ public sealed class ProjectDatabase
             CREATE INDEX IF NOT EXISTS parts_order ON parts(kind, list, position);
             INSERT OR IGNORE INTO meta(key, value) VALUES ('created_utc', '{DateTimeOffset.UtcNow:O}');
             INSERT OR IGNORE INTO meta(key, value) VALUES ('instance', '{Guid.NewGuid():N}');
-            PRAGMA user_version = {SchemaVersion};
+            PRAGMA user_version = {initial};
             COMMIT;
             """;
         command.ExecuteNonQuery();
@@ -123,6 +139,7 @@ public sealed class ProjectDatabase
     /// </summary>
     internal void ScanJson(Action<string> visit, IReadOnlyCollection<string>? excludeKinds = null)
     {
+        ProjectFormat.RequireCurrent(Directory);
         if (!Exists) return;
         Read(s =>
         {
@@ -141,7 +158,7 @@ public sealed class ProjectDatabase
     internal static string Instance(ProjectDbSession session) =>
         session.Scalar("SELECT value FROM meta WHERE key = 'instance'") as string ?? "";
 
-    private WorkspaceStoreException Translate(Exception e, string message)
+    internal WorkspaceStoreException Translate(Exception e, string message)
     {
         if (e is WorkspaceStoreException store) return store;
         var text = e is SqliteException { SqliteErrorCode: 11 or 26 }

@@ -45,6 +45,7 @@ public sealed partial class ShotTests
         var f = Fixture(); var shot = Ready(); shot.GenerationPreset = key;
         var dir = await f.Files.DirectoryAsync(f.Project.Id, _ct);
         await AtomicJsonFile.WriteAsync(Path.Combine(dir, "shots.json"), new ShotDocument { ProjectId = f.Project.Id, Shots = [shot] }, _ct);
+        await TestProjectDatabase.UpgradeAsync(dir, f.Project.Id, _ct);
         var document = await f.Shots.LoadAsync(f.Project.Id, _ct);
         Assert.Equal("standard", Assert.Single(document.Shots).GenerationPreset);
         Assert.NotNull(document.Shots[0].GenerationPresetMigration);

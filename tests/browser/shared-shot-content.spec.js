@@ -10,6 +10,7 @@ test('earlier setup inputs survive migration and can be restored and undone with
   expect((await request.post(`/fixtures/${id}/legacy-setup-inputs`)).ok()).toBe(true);
   const state = async () => (await request.get(`/fixtures/${id}/production`)).json();
   await page.goto(`/projects/${id}/shots`);
+  await page.getByRole('button', { name: 'Upgrade project', exact: true }).click();
   await openShotSetup(page, 'Generation settings');
   const dialog = page.locator('.shot-setup-dialog');
   await dialog.getByLabel('Default takes', { exact: true }).selectOption('3');

@@ -56,10 +56,11 @@ test('Copy carries the shot environment across presets and makes an omitted libr
   await request.post(`/fixtures/${id}/production-shot`);
   const library = await (await request.post(`/fixtures/${id}/environment-library`)).json();
   const environment = library.assets[0];
-  expect((await request.post(`/fixtures/${id}/environment-copy-source`)).ok()).toBe(true);
   await request.post(`/fixtures/${id}/production-shot`);
+  expect((await request.post(`/fixtures/${id}/environment-copy-source`)).ok()).toBe(true);
   await page.setViewportSize({ width: 1152, height: 1000 });
   await page.goto(`/projects/${id}/shots`);
+  await page.getByRole('button', { name: 'Upgrade project', exact: true }).click();
   await toolsTab(page, 'References');
   await page.locator('[data-shot-id]').nth(1).click();
   await expect(page.locator('.shot-references')).toHaveAttribute('data-next-reference-action', 'copy');

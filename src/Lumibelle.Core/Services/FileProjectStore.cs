@@ -186,6 +186,7 @@ public sealed class FileProjectStore : IProjectStore
         var directory = await _locations.DirectoryAsync(original.Id, cancellationToken);
         var path = Path.Combine(directory, "project.json");
         using var lease = await ProjectFiles.LockAsync(directory, cancellationToken);
+        Storage.ProjectFormat.RequireCurrent(directory);
         try
         {
             var current = await ReadManifestAsync(directory, original.Id, cancellationToken);

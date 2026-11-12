@@ -14,6 +14,7 @@ public partial class ProductionStudio
     private Guid? _requestedRefinementBatch;
     [Inject] public RefinementBatchWorkflow BatchWorkflow { get; set; } = null!;
     private RefinementBatches? _refinementRuns;
+    private int _refinementLoads;
     // A finished batch is new until its completed clips are seen, in the batches or as new takes.
     // The header is narrow, so its badge shows only the count; the label says "new".
     private int NewRefinementBatches => _refinementRuns?.Runs.Count(r => r.State == RefinementBatchState.Finished &&
@@ -21,7 +22,12 @@ public partial class ProductionStudio
     private string? NewRefinementLabel => NewRefinementBatches is > 0 and var count ? $"{count} new" : null;
     private async Task LoadRefinementRuns()
     {
-        try { _refinementRuns = await BatchWorkflow.LoadAsync(Id, _lifetime.Token); }
+        var project = Id; var load = ++_refinementLoads;
+        try
+        {
+            var runs = await BatchWorkflow.LoadAsync(project, _lifetime.Token);
+            if (!_disposed && Id == project && load == _refinementLoads) _refinementRuns = runs;
+        }
         catch (Exception e) when (e is lumibelle.Services.Story.WorkspaceStoreException or OperationCanceledException) { }
     }
     private void RefinementRunsChanged(Guid project)

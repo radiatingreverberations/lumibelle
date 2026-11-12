@@ -86,32 +86,71 @@ limited to 384 MiB, least recently used first.
 Production reads only the current shots for each composition's coverage, and the first
 setup of each shot takes their parts instead of copying them again.
 
-## Migration from JSON
+## Project format and upgrades
 
-Each document is brought in the first time it is read, independently of the others:
+`PRAGMA user_version` is the project-wide format. Format 2 requires shots, scripts and AI
+preferences at document version 2 and production at version 4. The manifest stays at
+schema 1, so listing projects needs only `project.json`. A manifest-only project is
+current and creates its database on its first save.
 
-1. Read the legacy file as before. Unreadable JSON raises the usual error and nothing changes.
-2. In one transaction, write the document's rows and a `committed` migration row.
-3. Move the legacy files into `<project>/legacy-json/`, then mark the migration `complete`.
+Opening an older project shows **Upgrade project** before any studio mounts. The stores
+and project file services also enforce the gate, including cached reads, media access,
+export and compaction. Queue cancellation and manifest listing remain available. The
+upgrade waits for this project's queued or working AI requests to finish or be cancelled.
+Background discovery skips gated projects and continues with other projects.
 
-Before the commit the JSON stays authoritative and untouched; after it the database is,
-and an interrupted move resumes on the next open without reading the JSON again. Legacy
-files that appear later are ignored. A document with nothing to bring in writes nothing
-until it is first saved.
+The upgrader holds the project lock and grants old-format access only to its target
+folder in its asynchronous scope. Before writing an existing database it publishes a
+SQLite backup snapshot at `legacy-json/project-format-{from}.sqlite`. Snapshots preserve
+saved contents. SQLite may change database header counters in the copy. Existing valid
+backups are retained on retry. Compact project can remove them after upgrading.
 
-The legacy JSON is kept as it was, except shots, which pass their usual read-time
-upgrades and validation first. One-time production upgrade backups
-(`production-before-*.json`) move with `production.json` and are now written into
-`legacy-json`. **Compact project** offers the whole `legacy-json` folder under backups;
-Lumibelle never reads it again.
+Legacy JSON import is a resumable preparation phase. Each document commits its rows
+and migration record, then moves its original files into `legacy-json`. After an
+interruption, committed rows stay authoritative and remaining moves resume. Conflicting
+archived originals are kept with a `.duplicate` suffix. Format steps then prepare JSON
+changes and commit all their documents and the new `user_version` in one transaction.
+A failed step rolls back. Earlier completed steps and import work are kept for retry.
 
-A linked project folder or an unzipped package migrates in place the same way.
+Format 1 → 2 preserves takes, selections, Trash, cut clips, recovery records and queue
+history when initializing production. Compatible old setup IDs and settings survive.
+Unmappable old production content is retained in the database snapshot or original JSON.
+Linked-folder setup reconciliation resumes independently after the database commit.
+
+### Adding a format
+
+Add an `IProjectFormatStep` with the next contiguous target number, append it to
+`ProjectUpgrader.Steps`, and advance `ProjectFormat.Current`. Use raw JSON and explicit
+historical rules in the step. Read headers first and load only documents needing work.
+Stage replacements through `ProjectUpgradeContext`; the runner owns the transaction and
+version change. Keep shipped steps and `FormatFixtures` fixed, and add a fixture for the
+new input format. Exercise direct upgrades, interrupted retries, package import and
+historical recovery restoration. Package JSON has its own compatibility checks, which
+must evolve with any later change to exported document shapes.
+
+### Restoring before an upgrade
+
+Close Lumibelle and keep a copy of the whole project folder before restoring.
+
+- For a SQLite-only project, replace `project.sqlite` with its pre-upgrade snapshot.
+  Keep media folders beside it and reopen with the matching application version.
+- For a JSON-only project, move the original documents and script snapshot folders from
+  `legacy-json` back to their original locations, then remove the upgrade-created
+  database from the working folder. Keep that database in the safety copy.
+- For a mixed project, restore the SQLite snapshot and return original JSON paths that
+  were still awaiting import. For committed imports, the snapshot's `migrations` records
+  identify authoritative database documents. Keep those originals archived. When there
+  are `.duplicate` files, retain both copies and use the original matching the intended
+  saved state.
+
+A retry after a later format step may create a backup named for that intermediate
+format. Keep the earlier snapshot when restoring to the project's original format.
 
 ## Packages
 
 The package format is unchanged JSON. Export renders the stored documents in the
 package's file layout and reads them through the same checks as package files. Import
-stages the JSON files, brings every document into the staged `project.sqlite`, then
+stages the JSON files, upgrades them in the staged `project.sqlite`, then
 deletes the staged JSON: the package is the backup. The receipt checks `project.sqlite`
 like any other staged file.
 

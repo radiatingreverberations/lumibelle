@@ -15,6 +15,7 @@ public sealed partial class TextModelStoreTests
         var path = Path.Combine(_root, "App_Data", "Projects", project.Id.ToString("D"), "ai-preferences.json");
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new ProjectAiPreferences { SchemaVersion = 1, ProjectId = project.Id,
             Story = Cloud, Shots = Local, LoraVisibility = new() { HiddenTags = ["private"] }, LoraVisibilityRevision = 3 }, AtomicJsonFile.Options), ct);
+        await TestProjectDatabase.UpgradeAsync(Path.GetDirectoryName(path)!, project.Id, ct);
         var loaded = await Preferences.LoadAsync(project.Id, ct);
         Assert.Equal(2, loaded.SchemaVersion); Assert.Null(loaded.TextDefault); Assert.Equal(0, loaded.TextDefaultRevision);
         Assert.Equal(Cloud, loaded.Story); Assert.Equal(Local, loaded.Shots);

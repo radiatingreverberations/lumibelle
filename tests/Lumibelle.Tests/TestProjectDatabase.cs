@@ -6,6 +6,12 @@ namespace Lumibelle.Tests;
 /// <summary>Inspects and disturbs a project's <c>project.sqlite</c> from tests.</summary>
 internal static class TestProjectDatabase
 {
+    public static async Task UpgradeAsync(string directory, Guid project, CancellationToken ct)
+    {
+        using var gate = await lumibelle.Services.Story.ProjectFiles.LockAsync(directory, ct);
+        await ProjectUpgrader.RunAsync(directory, project, null, ct);
+    }
+
     public static string PathIn(string projectDirectory) => Path.Combine(projectDirectory, ProjectDatabase.FileName);
 
     /// <summary>The stored write counter of a document, or null when it has none.</summary>
@@ -19,6 +25,7 @@ internal static class TestProjectDatabase
     /// </summary>
     public static async Task<string> SnapshotAsync(string projectDirectory, Guid project, CancellationToken ct)
     {
+        await UpgradeAsync(projectDirectory, project, ct);
         await ProjectDocuments.MigrateAllAsync(projectDirectory, project, ct);
         var parts = new List<string>();
         if (File.Exists(PathIn(projectDirectory)))
@@ -46,9 +53,12 @@ internal static class TestProjectDatabase
         lumibelle.Services.Storage.DocumentCache.Clear();
     }
 
-    public static string Dump(string projectDirectory)
+    public static string Dump(string projectDirectory) => DumpFile(PathIn(projectDirectory));
+
+    public static string DumpFile(string path)
     {
-        using var connection = Open(projectDirectory);
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false }.ToString());
+        connection.Open();
         var lines = new List<string>();
         foreach (var sql in new[] { "SELECT * FROM meta", "SELECT * FROM migrations", "SELECT kind, stamp, updated_utc, length(header), lists FROM documents", "SELECT kind, list, id, position, length(payload), hash FROM parts ORDER BY kind, list, id", "PRAGMA user_version", "PRAGMA page_count", "PRAGMA freelist_count" })
         {

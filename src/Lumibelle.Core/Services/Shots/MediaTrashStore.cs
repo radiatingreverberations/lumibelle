@@ -60,6 +60,7 @@ public sealed class MediaTrashStore(ProjectFiles files, IImageTrashStore images,
                 rows.AddRange(s.Trash.Select(t => new MediaTrashRow(project.Id, project.Name, s.Revision, t.Id, MediaTrashKind.Take,
                     t.Owner!.Title, RefinementPolicy.Label(t.Take!), t.DeletedUtc, t.ExpiresUtc, t.Purging, t.Error, Take: t.Take, Bytes: t.Take!.Bytes)));
             }
+            catch (lumibelle.Services.Storage.ProjectUpgradeRequiredException) { }
             catch (Exception e) when (e is WorkspaceStoreException or ProjectStoreException) { issues.Add(new(project.Id, e.Message)); }
         }
         return new(rows.OrderByDescending(r => r.DeletedUtc).ThenBy(r => r.Id).ToList(), issues.Distinct().ToList());
