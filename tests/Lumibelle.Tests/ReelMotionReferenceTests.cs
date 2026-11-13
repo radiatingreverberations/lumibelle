@@ -13,6 +13,32 @@ public sealed partial class ShotTests
         new MockVideoGenerator(f.Assets, f.Shots, f.ReelMedia),
         new FakeProjectStore { Get = _ => Task.FromResult<ProjectInfo?>(f.Project) }, f.Preferences, f.Jobs, f.ReelMedia);
 
+    [Fact]
+    public async Task ReelMotionReferenceKeepsCapturedPresetAndLorasInItsRecipe()
+    {
+        using var f = await QueuedVideoFixture.Create(this);
+        var original = await f.CaptureReel(environment: true, resolution: VideoResolution.Quick);
+        var first = await f.Claim(original); await f.Worker.ExecuteAsync(first, original.Snapshot, _ct);
+        var source = Assert.Single((await f.Assets.LoadAsync(f.Project.Id, _ct)).Reels);
+        var capture = ReelMotionCapture(f);
+        var draft = await capture.PrepareMotionReferenceAsync(f.Project.Id, source.Id, _ct);
+        var lora = VideoLora("h3/character.safetensors", .65f, f.Settings.Value.ComfyUrl);
+        draft.Shot.Loras = [lora]; draft.Shot.ShotLoras = null;
+        var prior = ShotCopy.Of(f.Settings.Value);
+        var options = new MotionReferenceOptions(draft, draft.Source.BasePrompt, draft.Source.Instructions) {
+            GenerationPreset = "pdd", Generation = new(prior.ComfyUrl, prior.H3, [new(lora.Reference, lora.Strength)]) };
+        f.Settings.Value = prior with { H3 = prior.H3 with { Model = "changed.safetensors", PddCheckpoint = "changed-adapter.safetensors" } };
+        var submission = await capture.CaptureMotionReferenceAsync(Guid.NewGuid(), Guid.NewGuid(), f.Project.Id, options, _ct);
+        var request = submission.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal("pdd", request.Snapshot.Preset!.Key);
+        Assert.Equal(H3Presets.Checkpoint("pdd", prior.H3), request.Snapshot.Preset.Checkpoint);
+        Assert.Equal(prior.H3.Model, request.Snapshot.Settings.Model);
+        Assert.Equal("pdd", request.Snapshot.Reel!.Recipe.GenerationPreset);
+        Assert.Equal(lora, Assert.Single(request.Snapshot.Reel.Recipe.Loras!));
+        Assert.Equal(.65f, Assert.Single(request.Snapshot.AppliedLoras!).Strength);
+        AiVideoJobPolicy.Validate(request);
+    }
+
     [Theory]
     [InlineData(true)] [InlineData(false)]
     public async Task ReelMotionReferencePromotionCreatesStandardVersionWithVideoOnlyGuidanceAndFreshAudio(bool environment)

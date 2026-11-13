@@ -27,7 +27,7 @@ public sealed partial class ShotTests
 
     private sealed record RefinementFixture(Guid Project, FileShotStore Shots, FileAssetStore Assets, FileAiJobStore Jobs, AiJobCoordinator Queue,
         MockVideoGenerator Generator, AiVideoJobCapture Capture, AiReelCapture ReelCapture, FakeAiSettingsStore Settings, MotionMediaFake Media,
-        Func<RefinementBatchWorkflow> Restart);
+        FileRefinementBatchStore Store, Func<RefinementBatchWorkflow> Restart);
 
     private RefinementFixture Refinement()
     {
@@ -40,7 +40,7 @@ public sealed partial class ShotTests
             new FakeProjectAiPreferencesStore(), referenceVideos: media, jobs: jobs);
         var reels = new AiReelCapture(f.Assets, f.Assets, settings, generator, projects, new FakeProjectAiPreferencesStore(), jobs, media);
         // Each call models a fresh process: new workflow and store instances over the same files.
-        return new(f.Project.Id, f.Shots, f.Assets, jobs, queue, generator, capture, reels, settings, media, () => new RefinementBatchWorkflow(new FileRefinementBatchStore(f.Files),
+        return new(f.Project.Id, f.Shots, f.Assets, jobs, queue, generator, capture, reels, settings, media, new FileRefinementBatchStore(f.Files), () => new RefinementBatchWorkflow(new FileRefinementBatchStore(f.Files),
             capture, reels, jobs, queue, f.Shots, f.Assets, f.Assets, settings, generator, media, TimeProvider.System));
     }
 
@@ -61,6 +61,105 @@ public sealed partial class ShotTests
     }
 
     private static RefinementBatch Run(RefinementBatches doc, Guid id) => doc.Runs.Single(r => r.Id == id);
+
+    [Fact]
+    public async Task ExistingBatchWithoutGenerationFieldsStillPreparesAsStandard()
+    {
+        var r = Refinement(); var workflow = r.Restart();
+        var batch = await workflow.CreateAsync(r.Project, Guid.NewGuid(), new(Guid.NewGuid(), "", false, [await TakeEntry(r, "Legacy")]), _ct);
+        var item = batch.Items[0];
+        var json = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(item.Options, AtomicJsonFile.Options))!;
+        json.AsObject().Remove("generation"); json.AsObject().Remove("generationPreset");
+        var legacy = json.Deserialize<MotionReferenceOptions>(AtomicJsonFile.Options)!;
+        Assert.Null(legacy.Generation);
+        await r.Store.UpdateAsync(r.Project, doc => Task.FromResult(FileRefinementBatchStore.Replace(doc,
+            FileRefinementBatchStore.Replace(batch, item with { Options = legacy }))), _ct);
+        r.Settings.Value = r.Settings.Value with { H3 = r.Settings.Value.H3 with { Model = "legacy-current.safetensors" } };
+        await r.Restart().PrepareAsync(r.Project, batch.Id, item.Id, _ct);
+        var prepared = Run(await workflow.LoadAsync(r.Project, _ct), batch.Id).Items[0];
+        var request = prepared.Submission!.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
+        Assert.Equal("standard", request.Snapshot.Preset!.Key);
+        Assert.Equal("legacy-current.safetensors", request.Snapshot.Settings.Model);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task BatchFreezesPresetModelsAndEffectiveLorasAcrossRestartAndRetry(bool replace)
+    {
+        var r = Refinement(); var workflow = r.Restart();
+        var entry = await TakeEntry(r, "Frozen generation");
+        var character = VideoLora("h3/character.safetensors", .4f, r.Settings.Value.ComfyUrl);
+        var film = VideoLora("h3/styles/film.safetensors", .8f, r.Settings.Value.ComfyUrl);
+        entry.Options.Draft.Shot.Loras = H3Loras.Merge([character, film], [character with { Strength = 1.2f }]);
+        if (replace) entry.Options.Draft.Shot.Loras = [];
+        r.Settings.Value = r.Settings.Value with { LoraLibrary = [new(character.Reference), new(film.Reference)] };
+        var original = ShotCopy.Of(r.Settings.Value);
+        var options = entry.Options with { GenerationPreset = "pdd" };
+        var batch = await workflow.CreateAsync(r.Project, Guid.NewGuid(), new(Guid.NewGuid(), "", false, [entry with { Options = options }]), _ct);
+        var seed = batch.Items[0].Options.Seed;
+        // Settings and registration changes after Queue cannot alter the held batch.
+        r.Settings.Value = r.Settings.Value with { ComfyUrl = "http://different-server:8188", LoraLibrary = [],
+            H3 = original.H3 with { Model = "different.safetensors", PddCheckpoint = "different-adapter.safetensors" } };
+        workflow = r.Restart();
+        await workflow.PrepareAsync(r.Project, batch.Id, batch.Items[0].Id, _ct);
+        batch = Run(await workflow.LoadAsync(r.Project, _ct), batch.Id);
+        var item = Assert.Single(batch.Items);
+        Assert.Equal(RefinementItemState.Ready, item.State);
+        AssertCaptured(item);
+        await workflow.StartAsync(r.Project, batch.Id, _ct);
+        await workflow.AdvanceAsync(r.Project, _ct);
+        await r.Queue.CancelAsync(item.Id, _ct);
+        await workflow.AdvanceAsync(r.Project, _ct);
+        await workflow.RetryAsync(r.Project, batch.Id, item.Id, _ct);
+        item = Run(await workflow.LoadAsync(r.Project, _ct), batch.Id).Items[0];
+        Assert.NotEqual(batch.Items[0].Id, item.Id);
+        await r.Restart().PrepareAsync(r.Project, batch.Id, item.Id, _ct);
+        AssertCaptured(Run(await workflow.LoadAsync(r.Project, _ct), batch.Id).Items[0]);
+
+        void AssertCaptured(RefinementBatchItem captured)
+        {
+            Assert.Equal(seed, captured.Options.Seed);
+            var request = captured.Submission!.Snapshot.Deserialize<AiVideoJobRequest>(AtomicJsonFile.Options)!;
+            Assert.Equal("pdd", request.Snapshot.Preset!.Key);
+            Assert.Equal(H3Presets.Checkpoint("pdd", original.H3), request.Snapshot.Preset.Checkpoint);
+            Assert.Equal(original.H3.Model, request.Snapshot.Settings.Model);
+            Assert.Equal(lumibelle.Services.AI.AiProviderRegistry.NormalizeComfyUrl(original.ComfyUrl), request.Snapshot.ExecutionComfyUrl);
+            Assert.Equal(replace ? [] : new[] { .8f, 1.2f }, (request.Snapshot.AppliedLoras ?? []).Select(l => l.Strength));
+            H3Loras.ValidateSnapshot(request.Snapshot);
+        }
+    }
+
+    [Theory]
+    [InlineData("model")] [InlineData("adapter")] [InlineData("lora")]
+    public async Task MissingCapturedFileFailsByFileNameAndCanBeRetriedAfterRestoringIt(string kind)
+    {
+        var r = Refinement(); var workflow = r.Restart();
+        var entry = await TakeEntry(r, "Hall");
+        var lora = VideoLora("h3/character.safetensors", .5f, r.Settings.Value.ComfyUrl);
+        if (kind == "lora") {
+            entry.Options.Draft.Shot.Loras = [lora];
+            r.Settings.Value = r.Settings.Value with { LoraLibrary = [new(lora.Reference)] };
+        }
+        entry = entry with { Options = entry.Options with { GenerationPreset = "pdd" } };
+        var batch = await workflow.CreateAsync(r.Project, Guid.NewGuid(), new(Guid.NewGuid(), "", false, [entry]), _ct);
+        var catalog = await r.Generator.CheckAsync(r.Settings.Value, _ct);
+        var adapter = H3Presets.Checkpoint("pdd", r.Settings.Value.H3)!;
+        r.Generator.Catalog = kind switch {
+            "model" => catalog with { InstalledModels = [] },
+            "adapter" => catalog with { InstalledLoras = catalog.InstalledLoras.Where(f => f != adapter).ToArray(),
+                Presets = catalog.Presets.Select(p => p.Key == "pdd" ? p with { Files = [] } : p).ToArray() },
+            _ => catalog with { OptionalLoras = catalog.OptionalLoras! with { Files = [] } }
+        };
+        workflow = r.Restart();
+        await workflow.PrepareAsync(r.Project, batch.Id, batch.Items[0].Id, _ct);
+        var failed = Run(await workflow.LoadAsync(r.Project, _ct), batch.Id).Items[0];
+        Assert.Equal(RefinementItemState.Failed, failed.State);
+        Assert.Contains(kind == "model" ? r.Settings.Value.H3.Model : kind == "adapter" ? adapter : lora.Reference.FileName, failed.Error);
+        r.Generator.Catalog = catalog;
+        await workflow.RetryAsync(r.Project, batch.Id, failed.Id, _ct);
+        await workflow.PrepareAsync(r.Project, batch.Id, failed.Id, _ct);
+        Assert.Equal(RefinementItemState.Ready, Run(await workflow.LoadAsync(r.Project, _ct), batch.Id).Items[0].State);
+    }
 
     [Fact]
     public async Task HeldBatchPreparesInTheBackgroundThenSubmitsOneRenderAtATime()
@@ -247,11 +346,12 @@ public sealed partial class ShotTests
         ui.Services.AddMudServices(); ui.Services.AddSingleton(r.Capture); ui.Services.AddSingleton(r.ReelCapture);
         ui.Services.AddSingleton<IAssetStore>(r.Assets); ui.Services.AddSingleton<IAiSettingsStore>(r.Settings);
         ui.Services.AddSingleton(workflow); ui.Services.AddSingleton<IAiReviewGate>(new ScriptReviewGate());
+        ui.Services.AddSingleton<IProjectAiPreferencesStore>(new FakeProjectAiPreferencesStore());
         var dialogs = ui.Render<MudDialogProvider>();
         RefinementBatch? queued = null;
         IReadOnlyList<RefineSource> sources = [RefineSource.From(r.Project, one, "One"), RefineSource.From(r.Project, two, "Two"), RefineSource.From(r.Project, brief, "Brief")];
         ui.Render<RefineFromVideoDialog>(p => p.Add(d => d.ProjectId, r.Project).Add(d => d.Sources, sources).Add(d => d.Queued, b => queued = b));
-        dialogs.WaitForAssertion(() => Assert.Contains("Standard H3 model ready.", dialogs.Markup), TimeSpan.FromSeconds(10));
+        dialogs.WaitForAssertion(() => Assert.Contains("Standard · 20 steps ready.", dialogs.Markup), TimeSpan.FromSeconds(10));
         dialogs.WaitForAssertion(() => Assert.DoesNotContain("Preparing sources", dialogs.Markup), TimeSpan.FromSeconds(10));
 
         // Sources below 2 seconds are flagged and left out; the others show source and effective output sizes.
@@ -278,12 +378,14 @@ public sealed partial class ShotTests
         Assert.Empty(dialogs.FindAll(".refine-row.needs-adjustment"));
         Assert.Empty(dialogs.FindAll("input[aria-label='Use refined frames from earlier clips']"));
         Act(() => dialogs.FindAll("input[type=radio]")[1].Change(true));
+        Act(() => dialogs.Find("select[aria-label='H3 generation preset']").Change("pdd"));
         await dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Queue refinement").ClickAsync(new());
         dialogs.WaitForAssertion(() => Assert.NotNull(queued));
 
         Assert.Equal(RefinementBatchState.Held, queued!.State); Assert.False(queued.UseRefinedFrames);
         var item = Assert.Single(queued.Items);
         Assert.Equal(one.Id, item.SourceId); Assert.Equal(VideoResolution.Detail, item.Options.Resolution); Assert.NotNull(item.Options.Seed);
+        Assert.Equal("pdd", item.Options.GenerationPreset);
         await workflow.PrepareAsync(r.Project, queued.Id, item.Id, _ct);
         Assert.Equal(1, r.Generator.CheckCalls - checks);
         var prepared = Run(await workflow.LoadAsync(r.Project, _ct), queued.Id).Items[0];

@@ -78,10 +78,11 @@ public sealed partial class AiReelCapture
             if (!ShotReferences.SameEffective(draft.Guidance, guidance) || !draft.Appearances.SequenceEqual(appearances))
                 throw new WorkspaceStoreException("Reference guidance changed. Reopen references and review the prompt.");
         }
-        var configured = ShotCopy.Of(await settings.LoadAsync(ct));
+        var configured = MotionReferencePolicy.Configuration(options, await settings.LoadAsync(ct));
         check ??= await generator.CheckAsync(configured, ct);
+        MotionReferencePolicy.CheckFiles(options, check);
         if (!check.Ready(shot)) throw new WorkspaceStoreException(check.Issue(shot));
-        var loras = H3Loras.Selections(shot).Any(l => l.Enabled && l.Strength != 0)
+        var loras = options.Generation is { } generation ? generation.AppliedLoras : H3Loras.Selections(shot).Any(l => l.Enabled && l.Strength != 0)
             ? H3Loras.Capture(shot, configured, (await preferences.LoadAsync(projectId, ct)).LoraVisibility, check.OptionalLoras) : null;
         var size = VideoResolutions.Size(recipe);
         var snapshot = new VideoSnapshot(projectId, 0, shot, VisualStyles.Apply(recipe.Prompt, recipe.CapturedVisualStyle), VideoResolutions.Fingerprint(recipe),
@@ -98,6 +99,7 @@ public sealed partial class AiReelCapture
                 draft.Source.SourceKeyframes is { Count: > 0 } picked && picked.Select(k => MotionReferencePolicy.MapFrame(k.Frame.Index, draft.Source.VisibleFrames,
                     H3Policy.Frames(recipe.Duration))).Distinct().Order().ToArray() is { Length: <= H3OutputPolicy.MaximumKeptFrames } mapped ? mapped : null }
         };
+        H3Loras.CheckSubmission(snapshot, check.OptionalLoras);
         MotionReferencePolicy.Validate(snapshot);
         var expectedImages = await ProductionInputs.CaptureAsync(projectId, shot, assets, ct, referenceVideos, configured.H3);
         var directory = await reels.RunDirectoryAsync(projectId, id, ct);

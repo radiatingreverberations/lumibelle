@@ -20,4 +20,11 @@ public sealed record MotionReferenceDraft(Shot Shot, MotionReferenceSource Sourc
 
 public sealed record MotionReferenceOptions(MotionReferenceDraft Draft, string BasePrompt, string Instructions,
     VideoResolution Resolution = VideoResolution.Native, long? Seed = null, bool SaveLatents = false,
-    bool SaveLosslessFrames = false, bool KeepKeyframes = false);
+    bool SaveLosslessFrames = false, bool KeepKeyframes = false)
+{
+    public string GenerationPreset { get; init; } = "standard";
+    // Absent on older batches, which continue to use Standard with the configured models.
+    public MotionReferenceGeneration? Generation { get; init; }
+}
+
+public sealed record MotionReferenceGeneration(string ComfyUrl, H3Settings Settings, IReadOnlyList<AppliedLora>? AppliedLoras);
