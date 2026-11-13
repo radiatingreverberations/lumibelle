@@ -42,11 +42,16 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
             throw new WorkspaceStoreException($"Choose one to {FileRefinementBatchStore.MaximumItems} clips to refine.");
         // A repeated Queue click returns the batch it already created.
         if ((await store.LoadAsync(project, ct)).Runs.SingleOrDefault(r => r.Id == request.BatchId) is { } existing) return existing;
+        var configured = await settings.LoadAsync(ct);
         List<RefinementBatchItem> items = [];
         foreach (var entry in request.Items)
         {
             var options = ShotCopy.Of(entry.Options) with { Seed = entry.Options.Seed ?? RandomNumberGenerator.GetInt32(int.MaxValue) };
             if (MotionReferencePolicy.Issue(options) is { } issue) throw new WorkspaceStoreException($"{entry.Name}: {issue}");
+            var execution = MotionReferencePolicy.Configuration(options, configured);
+            var check = H3Loras.Selections(options.Draft.Shot).Any(l => l.Enabled && l.Strength != 0)
+                ? await CheckModelsAsync(execution, ct: ct) : null;
+            options = await shotCapture.CaptureMotionReferenceGenerationAsync(project, options, execution, check, ct);
             if ((entry.Kind == RefinementSourceKind.Reel) != (options.Draft.Reel is not null) ||
                 (entry.Kind == RefinementSourceKind.Take ? options.Draft.Source.TakeId : options.Draft.Source.ReelId) != entry.SourceId)
                 throw new WorkspaceStoreException($"{entry.Name}: The reviewed settings belong to another clip.");
@@ -94,7 +99,8 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
         }
         try
         {
-            var check = await CheckModelsAsync(await settings.LoadAsync(ct), ct: ct);
+            var configured = MotionReferencePolicy.Configuration(item.Options, await settings.LoadAsync(ct));
+            var check = await CheckModelsAsync(configured, ct: ct);
             if (!check.DiscoverySucceeded)
             {
                 // ComfyUI is unreachable for now: stay preparing and try again, rather than failing every clip of an overnight batch.
@@ -227,6 +233,8 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
     // a cancelled one is prepared again from the secured guide under a new job ID. Changing settings needs a new request.
     public async Task RetryAsync(Guid project, Guid batch, Guid itemId, CancellationToken ct = default)
     {
+        // A retry after restoring a model file must discover the restored file immediately.
+        _checks.Clear();
         var job = (await jobs.ReadAsync(ct)).Jobs.SingleOrDefault(j => j.Id == itemId);
         var requeue = false;
         await UpdateRunAsync(project, batch, run =>
@@ -244,6 +252,7 @@ public sealed partial class RefinementBatchWorkflow(FileRefinementBatchStore sto
     // instead of following the order of separate Retry clicks. Cancelled clips stay cancelled.
     public async Task RetryFailedAsync(Guid project, Guid batch, CancellationToken ct = default)
     {
+        _checks.Clear();
         var queued = (await jobs.ReadAsync(ct)).Jobs;
         List<Guid> requeue = [];
         await UpdateRunAsync(project, batch, run =>

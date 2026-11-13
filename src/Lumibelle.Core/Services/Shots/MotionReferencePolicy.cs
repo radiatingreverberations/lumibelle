@@ -41,6 +41,7 @@ public static class MotionReferencePolicy
     // Why these reviewed options cannot be queued, or null. Shared settings that do not fit one row surface here.
     public static string? Issue(MotionReferenceOptions options)
     {
+        if (!H3Presets.Offered.Contains(options.GenerationPreset)) return "Choose a supported H3 generation preset.";
         var draft = options.Draft; var media = draft.Source.Media;
         if (string.IsNullOrWhiteSpace(draft.Shot.Title) && draft.Reel is not null) return "Name the new reel.";
         if (!Resolutions(draft.Shot.Aspect, media.Width, media.Height).Contains(options.Resolution))
@@ -54,6 +55,30 @@ public static class MotionReferencePolicy
         }
         catch (Exception e) when (e is WorkspaceStoreException or InvalidOperationException) { return e.Message; }
         return null;
+    }
+
+    public static Shot GenerationShot(MotionReferenceOptions options) => options.Draft.Shot with {
+        GenerationPreset = options.GenerationPreset, Turbo = options.GenerationPreset == "turbo4", TurboSteps = 4, UpscalePreview = false };
+
+    public static AiSettings Configuration(MotionReferenceOptions options, AiSettings current) => options.Generation is { } captured
+        ? current with { ComfyUrl = captured.ComfyUrl, H3 = ShotCopy.Of(captured.Settings) } : ShotCopy.Of(current);
+
+    public static void CheckFiles(MotionReferenceOptions options, H3Configuration check)
+    {
+        if (options.Generation is not { } captured) return;
+        var settings = captured.Settings;
+        var model = H3Presets.Model(options.GenerationPreset, settings);
+        Require(model, check.InstalledModels);
+        Require(settings.Encoder, check.InstalledEncoders);
+        Require(settings.VideoVae, check.InstalledVaes);
+        Require(settings.AudioVae, check.InstalledVaes);
+        if (H3Presets.Checkpoint(options.GenerationPreset, settings) is { } adapter)
+            Require(adapter, check.InstalledLoras.Concat(check.Presets.Where(p => p.Key == options.GenerationPreset).SelectMany(p => p.Files)));
+        void Require(string file, IEnumerable<string> installed)
+        {
+            if (!installed.Contains(file, StringComparer.Ordinal))
+                throw new WorkspaceStoreException($"The captured H3 file '{file}' is missing on {captured.ComfyUrl}. Restore it and retry.");
+        }
     }
 
     public static string Render(string basePrompt, string instructions, int number, VisualStyle? style = null)
@@ -91,10 +116,11 @@ public static class MotionReferencePolicy
         if (shot.Voices.Count > 1) throw new WorkspaceStoreException("Reference reels support one voice recording. Remove additional voice recordings.");
         var recipe = context.Recipe.Copy() with {
             Id = requestId ?? shot.Id, Revision = 0, PendingJobId = null, ResolvedJobs = [], CheckedInputs = null,
-            GenerationSetup = null, OutputOverrides = null, GenerationPreset = "standard", Turbo = false, TurboSteps = 4,
+            GenerationSetup = null, OutputOverrides = null, GenerationPreset = options.GenerationPreset, Turbo = options.GenerationPreset == "turbo4", TurboSteps = 4,
             Name = shot.Title, Duration = shot.Duration!.Value, Aspect = shot.Aspect,
             Images = ShotCopy.Of(shot.Images), KeyframeReels = ShotCopy.Of(shot.Videos), Voice = ShotCopy.Of(shot.Voices.SingleOrDefault()),
-            SaveLatents = options.SaveLatents, SaveLosslessFrames = options.SaveLosslessFrames
+            SaveLatents = options.SaveLatents, SaveLosslessFrames = options.SaveLosslessFrames,
+            Loras = ShotCopy.Of(shot.Loras), ReelLoras = ShotCopy.Of(shot.ShotLoras)
         };
         if (ReferenceReels.IsCameraReel(recipe) || recipe.VoiceMode == ReelVoiceMode.Silent) {
             if (recipe.Voice is not null) throw new WorkspaceStoreException("This reel is silent. Remove voice recordings from its references.");

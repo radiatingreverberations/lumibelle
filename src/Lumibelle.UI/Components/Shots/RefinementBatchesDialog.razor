@@ -9,19 +9,36 @@
 @implements IAsyncDisposable
 
 <InlineDialog Visible="Visible" VisibleChanged="VisibleChanged" Options="DialogSizes.Large" Class="refinement-batches-dialog"
-              Title="Refinement batches" CloseLabel="Close refinement batches"><DialogContent>
+              Title="Refinement batches" CloseLabel="Close refinement batches">
+    <TitleContent>
+        <DialogHeader Title="Refinement batches" CloseLabel="Close refinement batches" Close="Close" />
+        <div class="refinement-tabs" role="tablist" aria-label="Refinement batches">
+            <button role="tab" id="batches-active" aria-controls="batch-list" aria-selected="@(!_history ? "true" : "false")" @onclick="() => SelectTab(false)">Active <span class="count-badge">@(_doc?.Runs.Count(r => r.Active) ?? 0)</span></button>
+            <button role="tab" id="batches-history" aria-controls="batch-list" aria-selected="@(_history ? "true" : "false")" @onclick="() => SelectTab(true)">History <span class="count-badge">@(_doc?.Runs.Count(r => !r.Active) ?? 0)</span></button>
+        </div>
+    </TitleContent>
+    <DialogContent>
+    <lumibelle.Components.AI.AiResultAcknowledgement Observed="SeenJobs" />
     <div class="refinement-studio">
-        <lumibelle.Components.AI.AiResultAcknowledgement Observed="SeenJobs" />
-        <p class="refinement-intro">Each clip is a separate generation. Media is prepared in the background, then clips render one at a time in the ComfyUI queue. Originals stay selected until you accept a final.</p>
         @if (_error is not null) { <p role="alert">@_error</p> }
         @if (_doc is { Runs.Count: 0 }) { <p role="status">No refinement batches yet. Select takes or reels, then choose Refine selected…</p> }
+        else if (!Ordered.Any()) { <p role="status">@(_history ? "No finished batches yet." : "No active batches.")</p> }
+        <div id="batch-list" role="tabpanel" aria-labelledby="@(_history ? "batches-history" : "batches-active")">
         @foreach (var run in Ordered)
         {
             var views = RefinementBatchWorkflow.View(run, Jobs.View.Jobs); var counts = RefinementBatchWorkflow.Count(views);
             var current = views.FirstOrDefault(v => v.Item.State == RefinementItemState.Submitted && v.Stage is RefinementItemStage.Waiting or RefinementItemStage.Generating);
             <section @key="run.Id" class="refinement-batch @(run.Id == RequestedBatchId ? "is-requested" : null)" data-batch-id="@run.Id" aria-labelledby="batch-@run.Id">
+                <button class="refinement-batch-summary" aria-expanded="@(run.Id == ExpandedBatchId ? "true" : "false")" @onclick="() => OpenBatch(run)">
+                    <strong id="batch-@run.Id">@run.Name</strong><span class="refinement-state">@StateLabel(run)</span><time>@run.CreatedUtc.ToLocalTime().ToString("g")</time>
+                    <span>@counts.Total @(counts.Total == 1 ? "clip" : "clips") · @counts.Completed completed</span>
+                    @if (views.Count(v => v.Stage == RefinementItemStage.Cancelled) is > 0 and var cancelled) { <span>@cancelled cancelled</span> }
+                    @if (counts.Failed > 0) { <span class="refinement-error">@counts.Failed @(counts.Failed == 1 ? "needs" : "need") attention</span> }
+                    @if (views.Count(v => v.Stage == RefinementItemStage.Completed && v.Job?.Unread == true) is > 0 and var unread) { <span class="refinement-state">@unread new</span> }
+                    <MudIcon Icon="@(run.Id == ExpandedBatchId ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" aria-hidden="true" />
+                </button>
+                @if (run.Id == ExpandedBatchId) {
                 <header class="refinement-batch-heading">
-                    <div><h3 id="batch-@run.Id">@run.Name</h3><span class="refinement-state">@StateLabel(run)</span><time>@run.CreatedUtc.ToLocalTime().ToString("g")</time></div>
                     <dl class="refinement-counts" aria-label="Batch progress">
                         <div><dt>Completed</dt><dd>@counts.Completed</dd></div><div><dt>Failed</dt><dd>@counts.Failed</dd></div>
                         <div><dt>Waiting</dt><dd>@counts.Waiting</dd></div><div><dt>Reviewed</dt><dd>@counts.Reviewed / @counts.Total</dd></div>
@@ -52,7 +69,7 @@
                                 <div class="refinement-item-text">
                                     <strong>@item.Name</strong>
                                     <span class="refinement-stage stage-@view.Stage.ToString().ToLowerInvariant()">@StageLabel(view.Stage)</span>
-                                    <span class="refinement-facts">@VideoResolutions.Label(item.Options.Resolution) · @(item.Kind == RefinementSourceKind.Take ? "Take" : "Reel")@(item.AcceptedUtc is not null ? " · Accepted" : item.ReviewedUtc is not null ? " · Reviewed" : "")</span>
+                                    <span class="refinement-facts">@H3Presets.Label(item.Options.GenerationPreset) · @VideoResolutions.Label(item.Options.Resolution) · @(item.Kind == RefinementSourceKind.Take ? "Take" : "Reel")@(item.AcceptedUtc is not null ? " · Accepted" : item.ReviewedUtc is not null ? " · Reviewed" : "")</span>
                                     @if (item.Notice is not null && view.Stage is RefinementItemStage.Preparing or RefinementItemStage.Ready or RefinementItemStage.Waiting) { <span class="field-hint" role="status">@item.Notice</span> }
                                     @foreach (var adjustment in item.Adjustments) { <span class="field-hint">@adjustment</span> }
                                     @if ((item.Error ?? (view.Stage == RefinementItemStage.NeedsAttention ? view.Job?.Error ?? "The generation request is no longer in the queue." : null)) is { } problem) { <span class="refinement-error" role="alert">@problem</span> }
@@ -75,8 +92,10 @@
                         </li>
                     }
                 </ul>
+                }
             </section>
         }
+        </div>
     </div>
 </DialogContent><Actions><MudButton OnClick="Close">Close</MudButton></Actions></InlineDialog>
 <RefineFromVideoDialog ProjectId="ProjectId" Revise="_revise" Closed="() => _revise = null" Queued="Queued" />
@@ -95,21 +114,29 @@
     private RefinementBatchItem? _revise;
     private string? _error;
     private bool _busy, _disposed, _refreshing, _refreshAgain, _shown;
+    private bool _history, _selectOnLoad;
+    private Guid? _activeExpanded, _historyExpanded, _lastRequested;
+    private Guid? ExpandedBatchId
+    {
+        get => _history ? _historyExpanded : _activeExpanded;
+        set { if (_history) _historyExpanded = value; else _activeExpanded = value; }
+    }
     private int _loads;
     // Completed clips are seen once the open dialog shows them, which clears the new marks on Batches and Takes.
-    private AiJobHeader[] SeenJobs => Ordered.SelectMany(r => RefinementBatchWorkflow.View(r, Jobs.View.Jobs))
+    private AiJobHeader[] SeenJobs => Ordered.Where(r => _shown && r.Id == ExpandedBatchId).SelectMany(r => RefinementBatchWorkflow.View(r, Jobs.View.Jobs))
         .Where(v => v.Stage == RefinementItemStage.Completed && v.Job is { Unread: true }).Select(v => v.Job!).ToArray();
-    private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs
-        .OrderByDescending(r => r.Id == RequestedBatchId).ThenByDescending(r => r.Active).ThenByDescending(r => r.CreatedUtc);
+    private IEnumerable<RefinementBatch> Ordered => _doc is null ? [] : _doc.Runs.Where(r => r.Active != _history).OrderByDescending(r => r.CreatedUtc);
 
     protected override void OnInitialized() { Batches.Changed += BatchesChanged; Jobs.Changed += Refresh; }
     // Pages keep it mounted after the first opening, since removing an open MudDialog leaves it on screen.
     // It loads on each opening and follows progress only while open.
     protected override async Task OnParametersSetAsync()
     {
-        if (Visible == _shown) return;
+        if (Visible == _shown && RequestedBatchId == _lastRequested) return;
         _shown = Visible;
+        _lastRequested = RequestedBatchId;
         if (!Visible) return;
+        _selectOnLoad = true;
         try { await Load(); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception e) { _error = e.Message; }
@@ -119,12 +146,33 @@
         // Only the newest load is shown; an older one that finishes later must not undo a command's result.
         var load = ++_loads;
         var doc = await Batches.LoadAsync(ProjectId, _lifetime.Token);
-        var items = doc.Runs.SelectMany(r => r.Items).ToArray();
+        if (_disposed || load != _loads) return;
+        if (_selectOnLoad) {
+            _activeExpanded = _historyExpanded = null;
+            var requested = doc.Runs.FirstOrDefault(r => r.Id == RequestedBatchId);
+            _history = requested is not null ? !requested.Active : !doc.Runs.Any(r => r.Active);
+            ExpandedBatchId = requested?.Id ?? (_history ? null : doc.Runs.Where(r => r.Active).OrderByDescending(r => r.CreatedUtc).FirstOrDefault()?.Id);
+            _selectOnLoad = false;
+        }
+        else if (doc.Runs.FirstOrDefault(r => r.Id == ExpandedBatchId) is { } opened && _history == opened.Active) {
+            ExpandedBatchId = null;
+            _history = !opened.Active;
+            ExpandedBatchId = opened.Id;
+        }
+        _activeExpanded = doc.Runs.FirstOrDefault(r => r.Id == _activeExpanded && r.Active)?.Id;
+        _historyExpanded = doc.Runs.FirstOrDefault(r => r.Id == _historyExpanded && !r.Active)?.Id;
+        var items = doc.Runs.Where(r => r.Id == ExpandedBatchId).SelectMany(r => r.Items).ToArray();
         var shots = items.Any(i => i.Kind == RefinementSourceKind.Take && i.ResultId is not null) ? await Shots.LoadAsync(ProjectId, _lifetime.Token) : null;
         var library = items.Any(i => i.Kind == RefinementSourceKind.Reel && i.ResultId is not null) ? await AssetStore.LoadAsync(ProjectId, _lifetime.Token) : null;
         if (_disposed || load != _loads) return;
         _doc = doc; _shots = shots; _library = library;
     }
+    private Task SelectTab(bool history) => Command(() => {
+        _history = history; _comparing.Clear(); return Task.CompletedTask;
+    });
+    private Task OpenBatch(RefinementBatch run) => Command(() => {
+        ExpandedBatchId = ExpandedBatchId == run.Id ? null : run.Id; _comparing.Clear(); return Task.CompletedTask;
+    });
     private void BatchesChanged(Guid project) { if (project == ProjectId) Refresh(); }
     private void Refresh()
     {

@@ -1,20 +1,36 @@
 @using lumibelle.Services.Production
 @using lumibelle.Services.Shots
 @using lumibelle.Services.AI
+@using lumibelle.Services.Assets
 @inject AiVideoJobCapture Requests
 @inject AiReelCapture ReelRequests
 @inject IAssetStore AssetStore
 @inject IAiSettingsStore Settings
 @inject RefinementBatchWorkflow Batches
 @inject IAiReviewGate Reviews
+@inject IProjectAiPreferencesStore Preferences
+@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <InlineDialog OnEscape="Close" Visible="@(Sources.Count > 0 || Revise is not null)" VisibleChanged="async v => { if (!v) await Close(); }"
     Options="DialogSizes.Large" CloseOnEscape="!_queueing" Class="refine-dialog" Title="Refine from video" Context="@ContextLabel" CloseLabel="Close refine from video" CloseDisabled="_queueing">
 <DialogContent>
-    <p class="refine-intro">Each clip guides a fresh Standard generation: its action, timing and camera movement carry over, with new audio from the prompt and enabled voices. Source clips stay selected.</p>
+    <p class="refine-intro">Each clip guides a fresh generation: its action, timing and camera movement carry over, with new audio from the prompt and enabled voices. Source clips stay selected.</p>
     <section class="refine-shared" aria-label="Shared settings">
-        <div class="refine-shared-heading"><h3>@(_rows.Count == 1 ? "Settings" : "Shared settings")</h3><span>Ordinary H3 model · Standard sampling · one result · random seed</span></div>
+        <div class="refine-shared-heading"><h3>@(_rows.Count == 1 ? "Settings" : "Shared settings")</h3><span>One result per clip · random seed</span></div>
+        <label class="refine-field">H3 generation preset<select aria-label="H3 generation preset" value="@_preset" @onchange="ChangePreset" disabled="@_queueing">
+            @foreach (var key in H3Presets.Offered) { <option value="@key">@H3Presets.ChoiceLabel(key)</option> }
+        </select></label>
+        @if (_settings is { } configured) { <p class="refine-models">@H3Presets.Model(_preset, configured.H3)</p> }
+        <label class="refine-field">Batch LoRAs<select aria-label="Batch LoRA policy" @bind="_loraMode" disabled="@_queueing">
+            <option value="add">Add to source LoRAs</option><option value="replace">Replace source LoRAs</option>
+        </select></label>
+        @if (_settings is { } loraSettings) {
+            <LoraPicker Settings="loraSettings" Workflow="LoraWorkflow.MiniMaxH3Ref2VA" Selections="_loras" Check="_check?.OptionalLoras" Visibility="_visibility"
+                Disabled="_queueing" Changed="value => _loras = value" Refresh="() => CheckModels(true)" ValidityChanged="value => _lorasValid = value"
+                InsertTrigger="InsertTrigger" TriggerButtonText="Insert trigger into instructions" InputId="batch-lora-add"
+                ManageUrl="@(AiSettingsNavigation.Link(Navigation, "loras", ProjectId, Reels ? "assets" : "shots"))" ProjectSettingsUrl="@($"/projects/{ProjectId}/settings")" />
+        }
         <div class="refine-shared-grid">
             <label class="refine-field">Output resolution<select aria-label="Shared output resolution" @bind="_resolution" disabled="@_queueing">
                 <option value="default">@DefaultLabel</option>
@@ -66,6 +82,11 @@
                             }
                         </aside>
                         <div class="refine-edit-fields">
+                            <div class="refine-effective-loras"><strong>Effective LoRAs</strong>
+                                @if (EffectiveLoras(row).Where(l => l.Enabled && l.Strength != 0).ToArray() is { Length: > 0 } effective) {
+                                    <ul>@foreach (var lora in effective) { <li>@lora.Reference.Name · @lora.Strength</li> }</ul>
+                                } else { <span>None</span> }
+                            </div>
                             @if (draft.Reel is not null) { <label class="refine-field">Reel name<input aria-label="Reel name" @bind="draft.Shot.Title" disabled="@_queueing" /></label> }
                             <label class="refine-field">Output resolution<select aria-label="Output resolution for @row.Source.Name" value="@(row.Resolution ?? "shared")" disabled="@_queueing" @onchange="e => SetResolution(row, e.Value as string)">
                                 <option value="shared">Shared setting</option>
@@ -157,26 +178,35 @@
     private string? _error, _checkError;
     private Guid? _batchId;
     private H3Configuration? _check;
+    private AiSettings? _settings;
+    private LoraVisibility _visibility = new();
+    private IReadOnlyList<LoraSelection> _loras = [];
+    private string _preset = "standard";
+    private string _loraMode = "add";
+    private bool _checking, _lorasValid = true;
+    private MotionReferenceGeneration? _priorGeneration;
+    private int _checks;
     private AssetLibrary? _library;
     private Row? _referenceRow;
     private bool Reels => _rows.Count > 0 && _rows[0].Source.Kind == RefinementSourceKind.Reel;
     private string DefaultLabel => Reels ? "Detail (about 0.7 MP) or the first larger size" : "Native or the first larger size";
     private IEnumerable<Row> Included => _rows.Where(r => r.Included);
-    private bool CanQueue => !_queueing && _loaded == _rows.Count && Included.Any() && Included.All(r => r.Draft is not null && Issue(r) is null) &&
-        (_check is null || _checkError is not null || Included.All(r => _check.Ready(r.Draft!.Shot)));
+    private bool CanQueue => !_queueing && !_checking && _lorasValid && _settings is not null && _loaded == _rows.Count && Included.Any() && Included.All(r => r.Draft is not null && Issue(r) is null) &&
+        (_check is null || _checkError is not null || Included.All(r => _check.Ready(MotionReferencePolicy.GenerationShot(Options(r)!))));
     private string? ContextLabel => Revise?.Name ?? (_rows.Count == 1 ? _rows[0].Source.Name : _rows.Count > 1 ? Plural(_rows.Count, "clip") : null);
     // Closing asks first once any shared setting or clip setting differs from how the dialog opened.
     private bool _confirmingDiscard;
     private string? _sharedBaseline;
-    private string SharedState() => string.Join("\u001f", _resolution, _instructions, _saveFrames, _saveLatents, _useRefinedFrames);
+    private string SharedState() => string.Join("\u001f", _resolution, _instructions, _saveFrames, _saveLatents, _useRefinedFrames, _preset, _loraMode,
+        System.Text.Json.JsonSerializer.Serialize(_loras));
     private static string RowState(Row row) => string.Join("\u001f", row.Included, row.Resolution, row.Instructions, row.SaveFrames, row.SaveLatents, row.KeepKeyframes, row.BasePrompt,
         row.Draft?.Reel is not null ? row.Draft.Shot.Title : null, row.Draft?.Reel?.Recipe.UseGuidance);
     private bool Edited => _sharedBaseline is not null && SharedState() != _sharedBaseline || _rows.Any(r => r.ReferencesChanged || r.Baseline is not null && RowState(r) != r.Baseline);
     private string QueueLabel => Included.Count() is var n && n == 1 ? "Queue refinement" : $"Queue {n} refinements";
     private string ModelStatus => _checkError is not null ? $"Model check unavailable: {_checkError}"
         : _check is null ? "Checking ComfyUI models…"
-        : Included.FirstOrDefault(r => r.Draft is not null && !_check.Ready(r.Draft.Shot)) is { } blocked ? _check.Issue(blocked.Draft!.Shot)
-        : "Standard H3 model ready.";
+        : Included.FirstOrDefault(r => Options(r) is { } o && !_check.Ready(MotionReferencePolicy.GenerationShot(o))) is { } blocked ? _check.Issue(MotionReferencePolicy.GenerationShot(Options(blocked)!))
+        : $"{H3Presets.Label(_preset)} ready.";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -186,6 +216,8 @@
         await _life.CancelAsync(); _life.Dispose(); _life = new();
         _rows = []; _loaded = 0; _error = null; _batchId = null; _referenceRow = null; _startNow = true; _resolution = "default"; _useRefinedFrames = true;
         _confirmingDiscard = false; _sharedBaseline = null;
+        _preset = Revise?.Options.GenerationPreset ?? "standard"; _priorGeneration = Revise?.Options.Generation;
+        _loras = []; _loraMode = "add"; _lorasValid = true; _check = null; _settings = null;
         if (opened is null) return;
         var token = _life.Token;
         _ = CheckModels(false);
@@ -218,13 +250,17 @@
 
     private async Task CheckModels(bool refresh)
     {
-        var token = _life.Token; _checkError = null; if (refresh) _check = null;
+        var token = _life.Token; var version = ++_checks; _checking = true; _checkError = null; if (refresh) _check = null;
         try {
-            var check = await Batches.CheckModelsAsync(await Settings.LoadAsync(token), refresh, token);
-            if (!token.IsCancellationRequested) _check = check;
+            var settings = await Settings.LoadAsync(token);
+            if (_priorGeneration is { } prior) settings = settings with { ComfyUrl = prior.ComfyUrl, H3 = ShotCopy.Of(prior.Settings) };
+            var preferences = await Preferences.LoadAsync(ProjectId, token);
+            var check = await Batches.CheckModelsAsync(settings, refresh, token);
+            if (!token.IsCancellationRequested && version == _checks) { _check = check; _settings = settings; _visibility = preferences.LoraVisibility; }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
-        catch (Exception e) { _checkError = e.Message; }
+        catch (Exception e) { if (version == _checks && !token.IsCancellationRequested) _checkError = e.Message; }
+        finally { if (version == _checks) _checking = false; }
         if (!_disposed) await InvokeAsync(StateHasChanged);
     }
 
@@ -238,11 +274,21 @@
     }
     private (string Label, int Width, int Height)? OutputSize(Row row) => row.Draft is { } draft && Resolution(row) is { } r && VideoResolutions.Size(draft.Shot.Aspect, r) is var size
         ? (VideoResolutions.Label(r), size.Width, size.Height) : null;
-    private MotionReferenceOptions? Options(Row row) => row.Draft is { } draft && Resolution(row) is { } resolution
-        ? new(draft, row.BasePrompt, row.Instructions ?? _instructions, resolution, SaveLatents: row.SaveLatents ?? _saveLatents, SaveLosslessFrames: SaveFrames(row),
-            KeepKeyframes: PickedKeyframes(row) > 0 && row.KeepKeyframes) : null;
+    private IReadOnlyList<LoraSelection> EffectiveLoras(Row row) => _loraMode == "replace" ? _loras : H3Loras.Merge(row.Draft is { } draft ? H3Loras.Selections(draft.Shot) : [], _loras);
+    private MotionReferenceOptions? Options(Row row)
+    {
+        if (row.Draft is not { } draft || Resolution(row) is not { } resolution) return null;
+        var shot = draft.Shot with { Loras = EffectiveLoras(row).ToArray(), ShotLoras = null };
+        return new(draft with { Shot = shot }, row.BasePrompt, row.Instructions ?? _instructions, resolution,
+            SaveLatents: row.SaveLatents ?? _saveLatents, SaveLosslessFrames: SaveFrames(row), KeepKeyframes: PickedKeyframes(row) > 0 && row.KeepKeyframes)
+            { GenerationPreset = _preset, Generation = _priorGeneration };
+    }
+    private void ChangePreset(ChangeEventArgs e) { _preset = e.Value?.ToString() ?? "standard"; _priorGeneration = null; _ = CheckModels(false); }
+    private void InsertTrigger(string trigger) { if (!string.IsNullOrWhiteSpace(trigger)) _instructions = _instructions.TrimEnd() + "\n" + trigger; }
     private string? Issue(Row row) => row.LoadError ?? (row.Draft is null ? null : Options(row) is { } options ? MotionReferencePolicy.Issue(options)
-        : "The source clip is larger than the available output presets.");
+        : "The source clip is larger than the available output presets.") ?? EffectiveLoras(row).Where(l => l.Enabled && l.Strength != 0)
+            .Select(l => _settings is null ? "Checking H3 LoRAs…" : LoraPolicy.Issue(l, _settings, LoraWorkflow.MiniMaxH3Ref2VA, _check?.OptionalLoras, _visibility))
+            .FirstOrDefault(issue => issue is not null);
     private static void SetResolution(Row row, string? key) => row.Resolution = key is null or "shared" ? null : key;
     private static bool Overridden(Row row) => row.Resolution is not null || row.Instructions is not null || row.SaveFrames is not null || row.SaveLatents is not null ||
         PickedKeyframes(row) > 0 && !row.KeepKeyframes;

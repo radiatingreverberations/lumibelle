@@ -394,6 +394,9 @@
 .take-caption .take-summary { flex-basis:100%; margin:0; }
 .video-regeneration-dialog .mud-dialog-content { min-height:0; overflow:auto; }
 .video-regeneration-dialog .mud-dialog-actions { flex-shrink:0; flex-wrap:wrap; }
+.refinement-batches-dialog.mud-dialog .mud-dialog-title { padding-bottom:0; }
+.refinement-batches-dialog.mud-dialog .mud-dialog-content { padding-top:12px; }
+.refinement-batches-dialog .mud-dialog-content > .ai-result-observer { display:block; height:0; }
 .take-play { position: absolute; bottom: .7rem; left: .7rem; display: inline-flex; align-items: center; gap: 2px; color: var(--lumi-media-text); background: var(--lumi-media-overlay); border-radius: var(--lumi-radius-pill); padding: .3rem .7rem .3rem .45rem; font-size: var(--lumi-font-size-meta); }
 .take-caption { padding: .8rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .take-caption-heading { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:100%; }

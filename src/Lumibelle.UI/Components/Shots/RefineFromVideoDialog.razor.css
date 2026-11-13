@@ -1,4 +1,6 @@
 .refine-intro { margin:0 0 16px; color:var(--muted); }
+.refine-effective-loras { display:grid; gap:6px; color:var(--muted); font-size:var(--lumi-font-size-meta); }
+.refine-effective-loras ul { margin:0; padding-left:20px; }
 h3 { margin:0; font-size:var(--lumi-font-size-compact); font-weight:650; }
 .refine-shared { padding:16px 18px; border:1px solid var(--lumi-border); border-radius:var(--lumi-radius-surface); background:var(--lumi-surface-subtle); min-width:0; }
 .refine-shared-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px 12px; }

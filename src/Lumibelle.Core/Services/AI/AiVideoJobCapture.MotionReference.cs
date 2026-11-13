@@ -8,6 +8,17 @@ namespace lumibelle.Services.AI;
 
 public sealed partial class AiVideoJobCapture
 {
+    public async Task<MotionReferenceOptions> CaptureMotionReferenceGenerationAsync(Guid project, MotionReferenceOptions options,
+        AiSettings configured, H3Configuration? check, CancellationToken ct)
+    {
+        var shot = MotionReferencePolicy.GenerationShot(options);
+        H3Loras.ValidateSelections(shot);
+        _ = H3Presets.Capture(shot, configured.H3);
+        var loras = H3Loras.Selections(shot).Any(l => l.Enabled && l.Strength != 0)
+            ? H3Loras.Capture(shot, configured, (await preferences.LoadAsync(project, ct)).LoraVisibility, check?.OptionalLoras) : null;
+        return options with { Generation = new(AiProviderRegistry.NormalizeComfyUrl(configured.ComfyUrl), ShotCopy.Of(configured.H3), loras) };
+    }
+
     public async Task<MotionReferenceDraft> PrepareMotionReferenceAsync(Guid projectId, Guid takeId, CancellationToken ct = default, IProgress<VideoPreparationProgress>? progress = null)
     {
         progress?.Report(new(VideoPreparationStage.Source, "Opening the source take"));
@@ -62,10 +73,9 @@ public sealed partial class AiVideoJobCapture
         IProgress<VideoPreparationProgress>? progress = null, H3Configuration? check = null, bool frozen = false, IReadOnlyList<int>? keepFrames = null)
     {
         progress?.Report(new(VideoPreparationStage.Setup, "Checking the reviewed settings"));
-        var draft = ShotCopy.Of(options.Draft); var shot = draft.Shot.Copy();
+        var draft = ShotCopy.Of(options.Draft); var shot = MotionReferencePolicy.GenerationShot(options with { Draft = draft });
         var document = await shots.LoadAsync(projectId, ct);
         if (document.Shots.All(s => s.Id != shot.Id)) throw new WorkspaceStoreException("Restore the destination shot before generating.");
-        shot.GenerationPreset = "standard"; shot.Turbo = false; shot.TurboSteps = 4; shot.UpscalePreview = false;
         shot.SelectedTakeId = null; shot.SaveLatents = options.SaveLatents; shot.SaveLosslessFrames = options.SaveLosslessFrames;
         VideoResolutions.Select(shot, options.Resolution);
         var binding = shot.Videos.SingleOrDefault(v => v.Id == draft.Source.BindingId) ?? throw new WorkspaceStoreException("Keep the motion-reference clip selected.");
@@ -75,8 +85,9 @@ public sealed partial class AiVideoJobCapture
         var number = ResolvedReferences.For(shot).Videos.Single(v => v.Reel.Id == binding.Id).Number;
         var source = draft.Source with { BasePrompt = options.BasePrompt, Instructions = options.Instructions };
         var prompt = MotionReferencePolicy.Render(options.BasePrompt, options.Instructions, number);
-        var configured = ShotCopy.Of(await settings.LoadAsync(ct));
+        var configured = MotionReferencePolicy.Configuration(options, await settings.LoadAsync(ct));
         check ??= await generator.CheckAsync(configured, ct);
+        MotionReferencePolicy.CheckFiles(options, check);
         if (!check.Ready(shot)) throw new WorkspaceStoreException(check.Issue(shot));
         var library = await assets.LoadAsync(projectId, ct);
         IReadOnlyList<ShotReferenceGuidance> guidance = draft.Guidance; IReadOnlyList<ShotAppearanceContext> appearances = draft.Appearances;
@@ -85,7 +96,7 @@ public sealed partial class AiVideoJobCapture
             if (!ShotReferences.SameEffective(draft.Guidance, guidance) || !draft.Appearances.SequenceEqual(appearances))
                 throw new WorkspaceStoreException("Reference guidance changed. Reopen references and review the prompt.");
         }
-        var loras = H3Loras.Selections(shot).Any(l => l.Enabled && l.Strength != 0)
+        var loras = options.Generation is { } generation ? generation.AppliedLoras : H3Loras.Selections(shot).Any(l => l.Enabled && l.Strength != 0)
             ? H3Loras.Capture(shot, configured, (await preferences.LoadAsync(projectId, ct)).LoraVisibility, check.OptionalLoras) : null;
         var size = VideoResolutions.Size(shot);
         var snapshot = new VideoSnapshot(projectId, document.Revision, shot, prompt, H3Policy.Fingerprint(shot),
@@ -98,6 +109,7 @@ public sealed partial class AiVideoJobCapture
             OutputPolicy = new(shot.SaveLosslessFrames) { KeptFrames = KeptFrames(keepFrames, shot, check) },
             CaptureRefinementData = shot.SaveLatents
         };
+        H3Loras.CheckSubmission(snapshot, check.OptionalLoras);
         MotionReferencePolicy.Validate(snapshot);
         var directory = await shots.RunDirectoryAsync(projectId, id, ct);
         using var gate = await ProjectFiles.LockAsync(directory, ct);
